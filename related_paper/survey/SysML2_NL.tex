@@ -1,0 +1,301 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+% Page setup
+\geometry{margin=2.5cm}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Open Datasets for SysML and SysML v2}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Color scheme
+\definecolor{headerblue}{RGB}{41,128,185}
+\definecolor{lightgray}{RGB}{245,245,245}
+
+% Section formatting
+\titleformat{\section}{\Large\bfseries\color{headerblue}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{headerblue}}{\thesubsection}{1em}{}
+
+% Hyperlink setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=headerblue,
+    urlcolor=headerblue,
+    citecolor=headerblue
+}
+
+% Custom column types for tables
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\title{\textbf{\Large Open Datasets for SysML and SysML v2: \\
+\large A Comprehensive Survey of Research Resources}}
+\author{Survey Report}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Model-Based Systems Engineering (MBSE) relies on the Systems Modeling Language (SysML) to capture system requirements, architecture, behavior, and parametrics in a consistent formalism. The newer \textbf{SysML v2} introduces a textual notation and richer semantics. As researchers explore ways to build and analyze systems using large language models, publicly available training data remains limited. This survey provides a comprehensive overview of open, research-usable datasets and model libraries for both \textbf{SysML v1.x} and \textbf{SysML v2}, documenting their key features, formats, application domains, and associated research contributions.
+\end{abstract}
+
+\section{Introduction}
+
+The evolution of Model-Based Systems Engineering (MBSE) has been significantly influenced by the development and adoption of the Systems Modeling Language (SysML). While SysML v1.x established a solid foundation for systems modeling, SysML v2 represents a paradigm shift with its textual notation and enhanced semantic capabilities.
+
+The intersection of MBSE with artificial intelligence, particularly large language models (LLMs), presents unprecedented opportunities for automated system design and analysis. However, progress in this domain is constrained by the scarcity of high-quality, publicly available training datasets. This survey addresses this gap by cataloging existing open datasets and repositories that can support research in automated systems modeling, model analysis, and AI-driven MBSE applications.
+
+\section{Open Datasets and Repositories}
+
+The following comprehensive table summarizes the current landscape of open datasets and repositories available for SysML and SysML v2 research. Each entry is characterized by its organizational source, temporal scope, key technical features, supported formats, application domains, and associated scholarly contributions.
+
+\begin{longtable}{L{3cm}L{2.2cm}L{1.8cm}L{3.5cm}L{2cm}L{2.5cm}L{3cm}}
+\toprule
+\textbf{Dataset/Repository} & \textbf{Organization/Authors} & \textbf{Year \& Version} & \textbf{Key Features} & \textbf{Formats} & \textbf{Domain/Examples} & \textbf{Associated Publications} \\
+\midrule
+\endhead
+
+\rowcolor{lightgray}
+\textbf{SysML DELS Model Libraries} & 
+NIST (Barbau \& Bock) & 
+2019 (SysML 1.4) & 
+Discrete-event logistics system libraries; modular block architecture; requires MagicDraw 18.5+ & 
+XMI, HTML & 
+Manufacturing plants, warehouses, supply chain optimization & 
+NIST IR 8262 \\
+
+\textbf{Wireless Factory Work-cell Model} & 
+NIST (Bock \& Barbau) & 
+2024 & 
+Structural component models, interface definitions, parametric constraints for wireless industrial systems & 
+MagicDraw XML, HTML & 
+Industrial wireless connectivity, IoT manufacturing & 
+NIST dataset documentation \\
+
+\rowcolor{lightgray}
+\textbf{SysPhS Physical-Interaction Models} & 
+NIST (Manion \& Bock) & 
+2024 (SysPhS 1.0) & 
+Libraries for rotational/translational mechanics, heat transfer; 1-D physics simulation; Modelica/Simscape translation & 
+SysML/SysPhS, executable code & 
+Manufacturing physical interactions, mechatronics & 
+NIST IR 8490 \\
+
+\textbf{SysLMA Translator} & 
+NIST (Barbau \& Bock) & 
+2025 & 
+SysML model translation with SysLMA profile extension; logistics analysis integration; comprehensive examples & 
+Source \& binary code, model libraries & 
+Logistics analysis, supply chain modeling & 
+NIST IR 8571 \\
+
+\rowcolor{lightgray}
+\textbf{SysPhS Translator v1.0} & 
+NIST (Manion \& Bock) & 
+2019--2020 & 
+SysPhS 1.0 implementation; SysML+SysPhS to Modelica/Simulink translation; cross-platform compatibility & 
+Source \& binary code, example models & 
+Cross-platform simulation, multi-physics modeling & 
+Dataset documentation \\
+
+\textbf{SysPhS Translator v1.1} & 
+NIST (Manion \& Bock) & 
+2023--2025 & 
+Enhanced SysPhS 1.1 implementation; improved Modelica \& Simulink/Simscape generation; expanded model library & 
+Source \& binary code, sample models & 
+Advanced simulation platforms, model interoperability & 
+NIST documentation pages \\
+
+\rowcolor{lightgray}
+\textbf{OBM \& SysML→Alloy Translations} & 
+NIST (Manion \& Bock) & 
+2024--2025 & 
+Alloy Analyzer integration; SysML behavioral model translation; Ontological Behavior Modeling; executability verification & 
+Alloy code, verification examples & 
+Behavior verification, model consistency checking & 
+NIST IR 8388-upd1 \\
+
+\textbf{SysML v2 Models Collection} & 
+GfSE Community & 
+2025 (ongoing) & 
+Curated high-quality SysML v2 models; best-practice examples; educational resources; LLM training data; BSD-3 license & 
+.sysml, Markdown documentation & 
+Cross-domain modeling, educational applications & 
+Repository documentation \\
+
+\rowcolor{lightgray}
+\textbf{SysML v2 Release Repository} & 
+OMG Systems Modeling Community & 
+2023--2025 & 
+Official SysML v2 specifications; normative libraries; Eclipse \& Jupyter integration; comprehensive tooling support & 
+PDF, .sysml/.kerml, XMI & 
+General systems modeling, standards compliance & 
+Official specification documents \\
+
+\textbf{SysMBench Benchmark} & 
+Jin et al. & 
+2025 & 
+151 curated scenarios; natural-language requirements; textual \& graphical models; domain classification; difficulty grading & 
+SysML text \& diagrams, metadata & 
+Multi-domain (automotive, aerospace, photography, traffic) & 
+SysMBench research paper \\
+
+\rowcolor{lightgray}
+\textbf{Aerospace SysML Model Dataset} & 
+Zhang \& Yang & 
+2024 & 
+Domain-specific SysML models; validation rule sets; spacecraft system knowledge; MBSE recommendation training data & 
+SysML models, validation rules & 
+Spacecraft systems, aerospace engineering & 
+Applied Sciences journal paper \\
+
+\bottomrule
+\caption{Comprehensive overview of open SysML and SysML v2 datasets and repositories}
+\label{tab:datasets}
+\end{longtable}
+
+\section{Research Impact and Applications}
+
+The datasets cataloged above have enabled significant research contributions across multiple domains of systems engineering and artificial intelligence. The following subsections detail the key research outcomes and their implications for the broader MBSE community.
+
+\subsection{NIST Research Contributions}
+
+The National Institute of Standards and Technology (NIST) has been instrumental in developing foundational resources for MBSE research:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{NIST IR 8262} documents the Discrete Event Logistics Systems (DELS) libraries, providing reference implementations for logistics and manufacturing systems analysis with comprehensive validation studies.
+    
+    \item \textbf{NIST IR 8490} introduces expanded physical-interaction component libraries for SysPhS, demonstrating cross-platform simulation capabilities and providing empirical validation of translation accuracy.
+    
+    \item \textbf{NIST IR 8571} defines the SysLMA (Systems Logistics Modeling and Analysis) extension methodology, showcasing practical applications in supply chain optimization and logistics workflow automation.
+    
+    \item \textbf{NIST IR 8388-upd1} proposes novel verification methodologies for SysML behavioral models through formal translation to Alloy constraints, addressing critical gaps in model executability verification.
+\end{itemize}
+
+\subsection{Community-Driven Initiatives}
+
+\subsubsection{SysML v2 Ecosystem Development}
+
+The \textbf{SysML v2 Release repository} serves as the authoritative source for the new modeling standard, providing:
+\begin{itemize}[leftmargin=*]
+    \item Official specification documents with detailed semantic definitions
+    \item Normative libraries serving as reference implementations
+    \item Comprehensive tooling infrastructure including Eclipse and Jupyter integrations
+    \item Extensive example models demonstrating best practices
+\end{itemize}
+
+The \textbf{GfSE community collection} complements official resources by providing curated, high-quality models specifically designed for educational applications and LLM training, addressing the critical need for diverse, well-documented training data.
+
+\subsubsection{AI and Machine Learning Applications}
+
+Recent research has begun exploring the intersection of MBSE and artificial intelligence:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{SysMBench} (Jin et al., 2025) represents the first comprehensive benchmark for evaluating large language models on SysML generation tasks. The study evaluated 17 different LLMs and introduced the SysMEval metric for assessing model quality, establishing baseline performance measurements for future research.
+    
+    \item \textbf{Zhang \& Yang (2024)} developed domain-specific datasets for aerospace applications, demonstrating how specialized model collections can improve MBSE tool recommendations and modeling efficiency in specific engineering domains.
+\end{itemize}
+
+\section{Dataset Characteristics and Quality Assessment}
+
+\subsection{Format Diversity and Interoperability}
+
+The surveyed datasets exhibit significant diversity in format support, reflecting the evolving landscape of MBSE tooling:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Legacy formats}: XMI and HTML remain prevalent for SysML v1.x compatibility
+    \item \textbf{Native textual formats}: .sysml and .kerml files represent the future of human-readable modeling
+    \item \textbf{Executable representations}: Source code and binary distributions enable practical application
+    \item \textbf{Documentation formats}: Markdown and PDF provide essential context and usage guidelines
+\end{itemize}
+
+\subsection{Domain Coverage Analysis}
+
+The current dataset landscape demonstrates broad domain coverage:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Manufacturing and Logistics}: Well-represented through NIST contributions
+    \item \textbf{Aerospace and Defense}: Emerging coverage through specialized datasets
+    \item \textbf{Cross-domain Applications}: SysMBench provides multi-domain scenarios
+    \item \textbf{Physical Systems}: Strong representation through SysPhS libraries
+\end{itemize}
+
+\subsection{Licensing and Accessibility}
+
+Most datasets adopt open licensing models (BSD-3, LGPL/GPL) that facilitate research applications, though researchers should verify current licensing terms before use in derivative works.
+
+\section{Challenges and Future Directions}
+
+\subsection{Current Limitations}
+
+Despite significant progress, several challenges persist in the current dataset ecosystem:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Scale limitations}: Most datasets remain relatively small-scale compared to datasets in other AI domains
+    \item \textbf{Quality variability}: Inconsistent documentation and validation across different sources
+    \item \textbf{Domain imbalance}: Some engineering domains remain underrepresented
+    \item \textbf{Temporal coverage}: Limited longitudinal data for studying model evolution
+\end{itemize}
+
+\subsection{Emerging Opportunities}
+
+The MBSE research community is positioned to address these limitations through:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Collaborative curation}: Community-driven efforts like the GfSE collection demonstrate the potential for collaborative dataset development
+    \item \textbf{AI-assisted generation}: Large language models could help generate synthetic training data to augment existing collections
+    \item \textbf{Industry partnerships}: Collaborations with industrial partners could provide larger-scale, real-world datasets
+    \item \textbf{Cross-domain integration}: Efforts to create unified datasets spanning multiple engineering domains
+\end{itemize}
+
+\section{Recommendations for Researchers}
+
+Based on this survey, we provide the following recommendations for researchers working in MBSE and related fields:
+
+\subsection{For Model Analysis Research}
+\begin{itemize}[leftmargin=*]
+    \item Utilize NIST SysPhS libraries for physical system modeling validation
+    \item Leverage OBM/Alloy translations for formal verification studies
+    \item Consider SysML v2 Release repository for standards-compliant research
+\end{itemize}
+
+\subsection{For AI and LLM Applications}
+\begin{itemize}[leftmargin=*]
+    \item Start with SysMBench for baseline LLM evaluation
+    \item Utilize GfSE community models for training data diversity
+    \item Consider domain-specific datasets (aerospace) for specialized applications
+\end{itemize}
+
+\subsection{For Tool Development}
+\begin{itemize}[leftmargin=*]
+    \item Use SysML v2 Release repository for reference implementations
+    \item Leverage NIST translators for interoperability validation
+    \item Consider SysLMA extensions for logistics applications
+\end{itemize}
+
+\section{Conclusion}
+
+The MBSE research community has made substantial progress in assembling open datasets to support research on model analysis, simulation, and large language model training. NIST's comprehensive contributions provide robust foundations for SysML v1.x research, while emerging SysML v2 resources establish the groundwork for next-generation modeling research.
+
+The introduction of benchmarks like SysMBench and domain-specific datasets represents crucial steps toward systematic evaluation of AI applications in systems engineering. However, significant opportunities remain for expanding dataset scale, improving quality consistency, and broadening domain coverage.
+
+As the field continues to evolve, the success of AI-driven MBSE applications will largely depend on the availability of high-quality, diverse, and well-documented datasets. The resources cataloged in this survey provide an essential foundation, but sustained community effort will be required to build the comprehensive data ecosystem needed to realize the full potential of intelligent systems engineering tools.
+
+The convergence of traditional MBSE methodologies with modern AI capabilities promises to transform how complex systems are designed, analyzed, and maintained. The datasets surveyed here represent the first steps in this transformation, providing the empirical foundation necessary for evidence-based advances in automated systems engineering.
+
+\end{document}
