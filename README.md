@@ -1,8 +1,17 @@
 # SysML2-NL Overview
 
-This research project develops a joint embedding space that bridges SysML v2 (Systems Modeling Language version 2) and Natural Language, enabling seamless translation and understanding between formal system models and human-readable descriptions. The goal is to create a unified representation that allows bidirectional mapping between structured modeling constructs and natural language expressions, facilitating cross-organizational collaboration in Model-Based Systems Engineering.
+This research project develops a joint embedding space that bridges SysML v2 
+(Systems Modeling Language version 2) and Natural Language, enabling seamless
+understanding and semantic alignment between formal system models and human-readable
+descriptions. The goal is to create a unified representation space where both
+SysML v2 constructs and natural language expressions can be embedded and compared,
+facilitating cross-organizational collaboration in Model-Based Systems Engineering.
 
-The project focuses on developing joint embeddings capable of translating between SysML v2 models and natural language descriptions, enabling semantic search across both modalities, supporting automated documentation generation, and facilitating model understanding and validation processes through AI-assisted semantic alignment techniques.
+The project focuses on developing joint embeddings that enable semantic search
+across both modalities, support automated documentation generation, and facilitate
+model understanding and validation processes through AI-assisted semantic alignment
+techniques, without requiring explicit bidirectional translation between the two 
+representations.
 
 ## Project Structure
 
@@ -31,6 +40,6 @@ sysml2-nl/
 
 This README serves as the primary entry point for the Cursor AI agent and contains three main sections: (1) Project introduction; (2) File architecture; (3) Maintain Logic. No additional sections may be added.
 
-1. When the user requests the agent to refresh the README, the agent should review the overview and rewrite it while maintaining exactly two paragraphs. The agent should rewrite the project structure to provide one-sentence descriptions for each file and potentially add one or more Maintain Logic points.
+1. When the user requests the agent to refresh the README, the agent should review the overview and rewrite it while maintaining exactly two paragraphs. The agent should rewrite the project structure to provide one-sentence descriptions for each file. Never modify Maintain Logic part except modify grammar error.
 
-2. When the user request the agent to download file with an link, the AI agent should download the paper to related_paper, then extract pdf's content into a content.md, then rename both the pdf and the content.md to some good name decide by the content, then modify related_paper/summary.md to have a short summary for this paper
+2. When the user request the agent to download paper with an link, the AI agent should download the paper to related_paper, then extract pdf's content into a content.md, then rename both the pdf and the content.md to some good name decide by the content, then modify related_paper/summary.md to have a short summary for this paper
