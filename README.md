@@ -25,15 +25,7 @@ sysml2-nl/
 │   ├── IEEE_ISSE_2025_LLM_Semantic_Alignment_SysML_v2_content.md      # Extracted text content from the IEEE ISSE semantic alignment paper
 │   ├── INCOSE_2024_LLM_Direct_Interaction_SysML_v2.pdf      # INCOSE 2024 paper on leveraging LLMs for direct interaction with SysML v2
 │   ├── INCOSE_2024_LLM_Direct_Interaction_SysML_v2_content.md      # Extracted text content from the INCOSE direct interaction paper
-│   ├── Computers_in_Industry_2025_Agent_Based_SysML_v2_Generation.pdf      # Computers in Industry 2025 paper on agent-based automatic generation of valid SysML v2 models
-│   ├── Computers_in_Industry_2025_Agent_Based_SysML_v2_Generation_content.md      # Extracted text content from the Computers in Industry agent-based paper
-│   ├── arXiv_2025_SysTemp_Multi_Agent_SysML_v2_Generation.pdf      # arXiv 2025 paper on SysTemp multi-agent system for template-based SysML v2 generation
-│   ├── arXiv_2025_SysTemp_Multi_Agent_SysML_v2_Generation_content.md      # Extracted text content from the arXiv SysTemp multi-agent paper
-│   ├── arXiv_2025_SysMBench_System_Model_Generation_Benchmark.pdf      # arXiv 2025 paper on SysMBench system model generation benchmark
-│   ├── arXiv_2025_SysMBench_System_Model_Generation_Benchmark_content.md      # Extracted text content from the arXiv SysMBench paper
-│   ├── NPS_2024_Generative_AI_MBSE_Models.pdf      # Naval Postgraduate School 2024 paper on leveraging generative AI for MBSE models
-│   ├── NPS_2024_Generative_AI_MBSE_Models_content.md      # Extracted text content from the NPS generative AI paper
-│   ├── Medium_2024_SysML_2_0_Overview_Examples.md      # Medium 2024 article providing an overview of SysML 2.0 with examples
+│   ├── ...               # Additional research papers and their extracted content files
 │   └── survey/                 # Survey papers and related work analysis
 │       ├── SysML2_NL.pdf      # Comprehensive survey of open datasets for SysML and SysML v2 research
 │       ├── SysML2_NL_content.md      # Extracted text content from the survey paper
@@ -42,7 +34,9 @@ sysml2-nl/
 │   ├── DATACARD.md            # Dataset documentation and quality assurance information
 │   ├── VERSION                # Dataset version information
 │   ├── data/                  # Paired SysML v2 models and natural language descriptions
-│   │   └── 000101/           # Sample dataset entry with SysML model, text description, and metadata
+│   │   ├── 000001/           # Dataset entry with SysML model, text description, and metadata
+│   │   ├── 000002/           # Dataset entry with SysML model, text description, and metadata
+│   │   └── ...               # Additional dataset entries following the same structure
 │   ├── index/                 # Dataset manifest and checksum files
 │   │   ├── manifest.jsonl    # JSONL manifest with all dataset entries and metadata
 │   │   └── checksums.tsv     # SHA256 checksums for all dataset files
@@ -52,6 +46,11 @@ sysml2-nl/
 │   └── scripts/               # Dataset management and validation scripts
 │       ├── build_manifest.py  # Script to build manifest and checksums from dataset files
 │       └── validate_manifest.py      # Comprehensive validation script for file existence, UTF-8 encoding, SHA256 checksums, and JSON schema compliance
+├── script/                    # Dataset generation and processing scripts
+│   └── gen_dataset_SysML_v2_Models.py      # Script to process SysML v2 model files from tmp directory and move them into dataset structure
+└── tmp/                       # Temporary directory for external repositories and processing
+    └── SysML-v2-Models/       # External SysML v2 models repository for dataset generation
+        └── models/            # Source SysML v2 model files organized by example categories
 ```
 
 ## Maintain Logic
