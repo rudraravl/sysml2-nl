@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "id",
+    "split",
+    "paths",
+    "sha256",
+    "sizes",
+    "stats",
+    "labels",
+    "license",
+    "source"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "train",
+        "val",
+        "test",
+        "all"
+      ]
+    },
+    "paths": {
+      "type": "object",
+      "required": [
+        "sysml",
+        "text",
+        "meta"
+      ],
+      "properties": {
+        "sysml": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "meta": {
+          "type": "string"
+        }
+      }
+    },
+    "sha256": {
+      "type": "object",
+      "required": [
+        "sysml",
+        "text",
+        "meta"
+      ],
+      "properties": {
+        "sysml": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "text": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "meta": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "sizes": {
+      "type": "object",
+      "required": [
+        "sysml",
+        "text",
+        "meta"
+      ],
+      "properties": {
+        "sysml": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "meta": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "required": [
+        "sysml_lines",
+        "text_tokens",
+        "language"
+      ],
+      "properties": {
+        "sysml_lines": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "language": {
+          "type": "string"
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "diagram_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "difficulty": {
+          "enum": [
+            "easy",
+            "medium",
+            "hard"
+          ]
+        },
+        "quality_tier": {
+          "enum": [
+            "A",
+            "B",
+            "C"
+          ]
+        }
+      }
+    },
+    "license": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "timestamp",
+        "version"
+      ],
+      "properties": {
+        "provenance": {
+          "type": "string"
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

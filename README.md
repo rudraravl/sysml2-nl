@@ -18,6 +18,7 @@ representations.
 ```
 sysml2-nl/
 ├── README.md                    # Primary project documentation and AI agent entry point
+├── .gitignore                   # Git ignore rules for VSCode, macOS, and Python cache files
 ├── related_paper/              # Research papers and academic documentation
 │   ├── summary.md              # Concise summaries of all related research papers with clickable PDF links
 │   ├── IEEE_ISSE_2025_LLM_Semantic_Alignment_SysML_v2.pdf      # IEEE ISSE 2025 paper on LLM-assisted semantic alignment for SysML v2 models
@@ -28,18 +29,35 @@ sysml2-nl/
 │   ├── Computers_in_Industry_2025_Agent_Based_SysML_v2_Generation_content.md      # Extracted text content from the Computers in Industry agent-based paper
 │   ├── arXiv_2025_SysTemp_Multi_Agent_SysML_v2_Generation.pdf      # arXiv 2025 paper on SysTemp multi-agent system for template-based SysML v2 generation
 │   ├── arXiv_2025_SysTemp_Multi_Agent_SysML_v2_Generation_content.md      # Extracted text content from the arXiv SysTemp multi-agent paper
+│   ├── arXiv_2025_SysMBench_System_Model_Generation_Benchmark.pdf      # arXiv 2025 paper on SysMBench system model generation benchmark
+│   ├── arXiv_2025_SysMBench_System_Model_Generation_Benchmark_content.md      # Extracted text content from the arXiv SysMBench paper
 │   ├── NPS_2024_Generative_AI_MBSE_Models.pdf      # Naval Postgraduate School 2024 paper on leveraging generative AI for MBSE models
 │   ├── NPS_2024_Generative_AI_MBSE_Models_content.md      # Extracted text content from the NPS generative AI paper
+│   ├── Medium_2024_SysML_2_0_Overview_Examples.md      # Medium 2024 article providing an overview of SysML 2.0 with examples
 │   └── survey/                 # Survey papers and related work analysis
 │       ├── SysML2_NL.pdf      # Comprehensive survey of open datasets for SysML and SysML v2 research
 │       ├── SysML2_NL_content.md      # Extracted text content from the survey paper
 │       └── SysML2_NL.tex      # LaTeX source files for survey paper generation
+├── dataset/                    # SysML2-NL dataset for joint embedding research
+│   ├── DATACARD.md            # Dataset documentation and quality assurance information
+│   ├── VERSION                # Dataset version information
+│   ├── data/                  # Paired SysML v2 models and natural language descriptions
+│   │   └── 000101/           # Sample dataset entry with SysML model, text description, and metadata
+│   ├── index/                 # Dataset manifest and checksum files
+│   │   ├── manifest.jsonl    # JSONL manifest with all dataset entries and metadata
+│   │   └── checksums.tsv     # SHA256 checksums for all dataset files
+│   ├── schema/                # JSON schema definitions for dataset validation
+│   │   ├── manifest.schema.json      # Schema for manifest.jsonl validation
+│   │   └── sample_meta.schema.json   # Schema for individual sample metadata validation
+│   └── scripts/               # Dataset management and validation scripts
+│       ├── build_manifest.py  # Script to build manifest and checksums from dataset files
+│       └── validate_manifest.py      # Comprehensive validation script for file existence, UTF-8 encoding, SHA256 checksums, and JSON schema compliance
 ```
 
 ## Maintain Logic
 
 This README serves as the primary entry point for the Cursor AI agent and contains three main sections: (1) Project introduction; (2) File architecture; (3) Maintain Logic. No additional sections may be added.
 
-1. When the user requests the agent to refresh the README, the agent should review the overview and rewrite it while maintaining exactly two paragraphs. The agent should rewrite the project structure to provide one-sentence descriptions for each file. Never modify Maintain Logic part except modify grammar error.
+1. When the user requests the agent to refresh the README, the agent should review the overview and rewrite it while maintaining exactly two paragraphs. The agent should rewrite the project structure to provide one-sentence descriptions for each file. Never modify Maintain Logic part except modify grammar error. The project structure can contain '...'.
 
 2. When the user request the agent to download paper with an link, the AI agent should download the paper to related_paper, then extract pdf's content into a content.md, then rename both the pdf and the content.md to some good name decide by the content, then modify related_paper/summary.md to have a short summary for this paper
