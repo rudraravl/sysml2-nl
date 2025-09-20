@@ -34,9 +34,14 @@ def main():
         for p in [sysml, text, meta]:
             if not p.exists():
                 raise FileNotFoundError(f"Missing file: {p}")
+        
+        # Read meta.json to get labels including split
+        with open(meta, 'r', encoding='utf-8') as f:
+            meta_data = json.load(f)
+        
         rec = {
             "id": did,
-            "split": "all",  # Single split instead of train/val/test
+            "split": meta_data.get("labels", {}).get("split", "unknown"),
             "paths": {
                 "sysml": str(sysml.relative_to(root)).replace("\\","/"),
                 "text":  str(text.relative_to(root)).replace("\\","/"),
@@ -84,9 +89,15 @@ def main():
     with open(version_file, "r") as f:
         version = f.read().strip()
     
+    # Count records by split
+    by_split = {}
+    for r in records:
+        split = r.get("split", "unknown")
+        by_split[split] = by_split.get(split, 0) + 1
+    
     stats = {
         "num_records": len(records),
-        "by_split": {"all": len(records)},
+        "by_split": by_split,
         "avg_text_tokens": round(total_text_tokens / len(records), 1) if records else 0,
         "avg_sysml_lines": round(total_sysml_lines / len(records), 1) if records else 0,
         "total_sysml_size": total_sysml_size,
