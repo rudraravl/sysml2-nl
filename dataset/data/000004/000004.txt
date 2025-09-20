@@ -1,6 +1,34 @@
-SysML v2 model: Fischertechnik
-Source: SE_Models
-Original file: Fischertechnik.sysml
-Generated: 2025-09-20T10:25:10.154923
+This SysML v2 model describes a simplified manufacturing system.  The system centers around a `Manufacturer` who interacts with `Customer`s and `Supplier`s.  The manufacturer has several internal components responsible for different aspects of the production process.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+**Data Types:**
+
+The model defines several data types:
+
+* `GeneralOrder`: A base class for different order types, having an `orderID` (String) and `orderAmount` (integer).
+* `SalesOrder`, `MaterialOrder`, `ProductOrder`, `PurchaseOrder`, `Inquiry`, `OrderQuotation`, and `OrderConfirmation`:  These are all specialized types of `GeneralOrder`, representing different stages and types of orders within the system.
+* `Product` and `Material`:  Representing manufactured products and raw materials, each with a unique ID (String).
+* `Inventory`, `Shipment`, and `ShippingConfirmation`:  Representing inventory levels, shipments, and confirmation of shipments.
+* `Machine`: Represents a generic machine with a name (String) and processing time (secondsToProcess, integer).
+
+**System Components:**
+
+The system is structured around a `factoryContext`, containing the following parts:
+
+* **Manufacturer:** This is the core component, encompassing:
+    * **Production:**  Manages the manufacturing process. This includes:
+        * **ProductionControl:**  Orchestrates the production process, receiving and sending `ProductOrder`s and `Material`s.
+        * **AngleProductionLine:** A specific production line (likely for a particular product type) consisting of several machines (Heating, Bending, Cutting, Drilling, Grinding, Polishing) connected in sequence. Each machine has specific parameters (temperature, angle, length, etc.).
+        * **Storage:** Manages the inventory of raw materials and finished goods.
+    * **Sales:** Handles customer interactions, managing `Inquiry`, `OrderQuotation`, `OrderConfirmation`, and `ShippingConfirmation`.
+    * **Procurement:**  Handles ordering raw materials from suppliers.
+    * **ProductionScheduling:**  Creates `ProductOrder`s based on `SalesOrder`s.
+    * **Dispatch:**  Handles shipping finished products to customers.
+* **Customer:**  Initiates `Inquiry`s, receives `OrderQuotation`s and `OrderConfirmation`s, and receives `Shipment`s and `ShippingConfirmation`s.
+* **Supplier:**  Provides `Material`s upon receiving `PurchaseOrder`s.
+
+
+**Ports and Connections:**
+
+The model utilizes ports to define the interfaces between components.  For example, `MaterialPortDef` defines an interface for transferring `Material`s. Connections between parts are explicitly defined using `connect` statements, showing the flow of data (orders, materials, products) throughout the system.
+
+**In summary:** The model provides a high-level architectural view of a manufacturing system, detailing the components, data flow, and interfaces involved in the production and delivery of goods.  The `AngleProductionLine` example shows a more detailed breakdown of a specific production process. The model appears incomplete in places, particularly regarding the connection between the production control and the specific machines in the production line.  The absence of  String type resolution in the initial definition suggests a possible issue with the SysML tool or its configuration.

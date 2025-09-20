@@ -1,6 +1,19 @@
-SysML v2 model: COTS
-Source: LogicalArchitecture
-Original file: COTS.sysml
-Generated: 2025-09-20T10:25:10.170903
+This SysML model defines a package named `COTS` containing several Commercial Off-The-Shelf (COTS) modules for a frigate.  These modules are represented as parts and inherit from a `SimpleFrigateComponent` type (defined elsewhere, presumably).  The model uses several private imports, indicating dependencies on other model elements for data types (`ScalarValues`, `StdPortsAndInterfaces`) and possibly analysis (`FrigateRollupAnalysis`).
 
-This is a placeholder text description. The actual natural language description should be added manually.
+Each COTS module has:
+
+* **Attributes:**  Describing its characteristics (e.g., `miningYield`, `velocityBonus`, `shieldHPBonus`).  These attributes often include values, such as mass (`redefines mass`) and power usage (`redefines powerUsage`), potentially overriding values from the base `SimpleFrigateComponent`.
+* **Ports:** Representing connection points,  specifically using conjugated ports (`~PortName`), suggesting these ports are used for connections to other systems within the frigate. The ports are named after ship fitting slots (`highSlot`, `mediumSlot`, `lowSlot`).
+* **Documentation:**  A short description (`doc`) explaining the module's purpose.
+
+Specifically, the COTS modules are:
+
+* **`MinerI`:** A mining laser with attributes for yield, cycle time, capacitor usage, mass, and power usage. It connects via a `highSlot` port.
+* **`Afterburner`:** Increases sublight speed;  defined by velocity bonus, activation cost, cycle time, mass, and power usage. It connects via a `mediumSlot` port.
+* **`SmallShieldExtenderI`:** Improves shield capacity, with attributes for shield HP bonus, signature radius increase, mass, and power usage. It connects via a `mediumSlot` port.
+* **`SmallCapBatteryI`:** Enhances capacitor recharge, defined by capacitor bonus, recharge multiplier, mass, and power usage. It connects via a `mediumSlot` port.
+* **`SurveyScannerI`:** Scans asteroids for ore, with attributes for scan range, cycle time, mass, and power usage. It connects via a `mediumSlot` port.
+* **`WarpCoreStabilizerI`:** Improves warp core resistance, defined by warp core strength bonus, targeting penalty, scan resolution penalty, mass, and power usage. It connects via a `lowSlot` port.
+
+
+In summary, this model provides a structured description of several independent frigate modules, their characteristics, and their connection points, ready for use in a larger system model of a frigate or fleet.  The use of conjugated ports hints at a system where connections must be explicitly defined and managed.

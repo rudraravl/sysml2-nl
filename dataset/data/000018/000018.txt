@@ -1,6 +1,11 @@
-SysML v2 model: MiningCorporationRequirementsDecl
-Source: DomainModel
-Original file: MiningCorporationRequirementsDecl.sysml
-Generated: 2025-09-20T10:25:10.164255
+This SysML model defines a set of requirements for a Mining Corporation (referred to as "MiningCorporationRequirementsDecl").  These requirements are linked to various aspects of the corporation's operations, drawing data from three other packages: `Domain`, `ScalarValues`, and `MiningCorporationRequirementsDef`.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+The model specifies twelve individual requirements (MCR01_1 through MCR12_1), each tied to a specific attribute of the `Domain::MiningCorporation` entity.  Each requirement references a specific requirement type (e.g., `ProfitabilityRequirement`, `FleetUtilizationRequirement`) defined elsewhere (likely in `MiningCorporationRequirementsDef`). The attribute of the requirement is directly linked to a corresponding attribute within the `Domain::MiningCorporation` model.
+
+For instance:
+
+* **MCR01_1 (ProfitabilityRequirement):**  This requirement specifies a minimum acceptable level of profitability for the Mining Corporation, derived from the `minimumProfit` attribute of the `Domain::MiningCorporation`.
+
+* **MCR02_1 (FleetUtilizationRequirement):** This requirement sets a target for fleet utilization, using the `fleetUtilization` attribute of the `Domain::MiningCorporation`.
+
+This pattern repeats for all twelve requirements, covering aspects like ore extraction rate, ore delivery efficiency, storage capacity, fleet size, security, threat response, operational uptime, deployment efficiency, operational costs, and market adaptability.  Each requirement's specific target value or threshold is implicitly defined by the corresponding attribute within the `Domain::MiningCorporation` model.  The model focuses on defining the *what* of the requirements rather than the specific *how* or *how much*.

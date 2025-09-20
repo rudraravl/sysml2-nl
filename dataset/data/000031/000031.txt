@@ -1,6 +1,44 @@
-SysML v2 model: OperationalUseCaseActions
-Source: UseCases
-Original file: OperationalUseCaseActions.sysml
-Generated: 2025-09-20T10:25:10.174597
+This SysML v2 model defines a set of operational actions for a mining frigate.  It's structured using a package named `OperationalUseCaseActions`, which imports elements from other packages (`Domain`, `ScalarValues`, `MiningFrigate`).  The model describes actions within several main use cases and several included use cases.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+**Main Use Cases:**
+
+* **Mine Asteroids:** This use case comprises two actions:
+    * `IdentifyDestination`: Identifies a target asteroid or belt, returning a `ScanSignature`.
+    * `ActivateMiningLaser`: This is the core mining action.  It details the main flow (receiving a command, activating the laser, extracting ore, generating a report), alternative flows (handling multiple asteroids, mining boosts, full ore holds), and exception flows (depleted asteroids, overheating lasers, insufficient energy, ECM interference).
+
+* **Detect Threats and Engage Defenses:** This involves:
+    * `ScanForThreats`: Scans for threats, taking a `ShipCommand` as input and returning `ScanSignature` and `ShipReport`.
+    * `PrioritizeThreats`: Evaluates detected threats and assigns a priority level.
+
+* **Plot Course and Navigate:**  This use case covers navigation:
+    * `UndockFromStation`: Undocking from a station.
+    * `ExecuteWarpDrive`: Engaging the warp drive, reporting its status.
+
+* **Offload Ore and Resupply:** This focuses on docking and resupply:
+    * `DockToStation`: Docking at a station for repairs and resupply, taking charge level as input and generating a report.
+
+
+* **Deploy Drones:** This use case covers drone deployment:
+    * `SelectDronesForDeployment`: Selecting drones for either mining or defense operations.
+
+**Included Use Cases (supporting actions used by the main use cases):**
+
+* **Navigate to Destination:**
+    * `AcceptDestination`: Accepting a destination command from the pilot.
+    * `PlotOptimalCourse`: Plotting the optimal route.
+    * `EngagePropulsion`: Engaging the propulsion system.
+    * `MonitorAndAdjustCourse`: Continuously monitoring and adjusting the course.
+
+* **Transfer Cargo:**
+    * `TransferOre`: Transferring ore to storage.
+    * `VerifyCargoTransfer`: Verifying successful cargo transfer.
+
+* **Engage Defense Systems:**
+    * `DetectThreat`: Detecting and classifying threats.
+    * `EngageDefenses`: Activating defenses and deploying drones.
+
+* **Resupply Systems:**
+    * `VerifyResupply`: Verifying successful resupply.
+
+
+The model uses several data types from imported packages, such as `Domain::ScanSignature`, `Domain::ShipCommand`, `Domain::ShipReport`, `Domain::Power`, `Domain::CargoContainer`, `Domain::Drone`, and `Domain::StationReport`, suggesting a well-defined data model exists elsewhere in the system.  The extensive documentation within the `ActivateMiningLaser` action highlights the complexity of that particular operation and the need for robust error handling and alternative flow considerations.

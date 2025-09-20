@@ -1,6 +1,31 @@
-SysML v2 model: Domain
-Source: DomainModel
-Original file: Domain.sysml
-Generated: 2025-09-20T10:25:10.163611
+This SysML v2 model describes a domain for asteroid mining operations, focusing on a mining corporation's activities.  The core of the model is the `Domain` part, which contains various elements involved in the mining process:
 
-This is a placeholder text description. The actual natural language description should be added manually.
+* **Mining Corporation:** This is a central entity managing the operation, represented by several key performance indicators (KPIs) including `minimumProfit`, `fleetUtilization`, `oreExtractionEfficiency`, `oreDeliveryEfficiency`, `storageCapacityUtilization`, `fleetSizeEffectiveness`, `securityCoverageEffectiveness`, `threatResponseEffectiveness`, `operationalUptime`, `deploymentEfficiency`, `costEfficiency`, and `marketAdaptability`.  These KPIs provide insights into the corporation's performance and areas for improvement.  The corporation owns and manages mining frigates, rorquals (large industrial ships), and a fleet. The corporation also has several occurrences defining interactions between its ships and the pilot pods.
+
+* **Mining Frigates:** These are spaceships with attributes like `cargoCapacity`, `survivalProbability`, `mass`, `status`, `warpSpeed`, `warpBubbleEnd`, `alignTime`, `lockedTargets`, `dockingTime`, and `shieldStrength`.  They actively participate in mining asteroids and interact with the pilot pod through various commands and reports.  The mining frigate also exhibits a predefined state machine called `miningFrigatesStates`. The Mining Frigate also has a number of occurrences representing cause and effect relationships.
+
+* **Pilot Pod:** This represents the control center for the mining operations. It possesses attributes reflecting the pilot's experience and the efficiency of the control systems. It has a `controlPort` to communicate with the mining frigates.
+
+* **Asteroids and Asteroid Belts:**  Asteroids contain `oreContent` and have a `depletionRate`.  Asteroid belts contain multiple asteroids and have a measure of `resourceAvailability`.
+
+* **Hostile Ships:** These represent potential threats to the mining operation, characterized by attributes like `attackProbability`, `weaponStrength`, `threatLevel`, and `weaponType`.
+
+* **Stations:** These provide docking capabilities for offloading ore and resupply.
+
+* **Drones:** These are deployed to assist in mining and defense.
+
+* **Rorquals:** These large industrial ships have additional capabilities like `oreStorageCapacity` and an `oreCompressionUnit` for improving efficiency.
+
+
+The model also defines several interfaces for communication between these elements:
+
+* `CommandIF`: Manages commands and reports between the pilot pod and mining frigates.
+* `PowerDockIF`: Handles power transfer and cargo transport during docking at stations.
+* `AsteroidOreIF`:  Facilitates the transfer of ore from asteroids to mining frigates.
+* `ThreatIF`: Represents the exchange of firepower between hostile ships and mining frigates.
+* `DroneIF`:  Manages communication between the pilot pod and drones.
+
+
+Several items define data flows between the parts:  `ShipCommand`, `StationCommand`, `DroneCommand`, `Ore`, `FirePower`, `CargoContainer`, `Power`, `ShipReport`, `StationReport`, `DroneReport`, `Course`, and `ScanSignature`.
+
+In essence, the model provides a comprehensive representation of the system, including its components, their attributes, their interactions, and key performance indicators for evaluating the overall efficiency and profitability of the asteroid mining operation.  The use of occurrences and interfaces clearly outlines the communication and interaction between parts.  The inclusion of documentation within the model further enhances its understandability and provides context for design decisions.

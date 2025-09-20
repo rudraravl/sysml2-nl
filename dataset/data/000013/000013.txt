@@ -1,6 +1,24 @@
-SysML v2 model: lawnmowerPackage
-Source: SE_Models
-Original file: lawnmowerPackage.sysml
-Generated: 2025-09-20T10:25:10.160351
+This SysML v2 model describes a lawnmower and its constituent parts.  The model is contained within a package called `lawnmowerPackage`.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+The core component is the `lawnmower` part, which represents the assembled lawnmower.  It includes an `engine`, a `blade`, a `deck`, four `wheel`s (front left, front right, rear left, rear right), and a `handle`.  The parts are connected as follows: the engine connects to both the deck and the blade; each wheel is connected to the deck via individual pins (`frontLeftPin`, `frontRightPin`, `rearLeftPin`, `rearRightPin`); and the deck connects to the handle.
+
+The `lawnmower` has an action called `cutgrass`, which outlines the steps of cutting grass: start, start engine, push mower, shutoff mower, and done.
+
+The model defines several parts in detail:
+
+* **`Engine`:**  This part has attributes specifying its mass (`engineMass`, redefined in the lawnmower context to 190), block material ("Iron"), and minimum operating temperature (0).  It's further decomposed into sub-parts: `piston`, `connectingRod`, `crankshaft`, `crankshaftBearing`, and `engineBlock`. These sub-parts are interconnected via ports (`ForcePort`, which represents a force output or input) to model the engine's internal mechanism.  The connections define the flow of force within the engine. The connecting rod has a variation, `rodBolt`, with two variants, `rodBoltA` (steel) and `rodBoltB` (aluminum), showing design choices.
+
+* **`Wheel`:** Composed of a `rim` and a `tire`, each with their own attributes (diameter, width, mass, tread).
+
+* **`Blade`:**  Defined by its diameter and mass.
+
+* **`Deck`:** Defined by its color ("Blue") and mass (`deckMass`, redefined in the lawnmower context to 50).
+
+* **`ConnectingRod`:** This part includes a variation point allowing for different rod bolt implementations (A and B), each with different material, mass and length.
+
+* **`Piston`:** Defined by its diameter and mass.
+
+
+The model uses a `Force` item definition and a `ForcePort` port definition to represent forces within the engine. A commented-out requirement (`REQ-1234`) shows an example of how a constraint (`engine.engineMass <= 200`) could be added to ensure the engine mass doesn't exceed 200.
+
+In summary, the model provides a hierarchical representation of a lawnmower, detailing its components, their attributes, their connections, and a high-level workflow for using the lawnmower.  The use of ports and connections allows for a more precise modeling of the interactions between different parts.  The variation point in the `ConnectingRod` demonstrates design flexibility.

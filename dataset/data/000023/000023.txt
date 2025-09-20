@@ -1,6 +1,16 @@
-SysML v2 model: MiningFrigateVerificationCases
-Source: DomainModel
-Original file: MiningFrigateVerificationCases.sysml
-Generated: 2025-09-20T10:25:10.168564
+This SysML v2 model describes a verification plan for a Mining Frigate.  The plan centers around a `MiningFrigateTestRig`, which includes the frigate itself (`miningFrigateDUT`), a `testEngineer`, a `TestEnvironment` for simulating various operational conditions (like simulated asteroid fields and attacks), and a `DataLogger` to record test results.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+The model defines five verification tests:
+
+* **`OreExtractionEfficiencyTest`:**  This test verifies that the frigate's ore extraction rate meets requirements, particularly in low-security space.  It involves collecting data on extraction rates (`miningRateMeasuredLS`) in a simulated low-security environment and comparing it to a predefined `oreExtractionEfficiencyRequirementLowSec`.
+
+* **`CargoCapacityTest`:** This test verifies the frigate's cargo capacity (`cargoCapacityMeasured`) against the `cargoCapacityRequirementLowSec` in low-security space.
+
+* **`SurvivabilityTest`:** This test assesses the frigate's ability to withstand attacks.  It simulates attacks in low-security space (`simulateLowSecAttack`), measures the resulting shield strength (`shieldStrengthMeasuredLS`), and compares it to the `survivabilityRequirementLowSec`.
+
+* **`DroneOperationsTest`:** This test checks the functionality of the frigate's drones. It measures the number of drones that can be deployed (`droneCapacityMeasured`) and verifies this against the `droneOperationsRequirementLowSec`.
+
+* **`ThreatDetectionTest`:** This test evaluates the frigate's threat detection capabilities. It measures the detection range (`threatDetectionRangeMeasured`) and compares it to the `threatDetectionRequirementLowSec`.
+
+
+Each verification test follows a similar structure:  it defines an objective, uses actions to collect and evaluate data, and returns a `verdict` (Pass/Fail).  The `VerificationMethod` metadata is set to `test` for all verifications. The tests use functions (e.g., `oreExtractionEfficiencyRequirementLowSec`) which are presumably defined elsewhere (in the imported packages) to determine pass/fail criteria. The `subject` of each verification is the `miningFrigateDUT`, clearly indicating which part of the test rig is being evaluated.  The model emphasizes low-security operational conditions for the verification process.

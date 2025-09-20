@@ -1,6 +1,23 @@
-SysML v2 model: InternetModel_v1
-Source: SE_Models
-Original file: InternetModel_v1.sysml
-Generated: 2025-09-20T10:25:10.157446
+This SysML v2 model describes a simplified model of an internet network.  The model defines several parts:
 
-This is a placeholder text description. The actual natural language description should be added manually.
+* **Data:**  Represents data packets transmitted across the network.
+
+* **Device:** A general representation of a network device.  Each device has a connection type (`connType`, a list of connections) and receives electricity (`voltageIn`).
+
+* **WiFiRouter:** A type of device that inherits from `Device`. It specifically has one to two wireless connections (`wirelessConnection`) and one or more ethernet connections (`ethernetConnection`).
+
+* **DSLRouter:** Another type of device inheriting from `Device`. It has a single DSL connection (`dslConnection`) and one or more ethernet connections (`ethernetConnection`).
+
+* **MobileDevice:** A device that inherits from `Device`. It is documented to have at least three wireless connections (e.g., Bluetooth, WiFi, 4G/5G) (`wirelessConnection`).
+
+The model also defines several attributes representing different types of connections and electricity:
+
+* **Connection:** A generic connection which has input and output data streams (`inData`, `outData`).
+
+* **WirelessConnection:**  A type of connection that inherits from `Connection` and adds a frequency attribute (`frequency`).
+
+* **CableConnection:** Another type of connection that inherits from `Connection` and has a wire count attribute (`wireCount`).
+
+* **Electricity:** Represents an electrical supply with voltage (`voltage`) and amperage (`ampere`) attributes, using units from a presumably defined ISQElectromagnetism package.
+
+In essence, the model provides a basic structure for representing different network devices and their connectivity, focusing on the types of connections and the data they carry.  The use of inheritance clarifies the relationships between different device types and connection types.  The use of units from external packages (SI and ISQElectromagnetism) suggests a more robust and potentially reusable model.

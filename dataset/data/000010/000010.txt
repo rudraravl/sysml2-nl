@@ -1,6 +1,15 @@
-SysML v2 model: Metamodel
-Source: SE_Models
-Original file: Metamodel.sysml
-Generated: 2025-09-20T10:25:10.158584
+This SysML v2 model defines a system for managing data types.  It's structured into several packages:
 
-This is a placeholder text description. The actual natural language description should be added manually.
+* **Metamodel:** Defines a base `ModelElement` with common attributes (unique identifier `muid`, name, and description). This serves as a foundation for other elements.
+
+* **BaseFormat:** Defines a `Format` element with an ID (real number), name (string), and table name (string). This likely represents different formatting options for data.
+
+* **Datatypes:** This package is the core, defining several data types:
+    * **Datatype:**  This is an abstract part that specializes `ModelElement` and has a single `base_format` of type `Format`. This links each data type to a specific format defined in the `BaseFormat` package.
+    * **AutoReference:** This specializes `Datatype` and adds attributes for generating auto-incrementing references, including a prefix, a boolean indicating whether to start from 1, and a boolean for interval (likely for step size).
+    * **Integer:** This specializes `Datatype` and adds attributes for specifying minimum and maximum values, and booleans to indicate whether display and edit separators should be used.  It also includes an assertion that its `base_format` ID must be 1.
+    * **Boolean:** This is a specialized `Datatype` with an assertion that its `base_format` ID must be 3.
+
+* **poc:** This package contains a simple example (`test`) demonstrating the usage of the defined data types.  It shows a `test` element having an `id` of type `AutoReference` and a `quantity` of type `Integer`.
+
+In essence, the model provides a mechanism to define different data types, associating them with specific formats and potentially constraints (like minimum/maximum values or format IDs).  The `poc` package illustrates a practical application of these data types.  The use of assertions ensures data integrity, enforcing the relationship between data types and their associated formats.

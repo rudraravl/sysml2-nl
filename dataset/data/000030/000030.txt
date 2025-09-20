@@ -1,6 +1,20 @@
-SysML v2 model: standardPortsAndInterfaces
-Source: LogicalArchitecture
-Original file: standardPortsAndInterfaces.sysml
-Generated: 2025-09-20T10:25:10.173704
+This SysML model defines standard ports and interfaces for a system with three types of slots: High, Medium, and Low.  Each slot type has a corresponding port definition and interface definition.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+**Port Definitions:**  These define the inputs to each slot.
+
+* **HighSlotPort:** Receives a `PowerSupply` and a `HighSlotCommand`.
+* **MediumSlotPort:** Receives a `PowerSupply` and a `MediumSlotCommand`.
+* **LowSlotPort:** Receives only a `LowSlotCommand`.
+
+**Data Types:** These define the structure of the data flowing through the ports.
+
+* **PowerSupply:** Represents power input, characterized by an `energyTransfer` attribute (a real number).
+* **HighSlotCommand**, **MediumSlotCommand**, **LowSlotCommand:** Represent activation commands, each having an `activation` attribute (a boolean value).
+
+**Interface Definitions:** These define how the ports are connected and what data flows between them.  Each interface has a "hull port" (representing the system's side) and a "module port" (representing a connected module's side).
+
+* **HighSlotInterface:**  Connects a `HighSlotPort` on the hull to a `HighSlotPort` on a module.  It defines the flow of `PowerSupply` and `HighSlotCommand` from the hull to the module.
+* **MediumSlotInterface:** Connects a `MediumSlotPort` on the hull to a `MediumSlotPort` on a module.  It defines the flow of `PowerSupply` and `MediumSlotCommand` from the hull to the module.
+* **LowSlotInterface:** Connects a `LowSlotPort` on the hull to a `LowSlotPort` on a module.  It defines the flow of only the `LowSlotCommand` from the hull to the module.
+
+In essence, the model describes a standardized way to connect modules to a system, providing different levels of power and control depending on the slot type.  The use of interfaces ensures a clear and consistent connection methodology.  The `~` before `HighSlotPort`, `MediumSlotPort`, and `LowSlotPort` in the interface definitions indicates a provided port (as opposed to a required port).

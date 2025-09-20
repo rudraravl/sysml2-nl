@@ -1,6 +1,27 @@
-SysML v2 model: ActionsHull
-Source: LogicalArchitecture
-Original file: ActionsHull.sysml
-Generated: 2025-09-20T10:25:10.170143
+This SysML model describes the high-level actions of a mining frigate's hull.  It's structured into two packages: `MiningFrigateHullHighLevelActions` and `MiningFrigateHullIncludedActions`.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+The `MiningFrigateHullIncludedActions` package defines the lower-level actions that the higher-level actions rely on.  These lower-level actions include:
+
+* **`DetectThreat`**: Detects incoming threats based on a scan command and produces a scan report.
+* **`EngageDefenses`**: Engages the ship's defenses based on an engage command and produces a defense status report.
+* **`NavigateToDestination`**: Navigates the ship to a specified destination based on a destination command and produces a navigation status report.
+* **`TransferOre`**: Transfers mined ore based on a transfer command and produces a transfer status report.
+* **`DockAtStation`**: Docks the ship at a station based on a docking command and produces a docking status report.
+* **`ResupplyCapacitor`**: Resupplies the ship's energy capacitor based on a recharge command and produces a recharge status report.
+* **`ActivateMiningLaser`**: Activates the mining laser. This action includes a decision based on the asteroid's status (`CheckAsteroidStatus`). If the asteroid is depleted, it reports this to the pilot (`ReportToPilot`). Otherwise, it continues mining (`ExtractOre`).
+* **`CheckAsteroidStatus`**: Checks the status of the asteroid being mined and provides a report.
+* **`ExtractOre`**: Extracts ore from an asteroid.
+* **`ReportToPilot`**: Reports the depletion of an asteroid to the pilot.
+
+
+The `MiningFrigateHullHighLevelActions` package defines the high-level actions composed from these lower-level actions:
+
+* **`WithstandIncomingDamage`**: This action sequentially executes `DetectThreat` and `EngageDefenses` to handle incoming damage.  It takes a scan command as input and produces a defense status report.
+* **`NavigateAndWarp`**: This action uses `NavigateToDestination` to navigate and warp to a given destination. It takes a destination command as input and produces a navigation status report.
+* **`StoreAndTransferOre`**: This action uses `TransferOre` to manage the storage and transfer of mined ore. It takes a transfer command as input and produces a transfer status report.
+* **`DockAndUndock`**: This action uses `DockAtStation` to manage docking and undocking at stations. It takes a docking command as input and produces a docking status report.
+* **`ManageEnergy`**: This action uses `ResupplyCapacitor` to manage the ship's energy supply.  It takes a recharge command as input and produces a recharge status report.
+* **`SupportModuleFitting`**: This action uses `ActivateMiningLaser` to manage the ship's mining laser.  It takes a mining command as input and produces a mining status report.
+
+
+Both packages import from `Domain` (likely containing data types like `ShipCommand` and `ShipReport`) and `MiningFrigateSolutionSpace` (likely containing definitions related to the problem domain).  The use of `bind` statements shows how data is passed between actions.  The `first ... then` statement in `WithstandIncomingDamage` specifies the sequential execution order.  The `decide` statement in `ActivateMiningLaser` shows a simple decision point in the workflow.

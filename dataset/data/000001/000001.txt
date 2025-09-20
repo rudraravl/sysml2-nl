@@ -1,6 +1,40 @@
-SysML v2 model: DroneModelLogical
-Source: SE_Models
-Original file: DroneModelLogical.sysml
-Generated: 2025-09-20T10:25:10.152457
+This SysML v2 model describes a drone, specifically a forest fire observation drone, using a modular approach.  The model is organized into packages for better management and reusability.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+**Shared Assets:**
+
+The `Drone_SharedAssetsSuperset` package contains reusable components applicable to various drone types:
+
+* **Drone:** This abstract part defines the core structure of a drone. It includes:
+    * **Attributes:**  Like `massActual` (actual mass).
+    * **Spatial Extent:** Defines the drone's shape and bounding box using references to the `DroneBody`'s shape information.
+    * **Timeslices:** Models the drone's lifecycle, including `parking` (with `startCharging` and `stopCharging` snapshots) and `flying` timeslices.
+    * **States:**  A state machine defining drone states (off, standby, charging, ready, flying) and transitions between them triggered by signals (`SigSwitchOn`, `SigStartCharging`, `SigActivate`, `SigStartFlying`, etc.).
+    * **Signals:** Defines signals used for state transitions.
+    * **Power System:** Includes a `battery` (with variations), a `charger`, a `powerManagementModule` (with an `action checkStatus` to monitor battery status), and a message (`notifyBatteryLow`) indicating low battery.
+    * **Engines:**  A variable number of `DroneEngine` parts (configurable via `numberOfEnginesVariation`).
+    * **Body:** A `DroneBody` part (with variations).
+    * **Flight Control System:** A `flightControl` part (with variations), a `droneControlUnit`, and safety/autonomous modules.
+    * **Sensors & Communication:** Includes GPS, IMU, barometer, radio transmitter/receiver, antenna, camera, and obstacle avoidance sensors.
+    * **Connections:** Specifies connections between components, like the `droneControlUnit` and `powerManagementModule`.
+
+* **DroneEngine:**  This package defines the requirements and parts of a drone engine.  It includes stakeholder requirements (e.g., power, efficiency, reliability, noise level) and a `DroneEngine` part with attributes like propeller kind (`clockwise` or `counterclockwise`).  Requirements are documented with explanations.
+
+* **DroneBody:** This package defines the physical structure of the drone body, with variations for different engine configurations (4 or 6 engines).  It includes attributes like `bodyColor` (with predefined colors) and parts like `rotors`, `arms`, and `landingGear`. The shape and bounding box are defined.
+
+* **DroneFlightControl:** This package defines the flight control system with variations for different engine configurations.
+
+* **DroneBattery:** This package defines the drone battery with variations (`StandardDroneBattery`, `LongDistanceDroneBattery`). It includes attributes like weight, capacity, and various parts like battery cells, BMS, protection circuits, and interfaces.  It also defines a `SigBatteryLow` signal.
+
+
+**Forest Fire Observation Drone:**
+
+The `ForestFireObservationDrone` package instantiates a specific drone type:
+
+* **forestFireObservationDrone:** This part is an instance of the abstract `Drone` part. It specifies:
+    * **Variant Selections:** It chooses specific variants for the number of engines (`sixEngines`), body (`droneBody6Engines` with red color), and flight control (`droneFlightControl4Engines`).
+    * **Battery Selection:**  Uses the `longDistanceBattery` variant.
+    * **Engine Configuration:** Defines six individual engines, each with its propeller kind specified.
+    * **Connections:** Explicitly connects the power management module to each engine.
+
+
+In essence, the model provides a reusable framework for different drone types while allowing specific configurations for individual drone instances. The use of variations and interfaces promotes flexibility and maintainability.  The detailed requirements within the `DroneEngine` package enhance the model's completeness.

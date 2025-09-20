@@ -1,6 +1,26 @@
-SysML v2 model: AnalysisProblemSpace
-Source: DomainModel
-Original file: AnalysisProblemSpace.sysml
-Generated: 2025-09-20T10:25:10.161465
+This SysML model analyzes the risk-adjusted profitability of ore mining operations for a mining corporation operating in different security zones (High Sec, Low Sec, Null Sec) within a space-faring context.  The model uses several imported packages defining data types and elements related to mining, space security, and business requirements (BUS01_1).
 
-This is a placeholder text description. The actual natural language description should be added manually.
+The core of the model is the `RiskAdjustedProfitability` analysis.  This analysis takes as input:
+
+* `oreYield`: The amount of ore mined (in m³).
+* `marketOrePrice`: The price of ore per cubic meter (ISK/m³).
+* `operationalCosts`: Operational costs per hour (ISK/hour).
+* `survivalProbability`: The probability of the mining operation surviving without ship loss (%).
+
+It then sequentially calculates:
+
+1. `expectedRevenue`: The expected revenue based on ore yield and price using the `ComputeExpectedRevenue` calculation (oreYield * orePrice).
+2. `riskFactor`: A risk factor derived from the survival probability using `ComputeRiskFactor` ((100.0 - survivalProbability) / 100.0).  A lower survival probability results in a higher risk factor.
+3. `riskAdjustedProfitability`: The final profitability, adjusted for risk, using `ComputeRiskAdjustedProfitability` ((expectedRevenue - operationalCosts) * (1.0 - riskFactor)).
+
+The model then defines three specific analyses (`HighSecProfitability`, `LowSecProfitability`, `NullSecProfitability`) which apply the `RiskAdjustedProfitability` analysis to each security zone.  These analyses differ primarily in:
+
+* `marketOrePrice`:  Higher security zones have lower ore prices.
+* `operationalCosts`: Operational costs increase with lower security due to increased risk and logistical challenges.
+* `survivalProbability`: Survival probability decreases significantly in lower security zones.
+
+The ore yield for each analysis is calculated using a `CalculateOreYield` function which accounts for the mining frigate's mining rate, operational time, and pilot skill (`controlEfficiency`).
+
+The model also includes several other calculations (`CalculateTotalProfitability`, `CalculateOreYield`, `CalculateFleetSurvivability`, `CalculateOperationalUptime`, `CalculateFleetDeploymentEfficiency`, `CalculateOreDeliveryEfficiency`, and `CalculateThreatNeutralizationSuccess`) that define other measures of performance (MoPs) and measures of effectiveness (MoEs) related to the mining operation.  These calculations are not directly used in the core profitability analysis but likely provide additional insights into the overall efficiency and success of the mining operation. The model satisfies business requirement BUS01_1 via the `analysisMiningCorporation` part which is of type `Domain::MiningCorporation`.  The model uses predefined attribute values for ore prices in each security zone.
+
+In summary, this model provides a framework for assessing the profitability of ore mining operations, considering both financial aspects and the significant risk associated with operating in different security zones.  The use of calculations allows for a modular and extensible approach to modeling the various factors that contribute to overall profitability and operational effectiveness.

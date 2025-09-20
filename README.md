@@ -39,15 +39,17 @@ sysml2-nl/
 │   │   └── ...               # Additional dataset entries following the same structure
 │   ├── index/                 # Dataset manifest and checksum files
 │   │   ├── manifest.jsonl    # JSONL manifest with all dataset entries and metadata
-│   │   └── checksums.tsv     # SHA256 checksums for all dataset files
+│   │   ├── checksums.tsv     # SHA256 checksums for all dataset files
+│   │   └── stats.json        # Dataset statistics and summary information
 │   ├── schema/                # JSON schema definitions for dataset validation
 │   │   ├── manifest.schema.json      # Schema for manifest.jsonl validation
 │   │   └── sample_meta.schema.json   # Schema for individual sample metadata validation
 │   └── scripts/               # Dataset management and validation scripts
-│       ├── build_manifest.py  # Script to build manifest and checksums from dataset files
+│       ├── build_manifest.py  # Script to build manifest, checksums, and statistics from dataset files
 │       └── validate_manifest.py      # Comprehensive validation script for file existence, UTF-8 encoding, SHA256 checksums, and JSON schema compliance
 ├── script/                    # Dataset generation and processing scripts
-│   └── gen_dataset_SysML_v2_Models.py      # Script to process SysML v2 model files from tmp directory and move them into dataset structure
+│   ├── gen_dataset_SysML_v2_Models.py      # Script to process SysML v2 model files from tmp directory and move them into dataset structure
+│   └── gen_NL_SysML_v2_Models.py          # Script to generate natural language descriptions from SysML v2 models using Gemini API
 └── tmp/                       # Temporary directory for external repositories and processing
     └── SysML-v2-Models/       # External SysML v2 models repository for dataset generation
         └── models/            # Source SysML v2 model files organized by example categories
@@ -60,3 +62,5 @@ This README serves as the primary entry point for the Cursor AI agent and contai
 1. When the user requests the agent to refresh the README, the agent should review the overview and rewrite it while maintaining exactly two paragraphs. The agent should rewrite the project structure to provide one-sentence descriptions for each file. Never modify Maintain Logic part except modify grammar error. The project structure can contain '...'.
 
 2. When the user request the agent to download paper with an link, the AI agent should download the paper to related_paper, then extract pdf's content into a content.md, then rename both the pdf and the content.md to some good name decide by the content, then modify related_paper/summary.md to have a short summary for this paper
+
+3. When writing code, follow Linus Torvalds' coding philosophy: avoid over-engineering, write minimal code with short variable names, use single functions instead of classes when possible, fail fast without excessive error handling, and prioritize readability over fancy abstractions. The code should be brutally simple and do exactly what's needed without fluff.

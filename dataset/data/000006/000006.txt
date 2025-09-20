@@ -1,6 +1,21 @@
-SysML v2 model: ForestFireObservationDrone
-Source: SE_Models
-Original file: ForestFireObservationDrone.sysml
-Generated: 2025-09-20T10:25:10.156123
+This SysML model describes a forest fire observation drone.  The drone is composed of several subsystems:
 
-This is a placeholder text description. The actual natural language description should be added manually.
+* **Power System:** This includes a long-distance battery (`longDistanceBattery` from the `DroneBatteryVariation` package), a charger, and a power management module. The power management module monitors the battery status (reporting `BatteryCapacityKind`), and it connects to and powers the drone's engines.  It has an action (`checkStatus`) that gets and analyzes the battery status.
+
+* **Flight Control System:** This consists of a drone control unit, a GPS module, an inertial measurement unit (IMU), and a barometer. Critically, the drone control unit receives battery status information from the power management module.
+
+* **Drone Frame:** This is the physical structure of the drone, including the body, four rotors, four arms, and landing gear.
+
+* **Communication System:**  This allows the drone to transmit and receive data, using a radio transmitter, radio receiver, and antenna.
+
+* **Sensors:** The drone is equipped with a camera and an obstacle avoidance sensor for observation and safe flight.
+
+* **Engines:** Four engines (`engine1` to `engine4`) are used, with alternating clockwise and counter-clockwise propeller types (`PropKind::clockwise` and `PropKind::counterclockwise`).
+
+The model shows connections between these subsystems:
+
+* The power management module's control port connects to the drone control unit's power control port, providing battery status information.
+* The battery connects to the power management module.
+* The power management module connects to and powers each of the four engines.
+
+The model uses parts and connectors to illustrate the physical and functional relationships within the drone.  It also imports assets (`Drone_SharedAssetsSuperset::**`) from another package, suggesting that common drone components are defined and reused elsewhere.

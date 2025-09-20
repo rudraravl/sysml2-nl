@@ -1,6 +1,28 @@
-SysML v2 model: VehicleModel
-Source: SE_Models
-Original file: VehicleModel.sysml
-Generated: 2025-09-20T10:25:10.159752
+This SysML v2 model describes a vehicle, its components, and associated analyses.  It's structured using packages to organize different aspects of the model.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+**1. Definitions:** This package contains reusable definitions for various model elements:
+
+* **PartDefinitions:** Defines parts like `Vehicle`, `Engine`, `Axle`, `Wheel`, `FuelTank`, and software components (`VehicleSoftware`, `VehicleController`).  Each part has attributes (e.g., mass, velocity, temperature) and ports for interactions (e.g., `FuelCmdPort`, `VehicleToRoadPort`).  Some parts are specialized (e.g., `FrontAxle` inherits from `Axle`).  Constraints and assertions are used to define relationships between attributes (e.g., fuel mass cannot exceed maximum fuel mass).  The `Road` and `VehicleRoadContext` parts define the vehicle's environment.
+* **PortDefinitions:** Defines the interfaces between parts, specifying input and output items (e.g., `FuelCmd`, `Torque`).
+* **ItemDefinitions:** Defines data items exchanged through ports (e.g., `Fuel`, `FuelCmd`).
+* **SignalDefinitions:** Defines signals used for communication and state changes (e.g., `VehicleStartSignal`, `OverTemp`).  Includes workarounds for time and change events.
+* **InterfaceDefinitions:** Defines interfaces between parts (e.g., `EngineToTransmissionInterface`).
+* **ActionDefinitions:** Defines actions performed by parts (e.g., `ProvidePower`, `PerformSelfTest`, `SenseTemperature`). Each action can have inputs and outputs.
+* **StateDefinitions:** Defines states for parts (e.g., `VehicleStates`, `ControllerStates`).
+* **RequirementDefinitions:** Defines requirements for the vehicle (e.g., `MassRequirement`, `ReliabilityRequirement`, `FuelEconomyRequirement`). These include constraints and documentation.
+* **AttributeDefinitions:** Defines aliases and custom attribute types (e.g., `Torque`, `DistancePerVolumeValue`).  Imports units and scalar functions.
+* **IndividualDefinitions:** Defines specific instances of parts for use in configurations and analyses (e.g., `Vehicle_1`, `Road_1`).
+
+**2. VehicleConfigurations:** This package defines specific vehicle configurations:
+
+* **VehicleConfiguration_a:** A simplified vehicle configuration defining a basic parts tree with mass calculations.
+* **VehicleConfiguration_b:** A more detailed configuration, showing a hierarchical parts breakdown (engine, transmission, axles, wheels), connections between parts, and refined mass calculations. It includes an `ActionTree` defining the sequence of actions for power provision, and `States` defining state machines for the vehicle and its controller. This configuration also includes requirements and satisfaction relationships, showing how the vehicle configuration meets the requirements.
+
+**3. VehicleAnalysis:** This package contains analysis models:
+
+* **VehicleAnalysis:** A general vehicle dynamics analysis model using basic physics equations.
+* **FuelEconomyAnalysisModel:** An analysis model specific to fuel economy, using data from `VehicleConfiguration_b` to determine if the fuel economy requirements are met.  It includes a `straightLineDynamics` action to simulate vehicle motion and a `fuelConsumptionAnalysis` action (not fully implemented).
+
+**4. ElectricalPowerAnalysis, ReliabilityAnalyis:** Placeholder packages for future analyses.
+
+In summary, the model provides a comprehensive description of a vehicle system, from its constituent parts and their interactions to its performance characteristics and adherence to requirements.  It utilizes SysML's capabilities to represent structure, behavior, and analysis in a unified framework.  `VehicleConfiguration_b` is the most complex and detailed part, demonstrating the model's ability to capture the intricacies of a complex system.

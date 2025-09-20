@@ -1,6 +1,16 @@
-SysML v2 model: MiningFrigate
-Source: LogicalArchitecture
-Original file: MiningFrigate.sysml
-Generated: 2025-09-20T10:25:10.171542
+This SysML model describes a mining frigate, focusing on its modular design and capabilities.  The core system is the `MiningFrigate`, which is composed of a fixed `MiningFrigateHull` and several replaceable Commercial Off-The-Shelf (COTS) modules.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+The `MiningFrigateHull` is a black box component with defined attributes representing its characteristics: hull, armor, and shield hit points; ore hold capacity; maximum velocity; warp speed; and capacitor capacity.  It also defines actions representing its internal functionality, such as scanning for threats, engaging defenses, plotting courses, managing propulsion, transferring ore, docking/undocking, and capacitor resupply.  Importantly, the hull has several ports (`highSlot1`, `highSlot2`, `mediumSlot1`, `mediumSlot2`, `lowSlot1`, `lowSlot2`) to connect COTS modules.
+
+The COTS modules are represented as reference parts, allowing for different configurations:
+
+*   `miningLaser` (2 instances of `MinerI`):  Mining lasers.
+*   `propulsionModule` (0 or 1 `Afterburner`):  Propulsion enhancement module.
+*   `shieldModule` (0 or 1 `SmallShieldExtenderI`): Shield strengthening module.
+*   `capacitorModule` (0 or 1 `SmallCapBatteryI`): Capacitor capacity increase module.
+*   `sensorModule` (0 or 1 `SurveyScannerI`):  Improved sensor module.
+*   `defensiveModule` (0 to 2 `WarpCoreStabilizerI`):  Defensive modules.
+
+The model explicitly shows the connections between the hull's ports and the modules' ports using interfaces (`HighSlotInterface`, `MediumSlotInterface`, `LowSlotInterface`).  For instance, `highSlotInterface1` connects `MiningFrigateHull`'s `highSlot1` port to the `highSlot` port of one of the `miningLaser` instances.  This illustrates the modular and customizable nature of the frigate.
+
+Finally, the model includes definitions for power and control interfaces (`VenturePowerSupply`, `VentureHighSlotCommand`, `VentureMediumSlotCommand`, `VentureLowSlotCommand`) likely inherited from a standard library, suggesting a more comprehensive system design context beyond this snippet.  The `private import` statements indicate the model relies on external packages for definitions of various components, interfaces, and data types.

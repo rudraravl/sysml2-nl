@@ -1,6 +1,21 @@
-SysML v2 model: family
-Source: example_family
-Original file: family.sysml
-Generated: 2025-09-20T10:25:10.177431
+This SysML v2 model describes a family adoption process.  The model centers around a `Family` package containing various elements to represent people, documents, interactions, and the legal aspects of adoption.
 
-This is a placeholder text description. The actual natural language description should be added manually.
+**Key Components:**
+
+* **People:** The model defines a `Person` part with attributes like `name`, `age`, `weight`, and `isAdult`.  People can be in either an `awake` or `asleep` state, responding to inquiries only when awake.  The `adult` part specializes `Person` and includes events for receiving legal information, acknowledging it, and receiving a certificate. Specific roles like `woman`, `man`, `judge`, `adoptiveParent_1`, `adoptiveParent_2`, and `socialService` are defined as parts, all specializing `adult`.
+
+* **Documents:** `Administrative_Document` is a generic item representing documents.  `Adoption_Certificate` specializes this, representing the legal adoption document.  It connects to `Person` parts representing the parents and the adopted `Child`.
+
+* **Communication:**  `VerbalExchange` ports model communication between persons, using `VerbalInteraction` sub-ports to represent the sending and receiving of `SoundWaveMessage` items.  `VerbalCommunication` interfaces define connections between these ports.  Messages are further categorized as `ApplicableLaw`, `Agreement`, and `AssertCertificate`.
+
+* **Adoption Process:** The `Agree on adoption` use case details the process, involving a judge, the biological parents (`woman`, `man`), and the adoptive parents (`adoptiveParent_1`, `adoptiveParent_2`). The objective clarifies the legal agreement and certificate issuance.  This process is visually depicted in the `AdoptionCertification` occurrence, showing the message flow between the participants.
+
+* **Child:** The `Child` connection represents the biological child, with timeslices for `not_adopted` and `adopted` states.  A `birth` and `death` snapshot mark the beginning and end of the child's existence within the model.
+
+* **Actions:** The model includes several actions, like `ProcessMessage` (which includes sub-actions `ParseMessage`, `Think`, and `SerializeMessage`), to represent the processing of messages.
+
+* **Constraints and Requirements:** A `minimumAgeForAdoptiveParenthood` constraint ensures adoptive parents are at least 18 years old.  The `LegalAdoptionParenthood` requirement formalizes this constraint, applying it specifically to the `Adoption_Certificate`.  The `validAdoptionParenthood` requirement ensures both adoptive parents in a specific `Adoption_Certificate` variant meet this age requirement.
+
+* **Variations:**  The model includes variations on the `Adoption_Certificate` to represent different adoption scenarios (e.g., single adoptive parent, two adoptive parents).
+
+**Overall:**  The model provides a comprehensive representation of the family adoption process, including the participants, communication, legal documents, and constraints, allowing for different adoption scenarios to be represented. The use of parts, ports, connections, actions, and constraints contributes to a robust and detailed description of the system.

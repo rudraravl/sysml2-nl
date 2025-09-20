@@ -1,4 +1,4 @@
-import json, argparse, hashlib
+import json, hashlib
 from pathlib import Path
 
 import jsonschema
@@ -18,7 +18,8 @@ def is_utf8(path: Path) -> bool:
     except Exception:
         return False
 
-def main(root: Path):
+def main():
+    root = Path(__file__).parent.parent
     manifest = root / "index" / "manifest.jsonl"
     schema = json.load(open(root / "schema" / "manifest.schema.json", "r", encoding="utf-8"))
     n = 0
@@ -66,7 +67,4 @@ def main(root: Path):
         print("All files exist, are UTF-8 encoded, and checksums match ✓")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--root", type=str, default=".")
-    args = parser.parse_args()
-    main(Path(args.root))
+    main()
