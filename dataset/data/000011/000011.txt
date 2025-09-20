@@ -1,12 +1,7 @@
-This SysML v2 model describes the state machine for a stopwatch-like system, likely related to vehicle status.  The system has four states:
+This SysML model represents a simple vehicle's operational state machine.  The system is a vehicle (could be a car, a boat, a piece of heavy machinery, etc.) that can be in one of several states: stopped, ready, running, and paused.
 
-* **Ready:** The initial state.  The system transitions to the `running` state upon receiving a `VehicleStartSignal`.
+The vehicle starts in a stopped state.  When a "VehicleStartSignal" is received, it transitions to the "ready" state, indicating it's prepared to operate. A subsequent "VehicleStartSignal" moves it from ready to "running," signifying active operation.
 
-* **Running:**  The stopwatch is actively timing. It transitions to `stopped` upon receiving a `VehicleOnSignal`, and to `paused` upon receiving a `VehicleOffSignal`.
+While running, receiving a "VehicleOnSignal" (perhaps mistakenly named, as it signifies stopping) transitions the vehicle to the "stopped" state.  Alternatively, a "VehicleOffSignal" (appropriately named) will put the vehicle into a "paused" state.
 
-* **Paused:** The stopwatch is temporarily halted. It can resume to `running` or transition to `stopped` upon receiving a `VehicleOffSignal`.  The model indicates that both transitions are possible when this signal is received which might be a modeling error or a deliberate design decision depending on the context.
-
-* **Stopped:** The stopwatch has completed its timing cycle. It transitions to a seemingly undefined state `done` upon receiving a `VehicleOffSignal`. This `done` state is not explicitly defined within the model, suggesting a possible omission or the need for further elaboration.
-
-
-The model uses three signals to trigger state transitions: `VehicleStartSignal`, `VehicleOnSignal`, and `VehicleOffSignal`.  The exact meaning of these signals within the vehicle context would require further information.  The overall behavior suggests a system that starts timing when a vehicle starts, stops when the vehicle is fully on, pauses when the vehicle is off, and then can either resume or completely stop when the vehicle is turned off again (ambiguous in the paused state). The final transition to a `done` state needs further clarification.
+From the paused state, another "VehicleOffSignal" (meaning resuming operation in this context) will return it to the running state, while a second "VehicleOffSignal"  will move it to stopped state.  Finally, from the stopped state, a "VehicleOffSignal" (again, potentially a naming issue) transitions it to a "done" state, implicitly indicating a completion of a task or session.  The model doesn't explicitly define what "done" entails, beyond being a terminal state after completing a session in stopped state.  The inconsistency in signal interpretation from the paused state to the stopped state needs clarification in the real-world system design.

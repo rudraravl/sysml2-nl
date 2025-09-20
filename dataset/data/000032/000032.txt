@@ -1,26 +1,5 @@
-This SysML v2 model describes the use cases for a Mining Frigate.  The model is organized into a package `MiningFrigateUseCases` which imports definitions from other packages (`Domain`, `MiningFrigateRequirements`, `MiningFrigate`).
+This SysML model describes a mining frigate, a spacecraft designed for asteroid mining and defense.  The frigate operates autonomously but is controlled and monitored by a pilot pod.  Its primary function is to locate and mine asteroids, extracting ore and transporting it back to a space station for processing. This involves navigating to asteroid fields, deploying mining lasers to extract ore, and then transferring the mined ore to internal storage.
 
-The model defines several main use cases:
+The frigate also possesses a robust defense system.  It's equipped with sensor arrays to detect threats, such as hostile ships, and engages defense systems including turrets and deployable drones to neutralize these threats.  The drones are versatile, capable of both defensive and potentially auxiliary mining tasks, depending on the pilot's instructions.
 
-* **`mineAsteroids`:** This use case encompasses the entire process of mining asteroids.  It includes navigating to the asteroid (`navigateToDestination`), mining the asteroid (implicit), and transferring the mined ore to the ship's cargo hold (`transferCargo`).
-
-* **`detectThreatsAndEngageDefenses`:** This use case covers the frigate's response to threats.  It involves engaging the defense systems (`engageDefenseSystems`) which includes both turrets and drones.
-
-* **`plotCourseAndNavigate`:** This use case focuses on planning and executing a course, utilizing the `navigateToDestination` use case.
-
-* **`offloadOreAndResupply`:** This use case describes the process of offloading mined ore and resupplying the frigate at a station. It includes `transferCargo` and `resupplySystems` use cases.
-
-* **`deployDrones`:** This use case details the deployment of drones, potentially for both mining and defense, leveraging the `engageDefenseSystems` use case.
-
-
-The model also defines several *included* use cases that are components of the main use cases:
-
-* **`navigateToDestination`:** This describes the process of navigating the frigate to a specified destination. It involves accepting a destination, plotting a course, and monitoring progress, handling exceptions like propulsion system failure or navigation system loss.  The `pilotPod` is the actor interacting with this use case.
-
-* **`transferCargo`:** This details the transfer of ore or other cargo within the frigate. It handles potential failures in the cargo transfer system. The `pilotPod` interacts with this use case.
-
-* **`engageDefenseSystems`:** This use case describes the engagement of the frigate's defense systems against hostile ships. It involves threat detection, activation of defense turrets and drones, and handling exceptions like turret or drone failures.  Both `pilotPod` and `hostileShip` are actors in this use case.
-
-* **`resupplySystems`:** This describes the process of resupplying the frigate's systems at a station. It handles potential failures in the resupply system. The `station` is the actor involved.
-
-Each use case (both main and included) has a detailed `objective` section providing a description of the main flow, alternate flows, and exception flows.  These descriptions provide a more granular understanding of the steps and potential variations within each use case.  The `subject` of all use cases is the `miningFrigate`.  The model clearly defines the actors involved in each use case, which are primarily the `pilotPod`, `hostileShip`, `station`, and `asteroidBelt`.
+The frigate periodically needs to offload its mined ore and resupply its fuel and life support systems at a space station. This process involves docking with the station, transferring cargo, and receiving necessary supplies.  The entire process, from navigation and mining to defense and resupply, is managed through a sophisticated control system that allows for both autonomous operation and manual overrides by the pilot pod as needed.  The system includes comprehensive error handling and alternate procedures to account for equipment malfunctions and unexpected events.

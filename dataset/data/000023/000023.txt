@@ -1,16 +1,3 @@
-This SysML v2 model describes a verification plan for a Mining Frigate.  The plan centers around a `MiningFrigateTestRig`, which includes the frigate itself (`miningFrigateDUT`), a `testEngineer`, a `TestEnvironment` for simulating various operational conditions (like simulated asteroid fields and attacks), and a `DataLogger` to record test results.
+This model describes a test environment and process for verifying the capabilities of a mining frigate.  The frigate itself is the system under test (SUT), and it's subjected to various tests to ensure it meets its design requirements.  The test environment includes a simulated space environment capable of reproducing different levels of threat (from high-security, safe zones to low-security, dangerous zones), a data logger to record performance metrics, and a ship engineer to oversee the testing process.
 
-The model defines five verification tests:
-
-* **`OreExtractionEfficiencyTest`:**  This test verifies that the frigate's ore extraction rate meets requirements, particularly in low-security space.  It involves collecting data on extraction rates (`miningRateMeasuredLS`) in a simulated low-security environment and comparing it to a predefined `oreExtractionEfficiencyRequirementLowSec`.
-
-* **`CargoCapacityTest`:** This test verifies the frigate's cargo capacity (`cargoCapacityMeasured`) against the `cargoCapacityRequirementLowSec` in low-security space.
-
-* **`SurvivabilityTest`:** This test assesses the frigate's ability to withstand attacks.  It simulates attacks in low-security space (`simulateLowSecAttack`), measures the resulting shield strength (`shieldStrengthMeasuredLS`), and compares it to the `survivabilityRequirementLowSec`.
-
-* **`DroneOperationsTest`:** This test checks the functionality of the frigate's drones. It measures the number of drones that can be deployed (`droneCapacityMeasured`) and verifies this against the `droneOperationsRequirementLowSec`.
-
-* **`ThreatDetectionTest`:** This test evaluates the frigate's threat detection capabilities. It measures the detection range (`threatDetectionRangeMeasured`) and compares it to the `threatDetectionRequirementLowSec`.
-
-
-Each verification test follows a similar structure:  it defines an objective, uses actions to collect and evaluate data, and returns a `verdict` (Pass/Fail).  The `VerificationMethod` metadata is set to `test` for all verifications. The tests use functions (e.g., `oreExtractionEfficiencyRequirementLowSec`) which are presumably defined elsewhere (in the imported packages) to determine pass/fail criteria. The `subject` of each verification is the `miningFrigateDUT`, clearly indicating which part of the test rig is being evaluated.  The model emphasizes low-security operational conditions for the verification process.
+The mining frigate's performance is verified through several tests:  ore extraction efficiency, cargo capacity, survivability (shield strength under attack), drone deployment capacity, and threat detection range. Each test involves the frigate performing a specific action (e.g., mining ore, deploying drones), collecting data on its performance, and then having that data evaluated against pre-defined requirements.  The results of each test provide a pass/fail verdict indicating whether the frigate meets the specified criteria in different security zones (high-security and low-security environments are explicitly mentioned).  The entire process aims to validate that the mining frigate operates as expected across a range of operational conditions.

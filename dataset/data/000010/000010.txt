@@ -1,15 +1,1 @@
-This SysML v2 model defines a system for managing data types.  It's structured into several packages:
-
-* **Metamodel:** Defines a base `ModelElement` with common attributes (unique identifier `muid`, name, and description). This serves as a foundation for other elements.
-
-* **BaseFormat:** Defines a `Format` element with an ID (real number), name (string), and table name (string). This likely represents different formatting options for data.
-
-* **Datatypes:** This package is the core, defining several data types:
-    * **Datatype:**  This is an abstract part that specializes `ModelElement` and has a single `base_format` of type `Format`. This links each data type to a specific format defined in the `BaseFormat` package.
-    * **AutoReference:** This specializes `Datatype` and adds attributes for generating auto-incrementing references, including a prefix, a boolean indicating whether to start from 1, and a boolean for interval (likely for step size).
-    * **Integer:** This specializes `Datatype` and adds attributes for specifying minimum and maximum values, and booleans to indicate whether display and edit separators should be used.  It also includes an assertion that its `base_format` ID must be 1.
-    * **Boolean:** This is a specialized `Datatype` with an assertion that its `base_format` ID must be 3.
-
-* **poc:** This package contains a simple example (`test`) demonstrating the usage of the defined data types.  It shows a `test` element having an `id` of type `AutoReference` and a `quantity` of type `Integer`.
-
-In essence, the model provides a mechanism to define different data types, associating them with specific formats and potentially constraints (like minimum/maximum values or format IDs).  The `poc` package illustrates a practical application of these data types.  The use of assertions ensures data integrity, enforcing the relationship between data types and their associated formats.
+This SysML v2 model describes a system for managing and defining data types.  The system is designed to handle different data formats, including integers and auto-referencing strings.  It allows for the definition of specific data type characteristics such as minimum and maximum values for integers, and the specification of prefixes, starting values, and intervals for auto-referencing strings.  Boolean values are also supported. Each data type is associated with a format identifier, ensuring consistency and enabling data interpretation. The system includes a mechanism for managing and linking these data types to a 'base format' which likely defines the underlying storage or representation.  The `poc` package shows an example of how to use these data types, demonstrating a simple structure with an auto-referencing ID and an integer quantity. The system is essentially a metadata management system focused on the definition and categorization of data types within a larger application or system.

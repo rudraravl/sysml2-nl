@@ -1,20 +1,5 @@
-This SysML model defines standard ports and interfaces for a system with three types of slots: High, Medium, and Low.  Each slot type has a corresponding port definition and interface definition.
+This SysML model describes a modular system with three types of slots for connecting and powering modules.  Think of it like a chassis or a rack system, but instead of computer hardware, it houses independent modules of different sizes and power requirements.
 
-**Port Definitions:**  These define the inputs to each slot.
+The system has three kinds of slots: High, Medium, and Low.  Each slot provides power and/or control signals to a plugged-in module.  High and Medium slots provide both a power supply (indicated by `PowerSupply` which defines the amount of energy transferred) and an activation command (`HighSlotCommand` or `MediumSlotCommand`, a simple on/off signal). Low slots only provide an activation command (`LowSlotCommand`).
 
-* **HighSlotPort:** Receives a `PowerSupply` and a `HighSlotCommand`.
-* **MediumSlotPort:** Receives a `PowerSupply` and a `MediumSlotCommand`.
-* **LowSlotPort:** Receives only a `LowSlotCommand`.
-
-**Data Types:** These define the structure of the data flowing through the ports.
-
-* **PowerSupply:** Represents power input, characterized by an `energyTransfer` attribute (a real number).
-* **HighSlotCommand**, **MediumSlotCommand**, **LowSlotCommand:** Represent activation commands, each having an `activation` attribute (a boolean value).
-
-**Interface Definitions:** These define how the ports are connected and what data flows between them.  Each interface has a "hull port" (representing the system's side) and a "module port" (representing a connected module's side).
-
-* **HighSlotInterface:**  Connects a `HighSlotPort` on the hull to a `HighSlotPort` on a module.  It defines the flow of `PowerSupply` and `HighSlotCommand` from the hull to the module.
-* **MediumSlotInterface:** Connects a `MediumSlotPort` on the hull to a `MediumSlotPort` on a module.  It defines the flow of `PowerSupply` and `MediumSlotCommand` from the hull to the module.
-* **LowSlotInterface:** Connects a `LowSlotPort` on the hull to a `LowSlotPort` on a module.  It defines the flow of only the `LowSlotCommand` from the hull to the module.
-
-In essence, the model describes a standardized way to connect modules to a system, providing different levels of power and control depending on the slot type.  The use of interfaces ensures a clear and consistent connection methodology.  The `~` before `HighSlotPort`, `MediumSlotPort`, and `LowSlotPort` in the interface definitions indicates a provided port (as opposed to a required port).
+Modules are plugged into these slots.  The `HighSlotInterface`, `MediumSlotInterface`, and `LowSlotInterface` define how the power and control signals flow from the chassis to the connected modules.  For example, a module in a High slot receives both power and an activation signal from the chassis.  A module in a Low slot receives only an activation signal. The model doesn't specify what the modules *do*, only how they receive power and control signals.  It's a flexible system designed to accommodate various interchangeable modules, each with its own function, within the limits of its slot's power and control capabilities.

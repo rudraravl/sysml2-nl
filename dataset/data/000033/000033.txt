@@ -1,11 +1,1 @@
-This SysML v2 model describes a calculation example involving the mass of a vehicle and its parts.  It uses a package named `CalculationExample` that imports functionality related to information storage queries (`ISQ`) and numerical functions.
-
-The model defines a `VehiclePart` part, which has a mass attribute (`m`) of type `MassValue`. A `Vehicle` part is then defined as a specialization (refinement) of `VehiclePart`.
-
-A specific `vehicle` instance is created, which consists of two `VehiclePart` instances: an `eng` (engine) and a `trans` (transmission).  Each of these parts implicitly has a mass attribute (`m`).
-
-A calculation definition (`MassSum`) is created to calculate the total mass of a collection of `MassValue` instances by summing them.
-
-This calculation is then instantiated as `ms`, using the masses of the engine and transmission (`vehicle.eng.m`, `vehicle.trans.m`) as input. The result (`totalMass`) is assigned to the mass of the whole vehicle (`vehicle.m`). This indicates a constraint or intended relationship: the vehicle's total mass should equal the sum of its parts' masses.
-
-Finally, the model demonstrates array operations.  An array `vehicles` containing two instances of the `vehicle` is created. Two attributes, `masses1` and `masses2`, are then created using the `as` keyword to cast the vehicle array elements to `VehiclePart` and `Vehicle` respectively before accessing the `m` attribute. This highlights how different views or types can be used to access attributes within collections.  `masses1` will contain the mass of each part (engine and transmission of both vehicles), whereas `masses2` will only contain the masses of the complete vehicles (not including individual part masses).
+This SysML model represents a simple vehicle system, likely a car or similar land vehicle, focusing on its mass calculation.  The vehicle is composed of an engine and a transmission, each having a mass. The system calculates the total mass of the vehicle by summing the individual masses of the engine and transmission.  The model demonstrates how the overall vehicle mass (`vehicle.m`) is derived from the component masses (`vehicle.eng.m` and `vehicle.trans.m`).  It also shows that multiple vehicles can be considered simultaneously, allowing for a calculation of the masses of multiple vehicles at once.  The system doesn't include any other functionalities or components beyond this mass calculation.

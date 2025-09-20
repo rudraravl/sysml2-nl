@@ -1,13 +1,3 @@
-This SysML v2 model describes a system for analyzing the mass and power consumption of a frigate.  It uses a hierarchical, compositional approach.
+This SysML model represents a system for analyzing the mass and power consumption of a mining frigate.  The system calculates the overall mass and power usage of the frigate by breaking it down into individual components.  These components can be either simple, directly contributing a specific mass and power draw, or composite, made up of multiple sub-components whose mass and power are recursively summed up.
 
-The model defines a base `FrigateComponent` part which has attributes for `mass`, `totalMass`, `powerUsage`, and `totalPowerUsage`.  These represent the individual component's mass and power consumption, and the total mass and power consumption including its subcomponents (if any).
-
-Two types of frigate components inherit from the base:
-
-* **`SimpleFrigateComponent`:** This represents a simple component whose total mass and power usage are simply its own mass and power usage.  The `redefines` keyword indicates that the `totalMass` and `totalPowerUsage` attributes are directly equal to `mass` and `powerUsage`, respectively.
-
-* **`CompositeFrigateComponent`:** This represents a composite component made up of other `FrigateComponent`s (including other `CompositeFrigateComponent`s). It recursively calculates its `totalMass` and `totalPowerUsage` by summing the `totalMass` and `totalPowerUsage` of its `subcomponents` and adding its own `mass` and `powerUsage`.  The `default` keyword specifies the calculation used for these attributes.
-
-The model implicitly suggests a "roll-up" calculation where the mass and power of a frigate are determined by aggregating the mass and power of its constituent components, recursively.  The comment at the end hints at a specific frigate named "venture" as an example of how this rollup would work, summing the hull's mass and fitted modules' masses to get the venture's total mass, and similarly for power usage.
-
-The `import` statements indicate the model relies on external packages providing definitions for scalar values, numerical functions, and a "Mining Frigate Solution Space" – suggesting this model is part of a larger system for frigate design and analysis.
+The analysis calculates the total mass (`totalMass`) and total power usage (`totalPowerUsage`) for the entire frigate, (`venture`) which is built up by summing the mass and power consumption of all its constituent parts.  Each component, regardless of complexity, has an individual mass and power usage attribute. Simple components directly contribute their individual values, while composite components recursively aggregate the `totalMass` and `totalPowerUsage` of their sub-components.  The final result provides a comprehensive overview of the frigate's overall weight and energy requirements, likely used for design optimization or mission planning.

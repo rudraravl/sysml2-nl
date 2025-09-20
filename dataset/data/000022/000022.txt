@@ -1,25 +1,3 @@
-This SysML model defines requirements for a Mining Frigate and related aspects of fleet operation.  The model is organized within a package named `MiningFrigateRequirementsDef`, importing necessary elements from other packages (`Domain`, `ScalarValues`, `StakeholderConcerns`, `MiningFrigate`).
+This is a mining frigate, a spacecraft designed for efficient asteroid mining operations in various levels of security space (High Sec, Low Sec, Null Sec, and Wormholes).  The frigate's primary function is to extract ore from asteroids, transporting it to a docking station for offloading.  It’s designed for both individual operation and fleet coordination, maximizing ore yield and profitability.
 
-The core of the model consists of several requirement definitions, each specifying a constraint on the Mining Frigate's capabilities or the broader operational context:
-
-* **MFRQ01 (Ore Extraction Efficiency):** The Mining Frigate must extract ore at a minimum rate of 20 m³/minute in High Sec and 50 m³/minute in less secure environments (Low Sec, Null Sec, Wormholes). This requirement addresses the `OreYieldConcern`.
-
-* **MFRQ02 (Cargo Capacity):** The Mining Frigate needs a minimum cargo capacity of 5000 m³, expandable through modules. This impacts `TotalProfitabilityConcern`.
-
-* **MFRQ03 (Survivability):**  The Mining Frigate must withstand at least 200 DPS in High Sec and 400 DPS in less secure environments. This addresses both `SecurityConcern` and `SurvivabilityConcern`.
-
-* **MFRQ04 (Drone Operations):** The Mining Frigate should support at least 5 drones for mining and combat. This relates to `ThreatNeutralizationConcern` and `OreYieldConcern`.
-
-* **STRQ05 (Threat Detection):** The Mining Frigate's threat detection range must be at least 20 AU.  This addresses `SecurityConcern` and `ThreatNeutralizationConcern`.
-
-* **MFRQ06 (Travel Efficiency):** The Mining Frigate requires a minimum warp speed of 5 AU/second and an align time under 3 seconds. This impacts `DeploymentEfficiencyConcern`.
-
-* **MFRQ07 (Mining Target):** The Mining Frigate can lock and mine up to 3 asteroid targets simultaneously. This requirement addresses `OreYieldConcern`.
-
-* **MFRQ08 (Docking):** The Mining Frigate should dock and offload ore within 1 minute. This relates to `OreDeliveryEfficiencyConcern`.
-
-* **MFRQ09 (Fleet Coordination):** The Fleet Commander must be able to coordinate fleets of up to 10 Mining Frigates. This addresses `FleetDeploymentEfficiencyConcern` and `ScalabilityConcern`.
-
-* **MFRQ10 (Ore Compression):**  This requirement, surprisingly, applies to a Rorqual (a larger ship type) and specifies that it must support onboard ore compression with a factor of 10. This impacts `TotalProfitabilityConcern`.
-
-Each requirement includes a description (`doc`), the subject it applies to (e.g., `miningFrigate`, `fleetCommander`, `rorqual`), relevant attributes (e.g., `miningRateLS`, `cargoCapacity`), constraints defining the minimum or maximum acceptable values, and one or more linked `StakeholderConcerns` which provide context and rationale for the requirement.  The model uses  Real numbers for attributes, implying floating-point values are expected.
+Key features include a high ore extraction rate, varying depending on security status (significantly higher in less secure zones).  It boasts a substantial cargo capacity, expandable to accommodate larger hauls.  The frigate incorporates robust shielding to withstand attacks, offering greater protection in more dangerous environments.  To improve both mining and defensive capabilities, the frigate can deploy at least five drones for various tasks.  It also possesses a long-range threat detection system, allowing for early warnings of potential attacks.  For efficient travel between mining sites and docking stations, it features high warp speed and a quick alignment time.  The frigate can simultaneously target and mine up to three asteroids at once to maximize productivity. Docking and offloading at stations or POS (Player Owned Stations) is designed to be swift (under a minute).  Fleet commanders can coordinate fleets of up to ten of these mining frigates for large-scale operations.  While not directly a part of the frigate itself, the model also highlights the role of a Rorqual support vessel, capable of compressing mined ore to reduce its volume by a factor of ten for more efficient transport.
