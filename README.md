@@ -51,8 +51,12 @@ sysml2-nl/
 │   ├── gen_dataset_SysML_v2_Models.py      # Script to process SysML v2 model files from tmp directory and move them into dataset structure
 │   └── gen_NL_SysML_v2_Models.py          # Script to generate natural language descriptions from SysML v2 models using Gemini API
 └── tmp/                       # Temporary directory for external repositories and processing
-    └── SysML-v2-Models/       # External SysML v2 models repository for dataset generation
-        └── models/            # Source SysML v2 model files organized by example categories
+    ├── SysML-v2-Models/       # External SysML v2 models repository for dataset generation
+    │   └── models/            # Source SysML v2 model files organized by example categories
+    └── SysMLv2_Models_Validation/  # SysML v2 model validation tool with web interface
+        ├── run.sh             # Main script to run validation (web interface, command line, or sample models)
+        ├── SysMLAPIOM/        # Core validation library with SysML v2 metamodel validation
+        └── WebApp_SysMLv2APIOM/  # Web-based validation interface
 ```
 
 ## Maintain Logic
@@ -64,3 +68,12 @@ This README serves as the primary entry point for the Cursor AI agent and contai
 2. When the user request the agent to download paper with an link, the AI agent should download the paper to related_paper, then extract pdf's content into a content.md, then rename both the pdf and the content.md to some good name decide by the content, then modify related_paper/summary.md to have a short summary for this paper
 
 3. When writing code, follow Linus Torvalds' coding philosophy: avoid over-engineering, write minimal code with short variable names, use single functions instead of classes when possible, fail fast without excessive error handling, and prioritize readability over fancy abstractions. The code should be brutally simple and do exactly what's needed without fluff.
+
+## SysML v2 Model Validation Tool
+
+The project includes a comprehensive SysML v2 model validation tool located in `tmp/SysMLv2_Models_Validation/`. This tool validates SysML v2 models against the official metamodel specification and provides a web-based interface for easy model validation.
+```bash
+cd tmp/SysMLv2_Models_Validation
+./run.sh
+```
+This will automatically build the application and start the web server at http://localhost:5213 where you can upload and validate SysML v2 model files.
