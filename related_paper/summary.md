@@ -41,6 +41,20 @@ This Naval Postgraduate School 2024 paper explores the ability of current Large 
 
 This arXiv 2025 paper presents SysMBench, the first benchmark designed to evaluate the capability of Large Language Models in generating system models with model description languages from natural language requirements. The benchmark comprises 151 human-curated scenarios spanning a wide range of popular domains and varying difficulty levels, each containing natural language requirements descriptions, reference SysML v2 models, and visualized diagrams. The paper introduces SysMEval, a semantic-aware evaluation metric that decomposes models into atomic semantic claims for more reliable assessment than traditional string-based metrics. This work is highly relevant to the SysML2-NL project as it provides a comprehensive evaluation framework for assessing joint embedding quality, establishes baseline performance metrics for LLM-based system model generation, and offers valuable insights into the challenges and limitations of current approaches that could inform the development of more effective joint embedding techniques.
 
+## IEEE Access 2025: Ensuring Semantic Consistency in SysML v2 Models through Metamodel-Driven Validation
+
+[PDF](IEEE_Access_2025_Semantic_Consistency_SysML_v2_Models.pdf)
+
+[github](https://github.com/edcisa/SysMLv2_Models_Validation)
+
+This IEEE Access 2025 paper presents a systematic, metamodel-based method for validating SysML v2 models, utilizing the SysML v2 metamodel as a formal specification to facilitate automated detection of structural and semantic inconsistencies. The work addresses the emerging challenge of SysML v2 model validation by defining validation rules derived from the metamodel, enabling systematic identification and resolution of errors across aerospace, automotive, and software development domains. Unlike SysML v1 which was constrained by UML dependencies, SysML v2's standalone architecture with improved model semantics and enhanced consistency mechanisms requires sophisticated validation approaches. This research is highly relevant to the SysML2-NL project as it provides essential validation frameworks for ensuring correctness and reliability in SysML v2 models, offering insights into metamodel-driven validation techniques that could enhance the quality and consistency of joint embeddings between natural language and SysML v2 representations.
+
+## Medium 2023: Automated Reasoning for SysML v2
+
+[Article](Medium_2023_Automated_Reasoning_SysML_v2.md)
+
+This Medium article by Jamie Smith from Imandra Inc. demonstrates the integration of automated reasoning capabilities with SysML v2 models, leveraging the formal semantics of KerML to enable rigorous analysis and verification. The work presents a comprehensive traffic light case study using Imandra's reasoning engine to verify deterministic behavior, proper error handling, and safety properties through formal verification techniques. The article showcases automated translation between SysML v2 and Imandra Modeling Language (IML), enabling mathematical proof of model correctness and systematic identification of design flaws. This research is highly relevant to the SysML2-NL project as it provides practical examples of formal verification techniques for SysML v2 models, demonstrates the value of automated reasoning in safety-critical systems, and offers insights into AI-powered model validation approaches that could enhance the quality and reliability of joint embeddings between natural language and SysML v2 representations.
+
 ## Medium 2024: Overview of SysML 2.0 with Examples
 
 [Article](Medium_2024_SysML_2_0_Overview_Examples.md)
