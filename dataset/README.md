@@ -1,12 +1,21 @@
 # SysML2 ↔ Natural Language Alignment Dataset (Starter)
 
-This repository is a **starter skeleton** for building a dataset that pairs SysML v2 textual models (`.sysml`)
+This repository contains a comprehensive dataset that pairs SysML v2 textual models (`.sysml`)
 with natural language descriptions (`.txt`), along with metadata and a canonical manifest index.
+
+**Total: 685 samples** from official OMG sources and community repositories.
+
+### Dataset Composition
+- **250 samples** from OMG SysML v2 Official Release (examples, training, validation)
+- **36 samples** from community SysML-v2-Models repository  
+- **399 samples** from OMG SysML-v2-Pilot-Implementation repository
+- **Quality tiers**: A+ (Official Release), A (Pilot Implementation), B (Community)
 
 ## Data Sources
 
-- **000001 - 000036**: SysML v2 models from [SysML-v2-Models repository](https://github.com/GfSE/SysML-v2-Models)
-- **000101 - 000102**: LLM-generated natural language descriptions using Gemini API
+- **000001 - 000250**: SysML v2 models from [OMG SysML v2 Official Release](https://github.com/Systems-Modeling/SysML-v2-Release) (Most Important - Official Examples & Training)
+- **000251 - 000286**: SysML v2 models from [SysML-v2-Models repository](https://github.com/GfSE/SysML-v2-Models) (Community Examples)
+- **000287 - 000685**: SysML v2 models from [SysML-v2-Pilot-Implementation repository](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) (OMG Official Pilot Implementation)
 
 ## Layout
 - `data/<id>/` holds triplets: `<id>.sysml`, `<id>.txt`, `meta.json`
