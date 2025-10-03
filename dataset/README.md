@@ -23,7 +23,7 @@ with natural language descriptions (`.txt`), along with metadata and a canonical
   - **000287 - 000600**: Core Libraries (314 samples) - Domain libraries, systems library, and tool-generated libraries
   - **000601 - 000650**: Examples & Tests (50 samples) - Vehicle examples, camera models, and validation test cases
   - **000651 - 000685**: Generated Libraries (35 samples) - Auto-generated quantity libraries and tool support files
-- **000686 - 000695**: SysML v2 models from ESA/ESA_Comet aerospace projects (Aerospace Domain)
+- **000686 - 000695**: SysML v2 models from ESA/ESA_Comet aerospace projects ([MontiCore/sysmlv2](https://github.com/MontiCore/sysmlv2)) (Aerospace Domain)
 
 ## Layout
 - `data/<id>/` holds triplets: `<id>.sysml`, `<id>.txt`, `meta.json`
