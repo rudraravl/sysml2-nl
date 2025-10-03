@@ -41,7 +41,8 @@ def main():
         
         rec = {
             "id": did,
-            "split": meta_data.get("labels", {}).get("split", "unknown"),
+            "split": meta_data.get("split", "unknown"),
+            "quality_tier": meta_data.get("quality_tier", "B"),
             "paths": {
                 "sysml": str(sysml.relative_to(root)).replace("\\","/"),
                 "text":  str(text.relative_to(root)).replace("\\","/"),
@@ -62,7 +63,7 @@ def main():
                 "text_tokens": count_tokens(text),
                 "language": "en"
             },
-            "labels": {"domain":"unknown","diagram_kinds":[],"difficulty":"easy","quality_tier":"B"},
+            "labels": meta_data.get("labels", {"domain":"unknown","diagram_kinds":[],"difficulty":"beginner","quality_tier":"B"}),
             "license":"CC-BY-4.0",
             "source":{"provenance":"unknown","timestamp":"", "version":""}
         }
@@ -103,9 +104,9 @@ def main():
         "total_sysml_size": total_sysml_size,
         "total_text_size": total_text_size,
         "total_meta_size": total_meta_size,
-        "quality_tiers": {tier: sum(1 for r in records if r["labels"]["quality_tier"] == tier) for tier in ["A", "B", "C"]},
+        "quality_tiers": {tier: sum(1 for r in records if r.get("quality_tier") == tier) for tier in ["A+", "A", "B", "C"]},
         "domains": list(set(r["labels"]["domain"] for r in records if r["labels"]["domain"] != "unknown")),
-        "difficulty_levels": {level: sum(1 for r in records if r["labels"]["difficulty"] == level) for level in ["easy", "medium", "hard"]},
+        "difficulty_levels": {level: sum(1 for r in records if r["labels"]["difficulty"] == level) for level in ["beginner", "intermediate", "advanced"]},
         "diagram_kinds": list(set(kind for r in records for kind in r["labels"]["diagram_kinds"])),
         "version": version,
         "created_utc": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat().replace("+00:00", "Z")

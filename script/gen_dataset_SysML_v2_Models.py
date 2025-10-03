@@ -1,160 +1,76 @@
 #!/usr/bin/env python3
 """
-Dataset Generation Script for SysML v2 Models
-
-This script processes SysML v2 model files from the tmp/SysML-v2-Models/models directory
-and moves them into the dataset/data structure with proper naming and metadata.
-
-Source: https://github.com/GfSE/SysML-v2-Models.git
+Simple script to generate dataset from SysML-v2-Models.
+Fixed range: 000251-000286 (36 samples)
 """
 
-import os
 import shutil
 import json
 from pathlib import Path
 from datetime import datetime
 
-def find_sysml_files(root_dir: Path):
-    """Find all .sysml files recursively in the given directory."""
-    sysml_files = []
-    for file_path in root_dir.rglob("*.sysml"):
-        sysml_files.append(file_path)
-    return sorted(sysml_files)
+# Fixed range for community samples
+START_ID = 251
+END_ID = 286
 
-def get_next_id(dataset_dir: Path):
-    """Get the next available ID starting from 000001, finding the smallest unused ID."""
-    if not dataset_dir.exists():
-        return "000001"
-    
-    # Get all existing IDs
-    existing_ids = set()
-    for item in dataset_dir.iterdir():
-        if item.is_dir() and item.name.isdigit() and len(item.name) == 6:
-            existing_ids.add(int(item.name))
-    
-    # Find the smallest available ID starting from 1
-    next_id = 1
-    while next_id in existing_ids:
-        next_id += 1
-    
-    return f"{next_id:06d}"
+def find_sysml_files():
+    """Find all .sysml files in the community repo."""
+    source_dir = Path("tmp/SysML-v2-Models")
+    files = []
+    for file_path in source_dir.rglob("*.sysml"):
+        if file_path.is_file():
+            files.append(file_path)
+    return sorted(files)
 
-def create_sample_directory(dataset_dir: Path, sample_id: str):
-    """Create a sample directory with the given ID."""
-    sample_dir = dataset_dir / sample_id
+def create_sample(sample_id, source_file):
+    """Create one sample directory and copy files."""
+    sample_dir = Path(f"dataset/data/{sample_id:06d}")
     sample_dir.mkdir(parents=True, exist_ok=True)
-    return sample_dir
-
-def create_meta_json(sample_dir: Path, source_file: Path, sample_id: str):
-    """Create metadata JSON file for the sample."""
-    meta_data = {
-        "id": sample_id,
-        "source": {
-            "file": str(source_file.relative_to(Path.cwd())),
-            "original_name": source_file.stem,
-            "directory": str(source_file.parent.relative_to(Path.cwd())),
-            "provenance": "SysML-v2-Models repository",
-            "timestamp": datetime.now().isoformat(),
-            "version": "1.0"
-        },
+    
+    # Copy .sysml file
+    shutil.copy2(source_file, sample_dir / f"{sample_id:06d}.sysml")
+    
+    # Create .txt file
+    with open(sample_dir / f"{sample_id:06d}.txt", 'w') as f:
+        f.write(f"SysML v2 model from community repository: {source_file.name}")
+    
+    # Create meta.json
+    meta = {
+        "id": f"{sample_id:06d}",
+        "provenance": "SysML-v2-Models repository",
+        "split": "community",
+        "quality_tier": "B",
         "labels": {
-            "domain": "unknown",
-            "diagram_kinds": [],
-            "difficulty": "easy",
-            "quality_tier": "B"
+            "domain": "general",
+            "difficulty": "intermediate",
+            "diagram_kinds": ["textual"]
         },
-        "license": "CC-BY-4.0",
-        "stats": {
-            "sysml_lines": 0,
-            "text_tokens": 0,
-            "language": "en"
-        }
+        "created": datetime.now().isoformat()
     }
     
-    meta_file = sample_dir / "meta.json"
-    with open(meta_file, 'w', encoding='utf-8') as f:
-        json.dump(meta_data, f, indent=2, ensure_ascii=False)
-    
-    return meta_file
-
-def create_text_file(sample_dir: Path, source_file: Path, sample_id: str):
-    """Create a placeholder text file for the sample."""
-    text_file = sample_dir / f"{sample_id}.txt"
-    
-    # Create a basic description based on the source file
-    description = f"SysML v2 model: {source_file.stem}\n"
-    description += f"Source: {source_file.parent.name}\n"
-    description += f"Original file: {source_file.name}\n"
-    description += f"Generated: {datetime.now().isoformat()}\n\n"
-    description += "This is a placeholder text description. "
-    description += "The actual natural language description should be added manually."
-    
-    with open(text_file, 'w', encoding='utf-8') as f:
-        f.write(description)
-    
-    return text_file
-
-def process_sysml_file(source_file: Path, dataset_dir: Path, sample_id: str):
-    """Process a single .sysml file and move it to the dataset structure."""
-    print(f"Processing: {source_file}")
-    
-    # Create sample directory
-    sample_dir = create_sample_directory(dataset_dir, sample_id)
-    
-    # Copy the .sysml file
-    target_sysml = sample_dir / f"{sample_id}.sysml"
-    shutil.copy2(source_file, target_sysml)
-    
-    # Create metadata file
-    meta_file = create_meta_json(sample_dir, source_file, sample_id)
-    
-    # Create placeholder text file
-    text_file = create_text_file(sample_dir, source_file, sample_id)
-    
-    print(f"  Created: {sample_dir}")
-    print(f"  Files: {target_sysml.name}, {text_file.name}, {meta_file.name}")
+    with open(sample_dir / "meta.json", 'w') as f:
+        json.dump(meta, f, indent=2)
     
     return sample_dir
 
 def main():
-    """Main function to process all .sysml files."""
-    # Define paths
-    script_dir = Path(__file__).parent
-    project_root = script_dir.parent
-    source_dir = project_root / "tmp" / "SysML-v2-Models" / "models"
-    dataset_dir = project_root / "dataset" / "data"
+    """Main function - simple and stupid."""
+    print("Finding .sysml files...")
+    files = find_sysml_files()
+    print(f"Found {len(files)} files")
     
-    print(f"Source directory: {source_dir}")
-    print(f"Dataset directory: {dataset_dir}")
-    
-    # Check if source directory exists
-    if not source_dir.exists():
-        print(f"ERROR: Source directory not found: {source_dir}")
-        print("Please ensure the SysML-v2-Models repository is cloned in tmp/")
+    if len(files) > (END_ID - START_ID + 1):
+        print(f"ERROR: Too many files ({len(files)}) for range {START_ID:06d}-{END_ID:06d}")
         return
     
-    # Find all .sysml files
-    sysml_files = find_sysml_files(source_dir)
-    print(f"Found {len(sysml_files)} .sysml files")
+    print(f"Processing files {START_ID:06d}-{END_ID:06d}...")
     
-    if not sysml_files:
-        print("No .sysml files found to process")
-        return
+    for i, source_file in enumerate(files):
+        sample_id = START_ID + i
+        sample_dir = create_sample(sample_id, source_file)
+        print(f"  {source_file.name} -> {sample_id:06d}")
     
-    # Process each file
-    processed_count = 0
-    for source_file in sysml_files:
-        sample_id = get_next_id(dataset_dir)
-        try:
-            process_sysml_file(source_file, dataset_dir, sample_id)
-            processed_count += 1
-        except Exception as e:
-            print(f"ERROR processing {source_file}: {e}")
-            continue
-    
-    print(f"\nProcessing complete!")
-    print(f"Processed {processed_count} files")
-    print(f"Next available ID: {get_next_id(dataset_dir)}")
+    print(f"Done! Created {len(files)} samples")
 
 if __name__ == "__main__":
     main()

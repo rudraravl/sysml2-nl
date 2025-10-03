@@ -30,15 +30,16 @@ sysml2-nl/
 │       ├── SysML2_NL.pdf      # Comprehensive survey of open datasets for SysML and SysML v2 research
 │       ├── SysML2_NL_content.md      # Extracted text content from the survey paper
 │       └── SysML2_NL.tex      # LaTeX source files for survey paper generation
-├── dataset/                    # SysML2-NL dataset for joint embedding research
+├── dataset/                    # SysML2-NL dataset with 685 samples from official OMG sources and community repositories
+│   ├── README.md              # Dataset documentation with composition, data sources, and quality tiers
 │   ├── DATACARD.md            # Dataset documentation and quality assurance information
 │   ├── VERSION                # Dataset version information
-│   ├── data/                  # Paired SysML v2 models and natural language descriptions
-│   │   ├── 000001/           # Dataset entry with SysML model, text description, and metadata
-│   │   ├── 000002/           # Dataset entry with SysML model, text description, and metadata
-│   │   └── ...               # Additional dataset entries following the same structure
+│   ├── data/                  # 685 paired SysML v2 models and natural language descriptions (000001-000685)
+│   │   ├── 000001-000250/     # Official OMG SysML v2 Release samples (A+ quality, official split)
+│   │   ├── 000251-000286/     # Community SysML-v2-Models samples (B quality, community split)
+│   │   └── 000287-000685/     # OMG SysML-v2-Pilot-Implementation samples (A quality, pilot split)
 │   ├── index/                 # Dataset manifest and checksum files
-│   │   ├── manifest.jsonl    # JSONL manifest with all dataset entries and metadata
+│   │   ├── manifest.jsonl    # JSONL manifest with all 685 dataset entries and metadata
 │   │   ├── checksums.tsv     # SHA256 checksums for all dataset files
 │   │   └── stats.json        # Dataset statistics and summary information
 │   ├── schema/                # JSON schema definitions for dataset validation
@@ -47,8 +48,10 @@ sysml2-nl/
 │   └── scripts/               # Dataset management and validation scripts
 │       ├── build_manifest.py  # Script to build manifest, checksums, and statistics from dataset files
 │       └── validate_manifest.py      # Comprehensive validation script for file existence, UTF-8 encoding, SHA256 checksums, and JSON schema compliance
-├── script/                    # Dataset generation and processing scripts
-│   ├── gen_dataset_SysML_v2_Models.py      # Script to process SysML v2 model files from tmp directory and move them into dataset structure
+├── script/                    # Dataset generation and processing scripts with fixed ID ranges
+│   ├── gen_dataset_SysML-v2-Release.py    # Script to generate official release samples (000001-000250)
+│   ├── gen_dataset_SysML_v2_Models.py     # Script to generate community samples (000251-000286)
+│   ├── gen_dataset_SysML-v2-Pilot.py      # Script to generate pilot implementation samples (000287-000685)
 │   └── gen_NL_SysML_v2_Models.py          # Script to generate natural language descriptions from SysML v2 models using Gemini API
 └── tmp/                       # Temporary directory for external repositories and processing
     ├── SysML-v2-Models/       # External SysML v2 models repository for dataset generation
