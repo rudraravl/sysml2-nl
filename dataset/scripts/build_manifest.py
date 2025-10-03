@@ -42,7 +42,9 @@ def main():
         rec = {
             "id": did,
             "split": meta_data.get("split", "unknown"),
-            "quality_tier": meta_data.get("quality_tier", "B"),
+            "quality": meta_data.get("quality", "B"),
+            "source_path": meta_data.get("source_path", ""),
+            "category": meta_data.get("category", "not processed"),
             "paths": {
                 "sysml": str(sysml.relative_to(root)).replace("\\","/"),
                 "text":  str(text.relative_to(root)).replace("\\","/"),
@@ -104,10 +106,8 @@ def main():
         "total_sysml_size": total_sysml_size,
         "total_text_size": total_text_size,
         "total_meta_size": total_meta_size,
-        "quality_tiers": {tier: sum(1 for r in records if r.get("quality_tier") == tier) for tier in ["A+", "A", "B", "C"]},
-        "domains": list(set(r["labels"]["domain"] for r in records if r["labels"]["domain"] != "unknown")),
-        "difficulty_levels": {level: sum(1 for r in records if r["labels"]["difficulty"] == level) for level in ["beginner", "intermediate", "advanced"]},
-        "diagram_kinds": list(set(kind for r in records for kind in r["labels"]["diagram_kinds"])),
+        "quality_tiers": {tier: sum(1 for r in records if r.get("quality") == tier) for tier in ["A+", "A", "B", "C"]},
+        "categories": list(set(r.get("category", "not processed") for r in records)),
         "version": version,
         "created_utc": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat().replace("+00:00", "Z")
     }

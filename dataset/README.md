@@ -25,12 +25,6 @@ with natural language descriptions (`.txt`), along with metadata and a canonical
   - **000361 - 000376**: Test Cases (16 samples) - Validation tests and tool-specific implementations
 - **000377 - 000386**: SysML v2 models from ESA/ESA_Comet aerospace projects ([MontiCore/sysmlv2](https://github.com/MontiCore/sysmlv2)) (Aerospace Domain)
 
-## Split Reasoning
-
-The official dataset (000001-000250) is organized by OMG's intended use cases: **Examples** showcase complete system models for reference, **Training** provides educational content for learning SysML v2, and **Validation** contains test cases for tool compliance. This structure reflects the official OMG SysML v2 specification's pedagogical approach, ensuring comprehensive coverage from learning materials to verification standards.
-
-The pilot implementation dataset (000287-000376) follows a technical organization: **Interactive Examples** showcase practical SysML v2 usage through vehicle models and demonstrations, **Domain Libraries** provide comprehensive quantity, unit, and measurement libraries for engineering applications, and **Test Cases** demonstrate validation approaches and tool-specific implementations. This structure represents the practical implementation aspects of SysML v2 in real engineering environments, excluding duplicates from the official release.
-
 ## Layout
 - `data/<id>/` holds triplets: `<id>.sysml`, `<id>.txt`, `meta.json`
 - `index/manifest.jsonl` is the canonical index (one JSON per line)
@@ -39,10 +33,29 @@ The pilot implementation dataset (000287-000376) follows a technical organizatio
 - `schema/` has JSON Schemas for validation
 - `scripts/` contains helper utilities
 
+## Metadata Structure
+
+Each sample includes a `meta.json` file with the following structure:
+
+```json
+{
+  "id": "000001",
+  "source_path": "/path/to/original/sysml/file.sysml",
+  "split": "official|community|pilot|esa",
+  "quality": "A+|A|B|C",
+  "category": "not processed",
+  "created": "2024-01-01T12:00:00.000000"
+}
+```
+
+- **id**: Unique 6-digit identifier for the sample
+- **source_path**: Original file path of the SysML model
+- **split**: Dataset split (official, community, pilot, esa)
+- **quality**: Quality tier (A+ for official release, A for pilot/ESA, B for community)
+- **category**: Placeholder for future categorization (currently "not processed")
+- **created**: ISO timestamp when the sample was created
+
 ## Quick start
 - Edit / add samples under `data/<id>/`
 - Run `python scripts/build_manifest.py` to rebuild the manifest and checksums
 - (Optional) run `python scripts/validate_manifest.py` to validate the dataset
-
-## License
-Set the license you want in `LICENSE` (default: CC-BY-4.0 suggested).

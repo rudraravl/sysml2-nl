@@ -37,14 +37,10 @@ def create_sample(sample_id, source_file):
     # Create meta.json
     meta = {
         "id": f"{sample_id:06d}",
-        "provenance": "OMG SysML v2 Official Release",
+        "source_path": str(source_file),
         "split": "official",
-        "quality_tier": "A+",
-        "labels": {
-            "domain": "general",
-            "difficulty": "intermediate",
-            "diagram_kinds": ["textual"]
-        },
+        "quality": "A+",
+        "category": "not processed",
         "created": datetime.now().isoformat()
     }
     

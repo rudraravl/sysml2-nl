@@ -49,14 +49,10 @@ def create_sample(sample_id, source_file):
     # Create meta.json
     meta = {
         "id": f"{sample_id:06d}",
-        "provenance": "ESA/ESA_Comet SysML v2 models",
+        "source_path": str(source_file),
         "split": "esa",
-        "quality_tier": "A",
-        "labels": {
-            "domain": "aerospace",
-            "difficulty": "advanced",
-            "diagram_kinds": ["textual"]
-        },
+        "quality": "A",
+        "category": "not processed",
         "created": datetime.now().isoformat()
     }
     

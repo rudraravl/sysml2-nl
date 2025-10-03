@@ -41,14 +41,10 @@ def create_sample(sample_id, source_file):
     # Create meta.json
     meta = {
         "id": f"{sample_id:06d}",
-        "provenance": "SysML-v2-Pilot-Implementation repository (unique content only)",
+        "source_path": str(source_file),
         "split": "pilot",
-        "quality_tier": "A",
-        "labels": {
-            "domain": "general",
-            "difficulty": "beginner",
-            "diagram_kinds": ["textual"]
-        },
+        "quality": "A",
+        "category": "not processed",
         "created": datetime.now().isoformat()
     }
     
