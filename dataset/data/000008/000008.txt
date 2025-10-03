@@ -1,1 +1,14 @@
-SysML v2 model from official OMG release: AHFSequences.sysml
+This model describes a data distribution system operating within a local cloud environment, specifically for a Norwegian implementation of the Arrowhead Framework. Its primary purpose is to facilitate the transfer of a list of items from a data producer to a data consumer, triggered by a third-party application.
+
+The system is composed of several distinct software components that work in concert:
+
+*   An **APIS Producer** is the component that owns and manages the primary data, in this case, a list of items.
+*   An **APIS Consumer** is an application that needs this list of items for its own operations.
+*   A central **MQTT Server** acts as a message broker, decoupling the producer and consumer. This allows them to communicate without having direct knowledge of each other.
+*   A **TellU Consumer** is a separate application that initiates the entire data transfer process.
+
+The data exchange follows a specific sequence. First, the APIS Consumer subscribes to a specific data topic on the MQTT Server, indicating its interest in receiving the list of items. The APIS Producer also connects to the server, publishing the availability of this data.
+
+To start the actual transfer, the TellU Consumer sends a direct request (an HTTP call) to the APIS Producer, asking it to provide the items. Instead of sending the data back in the response, the Producer publishes the full list of items to the MQTT Server. The server then immediately forwards this data to all subscribed components, including the APIS Consumer. Finally, the APIS Producer sends a simple acknowledgment back to the TellU Consumer to confirm that the request was successfully processed and the data was sent.
+
+This architecture cleverly uses two different communication styles: a direct request-response pattern (HTTP) for control and triggering, and a flexible publish-subscribe pattern (MQTT) for the actual data payload delivery. This decouples the component that requests the data from the component that ultimately receives it.

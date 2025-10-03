@@ -1,1 +1,11 @@
-SysML v2 model from official OMG release: AHFCoreLib.sysml
+This model describes the core services of the Arrowhead Framework, a foundational software system for building secure, interconnected networks of devices and services, often used in Internet of Things (IoT) and industrial automation environments. It essentially acts as the central administrative backbone for a complex "system-of-systems."
+
+The system is composed of three main, independent services that work together to manage the entire network:
+
+1.  **Service Registry:** This component acts as a dynamic "phone book" or directory for the entire network. When a new device or software service comes online, it registers itself with the Service Registry, advertising its capabilities. When another system needs a particular function (e.g., "find a temperature sensor"), it queries the registry to discover available services that can fulfill that request and how to connect to them.
+
+2.  **Authorization System:** This is the network's security guard. Before one system is allowed to communicate with or use a service from another, it must be verified by the Authorization System. This component manages rules and credentials (like public keys) to ensure that only permitted interactions occur, preventing unauthorized access and securing the network.
+
+3.  **Orchestration System:** This component acts as the workflow coordinator or "conductor." It manages complex tasks that require multiple different services to work together in a specific sequence. It defines and executes these multi-step processes, ensuring that all the individual services are called in the right order to achieve a larger goal.
+
+A key feature of this system is its flexibility in communication. The Service Registry and Authorization systems are designed to be accessible over different network protocols, such as HTTP (common for web services) and MQTT (a lightweight protocol popular in IoT), allowing a wide variety of different devices and applications to seamlessly integrate into the network.

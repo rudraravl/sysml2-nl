@@ -22,9 +22,10 @@ Description:
 def main():
     load_dotenv(Path(__file__).parent.parent / ".env")
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-pro')
     
-    for i in tqdm(range(1, 37), desc="Processing"):
+    for i in tqdm(range(1, 10), desc="Processing"):
         id = f"{i:06d}"
         dir = Path(__file__).parent.parent / "dataset" / "data" / id
         if not dir.exists(): 
@@ -41,11 +42,11 @@ def main():
         with open(txt, 'w') as f: 
             f.write(response.text)
         
+        # Read meta.json to get metadata (but don't modify it)
         with open(meta) as f: 
             data = json.load(f)
-        data['stats']['text_tokens'] = len(response.text.split())
-        with open(meta, 'w') as f: 
-            json.dump(data, f, indent=2)
+
+        # TODO: Modify the data['category']
 
 if __name__ == "__main__":
     main()

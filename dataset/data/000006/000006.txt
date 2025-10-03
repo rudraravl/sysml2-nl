@@ -1,1 +1,20 @@
-SysML v2 model from official OMG release: AHFNorwayTopics.sysml
+This model describes a distributed software system for monitoring product deliveries within a chemical factory. It's part of a Norwegian use-case for the Arrowhead Framework, designed to allow different industrial applications to communicate and share data effectively.
+
+The system is composed of several key software components that work together over a network:
+
+1.  **A Central Data Provider (Prediktor APIS Server):** This is the core server that holds or has access to the information about product deliveries. Its main job is to provide this data to other applications when requested.
+
+2.  **Two Different Client Applications:**
+    *   **Unger APIS Client:** This application actively requests data. It operates on a direct request-response basis. It sends a specific query to the Prediktor server asking for "all items" and waits for a direct acknowledgment and the corresponding data.
+    *   **TellU Client:** This application acts as a passive monitor. Instead of constantly asking for data, it subscribes to a data feed. It informs the system that it is interested in updates about delivered products and then waits to be notified.
+
+3.  **An MQTT Messaging Server:** This component acts as a central message broker or a "data bus." It facilitates the publish-subscribe communication model. When the Prediktor server has new product data, it publishes this information to the MQTT server. The MQTT server then automatically distributes this data to any system that has subscribed, such as the TellU Client.
+
+4.  **A Service Registry:** As part of the Arrowhead Framework, all these components register themselves with a central Service Registry. This allows them to dynamically discover each other on the network without needing to be manually configured with each other's addresses.
+
+In operation, the system supports two distinct workflows for data retrieval:
+
+*   **Direct Pull:** The Unger Client "pulls" data by sending a direct request to the Prediktor Server.
+*   **Asynchronous Push:** When the Prediktor Server provides data (for instance, to the Unger Client), it also "pushes" that same data out via the MQTT Messaging Server. The TellU Client, having already subscribed, automatically receives this pushed update without ever having to ask for it.
+
+This dual-mode architecture allows for both on-demand data queries and continuous, event-driven monitoring of product deliveries within the factory's IT environment.
