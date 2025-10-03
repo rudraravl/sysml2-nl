@@ -9,16 +9,20 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-# Fixed range for pilot samples
+# Fixed range for pilot samples (corrected - excluding duplicates)
 START_ID = 287
-END_ID = 685
+END_ID = 376
 
 def find_sysml_files():
-    """Find all .sysml files in the pilot repo."""
+    """Find all .sysml files in the pilot repo, excluding duplicates and directories."""
     source_dir = Path("tmp/SysML-v2-Pilot-Implementation")
     files = []
     for file_path in source_dir.rglob("*.sysml"):
-        if file_path.is_file():
+        if file_path.is_file() and not file_path.is_dir():
+            # Exclude duplicate folders that are already in official release
+            path_str = str(file_path)
+            if "sysml/src" in path_str or "sysml.library" in path_str:
+                continue
             files.append(file_path)
     return sorted(files)
 
@@ -32,12 +36,12 @@ def create_sample(sample_id, source_file):
     
     # Create .txt file
     with open(sample_dir / f"{sample_id:06d}.txt", 'w') as f:
-        f.write(f"SysML v2 model from pilot implementation: {source_file.name}")
+        f.write(f"SysML v2 model from pilot implementation (unique content): {source_file.name}")
     
     # Create meta.json
     meta = {
         "id": f"{sample_id:06d}",
-        "provenance": "SysML-v2-Pilot-Implementation repository",
+        "provenance": "SysML-v2-Pilot-Implementation repository (unique content only)",
         "split": "pilot",
         "quality_tier": "A",
         "labels": {

@@ -1,37 +1,21 @@
-package VehicleMasses {
-	private import ScalarValues::*;
-	private import MassRollup::*;
-	
-	part def CarPart :> MassedThing {			
-		attribute serialNumber: String;
-	}
-	
-	part car: CarPart :> compositeThing {	
-		attribute vin redefines serialNumber;
-		
-		part carParts: CarPart[*] redefines subcomponents;
-		
-		part engine :> simpleThing, carParts {
-			//...
-		}
-		
-		part transmission :> simpleThing, carParts {
-			//...
-		}
-	}
+private import ESA_SysML2_Solution::*;
+private import ESA_SysML2_Solution_Metadata::*;
+private import ScalarValues::*;
+private import RequirementDerivation::*;
 
-	// Example usage
-	private import SI::*;	
-	part c :> car {
-		redefines mass = 1000 [kg];
-		part redefines engine {
-			redefines mass = 100 [kg];
-		}
-		
-		part redefines transmission {
-			redefines mass = 50 [kg];
-		}	
-	}
-	
-	// c.totalMass --> 1150.0 [kg]
+package Verification_Layer{
+    doc /*This layer aims to describe the verification plan and the verification scenarios for the requirements described in the requirement layer. Each verification scenario represents a test, analysis, review-of-design or inspection to be performed on a product (at a given level of decomposition) to verify that the requirements are met.*/
+
+    #verificationScenarioAction verification 'Test Expected Max Power'{
+        first start;
+        then #verificationActivity action 'Request space segment to orient the solar panels';
+        then #verificationActivity action 'Orient the solar panel wrt sun light simulator';
+        then #verificationActivity action 'Measure the output electrical power';
+        then #verificationActivity action 'Compare to the expected max power';
+        then done;
+
+        objective testExpectedMaxPower{
+            verify RequirementsLayer::Requirements::REQ6;
+        }
+    }
 }

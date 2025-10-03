@@ -30,16 +30,17 @@ sysml2-nl/
 │       ├── SysML2_NL.pdf      # Comprehensive survey of open datasets for SysML and SysML v2 research
 │       ├── SysML2_NL_content.md      # Extracted text content from the survey paper
 │       └── SysML2_NL.tex      # LaTeX source files for survey paper generation
-├── dataset/                    # SysML2-NL dataset with 685 samples from official OMG sources and community repositories
+├── dataset/                    # SysML2-NL dataset with 386 samples from official OMG sources and community repositories
 │   ├── README.md              # Dataset documentation with composition, data sources, and quality tiers
 │   ├── DATACARD.md            # Dataset documentation and quality assurance information
 │   ├── VERSION                # Dataset version information
-│   ├── data/                  # 685 paired SysML v2 models and natural language descriptions (000001-000685)
+│   ├── data/                  # 386 paired SysML v2 models and natural language descriptions (000001-000386)
 │   │   ├── 000001-000250/     # Official OMG SysML v2 Release samples (A+ quality, official split)
 │   │   ├── 000251-000286/     # Community SysML-v2-Models samples (B quality, community split)
-│   │   └── 000287-000685/     # OMG SysML-v2-Pilot-Implementation samples (A quality, pilot split)
+│   │   ├── 000287-000376/     # OMG SysML-v2-Pilot-Implementation samples (A quality, pilot split)
+│   │   └── 000377-000386/     # ESA/ESA_Comet aerospace models (A quality, esa split)
 │   ├── index/                 # Dataset manifest and checksum files
-│   │   ├── manifest.jsonl    # JSONL manifest with all 685 dataset entries and metadata
+│   │   ├── manifest.jsonl    # JSONL manifest with all 386 dataset entries and metadata
 │   │   ├── checksums.tsv     # SHA256 checksums for all dataset files
 │   │   └── stats.json        # Dataset statistics and summary information
 │   ├── schema/                # JSON schema definitions for dataset validation

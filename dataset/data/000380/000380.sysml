@@ -1,159 +1,130 @@
-package ServerSequenceOutsideRealization_3 {
-	private import ScalarValues::String;
-	private import ServerSequenceModelOutside::*;
-	private import Configuration::*;
-	
-	package Configuration {
-		
-		port def PublicationPort {
-			in ref publish : Publish;
-		}
-		
-		port def SubscriptionPort {
-			in ref subscribe : Subscribe;
-			out ref deliver : Deliver;
-		}
-		
-		interface def PublicationInterface {
-			end source : ~PublicationPort;
-			end target : PublicationPort;
-		}
-		
-		interface def SubscriptionInterface {
-			end source : ~SubscriptionPort;
-			end target : SubscriptionPort;
-		}
-		
-		part producer_3[1] {
-			attribute someTopic : String;
-			private item somePublication;
-			
-			port publicationPort : ~PublicationPort {
-				out ref :>> publish;
-			}
-			
-			perform action producerBehavior {
-				action publish {
-					out ref request : Publish[1] = new Publish(someTopic, somePublication);
-				}
-			}
-			
-			/* Internal flows are instantaneous to make arrival/leave ordering in SequenceModelOutside.sysml
-			 * equivalent to ordering participant internals in ServerSequenceRealization-3.sysml. */
-			flow publish_request from producerBehavior.publish.request to publicationPort.publish
-				{ attribute :>> isInstant = true;}
-		}
-		
-		interface publication_interface : PublicationInterface connect producer_3.publicationPort to server_3.publicationPort {
-			flow publish_request from publication_interface.source.publish to publication_interface.target.publish;
-		}
-		
-		part server_3[1] {
-			port publicationPort : PublicationPort {
-				in ref :>> publish;
-			}
-			port subscriptionPort : SubscriptionPort {
-				in ref :>> subscribe;
-				out ref :>> deliver;
-			}
-						
-			flow subscribe_request from subscriptionPort.subscribe to serverBehavior.subscribing.request
-				{ attribute :>> isInstant = true;}
-			flow publish_request from publicationPort.publish to serverBehavior.publishing.request
-				{ attribute :>> isInstant = true;}
-			flow deliver_response from serverBehavior.delivering.response to subscriptionPort.deliver
-				{ attribute :>> isInstant = true;}
-			
-			perform action serverBehavior {
-				
-				action subscribing {
-					in ref request : Subscribe[1];
-					out attribute topic : String[1] = request.topic;
-				}
-				
-				then merge continuePublishing;			
-				then action publishing {
-					in ref request : Publish[1];
-					out attribute topic[1] = request.topic;
-					out ref publication[1] = request.publication;
-				}
-				
-				then decide;
-					if publishing.topic == subscribing.topic then delivering;
-					else continuePublishing;
-					
-				then action delivering {
-					in topic : String[1] = subscribing.topic;
-					in publication[1] = publishing.publication;
-					out ref response : Deliver = new Deliver(publication);
-				}
-				then continuePublishing;
-				
-			}
-		}
-		
-		interface subscription_interface : SubscriptionInterface connect consumer_3.subscriptionPort to server_3.subscriptionPort {
-			flow subscribe_request from subscription_interface.source.subscribe to subscription_interface.target.subscribe;
-			flow deliver_response from subscription_interface.target.deliver to subscription_interface.source.deliver;
-		}
-		
-		part consumer_3[1] {
-			attribute myTopic : String;
-			
-			port subscriptionPort : ~SubscriptionPort {
-				out ref :>> subscribe;
-				in ref :>> deliver;
-			}
-			
-			flow subscribe_request from consumerBehavior.subscribe.request to subscriptionPort.subscribe
-				{ attribute :>> isInstant = true;}
-			flow deliver_response from subscriptionPort.deliver to consumerBehavior.delivery.response
-				{ attribute :>> isInstant = true;}
+private import ESA_SysML2_Solution::*;
+private import ESA_SysML2_Solution_Metadata::*;
+private import ScalarValues::*;
+private import RequirementDerivation::*;
 
-			perform action consumerBehavior {
-				action subscribe {
-					out ref request : Subscribe = new Subscribe(myTopic);
-				}
-				then action delivery {
-					in ref response : Deliver;
-				}
-			}
-		}
-		
-	}
-	
-	part realization_2 : PubSubSequence {
-		part :>> producer :> producer_3 {
-			event producerBehavior.publish[1] :>> publish_source_event;
-		}
+package MissionSpec_Layer{
+    doc /*The space system is the system that performs the mission. It is usually composed at least of a space segment, a ground segment and a launch segment.
+    Usually, the system under our responsibility is not the complete space system, but a subcomponent of it, such as the payload or the ground segment. This system is called system under design or system of interest (SoI). The notion of system of interest is relative: if your system of interest is the payload, the service module will be an external system for you, while the opposite will be true for the team in charge of the service module.
+    Even if the space system is not our SoI, we are still interested in having an overview of it. The goal of the Mission specification layer is to define the main elements of the mission and the space system, such as the mission phases, mission objectives or the mission scenarios.
+    */
 
-		part :>> server :> server_3 {
-			event serverBehavior.subscribing[1] :>> subscribe_target_event;
-			event serverBehavior.publishing[1] :>> publish_target_event;
-			event serverBehavior.delivering[1] :>> deliver_source_event;
-		}
-		
-		part :>> consumer :> consumer_3 {
-			event consumerBehavior.subscribe[1] :>> subscribe_source_event;
-			event consumerBehavior.delivery[1] :>> deliver_target_event;
-		}
-		
-		flow :>> publish_message from producer.producerBehavior.publish.request to server.serverBehavior.publishing.request {
-			event producer.publish_request[1];
-			then event publication_interface.publish_request[1];
-			then event server.publish_request[1];
-		}
-		
-		flow :>> subscribe_message from consumer.consumerBehavior.subscribe.request to server.serverBehavior.subscribing.request {
-			event consumer.subscribe_request[1];
-			then event subscription_interface.subscribe_request[1];
-			then event server.subscribe_request[1];
-		}
-		
-		flow :>> deliver_message from server.serverBehavior.delivering.response to consumer.consumerBehavior.delivery.response {
-			event server.deliver_response[1];
-			then event subscription_interface.deliver_response[1];
-			then event consumer.deliver_response[1];
-		}
-	}
+    package MissionObjectives{
+        #missionObjective use case 'Manage and control exploitation of coastal and maritime areas'{
+            actor ::>Transversal_Layer::'Law and policy actor';
+        }
+        #missionObjective use case 'Obtain data during a long lifetime'{
+            actor ::>Transversal_Layer::'Law and policy actor';
+            actor ::>Transversal_Layer::'Coastal and Maritime Biologist';
+            actor ::>Transversal_Layer::'Environmental Scientist';
+        }
+        #missionObjective use case 'Obtain data systematically with high accuracy, reliability, and availability'{
+            actor ::>Transversal_Layer::'Law and policy actor';
+            actor ::>Transversal_Layer::'Coastal and Maritime Biologist';
+            actor ::>Transversal_Layer::'Environmental Scientist';
+            actor ::>Transversal_Layer::'Weather Forecaster';
+        }
+        #missionObjective use case 'Monitor coastal zones health and living conditions'{
+            actor ::>Transversal_Layer::'Law and policy actor';
+            actor ::>Transversal_Layer::'Coastal and Maritime Biologist';
+            actor ::>Transversal_Layer::'Environmental Scientist';
+        }
+        #missionObjective use case 'Investigate climate change'{
+            actor ::>Transversal_Layer::'Coastal and Maritime Biologist';
+            actor ::>Transversal_Layer::'Environmental Scientist';
+            actor ::>Transversal_Layer::'European Union';
+        }
+        #missionObjective use case 'Monitor ocean health and living conditions'{
+            actor ::>Transversal_Layer::'Coastal and Maritime Biologist';
+            actor ::>Transversal_Layer::'Environmental Scientist';
+        }
+        #missionObjective use case 'Forecast atmospheric and oceanic weather'{
+            actor ::>Transversal_Layer::'Environmental Scientist';
+        }
+        #missionObjective use case 'Obtain scientific data in close-real time'{
+            actor ::>Transversal_Layer::'Environmental Scientist';
+        }
+    }
+
+    package MissionContext{
+        #spaceSystem part 'Eagle Eye Mission'{
+            #systemOfInterest part 'Space Segment'{
+                perform 'Commission Platform';
+                perform 'Commission Payload';
+                perform 'Collect Orbital Data';
+                perform 'Manoeuvre Spacecraft';
+                perform 'Achieve Fine Pointing';
+                perform 'Acquire Observation Data';
+                perform 'Perform Disposal Manoeuvre';
+                perform 'Passivate the Spacecraft';
+            }
+            ::>Transversal_Layer::'Launcher Segment';
+            ::>Transversal_Layer::'ESA/ESOC Ground Segment';
+            exhibit 'Mission Phases and Context States';
+        }
+
+        #interact dependency from 'Eagle Eye Mission' to Transversal_Layer::'Customer';
+        #interact dependency from Transversal_Layer::'Customer' to 'Eagle Eye Mission';
+        #interact dependency from 'Eagle Eye Mission' to Transversal_Layer::'Earth/Ocean';
+        #interact dependency from Transversal_Layer::'ESA/ESOC Ground Segment' to 'Eagle Eye Mission';
+        #interact dependency from 'Eagle Eye Mission' to Transversal_Layer::'ESA/ESOC Ground Segment';
+        #influence dependency from Transversal_Layer::'European Union' to 'Eagle Eye Mission';
+    }
+
+    #missionLifecycle state 'Mission Phases and Context States'{
+        entry;
+        then #missionPhase state LaunchAndEarlyOrbitPhase{
+            entry;
+            then #missionPhase state Launch;
+            then #missionPhase state 'Orbit Alignment';
+         }
+
+        then #missionPhase state CommissioningPhase;
+        then #missionPhase state OperationsPhase{
+            #contextState state 'Night Side';
+            then #contextState state 'Day Side';
+            then 'Night Side';
+        }
+        then #missionPhase state MaintenancePhase;
+        then #missionPhase state DeOrbitingPhase;
+        then done;
+    }
+
+    #missionActivity action 'Commission Platform';
+    #missionActivity action 'Commission Payload';
+    #missionActivity action 'Collect Orbital Data';
+    #missionActivity action 'Perform Orbit Determination'{
+            out 'Orbit compliance': String;
+        }
+    #missionActivity action 'Manoeuvre Spacecraft';
+    #missionActivity action 'Achieve Fine Pointing';
+    #missionActivity action 'Acquire Observation Data'{
+            out 'End of life reached' : String;
+        }
+    #missionActivity action 'Send Disposal Command';
+    #missionActivity action 'Perform Disposal Manoeuvre';
+    #missionActivity action 'Passivate the Spacecraft';
+
+    #missionScenarioAction action 'Mission Scenario Action 1' {
+        first start;
+        then 'Commission Platform';
+        then 'Commission Payload';
+        then merge 'merge 1';
+        then 'Collect Orbital Data';
+        then 'Perform Orbit Determination';
+        then decide 'Is orbit compliant with target?';
+            if 'Perform Orbit Determination'.'Orbit compliance' == "yes" then 'Achieve Fine Pointing';
+            if 'Perform Orbit Determination'.'Orbit compliance' == "no" then 'Manoeuvre Spacecraft';
+
+        then 'merge 1';
+
+        then merge 'merge 2';
+        then 'Acquire Observation Data';
+        then decide 'Reached the End of Life?';
+            if 'Acquire Observation Data'.'End of life reached' == "yes" then 'Send Disposal Command';
+            if 'Acquire Observation Data'.'End of life reached' == "no" then 'merge 2';
+        then 'Perform Disposal Manoeuvre';
+        then 'Passivate the Spacecraft';
+        then done;
+    }
 }

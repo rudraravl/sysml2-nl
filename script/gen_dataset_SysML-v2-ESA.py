@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Simple script to generate dataset from SysML-v2 ESA and ESA_Comet files.
-Fixed range: 000686-000695 (10 samples)
+Fixed range: 000377-000386 (10 samples)
 """
 
 import shutil
@@ -9,9 +9,9 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-# Fixed range for ESA samples
-START_ID = 686
-END_ID = 695
+# Fixed range for ESA samples (after pilot samples)
+START_ID = 377
+END_ID = 386
 
 def find_sysml_files():
     """Find all .sysml files in the ESA and ESA_Comet directories."""
