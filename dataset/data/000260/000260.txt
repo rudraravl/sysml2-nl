@@ -1,0 +1,11 @@
+This model describes a configurable system for defining custom data types, similar to what might be found in a database management tool or a software application framework. The system allows a developer to specify the structure, constraints, and formatting rules for different pieces of information.
+
+The core of the system is the ability to create different `Datatypes`. Each datatype is associated with a fundamental `Format` that defines its underlying technical representation (e.g., a number, a string, etc.).
+
+Several specialized datatypes are defined to handle common needs:
+
+*   **Integer:** Represents a whole number. This type can be constrained with minimum and maximum allowed values. It also includes settings for how the number is displayed to a user, such as whether to include thousand separators (e.g., displaying "1,000" instead of "1000").
+*   **Boolean:** A simple type for representing true/false values.
+*   **AutoReference:** A sophisticated type for automatically generating unique identifiers or reference numbers. It can be configured with a text prefix (like "INV-"), a starting number, and a specific increment interval, making it ideal for creating things like invoice numbers, customer IDs, or serial numbers.
+
+An example application of this system would be defining the structure for a data record. Such a record could have an `id` field using the `AutoReference` type to ensure every record gets a unique, sequential number, and a `quantity` field using the `Integer` type to ensure the value is a valid number within a specific range.

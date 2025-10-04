@@ -1,0 +1,10 @@
+This model describes a framework for integrating external analysis and simulation software with a system model. It's not a physical object, but rather a set of standardized "tags" or "labels" that allow a model to connect to and run other software tools.
+
+The primary function of this system is to allow an engineer to specify that a particular task or calculation within their model should be performed by an external, specialized program, such as MATLAB, a Python script, or a dedicated engineering simulator.
+
+The system has two main components that work together:
+
+1.  A **Tool Execution** tag, which is used to identify the specific external program that should be run for a given task. This tag contains information like the name of the software and its location (such as a file path or web address).
+2.  A **Tool Variable** tag, which creates a map between the data in the system model and the variables inside the external program. This ensures that when the external tool is run, it receives the correct inputs from the model and that its results can be sent back correctly. For example, it could link a model's "engine_thrust" parameter to a variable named "thrust_newtons" in the external simulation script.
+
+In essence, this system acts as a standardized bridge, enabling a high-level system model to delegate complex analytical tasks to the most appropriate external software tools and ensuring that data is exchanged correctly between them.

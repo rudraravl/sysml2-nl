@@ -1,0 +1,10 @@
+This model represents a classic Publish-Subscribe (Pub/Sub) messaging system, a common architecture for communication in distributed software. The system is designed to decouple the sender of information from the receiver, allowing for flexible and scalable communication.
+
+It consists of three main components: a Producer, a Consumer, and a central Server that acts as a message broker.
+
+The system operates in a clear sequence:
+1.  A **Consumer** first registers its interest in a specific category of information, known as a "topic," by sending a subscription request to the Server.
+2.  Later, a **Producer** generates a piece of information, or a publication, and sends it to the Server, labeling it with that same topic.
+3.  The **Server** then acts as an intermediary. Upon receiving the publication, it checks which Consumers have subscribed to that particular topic and forwards the information to all of them.
+
+This architecture ensures that the Producer does not need to know who the Consumers are, and vice-versa. The Server manages all the routing, enabling a single message from a Producer to be distributed efficiently to multiple interested Consumers.

@@ -55,6 +55,12 @@ This IEEE Access 2025 paper presents a systematic, metamodel-based method for va
 
 This Medium article by Jamie Smith from Imandra Inc. demonstrates the integration of automated reasoning capabilities with SysML v2 models, leveraging the formal semantics of KerML to enable rigorous analysis and verification. The work presents a comprehensive traffic light case study using Imandra's reasoning engine to verify deterministic behavior, proper error handling, and safety properties through formal verification techniques. The article showcases automated translation between SysML v2 and Imandra Modeling Language (IML), enabling mathematical proof of model correctness and systematic identification of design flaws. This research is highly relevant to the SysML2-NL project as it provides practical examples of formal verification techniques for SysML v2 models, demonstrates the value of automated reasoning in safety-critical systems, and offers insights into AI-powered model validation approaches that could enhance the quality and reliability of joint embeddings between natural language and SysML v2 representations.
 
+## DoD 2024: SysML v1 to v2 Transition Approach
+
+[PDF](DoD_2024_SysML_v1_to_v2_Transition_Approach.pdf)
+
+This Department of Defense technical report (Version 1.3, March 2024) presents a comprehensive approach for transitioning from SysML v1 to SysML v2, developed by the Office of Systems Engineering and Architecture. The report provides detailed guidance on model conversion processes including pre-processing, transformation, post-processing, and validation steps, illustrated through a hypothetical Skyzer Mission Model case study. It addresses key considerations such as incremental conversion strategies, one-way transformations, and handling of classified models, while providing specific transformation techniques for blocks, ports, requirements, use cases, activities, interactions, and parametric models. This work is highly relevant to the SysML2-NL project as it provides essential practical guidance for organizations transitioning to SysML v2, offering detailed conversion methodologies and real-world examples that could inform the development of joint embeddings by understanding the semantic mappings between SysML v1 and v2 constructs.
+
 ## Medium 2024: Overview of SysML 2.0 with Examples
 
 [Article](Medium_2024_SysML_2_0_Overview_Examples.md)
