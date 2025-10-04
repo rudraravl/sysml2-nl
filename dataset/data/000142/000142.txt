@@ -1,1 +1,7 @@
-SysML v2 model from official OMG release: Local Clock Example.sysml
+This model describes a time-controlled server designed to provide a service only during a specific daily operational window.
+
+The core of the system is a server component that contains its own internal clock for self-managing its operational state. The server operates in several distinct modes. By default, it starts in an inactive "off" state. It requires an external "Start" command to become active, at which point it enters a "waiting" mode, ready to receive service requests.
+
+When a request is received while it's waiting, the server transitions into a "responding" mode. It will remain in this active response state for a fixed period of five minutes before automatically returning to the "waiting" mode to be available for new requests.
+
+A key feature of this server is its automatic daily shutdown. Based on its internal clock and the current date, the server is programmed to automatically shut down and return to its inactive "off" state every day at 11:59 AM if it is in the "waiting" mode. This ensures the service is only available for a predefined portion of the day.

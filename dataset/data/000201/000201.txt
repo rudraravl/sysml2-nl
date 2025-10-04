@@ -1,1 +1,10 @@
-SysML v2 model from official OMG release: 3a-Function-based Behavior-2.sysml
+This model describes the functional behavior of a vehicle's powertrain system. Its primary purpose is to convert a driver's command for fuel into rotational force (torque) that ultimately drives two of the vehicle's wheels.
+
+The system operates as a sequential chain of functions:
+
+1.  It begins with an **engine** that receives a fuel command (akin to pressing an accelerator pedal) and generates an initial torque.
+2.  This engine torque is then passed to a **transmission**, which amplifies it, likely by changing gears.
+3.  The amplified torque is transferred through a **driveshaft** to the driving axle.
+4.  Finally, a **differential** receives the torque from the driveshaft and distributes it to two individual wheels, causing the vehicle to move.
+
+The entire power-delivery process is controlled by the engine's state. All functions, from generating torque in the engine to distributing it to the wheels, can only begin after an "Engine Start" event. These functions are all disabled when an "Engine Off" event occurs.

@@ -1,1 +1,7 @@
-SysML v2 model from official OMG release: ServerSequenceRealization-3.sysml
+This model describes a classic Publish-Subscribe (Pub/Sub) messaging system. The system is composed of three main parts: a Producer, a Consumer, and a central Server that acts as a message broker. This architecture allows different software components to communicate with each other without being directly connected.
+
+The **Producer** is a component responsible for generating information. It creates a message, called a publication, and assigns it a specific "topic" to categorize it. It then sends this publication to the central Server.
+
+The **Consumer** is a component that needs information. To get it, the Consumer first sends a "subscribe" request to the Server, specifying the topic it is interested in.
+
+The central **Server** acts as the intermediary that manages the entire communication flow. It maintains a record of which Consumers have subscribed to which topics. When the Server receives a publication from the Producer, it checks the publication's topic. If that topic matches a topic a Consumer has subscribed to, the Server then forwards, or "delivers," the publication's content to that specific Consumer. If the topics do not match, the message is not delivered to that particular consumer, ensuring that components only receive the information they have explicitly requested.

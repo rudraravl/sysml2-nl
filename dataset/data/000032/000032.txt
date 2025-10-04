@@ -1,1 +1,11 @@
-SysML v2 model from official OMG release: ServerSequenceOutsideRealization-3.sysml
+This model describes a classic publish-subscribe messaging system, composed of three main parts: a Producer, a Consumer, and a central Server that acts as an information broker. The system is designed to allow different software or hardware components to communicate with each other without being directly connected.
+
+Here's how it works together:
+
+The **Consumer** first sends a subscription request to the **Server**, specifying a "topic" of information it is interested in.
+
+The **Producer** independently creates and sends a piece of information, known as a publication, to the Server. This publication is tagged with its own "topic".
+
+The **Server** acts as the central hub or middleman. It receives the publication from the Producer and checks its topic. It then looks at its list of active subscriptions to see if any Consumers are interested in that specific topic. If a match is found, the Server forwards the publication to the subscribed Consumer.
+
+This architecture allows the Producer and Consumer to be completely decoupled; the Producer doesn't know who receives its information, and the Consumer doesn't know who created it. They only interact indirectly through the Server based on shared topics of interest.

@@ -1,1 +1,7 @@
-SysML v2 model from official OMG release: MassRollup2.sysml
+This model represents a system for defining and calculating the mass of objects, particularly complex assemblies made up of many smaller parts. It establishes a general framework for how mass is calculated in a hierarchical structure.
+
+The most basic element is any object with its own inherent mass (its "simple mass"). For a simple, solid object like a screw or a brick, its total mass is just this inherent mass.
+
+The system then defines composite objects, which are assemblies that contain other components. The total mass of one of these assemblies is calculated by adding its own structural mass (like the mass of an empty chassis or casing) to the sum of the total masses of all the subcomponents it contains. For example, the total mass of a computer would be the mass of its empty case plus the total masses of the motherboard, power supply, drives, and all other internal parts.
+
+Finally, the system includes a specialized type of composite object that performs a selective or "filtered" mass calculation. This object has a defined minimum mass threshold. When calculating its total mass, it still starts with its own structural mass, but it only adds the masses of the subcomponents that are heavier than its specified minimum threshold, ignoring any components that are lighter. This could be used, for instance, to calculate a "heavy cargo load" by summing the weight of a truck and only the pieces of cargo that individually weigh more than 100 kg.

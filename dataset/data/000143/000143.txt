@@ -1,1 +1,9 @@
-SysML v2 model from official OMG release: Transition Actions.sysml
+This model describes the startup and shutdown sequence for a modern vehicle, managed by an electronic control system. The system is designed with a strong emphasis on safety interlocks.
+
+The system consists of the main vehicle, which has a sensor to detect if the brake pedal is depressed, and a separate vehicle controller, which acts as the brain for managing the vehicle's operational state.
+
+The vehicle's lifecycle starts in an 'off' state. When a driver initiates the startup process (e.g., by pressing a start button), the system moves into a 'starting' phase. It will only transition to the fully 'on' state after it confirms two conditions are met: it receives a final 'on' signal and verifies that the brake pedal is being pressed. This "press brake to start" feature is a critical safety requirement.
+
+Once the conditions are met, the system signals the main vehicle controller to activate and enters its 'on', or running, state. As soon as it becomes active, it performs a diagnostic self-test. While in this state, it continuously provides power to the vehicle's systems.
+
+To shut the vehicle down, the driver sends an 'off' signal. As a final safety measure upon exiting the 'on' state, the system automatically applies the parking brake before transitioning back to the fully 'off' state.

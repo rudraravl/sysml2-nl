@@ -1,1 +1,5 @@
-SysML v2 model from official OMG release: Packets.sysml
+This describes a standardized data packet format designed for telemetry systems, featuring a generic base packet and a more specific variant for thermal sensor data.
+
+The system is built around a generic data packet structure that serves as a fundamental container for information. This base packet is composed of two main sections: a primary header and a data payload area. The primary header contains essential routing and identification information, including a version number for the packet format, a unique packet identifier, and the total length of the data it carries.
+
+Building upon this general-purpose structure, the system defines a specialized packet for transmitting thermal information, known as the `Thermal Data Packet`. This specialized packet uses the same primary header for basic identification but features a more detailed data field. This data field is further divided into a secondary header and the actual user data. The secondary header provides context specific to telemetry, including a timestamp for when the packet was created and a field to specify the type of telemetry being sent. The user data section, or payload, contains the core scientific measurement: a precise temperature reading and the exact timestamp when that reading was taken.

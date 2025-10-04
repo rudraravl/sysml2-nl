@@ -25,7 +25,7 @@ def main():
     # model = genai.GenerativeModel('gemini-2.5-flash')
     model = genai.GenerativeModel('gemini-2.5-pro')
     
-    for i in tqdm(range(1, 10), desc="Processing"):
+    for i in tqdm(range(1, 387), desc="Processing"):
         id = f"{i:06d}"
         dir = Path(__file__).parent.parent / "dataset" / "data" / id
         if not dir.exists(): 
@@ -34,6 +34,11 @@ def main():
         sysml = dir / f"{id}.sysml"
         txt = dir / f"{id}.txt"
         meta = dir / "meta.json"
+        
+        # Skip if txt file already exists
+        if txt.exists():
+            print(f"Skipping {id} - txt file already exists")
+            continue
         
         with open(sysml) as f: 
             content = f.read()
@@ -45,8 +50,6 @@ def main():
         # Read meta.json to get metadata (but don't modify it)
         with open(meta) as f: 
             data = json.load(f)
-
-        # TODO: Modify the data['category']
 
 if __name__ == "__main__":
     main()

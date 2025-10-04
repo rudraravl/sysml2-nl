@@ -1,1 +1,7 @@
-SysML v2 model from official OMG release: ServerSequenceModel.sysml
+This model represents a publish-subscribe messaging system, a software architecture designed for asynchronous communication between different components. The system is composed of three main actors: a Producer, a central Server (or broker), and a Consumer.
+
+The system's operation follows a specific sequence. First, a Consumer initiates communication by sending a "subscribe" request to the Server, indicating its interest in a specific "topic" of information. The Server registers this interest.
+
+Later, a Producer creates a piece of information, or a "publication," and sends it to the Server, tagging it with the same topic. The Server, acting as a central hub, receives this publication and identifies which Consumers have previously subscribed to that topic.
+
+Finally, the Server forwards or "delivers" the publication to the interested Consumer. This architecture effectively decouples the message sender (Producer) from the receiver (Consumer), as they don't need to know about each other directly and only interact through the central Server based on shared topics of interest.

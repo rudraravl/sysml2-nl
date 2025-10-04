@@ -1,1 +1,14 @@
-SysML v2 model from official OMG release: ConnectionTest.sysml
+This model describes a set of fundamental design patterns for a complex electronic or mechanical system, rather than a single specific product. It serves as a blueprint illustrating various ways components can be structured and interconnected.
+
+The system is composed of several key elements and demonstrates different architectural principles:
+
+**1. Hierarchical Assemblies:** The system features nested components, similar to a main assembly containing a sub-assembly, which in turn holds smaller parts. This is shown by a component `P` which contains a nested part `p1`. An example could be a computer chassis containing a motherboard, which itself contains a CPU. The model demonstrates how other components within the main system can connect not only to the sub-assembly as a whole (the motherboard) but also directly to its internal parts (the CPU).
+
+**2. Diverse Connection Topologies:** The model defines several types of physical connections between four distinct devices (`d1` through `d4`):
+*   **A Shared Bus:** A central communication bus is established, linking all four devices together, allowing them to communicate over a shared channel, much like peripherals connected on a computer's internal bus.
+*   **A Point-to-Point Cable:** A separate, more specific connection is shown, acting like a custom 3-wire cable that explicitly links three of the devices to designated terminals.
+*   **A "Smart" Connector:** A more advanced connection is depicted that contains its own internal component (`q`). This represents a "smart cable" or adapter with its own logic, featuring a forked or dual-connector end to attach to one of the devices.
+
+**3. Internal Messaging:** The system includes a mechanism for a component to send a message to itself. This represents an internal process, such as a self-diagnostic test, a status update, or a loopback communication check where a component verifies its own functionality without external interaction.
+
+**4. Logical vs. Physical Links:** The design distinguishes between logical awareness and direct physical connection. One component (`A`) is designed to be aware of and interact with another component (`B`) that it doesn't physically contain—much like a central traffic controller (`A`) needing data from a remote intersection sensor (`B`). The model then explicitly defines a direct physical connection (like a dedicated wire) that runs from the sensor directly to the controller, realizing this logical relationship.

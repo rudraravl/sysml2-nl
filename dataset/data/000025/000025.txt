@@ -1,1 +1,9 @@
-SysML v2 model from official OMG release: PrivateImportTest.sysml
+This model describes the organizational architecture of a modular design system, not a single physical object. It's a framework that defines how different libraries of reusable engineering components are structured and how they share or hide their internal parts from each other.
+
+The system is composed of several distinct component libraries, labeled `P1`, `P2`, `P3`, and `P4`, each containing definitions for basic parts, such as `A` and `B`. The core purpose of this architecture is to manage design dependencies and control which components are visible or accessible across the different libraries.
+
+For example, Library `P2` uses a fundamental component `A` (defined in Library `P1`) for its internal workings, but it intentionally hides this fact from any other system using it. This is like a car's transmission control unit using a specific brand of microchip internally, but only presenting its own standardized ports to the rest of the car, not the chip itself.
+
+The main system can use component `A` directly by accessing its source library (`P1`). It also uses another component, `B`, as a private, internal part that is not exposed to the outside.
+
+Finally, a specialized subsystem, `P4`, is configured to have privileged access. It can "look inside" Library `P2` and directly interact with the otherwise hidden component `A`, allowing for deeper integration or advanced diagnostics that are not available to standard users of `P2`.

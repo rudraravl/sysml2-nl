@@ -1,1 +1,16 @@
-SysML v2 model from official OMG release: MultiplicityTest.sysml
+This model describes a blueprint for a highly configurable, modular assembly or kit. It's not a single, fixed product, but rather a set of rules for building a system with a variable number of components based on a central parameter.
+
+The system's structure is governed by a key "configuration number" (referred to as `n`), which is set to five by default. The rules for assembling a valid system are as follows:
+
+*   **Core Component:** Every assembly must have exactly one mandatory core component (`a`), which serves as the foundation.
+*   **Optional Components:** The assembly can be equipped with zero, one, or two "Type B" components. These are optional enhancements, but you cannot install more than two.
+*   **Required Expandable Components:** The system must include at least two "Type C" components, and there is no upper limit to how many can be added.
+*   **Accessory Components:** There is a slot for "Type D" components, which are entirely optional. Any number of them can be added, from none at all to many.
+
+The following components are directly dependent on the "configuration number" (which is 5):
+
+*   **Fixed-Set Components:** The assembly must have a number of "Type E" components exactly equal to the configuration number (so, precisely five).
+*   **Minimum-Set Components:** It requires at least five "Type F" components (a number set by the configuration number), but more can be added beyond this minimum.
+*   **Variable-Set Components:** The system must have at least one "Type G" component, but no more than the configuration number (so, between one and five are allowed).
+
+Finally, the system also includes a specification for a self-referential or hierarchical data structure. Each element in this structure (`A`) contains a number (`i`) that dictates exactly how many sub-elements of its own kind it must contain, creating a nested, tree-like organization of information or logic within the system.

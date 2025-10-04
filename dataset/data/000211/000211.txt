@@ -1,1 +1,7 @@
-SysML v2 model from official OMG release: 5-State-based Behavior-2.sysml
+This model describes the control system for a vehicle, focusing on its operational lifecycle and its self-monitoring health status. The system consists of the main vehicle and an integrated electronic controller that work together to manage its state.
+
+The vehicle's primary function is to provide power, which is managed based on incoming fuel commands. Its behavior is defined by two parallel sets of states that are active at the same time: its operational state and its health state.
+
+Operationally, the vehicle can be off, starting, or on. To start from the "off" state, it requires a "start" signal and, as a safety interlock, the brake pedal must be depressed. Once this condition is met, the vehicle signals its internal controller to power up. When the vehicle is fully "on," it first performs a self-test and then begins its main function of providing power. When a command is given to shut down, the vehicle automatically applies a parking brake before transitioning back to the "off" state.
+
+Simultaneously, the vehicle continuously monitors its health. It starts in a "normal" state, during which it constantly senses its temperature. If the temperature exceeds a predefined maximum threshold, it enters a "degraded" state and sends an "over-temperature" alert to its controller. The system also has a scheduled maintenance time; when this time is reached, it will enter a "maintenance" state. The vehicle can be returned to its "normal" health state from either the "degraded" or "maintenance" states after the issue is resolved or the service is complete.

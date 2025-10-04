@@ -1,1 +1,9 @@
-SysML v2 model from official OMG release: Terminate Actions Example-1.sysml
+This model describes a time-sensitive process designed to execute a critical task within a specific time limit. The system functions as a watchdog or failsafe for an important operation.
+
+When the process begins, two actions are initiated simultaneously: the main critical activity and a parallel timeout timer. This creates a "race" between the two.
+
+In the successful scenario, the critical activity completes its work before the timer expires. Upon its completion, it immediately signals for the entire operation to terminate, which also stops the still-running timeout timer.
+
+Conversely, if the critical activity takes too long and the timeout period elapses first, the timer will trigger the termination of the entire process. This action forcefully stops the critical activity, even if it has not yet finished.
+
+Essentially, this system ensures that a crucial operation either finishes successfully within its allotted timeframe or is safely aborted to prevent it from running indefinitely, consuming excessive resources, or causing errors.
