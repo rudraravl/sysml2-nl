@@ -1,0 +1,207 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{amsmath, amssymb}
+\usetheme{Madrid}
+
+\title{Transforming SysML v1 (DELS) into Many Small SysML v2 Artifacts}
+\subtitle{XML $\rightarrow$ IR $\rightarrow$ Deterministic v2 $\rightarrow$ 200--500 line Shards}
+\author{Creatix Chu (Georgia Tech) \\ \texttt{creatixchu@gatech.edu}}
+\date{\today}
+
+% Code listing style
+\definecolor{codebg}{RGB}{248,248,248}
+\lstdefinestyle{code}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0.3pt,
+  breaklines=true,
+  showstringspaces=false
+}
+
+% Define lightweight JSON highlighting
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  morestring=[b]",
+  stringstyle=\color{blue},
+  literate=
+   *{0}{{{\color{black}0}}}{1}
+    {1}{{{\color{black}1}}}{1}
+    {2}{{{\color{black}2}}}{1}
+    {3}{{{\color{black}3}}}{1}
+    {4}{{{\color{black}4}}}{1}
+    {5}{{{\color{black}5}}}{1}
+    {6}{{{\color{black}6}}}{1}
+    {7}{{{\color{black}7}}}{1}
+    {8}{{{\color{black}8}}}{1}
+    {9}{{{\color{black}9}}}{1}
+    {:}{{{\color{black}{:}}}}{1},
+}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}{Objective}
+\begin{itemize}
+  \item Convert large SysML v1 models (\texttt{.mdzip}, \texttt{.xml}) to high-quality SysML v2 \emph{textual} artifacts.
+  \item Produce \textbf{many small, semantically coherent files} (target: 200--500 lines each).
+  \item Generate paired \textbf{NL summaries} for each file for a SysMLv2--NL dataset.
+  \item Keep the process \textbf{deterministic} and \textbf{auditable}; use LLMs only for stylistic polish.
+\end{itemize}
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}{Pipeline Overview}
+\begin{enumerate}
+  \item \textbf{Ingest v1}: unzip \texttt{.mdzip}/parse XML; normalize profiles/stereotypes.
+  \item \textbf{Extract IR}: JSON intermediate representation (structure, behavior, requirements).
+  \item \textbf{Rule-based mapping}: deterministic v1$\rightarrow$v2 text.
+  \item \textbf{Sharding}: split into 200–500 line cohesive files.
+  \item \textbf{LLM pass}: refine style, not semantics.
+  \item \textbf{Validation}: syntax + semantic checks, imports/exports.
+  \item \textbf{Packaging}: NL summaries + manifest (.jsonl).
+\end{enumerate}
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}[fragile]{Intermediate Representation (IR)}
+\small
+\begin{lstlisting}[style=code,language=json]
+{
+  "blocks": [{
+    "id":"b:WarehouseSystem",
+    "name":"WarehouseSystem",
+    "parts":[{"name":"conveyor","type":"Conveyor"}],
+    "valueProperties":[{"name":"throughput","type":"item/s"}],
+    "ports":[{"name":"cmdIn","kind":"proxy","interface":"CmdIF"}]
+  }],
+  "requirements":[{"id":"1.2","name":"Performance","text":"..."}],
+  "activities":[{"name":"InboundShipment","actions":[...]}]
+}
+\end{lstlisting}
+\normalsize
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}{v1$\rightarrow$v2 Mapping Rules}
+\begin{columns}[T]
+\begin{column}{0.5\linewidth}
+\textbf{Structure}
+\begin{itemize}
+  \item Block $\rightarrow$ \texttt{part def}
+  \item Part property $\rightarrow$ \texttt{part} membership
+  \item Value property $\rightarrow$ \texttt{attribute}/constraint
+  \item Connector $\rightarrow$ \texttt{connection}
+\end{itemize}
+\textbf{Requirements}
+\begin{itemize}
+  \item Requirement $\rightarrow$ \texttt{requirement} def
+  \item Links $\rightarrow$ v2 allocations/satisfy relations
+\end{itemize}
+\end{column}
+\begin{column}{0.5\linewidth}
+\textbf{Behavior}
+\begin{itemize}
+  \item Activity $\rightarrow$ \texttt{action def}s
+  \item Sequence $\rightarrow$ occurrences/messages
+  \item Use case $\rightarrow$ \texttt{usecase def}s
+\end{itemize}
+\textbf{Stereotypes}
+\begin{itemize}
+  \item $\rightarrow$ v2 \texttt{metadata} / \texttt{\#keywords}
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}{Sharding Strategy (200--500 lines each)}
+\begin{itemize}
+  \item Split by concern: Structure / Behavior / Requirements / Interfaces.
+  \item Within each concern, anchor on top block or scenario root.
+  \item Greedy BFS add elements until $\sim$400 lines.
+  \item Record \texttt{exports}/\texttt{imports}.
+  \item Keep large units/enums in shared \texttt{Libraries/}.
+\end{itemize}
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}[fragile]{Example Generated v2 Chunk}
+\small
+\begin{lstlisting}[style=code]
+package Structure::WarehouseSystem;
+import Libraries::Units;
+
+part def WarehouseSystem;
+WarehouseSystem {
+  part conveyor: Conveyor;
+  attribute throughput: Real; // unit: item/s
+  port cmdIn: In<CmdIF>;
+  connection cmdIn -> ControlStation.cmdOut using item Cmd;
+}
+\end{lstlisting}
+\normalsize
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}[fragile]{Output Dataset Organization}
+\begin{itemize}
+  \item Each file = one coherent SysMLv2 chunk (200--500 lines)
+  \item Paired natural-language summary
+  \item \textbf{Manifest (.jsonl)} entry:
+\end{itemize}
+
+\small
+\begin{lstlisting}[style=code,language=json]
+{
+ "id":"Structure/Warehouse.CoreParts",
+ "sysml2_path":"SysMLv2/Structure/Warehouse.CoreParts.sysml",
+ "nl_path":"NL/Structure/Warehouse.CoreParts.md",
+ "lines":372,
+ "exports":["WarehouseSystem"],
+ "imports":["AGV","Pallet"]
+}
+\end{lstlisting}
+\normalsize
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}{LLM Role (Polish Only)}
+\begin{itemize}
+  \item Input: deterministic v2 + IR snippet
+  \item Output: stylistically refined v2 text or short NL summary
+  \item Guardrail prompt:
+  \begin{quote}
+  ``Do not invent new elements. Only reorganize or reformat existing definitions for v2 idiom.''
+  \end{quote}
+\end{itemize}
+\end{frame}
+
+% ------------------------------------------------------
+\begin{frame}{Validation \& Expert Feedback Points}
+\begin{itemize}
+  \item Check mapping fidelity vs. v1 semantics.
+  \item Confirm v2 package layout and naming best practices.
+  \item Discuss trade-offs: \emph{satisfy} vs. \emph{allocation usage}.
+  \item Recommend validation checks for consistency across shards.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Summary}
+\begin{itemize}
+  \item Deterministic pipeline: v1 XML $\rightarrow$ IR $\rightarrow$ v2 $\rightarrow$ 200--500 line shards.
+  \item NL summaries and manifests for dataset creation.
+  \item Ready for expert feedback on mapping conventions.
+\end{itemize}
+\end{frame}
+
+\end{document}
