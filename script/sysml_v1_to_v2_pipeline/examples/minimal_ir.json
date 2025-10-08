@@ -1,0 +1,66 @@
+{
+  "packages": [],
+  "blocks": [
+    {
+      "id": "b:WarehouseSystem",
+      "name": "WarehouseSystem",
+      "parts": [
+        {
+          "name": "conveyor",
+          "type": "Conveyor",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [
+        {
+          "name": "throughput",
+          "type": "Real",
+          "constraints": [
+            "> 0"
+          ]
+        }
+      ],
+      "ports": [
+        {
+          "name": "cmdIn",
+          "kind": "proxy",
+          "interface": "CmdIF",
+          "direction": "In<CmdIF>"
+        }
+      ]
+    },
+    {
+      "id": "b:ControlStation",
+      "name": "ControlStation",
+      "parts": [],
+      "valueProperties": [],
+      "ports": [
+        {
+          "name": "cmdOut",
+          "kind": "proxy",
+          "interface": "CmdIF",
+          "direction": "Out<CmdIF>"
+        }
+      ]
+    }
+  ],
+  "connectors": [
+    {
+      "from": "WarehouseSystem.cmdIn",
+      "to": "ControlStation.cmdOut",
+      "items": [
+        "Cmd"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "1.2",
+      "name": "Performance",
+      "text": "The system shall process 120 items/hour."
+    }
+  ],
+  "activities": [],
+  "interactions": [],
+  "stereotypes": []
+}

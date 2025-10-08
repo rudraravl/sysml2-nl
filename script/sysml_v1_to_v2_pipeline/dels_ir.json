@@ -1,0 +1,1133 @@
+{
+  "packages": [],
+  "blocks": [
+    {
+      "id": "_18_5_1_412017e_1522783922344_887890_38219",
+      "name": "ActiveResource",
+      "parts": [
+        {
+          "name": "resource",
+          "type": "ActiveResource",
+          "aggregation": "none"
+        },
+        {
+          "name": "resource",
+          "type": "ActiveResource",
+          "aggregation": "none"
+        },
+        {
+          "name": "relationshipBetween",
+          "type": "ActiveResourceRelationship",
+          "aggregation": "composite"
+        },
+        {
+          "name": "canExecute",
+          "type": "Process",
+          "aggregation": "none"
+        },
+        {
+          "name": "produces",
+          "type": "Product",
+          "aggregation": "none"
+        },
+        {
+          "name": "outputResources",
+          "type": "PassiveResource",
+          "aggregation": "none"
+        },
+        {
+          "name": "inputResources",
+          "type": "PassiveResource",
+          "aggregation": "none"
+        },
+        {
+          "name": "memberActiveResource",
+          "type": "ActiveResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "sourceResource",
+          "type": "ActiveResource",
+          "aggregation": "none"
+        },
+        {
+          "name": "targetResource",
+          "type": "ActiveResource",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1585663488044_560604_20250",
+      "name": "Scheduler",
+      "parts": [
+        {
+          "name": "queue",
+          "type": "Queue",
+          "aggregation": "composite"
+        },
+        {
+          "name": "resourceAcquirer",
+          "type": "ResourceAcquirer",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469545377697_997992_20549",
+      "name": "Equipment",
+      "parts": [
+        {
+          "name": "controller",
+          "type": "RealtimeController",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469191671490_75676_17845",
+      "name": "AssembledProduct",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469545206719_172011_20515",
+      "name": "Material",
+      "parts": [
+        {
+          "name": "requiredBy",
+          "type": "Product",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1447100016363_435914_29868",
+      "name": "AdmissionGate",
+      "parts": [
+        {
+          "name": "canExecute",
+          "type": "Admit",
+          "aggregation": "none"
+        },
+        {
+          "name": "incomingTask",
+          "type": "inDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "availableTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "rejectedTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1445553609143_552244_21262",
+      "name": "Task",
+      "parts": [
+        {
+          "name": "targetProduct",
+          "type": "Product",
+          "aggregation": "none"
+        },
+        {
+          "name": "authorizesExecuting",
+          "type": "Process",
+          "aggregation": "none"
+        },
+        {
+          "name": "subTask",
+          "type": "Task",
+          "aggregation": "composite"
+        },
+        {
+          "name": "currentDELS",
+          "type": "DELS",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1447101325382_69571_30259",
+      "name": "Router",
+      "parts": [
+        {
+          "name": "canExecute",
+          "type": "Route",
+          "aggregation": "none"
+        },
+        {
+          "name": "inTask",
+          "type": "inDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "outTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "readWriteProcessPlan",
+          "type": "ReadWriteProcessPlan",
+          "aggregation": "composite"
+        },
+        {
+          "name": "resourceAcquirer",
+          "type": "ResourceAcquirer",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1556132191817_681060_23022",
+      "name": "MaterialHandlingChannel",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1438363485531_561788_20403",
+      "name": "ConsumableResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426285450_989701_21164",
+      "name": "BatchCapacityResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1447099702589_667150_29711",
+      "name": "DELS",
+      "parts": [
+        {
+          "name": "availableTaskStore",
+          "type": "Queue",
+          "aggregation": "composite"
+        },
+        {
+          "name": "acquireResources",
+          "type": "ResourceAcquirer",
+          "aggregation": "composite"
+        },
+        {
+          "name": "functionalCapability",
+          "type": "Process",
+          "aggregation": "none"
+        },
+        {
+          "name": "completedTaskStore",
+          "type": "Queue",
+          "aggregation": "composite"
+        },
+        {
+          "name": "releaseResources",
+          "type": "Release",
+          "aggregation": "composite"
+        },
+        {
+          "name": "routing",
+          "type": "Router",
+          "aggregation": "composite"
+        },
+        {
+          "name": "controller",
+          "type": "OperationalController",
+          "aggregation": "composite"
+        },
+        {
+          "name": "inResource",
+          "type": "inDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "setUp",
+          "type": "ChangeState",
+          "aggregation": "composite"
+        },
+        {
+          "name": "incomingTasks",
+          "type": "inDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "completedTasks",
+          "type": "Task",
+          "aggregation": "none"
+        },
+        {
+          "name": "outgoingTasks",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "availableTasks",
+          "type": "Task",
+          "aggregation": "none"
+        },
+        {
+          "name": "outResource",
+          "type": "outDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "location",
+          "type": "Location",
+          "aggregation": "composite"
+        },
+        {
+          "name": "serviceProvider",
+          "type": "DELS",
+          "aggregation": "none"
+        },
+        {
+          "name": "serviceRequestor",
+          "type": "DELS",
+          "aggregation": "none"
+        },
+        {
+          "name": "childDELS",
+          "type": "DELS",
+          "aggregation": "composite"
+        },
+        {
+          "name": "relationshipBetween",
+          "type": "Contract",
+          "aggregation": "composite"
+        },
+        {
+          "name": "inprocessTasks",
+          "type": "Task",
+          "aggregation": "none"
+        },
+        {
+          "name": "parentDELS",
+          "type": "DELS",
+          "aggregation": "none"
+        },
+        {
+          "name": "mhc",
+          "type": "MaterialHandlingChannel",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444422330803_44366_20628",
+      "name": "ReusableResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1540564012769_890059_70562",
+      "name": "SendTaskToResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1447101176576_892413_30204",
+      "name": "Release",
+      "parts": [
+        {
+          "name": "releasedResource",
+          "type": "outDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "completedTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "resource",
+          "type": "inDELSResource",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022088_847674_27447",
+      "name": "Endpoint Node",
+      "parts": [
+        {
+          "name": "point",
+          "type": "VectorOfReals",
+          "aggregation": "composite"
+        },
+        {
+          "name": "endpointOfSegment",
+          "type": "Rectangular Path Segment",
+          "aggregation": "none"
+        },
+        {
+          "name": "L_Intersection",
+          "type": "Lshaped Intersection",
+          "aggregation": "none"
+        },
+        {
+          "name": "T_intersection",
+          "type": "Tshaped Intersection",
+          "aggregation": "none"
+        },
+        {
+          "name": "+_intersection",
+          "type": "+shaped Intersection",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021771_819111_27349",
+      "name": "Process-Oriented Layout",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022448_939329_27590",
+      "name": "Rectangular Path Intersection",
+      "parts": [
+        {
+          "name": "intersectingObject",
+          "type": "Rectangular Path",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426980643_489712_21563",
+      "name": "StructuredCapacityPool",
+      "parts": [
+        {
+          "name": "aggregateResourcePool",
+          "type": "AggregateResource",
+          "aggregation": "shared"
+        },
+        {
+          "name": "batchResourcePool",
+          "type": "BatchCapacityResource",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1470406946565_442659_30927",
+      "name": "Facility",
+      "parts": [
+        {
+          "name": "containedResources",
+          "type": "Resource",
+          "aggregation": "none"
+        },
+        {
+          "name": "hasActualLayout",
+          "type": "Layout",
+          "aggregation": "none"
+        },
+        {
+          "name": "location",
+          "type": "Location",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022090_731274_27450",
+      "name": "Internal Node",
+      "parts": [
+        {
+          "name": "point",
+          "type": "VectorOfReals",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021771_63663_27348",
+      "name": "Placement",
+      "parts": [
+        {
+          "name": "object",
+          "type": "Layout Object",
+          "aggregation": "none"
+        },
+        {
+          "name": "space",
+          "type": "Physical Space",
+          "aggregation": "none"
+        },
+        {
+          "name": "offset",
+          "type": "VectorOfReals",
+          "aggregation": "composite"
+        },
+        {
+          "name": "orientation",
+          "type": "SquareMatrixOfReals",
+          "aggregation": "composite"
+        },
+        {
+          "name": "parentLayout",
+          "type": "Layout",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444422013497_185130_20529",
+      "name": "CapacitatedResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469623888981_175163_21435",
+      "name": "Information",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444422468984_77572_20641",
+      "name": "DiscreteStateResource",
+      "parts": [
+        {
+          "name": "currentService",
+          "type": "Process",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022446_479024_27586",
+      "name": "Lshaped Intersection",
+      "parts": [
+        {
+          "name": "endpoint",
+          "type": "Endpoint Node",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444427116216_313595_21664",
+      "name": "HeterogeneousAggregateResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022447_880922_27588",
+      "name": "Two Rectangular Path Intersection",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1470159622316_609372_30416",
+      "name": "MobileResource",
+      "parts": [
+        {
+          "name": "CurrentLocation",
+          "type": "Location",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022447_879836_27589",
+      "name": "Tshaped Intersection",
+      "parts": [
+        {
+          "name": "endpoint",
+          "type": "Endpoint Node",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1522784001683_894147_38283",
+      "name": "PassiveResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021776_679355_27352",
+      "name": "Layout Object",
+      "parts": [
+        {
+          "name": "2Dgeometry",
+          "type": "2Dgeometry",
+          "aggregation": "composite"
+        },
+        {
+          "name": "3Dgeometry",
+          "type": "3Dgeometry",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469191784736_359826_17895",
+      "name": "AggregatedProduct",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1447100664291_308605_30078",
+      "name": "ResourceAcquirer",
+      "parts": [
+        {
+          "name": "canExecute",
+          "type": "ResourceAcquire",
+          "aggregation": "none"
+        },
+        {
+          "name": "inTask",
+          "type": "inDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "acquiredResource",
+          "type": "outDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "availableResource",
+          "type": "inDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "outTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469545275076_710615_20520",
+      "name": "Personnel",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469191616424_55074_17823",
+      "name": "Product",
+      "parts": [
+        {
+          "name": "billOfMaterial",
+          "type": "Material",
+          "aggregation": "none"
+        },
+        {
+          "name": "components",
+          "type": "Product",
+          "aggregation": "none"
+        },
+        {
+          "name": "authorizedBy",
+          "type": "Task",
+          "aggregation": "none"
+        },
+        {
+          "name": "requiredInputResources",
+          "type": "Resource",
+          "aggregation": "none"
+        },
+        {
+          "name": "createdBy",
+          "type": "Process",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1555009232236_753031_21363",
+      "name": "RealtimeController",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426522779_308554_21292",
+      "name": "Resource",
+      "parts": [
+        {
+          "name": "isLocatedIn",
+          "type": "Facility",
+          "aggregation": "none"
+        },
+        {
+          "name": "memberResource",
+          "type": "Resource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "resourceGroup",
+          "type": "Resource",
+          "aggregation": "none"
+        },
+        {
+          "name": "requiredByProduct",
+          "type": "Product",
+          "aggregation": "none"
+        },
+        {
+          "name": "requiredByProcess",
+          "type": "Process",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021778_308440_27355",
+      "name": "Layout Object With Access",
+      "parts": [
+        {
+          "name": "accessAt",
+          "type": "Interface Point",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021783_925099_27361",
+      "name": "Physical Space",
+      "parts": [
+        {
+          "name": "geometry",
+          "type": "2Dgeometry",
+          "aggregation": "composite"
+        },
+        {
+          "name": "hasLayout",
+          "type": "Layout",
+          "aggregation": "none"
+        },
+        {
+          "name": "parentFacility",
+          "type": "Facility",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022093_648141_27453",
+      "name": "Rectangular Path",
+      "parts": [
+        {
+          "name": "ownedSegment",
+          "type": "Rectangular Path Segment",
+          "aggregation": "composite"
+        },
+        {
+          "name": "sharedSegment",
+          "type": "Rectangular Path Intersection",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021779_96919_27356",
+      "name": "Layout Object For Movement",
+      "parts": [
+        {
+          "name": "incidentTo",
+          "type": "Interface Point",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1470159453234_452151_30360",
+      "name": "PerishableResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022448_256705_27592",
+      "name": "+shaped Intersection",
+      "parts": [
+        {
+          "name": "endpoint",
+          "type": "Endpoint Node",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021772_756030_27350",
+      "name": "Layout",
+      "parts": [
+        {
+          "name": "layoutForSpace",
+          "type": "Physical Space",
+          "aggregation": "none"
+        },
+        {
+          "name": "actualLayoutOfSpace",
+          "type": "Facility",
+          "aggregation": "none"
+        },
+        {
+          "name": "placements",
+          "type": "Placement",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469192320487_568093_18014",
+      "name": "HeterogeneousAggregatedProduct",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1540564046220_97656_70564",
+      "name": "ResourceToTask",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426767636_382201_21463",
+      "name": "SimpleCapacityPool",
+      "parts": [
+        {
+          "name": "resourcePool",
+          "type": "UnitCapacityResource",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1556132665394_477666_23151",
+      "name": "MaterialHandlingChannel",
+      "parts": [
+        {
+          "name": "source",
+          "type": "ActiveResource",
+          "aggregation": "none"
+        },
+        {
+          "name": "target",
+          "type": "ActiveResource",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893022089_900203_27449",
+      "name": "Rectangular Path Segment",
+      "parts": [
+        {
+          "name": "internalNode",
+          "type": "Internal Node",
+          "aggregation": "composite"
+        },
+        {
+          "name": "owningPath",
+          "type": "Rectangular Path",
+          "aggregation": "none"
+        },
+        {
+          "name": "endpoint",
+          "type": "Endpoint Node",
+          "aggregation": "shared"
+        },
+        {
+          "name": "incidentTo",
+          "type": "Interface Point",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1513630372825_451034_44561",
+      "name": "Contract",
+      "parts": [
+        {
+          "name": "serviceProvider",
+          "type": "DELS",
+          "aggregation": "none"
+        },
+        {
+          "name": "serviceRequestor",
+          "type": "DELS",
+          "aggregation": "none"
+        },
+        {
+          "name": "requiredService",
+          "type": "Process",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426455840_599570_21262",
+      "name": "HomogenousAggregateResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1447100239436_660764_29906",
+      "name": "Queue",
+      "parts": [
+        {
+          "name": "canExecute",
+          "type": "Sequence",
+          "aggregation": "none"
+        },
+        {
+          "name": "outTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "inTask",
+          "type": "inDELSTask",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021773_884152_27351",
+      "name": "Product-Oriented Layout",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426178886_684590_21118",
+      "name": "UnitCapacityResource",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_4_1_412017e_1497884486800_236077_30797",
+      "name": "ReadWriteProcessPlan",
+      "parts": [
+        {
+          "name": "inTask",
+          "type": "inDELSTask",
+          "aggregation": "composite"
+        },
+        {
+          "name": "canExecute",
+          "type": "UpdateProcessPlan",
+          "aggregation": "none"
+        },
+        {
+          "name": "outTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1471893021782_373515_27359",
+      "name": "Interface Point",
+      "parts": [
+        {
+          "name": "point",
+          "type": "VectorOfReals",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1470159602756_954476_30395",
+      "name": "StationaryResource",
+      "parts": [
+        {
+          "name": "CurrentLocation",
+          "type": "Location",
+          "aggregation": "none"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_4_1_412017e_1493314537606_81111_31918",
+      "name": "Actuator",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_5_1_412017e_1513346821608_78198_40601",
+      "name": "ActiveResourceRelationship",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426115548_908633_21089",
+      "name": "AtomicResource",
+      "parts": [
+        {
+          "name": "resourcePool",
+          "type": "Resource",
+          "aggregation": "shared"
+        },
+        {
+          "name": "memberResource",
+          "type": "Resource",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_18_0_2_f95033a_1444426396430_621266_21195",
+      "name": "AggregateResource",
+      "parts": [
+        {
+          "name": "resourcePool",
+          "type": "Resource",
+          "aggregation": "shared"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469555286659_855579_21170",
+      "name": "ChangeState",
+      "parts": [
+        {
+          "name": "targetResource",
+          "type": "inDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "auxillaryResources",
+          "type": "inDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "releasedResources",
+          "type": "outDELSResource",
+          "aggregation": "composite"
+        },
+        {
+          "name": "canExecute",
+          "type": "ChangeState",
+          "aggregation": "none"
+        },
+        {
+          "name": "overheadTask",
+          "type": "outDELSTask",
+          "aggregation": "composite"
+        }
+      ],
+      "valueProperties": [],
+      "ports": []
+    },
+    {
+      "id": "_17_0_4_2_937029c_1469192278886_493413_18010",
+      "name": "HomogeneousAggregatedProduct",
+      "parts": [],
+      "valueProperties": [],
+      "ports": []
+    }
+  ],
+  "connectors": [],
+  "requirements": [],
+  "activities": [],
+  "interactions": [],
+  "stereotypes": []
+}
