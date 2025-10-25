@@ -41,6 +41,12 @@ This Naval Postgraduate School 2024 paper explores the ability of current Large 
 
 This arXiv 2025 paper presents SysMBench, the first benchmark designed to evaluate the capability of Large Language Models in generating system models with model description languages from natural language requirements. The benchmark comprises 151 human-curated scenarios spanning a wide range of popular domains and varying difficulty levels, each containing natural language requirements descriptions, reference SysML v2 models, and visualized diagrams. The paper introduces SysMEval, a semantic-aware evaluation metric that decomposes models into atomic semantic claims for more reliable assessment than traditional string-based metrics. This work is highly relevant to the SysML2-NL project as it provides a comprehensive evaluation framework for assessing joint embedding quality, establishes baseline performance metrics for LLM-based system model generation, and offers valuable insights into the challenges and limitations of current approaches that could inform the development of more effective joint embedding techniques.
 
+## arXiv 2023: CLAMP - Contrastive Language Model Prompt-Tuning
+
+[PDF](arXiv_2023_CLAMP_Contrastive_Language_Model_Prompt_Tuning.pdf)
+
+This arXiv 2023 paper introduces CLAMP, a contrastive prompt-tuning method that adapts Vicuna-13B with read-only prompt tokens, attention-based pooling, LoRA adapters, and CLIP-style distillation to align image and text embeddings. The approach improves zero-shot image classification accuracy by roughly 13% over instruction-tuned multimodal LLMs while preserving generative capabilities, demonstrating how lightweight adapters and contrastive objectives can add discriminative skill without full fine-tuning. For the SysML2-NL project, CLAMP provides a concrete recipe for combining large language priors with modality-specific encoders, highlighting strategies that could inform joint SysML v2–natural language embedding efforts and help balance semantic alignment with conversational utility.
+
 ## IEEE Access 2025: Ensuring Semantic Consistency in SysML v2 Models through Metamodel-Driven Validation
 
 [PDF](IEEE_Access_2025_Semantic_Consistency_SysML_v2_Models.pdf)
