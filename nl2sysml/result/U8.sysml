@@ -1,18 +1,17 @@
 // Create a coffee machine system with a user interface, water heater, and milk frother.
-part def CoffeeMachine {
-  part userInterface : UserInterface;
-  part waterHeater : WaterHeater;
-  part milkFrother : MilkFrother;
-}
-
-part def UserInterface {
-  // Placeholder for UI specific properties/ports
-}
-
-part def WaterHeater {
-  // Placeholder for water heater specific properties/ports
-}
-
-part def MilkFrother {
-  // Placeholder for milk frother specific properties/ports
+package 'Coffee Machine System' {
+	package Definitions {
+		part def CoffeeMachine;
+		part def UserInterface;
+		part def WaterHeater;
+		part def MilkFrother;
+	}
+	package Usages {
+		private import Definitions::*;
+		part coffeeMachineSystem : CoffeeMachine {
+			part userInterface : UserInterface;
+			part waterHeater : WaterHeater;
+			part milkFrother : MilkFrother;
+		}
+	}
 }

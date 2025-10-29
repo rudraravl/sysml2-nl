@@ -1,59 +1,24 @@
 // Define a heating system that adjusts the temperature when there is a trigger.
-```sysml
-package HeatingSystemPackage {
+package 'Heating System' {
+	private import ISQ::*;
 
-  // Define types
-  type Temperature : ScalarValue { unit Unit.C; }
-  type Boolean;
+	item def TriggerSignal;
 
-  // Define interfaces for communication between parts
-  interface TemperatureReading {
-    output currentTemperature : Temperature;
-  }
+	action def AdjustTemperature;
 
-  interface HeaterControl {
-    output setHeaterOn : Boolean;
-    output targetTemperature : Temperature;
-  }
+	part def HeatingSystem {
+		attribute currentTemperature : ISQ::TemperatureValue;
 
-  interface SystemControlInput {
-    input triggerAdjustment : Boolean; // Represents the "trigger"
-    input desiredRoomTemperature : Temperature;
-  }
+		state heatingControl {
+			entry; then idle;
 
-  // Define the individual parts of the system
-  part TemperatureSensor {
-    port provides : TemperatureReading;
-  }
+			state idle;
+			accept TriggerSignal then adjusting;
 
-  part Heater {
-    port receives : HeaterControl;
-  }
-
-  part Controller {
-    port senses : TemperatureReading;
-    port commands : HeaterControl;
-    port receivesExternal : SystemControlInput;
-    // The behavior to "adjusts the temperature when there is a trigger"
-    // is implicitly handled by this Controller part based on its inputs and outputs.
-  }
-
-  // Define the overall HeatingSystem
-  part HeatingSystem {
-    // Internal parts of the HeatingSystem
-    part sensor : TemperatureSensor;
-    part heater : Heater;
-    part controller : Controller;
-
-    // External port for the HeatingSystem to receive commands and settings
-    port systemInput : SystemControlInput;
-
-    // Connect the internal parts
-    connect sensor.provides to controller.senses;
-    connect controller.commands to heater.receives;
-
-    // Connect the external system input to the internal controller
-    connect systemInput to controller.receivesExternal;
-  }
+			state adjusting {
+				entry action AdjustTemperature;
+				then idle;
+			}
+		}
+	}
 }
-```

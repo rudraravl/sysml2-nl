@@ -6,6 +6,9 @@ from pathlib import Path
 # Keep it simple: minimal imports and setup
 from dotenv import load_dotenv
 import google.generativeai as genai
+import re
+import json
+from typing import List, Tuple
 
 
 def _load_env():
@@ -42,9 +45,9 @@ def build_agent(system_hint: str | None = None):
         (system_hint or "").strip()
         or (
             "You generate valid SysML v2 concrete syntax only. "
-            "Follow official grammar; prefer simple, correct structures. "
-            "Model parts, interfaces, flows, requirements when applicable. "
-            "Do not explain; output SysML v2 code only."
+            "No markdown, no fences, no prose. "
+            "Prefer simple, correct structures (part def, package, ports, flows, requirements). "
+            "If unsure, choose minimal valid constructs."
         )
     )
 
@@ -58,21 +61,153 @@ def build_agent(system_hint: str | None = None):
     # Prompt → LLM → text
     prompt = ChatPromptTemplate.from_messages([
         ("system", sys_msg),
-        ("human", "{input}"),
+        ("human", "{context}\n\nGenerate SysML v2 code for: {input}"),
     ])
     chain = prompt | llm | StrOutputParser()
     return chain
 
 
+def _tokenize(s: str) -> List[str]:
+    return [t for t in re.split(r"[^A-Za-z0-9_]+", s.lower()) if t]
+
+
+def _similarity(a: str, b: str) -> float:
+    ta, tb = set(_tokenize(a)), set(_tokenize(b))
+    if not ta or not tb:
+        return 0.0
+    inter = len(ta & tb)
+    return inter / (len(ta) ** 0.5 * len(tb) ** 0.5)
+
+
+def _collect_examples(root: Path, limit: int = 300) -> List[Tuple[str, str]]:
+    pairs = []
+    data_dir = root / "dataset" / "data"
+    if not data_dir.exists():
+        return pairs
+    for p in sorted(data_dir.glob("*/*")):
+        if p.suffix == ".txt":
+            sysml = p.with_suffix(".sysml")
+            if sysml.exists():
+                try:
+                    txt = p.read_text(encoding="utf-8")
+                    code = sysml.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+                pairs.append((txt, code))
+                if len(pairs) >= limit:
+                    break
+    return pairs
+
+
+def _rag_context(nl_prompt: str, root: Path, k: int = 3) -> str:
+    # Dataset examples (few-shot)
+    examples = _collect_examples(root)
+    blocks = []
+    if examples:
+        scored = sorted(
+            ((ex, _similarity(nl_prompt, ex[0])) for ex in examples),
+            key=lambda x: x[1], reverse=True,
+        )
+        top_data = [e for (e, s) in scored[:5] if s > 0]
+        for i, (txt, code) in enumerate(top_data, 1):
+            # Keep code-only and trim comments for clarity
+            lines = []
+            for ln in code.splitlines():
+                t = ln.strip()
+                if not t or t.startswith("//"):
+                    continue
+                lines.append(ln)
+                if len(lines) >= 80:
+                    break
+            code_snip = "\n".join(lines)
+            blocks.append(
+                f"Example {i} NL:\n{txt.strip()}\n\nExample {i} SysML:\n{code_snip}\n---"
+            )
+
+    # Spec chunks (keyword-biased)
+    spec_jsonl = root / "nl2sysml" / "spec_index" / "chunks.jsonl"
+    if spec_jsonl.exists():
+        try:
+            hits = []
+            prompt_tokens = _tokenize(nl_prompt)
+            keywords = {t for t in prompt_tokens if len(t) >= 4}
+            with spec_jsonl.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    txt = rec.get("text", "")
+                    title = rec.get("title", "")
+                    base = _similarity(nl_prompt, txt)
+                    if base <= 0:
+                        continue
+                    # Keyword bonus
+                    low = txt.lower()
+                    kcount = sum(1 for kw in keywords if kw in low)
+                    bonus = min(kcount * 0.01, 0.08)
+                    # Prefer textual notation and kernel docs
+                    title_bonus = 0.0
+                    if "Textual Notation" in title or "Kernel_Modeling_Language" in title:
+                        title_bonus = 0.05
+                    score = base + bonus + title_bonus
+                    hits.append((rec, score))
+            hits.sort(key=lambda x: x[1], reverse=True)
+            for j, (rec, s) in enumerate(hits[:3], 1):
+                txt = rec.get("text", "")
+                title = rec.get("title", "Spec")
+                blocks.append(f"Spec {j} [{title}]:\n{txt}\n---")
+        except Exception:
+            pass
+
+    if not blocks:
+        return ""
+    return (
+        "Use the following examples and specification excerpts as guidance. "
+        "Follow grammar; prefer simple, correct constructs.\n" + "\n".join(blocks)
+    )
+
+
+def _postprocess(code: str) -> str:
+    # Strip markdown fences and any leading markers
+    lines = []
+    for ln in code.splitlines():
+        if ln.strip().startswith("```"):
+            continue
+        if ln.strip().lower().startswith("sysml") and len(ln.strip().split()) == 1:
+            continue
+        lines.append(ln)
+    out = "\n".join(lines).strip()
+    return out
+
+
 def generate_sysml(prompt_text: str, system_hint: str | None = None) -> str:
     """
     One-shot helper to get SysML v2 code for a natural-language prompt.
+    Uses simple RAG and light post-processing.
     """
+    root = Path(__file__).parent.parent
+    context = _rag_context(prompt_text, root, k=3)
     chain = build_agent(system_hint)
-    return chain.invoke({"input": prompt_text})
+    resp = chain.invoke({"input": prompt_text, "context": context})
+    code = _postprocess(resp)
+    # Retry once if markdown fences remain or empty
+    if ("```" in resp) or (not code):
+        strong_hint = (
+            (system_hint or "")
+            + " No markdown, no fences, no prose. Output SysML code only."
+        ).strip()
+        chain = build_agent(strong_hint)
+        resp = chain.invoke({"input": prompt_text, "context": context})
+        code = _postprocess(resp)
+    return code
 
 
 if __name__ == "__main__":
+    args = " ".join(sys.argv[1:]).strip()
+    if args:
+        print(generate_sysml(args))
+        raise SystemExit(0)
 
     base = Path(__file__).parent
     ds_path = base / "dataset.json"
@@ -84,9 +219,6 @@ if __name__ == "__main__":
     if not prompts:
         raise SystemExit("No prompts found in dataset.json")
 
-    # Build once, reuse
-    chain = build_agent()
-
     for item in prompts:
         pid = str(item.get("id", "")).strip()
         desc = str(item.get("description", "")).strip()
@@ -94,7 +226,7 @@ if __name__ == "__main__":
             continue
         fname = f"{pid.upper()}.sysml"
         out_path = result_dir / fname
-        sysml = chain.invoke({"input": desc})
+        sysml = generate_sysml(desc)
         content = f"// {desc}\n{sysml}\n"
         out_path.write_text(content)
         print(f"wrote {out_path}")

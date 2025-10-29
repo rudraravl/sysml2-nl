@@ -1,35 +1,20 @@
 // Define a library management system that is able to borrow and return books.
-```sysml
 package LibraryManagement {
+	part def Book;
+	part def User;
 
-  item def Book {
-    attribute id: String;
-    attribute title: String;
-    attribute author: String;
-    attribute isAvailable: Boolean;
-  }
+	part def Library {
+		part managedBooks : Book[0..*];
 
-  item def Member {
-    attribute id: String;
-    attribute name: String;
-  }
+		action borrowBook {
+			in book : Book;
+			in borrower : User;
+		}
+		action returnBook {
+			in book : Book;
+			in returner : User;
+		}
+	}
 
-  action def BorrowBook {
-    input member: Member;
-    input book: Book;
-    output success: Boolean;
-  }
-
-  action def ReturnBook {
-    input member: Member;
-    input book: Book;
-    output success: Boolean;
-  }
-
-  part def LibraryManagementSystem {
-    flow borrow: BorrowBook;
-    flow return: ReturnBook;
-  }
-
+	part myLibrarySystem : Library;
 }
-```
