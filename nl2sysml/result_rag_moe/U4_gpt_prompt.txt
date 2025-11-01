@@ -1,0 +1,327 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This describes a vehicle system with a configurable engine architecture. The basic system is a vehicle that contains an engine, and the engine itself is made up of a number of cylinders.
+
+The core design is flexible, allowing the engine to be built with anywhere from four to six cylinders. Based on this adaptable blueprint, two specific vehicle models are defined: a 'small vehicle' which consistently uses a four-cylinder engine, and a 'big vehicle' that is equipped with a larger six-cylinder engine.
+
+This represents a common product family where a base vehicle platform can be offered in different versions, distinguished by the size and power of their engines.
+
+Example 1 SysML:
+package 'Parts Example-1' {
+	part def Vehicle {
+		part eng : Engine;
+	}
+	part def Engine {
+		part cyl : Cylinder[4..6];
+	}
+	part def Cylinder;
+	part smallVehicle : Vehicle {
+		part redefines eng {
+			part redefines cyl[4];
+		}
+	}
+	part bigVehicle : Vehicle {
+		part redefines eng {
+			part redefines cyl[6];
+		}
+	}
+}
+---
+Example 2 NL:
+This system describes a physical control knob for adjusting the vertical tilt of a vehicle's headlights.
+
+The knob allows a driver to change the angle of the headlight beams. A key feature of this system is that it has a built-in safety limitation. The tilt angle is strictly restricted to a predefined range, ensuring it can only be set between a minimum of 50 degrees and a maximum of 80 degrees. This prevents the driver from setting the headlights too low or, more importantly, too high, which could dazzle oncoming traffic.
+
+Example 2 SysML:
+package '15_08-Range Restriction' {
+	private import ISQ::*;
+	private import SI::*;
+	private import '15_01-Constants'::'Mathematical Constants'::pi;
+	part def HeadLightsTiltKnob {
+		attribute headLightsTile : LightBeamTiltAngleValue[1];
+	}
+	attribute def LightBeamTiltAngleValue :> PlaneAngleValue {
+		attribute angle: LightBeamTiltAngleValue :>> self {
+			doc
+			/*
+			 * Tilt angle shall be limited to the range between 50 and 80 degrees (inclusive).
+			 */
+		}
+		assert constraint { angle >= 50 ['°'] and angle <= 80 ['°'] }
+	}
+}
+---
+Example 3 NL:
+This model describes a vehicle, which is composed of a chassis, an engine, and a transmission system. Each of these core components has its own specific mass.
+
+A critical design requirement for this vehicle is that its total weight is strictly controlled. The combined mass of the chassis, the engine, and the transmission is not allowed to exceed a limit of 2500 kilograms. This suggests the vehicle is being designed for a specific performance, efficiency, or regulatory class where weight is a key factor.
+
+Example 3 SysML:
+package 'Constraint Assertions-1' {
+	private import ISQ::*;
+	private import SI::*;
+	private import NumericalFunctions::*;
+	part def Engine;
+	part def Transmission;
+	constraint def MassConstraint {
+		in partMasses : MassValue[0..*];
+		in massLimit : MassValue;
+		sum(partMasses) <= massLimit
+	}
+	part def Vehicle {
+		assert constraint massConstraint : MassConstraint {
+			in partMasses = (chassisMass, engine.mass, transmission.mass);
+			in massLimit = 2500[kg];
+		}
+		attribute chassisMass : MassValue;
+		part engine : Engine {
+			attribute mass : MassValue;
+		}
+		part transmission : Engine {
+			attribute mass : MassValue;
+		}
+	}	
+}
+---
+Example 4 NL:
+This model describes a family of configurable vehicles built from a common platform. The fundamental design is a generic vehicle powered by an engine. This engine is itself composed of multiple cylinders, and in its general form, it can have between four and six cylinders.
+
+From this basic template, two specific types of vehicles are defined: a Small Vehicle and a Big Vehicle. The Small Vehicle is a specialized version that is always equipped with a smaller, four-cylinder engine. In contrast, the Big Vehicle is a more powerful variant that consistently uses a larger, six-cylinder engine. This system demonstrates how a standard vehicle architecture can be adapted to create different models by fitting them with specific engine configurations.
+
+Example 4 SysML:
+package 'Redefinition Example' {
+	part def Vehicle {
+		part eng : Engine;
+	}
+	part def SmallVehicle :> Vehicle {
+		part smallEng : SmallEngine redefines eng;
+	}
+	part def BigVehicle :> Vehicle {
+		part bigEng : BigEngine :>> eng;
+	}
+	part def Engine {
+		part cyl : Cylinder[4..6];
+	}
+	part def SmallEngine :> Engine {
+		part redefines cyl[4];
+	}
+	part def BigEngine :> Engine {
+		part redefines cyl[6];
+	}
+	part def Cylinder;
+}
+---
+Example 5 NL:
+This model describes a configurable vehicle system, likely a car or truck platform, defined by its engine configuration. The core design consists of a vehicle chassis that houses a single engine. The performance and type of the vehicle are determined by the engine's size, which is measured by its number of cylinders.
+
+The general vehicle concept is flexible, designed to be fitted with an engine that can have between four and six cylinders. Based on this adaptable platform, two specific vehicle models are defined:
+
+1.  A **small vehicle**, which is always equipped with a 4-cylinder engine, suggesting an economy or standard model.
+2.  A **big vehicle**, which is consistently built with a larger, 6-cylinder engine for greater power and performance.
+
+Example 5 SysML:
+package 'Parts Example-2' {
+	part def Vehicle;	
+	part def Engine;	
+	part def Cylinder;
+	part vehicle : Vehicle {
+		part eng : Engine {
+			part cyl : Cylinder[4..6];
+		}
+	}
+	part smallVehicle :> vehicle {
+		part redefines eng {
+			part redefines cyl[4];
+		}
+	}
+	part bigVehicle :> vehicle {
+		part redefines eng {
+			part redefines cyl[6];
+		}
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+gn {
+feature redefines approved = true;
+feature redefines approver = "John Smith";
+}
+
+The keywords feature and/or redefines (or the equivalent symbol :>>) may be omitted in the declaration of a
+metadata feature.
+metadata ApprovalAnnotation about Design {
+approved = true;
+approver = "John Smith";
+}
+
+If the metadata feature is an owned member of a namespace (see 7.2.5 ), then the explicit identification of annotated
+elements (following the about keyword) can be omitted, in which case the annotated element is implicitly the
+containing namespace (see 7.2.4 ).
+class Design {
+// This metadata feature is implicitly about the class Design.
+@ApprovalAnnotation {
+approved = true;
+approver = "John Smith";
+}
+}
+
+If a metadata feature has one or more concrete features that directly or indirectly subset
+Metaobject::annotatedElement, then, for each annotated element of the metadata feature, there must be at
+least one such feature for which the metaclass of the annotated element conforms to all the types of the feature
+(which must all be specializations of the reflective metaclass KerML::Element, see 9.2.17 ).
+metaclass Command {
+// A metadata feature of this metaclass may annotate
+// a behavior or a step.
+subsets annotatedElement : KerML::Behavior;
+subsets annotatedElement : KerML::Step;
+}
+behavior Save specializes UserAction {
+@Command; // This is valid.
+redefine step doAction {
+@Command; // This is valid.
+}
+}
+struct Options {
+@Command; // This is INVALID.
+}
+
+If the metaclass of a metadata feature is a direct or indirect specialization of Metaobjects::SemanticMetadata
+(see 9.2.16.2.3 ), then the annotated elements must all be types and the feature SemanticMetadata::baseType
+
+Kernel Modeling Language v1.0
+
+69
+
+
+must be bound to a value of type KerML::Type (see 9.2.17 ). Each type annotated by such semantic metadata has
+an implicit specialization added to a type determined from the baseType value as follows:
+• If the annotated type is neither a classifier nor a feature, then the annotated type implicitly specializes the
+baseType.
+• If the annotated type is a classifier and the baseType is a classifier, then annotated classifier implicitly
+subclassifies the baseType.
+• If the ann
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+, and an owningType that is a
+Class or another Feature typed by a Class, then it must directly or indirectly specialize
+Occurrences::Occurrence::portions from the Kernel Semantic Library.
+isPortion and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <> null and
+(owningType.oclIsKindOf(Class) or
+owningType.oclIsKindOf(Feature) and
+owningType.oclAsType(Feature).type->
+exists(oclIsKindOf(Class))) implies
+specializesFromLibrary('Occurrence::Occurrence::portions')
+
+checkFeatureResultRedefinition
+If a Feature is a result parameter of an owningType that is a Function or Expression, then, for each direct
+supertype of its owningType that is also a Function or Expression, it must redefine the result parameter.
+owningType <> null and
+(owningType.oclIsKindOf(Function) and
+self = owningType.oclAsType(Function).result or
+owningType.oclIsKindOf(Expression) and
+self = owningType.oclAsType(Expression).result) implies
+owningType.ownedSpecialization.general->
+select(oclIsKindOf(Function) or oclIsKindOf(Expression))->
+forAll(supertype |
+redefines(
+if superType.oclIsKindOf(Function) then
+superType.oclAsType(Function).result
+else
+superType.oclAsType(Expression).result
+endif)
+
+checkFeatureSpecialization
+A Feature must directly or indirectly specialize Base::things from the Kernel Semantic Library.
+specializesFromLibrary('Base::things')
+
+checkFeatureSubobjectSpecialization
+A composite Feature typed by a Structure, and whose ownedType is a Structure or another Feature typed
+by a Structure must directly or indirectly specialize Objects::Object::subobjects
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Structure)) and
+owningType <> null and
+(owningType.oclIsKindOf(Structure) or
+owningType.type->includes(oclIsKindOf(Structure))) implies
+specializesFromLibrary('Occurrence::Occurrence::suboccurrences')
+
+checkFeatureSuboccurrenceSpecialization
+
+168
+
+Kernel Modeling Language v1.0
+
+
+A composite Feature that has an ownedTyping relationship to a Class, and whose ownedType is a Class or
+another Feature typed by a Class, must directly or indirectly specialize
+Occurrences::Occurrence::suboccurrences
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+n this Within Link that is the shorterOccurrence and smallerSpace. Crosses
+largerOccurrence.spaceTimeEnclosedOccurrences.
+within : Occurrence [1..*] {subsets insideOf, happensDuring}
+All Occurrences that the smallerOccurrence happensDuring and is insideOf, including the
+smallerOccurrence. Owned cross feature of _largerOccurrence.
+Constraints
+None.
+9.2.4.2.25 WithinBoth
+Element
+Association
+Description
+WithinBoth is a Within and its inverse. This means the linked Occurrences completely overlap each other in
+space and time (they occupy the same four dimensional region). This means every Occurrence is Within with
+itself and Within is transitive.
+
+General Types
+Within
+HappensWhile
+
+Kernel Modeling Language v1.0
+
+311
+
+
+Features
+thatOccurrence : Occurrence {redefines largerOccurrence}
+Crosses thisOccurrence.spaceTimeCoincidentOccurrences.
+thisOccurrence : Occurrence {redefines smallerOccurrence}
+Crosses thatOccurrence.spaceTimeCoincidentOccurrences.
+Constraints
+None.
+9.2.4.2.26 Without
+Element
+Association
+Description
+Without classifies all links that are HappensDuring or InsideOf, or both. They link their
+separateOccurrenceToo to their separateOccurrence, indicating that the Occurrences do not overlap in
+time and/or space (no four dimensional point is in both Occurrences). This means no Occurrence is Without
+
+itself.
+General Types
+BinaryLink
+Features
+separateOccurrence : Occurrence {redefines target}
+The second participant in this Without Link. Crosss separateOccurrenceToo.withoutOccurrences.
+separateOccurrenceToo : Occurrence {redefines source}
+The first participant in this Without Link. Crosses separateOccurrence.withoutOccurrences.
+Constraints
+None.
+
+9.2.5 Objects
+9.2.5.1 Objects Overview
+Objects are Occurrences that take up a single region of time and space, even though they might be in multiple places
+over time. Object is the most general Structure, while objects is the most general Feature typed by Structures (see
+8.3.4.3 and compare to Performances in 9.2.6.1 ). Objects and Performances do not overlap, but Performances can
+Involve Objects, which can Perform Performances.
+LinkObjects are Objects that are also Links, and linkObjects is the most general Feature typ
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a robot arm that can rotate 360 degrees and has a gripper to pick up small objects.

@@ -1,0 +1,452 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model represents the core powertrain and vehicle dynamics of an electric vehicle (EV), designed for simulating and analyzing performance characteristics like range, efficiency, and speed. It defines a modular system that can be configured to represent different classes of vehicles.
+
+The system is centered around a vehicle body, which has physical properties like mass and is subject to forces such as air friction. The vehicle's motion is described by its acceleration, velocity, and the distance it has traveled.
+
+Its powertrain consists of three main components that work together to produce motion:
+
+1.  **Battery:** This is the energy source for the EV. It's characterized by its voltage, total energy capacity (in ampere-hours), and internal resistance. In operation, it supplies electrical current to the motor, and its state of charge (SoC) decreases as it's used.
+
+2.  **Electric Motor:** This component converts electrical energy from the battery into mechanical power. It takes in voltage and, in response, draws a current to produce a rotational force (torque). Its performance is influenced by its internal resistance and inductance.
+
+3.  **Tire:** This represents the wheel and drivetrain assembly. It takes the rotational torque from the motor and converts it into a linear force that pushes against the road, propelling the vehicle forward. The tire's radius and moment of inertia are key factors in this conversion.
+
+In operation, the battery supplies voltage to the motor, which generates torque to spin the tires. The tires apply force to the road, accelerating the vehicle. The vehicle's motion creates feedback, such as load on the tires, which in turn affects the torque required from the motor and the current drawn from the battery.
+
+The model is used to evaluate different EV configurations against specific performance requirements. Two distinct variants are defined: a lighter "compact" vehicle and a heavier "large" vehicle. Each configuration is then tested against its own set of targets, such as achieving a minimum driving range (e.g., 130 km for the compact), a certain energy efficiency, and a required maximum speed. This allows for the analysis and verification of different vehicle designs before they are built.
+
+Example 1 SysML:
+package EVSample {
+    private import SI::*;
+    private import StateSpaceRepresentation::*;
+    attribute <'A⋅h'> 'ampere hour'  : ElectricChargeUnit = A*h;
+    part def Vehicle {
+        attribute mass :> ISQ::mass;
+        attribute def VehicleInput :> Input {
+            attribute force :> ISQ::force;
+        }
+        attribute def VehicleOutput :> Output {
+            attribute accel :> ISQ::acceleration;
+            attribute velocity :> ISQ::speed;
+            attribute distance :> ISQ::distance;
+        }
+        attribute def VehicleState :> StateSpace {
+            attribute velocity :> ISQ::speed;
+            attribute distance :> ISQ::distance;
+        }
+    }
+    part def Battery {
+        attribute baseVoltage :> ISQ::electricPotential;
+        attribute socInit: ScalarValues::Real;
+        attribute capacity :> ISQ::electricCharge;
+        attribute internalResistance :> ISQ::resistance;
+        attribute def BatteryInput :> Input {
+            attribute current :> ISQ::electricCurrent;
+        }
+        attribute def BatteryOutput :> Output {
+            attribute voltage :> ISQ::electricPotential;
+        }
+        attribute def BatteryState :> StateSpace {
+            attribute soc: ScalarValues::Real;
+        }
+    }
+    part def Motor {
+        torquePerCurrent :> Quantities::scalarQuantities = ISQ::torque / ISQ::electricCurrent;
+        attribute motR :> ISQ::resistance;
+        attribute motL :> ISQ::inductance;
+        attribute def MotorInput :> Input {
+            attribute voltage :> ISQ::electricPotential;
+            attribute friction :> ISQ::torque;
+        }
+        attribute def MotorOutput :> Output {
+            attribute current :> ISQ::electricCurrent;
+            attribute torque :> ISQ::torque;
+        }
+        attribute def MotorState :> StateSpace {
+            attribute current :> ISQ::electricCurrent;
+        }
+    }
+    part def Tire {
+        attribute radius :> ISQ::length;
+        attribute moment :> ISQ::momentOfInertia;
+        attribute def TireInput :> Input {
+            attribute torque :> ISQ::torque;
+            attribute accel :> ISQ::acceleration;
+        }
+        attribute def TireOutput :> Output {
+            attribute force :> ISQ::force;
+            attribute outTorque :> ISQ::torque;
+        }
+    }
+    requirement def VehicleRequirement {
+        subject vehicle : Vehicle;
+    }
+    analysis def VehicleAnalysis {
+        subject vehicle : Vehicle;
+        requirement vehicleRequirement : VehicleRequirement;
+    }
+    requirement def RangeRequirement :> VehicleRequirement {
+        doc /* The range of EV must be longer than the required spec under the flat road. */
+        attribute actualRange : LengthValue;
+        attribute requiredRange : LengthValue;
+        require constraint { actualRange >= requiredRange }
+    }
+    analysis def RangeAnalysis :> VehicleAnalysis {
+    	return simulatedRange : LengthValue;
+        requirement rangeRequirement :>> vehicleRequirement : RangeRequirement;
+        objective rangeAnalysisObjective {
+            doc /* This analysis is to estimate the range of
+---
+Example 2 NL:
+This model describes a vehicle with a traditional powertrain, such as a car or truck. The system's design is governed by key engineering requirements related to its physical properties and performance.
+
+The vehicle consists of a main body with a specific empty weight (dry mass) and is designed to carry fuel. A critical constraint on the vehicle is its total mass; the combined weight of the vehicle's structure plus the fuel it is carrying must stay below a required maximum limit.
+
+At the heart of the vehicle is an engine that generates torque (rotational force). The engine's performance is strictly defined, meaning it must produce a specific amount of torque based on its rotational speed (RPM). This power is not sent directly to the wheels, but is first transferred to a transmission through a clutch interface, which allows the engine to be connected or disconnected from the drivetrain.
+
+Example 2 SysML:
+package 'Requirement Definitions' {
+	private import ISQ::*;
+	private import SI::*;
+	requirement def MassLimitationRequirement {
+		doc /* The actual mass shall be less than or equal to the required mass. */
+		attribute massActual: MassValue;
+		attribute massReqd: MassValue;
+		require constraint { massActual <= massReqd }
+	}
+	part def Vehicle {
+		attribute dryMass: MassValue;
+		attribute fuelMass: MassValue;
+		attribute fuelFullMass: MassValue;
+	}
+	requirement def <'1'> VehicleMassLimitationRequirement :> MassLimitationRequirement {
+		doc /* The total mass of a vehicle shall be less than or equal to the required mass. */
+		subject vehicle : Vehicle;
+		attribute redefines massActual = vehicle.dryMass + vehicle.fuelMass;
+		assume constraint { vehicle.fuelMass > 0[kg] }
+	}
+	port def ClutchPort;
+	action def GenerateTorque;
+	requirement def <'2'> DrivePowerInterface {
+		doc /* The engine shall transfer its generated torque to the transmission via the clutch interface. */
+		subject clutchPort: ClutchPort;
+	}
+	requirement def <'3'> TorqueGeneration {
+		doc /* The engine shall generate torque as a function of RPM as shown in Table 1. */
+		subject generateTorque: GenerateTorque;
+	}
+}
+---
+Example 3 NL:
+This model describes a mechanical powertrain system, such as one you might find in a vehicle or industrial machinery. Its primary purpose is to generate torque (rotational force) as a means of providing power.
+
+The system is composed of a Powertrain assembly, which contains an Engine as its key functional component. The Engine is the specific part that performs the work of generating torque. In this design, the overall Powertrain is considered the physical realization of the system's need for a "torque generator," with the Engine being the specific component that carries out the task.
+
+Example 3 SysML:
+package 'Allocation Usage Example' {
+	package LogicalModel {
+		action def ProvidePower;
+		action def GenerateTorque;
+		part def TorqueGenerator;
+		action providePower : ProvidePower {
+			action generateTorque : GenerateTorque;
+		}
+		part torqueGenerator : TorqueGenerator {
+			perform providePower.generateTorque;
+		}
+	}
+	package PhysicalModel {
+		private import LogicalModel::*;
+		part def PowerTrain;
+		part def Engine;
+		part powerTrain : PowerTrain {
+			part engine : Engine {
+				perform providePower.generateTorque;
+			}
+		}
+		allocate torqueGenerator to powerTrain {
+			allocate torqueGenerator.generateTorque to powerTrain.engine.generateTorque;
+		}
+	}
+}
+---
+Example 4 NL:
+This model describes a mechanical powertrain system, where the central component is an engine designed to generate rotational force (torque).
+
+The system is defined by its core function: to act as a torque generator. A fundamental requirement is that it must produce a positive amount of torque, meaning it's capable of actively creating rotational power.
+
+In the physical design, this function is carried out by a powertrain assembly. Within this powertrain, the engine is the specific component that performs the action of generating torque. Essentially, the abstract, functional role of a "Torque Generator" is physically realized by the engine component of the overall powertrain system.
+
+Example 4 SysML:
+package '12b-Allocation-1' {
+	private import SI::*;
+	private import RequirementModel::*;
+	private import LogicalModel::*;
+	private import PhysicalModel::*;
+	package RequirementModel {
+		requirement torqueGeneration {
+			subject generator: TorqueGenerator;
+			require constraint { 
+				 generator.generateTorque.torque > 0.0 [N*m]
+			}
+		}
+	}
+	package LogicalModel {
+		action def GenerateTorque { out torque :> ISQ::torque; }
+		part def LogicalElement;
+		part def TorqueGenerator :> LogicalElement {
+			perform action generateTorque : GenerateTorque;
+		}	
+		action providePower {
+			action generateTorque : GenerateTorque;
+		}
+		part torqueGenerator : TorqueGenerator {
+			perform providePower.generateTorque :>> generateTorque;
+		}
+		satisfy torqueGeneration by torqueGenerator;			
+	}
+	package PhysicalModel {
+		part def PhysicalElement;
+		part def PowerTrain :> PhysicalElement;
+		part powerTrain : PowerTrain {
+			part engine {
+				perform providePower.generateTorque;
+			}
+		}
+	}
+	allocation def LogicalToPhysical {
+		end logical : LogicalElement;
+		end physical : PhysicalElement;
+	}
+	allocation torqueGenAlloc : LogicalToPhysical 
+		allocate logical ::> torqueGenerator to physical ::> powerTrain {
+		allocate torqueGenerator.generateTorque to powerTrain.engine.generateTorque;		
+	}
+}
+---
+Example 5 NL:
+This model represents a vehicle dynamics simulation component. Its primary function is to calculate the updated position and velocity of a vehicle after a specific interval of time has passed.
+
+The system operates as a computational process that takes the vehicle's current state—its initial position and speed—along with its current acceleration and a small time step as inputs. It then uses these values to run a physics-based calculation, which is executed by an external engineering analysis tool called ModelCenter. The result of this computation is the vehicle's new position and speed at the end of the time interval.
+
+In essence, this is a core component of a larger simulation system, acting as a single-step physics engine to predict a vehicle's movement over time.
+
+Example 5 SysML:
+package 'Metadata Example-2' {
+	action computeDynamics {
+		private import AnalysisTooling::*;
+		metadata ToolExecution {
+			toolName = "ModelCenter";
+			uri = "aserv://localhost/Vehicle/Equation1";
+		}
+		in dt : ISQ::TimeValue             { @ToolVariable { name = "deltaT"; } }
+		in a : ISQ::AccelerationValue      { @ToolVariable { name = "mass"; } }
+		in v_in : ISQ::SpeedValue          { @ToolVariable { name = "v0"; } }
+		in x_in : ISQ::LengthValue         { @ToolVariable { name = "x0"; } }
+		out v_out : ISQ::SpeedValue        { @ToolVariable { name = "v"; } }
+		out x_out : ISQ::LengthValue       { @ToolVariable { name = "x"; } }			
+	}
+}
+---
+Spec 1 [Intro to the SysML v2 Language-Textual Notation]:
+than or equal
+* to the required mass. */
+
+Like a constraint definition,
+a requirement definition
+can be parameterized
+using features.
+
+86
+
+attribute massActual : MassValue;
+attribute massReqd : MassValue;
+
+require constraint { massActual <= massReqd }
+}
+
+The requirement can be
+formalized by giving one or
+more component required
+constraints.
+
+Last changed: 2020-08
+
+Release 2025-07
+
+
+Requirement Definitions (2)
+
+part def Vehicle {
+attribute dryMass: MassValue;
+attribute fuelMass: MassValue;
+A requirement definition may have
+attribute fuelFullMass: MassValue;
+a modeler specified short name,
+…
+which is an alternate name for it.
+}
+
+ Actually, any identifiable
+element can have a short
+name, not just requirements.
+
+requirement def <'1’> VehicleMassLimitationRequirement :> MassLimitationRequirement {
+doc /* The total mass of a vehicle shall be less than or equal to the required mass. */
+
+subject vehicle : Vehicle;
+
+A requirement definition is always about some
+subject, which may be implicit or specified explicitly.
+
+attribute redefines massActual = vehicle.dryMass + vehicle.fuelMass;
+assume constraint { vehicle.fuelMass > 0[kg] }
+}
+
+A requirement definition may also
+specify one or more assumptions.
+
+87
+
+Last changed: 2023-10 ("human id" to "short name")
+
+Features of the subject
+can be used in the
+requirement definition.
+
+Release 2025-07
+
+
+Requirement Definitions (3)
+
+The subject of a requirement definition
+can have any kind of definition.
+port def ClutchPort;
+action def GenerateTorque;
+
+requirement def <'2’> DrivePowerInterfaceRequirement {
+doc /* The engine shall transfer its generated torque to the transmission
+* via the clutch interface. */
+subject clutchPort: ClutchPort;
+}
+requirement def <'3’> TorqueGenerationRequirement {
+doc /* The engine shall generate torque as a function of RPM as shown in Table 1. */
+subject generateTorque: GenerateTorque;
+}
+
+88
+
+Last changed: 2021-10 (requirement id)
+
+Release 2025-07
+
+
+Requirement Usages
+A requirement may optionally
+have its own short name.
+
+A requirement is the usage of a
+requirement definition.
+
+requirement <'1.1’> fullVehicleMassLimit : VehicleMassLimitationRequirement {
+subject vehicle : Vehicle;
+A requirement will oft
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+ariant (see 7.4.8.5 )
+
+behavior ProvidePower {
+in cmd[1] : Command;
+out wheelTorque[1] : Torque;
+composite step generate : GenerateTorque {
+in cmd = ProvidePower::cmd;
+out generatedTorque;
+}
+composite step apply : ApplyTorque {
+in generatedTorque = generate.generatedTorque;
+out appliedTorque = ProvidePower::wheelTorque;
+}
+}
+
+7.4.12 Multiplicities
+Metamodel references:
+• Concrete syntax, 8.2.5.11
+• Abstract syntax, 8.3.4.11
+• Semantics, 8.4.4.12
+Multiplicity is defined in the Core layer as a feature for specifying cardinalities (number of instances) of a type by
+enumerating all numbers the cardinality might be (see 7.3.2.2 ). The Kernel layer provides a specific way to do this
+by specifying a range of cardinalities. A multiplicity range has lower bound and upper bound expressions that are
+evaluated to determine the lowest and highest cardinalities, with both expression evaluating to natural numbers (that
+is, of type Natural from the ScalarValues library model, see 9.3.2 ). An upper bound value of * (infinity) means
+that the cardinality includes all numbers greater than or equal to the lower bound value.
+A multiplicity range is written in the form [lowerBound..upperBound], where each of lowerBound and
+upperBound is either a literal expression or a feature reference expression represented in the notation described in
+7.4.9 . Literal expressions can be used to specify a multiplicity range with fixed lower and/or upper bounds. If the
+result of the lowerBound expression is *, then the meaning of the multiplicity range is not defined.
+A multiplicity range can also be written without the lower bound (or ..). In this case, the result of the single
+expression is used as both the lower and upper bound of the range, unless the result is the infinite value *, in which
+case the lower bound is taken to be 0.
+Multiplicity ranges can be used in the declaration of types, particularly features (see 7.3.4.2 ).
+struct Automobile {
+feature n : Positive[1];
+composite feature wheels : Wheel[n]; // Equivalent to [n..n] for n < *
+feature driveWheels[2..n] subsets wheels;
+
+Kernel Modeling Language v1.0
+
+67
+
+
+}
+feature autoCollection : Automobile[*]; // Equivalent to [0..*]
+
+It is also pos
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+e:
+◦ Δ is a non-empty set (universe),
+◦ Σ = (P, <P ) is a non-empty set P with a strict partial ordering <P (marking set), and
+◦ ⋅T is an (interpretation) function relating elements of the vocabulary to sets of all non-empty
+tuples (sequences) of elements of the universe, with an element of the marking set in between
+each one for sequences of multiple elements. It has domain VT and co-domain that is the power
+set of S:
+S=Δ1 ∪ Δ×P×Δ ∪ Δ×P×Δ×P×Δ …
+where Δ1 is the set of sets of size 1 covering all the elements of the universe (a unary Cartesian
+power).
+The semantics of KerML are restrictions on the interpretation relationship, as given mathematically in this and
+subsequent subclauses on the Core semantics. The phrase result of interpreting a model (vocabulary) element refers
+to sequences paired with the element by ⋅T, also called the interpretation of the model element, for short.
+The (minimal interpretation) function ⋅minT specializes ⋅T to the subset of sequences that have no others in the
+interpretation as tails, except when applied to Anything.
+
+∀t ∈ Type, s1 ∈ S s1 ∈ (t)minT ≡ s1 ∈ (t)T ∧ (t ≠ Anything ⇒ (∀s2 ∈ S s2 ∈ (t)T ∧ s2 ≠ s1 ⇒ ¬tail(s2, s1)))
+Functions and predicates for sequences are introduced below. Predicates prefixed with form: are defined in
+[fUML], Clause 10 (Base Semantics).
+• length is a function version of fUML's sequence-length.
+∀s, n n = length(s) ≡ (form:sequence-length s n)
+• at is a function version of fUML's in-position-count.
+∀x, s, n x = at(s, n) ≡ (form:in-position-count s n x)
+• head is true if the first sequence is the same as the second for some or all of the second starting at the
+beginning, otherwise is false.
+
+242
+
+Kernel Modeling Language v1.0
+
+
+∀s1, s2 head(s1, s2) ⇒ form:Sequence(s1) ∧ form:Sequence(s2)
+∀s1, s2 head(s1, s2) ≡ (length(s1) ≤ length(s2)) ∧
+(∀i ∈ Z + i ≥ 1 ∧ i ≤ length(s1) ⇒ at(s1, i) = at(s2, i))
+• tail is true if the first sequence is the same as the second for some or all of the second finishing at the end,
+otherwise is false:
+∀s1, s2 tail(s1, s2) ⇒ form:Sequence(s1) ∧ form:Sequence(s2)
+∀s1, s2 tail(s1, s2) ≡ (length(s1) ≤ length(s2)) ∧
+(∀h, i ∈ Z + (h = length(s2) − length(s1)) ∧ i > h ∧ i ≤ length(s2) ⇒ at
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a part called AvionicMotor. It uses electrical power to generate mechanical torque. It has three properties: rated power in kilowatts, nominal voltage in volts, and maximum speed in RPM.

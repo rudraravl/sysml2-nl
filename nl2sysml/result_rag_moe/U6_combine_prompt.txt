@@ -1,0 +1,810 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes an intelligent battery charging system, composed of a power system and the battery it manages.
+
+The system's primary function is to automatically charge a battery to its full capacity. It operates using a continuous feedback loop. The process begins by monitoring the battery to determine its current charge level. Based on that level, the system makes a decision: if the charge is less than 100%, it continues to supply power to the battery.
+
+This cycle of monitoring the charge and then applying more power repeats until the battery reaches a full 100% charge. At that point, the system automatically ends the charging process to prevent overcharging.
+
+Example 1 SysML:
+package 'Decision Example' {
+	private import ScalarValues::*;
+	attribute def BatteryCharged;
+	part battery;
+	part powerSystem;
+	action def MonitorBattery { out charge : Real; }
+	action def AddCharge { in charge : Real; }
+	action def EndCharging;
+	action def ChargeBattery {
+		first start;
+		then merge continueCharging;
+		then action monitor : MonitorBattery {
+			out batteryCharge : Real;
+		}
+		then decide;
+			if monitor.batteryCharge < 100 then addCharge;
+			if monitor.batteryCharge >= 100 then endCharging;
+		action addCharge : AddCharge {
+			in charge = monitor.batteryCharge;
+		}
+		then continueCharging;
+		action endCharging : EndCharging;
+		then done;
+	}
+}
+---
+Example 2 NL:
+This model describes the high-level requirements for a vehicle designed to transport and deliver a payload. The system's primary goal is to successfully carry a payload, which has its own mass limits.
+
+A critical design driver for this vehicle is a strict requirement on its total mass. To successfully achieve its mission of delivering the payload, the vehicle's overall weight must be kept at or below a specified maximum.
+
+From a project management perspective, successfully meeting this mass requirement has been identified as a high-risk challenge. While the schedule risk is low, there are medium technical and cost risks associated with engineering a vehicle that is light enough. The requirement is currently under review, with specific team members assigned to own and manage its development.
+
+Example 2 SysML:
+package RequirementMetadataExample {
+	private import Metaobjects::SemanticMetadata;
+	private import ModelingMetadata::*;
+	private import RiskMetadata::*;
+	private import RiskLevelEnum::*;
+	requirement def Goal;
+	requirement goals : Goal[*] nonunique;
+	metadata def goal :> SemanticMetadata {
+	    :>> baseType = goals meta SysML::RequirementUsage;
+	}
+    requirement <'1'> vehicleMassRequirement {
+        doc /* The total mass of a vehicle shall be less than or equal to the required mass. */
+        @StatusInfo {
+            status = StatusKind::tbd;
+            risk {
+		    	totalRisk = high;
+		    	technicalRisk = medium;
+		    	scheduleRisk = low;
+		    	costRisk = medium;
+		    }            
+		    originator = "Bob";
+            owner = "Mary";
+        }
+    }
+    #goal requirement deliverPayload {
+    	assume #goal constraint payloadMassLimit;
+    	require #goal vehicleMassRequirement;
+    }
+}
+---
+Example 3 NL:
+This model describes an intelligent battery charging system. The system is composed of a battery and a power system designed to manage the charging process.
+
+The system's primary function is to safely and automatically recharge the battery to its full capacity. The charging process operates as a continuous feedback loop. First, the power system monitors the battery's current state of charge. As long as the charge level is below 100%, the system actively supplies power to the battery. This cycle of monitoring the charge and then adding more power repeats continuously.
+
+Once the system detects that the battery has reached a full charge, it automatically terminates the charging process. This prevents overcharging, ensuring the safety and longevity of the battery.
+
+Example 3 SysML:
+package 'Control Structures Example' {
+	private import ScalarValues::*;
+	attribute def BatteryCharged;
+	part battery;
+	part powerSystem;
+	action def MonitorBattery { out charge : Real; }
+	action def AddCharge { in charge : Real; }
+	action def EndCharging;
+	action def ChargeBattery {
+		loop action charging {
+			action monitor : MonitorBattery {
+				out charge;
+			}
+			then if monitor.charge < 100 {
+				action addCharge : AddCharge {
+					in charge = monitor.charge;
+				}
+			}				
+		} until charging.monitor.charge >= 100;
+		then action endCharging : EndCharging;
+		then done;
+	}
+}
+---
+Example 4 NL:
+This model describes a fuel delivery system, likely for a vehicle or machine, composed of a Fuel Tank Assembly and an Engine.
+
+The system's primary function is to supply fuel from the tank to the engine. The connection between these two components is designed for a circulating fuel flow. A supply line moves fuel from the tank assembly to the engine, and a return line carries any unused fuel back from the engine to the tank. This two-way flow is common in fuel-injected systems to maintain constant pressure and help cool the fuel.
+
+A key feature of this system is that the temperature is monitored at the fuel connection points on both the engine and the tank assembly, indicating that fuel temperature is a critical operational parameter.
+
+Example 4 SysML:
+package 'Port Example' {
+	attribute def Temp;
+	part def Fuel;
+	port def FuelOutPort {
+		attribute temperature : Temp;
+		out item fuelSupply : Fuel;
+		in item fuelReturn : Fuel;
+	}
+	port def FuelInPort {
+		attribute temperature : Temp;
+		in item fuelSupply : Fuel;
+		out item fuelReturn : Fuel;
+	}
+	part def FuelTankAssembly {
+		port fuelTankPort : FuelOutPort;
+	}
+	part def Engine {
+		port engineFuelPort : FuelInPort;
+	}
+}
+---
+Example 5 NL:
+This model describes a vehicle's fuel delivery system. The system is built around a single, integrated fuel tank assembly.
+
+This assembly contains two primary components: a fuel tank for storing the vehicle's fuel and a fuel pump. In operation, the fuel pump draws fuel from the tank and supplies it to the rest of the vehicle (presumably the engine). The system is also designed to accommodate a fuel return line, where any unused fuel from the engine is sent directly back into the fuel tank for storage.
+
+Example 5 SysML:
+package 'Binding Connectors Example-1' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	part def FuelPump;
+	part def FuelTank;
+	part vehicle : Vehicle {	
+		part tank : FuelTankAssembly {
+			port redefines fuelTankPort {
+				out item redefines fuelSupply;
+				in item redefines fuelReturn;
+			}
+			bind fuelTankPort.fuelSupply = pump.pumpOut;
+			bind fuelTankPort.fuelReturn = tank.fuelIn;
+			part pump : FuelPump {
+				out item pumpOut : Fuel;
+				in item pumpIn : Fuel;
+			}
+			part tank : FuelTank {
+				out item fuelOut : Fuel;
+				in item fuelIn : Fuel;
+			}
+		}
+	} 
+}
+---
+Spec 1 [2a-OMG_Systems_Modeling_Language]:
+connection definition could have
+connection ends that are part usages defined by part definitions Pump and Tank. A usage of this connection
+definition would then associate corresponding connection ends with specific pump and tank part usages. Supposing
+that the pump and tank part usages have multiplicity 1, then this means that the single value of the pump usage is to
+be connected to the single value of the tank usage.
+A connection usage that connects parts is often a logical connection that abstracts away details of how the parts are
+connected. For example, plumbing that includes pipes and fittings may be used to connect a pump and a tank. It is
+sometimes desired to model the connection of the pump to the tank at a more abstract level without including the
+plumbing. This is viewed as a logical connection between the pump and the tank.
+Alternatively, the plumbing can be modeled as a part (informally referred to as an interface medium) where the
+pump connects to the plumbing, and the plumbing connects to the tank. As a part itself, a connection can contain the
+plumbing either as a composite feature, or as a reference to the plumbing that is owned by a higher level pump-tank
+system context. In this way, the logical connection without structure can be transformed into a physical connection.
+Bindings and Successions
+Bindings and successions are special kinds of connections. They are usages, but, unlike regular connection usages,
+they are not part usages. The connections specified by bindings and successions are not occurrences and are not
+created and destroyed. Rather, they assert specific relationships between the features that they connect, which must
+be true at all times.
+A binding is a binary connection that requires its two related usages to have the same values. A binding can also be
+used to bind a referential feature in one context to a composite feature in another context to assert they are the same
+thing. For example, the steering wheel in a car may be considered part of the interior of the car, while at the same
+time it is considered part of the steering subsystem. The steering wheel can be a composite part usage of the interior,
+and a reference part usag
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+t actually represent anything about a modeled system,
+and so have no semantic specification. The Core and Kernel layers build on the foundation provided by Root to
+provide constructs with modeling semantics (see 7.3 and 7.4 ).
+
+7.2.2 Elements and Relationships
+7.2.2.1 Elements and Relationships Overview
+Metamodel references:
+• Concrete syntax, 8.2.3.1
+• Abstract syntax, 8.3.2.1
+• Semantics, none
+Elements are the constituents of a model. Some elements represent relationships between other elements, known as
+the related elements of the relationship. In general terms, a model is constructed as a graph structure in which
+relationships form the edges connecting non-relationship elements constituting the nodes. However, since
+relationships are themselves elements, it is also possible in KerML for a relationship to be a related element in a
+relationship and for there to be relationships between relationships.
+
+Kernel Modeling Language v1.0
+
+15
+
+
+One of the related elements of a relationship may be the owning related element of the relationship. If the owning
+related element of a relationship is deleted from a model, then the relationship is also deleted. Some of the related
+elements of a relationship (distinct from the owning related element, if any) may be owned related elements. If a
+relationship has owned related elements, then, if the relationship is deleted from a model, all its owned related
+elements are also deleted.
+The owned relationships of an element are all those relationships for which the element is the owning related
+element. The owned elements of an element are all those elements that are owned related elements of the owned
+relationships of the element (notice the extra level of indirection through the owned relationships). The owning
+relationship of an element (if any) is the relationship for which the element is an owned related element (of which
+the element can have at most one). The owner of an element (if any) is the owning related element of the owning
+relationship of the element (again, notice the extra level of indirection through the owning relationship).
+The deletion rules for relationships imply that, if an element is deleted from a model, th
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+s from the original model. A model interchange file in this
+format shall have the file extension .kerml.
+2. JSON, using a format according to the JSON serialization mapping defined in 10.4 . A model interchange
+file in this format shall have the file extension .json.
+3. XML, using the XML Metadata Interchange [XMI] format based on the MOF-conformant abstract syntax
+metamodel for KerML. A model interchange file in this format shall have the file extension .xmi.
+Every conformant KerML modeling tool shall provide the ability to import and/or export (as appropriate) models in
+at least one of the first two formats.
+For a KerML-based language:
+1. Textual Notation. If the language has a textual concrete syntax, then this textual notation may be used as a
+model interchange file format. The language shall define a distinguishing file extension for files of its
+textual notation.
+2. JSON. It shall always be possible to use JSON format as a model interchange file format, using the
+mapping strategy defined in 10.4 , as applied to the abstract syntax of the language.
+3. XML. If the language is defined using a MOF-conformat abstract syntax, then XMI may be used as a
+model interchange file format.
+A KerML-based-language specification may specify further requirements on what interchange formats must be
+supported by conforming language tools.
+
+Kernel Modeling Language v1.0
+
+405
+
+
+10.3 Model Interchange Projects
+A project interchange file is contains a single project serialized as a set of model interchange files, archived using
+the ZIP format [ZIP]. The archive shall contain a model interchange file for each of the root namespaces in the
+project, each formatted in one of the formats listed in 10.2 . In addition, the archive shall contain, at its top level,
+exactly one file named .project.json and exactly one file named .meta.json. A KerML project interchange
+file shall have the file extension .kpar (KerML Project Archive).
+Other than the use of the file extensions given in 10.2 , there are no requirements on the naming of the model
+interchange files. Nevertheless, they should be named in a way that is compatible across different file systems and
+that allows for easy reference usi
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package 'Water Pump System' {
+	private import ScalarValues::*;
+	private import SI_Units::*;
+
+	value def Percentage :> Real { unit = '%'; }
+	value def Volume :> Real { unit = L; }
+
+	item def Water;
+
+	port def WaterInPort {
+		in item water : Water;
+	}
+
+	port def WaterOutPort {
+		out item water : Water;
+	}
+
+	part def WaterTank {
+		attribute level : Percentage = 10.0;
+		attribute capacity : Volume = 1000.0;
+		port waterIn : WaterInPort;
+	}
+
+	part def WaterPump {
+		port waterOut : WaterOutPort;
+		in reception start;
+		in reception stop;
+
+		state machine PumpState {
+			initial state Off;
+			state On;
+
+			transition from Off to On on start;
+			transition from On to Off on stop;
+		}
+	}
+
+	requirement def ActivationRequirement {
+		doc "The pump shall activate when the tank level is below a specified threshold.";
+	}
+
+	requirement def DeactivationRequirement {
+		doc "The pump shall deactivate when the tank level is at or above a specified threshold.";
+	}
+
+	part def WaterPumpSystem {
+		part tank : WaterTank;
+		part pump : WaterPump;
+
+		connect pump.waterOut to tank.waterIn;
+
+		state machine ControlLogic {
+			initial state Idle;
+			state Pumping;
+
+			transition from Idle to Pumping
+				when tank.level < 30.0
+				do pump.start;
+
+			transition from Pumping to Idle
+				when tank.level >= 90.0
+				do pump.stop;
+		}
+
+		satisfy activationReq by ControlLogic;
+		satisfy deactivationReq by ControlLogic;
+	}
+
+	requirement activationReq : ActivationRequirement {
+		doc "The pump shall activate when the tank level is below 30%.";
+		subject system.pump;
+	}
+
+	requirement deactivationReq : DeactivationRequirement {
+		doc "The pump shall deactivate when the tank level is at or above 90%.";
+		subject system.pump;
+	}
+
+	part system : WaterPumpSystem;
+}
+---
+Candidate 2 (openai/gpt-5, rating=7/10):
+package 'Water Pump System' {
+	private import ScalarValues::*;
+	
+	part def Water;
+	attribute def Percent;
+	
+	port def WaterOutPort {
+		out item water : Water;
+	}
+	port def WaterInPort {
+		in item water : Water;
+	}
+	port def ControlOutPort {
+		out item runCmd : Boolean;
+	}
+	port def ControlInPort {
+		in item runCmd : Boolean;
+	}
+	port def LevelOutPort {
+		out item level : Percent;
+	}
+	port def LevelInPort {
+		in item level : Percent;
+	}
+	
+	part def Reservoir {
+		port outlet : WaterOutPort;
+	}
+	part def Pipe {
+		port inlet : WaterInPort;
+		port outlet : WaterOutPort;
+	}
+	part def Tank {
+		attribute capacity : Real;
+		attribute levelPercent : Percent;
+		port inlet : WaterInPort;
+		port outlet : WaterOutPort;
+		port levelOut : LevelOutPort;
+	}
+	part def Pump {
+		attribute isRunning : Boolean;
+		port inlet : WaterInPort;
+		port outlet : WaterOutPort;
+		port controlIn : ControlInPort;
+	}
+	part def Consumer {
+		port inlet : WaterInPort;
+	}
+	part def TankController {
+		attribute lowThresholdPercent : Percent = 30.0;
+		attribute highThresholdPercent : Percent = 90.0;
+		port levelIn : LevelInPort;
+		port pumpCmdOut : ControlOutPort;
+	}
+	
+	action def ReadTankLevel {
+		out level : Percent;
+	}
+	action def StartPump;
+	action def StopPump;
+	
+	action def ControlTankLevel {
+		first start;
+		then merge loopBack;
+		then action monitor : ReadTankLevel {
+			out level : Percent;
+		}
+		then decide;
+			if monitor.level < 30.0 then startP;
+			if monitor.level >= 90.0 then stopP;
+			if monitor.level >= 30.0 and monitor.level < 90.0 then idle;
+		action startP : StartPump;
+		action stopP : StopPump;
+		action idle;
+		then loopBack;
+		then done;
+	}
+	
+	constraint def ActivateBelow30 {
+		in level : Percent;
+		predicate level < 30.0;
+	}
+	constraint def DeactivateAt90 {
+		in level : Percent;
+		predicate level >= 90.0;
+	}
+	
+	requirement def TankLevelControl {
+		doc /* The water pump shall activate when tank level is below 30 percent and shall deactivate when tank level reaches 90 percent. The control shall provide hysteresis between thresholds to avoid rapid cycling. */
+	}
+	requirement <'R1'> activateBelow30 {
+		doc /* The controller shall command the pump to run when the measured tank level is less than 30 percent. */
+	}
+	requirement <'R2'> deactivateAt90 {
+		doc /* The controller shall command the pump to stop when the measured tank level is greater than or equal to 90 percent. */
+	}
+	
+	part def WaterPumpSystem {
+		part source : Reservoir;
+		part suctionLine : Pipe;
+		part dischargeLine : Pipe;
+		part tank : Tank;
+		part pump : Pump;
+		part consumer : Consumer;
+		part controller : TankController;
+		
+		bind pump.inlet.water = suctionLine.outlet.water;
+		bind suctionLine.inlet.water = source.outlet.water;
+		
+		bind dischargeLine.inlet.water = pump.outlet.water;
+		bind tank.inlet.water = dischargeLine.outlet.water;
+		
+		bind consumer.inlet.water = tank.outlet.water;
+		
+		bind tank.levelOut.level = tank.levelPercent;
+		bind controller.levelIn.level = tank.levelOut.level;
+		
+		bind controller.pumpCmdOut.runCmd = pump.controlIn.runCmd;
+		bind pump.isRunning = pump.controlIn.runCmd;
+	}
+}
+---
+Candidate 3 (anthropic/claude-sonnet-4.5, rating=10/10):
+package 'Water Pump System' {
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+	
+	attribute def Percentage :> Real {
+		doc /* Percentage value between 0 and 100 */
+	}
+	
+	attribute def WaterLevel :> Percentage;
+	
+	item def Water;
+	
+	port def WaterOutPort {
+		attribute level : WaterLevel;
+		out item waterSupply : Water;
+	}
+	
+	port def WaterInPort {
+		attribute level : WaterLevel;
+		in item waterSupply : Water;
+	}
+	
+	part def WaterTank {
+		attribute currentLevel : WaterLevel;
+		port tankPort : WaterOutPort {
+			attribute redefines level = currentLevel;
+		}
+		in item waterIn : Water;
+		out item waterOut : Water;
+	}
+	
+	part def Pump {
+		attribute isActive : Boolean;
+		port pumpInPort : WaterInPort;
+		out item pumpOut : Water;
+	}
+	
+	part def LevelSensor {
+		attribute measuredLevel : WaterLevel;
+		out signal levelReading : WaterLevel;
+	}
+	
+	part def Controller {
+		in signal tankLevel : WaterLevel;
+		out signal pumpCommand : Boolean;
+	}
+	
+	action def MonitorTankLevel {
+		in tankLevel : WaterLevel;
+		out currentLevel : WaterLevel;
+	}
+	
+	action def ActivatePump {
+		out pumpState : Boolean = true;
+	}
+	
+	action def DeactivatePump {
+		out pumpState : Boolean = false;
+	}
+	
+	action def ControlPumpOperation {
+		in levelInput : WaterLevel;
+		out pumpControl : Boolean;
+		
+		first start;
+		then merge checkLevel;
+		
+		then action monitor : MonitorTankLevel {
+			in tankLevel = levelInput;
+			out currentLevel : WaterLevel;
+		}
+		
+		then decide;
+			if monitor.currentLevel < 30.0 then activatePumpAction;
+			if monitor.currentLevel >= 90.0 then deactivatePumpAction;
+			if monitor.currentLevel >= 30.0 and monitor.currentLevel < 90.0 then maintainState;
+		
+		action activatePumpAction : ActivatePump {
+			out pumpState;
+		}
+		then assign pumpControl = activatePumpAction.pumpState;
+		then checkLevel;
+		
+		action deactivatePumpAction : DeactivatePump {
+			out pumpState;
+		}
+		then assign pumpControl = deactivatePumpAction.pumpState;
+		then checkLevel;
+		
+		action maintainState {
+			out holdState : Boolean = pumpControl;
+		}
+		then checkLevel;
+	}
+	
+	state def PumpControlStateMachine {
+		in attribute tankLevel : WaterLevel;
+		out attribute pumpActive : Boolean;
+		
+		entry; then idle;
+		
+		state idle {
+			entry assign pumpActive = false;
+		}
+		
+		transition idleToActivating
+			first idle
+			accept at when tankLevel < 30.0
+			then activating;
+		
+		state activating {
+			entry assign pumpActive = true;
+		}
+		
+		transition activatingToActive
+			first activating
+			then active;
+		
+		state active {
+			do action pumpRunning {
+				out status : Boolean = true;
+			}
+		}
+		
+		transition activeToDeactivating
+			first active
+			accept at when tankLevel >= 90.0
+			then deactivating;
+		
+		state deactivating {
+			entry assign pumpActive = false;
+		}
+		
+		transition deactivatingToIdle
+			first deactivating
+			then idle;
+	}
+	
+	requirement def <'REQ-001'> PumpActivationRequirement {
+		doc /* The pump shall activate when tank level falls below 30%. */
+		
+		subject pump : Pump;
+		
+		require constraint {
+			pump.isActive == true when pump.pumpInPort.level < 30.0
+		}
+	}
+	
+	requirement def <'REQ-002'> PumpDeactivationRequirement {
+		doc /* The pump shall deactivate when tank level reaches 90%. */
+		
+		subject pump : Pump;
+		
+		require constraint {
+			pump.isActive == false when pump.pumpInPort.level >= 90.0
+		}
+	}
+	
+	requirement def <'REQ-003'> SystemOperationalRequirement {
+		doc /* The water pump system shall maintain tank level between 30% and 90%. */
+		
+		subject system : WaterPumpSystem;
+		
+		assume constraint {
+			system.tank.currentLevel >= 0.0 and system.tank.currentLevel <= 100.0
+		}
+		
+		require constraint lowLevelProtection {
+			system.tank.currentLevel >= 30.0 or system.pump.isActive == true
+		}
+		
+		require constraint highLevelProtection {
+			system.tank.currentLevel <= 90.0 or system.pump.isActive == false
+		}
+	}
+	
+	part waterPumpSystem : WaterPumpSystem {
+		part tank : WaterTank {
+			attribute redefines currentLevel;
+			port redefines tankPort {
+				attribute redefines level = tank.currentLevel;
+				out item redefines waterSupply;
+			}
+		}
+		
+		part pump : Pump {
+			attribute redefines isActive;
+			port redefines pumpInPort {
+				attribute redefines level;
+				in item redefines waterSupply;
+			}
+			out item redefines pumpOut;
+		}
+		
+		part sensor : LevelSensor {
+			attribute redefines measuredLevel = tank.currentLevel;
+			out signal redefines levelReading;
+		}
+		
+		part controller : Controller {
+			in signal redefines tankLevel;
+			out signal redefines pumpCommand;
+			
+			state pumpControl : PumpControlStateMachine {
+				in attribute redefines tankLevel = sensor.levelReading;
+				out attribute redefines pumpActive;
+			}
+		}
+		
+		connection sensorToTank : WaterInPort connect 
+			sensor.measuredLevel to tank.currentLevel;
+		
+		connection sensorToController connect 
+			sensor.levelReading to controller.tankLevel;
+		
+		connection controllerToPump connect 
+			controller.pumpCommand to pump.isActive;
+		
+		connection pumpToTank connect 
+			pump.pumpOut to tank.waterIn;
+		
+		bind pump.pumpInPort.level = tank.currentLevel;
+		bind pump.pumpInPort.waterSupply = tank.tankPort.waterSupply;
+		
+		satisfy PumpActivationRequirement by pump;
+		satisfy PumpDeactivationRequirement by pump;
+		satisfy SystemOperationalRequirement by waterPumpSystem;
+	}
+	
+	part def WaterPumpSystem {
+		part tank : WaterTank;
+		part pump : Pump;
+		part sensor : LevelSensor;
+		part controller : Controller;
+	}
+}
+---
+Candidate 4 (meta-llama/llama-4-maverick, rating=5/10):
+package 'Water Pump System' {
+    private import ScalarValues::*;
+    private import SIUnits::*;
+    
+    attribute def TankLevel;
+    attribute def PumpState;
+    
+    value type WaterFlowRate {
+        definition = 'The rate at which water flows through the pump.';
+        unit = L / min;
+    }
+    
+    port def PumpPort {
+        out item waterOut : WaterFlowRate;
+        in item waterIn : WaterFlowRate;
+    }
+    
+    port def TankPort {
+        in item waterIn : WaterFlowRate;
+        out item waterOut : WaterFlowRate;
+    }
+    
+    part def WaterPump {
+        port pumpPort : PumpPort;
+        action def PumpWater {
+            out flowRate : WaterFlowRate;
+        }
+    }
+    
+    part def WaterTank {
+        port tankPort : TankPort;
+        attribute tankLevel : TankLevel;
+    }
+    
+    part def PumpController {
+        attribute pumpState : PumpState;
+        action def ControlPump {
+            in tankLevel : TankLevel;
+            out pumpState : PumpState;
+        }
+    }
+    
+    part system : WaterPumpSystem {
+        part pump : WaterPump;
+        part tank : WaterTank;
+        part controller : PumpController;
+        
+        connection conn1 {
+            pump.pumpPort.waterOut = tank.tankPort.waterIn;
+        }
+        
+        connection conn2 {
+            tank.tankPort.waterOut = pump.pumpPort.waterIn;
+        }
+        
+        action def ActivatePump {
+            then action control : controller.ControlPump {
+                in tankLevel = tank.tankLevel;
+                out pumpState = controller.pumpState;
+            }
+            then if control.pumpState == 'on' {
+                action pumpWater : pump.PumpWater {
+                    out flowRate;
+                }
+            }
+        }
+        
+        state machine PumpStateMachine {
+            state off;
+            state on;
+            transition from off to on {
+                guard tank.tankLevel < 30;
+                effect ActivatePump;
+            }
+            transition from on to off {
+                guard tank.tankLevel >= 90;
+            }
+        }
+    }
+    
+    requirement def TankLevelRequirement {
+        doc /* The tank level shall be between 0 and 100%. */
+    }
+    
+    requirement def PumpActivationRequirement {
+        doc /* The pump shall activate when the tank level falls below 30%. */
+        assume #goal constraint tankLevelBelow30;
+        require #goal system.PumpStateMachine;
+    }
+    
+    requirement def PumpDeactivationRequirement {
+        doc /* The pump shall deactivate when the tank level reaches 90%. */
+        assume #goal constraint tankLevelAbove90;
+        require #goal system.PumpStateMachine;
+    }
+}
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a water pump system that activates below 30% and deactivates at 90% tank level.

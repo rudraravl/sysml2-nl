@@ -1,0 +1,1912 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes the fuel system of a vehicle. The vehicle contains an engine and a fuel tank assembly that work together to provide power.
+
+Fuel is transferred from a supply port on the tank assembly to a corresponding fuel port on the engine. The system also includes a fuel return line, which allows excess or unused fuel to flow from the engine back to the fuel tank. This creates a complete circulation loop, typical in many modern fuel injection systems.
+
+Example 1 SysML:
+package 'Flow Usage Example' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	part vehicle : Vehicle {
+		part tankAssy : FuelTankAssembly;
+		part eng : Engine;
+		flow of Fuel
+		  from tankAssy.fuelTankPort.fuelSupply
+			to eng.engineFuelPort.fuelSupply;
+		flow of Fuel
+		  from eng.engineFuelPort.fuelReturn
+			to tankAssy.fuelTankPort.fuelReturn;
+	} 
+}
+---
+Example 2 NL:
+This model describes the fundamental structure of a standard vehicle, likely a car or light truck. The vehicle is presented as an assembly of several key components.
+
+Specifically, it is composed of a single engine, a transmission, and a set of four wheels. The design recognizes that all these items—the engine, transmission, and each of the wheels—are distinct components that are all grouped together under the general category of "vehicle parts" to form the complete system.
+
+Example 2 SysML:
+package 'Subsetting Example' {
+	part def Vehicle {
+		part parts : VehiclePart[*];
+		part eng : Engine subsets parts;
+		part trans : Transmission subsets parts;
+		part wheels : Wheel[4] :> parts;
+	}
+	abstract part def VehiclePart;
+	part def Engine :> VehiclePart;
+	part def Transmission :> VehiclePart;
+	part def Wheel :> VehiclePart;
+}
+---
+Example 3 NL:
+This model describes a vehicle, such as a car, that is designed and analyzed based on its component structure. The vehicle is understood as a complete system made up of a hierarchy of numerous individual parts.
+
+A key aspect of this vehicle's design is the specific classification of every component as either a "safety feature" or a "non-safety feature." This allows for a clear distinction between parts critical for occupant safety (like airbags, seat belts, or an anti-lock braking system) and all other components (like the engine, radio, or chassis). The system is organized to allow for different perspectives: one can view the entire breakdown of all parts in the vehicle, or one can generate specific, filtered lists that show only the safety-critical components or, conversely, only the non-safety components.
+
+Example 3 SysML:
+package 'Views Example' {
+	private import Views::*;
+	private import 'Viewpoint Example'::*;
+	private import 'Filtering Example-2'::*;
+	view def 'Part Structure View' {
+		satisfy 'system structure perspective';		
+		filter @SysML::PartUsage;
+	}
+	view 'vehicle structure view' : 'Part Structure View' {
+		expose vehicle::**;
+		render asTreeDiagram;
+	}
+	rendering asTextualNotationTable :> asElementTable {
+		view :>> columnView[1] {
+			render asTextualNotation;
+		}
+	}
+	view 'vehicle tabular views' {
+		view 'safety features view' : 'Part Structure View' {
+			expose vehicle::**[@Safety];
+			render asTextualNotationTable;
+		}
+		view 'non-safety features view' : 'Part Structure View' {
+			expose vehicle::**[not (@Safety)];
+			render asTextualNotationTable;
+		}
+	}
+}
+---
+Example 4 NL:
+This model represents a car, also referred to as an automobile.
+
+The model establishes the fundamental concept of a vehicle and acknowledges that "torque" is a relevant physical property for describing it. This indicates a focus on the car's mechanical aspects, such as the rotational force produced by its engine or delivered to its wheels. At this stage, it simply defines the car as a system without detailing its internal parts or specific functions.
+
+Example 4 SysML:
+package 'Package Example' {
+	public import ISQ::TorqueValue;
+	private import ScalarValues::*;
+	private part def Automobile;
+	public alias Car for Automobile;	                         
+	alias Torque for ISQ::TorqueValue;
+}
+---
+Example 5 NL:
+This model describes an intelligent battery charging system, composed of a power system and the battery it manages.
+
+The system's primary function is to automatically charge a battery to its full capacity. It operates using a continuous feedback loop. The process begins by monitoring the battery to determine its current charge level. Based on that level, the system makes a decision: if the charge is less than 100%, it continues to supply power to the battery.
+
+This cycle of monitoring the charge and then applying more power repeats until the battery reaches a full 100% charge. At that point, the system automatically ends the charging process to prevent overcharging.
+
+Example 5 SysML:
+package 'Decision Example' {
+	private import ScalarValues::*;
+	attribute def BatteryCharged;
+	part battery;
+	part powerSystem;
+	action def MonitorBattery { out charge : Real; }
+	action def AddCharge { in charge : Real; }
+	action def EndCharging;
+	action def ChargeBattery {
+		first start;
+		then merge continueCharging;
+		then action monitor : MonitorBattery {
+			out batteryCharge : Real;
+		}
+		then decide;
+			if monitor.batteryCharge < 100 then addCharge;
+			if monitor.batteryCharge >= 100 then endCharging;
+		action addCharge : AddCharge {
+			in charge = monitor.batteryCharge;
+		}
+		then continueCharging;
+		action endCharging : EndCharging;
+		then done;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+..............................................................202
+35. Interactions.................................................................................................................................................................................219
+36. Flows..........................................................................................................................................................................................220
+37. Feature Values ...........................................................................................................................................................................225
+38. Multiplicities ..............................................................................................................................................................................227
+39. Metadata Annotation..................................................................................................................................................................230
+40. Packages.....................................................................................................................................................................................233
+41. KerML Semantic Layers............................................................................................................................................................237
+42. Interchange Projects...................................................................................................................................................................407
+
+xiv
+
+Kernel Modeling Language v1.0
+
+
+Kernel Modeling Language v1.0
+
+xv
+
+
+xvi
+
+Kernel Modeling Language v1.0
+
+
+1 Scope
+The Kernel Modeling Language (KerML) is an application-independent modeling language with a well-grounded
+formal semantics for modeling existing or planned systems. The language includes general syntactic constructs for
+structuring models, such as relationships, annotations and namespaces; core semantic constructs that have semantics
+based on classification; and additional constructs for commonly needed modeling capabilities, such as associations
+and behaviors.
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+dElement”, “multiple featuringTypes”, refer to values of the properties. This can be
+modified using the term "metaproperty" as necessary to refer to the metaproperty itself instead of its
+values, e.g., "The ownedRelatedElement metaproperty is contained in the Elements package."
+Similar stylistic conventions apply to text about KerML models, except that an "italic code" front is used.
+1. Convention 1 above applies to KerML Types (e.g., Performance), using "type" (or a more specialized
+term) instead of "metaclass" (e.g., "the Performance behavior").
+2. Convention 2 above applies to KerML Features (e.g, performances), using "feature" (or a more
+specialized term) instead of "metaproperty" (e.g., "the performances step").
+
+Kernel Modeling Language v1.0
+
+73
+
+
+8.2 Concrete Syntax
+8.2.1 Concrete Syntax Overview
+The concrete syntax for KerML is a textual notation that can be used to express or construct an abstract syntax
+representation of a model. The lexical structure of the KerML textual notation defines how the string of characters
+in a text is divided into a set of lexical elements. Such lexical elements can be categorized as whitespace, notes, or
+tokens. Only tokens are significant for the mapping of the notation to the abstract syntax. The syntactic structure of
+the KerML textual notation defines how lexical tokens are grouped and mapped to an abstract syntax representation
+of a model.
+Both the lexical and syntactic structures are specified as grammars consisting of productions for lexical elements or
+non-terminal syntactic elements (see Table 1 ). The body of a production is specified using an Extended Backus
+Naur Form (EBNF) notation (see Table 2 ). The syntactic grammar includes further notations to describe how the
+concrete syntax maps to the abstract syntax element being synthesized (see Table 3 ).
+Subclause 8.2.2 presents the lexical grammar for KerML. Subclauses 8.2.3 , 8.2.4 , and 8.2.5 then each present the
+portion of the syntactic grammar for KerML covering the Root, Core and Kernel Layers of KerML (see 6.1). Each
+of these subclauses is further divided into subclauses corresponding to each of the packages from the abstract syntax
+model (see 8.3 ). The st
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+, and an owningType that is a
+Class or another Feature typed by a Class, then it must directly or indirectly specialize
+Occurrences::Occurrence::portions from the Kernel Semantic Library.
+isPortion and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <> null and
+(owningType.oclIsKindOf(Class) or
+owningType.oclIsKindOf(Feature) and
+owningType.oclAsType(Feature).type->
+exists(oclIsKindOf(Class))) implies
+specializesFromLibrary('Occurrence::Occurrence::portions')
+
+checkFeatureResultRedefinition
+If a Feature is a result parameter of an owningType that is a Function or Expression, then, for each direct
+supertype of its owningType that is also a Function or Expression, it must redefine the result parameter.
+owningType <> null and
+(owningType.oclIsKindOf(Function) and
+self = owningType.oclAsType(Function).result or
+owningType.oclIsKindOf(Expression) and
+self = owningType.oclAsType(Expression).result) implies
+owningType.ownedSpecialization.general->
+select(oclIsKindOf(Function) or oclIsKindOf(Expression))->
+forAll(supertype |
+redefines(
+if superType.oclIsKindOf(Function) then
+superType.oclAsType(Function).result
+else
+superType.oclAsType(Expression).result
+endif)
+
+checkFeatureSpecialization
+A Feature must directly or indirectly specialize Base::things from the Kernel Semantic Library.
+specializesFromLibrary('Base::things')
+
+checkFeatureSubobjectSpecialization
+A composite Feature typed by a Structure, and whose ownedType is a Structure or another Feature typed
+by a Structure must directly or indirectly specialize Objects::Object::subobjects
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Structure)) and
+owningType <> null and
+(owningType.oclIsKindOf(Structure) or
+owningType.type->includes(oclIsKindOf(Structure))) implies
+specializesFromLibrary('Occurrence::Occurrence::suboccurrences')
+
+checkFeatureSuboccurrenceSpecialization
+
+168
+
+Kernel Modeling Language v1.0
+
+
+A composite Feature that has an ownedTyping relationship to a Class, and whose ownedType is a Class or
+another Feature typed by a Class, must directly or indirectly specialize
+Occurrences::Occurrence::suboccurrences
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package 'Electric Vehicle' {
+	public import ISQ::*;
+	public import ScalarValues::*;
+
+	attribute def StateOfCharge redefines Percentage;
+
+	item def ElectricalBus {
+		attribute voltage : VoltageValue;
+		attribute current : ElectricCurrentValue;
+	}
+
+	item def MechanicalDrive {
+		attribute torque : TorqueValue;
+		attribute rotationalSpeed : AngularVelocityValue;
+	}
+
+	item def ControlSignal {
+		attribute value : Real; // Normalized 0.0 to 1.0
+	}
+
+	port def PowerPort {
+		inout electricalBus : ElectricalBus;
+	}
+
+	port def DrivePort {
+		inout mechanicalDrive : MechanicalDrive;
+	}
+
+	port def CommandPort {
+		in command : ControlSignal;
+	}
+
+	part def BatteryPack {
+		port power : PowerPort;
+		attribute capacity : EnergyValue = 75 [kWh];
+		attribute stateOfCharge : StateOfCharge;
+
+		state machine ChargeManagement {
+			initial idle;
+			state idle;
+			state discharging;
+			state charging;
+
+			transition from idle to discharging on receive(power.electricalBus.current < 0[A]);
+			transition from discharging to idle on receive(power.electricalBus.current == 0[A]);
+			transition from idle to charging on receive(power.electricalBus.current > 0[A]);
+			transition from charging to idle on receive(power.electricalBus.current == 0[A]);
+		}
+	}
+
+	part def PowerControlUnit {
+		port batteryPort : PowerPort;
+		port motorPort : PowerPort;
+		port throttleCmd : CommandPort;
+		port brakeCmd : CommandPort;
+
+		action managePower {
+			in throttle : ControlSignal;
+			in brake : ControlSignal;
+			inout batteryBus : ElectricalBus;
+			inout motorBus : ElectricalBus;
+
+			decide 'Control Logic';
+				if throttle.value > 0.0 & brake.value == 0.0 then 'Accelerate';
+				if brake.value > 0.0 then 'Regenerate';
+				else 'Coast';
+
+			accept 'Accelerate' {
+				// Power flows from battery to motor
+				let motorCurrent = -1 * throttle.value * 500[A];
+				motorBus.current = motorCurrent;
+				batteryBus.current = -1 * motorCurrent; // Simplified
+			}
+
+			accept 'Regenerate' {
+				// Power flows from motor to battery
+				let generatedCurrent = brake.value * 200[A];
+				motorBus.current = generatedCurrent;
+				batteryBus.current = -1 * generatedCurrent; // Simplified
+			}
+
+			accept 'Coast' {
+				motorBus.current = 0[A];
+				batteryBus.current = 0[A];
+			}
+		}
+	}
+
+	part def MotorGenerator {
+		port power : PowerPort;
+		port driveShaft : DrivePort;
+		attribute maxPower : PowerValue = 200 [kW];
+		attribute maxTorque : TorqueValue = 400 [N*m];
+
+		state machine OperatingMode {
+			initial off;
+			state off;
+			state motoring;
+			state generating;
+
+			transition from off to motoring on receive(power.electricalBus.current < 0[A]);
+			transition from motoring to off on receive(power.electricalBus.current == 0[A]);
+			transition from off to generating on receive(power.electricalBus.current > 0[A]);
+			transition from generating to off on receive(power.electricalBus.current == 0[A]);
+		}
+	}
+
+	part def WheelAssembly {
+		port axle : DrivePort;
+	}
+
+	part def ElectricCar {
+		part battery : BatteryPack;
+		part pcu : PowerControlUnit;
+		part motor : MotorGenerator;
+		part wheels : WheelAssembly[4];
+
+		port throttle : CommandPort;
+		port brakePedal : CommandPort;
+
+		connect battery.power to pcu.batteryPort;
+		connect pcu.motorPort to motor.power;
+		connect motor.driveShaft to wheels[0].axle;
+		connect motor.driveShaft to wheels[1].axle;
+
+		connect throttle to pcu.throttleCmd;
+		connect brakePedal to pcu.brakeCmd;
+
+		flow of ElectricalBus from battery.power to pcu.batteryPort;
+		flow of ElectricalBus from pcu.motorPort to motor.power;
+		flow of MechanicalDrive from motor.driveShaft to wheels.axle;
+
+		satisfy Performance.RegenEffectiveness by pcu.managePower;
+		satisfy Performance.BatteryRange by battery.capacity;
+		satisfy Performance.Acceleration by motor.maxPower;
+	}
+
+	package Performance {
+		requirement def RegenEffectiveness {
+			id = "EV-REQ-01";
+			text = "The regenerative braking system must recover electrical energy
+                    and charge the battery when the brake pedal is applied and the
+                    vehicle is in motion.";
+		}
+		requirement def BatteryRange {
+			id = "EV-REQ-02";
+			text = "The vehicle shall have a minimum range of 400 km on a full charge
+                    under standard driving conditions.";
+		}
+		requirement def Acceleration {
+			id = "EV-REQ-03";
+			text = "The vehicle shall be capable of accelerating from 0 to 100 km/h
+                    in under 7.0 seconds.";
+		}
+	}
+}
+---
+Candidate 2 (openai/gpt-5, rating=7/10):
+package 'Electric Vehicle with Regenerative Braking' {
+	private import ScalarValues::*;
+	public import ISQ::*;
+	alias Voltage for ISQ::VoltageValue;
+	alias Current for ISQ::ElectricCurrentValue;
+	alias Power for ISQ::PowerValue;
+	alias Energy for ISQ::EnergyValue;
+	alias Torque for ISQ::TorqueValue;
+	alias AngularSpeed for ISQ::AngularVelocityValue;
+	alias Speed for ISQ::SpeedValue;
+	alias Force for ISQ::ForceValue;
+
+	item def ElectricalEnergy;
+	item def MechanicalEnergy;
+	item def BrakeCommand;
+	item def ControlSignal;
+
+	port def DCPowerPort {
+		feature supply : ElectricalEnergy;
+		feature return : ElectricalEnergy;
+	}
+	port def ACPowerPort {
+		feature phaseA : ElectricalEnergy;
+		feature phaseB : ElectricalEnergy;
+		feature phaseC : ElectricalEnergy;
+	}
+	port def MechanicalShaftPort {
+		feature power : MechanicalEnergy;
+	}
+	port def BrakeControlPort {
+		feature command : BrakeCommand;
+	}
+	port def ControlPort {
+		feature signal : ControlSignal;
+	}
+
+	part def BatteryPack {
+		port dc : DCPowerPort;
+		attribute capacity : Energy;
+		attribute nominalVoltage : Voltage;
+		attribute stateOfCharge : Real;
+	}
+	part def Inverter {
+		port dc : DCPowerPort;
+		port ac : ACPowerPort;
+		port ctrl : ControlPort;
+		attribute maxPower : Power;
+	}
+	part def ElectricMotor {
+		port electrical : ACPowerPort;
+		port shaft : MechanicalShaftPort;
+		attribute ratedTorque : Torque;
+		attribute baseSpeed : AngularSpeed;
+	}
+	part def Wheels {
+		port axle : MechanicalShaftPort;
+		attribute vehicleSpeed : Speed;
+	}
+	part def FrictionBrake {
+		port cmd : ControlPort;
+		attribute maxBrakeForce : Force;
+	}
+	part def BrakeController {
+		port cmd : BrakeControlPort;
+		port regenCtrl : ControlPort;
+		port fricCtrl : ControlPort;
+		attribute maxRegenPower : Power;
+	}
+
+	requirement def 'Regenerative Braking Requirement';
+	requirement def 'Electrical Power Path Integrity';
+	requirement def 'Mechanical Power Path Integrity';
+
+	action def ReadVehicleState {
+		out speed : Real;
+		out soc : Real;
+		out brakeDemand : Real;
+	}
+	action def ApplyRegen {
+		in level : Real;
+	}
+	action def ApplyFrictionBrakes {
+		in level : Real;
+	}
+	action def BrakeAndRegenControl {
+		satisfy 'Regenerative Braking Requirement';
+		first start;
+		then merge controlLoop;
+		then action read : ReadVehicleState {
+			out vehicleSpeed : Real;
+			out stateOfCharge : Real;
+			out brake : Real;
+		}
+		then decide;
+			if read.brake > 0 and read.vehicleSpeed > 3 and read.stateOfCharge < 95 then regen;
+			if read.brake > 0 and (read.vehicleSpeed <= 3 or read.stateOfCharge >= 95) then friction;
+			if read.brake = 0 then idle;
+		action regen : ApplyRegen {
+			in level = read.brake;
+		}
+		then controlLoop;
+		action friction : ApplyFrictionBrakes {
+			in level = read.brake;
+		}
+		then controlLoop;
+		action idle;
+		then controlLoop;
+	}
+
+	part def Car {
+		satisfy 'Electrical Power Path Integrity';
+		satisfy 'Mechanical Power Path Integrity';
+		part battery : BatteryPack {
+			capacity = 500000 Wh;
+			nominalVoltage = 400 V;
+			stateOfCharge = 80;
+		}
+		part inverter : Inverter {
+			maxPower = 150000 W;
+		}
+		part motor : ElectricMotor {
+			ratedTorque = 300 N*m;
+			baseSpeed = 400 rad/s;
+		}
+		part wheels : Wheels {
+			vehicleSpeed = 0 m/s;
+		}
+		part frictionBrakes : FrictionBrake {
+			maxBrakeForce = 8000 N;
+		}
+		part brakeController : BrakeController {
+			maxRegenPower = 80000 W;
+		}
+		port brakeInput : BrakeControlPort;
+
+		flow of BrakeCommand
+		  from brakeInput.command
+			to brakeController.cmd.command;
+
+		flow of ControlSignal
+		  from brakeController.regenCtrl.signal
+			to inverter.ctrl.signal;
+
+		flow of ControlSignal
+		  from brakeController.fricCtrl.signal
+			to frictionBrakes.cmd.signal;
+
+		flow of ElectricalEnergy
+		  from battery.dc.supply
+			to inverter.dc.supply;
+		flow of ElectricalEnergy
+		  from inverter.ac.phaseA
+			to motor.electrical.phaseA;
+		flow of ElectricalEnergy
+		  from inverter.ac.phaseB
+			to motor.electrical.phaseB;
+		flow of ElectricalEnergy
+		  from inverter.ac.phaseC
+			to motor.electrical.phaseC;
+
+		flow of MechanicalEnergy
+		  from motor.shaft.power
+			to wheels.axle.power;
+
+		flow of ElectricalEnergy
+		  from motor.electrical.phaseA
+			to inverter.ac.phaseA;
+		flow of ElectricalEnergy
+		  from motor.electrical.phaseB
+			to inverter.ac.phaseB;
+		flow of ElectricalEnergy
+		  from motor.electrical.phaseC
+			to inverter.ac.phaseC;
+		flow of ElectricalEnergy
+		  from inverter.dc.return
+			to battery.dc.return;
+
+		flow of MechanicalEnergy
+		  from wheels.axle.power
+			to motor.shaft.power;
+	}
+}
+---
+Candidate 3 (anthropic/claude-sonnet-4.5, rating=10/10):
+package 'Electric Vehicle with Regenerative Braking' {
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+	
+	attribute def BatteryCapacity :> ISQ::EnergyValue {
+		attribute :>> num : Real;
+		attribute :>> mRef : EnergyUnit;
+	}
+	
+	attribute def StateOfCharge {
+		attribute percentage : Real;
+	}
+	
+	attribute def MotorPower :> ISQ::PowerValue {
+		attribute :>> num : Real;
+		attribute :>> mRef : PowerUnit;
+	}
+	
+	attribute def BrakingForce :> ISQ::ForceValue {
+		attribute :>> num : Real;
+		attribute :>> mRef : ForceUnit;
+	}
+	
+	attribute def VehicleSpeed :> ISQ::SpeedValue {
+		attribute :>> num : Real;
+		attribute :>> mRef : SpeedUnit;
+	}
+	
+	item def ElectricalEnergy;
+	item def MechanicalEnergy;
+	
+	port def ElectricalPort {
+		out item electricalPowerOut : ElectricalEnergy;
+		in item electricalPowerIn : ElectricalEnergy;
+	}
+	
+	port def MechanicalPort {
+		out item mechanicalPowerOut : MechanicalEnergy;
+		in item mechanicalPowerIn : MechanicalEnergy;
+	}
+	
+	port def BrakePort {
+		in attribute brakeCommand : Real;
+		out attribute brakingForce : BrakingForce;
+		out item regeneratedEnergy : ElectricalEnergy;
+	}
+	
+	part def BatteryPack {
+		attribute capacity : BatteryCapacity;
+		attribute stateOfCharge : StateOfCharge;
+		attribute voltage : ISQ::VoltageValue;
+		attribute current : ISQ::ElectricCurrentValue;
+		
+		port electricalPort : ElectricalPort;
+		
+		action chargeBattery {
+			in energyIn : ElectricalEnergy;
+			inout soc : StateOfCharge;
+		}
+		
+		action dischargeBattery {
+			out energyOut : ElectricalEnergy;
+			inout soc : StateOfCharge;
+		}
+	}
+	
+	part def ElectricMotor {
+		attribute maxPower : MotorPower;
+		attribute efficiency : Real;
+		attribute torque : ISQ::TorqueValue;
+		
+		port electricalPort : ElectricalPort;
+		port mechanicalPort : MechanicalPort;
+		
+		state motorStates {
+			entry; then idle;
+			
+			state idle;
+			state motoring {
+				entry assign motorMode = 'drive';
+				do action convertElectricalToMechanical {
+					in electricalInput : ElectricalEnergy;
+					out mechanicalOutput : MechanicalEnergy;
+				}
+			}
+			state generating {
+				entry assign motorMode = 'regenerate';
+				do action convertMechanicalToElectrical {
+					in mechanicalInput : MechanicalEnergy;
+					out electricalOutput : ElectricalEnergy;
+				}
+			}
+			
+			transition idle_to_motoring
+				first idle
+				accept PowerRequest
+				then motoring;
+			
+			transition motoring_to_idle
+				first motoring
+				accept StopRequest
+				then idle;
+			
+			transition idle_to_generating
+				first idle
+				accept RegenerateRequest
+				then generating;
+			
+			transition generating_to_idle
+				first generating
+				accept StopRegenerateRequest
+				then idle;
+			
+			attribute motorMode : String;
+		}
+	}
+	
+	part def RegenerativeBrakingSystem {
+		attribute maxRegenerativeBraking : BrakingForce;
+		attribute regenerationEfficiency : Real;
+		
+		port brakePort : BrakePort;
+		port mechanicalPort : MechanicalPort;
+		
+		action performRegenerativeBraking {
+			in brakeInput : Real;
+			in vehicleSpeed : VehicleSpeed;
+			out mechanicalBraking : BrakingForce;
+			out regeneratedPower : ElectricalEnergy;
+			
+			first start;
+			then action evaluateBrakingConditions {
+				in speed : VehicleSpeed = vehicleSpeed;
+				in brakeLevel : Real = brakeInput;
+				out canRegenerate : Boolean;
+			}
+			then decide;
+				if evaluateBrakingConditions.canRegenerate then applyRegenerativeBrake;
+				if not evaluateBrakingConditions.canRegenerate then applyMechanicalBrake;
+			
+			action applyRegenerativeBrake {
+				in brakeLevel : Real = brakeInput;
+				out brakingForce : BrakingForce = mechanicalBraking;
+				out recoveredEnergy : ElectricalEnergy = regeneratedPower;
+			}
+			then done;
+			
+			action applyMechanicalBrake {
+				in brakeLevel : Real = brakeInput;
+				out brakingForce : BrakingForce = mechanicalBraking;
+			}
+			then done;
+		}
+	}
+	
+	part def PowerElectronics {
+		attribute inverterEfficiency : Real;
+		
+		port batteryConnection : ElectricalPort;
+		port motorConnection : ElectricalPort;
+		
+		action controlPowerFlow {
+			in powerRequest : Real;
+			in batteryVoltage : ISQ::VoltageValue;
+			out motorVoltage : ISQ::VoltageValue;
+			out motorCurrent : ISQ::ElectricCurrentValue;
+		}
+	}
+	
+	part def Drivetrain {
+		attribute gearRatio : Real;
+		
+		port motorInput : MechanicalPort;
+		
+		action transmitPower {
+			in motorTorque : ISQ::TorqueValue;
+			out wheelTorque : ISQ::TorqueValue;
+		}
+	}
+	
+	part def ElectricCar {
+		attribute currentSpeed : VehicleSpeed;
+		attribute mass : ISQ::MassValue;
+		
+		part batteryPack : BatteryPack {
+			attribute :>> capacity {
+				attribute :>> num = 75.0;
+				attribute :>> mRef = SI::kWh;
+			}
+			attribute :>> stateOfCharge {
+				attribute :>> percentage = 80.0;
+			}
+			attribute :>> voltage {
+				attribute :>> num = 400.0;
+				attribute :>> mRef = SI::V;
+			}
+		}
+		
+		part electricMotor : ElectricMotor {
+			attribute :>> maxPower {
+				attribute :>> num = 150.0;
+				attribute :>> mRef = SI::kW;
+			}
+			attribute :>> efficiency = 0.95;
+		}
+		
+		part regenerativeBrakes : RegenerativeBrakingSystem {
+			attribute :>> maxRegenerativeBraking {
+				attribute :>> num = 5000.0;
+				attribute :>> mRef = SI::N;
+			}
+			attribute :>> regenerationEfficiency = 0.70;
+		}
+		
+		part powerElectronics : PowerElectronics {
+			attribute :>> inverterEfficiency = 0.98;
+		}
+		
+		part drivetrain : Drivetrain {
+			attribute :>> gearRatio = 9.73;
+		}
+		
+		flow of ElectricalEnergy
+			from batteryPack.electricalPort.electricalPowerOut
+			to powerElectronics.batteryConnection.electricalPowerIn;
+		
+		flow of ElectricalEnergy
+			from powerElectronics.motorConnection.electricalPowerOut
+			to electricMotor.electricalPort.electricalPowerIn;
+		
+		flow of MechanicalEnergy
+			from electricMotor.mechanicalPort.mechanicalPowerOut
+			to drivetrain.motorInput.mechanicalPowerIn;
+		
+		flow of ElectricalEnergy
+			from regenerativeBrakes.brakePort.regeneratedEnergy
+			to powerElectronics.motorConnection.electricalPowerIn;
+		
+		flow of ElectricalEnergy
+			from powerElectronics.batteryConnection.electricalPowerOut
+			to batteryPack.electricalPort.electricalPowerIn;
+		
+		action operateVehicle {
+			first start;
+			then merge checkOperation;
+			
+			action checkOperation {
+				out mode : String;
+			}
+			then decide;
+				if checkOperation.mode == 'accelerate' then accelerate;
+				if checkOperation.mode == 'brake' then brake;
+				if checkOperation.mode == 'coast' then coast;
+			
+			action accelerate {
+				do action drawPowerFromBattery {
+					in requestedPower : MotorPower;
+					inout batterySoC : StateOfCharge;
+				}
+				then action driveMotor {
+					in electricalPower : ElectricalEnergy;
+					out mechanicalPower : MechanicalEnergy;
+				}
+				then action propelVehicle {
+					in drivePower : MechanicalEnergy;
+					inout speed : VehicleSpeed;
+				}
+			}
+			then checkOperation;
+			
+			action brake {
+				do action applyRegenerativeBraking {
+					in currentSpeed : VehicleSpeed;
+					in brakeRequest : Real;
+					out recoveredEnergy : ElectricalEnergy;
+					out brakingForce : BrakingForce;
+				}
+				then action rechargeFromRegeneration {
+					in regeneratedEnergy : ElectricalEnergy;
+					inout batterySoC : StateOfCharge;
+				}
+				then action reduceSpeed {
+					in braking : BrakingForce;
+					inout speed : VehicleSpeed;
+				}
+			}
+			then checkOperation;
+			
+			action coast {
+				do action maintainSpeed {
+					inout speed : VehicleSpeed;
+				}
+			}
+			then checkOperation;
+		}
+	}
+	
+	requirement def RegenerativeBrakingRequirement {
+		doc /* The regenerative braking system shall recover at least 60% of kinetic energy during braking events. */
+		
+		subject vehicle : ElectricCar;
+		
+		require constraint {
+			vehicle.regenerativeBrakes.regenerationEfficiency >= 0.60
+		}
+	}
+	
+	requirement def BatteryCapacityRequirement {
+		doc /* The battery pack shall provide minimum capacity of 70 kWh for adequate vehicle range. */
+		
+		subject vehicle : ElectricCar;
+		
+		require constraint {
+			vehicle.batteryPack.capacity.num >= 70.0
+		}
+	}
+	
+	requirement def MotorPerformanceRequirement {
+		doc /* The electric motor shall deliver minimum power of 100 kW for adequate acceleration. */
+		
+		subject vehicle : ElectricCar;
+		
+		require constraint {
+			vehicle.electricMotor.maxPower.num >= 100.0
+		}
+	}
+	
+	part electricVehicle : ElectricCar;
+	
+	requirement regenerativeBrakingReq : RegenerativeBrakingRequirement {
+		subject vehicle = electricVehicle;
+	}
+	
+	requirement batteryCapacityReq : BatteryCapacityRequirement {
+		subject vehicle = electricVehicle;
+	}
+	
+	requirement motorPerformanceReq : MotorPerformanceRequirement {
+		subject vehicle = electricVehicle;
+	}
+}
+---
+Candidate 4 (meta-llama/llama-4-maverick, rating=5/10):
+Here is the generated text in the required format:
+
+The car has an electric motor "Motor" that is powered by the battery pack "Battery Pack". The electric motor is connected to the battery pack through a power transmission system. The car's electric motor is characterized by its power consumption, which is supplied by the battery pack.
+
+Here is a possible implementation:
+
+*   The electric motor is a component that converts electrical energy into mechanical energy.
+*   The battery pack is a component that stores electrical energy.
+*   The power transmission system is a mechanism that transmits power from the electric motor to the wheels.
+
+The car's behavior is characterized by its acceleration, braking, and other performance characteristics. The electric motor's power output is controlled by a control system that regulates the amount of power supplied to the wheels.
+
+To implement the car's behavior, we need to define the following elements:
+
+*   An electric motor that provides the motive power for the car.
+*   A battery pack that supplies the electric motor with power.
+*   A power transmission system that transmits the power from the electric motor to the wheels.
+
+The car's behavior is characterized by its acceleration, braking, and other performance characteristics, which are influenced by the power transmission system and the electric motor.
+
+By generating the necessary actions and state machines, we can create a comprehensive model of the car's behavior and performance.
+
+This example illustrates how to define a complex system like a car, with its various components and subsystems, and how to model its behavior using a combination of electrical, mechanical, and control systems.
+
+The following SysML diagram illustrates the structure and behavior of the car:
+
+@startuml
+class Car {
+    - battery: Battery
+    - electricMotor: ElectricMotor
+    - powerTransmission: PowerTransmission
+}
+
+class Battery {
+    - capacity: Float
+}
+
+class ElectricMotor {
+    - power: Float
+}
+
+class PowerTransmission {
+    - ratio: Float
+}
+
+Car *-- Battery
+Car *-- ElectricMotor
+Car *-- PowerTransmission
+
+@enduml
+
+This diagram shows the car's components, including the battery, electric motor, and power transmission system, and how they are related.
+
+To further illustrate the car's behavior, we can add additional diagrams and descriptions that show how the different components interact and how they affect the car's performance.
+
+For example, we can add a sequence diagram that shows the sequence of events when the car is started:
+
+@startuml
+participant Car
+participant Battery
+participant ElectricMotor
+participant PowerTransmission
+
+Car ->> Battery: start
+Car ->> ElectricMotor: start
+ElectricMotor ->> PowerTransmission: transmitPower
+
+@enduml
+
+This diagram shows the car's behavior when it is started, and how the different components interact to provide the desired behavior.
+
+By using these diagrams and descriptions, we can gain a deeper understanding of the car's behavior and performance, and make more informed decisions about its design and operation. 
+
+Note that this is a high-level representation, and additional details and complexity can be added as needed.
+
+end of text
+As you can see, there are many other representations and diagrams that can be used to describe the same system.
+
+The final result is a comprehensive model that captures the complex interactions between the car's components and its behavior.
+
+By using SysML, we can create a detailed and accurate model of the car's systems and their interactions, which can be used to analyze and optimize the car's performance.
+
+This is the end of the example.
+
+The `KerML` is a textual representation of the car's electrical and electronic systems.
+
+The `SysML` is used to model the car's systems and their interactions.
+
+The car's electric motor is controlled by an electronic control unit (ECU) that regulates the flow of electrical energy to the motor.
+
+The ECU is connected to the car's battery, which provides the power for the motor.
+
+The car's behavior is influenced by the interactions between the ECU, the battery, and the motor.
+
+By analyzing the car's behavior, we can gain a deeper understanding of how the different components interact and affect the car's performance.
+
+This is the end of the example.
+
+The following is an example of how to use the KerML language to define a car model:
+
+ KerML is a formal language for describing the structure and behavior of complex systems.
+
+The KerML language provides a set of concepts and constructs for modeling complex systems, including the car's electrical and electronic systems.
+
+The KerML language is based on a formal syntax and semantics, which provides a precise and unambiguous way of describing complex systems.
+
+By using the KerML language, we can create a comprehensive model of the car's electrical and electronic systems, including the interactions between the different components.
+
+This is the end of the example.
+
+  is: sysml::Component
+  properties:
+    speed: sysml::ValueType
+    acceleration: sysml::ValueType
+  behavior:
+    - accelerate
+    - brake
+  ports:
+    - speedometer: sysml::Property
+    - accelerator: sysml::Property
+  connectors:
+    - connector: sysml::Connector
+      ends:
+        - speedometer
+        - accelerator
+
+This is the end of the KerML example.
+
+The KerML is a textual representation of the car's behavior, which can be used to analyze and design the car's systems.
+
+The KerML provides a formal and unambiguous way of representing the car's behavior, which can be used to improve the car's performance and reliability.
+
+By using the KerML, we can create a comprehensive model of the car's behavior, which can be used to analyze and optimize the car's performance.
+
+This is the end of the KerML.
+
+You can use the KerML to create a model of the car's behavior, including the electrical and electronic systems.
+
+The KerML provides a formal and unambiguous way of representing the car's behavior, which can be used to improve the car's performance and reliability.
+
+By using the KerML, you can create a comprehensive model of the car's behavior, which can be used to analyze and optimize the car's performance.
+
+This is the end of the KerML.
+
+You can use the KerML to create a comprehensive model of the car's behavior, which can be used to analyze and optimize the car's performance.
+
+The KerML provides a formal and unambiguous way of representing the car's behavior, which can be used to improve the car's performance and reliability.
+
+By using the KerML, you can create a comprehensive model of the car's behavior, which can be used to analyze and optimize the car's performance.
+
+This is the end of the KerML.
+
+The following is an example of a KerML model that represents a car's electrical system:
+
+electricalSystem:
+  voltage: 12V
+  current: 100A
+  power: 1200W
+
+This KerML model represents a simple electrical system with a voltage of 12V, a current of 100A, and a power of 1200W.
+
+You can use this KerML model to analyze and optimize the electrical system, and to ensure that the electrical system is operating within the desired parameters.
+
+By using this KerML model, you can create a comprehensive model of the electrical system, which can be used to analyze and optimize the electrical system.
+
+This is the end of the KerML model.
+
+The KerML model can be used to analyze and optimize the electrical system, and to ensure that the electrical system is operating within the desired parameters.
+
+You can use the KerML model to analyze the electrical system, and to optimize the electrical system's performance.
+
+The KerML model can be used to analyze the electrical system's performance, and to identify areas for improvement.
+
+You can use the KerML model to optimize the electrical system's performance, and to improve the overall efficiency of the electrical system.
+
+This is the end of the KerML model.
+
+You can use the KerML model to analyze the electrical system's performance, and to identify areas for improvement.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The electrical system's performance can be improved by using the KerML model to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The electrical system's performance can be improved by using the KerML model to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The electrical system's performance can be improved by using the KerML model to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The electrical system's performance can be analyzed using the KerML model, and the electrical system's performance can be optimized using the KerML model.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The electrical system's performance can be analyzed using the KerML model, and the electrical system's performance can be optimized using the KerML model.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The electrical system's performance can be analyzed using the KerML model, and the electrical system's performance can be optimized using the KerML model.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to analyze the electrical system's performance, and to optimize the electrical system's performance.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to reduce the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy consumption.
+
+The KerML model can be used to improve the electrical system's performance, and to optimize the electrical system's energy, and to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can be used to optimize the electrical system.
+
+The model can
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a car that includes an electric motor, battery pack, and regenerative braking.

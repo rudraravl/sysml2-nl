@@ -1,0 +1,527 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes a specialized quadcopter drone designed for forest fire observation and surveillance.
+
+The drone is built with a standard quad-rotor airframe, consisting of a central body, four arms, and landing gear. It is propelled by four engines, with two propellers rotating clockwise and two counter-clockwise to provide lift and stable, maneuverable flight.
+
+Engineered for extended missions, the drone is equipped with a high-capacity, long-distance battery. A central power management module is responsible for monitoring the battery's charge status and distributing electricity to the four engines and other electronic components.
+
+The drone's "brain" is a flight control unit that manages all aspects of its operation. It relies on a suite of sensors for navigation and stability: a GPS module for determining its location, an Inertial Measurement Unit (IMU) for sensing orientation and movement, and a barometer for precise altitude control. Crucially, the flight control unit constantly receives battery status updates from the power management module, allowing it to manage flight time and execute return-to-base procedures when power is low.
+
+For its primary observation role, the drone is fitted with a camera. It also includes an obstacle avoidance sensor to enhance safety during flight. A complete communication system, with a radio transmitter, receiver, and antenna, enables it to be controlled remotely and transmit data, such as a live video feed, back to an operator.
+
+Example 1 SysML:
+package ForestFireObservationDrone {
+    import Drone_SharedAssetsSuperset::**;
+    part forestFireObservationDrone : Drone {
+        :>> battery = DroneBatteryVariation::longDistanceBattery;
+        part charger;
+        part powerManagementModule {
+            port ctrlPort {
+                out attribute status : BatteryCapacityKind;
+            }
+            perform action checkStatus {
+                out attribute status : BatteryCapacityKind;
+                first start;
+                then action getBatteryStatus;
+                then action analyseStatus;
+                then done;
+            } 
+        }
+        part droneControlUnit {
+            port powerCtrlPort {
+                in attribute batteryStatus : BatteryCapacityKind;
+            }
+        }
+        part gpsModule;
+        part inertialMeasurementUnit;
+        part barometer;
+        part body;
+        part rotors[4];
+        part arms[4];
+        part landingGear;
+        part radioTransmitter;
+        part radioReceiver;
+        part antenna;
+        part camera;
+        part obstacleAvoidanceSensor;
+        part engine1 : DroneEngine {
+            :>> propKind = PropKind::clockwise;
+        }
+        part engine2 : DroneEngine {
+            :>> propKind = PropKind::counterclockwise;
+        }
+        part engine3 : DroneEngine {
+            :>> propKind = PropKind::clockwise;
+        }        
+        part engine4 : DroneEngine {
+            :>> propKind = PropKind::counterclockwise;
+        }
+        connect droneControlUnit.powerCtrlPort to powerManagementModule.ctrlPort;
+        connect battery to powerManagementModule;
+        connect powerManagementModule to engine1;
+        connect powerManagementModule to engine2;
+        connect powerManagementModule to engine3;
+        connect powerManagementModule to engine4;                    
+    }
+}
+---
+Example 2 NL:
+This model represents a highly configurable, multi-rotor drone system, with a specific configuration tailored for forest fire observation.
+
+The general drone platform is designed to be modular. It can be built with either four or six engines, with the body frame, including its arms and rotors, adapting to match the chosen engine count. The physical body is also customizable in color.
+
+At its core, the drone is equipped with a sophisticated flight control and navigation system. This includes a central flight control unit, a GPS for positioning, an Inertial Measurement Unit (IMU) for orientation and stability, and a barometer for altitude sensing. The system is also designed to support autonomous flight and has dedicated safety modules. For its surveillance role, it carries a camera and an obstacle avoidance sensor to navigate complex environments safely. Communication with a ground station is handled by an onboard radio transmitter, receiver, and antenna.
+
+The power system is a critical component, featuring a rechargeable battery managed by a dedicated power management module. The battery itself is a complex subsystem with its own cells, management system, and safety circuits. It can notify the flight controller when the charge is low. The system supports different battery types, such as a standard version and a heavier, higher-capacity version for long-distance flights.
+
+The drone operates through several distinct modes. It starts in an "off" state, can be switched to "standby," and from there can either enter a "charging" state or be activated to a "ready" state for a mission. Once ready, it can begin "flying," after which it returns to the ready state, prepared for deactivation or another flight.
+
+The specific "Forest Fire Observation Drone" is a high-endurance version of this platform. It is configured as a hexacopter with six engines for increased power and redundancy. To support long surveillance missions, it is equipped with the high-capacity, long-distance battery. For high visibility during operations, its body is specified to be red.
+
+Example 2 SysML:
+package DroneModelLogical{
+    library package Drone_SharedAssetsSuperset {
+        package Drone {
+            import DroneBattery::**;
+            import DroneEngine::**;
+            import DroneBody::**;
+            import DroneFlightControl::**;  
+            abstract part def Drone {
+                attribute massActual : ISQ::MassValue;
+                item :>> shape = body.shape;
+                item boundingBox :> boundingShapes = body.boundingBox;
+                timeslice parking {
+                    snapshot startCharging {
+                    }
+                    then snapshot stopCharging;
+                }
+                then timeslice flying {
+                    :>> battery[1];
+                }
+                state droneStates {
+                    entry; then off;
+                    state off;
+                    accept SigSwitchOn then standBy;
+                    state standBy;
+                    accept SigSwitchOff then off;
+                    transition standBy_charging
+                        first standBy
+                        accept SigStartCharging
+                        then charging;
+                    transition standBy_ready 
+                        first standBy
+                        accept SigActivate
+                        then ready;
+                    state charging;
+                        transition charging_standBy
+                            first charging
+                            accept SigStopCharging
+                            then standBy;
+                    state ready;
+                    accept SigDeactivate then standBy;
+                    transition ready_flying
+                        first ready
+                        accept SigStartFlying 
+                        then flying;
+                    state flying;    
+                    accept SigStopFlying then ready;
+                }
+                attribute def SigStartCharging;
+                attribute def SigStopCharging;
+                attribute def SigSwitchOn;
+                attribute def SigSwitchOff;
+                attribute def SigActivate;
+                attribute def SigDeactivate;
+                attribute def SigStartFlying;
+                attribute def SigStopFlying;
+                part battery : DroneBatteryVariation;
+                message notifyBatteryLow of SigBatteryLow from battery.batteryManagementSystem to flightControl;
+                part charger;
+                part powerManagementModule {
+                    port ctrlPort {
+                        out attribute status : BatteryCapacityKind;
+                    }
+                    perform action checkStatus {
+                        out attribute status : BatteryCapacityKind;
+                        first start;
+                        then action getBatteryStatus;
+                        then action analyseStatus;
+                        then done;
+                    } 
+                }
+                variation attribute numberOfEnginesVariation : ScalarValues::Integer {
+                    variant attribute fourEngines = 4;
+                    variant attribute sixEngines = 6;
+                }
+                part engines[numberOfEnginesVariation] : DroneEngine;
+                part body : DroneBodyVariation;
+                part flightControl : FlightControlVariation;
+                part droneControlUnit {
+                    port powerCtrlPort {
+                        in attribute batteryStatus : BatteryCapacityKind;
+---
+Example 3 NL:
+This model describes the system and process for providing transportation with a vehicle. The system involves the vehicle itself, a driver, passengers, and external entities like a fuel station and the general environment.
+
+The primary function is to complete a trip. This process begins with the driver and passengers entering the vehicle. The core part of the operation is the driver actively operating the vehicle to travel to a destination. During this journey, the vehicle may need to be refueled. This is an optional step where the driver takes the vehicle to a fuel station to add fuel before continuing. Once the destination is reached, the trip concludes with the driver and passengers exiting the vehicle.
+
+Example 3 SysML:
+package 'Use Case Usage Example' {
+	private import 'Use Case Definition Example'::*;
+	part def 'Fuel Station';
+	use case 'provide transportation' : 'Provide Transportation' {
+	    subject vehicle;
+		first start;
+		then include use case 'enter vehicle' : 'Enter Vehicle' {
+		    subject vehicle;
+			actor :>> driver = 'provide transportation'::driver;
+			actor :>> passengers = 'provide transportation'::passengers;
+		}
+		then use case 'drive vehicle' {
+            subject vehicle;
+			actor driver = 'provide transportation'::driver;
+			actor environment = 'provide transportation'::environment;
+			include 'add fuel'[0..*] { 
+                subject vehicle;
+				actor :>> fueler = driver;
+			}
+		}
+		then include use case 'exit vehicle' : 'Exit Vehicle' {
+            subject vehicle;
+			actor :>> driver = 'provide transportation'::driver;
+			actor :>> passengers = 'provide transportation'::passengers;
+		}
+		then done;		
+	}
+	use case 'add fuel' {
+		subject vehicle : Vehicle;
+		actor fueler : Person;
+		actor 'fuel station' : 'Fuel Station';
+	}
+}
+---
+Example 4 NL:
+This model describes a digital camera system built from distinct functional components. Its main purpose is to capture a photograph through an ordered sequence of internal actions.
+
+The camera system is composed of two primary sub-components: an **AutoFocus** module and an **Imager** (the image sensor). When the camera is instructed to take a photo, these components work together in a specific order. First, the AutoFocus module performs its function to adjust the lens and achieve a sharp focus on the subject. Once focusing is complete, the Imager then executes its action to capture the light and record the final digital image. This demonstrates a collaborative process where specialized parts are responsible for different steps of a single, high-level operation.
+
+Example 4 SysML:
+package 'Action Performance Example' {
+	private import 'Action Decomposition'::*;
+	part def Camera;
+	part def AutoFocus;
+	part def Imager;
+	part camera : Camera {
+		perform action takePhoto[*] ordered 
+			references takePicture;
+		part f : AutoFocus {
+			perform takePhoto.focus;			
+		}
+		part i : Imager {
+			perform takePhoto.shoot;
+		}		
+	}
+}
+---
+Example 5 NL:
+This model describes a vehicle's fuel delivery system. The vehicle consists of two main components: a fuel tank assembly and an engine. The system's purpose is to transfer fuel from the tank assembly, which acts as the supplier, to the engine, which consumes the fuel to operate and power the vehicle.
+
+Example 5 SysML:
+package 'Flow Definition Example' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	flow def FuelFlow {
+		ref :>> payload : Fuel;
+		end port supplierPort : FuelOutPort;
+		end port consumerPort : FuelInPort;
+	}
+	part vehicle : Vehicle {
+		part tankAssy : FuelTankAssembly;
+		part eng : Engine;
+		flow : FuelFlow of Fuel
+		  from tankAssy.fuelTankPort.fuelSupply
+			to eng.engineFuelPort.fuelSupply;
+	} 
+}
+---
+Spec 1 [Intro to the SysML v2 Language-Textual Notation]:
+{
+inout group: Occurrence[0..*] nonunique; inout occ: Occurrence[1];
+return : Occurrence[1];
+}
+function addNewAt {
+inout group: Occurrence[0..*] ordered nonunique; inout occ: Occurrence[1]; in index: Positive[1];
+return : Occurrence[1];
+}
+Remove an instance from
+behavior removeOld {
+a group of occurrences
+inout group: Occurrence[0..*] nonunique; inout occ: Occurrence[0..1];
+}
+and destroy it.
+behavior removeOldAt {
+inout group: Occurrence[0..*] ordered nonunique; in index: Positive[1];
+}
+}
+
+143
+
+Last changed: 2022-09 (new)
+
+Release 2025-07
+
+
+Systems Library
+(selected models)
+
+144
+
+Release 2025-07
+
+
+Standard View Definitions
+
+standard library package StandardViewDefinitions {
+view def <gv> GeneralView;
+view def <iv> InterconnectionView;
+view def <afv> ActionFlowView specializes InterconnectionView;
+view def <stv> StateTransitionView specializes InterconnectionView;
+view def <sv> SequenceView;
+view def <gev> GeometryView;
+view def <gv> GridView;
+view def <bv> BrowserView;
+}
+
+145
+
+Last changed: 2024-07 (updated to latest version)
+
+Release 2025-07
+
+
+Metadata Domain Library
+
+146
+
+Release 2025-07
+
+
+Risk Metadata
+
+General risk level in terms of
+probability and impact.
+Standard low, medium and
+high risk levels.
+To be used to annotate
+model elements as to their
+risk level in typical risk areas.
+
+147
+
+standard library package RiskMetadata {
+private import ScalarValues::Real;
+attribute def Level :> Real {
+assert constraint { that >= 0.0 and that <= 1.0 }
+}
+enum def LevelEnum :> Level {
+low = 0.25;
+medium = 0.50;
+high = 0.75;
+}
+attribute def RiskLevel {
+attribute probability : Level;
+attribute impact : Level [0..1];
+}
+enum def RiskLevelEnum :> RiskLevel {
+low = RiskLevel(probability = LevelEnum::L);
+medium = RiskLevel(probability = LevelEnum::M);
+high = RiskLevel(probability = LevelEnum::H);
+}
+metadata def Risk {
+attribute totalRisk : RiskLevel [0..1];
+attribute technicalRisk : RiskLevel [0..1];
+attribute scheduleRisk : RiskLevel [0..1];
+attribute costRisk : RiskLevel [0..1];
+}
+}
+Last changed: 2024-07 (import visibility)
+
+Release 2025-07
+
+
+Modeling Metadata
+
+To be used to annotate
+model elements with
+status information.
+
+To be used to give a
+rationale for a model
+element.
+
+G
+---
+Spec 2 [Intro to the SysML v2 Language-Textual Notation]:
+the driver.
+
+then timeslice bobDriving {
+ref individual item :>> driver : Bob;
+}
+}
+
+71
+
+Last changed: 2021-05 (occurrence modeling)
+
+Release 2025-07
+
+
+Expressions and Feature Values
+
+package MassRollup1 {
+private import ScalarFunctions::*;
+part def MassedThing {
+attribute simpleMass :> ISQ::mass;
+attribute totalMass :> ISQ::mass;
+}
+part simpleThing : MassedThing {
+attribute :>> totalMass = simpleMass;
+}
+
+ISQ::mass is a standard quantity
+kind from the International System
+of Quantities library model.
+A feature value is a shorthand for binding
+a feature to the result of an expression
+(here simply the value of another
+feature).
+
+part compositeThing : MassedThing {
+part subcomponents: MassedThing[*];
+attribute :>> totalMass =
+simpleMass + sum(subcomponents.totalMass);
+}
+}
+An expression in general is a
+computation expressed using a typical
+mathematical operator notation.
+72
+
+The dot notation can be used as an expression to read
+the values of a feature. Here, the totalMass is
+collected for each of the subcomponents.
+
+Last changed: 2024-07 (import visibility)
+
+Release 2025-07
+
+
+Car Mass Rollup Example (1)
+private import ScalarValues::*;
+private import MassRollup1::*;
+part def CarPart :> MassedThing {
+attribute serialNumber : String;
+}
+part car: CarPart :> compositeThing {
+attribute vin :>> serialNumber;
+part carParts : CarPart[*] :>> subcomponents;
+part engine :> simpleThing, carParts { … }
+part transmission :> simpleThing, carParts { … }
+}
+
+This is an expression for a quantity
+with a specific numeric value and
+unit. Note that units are identified
+on the quantity value, not the type.
+
+// Example usage
+private import SI::kg;
+part c :> car {
+attribute :>> simpleMass = 1000[kg];
+part :>> engine {
+attribute :>> simpleMass = 100[kg];
+}
+part attribute transmission {
+attribute :>> simpleMass = 50[kg];
+}
+The totalMass of c can be computed
+}
+// c.totalMass --> 1150.0[kg]
+73
+
+using the feature value expressions from
+simpleThing and compositeThing.
+
+Last changed: 2024-11 (import visibility)
+
+Release 2025-07
+
+
+Default Values
+
+package MassRollup2 {
+A default value is feature value that
+private import ScalarFunctions::*;
+applies unless explicitly overridden.
+part def MassedThing {
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+s an out parameter that is identified as its result. A Function represents
+the performance of a calculation that produces the values of its result parameter. This calculation may be
+decomposed into Expressions that are steps of the Function.
+General Classes
+Behavior
+Attributes
+/expression : Expression [0..*] {subsets step}
+The set of expressions that represent computational steps or parts of a system of equations within the Function.
+The Expressions that are steps in the calculation of the result of this Function.
+/isModelLevelEvaluable : Boolean
+Whether this Function can be used as the function of a model-level evaluable InvocationExpression.
+Certain Functions from the Kernel Functions Library are considered to have isModelLevelEvaluable =
+true. For all other Functions it is false.
+Note: See the specification of the KerML concrete syntax notation for Expressions for an identification of which
+library Functions are model-level evaluable.
+/result : Feature {subsets parameter, output}
+The object or value that is the result of evaluating the Function.
+The result parameter of the Function, which is owned by the Function via a
+ReturnParameterMembership.
+Operations
+None.
+Constraints
+checkFunctionResultBindingConnector
+If a Function has an Expression owned via a ResultExpressionMembership, then the owning Function
+must also own a BindingConnector between its result parameter and the result parameter of the result
+Expression.
+
+198
+
+Kernel Modeling Language v1.0
+
+
+ownedMembership.selectByKind(ResultExpressionMembership)->
+forAll(mem | ownedFeature.selectByKind(BindingConnector)->
+exists(binding |
+binding.relatedFeature->includes(result) and
+binding.relatedFeature->includes(mem.ownedResultExpression.result)))
+
+checkFunctionSpecialization
+A Function must directly or indirectly specialize the base Function Performances::Evaluation from the
+Kernel Semantic Library.
+specializesFromLibrary('Performances::Evaluation')
+
+deriveFunctionResult
+The result parameter of a Function is its parameter owned (possibly in a supertype) via a
+ReturnParameterMembership (if any).
+result =
+let resultParams : Sequence(Feature) =
+featureMemberships->
+selectByKind(ReturnParameterMembership).
+ownedM
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a drone system with GPS navigation, a camera module, and an obstacle avoidance function.

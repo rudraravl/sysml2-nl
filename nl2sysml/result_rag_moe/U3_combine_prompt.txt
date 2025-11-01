@@ -1,0 +1,934 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This describes a sensor management function within a larger system. This function is responsible for systematically updating a group of sensors.
+
+Each sensor in the group has a status that indicates whether it is "ready" to be updated. A sensor might be considered ready if it is powered on, has completed its self-test, and is not currently busy with another task.
+
+The update process works by checking each sensor in the collection one by one. If a sensor is marked as "ready," the system proceeds to perform an update on it. This update could involve recalibrating the sensor, polling it for new data, or refreshing its internal state. Any sensor that is not in a "ready" state is simply skipped by this process.
+
+Example 1 SysML:
+package 'Opaque Action Example' {
+	part def Sensor {
+		attribute ready : ScalarValues::Boolean;
+	}
+	action def UpdateSensors {
+		in sensors : Sensor[*];
+		language "Alf" 
+			/* 
+			 * for (sensor in sensors) {
+			 *     if (sensor.ready) {
+			 *         Update(sensor);
+			 *     }
+			 * }
+			 */
+	}
+}
+---
+Example 2 NL:
+This model describes a vehicle and trailer towing system. The system consists of three main components: a vehicle, a trailer, and a separate trailer hitch assembly that connects them.
+
+The trailer hitch assembly is the central connecting element and is composed of two key parts: a hitch ball and a trailer coupler.
+
+In this configuration, the vehicle itself does not own the hitch ball, but is set up to interface with the one provided by the hitch assembly. Similarly, the trailer connects to the trailer coupler, which is also part of that same hitch assembly.
+
+Essentially, the system shows a vehicle and a trailer being joined together by a common, self-contained hitch mechanism.
+
+Example 2 SysML:
+package '1d-Parts Tree with Reference' {
+	package Definitions {
+		part def Vehicle;
+		part def Trailer;
+		part def TrailerHitch;
+		part def HitchBall;
+		part def TrailerCoupler;
+	}
+	package Usages {
+		private import Definitions::*;
+		part vehicle_trailer_system {
+			part vehicle1_c1: Vehicle {
+				ref hitchBall : HitchBall {
+					/*
+					 * 'vehicle1_c1'::'hitchBall' is a reference property that
+					 * references a hitch ball that is not part of this vehicle. 
+					 * If 'vehicle1_c1' is removed or destroyed, this does not
+					 * effect the hitchBall referenced here.
+					 */
+				}
+			}
+			bind vehicle1_c1.hitchBall = trailerHitch.hitchBall {
+				/*
+				 * This is a binding connector between the 'hitchBall' in 'vehicle1_c1'
+				 * and the 'hitchBall' in 'trailerHitch'.
+				 */			
+			}
+			part trailerHitch: TrailerHitch {				
+				part hitchBall: HitchBall;
+				part trailerCoupler: TrailerCoupler;
+			}
+			part trailer1: Trailer {
+				ref trailerCoupler : TrailerCoupler = trailerHitch.trailerCoupler {
+					/*
+					 * This is a shorthand for a binding connector between the
+					 * 'trailerCoupler' here and the 'trailerCoupler' in 'trailerHitch'.
+					 * The binding connector is now contained within the 'trailer1'
+					 * part, though, rather than being at the system level. 
+					 */
+				}
+			}
+		}
+	}
+}
+---
+Example 3 NL:
+This model describes an automotive cruise control system designed to automatically maintain a vehicle's speed as set by the driver. The system is composed of several key components working in concert: a central Cruise Controller, a Speedometer, the vehicle's Engine, and the Driver who operates it.
+
+The process is initiated by the Driver, who sends a command to set a desired speed. This command is received by the Cruise Controller, which acts as the brain of the system. To regulate the speed, the controller needs to know how fast the vehicle is currently moving, so it receives a continuous stream of data from the Speedometer.
+
+By comparing the driver's desired speed with the actual speed reported by the speedometer, the Cruise Controller calculates whether to accelerate or decelerate. It then sends a precise fuel command to the Engine, which responds by adjusting its power output to match and maintain the target speed without further input from the driver.
+
+Example 3 SysML:
+package 'Event Occurrence Example' {	
+	part def Driver;
+	part def CruiseController;
+	part def Speedometer;
+	part def Engine;
+	part def Vehicle;
+	part driver : Driver {
+		event occurrence setSpeedSent;
+	}
+	part vehicle : Vehicle {
+		part cruiseController : CruiseController {
+			event occurrence setSpeedReceived;		
+			then event occurrence sensedSpeedReceived;		
+			then event occurrence fuelCommandSent;
+		}
+		part speedometer : Speedometer {
+			event occurrence sensedSpeedSent;
+		}
+		part engine : Engine {
+			event occurrence fuelCommandReceived;
+		}
+	}
+}
+---
+Example 4 NL:
+This is a model of a conventional, configurable automobile designed for transporting a driver and passengers. It features a traditional rear-wheel-drive powertrain, starting with a fuel tank that supplies an internal combustion engine, which can be configured with either four or six cylinders.
+
+The engine's power is transferred through a transmission (with options for automatic or manual variants), down a driveshaft, to a differential in the rear axle assembly. The differential then distributes torque to the two rear wheels. The vehicle's chassis includes distinct front and rear axle assemblies, wheels, and a body assembly that incorporates safety features like bumpers, seat belts, and airbags, as well as security systems like an alarm and keyless entry.
+
+A central software-based vehicle controller manages the car's operations. This includes a cruise control system that uses a speed sensor to maintain a set velocity. The vehicle operates in several states: it is `off` when parked, transitions to a `starting` state when the driver presses the brake and turns the ignition, and enters an `on` state for driving. While running, it continuously monitors its health, for example, by sensing its temperature, and can enter a `degraded` state if it overheats or a `maintenance` state when service is due. The model also defines the vehicle's mission, which involves a driver and passengers getting into the car, driving to a destination, and exiting.
+
+Example 4 SysML:
+package SimpleVehicleModel{
+    public import Definitions::*;  
+    public import ISQ::*;
+    package Definitions{
+        public import PartDefinitions::*;
+        public import PortDefinitions::*;
+        public import ItemDefinitions::*;
+        public import SignalDefinitions::*;
+        public import InterfaceDefinitions::*;
+        public import AllocationDefinitions::*;
+        public import ActionDefinitions::*;
+        public import StateDefinitions::*;
+        public import RequirementDefinitions::*;
+        public import AttributeDefinitions::*;
+        public import IndividualDefinitions::*;
+        public import MetadataDefinitions::**;
+        public import KeyWord_MetadataDefinitions::*;
+        package PartDefinitions{
+            part def Vehicle {
+                attribute mass :> ISQ::mass;
+                attribute dryMass:>ISQ::mass;
+                attribute cargoMass:>ISQ::mass;
+                attribute position:>ISQ::length;
+                attribute velocity:>ISQ::speed;
+                attribute acceleration:>ISQ::acceleration;
+                attribute electricalPower:>ISQ::power;
+                attribute Tmax:>ISQ::temperature;
+                attribute maintenanceTime: Time::DateTime; 
+                attribute brakePedalDepressed: Boolean;
+                port ignitionCmdPort:IgnitionCmdPort;
+                port pwrCmdPort:PwrCmdPort;
+                port vehicleToRoadPort:VehicleToRoadPort;
+                port statusPort:StatusPort;
+                perform action providePower;
+                perform action provideBraking;
+                perform action controlDirection;
+                perform action performSelfTest;
+                perform action applyParkingBrake;
+                perform action senseTemperature;
+                exhibit state vehicleStates parallel {
+                    ref controller : VehicleController;
+                    state operatingStates {
+                        entry action initial;
+                        state off;                    
+                        state starting;                    
+                        state on {
+                            entry performSelfTest;
+                            do providePower;
+                            exit applyParkingBrake;
+                            constraint {electricalPower<=500[W]}
+                        }
+                        transition initial then off;
+                        transition off_To_starting
+                            first off
+                            accept ignitionCmd:IgnitionCmd via ignitionCmdPort
+                                if ignitionCmd.ignitionOnOff==IgnitionOnOff::on and brakePedalDepressed
+                            do send new StartSignal() to controller
+                            then starting;
+                        transition starting_To_on
+                            first starting
+                            accept VehicleOnSignal
+                            then on;
+                        transition on_To_off
+                            first on
+                            accept VehicleOffSignal
+                            do send new OffSignal() to controller
+                            then off;
+                    }
+                    state healthStates {
+                        entry action initial;
+                        do senseTemperature{
+                            out temp;
+                        }
+                        state normal;
+                        state maintenance;
+                        state degraded;                    
+                        transition initial then normal;
+                        transition normal_To_maintenance
+                            first normal
+                            accept at maintenanceTime
+---
+Example 5 NL:
+This model represents a vehicle system equipped with an integrated electronic controller. The system is composed of two primary components: the physical vehicle itself and its onboard controller.
+
+The controller acts as the brain of the system, responsible for managing and dictating the vehicle's overall operational state. The system's behavior is explicitly defined by these states, such as being parked, idling, or actively moving. The controller is the component that processes inputs (like a driver's command or an autonomous signal) and orchestrates the transition of the entire vehicle from one state to another.
+
+Example 5 SysML:
+package 'State Exhibition Example' {
+	private import 'Transition Actions'::*;
+	part vehicle : Vehicle {
+		part vehicleController : VehicleController;
+		exhibit vehicleStates {
+			in operatingVehicle = vehicle;
+			in controller = vehicleController;
+		}
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+The conditional test operator if is followed by three operands, with the symbol
+? after the first operand and the keyword else after the second operand. A conditional expression
+evaluates to the value of its second or third operand, depending on whether the result of its first operand is
+true or false. Note that only one of the second or third operand is actually evaluated.
+if x >= 0? x else -x
+
+• Binary operator expressions. A binary operator is one that has two operands. The binary operators include
+numerical operators (+, -, *, /, %, ^, **), logical operators (&, |, xor), comparison operators (==, !=, <, >,
+<=, >=, ===, !==), and the range construction operator (..). In general, both operands become arguments
+of the invocation expression, with their results being passed to the invocation of the function represented
+by the operator. However, the null-coalescing (??), conditional and (and), conditional or (or) and
+implication (implies) operators all correspond to control functions in which their second operand is only
+evaluated depending on a certain condition of the value of their first operand (whether it is null, true, false,
+or true, respectively).
+x + y
+list#(i) ?? default
+i > 0 and sensor#(i) != null
+sensor == null or sensor.reading > 0
+
+The operators == and != apply to operands that have single values, testing whether they are equal or
+unequal, respectively. They also evaluate to true or false, respectively, if their operands are both null (no
+values). The operators === and !== apply specifically to values that are occurrences (see 9.2.4 ). They test
+whether two occurrences are portions (in space and/or time) of the same life occurrence. Informally, these
+operators test whether or not two occurrences have the same "identity". For data values (values that are not
+occurrences), === and !== are the same as == and !=.
+currentPortion == tripPortion // True for same trip portions
+currentPortion === tripPortion // True for any two portions of same trip
+
+• Unary operator expressions. A unary operator is one that has a single operand. The result of evaluating
+the operand is passed to the invocation of the Function represented by the operator. The unary operators
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+for a parenthesized expression. The empty sequence () is not actually a
+sequence expression, but, rather, an alternative notation for a null expression (see 7.4.9.4 ).
+(highValue + lowValue) / 2
+
+Sequences of values are not themselves values. Therefore, sequences are "flat", with no element of a
+sequence itself being a sequence. For example, ((1, 2, 3), 4), (1, (2, 3), 4) and (1, null,
+(2, 3, 4)) all evaluate to the same sequence of values as (1, 2, 3, 4). To model nested collection
+values, use the data types from the Collections library model (see 9.3.3 ).
+• Feature chain expression. A feature chain expression consists of a primary expression and a feature
+qualified name or a feature chain ( 7.3.4.6 ), separated by a dot (.) symbol. The referenced feature is
+evaluated in the context of each of the result values of the primary expression, in order. The resulting
+feature values are then collected into a sequence in order of evaluation. The qualified name for the referent
+feature is resolved using the result parameter of the primary expression as the context namespace (see
+8.2.3.5 ), but considering only visible memberships.
+// The primary expression is "getPlatform(id)".
+// The feature chain is "sensors.isActive".
+// Results in a sequence of Boolean values,
+// one for each platform sensor.
+getPlatform(id).sensors.isActive
+
+To avoid ambiguity, the primary expression of a feature chain expression cannot be itself a feature chain
+expression. To read a list of features sequentially, rather than in a single evaluation, delimit nested feature
+chain expressions using parentheses.
+// First evaluate "getPlaform(id).sensors",
+// then evaluate ".isActive" on the result of that.
+(getPlatform(id).sensors).isActive
+
+• Collect expression. A collect expression consists of a primary expression and an expression body (see
+7.4.9.4 ) separated by a dot (.) symbol. The expression body must have a single input parameter. The
+
+60
+
+Kernel Modeling Language v1.0
+
+
+expression body is evaluated on each of the result values from the primary expression, in order, and each
+of the results are collected into a sequence in order of evaluation (that is, a collect expression is a
+shorthand for inv
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+deling Language v1.0
+
+
+expression body is evaluated on each of the result values from the primary expression, in order, and each
+of the results are collected into a sequence in order of evaluation (that is, a collect expression is a
+shorthand for invoking the ControlFunctions::collect function).
+sensors.{in s: Sensor; s.reading}
+
+// results in a sequence of
+// readings of each of the sensors
+
+• Select expression. A select expression consists of a primary expression and an expression body (see
+7.4.9.4 ) separated by a dot-question-mark (.?) symbol. The expression body must have a single input
+parameter and a Boolean result. The expression body is evaluated on each of the result values from the
+primary expression, in order, and those for which the expression body evaluates to true are selected for
+inclusion in the result of the select expression (that is, a select expression is a shorthand for invoking the
+ControlFunctions::select function).
+sensors.?{in s: Sensor; s.isActive}
+
+// results in the subsequence of
+// sensors that are active
+
+• Function operation expression. A function operation expression is a special syntax for an invocation
+expression in which the first argument is given before the arrow (->) symbol, which is followed by the
+name of the function to be invoked and an argument list for any remaining arguments (see 7.4.9.4 ). This
+is useful for chaining invocations in an effective data flow.
+sensors -> selectSensorsOver(limit) -> computeCriticalValue()
+
+If the invoked function has exactly two input parameters, and the second input parameter is an expression,
+then an expression body (see 7.4.9.4 ) can be used as the argument for the second argument without
+surrounding parentheses. The argument expression body should declare parameters consistent with those
+on the parameter expression (if any). This is particularly useful when invoking functions from the
+ControlFunctions library model (see 9.4.17 ).
+sensors -> select {in s: Sensor; s::isActive}
+members -> reject {in member: Member; not member->isInGoodStanding()}
+factors -> reduce {in x: Real; in y: Real; x * y}
+
+If the argument expression is simply the direct invocation of another function, then the arg
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package TemperatureLoggingSystem {
+	public import ISQ::*;
+	public import Time::*;
+
+	// Value and Item Definitions
+	value def Temperature redefines Real {
+		unit = ISQ::degreeCelsius;
+	}
+
+	item def TemperatureReading {
+		attribute value : Temperature;
+		attribute timestamp : TimeStamp;
+	}
+
+	item def ReadCommand;
+
+	// Interface and Port Definitions
+	interface def SensorIO {
+		in command : ReadCommand;
+		out reading : TemperatureReading;
+	}
+
+	interface def LoggerInput {
+		in reading : TemperatureReading;
+	}
+
+	// Part Definitions
+	part def TemperatureSensor {
+		port io : SensorIO;
+		attribute lastMeasuredTemp : Temperature;
+
+		action measureAndReport {
+			out reading : TemperatureReading via io;
+			let newReading = new TemperatureReading {
+				value = 23.5[°C], // Simulated value
+				timestamp = now()
+			};
+			self.lastMeasuredTemp = newReading.value;
+			reading = newReading;
+		}
+
+		accept command : ReadCommand via io {
+			do measureAndReport;
+		}
+	}
+
+	part def DataLogger {
+		port dataIn : LoggerInput;
+		attribute log : TemperatureReading[0..*] ordered;
+
+		action appendToLog {
+			in reading : TemperatureReading;
+		}
+
+		accept reading : TemperatureReading via dataIn {
+			do appendToLog(reading) then {
+				self.log = self.log->append(reading);
+			}
+		}
+	}
+
+	part def CentralController {
+		part sensor : TemperatureSensor;
+		part logger : DataLogger;
+
+		connect sensor.io to logger.dataIn;
+
+		exhibit state logic : ControllerLogic;
+
+		requirement usage loggingFrequency {
+			ref def = LoggingFrequencyRequirement;
+		}
+		satisfy loggingFrequency by self.logic;
+
+		requirement usage dataStorage {
+			ref def = DataStorageRequirement;
+		}
+		satisfy dataStorage by self.logger.log, self.logger.appendToLog;
+	}
+
+	// Behavior Definition
+	state machine def ControllerLogic {
+		inout controller : CentralController;
+
+		initial transition to Idle;
+
+		state Idle;
+
+		transition from Idle to Idle {
+			trigger after(5[s]);
+			effect send new ReadCommand() to controller.sensor.io;
+		}
+	}
+
+	// Requirement Definitions
+	requirement def LoggingFrequencyRequirement {
+		id = "CTL-REQ-01";
+		text "The Central Controller shall trigger a temperature reading
+		      from the sensor periodically every 5 seconds.";
+	}
+
+	requirement def DataStorageRequirement {
+		id = "CTL-REQ-02";
+		text "All temperature readings produced by the sensor shall be
+		      recorded in the data logger's log.";
+	}
+}
+---
+Candidate 2 (anthropic/claude-sonnet-4.5, rating=10/10):
+package CentralControllerWithTemperatureSensor {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+    import Time::*;
+    
+    package ItemDefinitions {
+        item def TemperatureReading {
+            attribute timestamp : Time::DateTime;
+            attribute value : TemperatureValue;
+            attribute sensorId : String;
+        }
+        
+        item def LogEntry {
+            attribute entryId : Integer;
+            attribute timestamp : Time::DateTime;
+            attribute data : TemperatureReading;
+            attribute logLevel : LogLevel;
+        }
+        
+        enum def LogLevel {
+            enum info;
+            enum warning;
+            enum error;
+            enum critical;
+        }
+        
+        item def LogBuffer {
+            attribute entries : LogEntry[*];
+            attribute maxCapacity : Integer;
+            attribute currentSize : Integer;
+        }
+    }
+    
+    package AttributeDefinitions {
+        attribute def TemperatureValue :> ISQ::ThermodynamicTemperatureValue {
+            attribute :>> num : Real;
+            attribute :>> mRef : TemperatureUnit;
+        }
+        
+        attribute def SamplingRate :> ISQ::FrequencyValue {
+            attribute :>> num : Real;
+            attribute :>> mRef : FrequencyUnit;
+        }
+    }
+    
+    package PortDefinitions {
+        port def TemperatureSensorPort {
+            out temperatureData : ItemDefinitions::TemperatureReading;
+        }
+        
+        port def DataLogPort {
+            in logData : ItemDefinitions::TemperatureReading;
+            out logStatus : Boolean;
+        }
+        
+        port def ControlPort {
+            in startLogging : Boolean;
+            in stopLogging : Boolean;
+            in setSamplingRate : AttributeDefinitions::SamplingRate;
+            out systemStatus : String;
+        }
+    }
+    
+    package ActionDefinitions {
+        action def ReadTemperature {
+            in sensor : PartDefinitions::TemperatureSensor;
+            out reading : ItemDefinitions::TemperatureReading;
+            
+            language "Alf"
+            /*
+             * reading.timestamp = getCurrentTime();
+             * reading.value = sensor.currentTemperature;
+             * reading.sensorId = sensor.sensorIdentifier;
+             */
+        }
+        
+        action def LogData {
+            in reading : ItemDefinitions::TemperatureReading;
+            in logBuffer : ItemDefinitions::LogBuffer;
+            out success : Boolean;
+            
+            language "Alf"
+            /*
+             * if (logBuffer.currentSize < logBuffer.maxCapacity) {
+             *     LogEntry newEntry;
+             *     newEntry.entryId = logBuffer.currentSize + 1;
+             *     newEntry.timestamp = getCurrentTime();
+             *     newEntry.data = reading;
+             *     newEntry.logLevel = determineLogLevel(reading);
+             *     logBuffer.entries->add(newEntry);
+             *     logBuffer.currentSize = logBuffer.currentSize + 1;
+             *     success = true;
+             * } else {
+             *     success = false;
+             * }
+             */
+        }
+        
+        action def ProcessTemperatureData {
+            in reading : ItemDefinitions::TemperatureReading;
+            out logLevel : ItemDefinitions::LogLevel;
+            
+            language "Alf"
+            /*
+             * if (reading.value.num > 80.0) {
+             *     logLevel = LogLevel::critical;
+             * } else if (reading.value.num > 60.0) {
+             *     logLevel = LogLevel::warning;
+             * } else {
+             *     logLevel = LogLevel::info;
+             * }
+             */
+        }
+        
+        action def FlushLogBuffer {
+            inout logBuffer : ItemDefinitions::LogBuffer;
+            
+            language "Alf"
+            /*
+             * for (entry in logBuffer.entries) {
+             *     writeToStorage(entry);
+             * }
+             * logBuffer.entries->clear();
+             * logBuffer.currentSize = 0;
+             */
+        }
+        
+        action def ValidateReading {
+            in reading : ItemDefinitions::TemperatureReading;
+            out isValid : Boolean;
+            
+            language "Alf"
+            /*
+             * isValid = (reading.value.num >= -40.0 and 
+             *            reading.value.num <= 125.0 and
+             *            reading.sensorId != null);
+             */
+        }
+    }
+    
+    package StateDefinitions {
+        state def ControllerStates {
+            in controller : PartDefinitions::CentralController;
+            
+            entry action initialize;
+            
+            state idle {
+                entry action stopSampling;
+            }
+            
+            state active {
+                entry action startSampling;
+                
+                state logging {
+                    entry action enableLogging;
+                    do action continuousLogging {
+                        action sampleAndLog {
+                            first readTemp : ActionDefinitions::ReadTemperature {
+                                in sensor = controller.tempSensor;
+                                out reading;
+                            }
+                            then validateReading : ActionDefinitions::ValidateReading {
+                                in reading = readTemp.reading;
+                                out isValid;
+                            }
+                            then if validateReading.isValid {
+                                logData : ActionDefinitions::LogData {
+                                    in reading = readTemp.reading;
+                                    in logBuffer = controller.dataLogger.logBuffer;
+                                    out success;
+                                }
+                            }
+                        }
+                    }
+                    exit action disableLogging;
+                }
+                
+                state monitoring {
+                    entry action enableMonitoring;
+                    do action continuousMonitoring {
+                        action sampleOnly {
+                            first readTemp : ActionDefinitions::ReadTemperature {
+                                in sensor = controller.tempSensor;
+                                out reading;
+                            }
+                            then processData : ActionDefinitions::ProcessTemperatureData {
+                                in reading = readTemp.reading;
+                                out logLevel;
+                            }
+                        }
+                    }
+                }
+                
+                transition logging_to_monitoring
+                    first logging
+                    accept stopLogging
+                    then monitoring;
+                
+                transition monitoring_to_logging
+                    first monitoring
+                    accept startLogging
+                    then logging;
+            }
+            
+            state maintenance {
+                entry action performMaintenance;
+                do action flushLogs {
+                    action flush : ActionDefinitions::FlushLogBuffer {
+                        inout logBuffer = controller.dataLogger.logBuffer;
+                    }
+                }
+            }
+            
+            transition initial then idle;
+            
+            transition idle_to_active
+                first idle
+                accept startCommand
+                then active.logging;
+            
+            transition active_to_idle
+                first active
+                accept stopCommand
+                then idle;
+            
+            transition active_to_maintenance
+                first active
+                accept maintenanceRequest
+                then maintenance;
+            
+            transition maintenance_to_idle
+                first maintenance
+                accept maintenanceComplete
+                then idle;
+        }
+    }
+    
+    package PartDefinitions {
+        part def TemperatureSensor {
+            attribute sensorIdentifier : String;
+            attribute currentTemperature : AttributeDefinitions::TemperatureValue;
+            attribute accuracy : AttributeDefinitions::TemperatureValue;
+            attribute samplingRate : AttributeDefinitions::SamplingRate;
+            attribute isCalibrated : Boolean;
+            attribute lastCalibrationDate : Time::DateTime;
+            
+            port sensorPort : PortDefinitions::TemperatureSensorPort;
+            
+            perform action measureTemperature {
+                out temp : AttributeDefinitions::TemperatureValue;
+            }
+            
+            perform action calibrate;
+            
+            exhibit state sensorStates {
+                entry action initial;
+                
+                state inactive;
+                
+                state active {
+                    state measuring {
+                        do measureTemperature;
+                    }
+                    
+                    state idle;
+                }
+                
+                state calibrating {
+                    do calibrate;
+                }
+                
+                transition initial then inactive;
+                
+                transition inactive_to_active
+                    first inactive
+                    accept powerOn
+                    then active.idle;
+                
+                transition active_to_calibrating
+                    first active
+                    accept calibrationRequest
+                    then calibrating;
+                
+                transition calibrating_to_active
+                    first calibrating
+                    accept calibrationComplete
+                    then active.idle;
+            }
+        }
+        
+        part def DataLogger {
+            attribute logBuffer : ItemDefinitions::LogBuffer;
+            attribute storageCapacity : Integer;
+            attribute isLogging : Boolean;
+            
+            port logPort : PortDefinitions::DataLogPort;
+            
+            perform action writeLog {
+                in entry : ItemDefinitions::LogEntry;
+            }
+            
+            perform action readLog {
+                in entryId : Integer;
+                out entry : ItemDefinitions::LogEntry;
+            }
+            
+            perform action clearLog;
+        }
+        
+        part def CentralController {
+            attribute controllerId : String;
+            attribute operatingTemperature : AttributeDefinitions::TemperatureValue;
+            attribute samplingInterval : Time::DurationValue;
+            attribute loggingEnabled : Boolean;
+            attribute dataLogCount : Integer;
+            
+            port controlPort : PortDefinitions::ControlPort;
+            
+            part tempSensor : TemperatureSensor {
+                attribute :>> sensorIdentifier = "TEMP_SENSOR_001";
+                attribute :>> accuracy = 0.5[°C];
+                attribute :>> samplingRate = 1.0[Hz];
+                attribute :>> isCalibrated = true;
+            }
+            
+            part dataLogger : DataLogger {
+                attribute :>> storageCapacity = 10000;
+                attribute :>> isLogging = false;
+                attribute :>> logBuffer {
+                    attribute :>> maxCapacity = 1000;
+                    attribute :>> currentSize = 0;
+                }
+            }
+            
+            connection sensorToLogger : SensorLoggerConnection
+                connect tempSensor.sensorPort to dataLogger.logPort;
+            
+            perform action startDataLogging;
+            perform action stopDataLogging;
+            perform action configureLogging {
+                in rate : AttributeDefinitions::SamplingRate;
+            }
+            perform action retrieveLogs {
+                out logs : ItemDefinitions::LogEntry[*];
+            }
+            
+            exhibit controllerStates : StateDefinitions::ControllerStates {
+                in controller = CentralController::this;
+            }
+        }
+        
+        binding def SensorLoggerConnection {
+            end sensorEnd : PortDefinitions::TemperatureSensorPort;
+            end loggerEnd : PortDefinitions::DataLogPort;
+        }
+    }
+    
+    package RequirementDefinitions {
+        requirement def TemperatureLoggingRequirement {
+            doc /* The central controller shall continuously log temperature data 
+                   from the temperature sensor at a configurable sampling rate. */
+            
+            subject centralController : PartDefinitions::CentralController;
+            
+            require loggingCapability {
+                doc /* The controller shall be capable of logging at least 1000 
+                       temperature readings before requiring buffer flush. */
+                assume centralController.dataLogger.logBuffer.maxCapacity >= 1000;
+            }
+            
+            require samplingRateRange {
+                doc /* The temperature sensor shall support sampling rates 
+                       between 0.1 Hz and 10 Hz. */
+                assume centralController.tempSensor.samplingRate.num >= 0.1 and
+                       centralController.tempSensor.samplingRate.num <= 10.0;
+            }
+            
+            require temperatureRange {
+                doc /* The temperature sensor shall measure temperatures 
+                       in the range of -40°C to 125°C. */
+                assume centralController.tempSensor.currentTemperature.num >= -40.0 and
+                       centralController.tempSensor.currentTemperature.num <= 125.0;
+            }
+            
+            require dataIntegrity {
+                doc /* Each logged temperature reading shall include a timestamp, 
+                       sensor identifier, and temperature value. */
+            }
+        }
+        
+        requirement def SensorAccuracyRequirement {
+            doc /* The temperature sensor shall maintain an accuracy of ±0.5°C 
+                   across its operating range. */
+            
+            subject sensor : PartDefinitions::TemperatureSensor;
+            
+            require accuracySpec {
+                assume sensor.accuracy.num <= 0.5;
+            }
+            
+            require calibrationInterval {
+                doc /* The sensor shall be calibrated at least once every 365 days. */
+            }
+        }
+    }
+    
+    package Usages {
+        private import PartDefinitions::*;
+        private import RequirementDefinitions::*;
+        
+        part temperatureMonitoringSystem {
+            part mainController : CentralController {
+                attribute :>> controllerId = "CTRL_MAIN_001";
+                attribute :>> samplingInterval = 1.0[s];
+                attribute :>> loggingEnabled = true;
+                attribute :>> dataLogCount = 0;
+                
+                satisfy loggingReq : TemperatureLoggingRequirement {
+                    subject centralController = mainController;
+                }
+                
+                satisfy sensorAccuracyReq : SensorAccuracyRequirement {
+                    subject sensor = mainController.tempSensor;
+                }
+            }
+        }
+    }
+}
+---
+Candidate 3 (meta-llama/llama-4-maverick, rating=5/10):
+package 'Central Controller with Temperature Sensor' {
+    package Definitions {
+        part def CentralController {
+            attribute log : Log[*];
+            port temperaturePort : TemperaturePort;
+        }
+        part def TemperatureSensor {
+            port temperaturePort : TemperaturePort;
+            perform action senseTemperature {
+                out temperature : Temperature;
+            }
+        }
+        port def TemperaturePort {
+            in item temperature : Temperature;
+        }
+        data def Temperature : ISQ::temperature;
+        data def Log {
+            attribute timestamp : Time::DateTime;
+            attribute temperature : Temperature;
+        }
+        action def logTemperature {
+            in temperature : Temperature;
+        }
+    }
+    package Usages {
+        private import Definitions::*;
+        part centralControllerSystem {
+            part centralController : CentralController {
+                exhibit state loggingStates {
+                    do logTemperatureData;
+                }
+                action def logTemperatureData {
+                    accept temperature : Temperature via temperaturePort;
+                    do logTemperature(temperature);
+                }
+                perform action logTemperature {
+                    in temperature : Temperature;
+                    log += new Log {
+                        timestamp = Time::now();
+                        ::temperature = temperature;
+                    }
+                }
+            }
+            part temperatureSensor : TemperatureSensor {
+                perform action senseTemperature {
+                    out temperature : Temperature = 25[degC]; // example temperature
+                }
+                then send temperature to centralController.temperaturePort;
+            }
+            bind temperatureSensor.temperaturePort = centralController.temperaturePort;
+        }
+    }
+}
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a central controller with a temperature sensor that is able to log data.
