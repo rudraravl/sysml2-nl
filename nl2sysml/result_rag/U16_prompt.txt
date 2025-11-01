@@ -1,0 +1,441 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes the fundamental structure of a standard vehicle, likely a car or light truck. The vehicle is presented as an assembly of several key components.
+
+Specifically, it is composed of a single engine, a transmission, and a set of four wheels. The design recognizes that all these items—the engine, transmission, and each of the wheels—are distinct components that are all grouped together under the general category of "vehicle parts" to form the complete system.
+
+Example 1 SysML:
+package 'Subsetting Example' {
+	part def Vehicle {
+		part parts : VehiclePart[*];
+		part eng : Engine subsets parts;
+		part trans : Transmission subsets parts;
+		part wheels : Wheel[4] :> parts;
+	}
+	abstract part def VehiclePart;
+	part def Engine :> VehiclePart;
+	part def Transmission :> VehiclePart;
+	part def Wheel :> VehiclePart;
+}
+---
+Example 2 NL:
+This model describes the physical layout and flow of people and items within a section of a building. The system consists of three distinct areas: a central Hallway, an adjacent Classroom, and a Storeroom.
+
+The Hallway acts as a primary corridor, connecting to both the Classroom and the Storeroom through separate entryways. The system is designed to manage the movement of different entities between these spaces.
+
+Specifically, Students and Teachers can move back and forth between the Hallway and the Classroom. Furniture can be transported from the Hallway into either the Classroom or the Storeroom. A key feature of this layout is that access to the Storeroom is limited; only furniture is intended to move into it, not people. In addition, air is able to circulate between the hallway and both of the connected rooms.
+
+Example 2 SysML:
+package RoomModel { 
+    package RoomDefinitionModelLibrary{
+        private import Port_Definitions::*;
+        private import Flow_Definitions::*;
+        package Part_Definitions{
+            part def Classroom {
+                port classEntry: EntryWay_to_Classroom;
+            }
+            part def Storageroom {
+                port storageEntry: EntryWay_to_Storageroom;
+            }
+            part def Hallway {
+                port hallExit_to_Classroom: ~EntryWay_to_Classroom;
+                port hallExit_to_Storageroom: ~EntryWay_to_Storageroom;
+            }
+        }
+        package Port_Definitions{
+            port def EntryWay_to_Classroom {
+                in ref student:Student;
+                in ref teacher:Teacher;
+                in ref furniture:Furniture;
+                in ref air:Air;
+            }
+            port def EntryWay_to_Storageroom {
+                in ref furniture:  Furniture;
+                in ref air: Air;
+            }
+        }
+        package Flow_Definitions {
+                part def Air;
+                part def Furniture;
+                part def Student;
+                part def Teacher;
+        }
+    }
+    package Room_Configuration{
+        private import RoomDefinitionModelLibrary::*;
+        private import RoomDefinitionModelLibrary::Part_Definitions::*;
+        private import RoomDefinitionModelLibrary::Port_Definitions::*;
+        private import RoomDefinitionModelLibrary::Flow_Definitions::*;
+        part roomContext{
+            part c:Classroom;
+            part s:Storageroom;
+            part h:Hallway;
+            flow HallToClassroom_Air
+                from h.hallExit_to_Classroom.air
+                to c.classEntry.air;
+            flow HallToClassroom_Furniture
+                from h.hallExit_to_Classroom.furniture
+                to c.classEntry.furniture;
+            flow HallToClassroom_Student
+                from h.hallExit_to_Classroom.student
+                to c.classEntry.student;
+            flow HallToClassroom_Teacher
+                from h.hallExit_to_Classroom.teacher
+                to c.classEntry.teacher;
+            flow HallToStorageroom_Air
+                from h.hallExit_to_Storageroom.air
+                to s.storageEntry.air;
+            flow HallToStorageroom_Furniture
+                from h.hallExit_to_Storageroom.furniture
+                to s.storageEntry.furniture;
+        }
+    }
+}
+---
+Example 3 NL:
+This model represents a generic, fuel-powered vehicle. The vehicle is a physical object defined by its mass. It includes an essential component, a fuel tank, which is designed to hold the fuel required for operation. The system also specifies that the vehicle is operated by a person, who takes on the role of the driver.
+
+Example 3 SysML:
+package 'Items Example' {
+	private import ScalarValues::*;
+	item def Fuel;
+	item def Person;
+	part def Vehicle {
+		attribute mass : Real;
+		ref item driver : Person;
+		part fuelTank {
+			item fuel: Fuel;
+		}		
+	}
+}
+---
+Example 4 NL:
+This model describes the powertrain of a mechanical system, such as a vehicle. The primary function of this system is to provide power, which it accomplishes by generating torque.
+
+The system consists of a physical powertrain assembly which contains an engine. The engine is the specific, physical component that is responsible for carrying out the function of generating torque for the entire system. Essentially, the engine is designated as the system's "torque generator" within the powertrain.
+
+Example 4 SysML:
+package '12b-Allocation' {
+	private import LogicalModel::*;
+	private import PhysicalModel::*;
+	package LogicalModel {
+		action providePower {
+			action generateTorque;
+		}
+		part torqueGenerator {
+			perform providePower.generateTorque;
+		}
+	}
+	package PhysicalModel {
+		part powerTrain {
+			part engine {
+				perform providePower.generateTorque;
+			}
+		}
+	}
+	allocate torqueGenerator to powerTrain {
+		allocate torqueGenerator.generateTorque to powerTrain.engine.generateTorque;
+	}
+}
+---
+Example 5 NL:
+This model describes a fuel delivery system, likely for a vehicle or machine, composed of a Fuel Tank Assembly and an Engine.
+
+The system's primary function is to supply fuel from the tank to the engine. The connection between these two components is designed for a circulating fuel flow. A supply line moves fuel from the tank assembly to the engine, and a return line carries any unused fuel back from the engine to the tank. This two-way flow is common in fuel-injected systems to maintain constant pressure and help cool the fuel.
+
+A key feature of this system is that the temperature is monitored at the fuel connection points on both the engine and the tank assembly, indicating that fuel temperature is a critical operational parameter.
+
+Example 5 SysML:
+package 'Port Example' {
+	attribute def Temp;
+	part def Fuel;
+	port def FuelOutPort {
+		attribute temperature : Temp;
+		out item fuelSupply : Fuel;
+		in item fuelReturn : Fuel;
+	}
+	port def FuelInPort {
+		attribute temperature : Temp;
+		in item fuelSupply : Fuel;
+		out item fuelReturn : Fuel;
+	}
+	part def FuelTankAssembly {
+		port fuelTankPort : FuelOutPort;
+	}
+	part def Engine {
+		port engineFuelPort : FuelInPort;
+	}
+}
+---
+Spec 1 [Intro to the SysML v2 Language-Textual Notation]:
+mage; out picture : Picture; }
+scene
+
+«action def»
+TakePicture
+=
+
+scene
+
+action def TakePicture {
+in scene : Scene;
+out picture : Picture;
+
+«action»
+focus
+
+bind focus.scene = scene;
+
+image
+
+action focus : Focus { in scene; out image; };
+A flow connection
+can be usedcan
+to
+transfer
+be
+used to
+items
+transfer
+between
+flow focus.image to shoot.image;
+actions.
+items
+between actions.
+
+image
+
+«action»
+shoot
+=
+
+An action is a usage of an action definition
+performed in a specific context.
+
+picture
+
+action shoot : Shoot { in image; out picture; }
+
+picture
+
+bind shoot.picture = picture;
+
+}
+
+30
+
+An action has parameters
+corresponding to its action
+definition.
+Last changed: 2025-02 (“flow connection” renamed ”flow”)
+
+Release 2025-07
+
+
+Action Succession (1)
+action def Focus{ in scene : Scene; out image : Image; }
+action def Shoot{ in image : Image; out picture : Picture; }
+scene
+
+«action def»
+TakePicture
+=
+
+action def TakePicture {
+in scene : Scene;
+out picture : Picture;
+bind focus.scene = scene;
+
+scene
+
+«action»
+focus
+
+action focus : Focus { in scene; out image; }
+
+image
+
+flow focus.image to shoot.image;
+
+image
+
+first focus then shoot;
+
+«action»
+shoot
+=
+
+picture
+
+A succession asserts that the
+first action must complete
+before the second can begin.
+
+action shoot : Shoot { in image; out picture; }
+
+picture
+
+bind shoot.picture = picture;
+}
+
+31
+
+Last changed: 2024-09 (succession graphic)
+
+Release 2025-07
+
+
+Action Succession (2)
+
+action def Focus{ in scene : Scene; out image : Image; }
+action def Shoot{ in image : Image; out picture : Picture; }
+scene
+
+«action def»
+TakePicture
+=
+
+scene
+
+action def TakePicture {
+in scene : Scene;
+out picture : Picture;
+
+«action»
+focus
+
+bind focus.scene = scene;
+
+«succession image
+flow»
+image
+
+action focus : Focus { in scene; out image; }
+succession flow focus.image to shoot.image;
+
+«action»
+shoot
+=
+
+A succession flow requires the
+first action to finish producing
+its output before the second
+can begin consuming it.
+
+picture
+
+action shoot : Shoot { in image; out picture; }
+
+picture
+
+bind shoot.picture = picture;
+
+}
+
+32
+
+Last changed: 2024-09 (succession flow graphic)
+
+Release 2025-07
+
+
+Action Notation Shorthands
+
+scene
+
+«action def»
+TakePicture
+=
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+of a similar form in the body text.
+The language name in a textual representation is case insensitive. The name can be of a natural language, but will
+often be for a machine-parsable language. In particular, there are recognized standard language names.
+If the language is "kerml", then the body of the textual representation must be a legal representation of the
+represented element in the KerML textual notation. A tool can use such a textual representation to record the
+original KerML notation text from which an element is parsed. Other standard language names that can be used in a
+textual representation include "ocl" and "alf", in which case the body of the textual representation must be
+written in the Object Constraint Language [OCL] or the Action Language for fUML [Alf], respectively.
+However, for any other language than "kerml", the KerML specification does not define how the body text is to be
+semantically interpreted as part of the model being represented. An element with no other definition than a textual
+representation in a language other than KerML is essentially a semantically "opaque" element specified in the other
+language. Nevertheless, a conforming KerML tool may (but is not required to) interpret such an element consistently
+with the specification of the named language.
+
+20
+
+Kernel Modeling Language v1.0
+
+
+7.2.5 Namespaces
+7.2.5.1 Namespaces Overview
+Metamodel references:
+• Concrete syntax, 8.2.3.4
+• Abstract syntax, 8.3.2.4
+• Semantics, none
+A namespace is an element that contains other elements via membership relationships with those elements. The
+namespace is the source element and owner of the membership. The target of a membership can be any kind of
+element, known as the member element of the membership. If the membership is an owning membership, then the
+member element is known as an owned member element, which is the only owned related element of the
+membership.
+A namespace may also import memberships from other namespaces. Further, a type, which is kind of namespace,
+may inherit memberships from other types that it specializes (see 7.3.2 ).
+The members of a namespace are the member elements of all the memberships of the namespace (whether
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+t with typical formatting
+*
+for readable display in a text editor.
+*/
+}
+
+Kernel Modeling Language v1.0
+
+19
+
+
+would result in the following body text in the comment element in the represented model:
+This is an example of multiline
+comment text with typical formatting
+for readable display in a text editor.
+
+The body text of a comment can include markup information (such as HTML), and a tool may (but is not required
+to) display such text as rendered according to the markup. (See 8.2.3.3.2 for the complete rules for processing
+comment text.)
+7.2.4.3 Textual Representations
+A textual representation is an annotating element whose textual body represents its annotated element (known in
+this case as the represented element) in a given language. A textual representation is notated similarly to a
+documentation comment (see 7.2.4.2 ), but with the keyword rep used instead of comment. As for documentation, a
+textual representation is always owned by its represented element. In particular, if the textual representation is an
+owned member of a namespace (see 7.2.5 ), the represented element is the containing Namespace. A textual
+representation declaration must also specify the language used for the textual body as a literal string (see 8.2.2.5 )
+following the keyword language. If the textual representation has no short name or name, then the rep keyword
+can also be omitted.
+class C {
+feature x: Real;
+inv x_constraint {
+rep inOCL language "ocl"
+/* self.x > 0.0 */
+}
+}
+behavior setX(c : C, newX : Real) {
+language "alf"
+/* c.x = newX;
+* WriteLine("Set new x");
+*/
+}
+
+The lexical comment text given for a textual representation is processed as for regular comment text (see 7.2.4.2 ),
+and it is the result after such processing that is the textual representation body expected to conform to the named
+language.
+Note. Since the lexical form of a comment is used to specify the textual representation body, it is not possible to
+include comments of a similar form in the body text.
+The language name in a textual representation is case insensitive. The name can be of a natural language, but will
+often be for a machine-parsable language. In particular, there are recognized standard language na
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a vending machine that is able to dispose items.

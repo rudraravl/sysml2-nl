@@ -1,3 +1,11 @@
+"""
+LangChain setup and retrieval flow
+
+The model is implemented as a LangChain pipeline: a ChatPromptTemplate builds a two‑message chat (system + human), a ChatGoogleGenerativeAI client (Gemini 2.5 Pro) produces the response, and a StrOutputParser returns plain text. The human message takes two variables, `{context}` and `{input}`. `{context}` is assembled per call by a lightweight retriever that ranks local dataset examples and pre‑chunked spec passages and concatenates the top hits into a compact guidance block. The system message encodes strict output formatting constraints. A small post‑processor strips markdown fences and similar markers, and a single retry runs with a stricter system hint if constraints are violated or output is empty.
+
+Invocation modes reuse the same chain. One‑shot mode passes a single `{input}` and prints the result. Batch mode iterates over prompts from `nl2sysml/dataset.json`, constructs `{context}` per prompt, records the exact resolved System/Human messages to `nl2sysml/result_rag/U{i}_prompt.txt`, and writes the chain output to `nl2sysml/result_rag/U{i}.sysml`. Credentials load from `.env` and the spec index is produced by `script/ingest_sysml_spec.py`.
+"""
+
 import os
 from pathlib import Path
 import sys, json
@@ -9,6 +17,27 @@ import google.generativeai as genai
 import re
 import json
 from typing import List, Tuple
+
+# Centralized prompt templates
+def _default_system_prompt(user_hint: str | None = None) -> str:
+    base = (
+        "You generate valid SysML v2 concrete syntax only. "
+        "No markdown, no fences, no prose. "
+        "Prefer correct grammar and consistency. "
+        "Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. "
+        "Avoid placeholders and undefined references."
+    )
+    if user_hint and user_hint.strip():
+        return (user_hint.strip() + " ") + base
+    return base
+
+
+PROMPT_HUMAN_TEMPLATE = (
+    "{context}\n\n"
+    "Generate SysML v2 code for the following requirement. "
+    "Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. "
+    "Avoid placeholders. Requirement: {input}"
+)
 
 
 def _load_env():
@@ -40,20 +69,12 @@ def build_agent(system_hint: str | None = None):
             "pip install langchain-core langchain-google-genai"
         ) from e
 
-    # Default system guidance distilled from related papers
-    sys_msg = (
-        (system_hint or "").strip()
-        or (
-            "You generate valid SysML v2 concrete syntax only. "
-            "No markdown, no fences, no prose. "
-            "Prefer simple, correct structures (part def, package, ports, flows, requirements). "
-            "If unsure, choose minimal valid constructs."
-        )
-    )
+    # Default system guidance distilled from related papers + completeness bias
+    sys_msg = _default_system_prompt(system_hint)
 
     # LLM
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         api_key=os.getenv("GEMINI_API_KEY"),
         temperature=0.2,
     )
@@ -61,7 +82,7 @@ def build_agent(system_hint: str | None = None):
     # Prompt → LLM → text
     prompt = ChatPromptTemplate.from_messages([
         ("system", sys_msg),
-        ("human", "{context}\n\nGenerate SysML v2 code for: {input}"),
+        ("human", PROMPT_HUMAN_TEMPLATE),
     ])
     chain = prompt | llm | StrOutputParser()
     return chain
@@ -211,7 +232,7 @@ if __name__ == "__main__":
 
     base = Path(__file__).parent
     ds_path = base / "dataset.json"
-    result_dir = base / "result"
+    result_dir = base / "result_rag"
     result_dir.mkdir(parents=True, exist_ok=True)
 
     data = json.load(open(ds_path))
@@ -226,7 +247,24 @@ if __name__ == "__main__":
             continue
         fname = f"{pid.upper()}.sysml"
         out_path = result_dir / fname
+
+        # Build prompt text to record
+        repo_root = base.parent
+        context = _rag_context(desc, repo_root, k=3)
+        sys_msg = _default_system_prompt(None)
+        human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=desc)
+
+        # Generate code
         sysml = generate_sysml(desc)
         content = f"// {desc}\n{sysml}\n"
         out_path.write_text(content)
         print(f"wrote {out_path}")
+
+        # Write prompt record
+        prompt_path = result_dir / f"{pid.upper()}_prompt.txt"
+        prompt_body = (
+            "System:\n" + sys_msg + "\n\n" +
+            "Human:\n" + human_msg + "\n"
+        )
+        prompt_path.write_text(prompt_body)
+        print(f"wrote {prompt_path}")

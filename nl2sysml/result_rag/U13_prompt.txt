@@ -1,0 +1,331 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes a data processing and storage system, which is composed of a computer and a dedicated storage unit.
+
+The computer subsystem is responsible for the primary processing and running the system's software. Its operation depends on the overall software design of the system.
+
+The storage subsystem is specifically designed to handle and persist information according to predefined formats. It must conform to specific structures for how general data is organized (the DataSchema) and how communication messages are formatted (the MessageSchema). This ensures that any information stored or managed by this unit is consistent and well-structured.
+
+Example 1 SysML:
+package 'Dependency Example' {
+	part 'System Assembly' {
+		part 'Computer Subsystem' {
+		}
+		part 'Storage Subsystem' {
+		}
+	}
+	package 'Software Design' {
+		item def MessageSchema {
+		}
+		item def DataSchema {
+		}
+	}
+	dependency from 'System Assembly'::'Computer Subsystem' to 'Software Design';
+	dependency Schemata 
+		from 'System Assembly'::'Storage Subsystem' 
+		to 'Software Design'::MessageSchema, 'Software Design'::DataSchema;
+}
+---
+Example 2 NL:
+This model describes a vehicle tire, defined by its key physical attributes. Any given tire is characterized by its manufacturer's brand, its width (typically in millimeters), and its hub diameter, which specifies the size of the wheel it is designed to fit.
+
+The model provides a specific example: a French-made Michelin tire that is 245mm wide and designed for an 18-inch wheel hub.
+
+Example 2 SysML:
+package '15_02-Basic Value Properties' {
+	private import ScalarValues::*;
+    attribute def LengthValue :> Real {
+		doc
+		/*
+		 * Real world user models would use a quantity type
+		 * from the library model. A attribute def is defined
+		 * here to show that it is possible.
+		 */
+	}
+    part def Tire {
+    	attribute manufacturer: String;
+        attribute hubDiameter: LengthValue;
+        attribute width: Integer;
+    }
+    part frenchTire: Tire {
+    	attribute :>> manufacturer = "Michelin";
+    	attribute :>> hubDiameter = 18.0;
+    	attribute :>> width = 245;
+    }
+}
+---
+Example 3 NL:
+This model describes the fundamental structure of a standard vehicle, likely a car or light truck. The vehicle is presented as an assembly of several key components.
+
+Specifically, it is composed of a single engine, a transmission, and a set of four wheels. The design recognizes that all these items—the engine, transmission, and each of the wheels—are distinct components that are all grouped together under the general category of "vehicle parts" to form the complete system.
+
+Example 3 SysML:
+package 'Subsetting Example' {
+	part def Vehicle {
+		part parts : VehiclePart[*];
+		part eng : Engine subsets parts;
+		part trans : Transmission subsets parts;
+		part wheels : Wheel[4] :> parts;
+	}
+	abstract part def VehiclePart;
+	part def Engine :> VehiclePart;
+	part def Transmission :> VehiclePart;
+	part def Wheel :> VehiclePart;
+}
+---
+Example 4 NL:
+This model represents a car, also referred to as an automobile.
+
+The model establishes the fundamental concept of a vehicle and acknowledges that "torque" is a relevant physical property for describing it. This indicates a focus on the car's mechanical aspects, such as the rotational force produced by its engine or delivered to its wheels. At this stage, it simply defines the car as a system without detailing its internal parts or specific functions.
+
+Example 4 SysML:
+package 'Package Example' {
+	public import ISQ::TorqueValue;
+	private import ScalarValues::*;
+	private part def Automobile;
+	public alias Car for Automobile;	                         
+	alias Torque for ISQ::TorqueValue;
+}
+---
+Example 5 NL:
+This model represents a generic, fuel-powered vehicle. The vehicle is a physical object defined by its mass. It includes an essential component, a fuel tank, which is designed to hold the fuel required for operation. The system also specifies that the vehicle is operated by a person, who takes on the role of the driver.
+
+Example 5 SysML:
+package 'Items Example' {
+	private import ScalarValues::*;
+	item def Fuel;
+	item def Person;
+	part def Vehicle {
+		attribute mass : Real;
+		ref item driver : Person;
+		part fuelTank {
+			item fuel: Fuel;
+		}		
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+atural value.
+body: if bound = null or not bound.isModelLevelEvaluable then
+null
+else
+let boundEval: Sequence(Element) = bound.evaluate(owningType) in
+if boundEval->size() <> 1 then null else
+let valueEval: Element = boundEval->at(1) in
+if valueEval.oclIsKindOf(LiteralInfinity) then *
+else if valueEval.oclIsKindOf(LiteralInteger) then
+let value : Integer =
+valueEval.oclAsKindOf(LiteralInteger).value in
+if value >= 0 then value else null endif
+else null
+endif endif
+endif
+endif
+
+Constraints
+checkMultiplicityRangeExpressionTypeFeaturing
+The bounds of a MultiplicityRange must have the same featuringTypes as the MultiplicityRange.
+bound->forAll(b | b.featuringType = self.featuringType)
+
+deriveMultiplicityRangeBound
+The bounds of a MultiplicityRange are the lowerBound (if any) followed by the upperBound.
+bound =
+if upperBound = null then Sequence{}
+else if lowerBound = null then Sequence{upperBound}
+else Sequence{lowerBound, upperBound}
+endif endif
+
+deriveMultiplicityRangeLowerBound
+If a MultiplicityRange has two ownedMembers that are Expressions, then the lowerBound is the first of
+these, otherwise it is null.
+
+228
+
+Kernel Modeling Language v1.0
+
+
+lowerBound =
+let ownedExpressions : Sequence(Expression) =
+ownedMember->selectByKind(Expression) in
+if ownedExpressions->size() < 2 then null
+else ownedExpressions->first()
+endif
+
+deriveMultiplicityRangeUpperBound
+If a MultiplicityRange has one ownedMember that is an Expression, then this is the upperBound. If it has
+more than one ownedMember that is an Expression, then the upperBound is the second of those. Otherwise, it is
+null.
+upperBound =
+let ownedExpressions : Sequence(Expression) =
+ownedMember->selectByKind(Expression) in
+if ownedExpressions->isEmpty() then null
+else if ownedExpressions->size() = 1 then ownedExpressions->at(1)
+else ownedExpressions->at(2)
+endif endif
+
+validateMultiplicityRangeBoundResultTypes
+The results of the bound Expression(s) of a MultiplicityRange must be typed by
+ScalarValues::Intger from the Kernel Data Types Library. If a bound is model-level evaluable, then it must
+evaluate to a non-negative value.
+bound->forAll(b |
+b.result.specializesFromLibrary('ScalarValues::Integer') and
+let value : Un
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+return the referent.
+• Else return the empty sequence.
+body: if not target.oclIsKindOf(Type) then Sequence{}
+else
+let feature: Sequence(Feature) =
+target.oclAsType(Type).feature->select(f |
+f.ownedRedefinition.redefinedFeature->
+includes(referent)) in
+if feature->notEmpty() then
+feature.valuation.value.evaluate(target)
+else if referent.featuringType->isEmpty()
+then referent
+else Sequence{}
+endif endif
+endif
+
+modelLevelEvaluable(visited : Feature [0..*]) : Boolean {redefines modelLevelEvaluable}
+A FeatureReferenceExpression is model-level evaluable if it's referent
+•
+•
+•
+•
+
+conforms to the self-reference feature Anything::self;
+is an Expression that is model-level evaluable;
+has an owningType that is a Metaclass or MetadataFeature; or
+has no featuringTypes and, if it has a FeatureValue, the value Expression is model-level
+evaluable.
+
+body: referent.conformsTo('Anything::self') or
+visited->excludes(referent) and
+(referent.oclIsKindOf(Expression) and
+referent.oclAsType(Expression).modelLevelEvaluable(visited->including(referent)) or
+referent.owningType <> null and
+(referent.owningType.isOclKindOf(MetaClass) or
+referent.owningType.isOclKindOf(MetadataFeature)) or
+referent.featuringType->isEmpty() and
+(referent.valuation = null or
+referent.valuation.modelLevelEvaluable(visited->including(referent))))
+
+Constraints
+checkFeatureReferenceExpressionBindingConnector
+A FeatureReferenceExpression must have an ownedMember that is a BindingConnector between the
+referent and result of the FeatureReferenceExpression.
+ownedMember->selectByKind(BindingConnector)->exists(b |
+b.relatedFeatures->includes(targetFeature) and
+b.relatedFeatures->includes(result))
+
+checkFeatureReferenceExpressionResultSpecialization
+The result parameter of a FeatureReferenceExpression must specialize the referent of the
+FeatureReferenceExpression.
+
+Kernel Modeling Language v1.0
+
+207
+
+
+result.owningType() = self and result.specializes(referent)
+
+deriveFeatureReferenceExpressionReferent
+The referent of a FeatureReferenceExpression is the memberElement of its first ownedMembership that
+is not a ParameterMembership.
+referent =
+let nonParameterMemberships : Sequence(Membership) = ownedMembership->
+reject(oclI
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+ust be typed by
+ScalarValues::Intger from the Kernel Data Types Library. If a bound is model-level evaluable, then it must
+evaluate to a non-negative value.
+bound->forAll(b |
+b.result.specializesFromLibrary('ScalarValues::Integer') and
+let value : UnlimitedNatural = valueOf(b) in
+value <> null implies value >= 0
+)
+
+validateMultiplicityRangeBounds
+The lowerBound (if any) and upperBound Expressions must be the first ownedMembers of a
+MultiplicityRange.
+if lowerBound = null then
+ownedMember->notEmpty() and
+ownedMember->at(1) = upperBound
+else
+ownedMember->size() > 1 and
+ownedMember->at(1) = lowerBound and
+ownedMember->at(2) = upperBound
+endif
+
+Kernel Modeling Language v1.0
+
+229
+
+
+8.3.4.12 Metadata Abstract Syntax
+8.3.4.12.1 Overview
+Feature
+Structure
+MetadataFeature
+Metaclass
+
++/metaclass
+0..1
+{subsets type}
+
++evaluateFeature( baseFeature : Feature ) : Element [0..*]
++isSemantic() : Boolean
+0..* +isSyntactic() : Boolean
+{subsets typedFeature} +syntaxElement() : Element [0..1]
++/typedMetadata
+
+AnnotatingElement
+
+Figure 39. Metadata Annotation
+
+8.3.4.12.2 Metaclass
+Description
+A Metaclass is a Structure used to type MetadataFeatures.
+General Classes
+Structure
+Attributes
+None.
+Operations
+None.
+Constraints
+checkMetaclassSpecialization
+A Metaclass must directly or indirectly specialize the base Metaclass Metaobjects::Metaobject from the
+Kernel Semantic Library.
+specializesFromLibrary('Metaobjects::Metaobject')
+
+8.3.4.12.3 MetadataFeature
+Description
+A MetadataFeature is a Feature that is an AnnotatingElement used to annotate another Element with
+metadata. It is typed by a Metaclass. All its ownedFeatures must redefine features of its metaclass and any
+feature bindings must be model-level evaluable.
+
+230
+
+Kernel Modeling Language v1.0
+
+
+General Classes
+AnnotatingElement
+Feature
+Attributes
+/metaclass : Metaclass [0..1] {subsets type}
+The type of this MetadataFeature, which must be a Metaclass.
+Operations
+evaluateFeature(baseFeature : Feature) : Element [0..*]
+If the given baseFeature is a feature of this MetadataFeature, or is directly or indirectly redefined by a
+feature, then return the result of evaluating the appropriate (model-level evaluable) value Expression for it
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a weather station that collects temperature, humidity, and wind speed data and is able to transmit it.

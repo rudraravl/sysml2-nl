@@ -1,0 +1,418 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes a system for defining and calculating the mass of physical objects, particularly for complex assemblies. It represents objects that can be either simple, single-piece parts or complex structures made up of multiple subcomponents.
+
+The system is built on two types of physical items:
+
+1.  **Simple Things:** These are fundamental, indivisible components. Think of a single bolt, a metal plate, or a resistor. Such an object has a straightforward mass, and its total mass is simply its own weight.
+
+2.  **Composite Things:** These represent assemblies or more complex objects built from other parts. A composite object has its own intrinsic mass (like the weight of an empty computer case or a car chassis) and also contains a collection of other components. These subcomponents can be either simple things or other, smaller composite things.
+
+The key function of this system is to "roll up" the mass hierarchically. The total mass of a composite object is calculated by taking the mass of its own structure and adding the total masses of all the individual parts contained within it. This allows for an accurate mass calculation of a highly complex product, like a satellite, by breaking it down into its systems, subsystems, and individual components.
+
+Example 1 SysML:
+package MassRollup1 {
+	private import NumericalFunctions::*;
+	part def MassedThing {
+		attribute simpleMass :> ISQ::mass; 
+		attribute totalMass :> ISQ::mass;
+	}
+	part simpleThing : MassedThing {
+		attribute :>> totalMass = simpleMass;
+	}
+	part compositeThing : MassedThing {
+		part subcomponents: MassedThing[*];		
+		attribute :>> totalMass =
+			simpleMass + sum(subcomponents.totalMass); 
+	}
+}
+---
+Example 2 NL:
+This model describes a long-range drone designed to operate up to 5 kilometers away from its user.
+
+The drone's ability to achieve this long-distance flight is based on a specific balance between its weight and power source. It incorporates a high-capacity battery, specified to hold at least a 6000 mAh charge, which provides the necessary energy for extended flight. To maximize the effectiveness of this power source, the drone's overall design is very lightweight, with a total mass strictly controlled to not exceed 750 grams.
+
+This combination of a powerful battery and a lightweight frame is the core technical approach used to satisfy the primary requirement for long-range operation.
+
+Example 2 SysML:
+package Drone_BaseArchitecture {
+    part def Drone;
+}
+package Drone_StakeholderRequirements {    
+    requirement <'REQ-42'> longDistance {
+        doc /* The drone shall have a sufficient range 
+             * to operate at a distance of 5 km from the 
+             * operator's location.
+            */  
+        subject drone : Drone_BaseArchitecture::Drone;
+    }
+}
+package Drone_SystemArchitecture {
+    part drone : Drone_BaseArchitecture::Drone {
+        attribute totalMass = 750;
+        part battery {
+            attribute capacity = 6000;
+        }        
+    }
+    satisfy Drone_StakeholderRequirements::longDistance by drone;  
+}
+package Drone_SystemRequirements {
+    import RequirementDerivation::*;
+    requirement <'REQ-9942'> totalMass {
+        subject drone :>> Drone_SystemArchitecture::drone;        
+        assert constraint {
+            drone.totalMass <= 750
+        }
+    }
+    requirement <'REQ-9943'> battery {
+        subject battery :>> Drone_SystemArchitecture::drone.battery;
+    }
+    requirement <'REQ-9944'> maxCapacity {
+        subject battery :>> Drone_SystemArchitecture::drone.battery;
+        assert constraint {
+            battery.capacity >= 6000
+        }
+    }
+    #derivation connection {
+        end #original ::> Drone_StakeholderRequirements::longDistance;
+        end #derive ::> Drone_SystemRequirements::totalMass;
+        end #derive ::> Drone_SystemRequirements::maxCapacity;
+    }
+}
+---
+Example 3 NL:
+This model represents a simplified vehicle designed for a mass properties analysis. The vehicle is defined by its major sub-systems: an engine, a front axle assembly, and a rear axle assembly.
+
+The core principle of this system is that the vehicle's total mass is determined by the sum of the individual masses of these key components. Each part—the engine, front axle, and rear axle—contributes its own weight to the overall vehicle. This represents a fundamental mass roll-up calculation common in engineering, where the properties of the whole system are derived from the properties of its constituent parts.
+
+Example 3 SysML:
+package ConstraintTest {
+	private import ISQ::MassValue;
+	private import SI::kg;
+	private import NumericalFunctions::sum;
+	constraint def MassAnalysis {
+		attribute totalMass: MassValue;
+		attribute componentMasses: MassValue[0..*];		
+		totalMass == sum(componentMasses)
+	}
+	part def Component {
+		attribute mass: MassValue;
+	}
+	part vehicle : Component {	
+		part engine : Component;
+		part frontAxleAssembly : Component;
+		part rearAxleAssembly : Component;	
+	}
+	part vehicle1a :> vehicle {
+		assert constraint massAnalysis : MassAnalysis {
+			attribute redefines totalMass;
+			attribute redefines componentMasses;
+		}
+		bind massAnalysis.totalMass = mass;
+		bind massAnalysis.componentMasses = engine.mass;
+		bind massAnalysis.componentMasses = frontAxleAssembly.mass;
+		bind massAnalysis.componentMasses = rearAxleAssembly.mass;
+	}
+	part vehicle1b :> vehicle {		
+		assert constraint massAnalysis : MassAnalysis {
+			attribute redefines totalMass = mass;
+			attribute redefines componentMasses = (engine.mass, frontAxleAssembly.mass, rearAxleAssembly.mass);		
+		}	
+	}
+	constraint def MassAnalysis2 { 
+		in totalMass : MassValue;
+		in componentMasses: MassValue[0..*];
+		totalMass == sum(componentMasses)
+	}
+	part vehicle2a :> vehicle {
+		assert constraint massConstraint : MassAnalysis2;
+		bind massConstraint.totalMass = mass;
+		bind massConstraint.componentMasses = engine.mass;
+		bind massConstraint.componentMasses = frontAxleAssembly.mass;
+		bind massConstraint.componentMasses = rearAxleAssembly.mass;
+	}
+	part vehicle2b :> vehicle {
+		assert constraint massAnalysis2 : MassAnalysis2 {
+			in totalMass = mass;
+			in componentMasses = (engine.mass, frontAxleAssembly.mass, rearAxleAssembly.mass);
+		}
+	}
+	constraint def MassAnalysis3 {
+		in totalMass : MassValue;
+		in componentMasses: MassValue[0..*];
+	}
+	constraint massAnalysis3 : MassAnalysis3 {
+		in totalMass : MassValue;
+		in componentMasses: MassValue[0..*];
+		totalMass == sum(componentMasses)
+	}
+	part vehicle3 :> vehicle {
+		assert massAnalysis3 {
+			in totalMass = mass;
+			in componentMasses = (engine.mass, frontAxleAssembly.mass, rearAxleAssembly.mass);
+		}
+	}
+	part vehicle4 :> vehicle {
+		assert constraint { mass == engine.mass + frontAxleAssembly.mass + rearAxleAssembly.mass }
+	}
+	constraint massLimitation { mass : MassValue; massLimit : MassValue; mass < massLimit }
+	assert not massLimitation { :>> mass = vehicle3.mass; :>> massLimit = vehicle4.mass; }
+}
+---
+Example 4 NL:
+This system describes a physical control knob for adjusting the vertical tilt of a vehicle's headlights.
+
+The knob allows a driver to change the angle of the headlight beams. A key feature of this system is that it has a built-in safety limitation. The tilt angle is strictly restricted to a predefined range, ensuring it can only be set between a minimum of 50 degrees and a maximum of 80 degrees. This prevents the driver from setting the headlights too low or, more importantly, too high, which could dazzle oncoming traffic.
+
+Example 4 SysML:
+package '15_08-Range Restriction' {
+	private import ISQ::*;
+	private import SI::*;
+	private import '15_01-Constants'::'Mathematical Constants'::pi;
+	part def HeadLightsTiltKnob {
+		attribute headLightsTile : LightBeamTiltAngleValue[1];
+	}
+	attribute def LightBeamTiltAngleValue :> PlaneAngleValue {
+		attribute angle: LightBeamTiltAngleValue :>> self {
+			doc
+			/*
+			 * Tilt angle shall be limited to the range between 50 and 80 degrees (inclusive).
+			 */
+		}
+		assert constraint { angle >= 50 ['°'] and angle <= 80 ['°'] }
+	}
+}
+---
+Example 5 NL:
+This model describes the fundamental components of a vehicle's drivetrain and wheel assembly. It defines a generic vehicle system that includes a transmission, an axle, and wheels.
+
+The system focuses specifically on the mechanical interface used to mount a wheel onto an axle. An axle is defined as a component with mounting points on both its left and right ends. A wheel has a central hub designed to connect to one of these mounting points.
+
+The core function described is the transfer of power. Rotational force, or torque, is transmitted from the axle's mounting point directly to the hub of the wheel. This transfer of torque is what causes the wheel to spin, ultimately propelling the vehicle. The model is detailed enough to also define the lugbolts used to physically fasten the wheel to the axle, even specifying a critical engineering property for them: their required tightening torque.
+
+Example 5 SysML:
+package VehicleDefinitions {
+	doc
+	/*
+	 * Example vehicle definitions model.
+	 */
+	private import ScalarValues::*;
+	private import Quantities::*;
+	private import MeasurementReferences::*;
+	private import ISQ::*;
+	private import SI::*;
+	/* PART DEFINITIONS */
+	part def Vehicle {
+		attribute mass :> ISQ::mass;
+	}
+	part def Transmission;	
+	part def AxleAssembly;
+	part def Axle {
+		port leftMountingPoint: AxleMountIF;
+		port rightMountingPoint: AxleMountIF;
+	}
+	part def Wheel {
+		port hub: WheelHubIF;
+	}
+	part def Lugbolt {
+		attribute tighteningTorque :> ISQ::torque;
+	}
+	/* PORT DEFINITIONS */
+	port def DriveIF { 
+		in driveTorque :> ISQ::torque;
+	}
+	port def AxleMountIF { 
+		out transferredTorque :> ISQ::torque;
+	}
+	port def WheelHubIF { 
+		in appliedTorque :> ISQ::torque;
+	}
+	/* INTERFACE DEFINITIONS */
+	interface def Mounting {
+		doc /* The definition of the interface for mounting a Wheel to an Axle. */
+		end axleMount: AxleMountIF;
+		end hub: WheelHubIF;
+		flow axleMount.transferredTorque to hub.appliedTorque;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+, and an owningType that is a
+Class or another Feature typed by a Class, then it must directly or indirectly specialize
+Occurrences::Occurrence::portions from the Kernel Semantic Library.
+isPortion and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <> null and
+(owningType.oclIsKindOf(Class) or
+owningType.oclIsKindOf(Feature) and
+owningType.oclAsType(Feature).type->
+exists(oclIsKindOf(Class))) implies
+specializesFromLibrary('Occurrence::Occurrence::portions')
+
+checkFeatureResultRedefinition
+If a Feature is a result parameter of an owningType that is a Function or Expression, then, for each direct
+supertype of its owningType that is also a Function or Expression, it must redefine the result parameter.
+owningType <> null and
+(owningType.oclIsKindOf(Function) and
+self = owningType.oclAsType(Function).result or
+owningType.oclIsKindOf(Expression) and
+self = owningType.oclAsType(Expression).result) implies
+owningType.ownedSpecialization.general->
+select(oclIsKindOf(Function) or oclIsKindOf(Expression))->
+forAll(supertype |
+redefines(
+if superType.oclIsKindOf(Function) then
+superType.oclAsType(Function).result
+else
+superType.oclAsType(Expression).result
+endif)
+
+checkFeatureSpecialization
+A Feature must directly or indirectly specialize Base::things from the Kernel Semantic Library.
+specializesFromLibrary('Base::things')
+
+checkFeatureSubobjectSpecialization
+A composite Feature typed by a Structure, and whose ownedType is a Structure or another Feature typed
+by a Structure must directly or indirectly specialize Objects::Object::subobjects
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Structure)) and
+owningType <> null and
+(owningType.oclIsKindOf(Structure) or
+owningType.type->includes(oclIsKindOf(Structure))) implies
+specializesFromLibrary('Occurrence::Occurrence::suboccurrences')
+
+checkFeatureSuboccurrenceSpecialization
+
+168
+
+Kernel Modeling Language v1.0
+
+
+A composite Feature that has an ownedTyping relationship to a Class, and whose ownedType is a Class or
+another Feature typed by a Class, must directly or indirectly specialize
+Occurrences::Occurrence::suboccurrences
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+s::Transfer::target::targetInput, respectively, from the Kernel Semantic Library.
+owningType <> null and
+owningType.oclIsKindOf(FlowEnd) and
+owningType.ownedFeature->at(1) = self implies
+let flowType : Type = owningType.owningType in
+flowType <> null implies
+let i : Integer =
+flowType.ownedFeature.indexOf(owningType) in
+(i = 1 implies
+redefinesFromLibrary('Transfers::Transfer::source::sourceOutput')) and
+(i = 2 implies
+redefinesFromLibrary('Transfers::Transfer::source::targetInput'))
+
+checkFeatureObjectSpecialization
+If a Feature has an ownedTyping relationship to a Structure, then it must directly or indirectly specialize
+Objects::objects from the Kernel Semantics Library.
+ownedTyping.type->exists(selectByKind(Structure)) implies
+specializesFromLibary('Objects::objects')
+
+checkFeatureOccurrenceSpecialization
+If a Feature has an ownedTyping relationship to a Class, then it must directly or indirectly specialize
+Occurrences::occurrences from the Kernel Semantic Library.
+ownedTyping.type->exists(selectByKind(Class)) implies
+specializesFromLibrary('Occurrences::occurrences')
+
+checkFeatureOwnedCrossFeatureRedefinitionSpecialization
+If this Feature is the ownedCrossFeature of an end Feature, then, for any end Feature that is redefined by
+the owning end Feature of this Feature, this Feature must subset the crossFeature of the redefined end
+Feature, if this exists.
+isOwnedCrossFeature() implies
+ownedSubsetting.subsettedFeature->includesAll(
+
+166
+
+Kernel Modeling Language v1.0
+
+
+owner.oclAsType(Feature).ownedRedefinition.redefinedFeature->
+select(crossFeature <> null).crossFeature)
+
+checkFeatureOwnedCrossFeatureSpecialization
+If this Feature is the ownedCrossFeature of an end Feature, then it must directly or indirectly specialize the
+types of its owning end Feature.
+isOwnedCrossFeature() implies
+owner.oclAsType(Feature).type->forAll(t | self.specializes(t))
+
+checkFeatureOwnedCrossFeatureTypeFeaturing
+If this Feature is the ownedCrossFeature of an end Feature, then it must have featuringTypes consistent
+with the crossing from other end Features of the owningType of its end Feature.
+isOwnedCrossFeature() implies
+let otherEnds : OrderedSet(Feature) =
+owner.oclAsType(Featu
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+he Steps that make up this Behavior.
+Operations
+None.
+Constraints
+checkBehaviorSpecialization
+A Behavior must directly or indirectly specialize the base Behavior Performances::Performance from the
+Kernel Semantic Library.
+specializesFromLibrary('Performances::Performance')
+
+deriveBehaviorStep
+The steps of a Behavior are its features that are Steps.
+step = feature->selectByKind(Step)
+
+validateBehaviorSpecialization
+A Behavior must not specialize a Structure.
+ownedSpecialization.general->forAll(not oclIsKindOf(Structure))
+
+8.3.4.6.3 Step
+Description
+A Step is a Feature that is typed by one or more Behaviors. Steps may be used by one Behavior to
+coordinate the performance of other Behaviors, supporting a steady refinement of behavioral descriptions. Steps
+can be ordered in time and can be connected using Flows to specify things flowing between their parameters.
+
+Kernel Modeling Language v1.0
+
+191
+
+
+General Classes
+Feature
+Attributes
+/behavior : Behavior [0..*] {subsets type, ordered}
+The Behaviors that type this Step.
+/parameter : Feature [0..*] {redefines directedFeature, ordered}
+The parameters of this Step, which are defined as its directedFeatures, whose values are passed into and/or
+out of a performance of the Step.
+Operations
+None.
+Constraints
+checkStepEnclosedPerformanceSpecialization
+AStep whose owningType is a Behavior or another Step must directly or indirectly specialize the Step
+Performances::Performance::enclosedPerformance.
+owningType <> null and
+(owningType.oclIsKindOf(Behavior) or
+owningType.oclIsKindOf(Step)) implies
+specializesFromLibrary('Performances::Performance::enclosedPerformance')
+
+checkStepOwnedPerformanceSpecialization
+A composite Step whose owningType is a Structure or a Feature typed by a Structure must directly or
+indirectly specialize the Step Objects::Object::ownedPerformance.
+isComposite and owningType <> null and
+(owningType.oclIsKindOf(Structure) or
+owningType.oclIsKindOf(Feature) and
+owningType.oclAsType(Feature).type->
+exists(oclIsKindOf(Structure)) implies
+specializesFromLibrary('Objects::Object::ownedPerformance')
+
+checkStepSpecialization
+A Step must directly or indirectly specialize the base Step Performances::performances fr
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a drone that has the ability to pick up objects from a structure.
