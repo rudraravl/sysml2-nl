@@ -1,0 +1,923 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model represents the process of a digital camera taking a photograph. The system operates as a sequence of distinct actions that transform a real-world view into a final, viewable image.
+
+The process is initiated by a user trigger, such as pressing the shutter button, which identifies the desired real-world **scene** to be captured. The first automated step is to **focus**, where the camera's lens system adjusts to create a sharp, clear optical **image** of that scene on its internal sensor.
+
+Immediately following the focus, the camera performs the **shoot** action. This is the moment of capture, where the light and color data from the focused image is read by the sensor and processed into a digital **picture** file.
+
+Finally, this newly created picture is sent to be **displayed**, allowing the user to instantly review the photo they have just taken, typically on an LCD screen on the back of the camera. Once displayed, the camera is ready to capture the next scene.
+
+Example 1 SysML:
+package 'Merge Example' {
+	part def Scene;
+	part def Image;
+	part def Picture;
+	action def Focus { in item scene : Scene; out item image : Image; }
+	action def Shoot { in item image : Image; out item picture : Picture; }
+	action def Display { in item picture : Picture; }
+	action def TakePicture;
+	action takePicture : TakePicture {
+		first start;
+		then merge continue;
+		then action trigger {
+			out item scene : Scene;
+		}
+		flow from trigger.scene to focus.scene;
+		then action focus : Focus {
+			in item scene;
+			out item image;
+		}
+		flow from focus.image to shoot.image;
+		then action shoot : Shoot {
+			in item image ;
+			out item picture;
+		}
+		flow from shoot.picture to display.picture;
+		then action display : Display {
+			in item picture;
+		}
+		then continue;	
+	}
+}
+---
+Example 2 NL:
+This describes a system structured with a classic three-tier software architecture, likely for a purpose like calculating a price or a result based on specific inputs.
+
+The system is organized into three distinct, dependent layers:
+
+1.  An **Application Layer**, which serves as the user-facing part of the system where data is entered.
+2.  A **Service Layer**, which contains the core business logic and performs the main calculations or operations.
+3.  A **Data Layer**, which is responsible for storing and retrieving the information the Service Layer needs to function.
+
+In operation, the Application Layer relies on the Service Layer to process user requests. The Service Layer, in turn, depends on the Data Layer to access necessary information (like pricing tables, user data, or configuration settings).
+
+The system's core function is to calculate a final value (represented by `z`) that is directly determined by two other independent input values (represented by `x` and `y`). For instance, a final shipping cost (`z`) would be calculated based on the package's weight (`x`) and the shipping distance (`y`).
+
+Example 2 SysML:
+package DependencyTest {
+	package System {
+		package 'Application Layer';
+		package 'Service Layer';
+		package 'Data Layer';
+	}
+	private import System::*;
+	dependency Use from 'Application Layer' to 'Service Layer';
+	dependency from 'Service Layer' to 'Data Layer';
+	attribute x;
+	attribute y;
+	attribute z;
+	dependency z to x, y;
+}
+---
+Example 3 NL:
+This model describes a generic system designed for interaction with a user. The two primary components are the 'System' itself and an external 'User'.
+
+The main purpose of this arrangement is for the user to operate the system to achieve a specific, defined goal. This core user-system interaction is broken down into two essential sub-functions or steps, referred to as UC1 and UC2. For the user to successfully use the system and achieve their goal, they must engage in both of these sub-functions as part of the overall process.
+
+The system is designed with the inherent capabilities to perform these functions. The model also outlines a more comprehensive, higher-level scenario (UC3) that encompasses the entire standard user-system interaction. This suggests that the basic operation of the system can be a component or a step within a larger, more complex workflow.
+
+Example 3 SysML:
+package UseCaseTest {
+	part def System;	
+	part def User;
+	use case def UseSystem {
+		subject system : System;
+		actor user : User;
+		objective  { 
+			/* Goal */
+		}
+		include use case uc1 : UC1;	
+		include use case uc2 {
+			subject = system;
+			actor user = UseSystem::user;
+		}
+	}
+	use case def UC1;
+	part user : User;
+	use case uc2 {
+	    subject;
+		actor :>> user;
+	}
+	use case u : UseSystem;
+	part system : System {
+		include uc2;
+		perform u;
+		use case uc1 : UC1;
+	}
+	use case uc3 {
+	    include u;
+	    include system.uc1;
+	}
+}
+---
+Example 4 NL:
+This describes the automated process of a digital camera system for taking a photograph. The system is designed to capture a real-world scene, process it, and display the final result.
+
+The process begins when a user aims the camera at a "scene." The system's first step is to "focus," which adjusts the optics to create a sharp, clear "image" on the camera's sensor. Immediately following this, the "shoot" action captures this focused image, converting it into a final digital "picture." As the final step, this newly created picture is sent to be displayed on a "screen," providing immediate visual feedback to the user.
+
+Example 4 SysML:
+package 'Messaging Example' {
+	item def Scene;
+	item def Image;
+	item def Picture;
+	attribute def Show {
+		item picture : Picture;
+	}
+	action def Focus { in item scene : Scene; out item image : Image; }
+	action def Shoot { in item image : Image; out item picture : Picture; }
+	action def TakePicture;
+	action screen;
+	action takePicture : TakePicture {
+		action trigger accept scene : Scene;
+		then action focus : Focus {
+			in item scene = trigger.scene;
+			out item image;
+		}
+		flow from focus.image to shoot.image;
+		then action shoot : Shoot {
+			in item image; 
+			out item picture;
+		}
+		then send new Show(shoot.picture) to screen;
+	}
+}
+---
+Example 5 NL:
+This model describes the interaction within a vehicle's cruise control system, which is designed to automatically maintain a steady speed set by the driver.
+
+The system involves the driver and several key components within the vehicle: the cruise control unit (the system's brain), the speedometer, and the engine.
+
+The process is initiated when the driver sets a desired cruising speed. This command is sent to the vehicle's cruise control unit. The system then enters a control loop where the speedometer continuously senses the vehicle's actual speed and sends this data to the cruise control unit. The cruise controller compares the driver's target speed with the real-time sensed speed and, based on the difference, sends a command to the engine to adjust the fuel intake, thereby speeding up or slowing down the vehicle to maintain the constant, desired speed.
+
+Example 5 SysML:
+package 'Interaction Example-1' {
+	public import 'Event Occurrence Example'::*;
+	item def SetSpeed;
+	item def SensedSpeed;
+	item def FuelCommand;
+	occurrence def CruiseControlInteraction {		
+		ref part :>> driver;		
+		ref part :>> vehicle;
+		message setSpeedMessage of SetSpeed 
+			from driver.setSpeedSent to vehicle.cruiseController.setSpeedReceived;
+		message sensedSpeedMessage of SensedSpeed 
+			from vehicle.speedometer.sensedSpeedSent to vehicle.cruiseController.sensedSpeedReceived;
+		message fuelCommandMessage of FuelCommand 
+			from vehicle.cruiseController.fuelCommandSent to vehicle.engine.fuelCommandReceived;
+		first setSpeedMessage then sensedSpeedMessage;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+e
+redefined property also applies to the redefining property, though the redefining property will
+generally place additional constraints on type and/or multiplicity.
+2. Semantic constraints. These constraints specify relationships that are semantically required in a KerML
+model (see 8.4.2 ), particularly relationships with elements in the Kernel Semantic Library (see 9.2 ).
+These constraints may be violated by a model as entered by a user or as interchanged. In this case, a tool
+may satisfy the constraints by introducing implied relationships into the model, it may simply report their
+violation, or it may ignore the violations. Semantic constraints have names that start with the word check,
+followed by the name of the constrained metaclass, followed by a descriptive word or phrase. For
+example, checkTypeSpecialization.
+3. Validation constraints. These constraints specify additional syntactic conditions that must be satisfied in
+order to give a model a proper semantic interpretation. They are written presuming that all semantic
+constraints are satisfied. A valid model is a model that satisfies all validation constraints. A tool
+conformant to the KerML abstract syntax should report violations of validation constraints. A tool
+conformant to the KerML semantics is only required to operate on valid models. Validation constraints
+have names that start with the word validate, followed by the name of the metaclass, followed by a
+descriptive word or phrase. For example, validateConnectorRelatedFeatures.
+
+108
+
+Kernel Modeling Language v1.0
+
+
+8.3.2 Root Abstract Syntax
+8.3.2.1 Elements and Relationships Abstract Syntax
+8.3.2.1.1 Overview
+{ordered}
++/ownedElement 0..*
+
+Element
+
++target
+0..*
+{subsets relatedElement,
+ordered}
++source
+0..*
+{subsets relatedElement,
+ordered}
++/relatedElement
+0..*
+{ordered, nonunique}
+
++elementId : String{id}
++aliasIds : String [0..*]{ordered}
++declaredShortName : String [0..1]
++declaredName : String [0..1]
++/shortName : String [0..1]
++/name : String [0..1]
++/qualifiedName : String [0..1]
++isImpliedIncluded : Boolean = false
++/isLibraryElement : Boolean
++escapedName() : String [0..1]
++effectiveShortName() : String [0..1]
++effectiveName() : String
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+conformant to KerML as defined above. (See Clause 8 .)
+2. Concrete Syntax Conformance. A tool demonstrating Concrete Syntax Conformance provides a user
+interface and/or API that enables instances of KerML concrete syntax notation to be created, read,
+updated, and deleted. Note that a conforming tool may also provide the ability to create, read, update and
+delete additional notational elements that are not defined in KerML. Concrete Syntax Conformance
+implies Abstract Syntax Conformance, in that creating models in the concrete syntax acts as a user
+interface for the abstract syntax. However, a tool demonstrating Concrete Syntax Conformance need not
+represent a model internally in exactly the form modeled for the abstract syntax in this specification. (See
+Clause 8 .)
+3. Semantic Conformance. A tool demonstrating Semantic Conformance provides a demonstrable way to
+interpret a syntactically conformant model (as defined above) according to the KerML semantics, e.g.,
+via model execution, simulation, or reasoning, when and only when such interpretations are possible.
+Semantic Conformance implies Abstract Syntax Conformance, in that the semantics for KerML are only
+defined on models represented in the abstract syntax. (See Clause 8 and Clause 9 . See also 6.1 for further
+discussion of the interpretation of models and their syntactic and semantic conformance.)
+4. Model Interchange Conformance. A tool demonstrating model interchange conformance can import and/
+or export syntactically conformant KerML models (as defined above) as specified in Clause 10 .
+Every conformant KerML modeling tool shall demonstrate at least Abstract Syntax Conformance and Model
+Interchange Conformance. In addition, such a tool may demonstrate Concrete Syntax Conformance and/or Semantic
+Conformance, both of which are dependent on Abstract Syntax Conformance.
+
+Kernel Modeling Language v1.0
+
+3
+
+
+4
+
+Kernel Modeling Language v1.0
+
+
+3 Normative References
+The following normative documents contain provisions which, through reference in this text, constitute provisions
+of this specification.
+[ADLER] ZLIB Compressed Data Format Specification, Version 3.3
+https://datatracker.ietf.org/doc/html/rfc1950
+[Al
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+es, the spaceInteriors of which are identified as the innerSpaceOccurrences ("holes") of the
+Occurrence having the spaceBoundary. These two cases are covered by SurroundedBy Links between
+Occurrences, with the surroundedByOccurrences of an Occurrence being the ones they are SurroundedBy.
+MatesWith Links are JustOutsideOf Links between Occurrences indicating that they union (see below) to an
+Occurrence with a spaceBoundary but no spaceInterior. This means there is no possibility of other
+Occurrences happening or existing in the space between them. JustOutsideOf Links additionally include those
+between Occurrences where only some of their spaceSlices (of their spaceBoundaries) are linked by
+MatesWith.
+
+9.2.4.2 Elements
+9.2.4.2.1 HappensBefore
+Element
+Association
+Description
+HappensBefore is a Without Association linking an earlierOccurrence to a laterOccurrence,
+indicating that the Occurrences do not overlap in time (not necessarily in space, see OutsideOf; none of their
+snapshots happen at the same time), and the earlierOccurrence happens first. This means no Occurrence
+
+292
+
+Kernel Modeling Language v1.0
+
+
+HappensBefore itself. Every Occurrence that HappensDuring the earlierOccurrence (including itself) also
+HappensBefore every Occurrence that HappensDuring the laterOccurrence (including itself).
+
+General Types
+Without
+HappensLink
+Features
+earlierOccurrence : Occurrence {subsets sourceOccurrence, redefines separateOccurrenceToo}
+The participant of this HappensBefore link that happens (ends) earlier than the other participant (starts). Crosses
+laterOccurrence.predecessors.
+laterOccurrence : Occurrence {subsets targetOccurrence, redefines separateOccurrence}
+The participant of this HappensBefore link that happens later than (starts after) the other participant (ends).
+Crosses earlierOccurrence.successors.
+Constraints
+None.
+9.2.4.2.2 happensBeforeLinks
+Element
+Feature
+Description
+happensBeforeLinks is a specialization of binaryLinks restricted to type earlierOccurrence. It is the most
+general Succession (M1 instance of M2 Succession). All other Successions (in libraries or user models)
+
+specialize it (directly or indirectly).
+General Types
+HappensBefore
+binaryLinks
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package 'Mobile App Login Process' {
+
+	// Data and Value Definitions
+	item def UserCredentials {
+		attribute username : String;
+		attribute password : String;
+	}
+
+	item def AuthenticationToken {
+		attribute tokenValue : String;
+	}
+
+	item def LoginStatus {
+		attribute success : Boolean;
+		attribute message : String;
+	}
+
+	item def UserProfile {
+		attribute name : String;
+		attribute email : String;
+		attribute lastLogin : String;
+	}
+
+	// Part Definitions for System and Actors
+	part def User;
+
+	part def MobileApp;
+
+	part def AuthenticationServer;
+
+	part def ProfileServer;
+
+	part def LoginSystem {
+		part app : MobileApp;
+		part authServer : AuthenticationServer;
+		part profileServer : ProfileServer;
+
+		connect app to authServer;
+		connect app to profileServer;
+	}
+
+	// Action Definitions for individual process steps
+	action def EnterCredentials {
+		out credentials : UserCredentials;
+	}
+
+	action def Authenticate {
+		in credentials : UserCredentials;
+		out token : AuthenticationToken;
+		out status : LoginStatus;
+	}
+
+	action def RequestProfile {
+		in token : AuthenticationToken;
+		out profile : UserProfile;
+	}
+
+	action def DisplayProfile {
+		in profile : UserProfile;
+	}
+
+	action def ShowLoginError {
+		in status : LoginStatus;
+	}
+
+	// Main process definition orchestrating the actions
+	action def RetrieveProfileProcess;
+
+	action mainProcess : RetrieveProfileProcess {
+		// Step 1: User provides credentials
+		first action enterCreds : EnterCredentials {
+			out credentials;
+		}
+
+		// Step 2: Credentials are sent for authentication
+		flow from enterCreds.credentials to authenticateUser.credentials;
+		then action authenticateUser : Authenticate {
+			in credentials;
+			out token;
+			out status;
+		}
+
+		// Step 3: Decide next step based on authentication status
+		then decision checkAuth(authenticateUser.status.success) {
+			if true {
+				// Step 4a: If successful, use token to request profile
+				flow from authenticateUser.token to fetchProfile.token;
+				then action fetchProfile : RequestProfile {
+					in token;
+					out profile;
+				}
+
+				// Step 5a: Display the retrieved user profile
+				flow from fetchProfile.profile to display.profile;
+				then action display : DisplayProfile {
+					in profile;
+				}
+
+				// End of successful path
+				then succeed;
+			}
+			else {
+				// Step 4b: If failed, show an error message
+				flow from authenticateUser.status to showError.status;
+				then action showError : ShowLoginError {
+					in status;
+				}
+
+				// End of failure path
+				then fail;
+			}
+		}
+	}
+
+	// Requirements
+	requirement def SecureAuthentication {
+		doc "The system shall securely transmit and validate user credentials against a trusted authentication service.";
+	}
+
+	requirement def ProfileDataRetrieval {
+		doc "A successfully authenticated user shall be able to retrieve their complete profile data.";
+	}
+
+	requirement authRequirement on Authenticate {
+		satisfy SecureAuthentication;
+	}
+
+	requirement profileRequirement on RequestProfile {
+		satisfy ProfileDataRetrieval;
+	}
+}
+---
+Candidate 2 (anthropic/claude-sonnet-4.5, rating=10/10):
+package 'Mobile App Login Process' {
+	import ScalarValues::*;
+	import Quantities::*;
+	import ISQ::DurationValue;
+	
+	attribute def Username :> String;
+	attribute def Password :> String;
+	attribute def SessionToken :> String;
+	attribute def ProfileData :> String;
+	attribute def AuthenticationStatus :> String;
+	attribute def ErrorMessage :> String;
+	
+	item def Credentials {
+		attribute username : Username;
+		attribute password : Password;
+	}
+	
+	item def AuthenticationRequest {
+		attribute credentials : Credentials;
+		attribute timestamp : DurationValue;
+	}
+	
+	item def AuthenticationResponse {
+		attribute status : AuthenticationStatus;
+		attribute token : SessionToken;
+		attribute errorMsg : ErrorMessage;
+	}
+	
+	item def ProfileRequest {
+		attribute sessionToken : SessionToken;
+	}
+	
+	item def ProfileResponse {
+		attribute profileData : ProfileData;
+		attribute status : AuthenticationStatus;
+	}
+	
+	part def User {
+		port authPort;
+		port profilePort;
+		
+		attribute storedUsername : Username;
+		attribute storedPassword : Password;
+		
+		ref action enterCredentials;
+		ref action viewProfile;
+	}
+	
+	part def MobileApp {
+		port userInterfacePort;
+		port authServicePort;
+		port dataServicePort;
+		
+		part loginScreen {
+			in attribute credentials : Credentials;
+			out attribute authRequest : AuthenticationRequest;
+		}
+		
+		part profileScreen {
+			in attribute profile : ProfileData;
+		}
+		
+		perform action handleLogin;
+		perform action displayProfile;
+	}
+	
+	part def AuthenticationService {
+		port requestPort;
+		port databasePort;
+		
+		attribute validSessions : SessionToken[0..*];
+		
+		action def ValidateCredentials {
+			in item request : AuthenticationRequest;
+			out item response : AuthenticationResponse;
+		}
+		
+		perform action authenticate : ValidateCredentials;
+	}
+	
+	part def DataService {
+		port profileRequestPort;
+		port databasePort;
+		
+		action def RetrieveProfile {
+			in item request : ProfileRequest;
+			out item response : ProfileResponse;
+		}
+		
+		perform action fetchProfile : RetrieveProfile;
+	}
+	
+	part def Database {
+		port queryPort;
+		
+		attribute userCredentials : Credentials[0..*];
+		attribute userProfiles : ProfileData[0..*];
+		
+		action def QueryCredentials {
+			in item username : Username;
+			out item isValid : Boolean;
+		}
+		
+		action def QueryProfile {
+			in item username : Username;
+			out item profile : ProfileData;
+		}
+	}
+	
+	action def EnterCredentials {
+		out item credentials : Credentials;
+	}
+	
+	action def SendAuthRequest {
+		in item credentials : Credentials;
+		out item authRequest : AuthenticationRequest;
+	}
+	
+	action def Authenticate {
+		in item authRequest : AuthenticationRequest;
+		out item authResponse : AuthenticationResponse;
+	}
+	
+	action def ValidateSession {
+		in item authResponse : AuthenticationResponse;
+		out item sessionToken : SessionToken;
+		out item isValid : Boolean;
+	}
+	
+	action def RequestProfile {
+		in item sessionToken : SessionToken;
+		out item profileRequest : ProfileRequest;
+	}
+	
+	action def FetchProfile {
+		in item profileRequest : ProfileRequest;
+		out item profileResponse : ProfileResponse;
+	}
+	
+	action def DisplayProfile {
+		in item profileResponse : ProfileResponse;
+	}
+	
+	action def LoginAndRetrieveProfile;
+	
+	action loginProcess : LoginAndRetrieveProfile {
+		first start;
+		
+		then action enterCreds : EnterCredentials {
+			out item credentials : Credentials;
+		}
+		
+		flow from enterCreds.credentials to sendAuth.credentials;
+		
+		then action sendAuth : SendAuthRequest {
+			in item credentials;
+			out item authRequest : AuthenticationRequest;
+		}
+		
+		flow from sendAuth.authRequest to authenticate.authRequest;
+		
+		then action authenticate : Authenticate {
+			in item authRequest;
+			out item authResponse : AuthenticationResponse;
+		}
+		
+		flow from authenticate.authResponse to validateSession.authResponse;
+		
+		then action validateSession : ValidateSession {
+			in item authResponse;
+			out item sessionToken : SessionToken;
+			out item isValid : Boolean;
+		}
+		
+		then decide;
+			if validateSession.isValid {
+				flow from validateSession.sessionToken to requestProfile.sessionToken;
+				
+				then action requestProfile : RequestProfile {
+					in item sessionToken;
+					out item profileRequest : ProfileRequest;
+				}
+				
+				flow from requestProfile.profileRequest to fetchProfile.profileRequest;
+				
+				then action fetchProfile : FetchProfile {
+					in item profileRequest;
+					out item profileResponse : ProfileResponse;
+				}
+				
+				flow from fetchProfile.profileResponse to displayProfile.profileResponse;
+				
+				then action displayProfile : DisplayProfile {
+					in item profileResponse;
+				}
+				
+				then merge success;
+			}
+			else {
+				then action handleError {
+					in item errorMsg : ErrorMessage = validateSession.authResponse.errorMsg;
+				}
+				
+				then merge failure;
+			}
+		
+		then merge complete;
+		then done;
+	}
+	
+	state def AuthenticationStateMachine {
+		entry; then idle;
+		
+		state idle;
+		transition idle_to_authenticating
+			first idle
+			accept AuthenticationRequest
+			then authenticating;
+		
+		state authenticating {
+			entry; then validating;
+			
+			state validating;
+			transition validating_to_authenticated
+				first validating
+				if "credentials valid"
+				then authenticated;
+			
+			transition validating_to_failed
+				first validating
+				if "credentials invalid"
+				then failed;
+			
+			state authenticated;
+			state failed;
+		}
+		
+		transition authenticating_to_sessionActive
+			first authenticating.authenticated
+			then sessionActive;
+		
+		transition authenticating_to_idle
+			first authenticating.failed
+			then idle;
+		
+		state sessionActive {
+			entry; then ready;
+			
+			state ready;
+			transition ready_to_fetchingProfile
+				first ready
+				accept ProfileRequest
+				then fetchingProfile;
+			
+			state fetchingProfile;
+			transition fetchingProfile_to_profileLoaded
+				first fetchingProfile
+				then profileLoaded;
+			
+			state profileLoaded;
+		}
+		
+		transition sessionActive_to_idle
+			first sessionActive.profileLoaded
+			accept "logout"
+			then idle;
+	}
+	
+	part system {
+		part user : User;
+		part mobileApp : MobileApp;
+		part authService : AuthenticationService;
+		part dataService : DataService;
+		part database : Database;
+		
+		connection userToApp connect user.authPort to mobileApp.userInterfacePort;
+		connection appToAuth connect mobileApp.authServicePort to authService.requestPort;
+		connection authToDb connect authService.databasePort to database.queryPort;
+		connection appToData connect mobileApp.dataServicePort to dataService.profileRequestPort;
+		connection dataToDb connect dataService.databasePort to database.queryPort;
+		
+		perform loginProcess;
+	}
+	
+	requirement def AuthenticationRequirement {
+		doc /* The system shall authenticate users with valid credentials within 2 seconds. */
+		
+		subject authenticatedUser : User;
+		
+		require constraint {
+			doc /* Authentication response time shall be less than 2 seconds. */
+		}
+	}
+	
+	requirement def DataRetrievalRequirement {
+		doc /* The system shall retrieve and display user profile data after successful authentication. */
+		
+		subject profileData : ProfileData;
+		
+		require constraint {
+			doc /* Profile data must be retrieved only for authenticated sessions. */
+		}
+	}
+	
+	requirement def SecurityRequirement {
+		doc /* The system shall protect user credentials during transmission and storage. */
+		
+		require constraint {
+			doc /* Credentials must be encrypted in transit and at rest. */
+		}
+	}
+	
+	requirement loginSystemRequirements {
+		doc /* Top-level requirements for mobile app login system. */
+		
+		require authReq : AuthenticationRequirement;
+		require dataReq : DataRetrievalRequirement;
+		require secReq : SecurityRequirement;
+	}
+	
+	requirement satisfy loginSystemRequirements by system;
+}
+---
+Candidate 3 (meta-llama/llama-4-maverick, rating=5/10):
+package 'Mobile App Login' {
+    // Item types
+    item def Credentials {
+        attribute username : String;
+        attribute password : String;
+    }
+    item def AuthToken;
+    item def ProfileData;
+    item def LoginRequest;
+    item def LoginResponse {
+        attribute authToken : AuthToken;
+        attribute profileData : ProfileData;
+    }
+    item def ErrorResponse {
+        attribute errorCode : Integer;
+        attribute errorMessage : String;
+    }
+
+    // Value types with units
+    value def Seconds;
+    value def Milliseconds;
+
+    // Part definitions
+    part def User;
+    part def MobileApp;
+    part def AuthenticationService;
+    part def ProfileService;
+
+    // Port definitions
+    port def LoginPort {
+        out item loginRequest : LoginRequest;
+        in item loginResponse : LoginResponse;
+        in item errorResponse : ErrorResponse;
+    }
+    port def AuthPort {
+        in item credentials : Credentials;
+        out item authToken : AuthToken;
+    }
+    port def ProfilePort {
+        in item authToken : AuthToken;
+        out item profileData : ProfileData;
+    }
+
+    // Action definitions
+    action def Login { 
+        in item credentials : Credentials; 
+        out item authToken : AuthToken; 
+        out item profileData : ProfileData; 
+    }
+    action def Authenticate { 
+        in item credentials : Credentials; 
+        out item authToken : AuthToken; 
+    }
+    action def GetProfileData { 
+        in item authToken : AuthToken; 
+        out item profileData : ProfileData; 
+    }
+
+    // State machine for MobileApp
+    state machine def MobileAppStateMachine {
+        state initial;
+        state loggedOut;
+        state loggingIn;
+        state loggedIn;
+        state failed;
+
+        transition from initial to loggedOut;
+        transition from loggedOut to loggingIn;
+        transition from loggingIn to loggedIn when loginResponse received;
+        transition from loggingIn to failed when errorResponse received;
+        transition from loggedIn to loggedOut;
+    }
+
+    // Action definition for Login process
+    action login : Login {
+        in item credentials;
+        out item authToken;
+        out item profileData;
+
+        action sendLoginRequest {
+            send new LoginRequest(credentials) to authenticationService.loginPort;
+        }
+        action receiveLoginResponse {
+            accept loginResponse : LoginResponse;
+            authToken = loginResponse.authToken;
+            profileData = loginResponse.profileData;
+        }
+        action handleError {
+            accept errorResponse : ErrorResponse;
+        }
+
+        first sendLoginRequest;
+        then receiveLoginResponse or handleError;
+    }
+
+    // Part definition for MobileApp with ports and behavior
+    part mobileApp : MobileApp {
+        port loginPort : LoginPort;
+        perform login : Login {
+            in item credentials = loginPort.loginRequest;
+            out item authToken;
+            out item profileData;
+        }
+        state machine MobileAppStateMachine;
+    }
+
+    // Part definitions for services with ports
+    part authenticationService : AuthenticationService {
+        port authPort : AuthPort;
+        action authenticate : Authenticate {
+            in item credentials = authPort.credentials;
+            out item authToken = authPort.authToken;
+        }
+    }
+    part profileService : ProfileService {
+        port profilePort : ProfilePort;
+        action getProfileData : GetProfileData {
+            in item authToken = profilePort.authToken;
+            out item profileData = profilePort.profileData;
+        }
+    }
+
+    // Connections between parts
+    connection from mobileApp.loginPort to authenticationService.authPort;
+    connection from authenticationService.authPort to profileService.profilePort;
+
+    // Requirement definition
+    requirement def LoginRequirement {
+        objective { 
+            /* User logs into the mobile app and retrieves their profile data */
+        }
+    }
+
+    // Satisfy the requirement
+    satisfy loginRequirement : LoginRequirement {
+        by mobileApp.login;
+    }
+}
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a process where a user logs into a mobile app and retrieves their profile data.

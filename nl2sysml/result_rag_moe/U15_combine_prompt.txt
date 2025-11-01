@@ -1,0 +1,1035 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes a basic fuel system for a machine, likely a vehicle or a generator. The system consists of two primary components: an Engine and a Fuel Tank.
+
+The Fuel Tank serves as the reservoir, providing a supply of fuel. The Engine consumes this fuel to generate power. A key feature of this system is the two-way connection between the components. Fuel flows from the tank to the engine, but there is also a dedicated return line allowing unused fuel to flow back from the engine to the tank.
+
+This entire interaction is managed through a specialized, compatible port on each component. This connection point not only handles the fuel supply and return but also has a property for representing the fuel's temperature, suggesting that temperature is a monitored characteristic of the system at this interface.
+
+Example 1 SysML:
+package 'Port Conjugation Example' {
+	attribute def Temp;
+	part def Fuel;
+	port def FuelPort {
+		attribute temperature : Temp;
+		out item fuelSupply : Fuel;
+		in item fuelReturn : Fuel;
+	}
+	part def FuelTank {
+		port fuelTankPort : FuelPort;
+	}
+	part def Engine {
+		port engineFuelPort : ~FuelPort;
+	}
+}
+---
+Example 2 NL:
+This model describes a vehicle's core fuel system. The system consists of two primary components: a Fuel Tank Assembly, which serves as the fuel reservoir, and an Engine, which consumes the fuel to generate power.
+
+These two parts are linked by a standardized fuel interface, ensuring a proper connection for fuel delivery. In this arrangement, fuel flows from an output port on the tank assembly directly to an input port on the engine. This represents the fundamental relationship where the tank supplies fuel and the engine consumes it to operate the vehicle.
+
+Example 2 SysML:
+package 'Interface Example' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	interface def FuelInterface {
+		end supplierPort : FuelOutPort;
+		end consumerPort : FuelInPort;
+	}
+	part vehicle : Vehicle {	
+		part tankAssy : FuelTankAssembly;		
+		part eng : Engine;
+		interface : FuelInterface connect 
+			supplierPort ::> tankAssy.fuelTankPort to 
+			consumerPort ::> eng.engineFuelPort;
+	} 
+}
+---
+Example 3 NL:
+This model describes the fuel delivery system within a vehicle. The system consists of two main parts: a Fuel Tank Assembly and an Engine.
+
+The Fuel Tank Assembly acts as the fuel supplier, while the Engine is the consumer. A dedicated connection is established between them, featuring a two-way fuel flow. A primary fuel line carries fuel from the tank assembly to the engine for combustion. In addition, a fuel return line allows any unused fuel to be sent from the engine back to the tank. This design, with both supply and return lines, is characteristic of many modern fuel-injected vehicle systems.
+
+Example 3 SysML:
+package 'Flow Interface Example' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	interface def FuelInterface {
+		end supplierPort : FuelOutPort;
+		end consumerPort : FuelInPort;
+		flow supplierPort.fuelSupply to consumerPort.fuelSupply;			
+		flow consumerPort.fuelReturn to supplierPort.fuelReturn;
+	}
+	part vehicle : Vehicle {	
+		part tankAssy : FuelTankAssembly;		
+		part eng : Engine;
+		interface : FuelInterface connect 
+			supplierPort ::> tankAssy.fuelTankPort to 
+			consumerPort ::> eng.engineFuelPort;
+	} 
+}
+---
+Example 4 NL:
+This model describes the fundamental components of a vehicle's drivetrain and wheel assembly. It defines a generic vehicle system that includes a transmission, an axle, and wheels.
+
+The system focuses specifically on the mechanical interface used to mount a wheel onto an axle. An axle is defined as a component with mounting points on both its left and right ends. A wheel has a central hub designed to connect to one of these mounting points.
+
+The core function described is the transfer of power. Rotational force, or torque, is transmitted from the axle's mounting point directly to the hub of the wheel. This transfer of torque is what causes the wheel to spin, ultimately propelling the vehicle. The model is detailed enough to also define the lugbolts used to physically fasten the wheel to the axle, even specifying a critical engineering property for them: their required tightening torque.
+
+Example 4 SysML:
+package VehicleDefinitions {
+	doc
+	/*
+	 * Example vehicle definitions model.
+	 */
+	private import ScalarValues::*;
+	private import Quantities::*;
+	private import MeasurementReferences::*;
+	private import ISQ::*;
+	private import SI::*;
+	/* PART DEFINITIONS */
+	part def Vehicle {
+		attribute mass :> ISQ::mass;
+	}
+	part def Transmission;	
+	part def AxleAssembly;
+	part def Axle {
+		port leftMountingPoint: AxleMountIF;
+		port rightMountingPoint: AxleMountIF;
+	}
+	part def Wheel {
+		port hub: WheelHubIF;
+	}
+	part def Lugbolt {
+		attribute tighteningTorque :> ISQ::torque;
+	}
+	/* PORT DEFINITIONS */
+	port def DriveIF { 
+		in driveTorque :> ISQ::torque;
+	}
+	port def AxleMountIF { 
+		out transferredTorque :> ISQ::torque;
+	}
+	port def WheelHubIF { 
+		in appliedTorque :> ISQ::torque;
+	}
+	/* INTERFACE DEFINITIONS */
+	interface def Mounting {
+		doc /* The definition of the interface for mounting a Wheel to an Axle. */
+		end axleMount: AxleMountIF;
+		end hub: WheelHubIF;
+		flow axleMount.transferredTorque to hub.appliedTorque;
+	}
+}
+---
+Example 5 NL:
+This model describes a fuel delivery system, likely for a vehicle or machine, composed of a Fuel Tank Assembly and an Engine.
+
+The system's primary function is to supply fuel from the tank to the engine. The connection between these two components is designed for a circulating fuel flow. A supply line moves fuel from the tank assembly to the engine, and a return line carries any unused fuel back from the engine to the tank. This two-way flow is common in fuel-injected systems to maintain constant pressure and help cool the fuel.
+
+A key feature of this system is that the temperature is monitored at the fuel connection points on both the engine and the tank assembly, indicating that fuel temperature is a critical operational parameter.
+
+Example 5 SysML:
+package 'Port Example' {
+	attribute def Temp;
+	part def Fuel;
+	port def FuelOutPort {
+		attribute temperature : Temp;
+		out item fuelSupply : Fuel;
+		in item fuelReturn : Fuel;
+	}
+	port def FuelInPort {
+		attribute temperature : Temp;
+		in item fuelSupply : Fuel;
+		out item fuelReturn : Fuel;
+	}
+	part def FuelTankAssembly {
+		port fuelTankPort : FuelOutPort;
+	}
+	part def Engine {
+		port engineFuelPort : FuelInPort;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+ncluded in the set of members of the namespace. Various kinds of namespaces may also
+define additional memberships to be included in the set of memberships of that kind of namespace (for instance, the
+memberships of a type also include its inherited members – see 7.3.2 ) and which of those are visible (e.g., public
+inherited memberships).
+If the member name or member short name of any imported membership conflicts with the name of any owned
+member, or with the name of any visible membership from any other imported namespace, then the conflicting
+membership is hidden and is not included in the set of imported memberships of the importing namespace. As a
+result of this rule and the distinguishability rule for owned members (see 7.2.5.2 ), the names of all owned and
+imported members will always be distinct from each other. Any specialized kind of namespace that adds further
+kinds of memberships (e.g., inherited memberships of types) always maintains the property that the names of all
+memberships of a namespace are distinct from each other.
+The namespace that is the source of an import relationship, known as the importing namespace, also owns it. There
+are two types of import relationships. A membership import is a relationship between the importing namespace and
+a single membership, which becomes an imported membership of the importing namespace. A namespace import is
+a relationship between the importing namespace and an imported namespace, in which all visible memberships of
+the imported namespace become imported memberships of the importing namespace.
+
+Kernel Modeling Language v1.0
+
+23
+
+
+A membership import is denoted using the keyword import followed by a qualified name, which identifies the
+imported membership (be member name or member short name). The member element of the imported membership
+becomes an imported member of the importing namespace. Note that the imported membership may be for an alias
+of the imported member (see 7.2.5.2 ), in which case the element will be known by that name in the importing
+namespace.
+namespace N6 {
+private import N4::A;
+private import N4::C; // Imported with name "C".
+namespace M {
+import C; // "C" is re-imported from N4 into
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+ngElement.
+/annotation : Annotation [0..*] {subsets sourceRelationship, ordered}
+
+Kernel Modeling Language v1.0
+
+117
+
+
+The Annotations that relate this AnnotatingElement to its annotatedElements. This includes the
+owningAnnotatingRelationship (if any) followed by all the ownedAnnotatingRelationshps.
+/ownedAnnotatingRelationship : Annotation [0..*] {subsets annotation, ownedRelationship, ordered}
+The ownedRelationships of this AnnotatingElement that are Annotations, for which this
+AnnotatingElement is the annotatingElement.
+/owningAnnotatingRelationship : Annotation [0..1] {subsets owningRelationship, annotation}
+The owningRelationship of this AnnotatingRelationship, if it is an Annotation
+Operations
+None.
+Constraints
+deriveAnnotatingElementAnnotatedElement
+If an AnnotatingElement has annotations, then its annotatedElements are the annotatedElements of all
+its annotations. Otherwise, it's single annotatedElement is its owningNamespace.
+annotatedElement =
+if annotation->notEmpty() then annotation.annotatedElement
+else Sequence{owningNamespace} endif
+
+deriveAnnotatingElementAnnotation
+The annotations of an AnnotatingElement are its owningAnnotatingRelationship (if any) followed by
+all its ownedAnnotatingRelationships.
+annotation =
+if owningAnnotatingRelationship = null then ownedAnnotatingRelationship
+else owningAnnotatingRelationship->prepend(owningAnnotatingRelationship)
+endif
+
+deriveAnnotatingElementOwnedAnnotatingRelationship
+The ownedAnnotatingRelationships of an AnnotatingElement are its ownedRelationships that are
+Annotations, for which the AnnotatingElement is not the annotatedElement.
+ownedAnnotatingRelationship = ownedRelationship->
+selectByKind(Annotation)->
+select(a | a.annotatedElement <> self)
+
+8.3.2.3.3 Annotation
+Description
+An Annotation is a Relationship between an AnnotatingElement and the Element that is annotated by that
+AnnotatingElement.
+General Classes
+Relationship
+
+118
+
+Kernel Modeling Language v1.0
+
+
+Attributes
+annotatedElement : Element {redefines target}
+The Element that is annotated by the annotatingElement of this Annotation.
+/annotatingElement : AnnotatingElement {redefines source}
+The AnnotatingElement that annotates the annotatedEle
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+ion or
+metadata feature) is included in the body of a relationship, then, rather than being directly an owned related element
+of the containing relationship, the annotating element is an owned related element of an annotation relationship
+owned by the containing relationship (see 7.2.3.2 for an example).
+
+7.2.3 Dependencies
+7.2.3.1 Dependencies Overview
+Metamodel references:
+• Concrete syntax, 8.2.3.2
+• Abstract syntax, 8.3.2.2
+• Semantics, none
+
+Kernel Modeling Language v1.0
+
+17
+
+
+A dependency is a kind of relationship between any number of client (source) and supplier (target) elements. It
+implies that a change to a supplier element may result in a change to a client element. Dependencies can be useful
+for representing relationships between elements in an abstract way. For example, a dependency can be used to
+represent that an upper layer of an architecture stack may depend on a lower layer of the stack.
+7.2.3.2 Dependency Declaration
+A dependency is declared using the keyword dependency, optionally followed by a short name and/or name (see
+7.2.2 ). The client elements of the dependency are then given as a comma-separated list of qualified names following
+the keyword from, followed by a similar list of the supplier elements after the keyword to. If no short name or
+name is given for the dependency, then the keyword from may be omitted.
+dependency Use
+from 'Application Layer' to 'Service Layer';
+// 'Service Layer' is the client of this dependency, not its name.
+dependency 'Service Layer'
+to 'Data Layer', 'External Interface Layer';
+
+A dependency declaration may also optionally have a relationship body (see 7.2.2.3 ) containing any additional
+owned related elements (which act as suppliers) and annotating elements owned by the dependency via annotation
+relationships (see 7.2.4 ).
+dependency 'Service Layer'
+to 'Data Layer', 'External Interface Layer' {
+/* 'Service Layer' is the client of this dependency,
+* not its name. */
+}
+
+7.2.4 Annotations
+7.2.4.1 Annotations Overview
+Metamodel references:
+• Concrete syntax, 8.2.3.3
+• Abstract syntax, 8.3.2.3
+• Semantics, none
+An annotation is a relationship between an annotated element and an annotating element that provides
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package 'Screen Mirroring System' {
+	private import ScalarValues::*;
+	private import SI::*;
+	private import ISQ::*;
+
+	// Value Type and Unit Definitions
+	attribute def Resolution {
+		doc "Defines the display resolution in pixels."
+		value width : Integer;
+		value height : Integer;
+	}
+
+	attribute def FrameRate :> ISQ::frequency {
+		doc "Defines the number of frames displayed per second."
+		in SI::hertz;
+	}
+
+	attribute def Latency :> ISQ::duration {
+		doc "Defines the time delay in the system."
+		in SI::millisecond;
+	}
+
+	// Enumerations for Control and Status Signals
+	enum ControlCommand {
+		play,
+		pause,
+		stop,
+		volumeUp,
+		volumeDown
+	}
+
+	enum ConnectionStatus {
+		idle,
+		connecting,
+		connected,
+		buffering,
+		disconnected,
+		error
+	}
+
+	// Item Definitions for Data Streams
+	item def VideoStream {
+		attribute resolution : Resolution;
+		attribute frameRate : FrameRate;
+	}
+
+	item def AudioStream {
+		attribute channels : Integer;
+		attribute sampleRate : ISQ::frequency;
+	}
+
+	// Port Definition for the Mirroring Interface
+	port def MirroringPort {
+		doc "Defines the interface for receiving mirrored content and sending control signals."
+		in item video : VideoStream;
+		in item audio : AudioStream;
+		in item status : ConnectionStatus;
+		out item control : ControlCommand;
+	}
+
+	// Part Definitions for System Components
+	part def Smartphone {
+		port source : ~MirroringPort; // Conjugated port for sending content
+
+		action updateStatus(out s : ConnectionStatus) {
+			out s to source.status;
+		}
+
+		state MirroringLifecycle {
+			initial state Idle {
+				entry updateStatus(ConnectionStatus::idle);
+			}
+			state Connecting {
+				entry updateStatus(ConnectionStatus::connecting);
+			}
+			state Streaming;
+			state Paused;
+
+			transition from Idle to Connecting on connectRequest;
+			transition from Connecting to Streaming on connectionEstablished {
+				do updateStatus(ConnectionStatus::connected);
+			}
+			transition from Connecting to Idle on connectionFailed;
+			transition from Streaming to Paused
+				on receive(source.control) {
+					guard control == ControlCommand::pause;
+				}
+			transition from Paused to Streaming
+				on receive(source.control) {
+					guard control == ControlCommand::play;
+				}
+			transition from Streaming to Idle
+				on receive(source.control) {
+					guard control == ControlCommand::stop;
+				}
+		}
+	}
+
+	part def SmartTV {
+		port display : MirroringPort; // Standard port for receiving content
+	}
+
+	// Interface Definition for the Connection
+	interface def ScreenMirroringInterface {
+		doc "Defines the connection and data flows for screen mirroring."
+		end phoneEnd : ~MirroringPort;
+		end tvEnd : MirroringPort;
+
+		flow phoneEnd.video to tvEnd.video;
+		flow phoneEnd.audio to tvEnd.audio;
+		flow phoneEnd.status to tvEnd.status;
+		flow tvEnd.control to phoneEnd.control;
+	}
+
+	// Requirement Definitions
+	requirement def ScreenMirroringFunctionality {
+		doc "The system shall provide wireless screen mirroring from a smartphone to a smart TV."
+		id = "R1";
+		text "The smartphone shall transmit its screen content, including video and audio, to the smart TV for real-time display.";
+	}
+
+	requirement VideoQuality {
+		doc "The system must support high-definition video streaming."
+		id = "R1.1";
+		text "The video stream shall support a minimum resolution of 1920x1080 pixels and a minimum frame rate of 30 Hz.";
+		refines ScreenMirroringFunctionality;
+	}
+
+	requirement LatencyPerformance {
+		doc "The system must have low latency for a responsive user experience."
+		id = "R2";
+		text "The end-to-end latency from smartphone screen capture to TV display shall be less than 100 ms.";
+		attribute maxLatency : Latency = 100.0;
+	}
+
+	requirement ConnectionSecurity {
+		doc "The wireless connection must be secure."
+		id = "R3";
+		text "The data transmission between the smartphone and the smart TV shall be encrypted using a standard protocol such as WPA2 or higher.";
+	}
+
+	// Top-level System Definition
+	part def ScreenMirroringSystem {
+		part phone : Smartphone;
+		part tv : SmartTV;
+
+		interface connection : ScreenMirroringInterface connect
+			phoneEnd ::> phone.source to
+			tvEnd ::> tv.display;
+
+		satisfy ScreenMirroringFunctionality by self;
+		satisfy VideoQuality by connection.phoneEnd.video;
+		satisfy LatencyPerformance by connection;
+		satisfy ConnectionSecurity by connection;
+	}
+}
+---
+Candidate 2 (openai/gpt-5, rating=7/10):
+package 'Screen Mirroring' {
+	private import ScalarValues::*;
+	private import Quantities::*;
+	private import MeasurementReferences::*;
+	private import ISQ::*;
+	private import SI::*;
+	/* ITEM AND ATTRIBUTE DEFINITIONS */
+	item def VideoFrame;
+	item def AudioFrame;
+	item def ControlMessage;
+	item def KeyExchange;
+	attribute def DataRate;
+	/* PORT DEFINITIONS */
+	port def MirrorSourcePort {
+		attribute channelLatency :> ISQ::time;
+		attribute jitter :> ISQ::time;
+		attribute frameRate :> ISQ::frequency;
+		attribute avgBitrate : DataRate;
+		attribute encryptionEnabled : Boolean;
+		out item video : VideoFrame;
+		out item audio : AudioFrame;
+		out item keyResponse : KeyExchange;
+		in item control : ControlMessage;
+		in item keyChallenge : KeyExchange;
+	}
+	port def MirrorSinkPort {
+		attribute channelLatency :> ISQ::time;
+		attribute jitter :> ISQ::time;
+		attribute frameRate :> ISQ::frequency;
+		attribute avgBitrate : DataRate;
+		attribute encryptionEnabled : Boolean;
+		in item video : VideoFrame;
+		in item audio : AudioFrame;
+		in item keyResponse : KeyExchange;
+		out item control : ControlMessage;
+		out item keyChallenge : KeyExchange;
+	}
+	/* PART DEFINITIONS */
+	part def Smartphone {
+		attribute name : String;
+		port mirrorPort : MirrorSourcePort;
+	}
+	part def SmartTV {
+		attribute name : String;
+		port mirrorPort : MirrorSinkPort;
+	}
+	/* INTERFACE DEFINITION */
+	interface def MirroringInterface {
+		end sourcePort : MirrorSourcePort;
+		end sinkPort : MirrorSinkPort;
+		flow sourcePort.video to sinkPort.video;
+		flow sourcePort.audio to sinkPort.audio;
+		flow sinkPort.control to sourcePort.control;
+		flow sinkPort.keyChallenge to sourcePort.keyChallenge;
+		flow sourcePort.keyResponse to sinkPort.keyResponse;
+	}
+	/* BEHAVIOR DEFINITIONS */
+	action def StartMirroring {
+		input challenge : KeyExchange;
+		output response : KeyExchange;
+		input startCmd : ControlMessage;
+	}
+	action def StopMirroring {
+		input stopCmd : ControlMessage;
+	}
+	state def MirroringSession {
+		state Disconnected;
+		state Pairing;
+		state Connecting;
+		state Streaming;
+		state Paused;
+		state Error;
+	}
+	/* REQUIREMENTS */
+	requirement def LatencyRequirement {
+		attribute maximumLatency :> ISQ::time;
+	}
+	requirement def JitterRequirement {
+		attribute maximumJitter :> ISQ::time;
+	}
+	requirement def BitrateRequirement {
+		attribute minimumBitrate : DataRate;
+	}
+	requirement def SecurityRequirement;
+	/* DEPENDENCIES */
+	dependency from MirroringInterface to LatencyRequirement, JitterRequirement, BitrateRequirement, SecurityRequirement;
+	/* SYSTEM ASSEMBLY */
+	part def ScreenMirroringSystem {
+		part phone : Smartphone;
+		part tv : SmartTV;
+		interface : MirroringInterface connect 
+			sourcePort ::> phone.mirrorPort to 
+			sinkPort ::> tv.mirrorPort;
+	}
+	part system : ScreenMirroringSystem;
+}
+---
+Candidate 3 (anthropic/claude-sonnet-4.5, rating=10/10):
+package ScreenMirroringSystem {
+	doc /* 
+	 * Screen mirroring system interface between smartphone and smart TV.
+	 * Defines bidirectional communication for video/audio streaming and control.
+	 */
+	
+	private import ScalarValues::*;
+	private import Quantities::*;
+	private import MeasurementReferences::*;
+	private import ISQ::*;
+	private import SI::*;
+	
+	/* VALUE TYPES AND UNITS */
+	
+	attribute def Resolution {
+		attribute width : Natural;
+		attribute height : Natural;
+	}
+	
+	attribute def FrameRate :> ISQ::frequency;
+	
+	attribute def BitRate :> ISQ::frequency;
+	
+	attribute def Latency :> ISQ::time;
+	
+	attribute def SignalStrength :> ISQ::dimensionOneValue;
+	
+	item def VideoStream {
+		attribute resolution : Resolution;
+		attribute frameRate : FrameRate;
+		attribute bitRate : BitRate;
+		attribute codec : String;
+	}
+	
+	item def AudioStream {
+		attribute sampleRate : FrameRate;
+		attribute bitRate : BitRate;
+		attribute channels : Natural;
+		attribute codec : String;
+	}
+	
+	item def ControlCommand {
+		attribute commandType : CommandType;
+		attribute timestamp : ISQ::time;
+	}
+	
+	item def StatusUpdate {
+		attribute connectionQuality : SignalStrength;
+		attribute bufferLevel : Real;
+		attribute errorCount : Natural;
+	}
+	
+	enum def CommandType {
+		enum play;
+		enum pause;
+		enum stop;
+		enum volumeUp;
+		enum volumeDown;
+		enum seekForward;
+		enum seekBackward;
+	}
+	
+	enum def ConnectionState {
+		enum disconnected;
+		enum discovering;
+		enum pairing;
+		enum connected;
+		enum streaming;
+		enum error;
+	}
+	
+	/* PORT DEFINITIONS */
+	
+	port def SmartphoneScreenMirrorPort {
+		attribute connectionState : ConnectionState;
+		attribute signalStrength : SignalStrength;
+		out item videoOut : VideoStream;
+		out item audioOut : AudioStream;
+		out item controlOut : ControlCommand;
+		in item statusIn : StatusUpdate;
+		in item remoteControlIn : ControlCommand;
+	}
+	
+	port def SmartTVScreenMirrorPort {
+		attribute connectionState : ConnectionState;
+		attribute displayLatency : Latency;
+		in item videoIn : VideoStream;
+		in item audioIn : AudioStream;
+		in item controlIn : ControlCommand;
+		out item statusOut : StatusUpdate;
+		out item remoteControlOut : ControlCommand;
+	}
+	
+	/* PART DEFINITIONS */
+	
+	part def Smartphone {
+		attribute deviceName : String;
+		attribute batteryLevel : Real;
+		attribute screenResolution : Resolution;
+		
+		port mirrorPort : SmartphoneScreenMirrorPort;
+		
+		part display : Display {
+			attribute nativeResolution : Resolution;
+		}
+		
+		part wirelessTransceiver : WirelessTransceiver {
+			attribute protocol : String;
+			attribute transmitPower : ISQ::power;
+		}
+		
+		part mediaEncoder : MediaEncoder {
+			attribute supportedCodecs : String[*];
+			attribute maxBitRate : BitRate;
+		}
+		
+		part mirrorController : MirrorController;
+	}
+	
+	part def SmartTV {
+		attribute deviceName : String;
+		attribute modelNumber : String;
+		attribute displaySize : ISQ::length;
+		
+		port mirrorPort : SmartTVScreenMirrorPort;
+		
+		part display : TVDisplay {
+			attribute nativeResolution : Resolution;
+			attribute refreshRate : FrameRate;
+			attribute hdrSupport : Boolean;
+		}
+		
+		part wirelessReceiver : WirelessTransceiver {
+			attribute protocol : String;
+			attribute receiveSensitivity : SignalStrength;
+		}
+		
+		part mediaDecoder : MediaDecoder {
+			attribute supportedCodecs : String[*];
+			attribute hardwareAcceleration : Boolean;
+		}
+		
+		part audioSystem : AudioSystem {
+			attribute speakerCount : Natural;
+			attribute outputPower : ISQ::power;
+		}
+		
+		part mirrorController : MirrorController;
+	}
+	
+	part def Display;
+	
+	part def TVDisplay :> Display;
+	
+	part def WirelessTransceiver {
+		attribute protocol : String;
+	}
+	
+	part def MediaEncoder {
+		attribute supportedCodecs : String[*];
+	}
+	
+	part def MediaDecoder {
+		attribute supportedCodecs : String[*];
+	}
+	
+	part def AudioSystem;
+	
+	part def MirrorController {
+		attribute currentState : ConnectionState;
+		
+		part stateMachine : MirrorConnectionStateMachine;
+	}
+	
+	/* STATE MACHINE BEHAVIOR */
+	
+	state def MirrorConnectionStateMachine {
+		entry action initializeConnection;
+		
+		state disconnected;
+		
+		state discovering {
+			entry action scanForDevices;
+		}
+		
+		state pairing {
+			entry action exchangeCredentials;
+			do action negotiateCapabilities;
+		}
+		
+		state connected {
+			entry action establishConnection;
+		}
+		
+		state streaming {
+			entry action startStreaming;
+			do action monitorQuality;
+			exit action stopStreaming;
+			
+			state buffering {
+				entry action fillBuffer;
+			}
+			
+			state playing {
+				do action transmitData;
+			}
+			
+			state paused {
+				entry action pauseTransmission;
+			}
+			
+			transition bufferingToPlaying
+				first buffering
+				accept BufferReadyEvent
+				then playing;
+			
+			transition playingToPaused
+				first playing
+				accept PauseCommandEvent
+				then paused;
+			
+			transition pausedToPlaying
+				first paused
+				accept PlayCommandEvent
+				then playing;
+			
+			transition playingToBuffering
+				first playing
+				accept BufferLowEvent
+				then buffering;
+		}
+		
+		state error {
+			entry action logError;
+			do action attemptRecovery;
+		}
+		
+		transition initial
+			first disconnected;
+		
+		transition startDiscovery
+			first disconnected
+			accept DiscoveryRequestEvent
+			then discovering;
+		
+		transition deviceFound
+			first discovering
+			accept DeviceFoundEvent
+			then pairing;
+		
+		transition pairingSuccess
+			first pairing
+			accept PairingSuccessEvent
+			then connected;
+		
+		transition pairingFailure
+			first pairing
+			accept PairingFailureEvent
+			then disconnected;
+		
+		transition startMirroring
+			first connected
+			accept StartMirroringEvent
+			then streaming;
+		
+		transition stopMirroring
+			first streaming
+			accept StopMirroringEvent
+			then connected;
+		
+		transition disconnect
+			first connected
+			accept DisconnectEvent
+			then disconnected;
+		
+		transition connectionError
+			first streaming
+			accept ErrorEvent
+			then error;
+		
+		transition errorRecovery
+			first error
+			accept RecoverySuccessEvent
+			then connected;
+		
+		transition errorDisconnect
+			first error
+			accept RecoveryFailureEvent
+			then disconnected;
+	}
+	
+	/* ACTION DEFINITIONS */
+	
+	action def initializeConnection;
+	action def scanForDevices;
+	action def exchangeCredentials;
+	action def negotiateCapabilities;
+	action def establishConnection;
+	action def startStreaming;
+	action def monitorQuality;
+	action def stopStreaming;
+	action def fillBuffer;
+	action def transmitData;
+	action def pauseTransmission;
+	action def logError;
+	action def attemptRecovery;
+	
+	/* EVENT DEFINITIONS */
+	
+	action def BufferReadyEvent;
+	action def PauseCommandEvent;
+	action def PlayCommandEvent;
+	action def BufferLowEvent;
+	action def DiscoveryRequestEvent;
+	action def DeviceFoundEvent;
+	action def PairingSuccessEvent;
+	action def PairingFailureEvent;
+	action def StartMirroringEvent;
+	action def StopMirroringEvent;
+	action def DisconnectEvent;
+	action def ErrorEvent;
+	action def RecoverySuccessEvent;
+	action def RecoveryFailureEvent;
+	
+	/* INTERFACE DEFINITION */
+	
+	interface def ScreenMirroringInterface {
+		doc /* 
+		 * Interface for screen mirroring between smartphone and smart TV.
+		 * Supports bidirectional video/audio streaming and control commands.
+		 */
+		
+		end sourcePort : SmartphoneScreenMirrorPort;
+		end displayPort : SmartTVScreenMirrorPort;
+		
+		flow sourcePort.videoOut to displayPort.videoIn;
+		flow sourcePort.audioOut to displayPort.audioIn;
+		flow sourcePort.controlOut to displayPort.controlIn;
+		flow displayPort.statusOut to sourcePort.statusIn;
+		flow displayPort.remoteControlOut to sourcePort.remoteControlIn;
+	}
+	
+	/* REQUIREMENTS */
+	
+	requirement def ScreenMirroringRequirements {
+		doc /* Top-level requirements for screen mirroring system. */
+		
+		requirement videoQualityReq {
+			doc /* Video streaming must support minimum quality standards. */
+			
+			require minResolution : Resolution {
+				attribute width = 1920;
+				attribute height = 1080;
+			}
+			
+			require minFrameRate : FrameRate {
+				attribute :>> num = 30.0;
+			}
+		}
+		
+		requirement latencyReq {
+			doc /* Maximum acceptable latency for responsive mirroring. */
+			
+			require maxLatency : Latency {
+				attribute :>> num = 0.1;
+			}
+		}
+		
+		requirement connectionReq {
+			doc /* Connection must be stable and secure. */
+			
+			require minSignalStrength : SignalStrength {
+				attribute :>> num = 0.7;
+			}
+			
+			require encryptionRequired : Boolean = true;
+		}
+		
+		requirement audioSyncReq {
+			doc /* Audio must remain synchronized with video. */
+			
+			require maxAudioVideoSkew : Latency {
+				attribute :>> num = 0.04;
+			}
+		}
+		
+		requirement compatibilityReq {
+			doc /* System must support common codecs and protocols. */
+			
+			require supportedVideoCodecs : String[*] = ("H.264", "H.265", "VP9");
+			require supportedAudioCodecs : String[*] = ("AAC", "MP3", "Opus");
+			require supportedProtocols : String[*] = ("Miracast", "AirPlay", "Chromecast");
+		}
+	}
+	
+	/* SYSTEM ASSEMBLY */
+	
+	part screenMirroringSystem : ScreenMirroringSystem {
+		part smartphone : Smartphone {
+			attribute :>> deviceName = "UserSmartphone";
+			attribute :>> screenResolution = Resolution {
+				attribute :>> width = 2400;
+				attribute :>> height = 1080;
+			}
+		}
+		
+		part smartTV : SmartTV {
+			attribute :>> deviceName = "LivingRoomTV";
+			attribute :>> displaySize = 55.0 [SI::in];
+		}
+		
+		interface mirrorConnection : ScreenMirroringInterface connect
+			sourcePort ::> smartphone.mirrorPort to
+			displayPort ::> smartTV.mirrorPort;
+		
+		satisfy requirements : ScreenMirroringRequirements;
+	}
+	
+	part def ScreenMirroringSystem;
+}
+---
+Candidate 4 (meta-llama/llama-4-maverick, rating=5/10):
+package 'Smartphone Smart TV Interface' {
+    private import SI::*;
+    private import ISQ::*;
+    private import Quantities::*;
+    attribute def Resolution {
+        attribute width :> ISQ::length;
+        attribute height :> ISQ::length;
+    }
+    attribute def FrameRate :> ISQ::frequency;
+    part def Smartphone;
+    part def SmartTV;
+    port def ScreenMirroringOutPort {
+        out item videoStream;
+        out attribute resolution : Resolution;
+        out attribute frameRate : FrameRate;
+    }
+    port def ScreenMirroringInPort {
+        in item videoStream;
+        in attribute resolution : Resolution;
+        in attribute frameRate : FrameRate;
+    }
+    interface def ScreenMirroringInterface {
+        end smartphonePort : ScreenMirroringOutPort;
+        end smartTVPort : ScreenMirroringInPort;
+        flow smartphonePort.videoStream to smartTVPort.videoStream;
+        flow smartphonePort.resolution to smartTVPort.resolution;
+        flow smartphonePort.frameRate to smartTVPort.frameRate;
+    }
+    part smartphone : Smartphone {
+        port screenMirroringPort : ScreenMirroringOutPort;
+    }
+    part smartTV : SmartTV {
+        port screenMirroringPort : ScreenMirroringInPort;
+    }
+    part def ScreenMirroringSystem {
+        part smartphone : Smartphone;
+        part smartTV : SmartTV;
+        interface : ScreenMirroringInterface connect 
+            smartphonePort ::> smartphone.screenMirroringPort to 
+            smartTVPort ::> smartTV.screenMirroringPort;
+    }
+    requirement ScreenMirroringRequirement {
+        doc /* The smartphone shall be able to mirror its screen to the smart TV. */
+        part smartphone : Smartphone;
+        part smartTV : SmartTV;
+    }
+    satisfy ScreenMirroringRequirement {
+        doc /* The screen mirroring interface satisfies the screen mirroring requirement. */
+        part screenMirroringSystem : ScreenMirroringSystem;
+    }
+}
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define an interface between a smartphone and a smart TV for screen mirroring functionality.

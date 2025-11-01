@@ -1,0 +1,324 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model represents the process of a digital camera taking a photograph. The system operates as a sequence of distinct actions that transform a real-world view into a final, viewable image.
+
+The process is initiated by a user trigger, such as pressing the shutter button, which identifies the desired real-world **scene** to be captured. The first automated step is to **focus**, where the camera's lens system adjusts to create a sharp, clear optical **image** of that scene on its internal sensor.
+
+Immediately following the focus, the camera performs the **shoot** action. This is the moment of capture, where the light and color data from the focused image is read by the sensor and processed into a digital **picture** file.
+
+Finally, this newly created picture is sent to be **displayed**, allowing the user to instantly review the photo they have just taken, typically on an LCD screen on the back of the camera. Once displayed, the camera is ready to capture the next scene.
+
+Example 1 SysML:
+package 'Merge Example' {
+	part def Scene;
+	part def Image;
+	part def Picture;
+	action def Focus { in item scene : Scene; out item image : Image; }
+	action def Shoot { in item image : Image; out item picture : Picture; }
+	action def Display { in item picture : Picture; }
+	action def TakePicture;
+	action takePicture : TakePicture {
+		first start;
+		then merge continue;
+		then action trigger {
+			out item scene : Scene;
+		}
+		flow from trigger.scene to focus.scene;
+		then action focus : Focus {
+			in item scene;
+			out item image;
+		}
+		flow from focus.image to shoot.image;
+		then action shoot : Shoot {
+			in item image ;
+			out item picture;
+		}
+		flow from shoot.picture to display.picture;
+		then action display : Display {
+			in item picture;
+		}
+		then continue;	
+	}
+}
+---
+Example 2 NL:
+This describes a system structured with a classic three-tier software architecture, likely for a purpose like calculating a price or a result based on specific inputs.
+
+The system is organized into three distinct, dependent layers:
+
+1.  An **Application Layer**, which serves as the user-facing part of the system where data is entered.
+2.  A **Service Layer**, which contains the core business logic and performs the main calculations or operations.
+3.  A **Data Layer**, which is responsible for storing and retrieving the information the Service Layer needs to function.
+
+In operation, the Application Layer relies on the Service Layer to process user requests. The Service Layer, in turn, depends on the Data Layer to access necessary information (like pricing tables, user data, or configuration settings).
+
+The system's core function is to calculate a final value (represented by `z`) that is directly determined by two other independent input values (represented by `x` and `y`). For instance, a final shipping cost (`z`) would be calculated based on the package's weight (`x`) and the shipping distance (`y`).
+
+Example 2 SysML:
+package DependencyTest {
+	package System {
+		package 'Application Layer';
+		package 'Service Layer';
+		package 'Data Layer';
+	}
+	private import System::*;
+	dependency Use from 'Application Layer' to 'Service Layer';
+	dependency from 'Service Layer' to 'Data Layer';
+	attribute x;
+	attribute y;
+	attribute z;
+	dependency z to x, y;
+}
+---
+Example 3 NL:
+This model describes a generic system designed for interaction with a user. The two primary components are the 'System' itself and an external 'User'.
+
+The main purpose of this arrangement is for the user to operate the system to achieve a specific, defined goal. This core user-system interaction is broken down into two essential sub-functions or steps, referred to as UC1 and UC2. For the user to successfully use the system and achieve their goal, they must engage in both of these sub-functions as part of the overall process.
+
+The system is designed with the inherent capabilities to perform these functions. The model also outlines a more comprehensive, higher-level scenario (UC3) that encompasses the entire standard user-system interaction. This suggests that the basic operation of the system can be a component or a step within a larger, more complex workflow.
+
+Example 3 SysML:
+package UseCaseTest {
+	part def System;	
+	part def User;
+	use case def UseSystem {
+		subject system : System;
+		actor user : User;
+		objective  { 
+			/* Goal */
+		}
+		include use case uc1 : UC1;	
+		include use case uc2 {
+			subject = system;
+			actor user = UseSystem::user;
+		}
+	}
+	use case def UC1;
+	part user : User;
+	use case uc2 {
+	    subject;
+		actor :>> user;
+	}
+	use case u : UseSystem;
+	part system : System {
+		include uc2;
+		perform u;
+		use case uc1 : UC1;
+	}
+	use case uc3 {
+	    include u;
+	    include system.uc1;
+	}
+}
+---
+Example 4 NL:
+This describes the automated process of a digital camera system for taking a photograph. The system is designed to capture a real-world scene, process it, and display the final result.
+
+The process begins when a user aims the camera at a "scene." The system's first step is to "focus," which adjusts the optics to create a sharp, clear "image" on the camera's sensor. Immediately following this, the "shoot" action captures this focused image, converting it into a final digital "picture." As the final step, this newly created picture is sent to be displayed on a "screen," providing immediate visual feedback to the user.
+
+Example 4 SysML:
+package 'Messaging Example' {
+	item def Scene;
+	item def Image;
+	item def Picture;
+	attribute def Show {
+		item picture : Picture;
+	}
+	action def Focus { in item scene : Scene; out item image : Image; }
+	action def Shoot { in item image : Image; out item picture : Picture; }
+	action def TakePicture;
+	action screen;
+	action takePicture : TakePicture {
+		action trigger accept scene : Scene;
+		then action focus : Focus {
+			in item scene = trigger.scene;
+			out item image;
+		}
+		flow from focus.image to shoot.image;
+		then action shoot : Shoot {
+			in item image; 
+			out item picture;
+		}
+		then send new Show(shoot.picture) to screen;
+	}
+}
+---
+Example 5 NL:
+This model describes the interaction within a vehicle's cruise control system, which is designed to automatically maintain a steady speed set by the driver.
+
+The system involves the driver and several key components within the vehicle: the cruise control unit (the system's brain), the speedometer, and the engine.
+
+The process is initiated when the driver sets a desired cruising speed. This command is sent to the vehicle's cruise control unit. The system then enters a control loop where the speedometer continuously senses the vehicle's actual speed and sends this data to the cruise control unit. The cruise controller compares the driver's target speed with the real-time sensed speed and, based on the difference, sends a command to the engine to adjust the fuel intake, thereby speeding up or slowing down the vehicle to maintain the constant, desired speed.
+
+Example 5 SysML:
+package 'Interaction Example-1' {
+	public import 'Event Occurrence Example'::*;
+	item def SetSpeed;
+	item def SensedSpeed;
+	item def FuelCommand;
+	occurrence def CruiseControlInteraction {		
+		ref part :>> driver;		
+		ref part :>> vehicle;
+		message setSpeedMessage of SetSpeed 
+			from driver.setSpeedSent to vehicle.cruiseController.setSpeedReceived;
+		message sensedSpeedMessage of SensedSpeed 
+			from vehicle.speedometer.sensedSpeedSent to vehicle.cruiseController.sensedSpeedReceived;
+		message fuelCommandMessage of FuelCommand 
+			from vehicle.cruiseController.fuelCommandSent to vehicle.engine.fuelCommandReceived;
+		first setSpeedMessage then sensedSpeedMessage;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+e
+redefined property also applies to the redefining property, though the redefining property will
+generally place additional constraints on type and/or multiplicity.
+2. Semantic constraints. These constraints specify relationships that are semantically required in a KerML
+model (see 8.4.2 ), particularly relationships with elements in the Kernel Semantic Library (see 9.2 ).
+These constraints may be violated by a model as entered by a user or as interchanged. In this case, a tool
+may satisfy the constraints by introducing implied relationships into the model, it may simply report their
+violation, or it may ignore the violations. Semantic constraints have names that start with the word check,
+followed by the name of the constrained metaclass, followed by a descriptive word or phrase. For
+example, checkTypeSpecialization.
+3. Validation constraints. These constraints specify additional syntactic conditions that must be satisfied in
+order to give a model a proper semantic interpretation. They are written presuming that all semantic
+constraints are satisfied. A valid model is a model that satisfies all validation constraints. A tool
+conformant to the KerML abstract syntax should report violations of validation constraints. A tool
+conformant to the KerML semantics is only required to operate on valid models. Validation constraints
+have names that start with the word validate, followed by the name of the metaclass, followed by a
+descriptive word or phrase. For example, validateConnectorRelatedFeatures.
+
+108
+
+Kernel Modeling Language v1.0
+
+
+8.3.2 Root Abstract Syntax
+8.3.2.1 Elements and Relationships Abstract Syntax
+8.3.2.1.1 Overview
+{ordered}
++/ownedElement 0..*
+
+Element
+
++target
+0..*
+{subsets relatedElement,
+ordered}
++source
+0..*
+{subsets relatedElement,
+ordered}
++/relatedElement
+0..*
+{ordered, nonunique}
+
++elementId : String{id}
++aliasIds : String [0..*]{ordered}
++declaredShortName : String [0..1]
++declaredName : String [0..1]
++/shortName : String [0..1]
++/name : String [0..1]
++/qualifiedName : String [0..1]
++isImpliedIncluded : Boolean = false
++/isLibraryElement : Boolean
++escapedName() : String [0..1]
++effectiveShortName() : String [0..1]
++effectiveName() : String
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+conformant to KerML as defined above. (See Clause 8 .)
+2. Concrete Syntax Conformance. A tool demonstrating Concrete Syntax Conformance provides a user
+interface and/or API that enables instances of KerML concrete syntax notation to be created, read,
+updated, and deleted. Note that a conforming tool may also provide the ability to create, read, update and
+delete additional notational elements that are not defined in KerML. Concrete Syntax Conformance
+implies Abstract Syntax Conformance, in that creating models in the concrete syntax acts as a user
+interface for the abstract syntax. However, a tool demonstrating Concrete Syntax Conformance need not
+represent a model internally in exactly the form modeled for the abstract syntax in this specification. (See
+Clause 8 .)
+3. Semantic Conformance. A tool demonstrating Semantic Conformance provides a demonstrable way to
+interpret a syntactically conformant model (as defined above) according to the KerML semantics, e.g.,
+via model execution, simulation, or reasoning, when and only when such interpretations are possible.
+Semantic Conformance implies Abstract Syntax Conformance, in that the semantics for KerML are only
+defined on models represented in the abstract syntax. (See Clause 8 and Clause 9 . See also 6.1 for further
+discussion of the interpretation of models and their syntactic and semantic conformance.)
+4. Model Interchange Conformance. A tool demonstrating model interchange conformance can import and/
+or export syntactically conformant KerML models (as defined above) as specified in Clause 10 .
+Every conformant KerML modeling tool shall demonstrate at least Abstract Syntax Conformance and Model
+Interchange Conformance. In addition, such a tool may demonstrate Concrete Syntax Conformance and/or Semantic
+Conformance, both of which are dependent on Abstract Syntax Conformance.
+
+Kernel Modeling Language v1.0
+
+3
+
+
+4
+
+Kernel Modeling Language v1.0
+
+
+3 Normative References
+The following normative documents contain provisions which, through reference in this text, constitute provisions
+of this specification.
+[ADLER] ZLIB Compressed Data Format Specification, Version 3.3
+https://datatracker.ietf.org/doc/html/rfc1950
+[Al
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+es, the spaceInteriors of which are identified as the innerSpaceOccurrences ("holes") of the
+Occurrence having the spaceBoundary. These two cases are covered by SurroundedBy Links between
+Occurrences, with the surroundedByOccurrences of an Occurrence being the ones they are SurroundedBy.
+MatesWith Links are JustOutsideOf Links between Occurrences indicating that they union (see below) to an
+Occurrence with a spaceBoundary but no spaceInterior. This means there is no possibility of other
+Occurrences happening or existing in the space between them. JustOutsideOf Links additionally include those
+between Occurrences where only some of their spaceSlices (of their spaceBoundaries) are linked by
+MatesWith.
+
+9.2.4.2 Elements
+9.2.4.2.1 HappensBefore
+Element
+Association
+Description
+HappensBefore is a Without Association linking an earlierOccurrence to a laterOccurrence,
+indicating that the Occurrences do not overlap in time (not necessarily in space, see OutsideOf; none of their
+snapshots happen at the same time), and the earlierOccurrence happens first. This means no Occurrence
+
+292
+
+Kernel Modeling Language v1.0
+
+
+HappensBefore itself. Every Occurrence that HappensDuring the earlierOccurrence (including itself) also
+HappensBefore every Occurrence that HappensDuring the laterOccurrence (including itself).
+
+General Types
+Without
+HappensLink
+Features
+earlierOccurrence : Occurrence {subsets sourceOccurrence, redefines separateOccurrenceToo}
+The participant of this HappensBefore link that happens (ends) earlier than the other participant (starts). Crosses
+laterOccurrence.predecessors.
+laterOccurrence : Occurrence {subsets targetOccurrence, redefines separateOccurrence}
+The participant of this HappensBefore link that happens later than (starts after) the other participant (ends).
+Crosses earlierOccurrence.successors.
+Constraints
+None.
+9.2.4.2.2 happensBeforeLinks
+Element
+Feature
+Description
+happensBeforeLinks is a specialization of binaryLinks restricted to type earlierOccurrence. It is the most
+general Succession (M1 instance of M2 Succession). All other Successions (in libraries or user models)
+
+specialize it (directly or indirectly).
+General Types
+HappensBefore
+binaryLinks
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a process where a user logs into a mobile app and retrieves their profile data.

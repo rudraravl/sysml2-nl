@@ -1,0 +1,397 @@
+System:
+You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes the fundamental structure of a standard vehicle, likely a car or light truck. The vehicle is presented as an assembly of several key components.
+
+Specifically, it is composed of a single engine, a transmission, and a set of four wheels. The design recognizes that all these items—the engine, transmission, and each of the wheels—are distinct components that are all grouped together under the general category of "vehicle parts" to form the complete system.
+
+Example 1 SysML:
+package 'Subsetting Example' {
+	part def Vehicle {
+		part parts : VehiclePart[*];
+		part eng : Engine subsets parts;
+		part trans : Transmission subsets parts;
+		part wheels : Wheel[4] :> parts;
+	}
+	abstract part def VehiclePart;
+	part def Engine :> VehiclePart;
+	part def Transmission :> VehiclePart;
+	part def Wheel :> VehiclePart;
+}
+---
+Example 2 NL:
+This model describes a vehicle, which is composed of a chassis, an engine, and a transmission system. Each of these core components has its own specific mass.
+
+A critical design requirement for this vehicle is that its total weight is strictly controlled. The combined mass of the chassis, the engine, and the transmission is not allowed to exceed a limit of 2500 kilograms. This suggests the vehicle is being designed for a specific performance, efficiency, or regulatory class where weight is a key factor.
+
+Example 2 SysML:
+package 'Constraint Assertions-1' {
+	private import ISQ::*;
+	private import SI::*;
+	private import NumericalFunctions::*;
+	part def Engine;
+	part def Transmission;
+	constraint def MassConstraint {
+		in partMasses : MassValue[0..*];
+		in massLimit : MassValue;
+		sum(partMasses) <= massLimit
+	}
+	part def Vehicle {
+		assert constraint massConstraint : MassConstraint {
+			in partMasses = (chassisMass, engine.mass, transmission.mass);
+			in massLimit = 2500[kg];
+		}
+		attribute chassisMass : MassValue;
+		part engine : Engine {
+			attribute mass : MassValue;
+		}
+		part transmission : Engine {
+			attribute mass : MassValue;
+		}
+	}	
+}
+---
+Example 3 NL:
+This model describes a simple, modular system built around a single component. The system contains one part, named 'x', which is created from a standardized, reusable design template called 'A'.
+
+Essentially, 'A' represents the blueprint for a generic part, which is maintained in a separate design library or catalog. The final system then incorporates a specific instance of that blueprint, the component 'x'. The model is abstract and does not specify what this component is or what it does; it simply defines a system that successfully utilizes a part from an external design catalog.
+
+Example 3 SysML:
+package QualifiedNameImportTest {
+	package P1 {
+		part def A;
+	}
+	package P2 {
+		package P2a {
+			public import P1::*;
+		}
+		part x: P2a::A;
+	}
+}
+---
+Example 4 NL:
+This describes a vehicle that is being designed and engineered to meet specific weight requirements. The vehicle's mass is carefully controlled under two distinct conditions.
+
+When fully loaded with fuel, its total weight must not surpass 2000 kilograms. Conversely, the vehicle's base weight, with an empty fuel tank, is limited to a maximum of 1500 kilograms. These limits are critical design targets, likely for ensuring safety, performance, and efficiency standards are met.
+
+Example 4 SysML:
+package 'Requirement Usages' {
+	private import SI::*;
+	private import 'Requirement Definitions'::*;
+	requirement <'1.1'> fullVehicleMassLimit : VehicleMassLimitationRequirement {
+		subject vehicle : Vehicle;
+		attribute :>> massReqd = 2000[kg];
+		assume constraint {
+			doc /* Full tank is full. */
+			vehicle.fuelMass == vehicle.fuelFullMass
+		}
+	}
+	requirement <'1.2'> emptyVehicleMassLimit : VehicleMassLimitationRequirement {
+		subject vehicle : Vehicle;
+		attribute :>> massReqd = 1500[kg];
+		assume constraint {
+			doc /* Full tank is empty. */
+			vehicle.fuelMass == 0[kg]
+		}
+	}
+}
+---
+Example 5 NL:
+This model describes an intelligent battery charging system, composed of a power system and the battery it manages.
+
+The system's primary function is to automatically charge a battery to its full capacity. It operates using a continuous feedback loop. The process begins by monitoring the battery to determine its current charge level. Based on that level, the system makes a decision: if the charge is less than 100%, it continues to supply power to the battery.
+
+This cycle of monitoring the charge and then applying more power repeats until the battery reaches a full 100% charge. At that point, the system automatically ends the charging process to prevent overcharging.
+
+Example 5 SysML:
+package 'Decision Example' {
+	private import ScalarValues::*;
+	attribute def BatteryCharged;
+	part battery;
+	part powerSystem;
+	action def MonitorBattery { out charge : Real; }
+	action def AddCharge { in charge : Real; }
+	action def EndCharging;
+	action def ChargeBattery {
+		first start;
+		then merge continueCharging;
+		then action monitor : MonitorBattery {
+			out batteryCharge : Real;
+		}
+		then decide;
+			if monitor.batteryCharge < 100 then addCharge;
+			if monitor.batteryCharge >= 100 then endCharging;
+		action addCharge : AddCharge {
+			in charge = monitor.batteryCharge;
+		}
+		then continueCharging;
+		action endCharging : EndCharging;
+		then done;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+neral Types
+Object
+Features
+signalCondition : BooleanEvaluation
+A BooleanExpression whose result is being monitored.
+signalMonitor : ChangeMonitor
+The ChangeMonitor responsible for monitoring the signalCondition.
+Constraints
+None.
+9.2.13.2.4 defaultMonitor
+Element
+Feature
+Description
+defaultMonitor is a single ChangeMonitor that can be used as a default.
+
+General Types
+
+354
+
+Kernel Modeling Language v1.0
+
+
+DefaultMonitorLife
+objects
+Features
+None.
+Constraints
+None.
+9.2.13.2.5 DefaultMonitorLife
+Element
+Structure
+Description
+DefaultMonitorLife is the classifier of the singleton Life of the defaultMonitor.
+
+General Types
+Life
+ChangeMonitor
+Features
+None.
+Constraints
+None.
+9.2.13.2.6 ObserveChange
+Element
+Behavior
+Description
+Each Performance of ObserveChange waits for the result of the Boolean changeCondition of a given
+ChangeSignal to change from false to true, and, when it does, sends the ChangeSignal to a given observer
+Occurrence.
+General Types
+Performance
+Features
+changeObserver : Occurrence
+
+Kernel Modeling Language v1.0
+
+355
+
+
+changeSignal : ChangeSignal
+transfer : TransferBefore [0..1]
+After waiting for the condition change (if necessary), then send changeSignal to changeObserver.
+wait : IfThenPerformance
+If the result of the changeSignal.signalCondition is false, then wait for it to become true:
+in ifTest { not changeSignal.signalCondition() }
+in thenClause : BooleanEvaluationResultToMonitorPerformance {
+in onOccurrence = changeSignal.signalCondition;
+}
+
+Constraints
+None.
+9.2.13.2.7 StartObservation
+Element
+Behavior
+Description
+Start an observation of a given ChangeSignal for a given Occurrence.
+General Types
+Performance
+Features
+observer : Occurrence
+signal : ChangeSignal
+Constraints
+None.
+
+9.2.14 Triggers
+9.2.14.1 Triggers Overview
+This package contains functions that return ChangeSignals for triggering when a Boolean condition changes
+from false to true, at a specific time or after a specific time delay.
+9.2.14.2 Elements
+9.2.14.2.1 TimeSignal
+Element
+Structure
+
+356
+
+Kernel Modeling Language v1.0
+
+
+Description
+A TimeSignal is a ChangeSignal whose condition is the currentTime of a given Clock reaching a specific
+signalTime.
+General Types
+ChangeSignal
+Fe
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+gn {
+feature redefines approved = true;
+feature redefines approver = "John Smith";
+}
+
+The keywords feature and/or redefines (or the equivalent symbol :>>) may be omitted in the declaration of a
+metadata feature.
+metadata ApprovalAnnotation about Design {
+approved = true;
+approver = "John Smith";
+}
+
+If the metadata feature is an owned member of a namespace (see 7.2.5 ), then the explicit identification of annotated
+elements (following the about keyword) can be omitted, in which case the annotated element is implicitly the
+containing namespace (see 7.2.4 ).
+class Design {
+// This metadata feature is implicitly about the class Design.
+@ApprovalAnnotation {
+approved = true;
+approver = "John Smith";
+}
+}
+
+If a metadata feature has one or more concrete features that directly or indirectly subset
+Metaobject::annotatedElement, then, for each annotated element of the metadata feature, there must be at
+least one such feature for which the metaclass of the annotated element conforms to all the types of the feature
+(which must all be specializations of the reflective metaclass KerML::Element, see 9.2.17 ).
+metaclass Command {
+// A metadata feature of this metaclass may annotate
+// a behavior or a step.
+subsets annotatedElement : KerML::Behavior;
+subsets annotatedElement : KerML::Step;
+}
+behavior Save specializes UserAction {
+@Command; // This is valid.
+redefine step doAction {
+@Command; // This is valid.
+}
+}
+struct Options {
+@Command; // This is INVALID.
+}
+
+If the metaclass of a metadata feature is a direct or indirect specialization of Metaobjects::SemanticMetadata
+(see 9.2.16.2.3 ), then the annotated elements must all be types and the feature SemanticMetadata::baseType
+
+Kernel Modeling Language v1.0
+
+69
+
+
+must be bound to a value of type KerML::Type (see 9.2.17 ). Each type annotated by such semantic metadata has
+an implicit specialization added to a type determined from the baseType value as follows:
+• If the annotated type is neither a classifier nor a feature, then the annotated type implicitly specializes the
+baseType.
+• If the annotated type is a classifier and the baseType is a classifier, then annotated classifier implicitly
+subclassifies the baseType.
+• If the ann
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+another, then the TimeOf the end snapshot of the first Occurrence
+equals the TimeOf the second Occurrence.
+timeOrderingConstraint
+If one Occurrence happens before another, then the TimeOf the end snapshot of the first Occurrence is no
+greater than the TimeOf the second Occurrence.
+9.2.12.2.7 universalClock
+Element
+Feature
+Description
+universalClock is a single Clock that can be used as a default universal time reference.
+
+General Types
+objects
+UniversalClockLife
+Features
+None.
+Constraints
+None.
+9.2.12.2.8 UniversalClockLife
+Element
+Structure
+Description
+UniversalClockLife is the classifier of the singleton Life of the universalClock
+
+General Types
+Life
+
+352
+
+Kernel Modeling Language v1.0
+
+
+Clock
+Features
+None.
+Constraints
+None.
+
+9.2.13 Observation
+9.2.13.1 Observation Overview
+This package models a framework for monitoring Boolean conditions and notifying registered observers when they
+change from false to true.
+9.2.13.2 Elements
+9.2.13.2.1 CancelObservation
+Element
+Behavior
+Description
+Cancel all observations of a given ChangeSignal for a given Occurrence.
+General Types
+Performance
+Features
+observer : Occurrence
+signal : ChangeSignal
+Constraints
+None.
+9.2.13.2.2 ChangeMonitor
+Element
+Structure
+Description
+A ChangeMonitor is a collection of ongoing ChangeSignal observations for various observer Occurrences. It
+provides convenient operations for starting and canceling the observations it manages.
+General Types
+Object
+
+Kernel Modeling Language v1.0
+
+353
+
+
+Features
+cancelObservation : CancelObservation [0..*]
+Cancel all observations of a given ChangeSignal for a given Occurrence.
+observations : ObserveChange [0..*]
+startObservation : StartObservation [0..*]
+Start an observation of a given ChangeSignal for a given Occurrence.
+Constraints
+None.
+9.2.13.2.3 ChangeSignal
+Element
+Structure
+Description
+A ChangeSignal is a signal to be sent when the Boolean result of its changeCondition Expression changes
+from false to true.
+General Types
+Object
+Features
+signalCondition : BooleanEvaluation
+A BooleanExpression whose result is being monitored.
+signalMonitor : ChangeMonitor
+The ChangeMonitor responsible for monitoring the signalCondition.
+Constraints
+None.
+9.2.13.2.4 defaultM
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a patient monitoring device that tracks vital signs and sends alerts.

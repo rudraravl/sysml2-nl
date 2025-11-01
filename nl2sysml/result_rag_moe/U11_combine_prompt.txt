@@ -1,0 +1,1198 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes the fundamental structure of a standard vehicle, likely a car or light truck. The vehicle is presented as an assembly of several key components.
+
+Specifically, it is composed of a single engine, a transmission, and a set of four wheels. The design recognizes that all these items—the engine, transmission, and each of the wheels—are distinct components that are all grouped together under the general category of "vehicle parts" to form the complete system.
+
+Example 1 SysML:
+package 'Subsetting Example' {
+	part def Vehicle {
+		part parts : VehiclePart[*];
+		part eng : Engine subsets parts;
+		part trans : Transmission subsets parts;
+		part wheels : Wheel[4] :> parts;
+	}
+	abstract part def VehiclePart;
+	part def Engine :> VehiclePart;
+	part def Transmission :> VehiclePart;
+	part def Wheel :> VehiclePart;
+}
+---
+Example 2 NL:
+This model describes a vehicle, which is composed of a chassis, an engine, and a transmission system. Each of these core components has its own specific mass.
+
+A critical design requirement for this vehicle is that its total weight is strictly controlled. The combined mass of the chassis, the engine, and the transmission is not allowed to exceed a limit of 2500 kilograms. This suggests the vehicle is being designed for a specific performance, efficiency, or regulatory class where weight is a key factor.
+
+Example 2 SysML:
+package 'Constraint Assertions-1' {
+	private import ISQ::*;
+	private import SI::*;
+	private import NumericalFunctions::*;
+	part def Engine;
+	part def Transmission;
+	constraint def MassConstraint {
+		in partMasses : MassValue[0..*];
+		in massLimit : MassValue;
+		sum(partMasses) <= massLimit
+	}
+	part def Vehicle {
+		assert constraint massConstraint : MassConstraint {
+			in partMasses = (chassisMass, engine.mass, transmission.mass);
+			in massLimit = 2500[kg];
+		}
+		attribute chassisMass : MassValue;
+		part engine : Engine {
+			attribute mass : MassValue;
+		}
+		part transmission : Engine {
+			attribute mass : MassValue;
+		}
+	}	
+}
+---
+Example 3 NL:
+This model describes a simple, modular system built around a single component. The system contains one part, named 'x', which is created from a standardized, reusable design template called 'A'.
+
+Essentially, 'A' represents the blueprint for a generic part, which is maintained in a separate design library or catalog. The final system then incorporates a specific instance of that blueprint, the component 'x'. The model is abstract and does not specify what this component is or what it does; it simply defines a system that successfully utilizes a part from an external design catalog.
+
+Example 3 SysML:
+package QualifiedNameImportTest {
+	package P1 {
+		part def A;
+	}
+	package P2 {
+		package P2a {
+			public import P1::*;
+		}
+		part x: P2a::A;
+	}
+}
+---
+Example 4 NL:
+This describes a vehicle that is being designed and engineered to meet specific weight requirements. The vehicle's mass is carefully controlled under two distinct conditions.
+
+When fully loaded with fuel, its total weight must not surpass 2000 kilograms. Conversely, the vehicle's base weight, with an empty fuel tank, is limited to a maximum of 1500 kilograms. These limits are critical design targets, likely for ensuring safety, performance, and efficiency standards are met.
+
+Example 4 SysML:
+package 'Requirement Usages' {
+	private import SI::*;
+	private import 'Requirement Definitions'::*;
+	requirement <'1.1'> fullVehicleMassLimit : VehicleMassLimitationRequirement {
+		subject vehicle : Vehicle;
+		attribute :>> massReqd = 2000[kg];
+		assume constraint {
+			doc /* Full tank is full. */
+			vehicle.fuelMass == vehicle.fuelFullMass
+		}
+	}
+	requirement <'1.2'> emptyVehicleMassLimit : VehicleMassLimitationRequirement {
+		subject vehicle : Vehicle;
+		attribute :>> massReqd = 1500[kg];
+		assume constraint {
+			doc /* Full tank is empty. */
+			vehicle.fuelMass == 0[kg]
+		}
+	}
+}
+---
+Example 5 NL:
+This model describes an intelligent battery charging system, composed of a power system and the battery it manages.
+
+The system's primary function is to automatically charge a battery to its full capacity. It operates using a continuous feedback loop. The process begins by monitoring the battery to determine its current charge level. Based on that level, the system makes a decision: if the charge is less than 100%, it continues to supply power to the battery.
+
+This cycle of monitoring the charge and then applying more power repeats until the battery reaches a full 100% charge. At that point, the system automatically ends the charging process to prevent overcharging.
+
+Example 5 SysML:
+package 'Decision Example' {
+	private import ScalarValues::*;
+	attribute def BatteryCharged;
+	part battery;
+	part powerSystem;
+	action def MonitorBattery { out charge : Real; }
+	action def AddCharge { in charge : Real; }
+	action def EndCharging;
+	action def ChargeBattery {
+		first start;
+		then merge continueCharging;
+		then action monitor : MonitorBattery {
+			out batteryCharge : Real;
+		}
+		then decide;
+			if monitor.batteryCharge < 100 then addCharge;
+			if monitor.batteryCharge >= 100 then endCharging;
+		action addCharge : AddCharge {
+			in charge = monitor.batteryCharge;
+		}
+		then continueCharging;
+		action endCharging : EndCharging;
+		then done;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+neral Types
+Object
+Features
+signalCondition : BooleanEvaluation
+A BooleanExpression whose result is being monitored.
+signalMonitor : ChangeMonitor
+The ChangeMonitor responsible for monitoring the signalCondition.
+Constraints
+None.
+9.2.13.2.4 defaultMonitor
+Element
+Feature
+Description
+defaultMonitor is a single ChangeMonitor that can be used as a default.
+
+General Types
+
+354
+
+Kernel Modeling Language v1.0
+
+
+DefaultMonitorLife
+objects
+Features
+None.
+Constraints
+None.
+9.2.13.2.5 DefaultMonitorLife
+Element
+Structure
+Description
+DefaultMonitorLife is the classifier of the singleton Life of the defaultMonitor.
+
+General Types
+Life
+ChangeMonitor
+Features
+None.
+Constraints
+None.
+9.2.13.2.6 ObserveChange
+Element
+Behavior
+Description
+Each Performance of ObserveChange waits for the result of the Boolean changeCondition of a given
+ChangeSignal to change from false to true, and, when it does, sends the ChangeSignal to a given observer
+Occurrence.
+General Types
+Performance
+Features
+changeObserver : Occurrence
+
+Kernel Modeling Language v1.0
+
+355
+
+
+changeSignal : ChangeSignal
+transfer : TransferBefore [0..1]
+After waiting for the condition change (if necessary), then send changeSignal to changeObserver.
+wait : IfThenPerformance
+If the result of the changeSignal.signalCondition is false, then wait for it to become true:
+in ifTest { not changeSignal.signalCondition() }
+in thenClause : BooleanEvaluationResultToMonitorPerformance {
+in onOccurrence = changeSignal.signalCondition;
+}
+
+Constraints
+None.
+9.2.13.2.7 StartObservation
+Element
+Behavior
+Description
+Start an observation of a given ChangeSignal for a given Occurrence.
+General Types
+Performance
+Features
+observer : Occurrence
+signal : ChangeSignal
+Constraints
+None.
+
+9.2.14 Triggers
+9.2.14.1 Triggers Overview
+This package contains functions that return ChangeSignals for triggering when a Boolean condition changes
+from false to true, at a specific time or after a specific time delay.
+9.2.14.2 Elements
+9.2.14.2.1 TimeSignal
+Element
+Structure
+
+356
+
+Kernel Modeling Language v1.0
+
+
+Description
+A TimeSignal is a ChangeSignal whose condition is the currentTime of a given Clock reaching a specific
+signalTime.
+General Types
+ChangeSignal
+Fe
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+gn {
+feature redefines approved = true;
+feature redefines approver = "John Smith";
+}
+
+The keywords feature and/or redefines (or the equivalent symbol :>>) may be omitted in the declaration of a
+metadata feature.
+metadata ApprovalAnnotation about Design {
+approved = true;
+approver = "John Smith";
+}
+
+If the metadata feature is an owned member of a namespace (see 7.2.5 ), then the explicit identification of annotated
+elements (following the about keyword) can be omitted, in which case the annotated element is implicitly the
+containing namespace (see 7.2.4 ).
+class Design {
+// This metadata feature is implicitly about the class Design.
+@ApprovalAnnotation {
+approved = true;
+approver = "John Smith";
+}
+}
+
+If a metadata feature has one or more concrete features that directly or indirectly subset
+Metaobject::annotatedElement, then, for each annotated element of the metadata feature, there must be at
+least one such feature for which the metaclass of the annotated element conforms to all the types of the feature
+(which must all be specializations of the reflective metaclass KerML::Element, see 9.2.17 ).
+metaclass Command {
+// A metadata feature of this metaclass may annotate
+// a behavior or a step.
+subsets annotatedElement : KerML::Behavior;
+subsets annotatedElement : KerML::Step;
+}
+behavior Save specializes UserAction {
+@Command; // This is valid.
+redefine step doAction {
+@Command; // This is valid.
+}
+}
+struct Options {
+@Command; // This is INVALID.
+}
+
+If the metaclass of a metadata feature is a direct or indirect specialization of Metaobjects::SemanticMetadata
+(see 9.2.16.2.3 ), then the annotated elements must all be types and the feature SemanticMetadata::baseType
+
+Kernel Modeling Language v1.0
+
+69
+
+
+must be bound to a value of type KerML::Type (see 9.2.17 ). Each type annotated by such semantic metadata has
+an implicit specialization added to a type determined from the baseType value as follows:
+• If the annotated type is neither a classifier nor a feature, then the annotated type implicitly specializes the
+baseType.
+• If the annotated type is a classifier and the baseType is a classifier, then annotated classifier implicitly
+subclassifies the baseType.
+• If the ann
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+another, then the TimeOf the end snapshot of the first Occurrence
+equals the TimeOf the second Occurrence.
+timeOrderingConstraint
+If one Occurrence happens before another, then the TimeOf the end snapshot of the first Occurrence is no
+greater than the TimeOf the second Occurrence.
+9.2.12.2.7 universalClock
+Element
+Feature
+Description
+universalClock is a single Clock that can be used as a default universal time reference.
+
+General Types
+objects
+UniversalClockLife
+Features
+None.
+Constraints
+None.
+9.2.12.2.8 UniversalClockLife
+Element
+Structure
+Description
+UniversalClockLife is the classifier of the singleton Life of the universalClock
+
+General Types
+Life
+
+352
+
+Kernel Modeling Language v1.0
+
+
+Clock
+Features
+None.
+Constraints
+None.
+
+9.2.13 Observation
+9.2.13.1 Observation Overview
+This package models a framework for monitoring Boolean conditions and notifying registered observers when they
+change from false to true.
+9.2.13.2 Elements
+9.2.13.2.1 CancelObservation
+Element
+Behavior
+Description
+Cancel all observations of a given ChangeSignal for a given Occurrence.
+General Types
+Performance
+Features
+observer : Occurrence
+signal : ChangeSignal
+Constraints
+None.
+9.2.13.2.2 ChangeMonitor
+Element
+Structure
+Description
+A ChangeMonitor is a collection of ongoing ChangeSignal observations for various observer Occurrences. It
+provides convenient operations for starting and canceling the observations it manages.
+General Types
+Object
+
+Kernel Modeling Language v1.0
+
+353
+
+
+Features
+cancelObservation : CancelObservation [0..*]
+Cancel all observations of a given ChangeSignal for a given Occurrence.
+observations : ObserveChange [0..*]
+startObservation : StartObservation [0..*]
+Start an observation of a given ChangeSignal for a given Occurrence.
+Constraints
+None.
+9.2.13.2.3 ChangeSignal
+Element
+Structure
+Description
+A ChangeSignal is a signal to be sent when the Boolean result of its changeCondition Expression changes
+from false to true.
+General Types
+Object
+Features
+signalCondition : BooleanEvaluation
+A BooleanExpression whose result is being monitored.
+signalMonitor : ChangeMonitor
+The ChangeMonitor responsible for monitoring the signalCondition.
+Constraints
+None.
+9.2.13.2.4 defaultM
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package 'Patient Monitoring System' {
+	private import SI::*;
+	private import ISQ::*;
+	private import ScalarValues::*;
+	private import KerML::Triggers::*;
+	private import KerML::Time::*;
+
+	// Custom Units and Value Types for Medical Domain
+	unit beatsPerMinute;
+	unit millimetersOfMercury;
+
+	value def HeartRateValue :> Real {
+		in unit beatsPerMinute;
+	}
+
+	value def BloodPressureValue :> Real {
+		in unit millimetersOfMercury;
+	}
+
+	value def OxygenSaturationValue :> Percentage;
+	value def BodyTemperatureValue :> TemperatureValue;
+
+	// Data structure for communicating vital signs
+	item def VitalSignsData {
+		attribute heartRate : HeartRateValue;
+		attribute bloodPressureSystolic : BloodPressureValue;
+		attribute bloodPressureDiastolic : BloodPressureValue;
+		attribute oxygenSaturation : OxygenSaturationValue;
+	}
+
+	// Abstract Sensor Definition
+	abstract part def VitalSignSensor {
+		port vitalDataOut : VitalSignsData;
+	}
+
+	// Concrete Sensor Definitions
+	part def HeartRateSensor :> VitalSignSensor {
+		attribute currentRate : HeartRateValue;
+		flow of vitalDataOut {
+			heartRate = currentRate;
+		}
+	}
+
+	part def BloodPressureSensor :> VitalSignSensor {
+		attribute systolic : BloodPressureValue;
+		attribute diastolic : BloodPressureValue;
+		flow of vitalDataOut {
+			bloodPressureSystolic = systolic;
+			bloodPressureDiastolic = diastolic;
+		}
+	}
+
+	part def PulseOximeter :> VitalSignSensor {
+		attribute spO2 : OxygenSaturationValue;
+		flow of vitalDataOut {
+			oxygenSaturation = spO2;
+		}
+	}
+
+	// Output and Alerting Components
+	part def SystemDisplay {
+		port displayDataIn : VitalSignsData;
+		action renderVitals {
+			in data : VitalSignsData;
+		}
+	}
+
+	part def AlertSystem {
+		port alertTrigger;
+		state machine AlarmController {
+			initial state Idle;
+			state Active;
+
+			transition from Idle to Active on receive alertTrigger;
+			transition from Active to Idle on after(30[s]);
+		}
+	}
+
+	// Core Logic Component
+	part def ProcessingUnit {
+		port hrDataIn : VitalSignsData;
+		port bpDataIn : VitalSignsData;
+		port spo2DataIn : VitalSignsData;
+
+		port displayDataOut : VitalSignsData;
+		port alertCmdOut;
+
+		attribute currentVitals : VitalSignsData;
+
+		// Combine incoming sensor data into a single structure
+		action combineSensorData {
+			in hr : VitalSignsData from hrDataIn;
+			in bp : VitalSignsData from bpDataIn;
+			in spo2 : VitalSignsData from spo2DataIn;
+			out combined : VitalSignsData to currentVitals;
+
+			then {
+				combined.heartRate = hr.heartRate;
+				combined.bloodPressureSystolic = bp.bloodPressureSystolic;
+				combined.bloodPressureDiastolic = bp.bloodPressureDiastolic;
+				combined.oxygenSaturation = spo2.oxygenSaturation;
+			}
+		}
+
+		// Behavior to monitor vitals and trigger alerts
+		state machine MonitorAndAlert {
+			initial state NormalMonitoring;
+			state Alerting;
+
+			// Define conditions that trigger an alert
+			exhibit condition isHeartRateCritical : Boolean =
+				currentVitals.heartRate < 50[beatsPerMinute] or
+				currentVitals.heartRate > 130[beatsPerMinute];
+
+			exhibit condition isSpo2Critical : Boolean =
+				currentVitals.oxygenSaturation < 94[%];
+
+			// Use ChangeSignals to detect when a critical condition becomes true
+			exhibit heartRateSignal : ChangeSignal {
+				redefines signalCondition = isHeartRateCritical;
+			}
+			exhibit spo2Signal : ChangeSignal {
+				redefines signalCondition = isSpo2Critical;
+			}
+
+			// Transition to Alerting state when any critical signal is received
+			transition from NormalMonitoring to Alerting
+				on receive heartRateSignal or receive spo2Signal;
+
+			// In the Alerting state, send a command to the alert system
+			state Alerting {
+				entry {
+					send alertCmdOut;
+				}
+				// Return to normal monitoring if conditions stabilize
+				transition to NormalMonitoring
+					when not (isHeartRateCritical or isSpo2Critical);
+			}
+		}
+	}
+
+	// Top-level System Definition
+	part def PatientMonitoringDevice {
+		// Component Parts
+		part hrSensor : HeartRateSensor;
+		part bpSensor : BloodPressureSensor;
+		part oximeter : PulseOximeter;
+		part processor : ProcessingUnit;
+		part display : SystemDisplay;
+		part alerter : AlertSystem;
+
+		// Connections between parts
+		connect hrSensor.vitalDataOut to processor.hrDataIn;
+		connect bpSensor.vitalDataOut to processor.bpDataIn;
+		connect oximeter.vitalDataOut to processor.spo2DataIn;
+		connect processor.displayDataOut to display.displayDataIn;
+		connect processor.alertCmdOut to alerter.alertTrigger;
+
+		// Data flow for the display
+		flow from processor.currentVitals to display.displayDataIn;
+	}
+
+	// Requirements Definition
+	abstract requirement def VitalSignRangeRequirement {
+		subject device : PatientMonitoringDevice;
+		attribute lowerBound : Real;
+		attribute upperBound : Real;
+	}
+
+	// Specific System Requirements
+	requirement <'PM-R-01'> HeartRateMonitoring : VitalSignRangeRequirement {
+		doc "The patient's heart rate shall be maintained and monitored within a safe range."
+		subject device : PatientMonitoringDevice;
+		redefines lowerBound = 50.0;
+		redefines upperBound = 130.0;
+		require constraint {
+			device.processor.currentVitals.heartRate >= lowerBound[beatsPerMinute] and
+			device.processor.currentVitals.heartRate <= upperBound[beatsPerMinute]
+		}
+	}
+
+	requirement <'PM-R-02'> OxygenSaturationMonitoring {
+		doc "The patient's blood oxygen saturation (SpO2) must not fall to critical levels."
+		subject device : PatientMonitoringDevice;
+		attribute criticalThreshold : Percentage = 94[%];
+		require constraint {
+			device.processor.currentVitals.oxygenSaturation >= criticalThreshold
+		}
+	}
+
+	// Verification case to show how requirements are satisfied
+	satisfy requirement HeartRateMonitoring by device.processor.MonitorAndAlert;
+	satisfy requirement OxygenSaturationMonitoring by device.processor.MonitorAndAlert;
+}
+---
+Candidate 2 (anthropic/claude-sonnet-4.5, rating=10/10):
+package 'Patient Monitoring System' {
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+	private import Time::*;
+	
+	attribute def HeartRateValue :> Real;
+	attribute def BloodPressureValue :> Real;
+	attribute def OxygenSaturationValue :> Real;
+	attribute def TemperatureValue :> TemperatureValue;
+	attribute def AlertLevel specializes ScalarValues::String;
+	
+	value type HeartRate :> HeartRateValue {
+		attribute unit : String = "bpm";
+	}
+	
+	value type BloodPressure :> BloodPressureValue {
+		attribute systolic : Real;
+		attribute diastolic : Real;
+		attribute unit : String = "mmHg";
+	}
+	
+	value type OxygenSaturation :> OxygenSaturationValue {
+		attribute unit : String = "%";
+	}
+	
+	value type BodyTemperature :> TemperatureValue {
+		attribute unit : String = "degC";
+	}
+	
+	item def VitalSignsData {
+		attribute heartRate : HeartRate;
+		attribute bloodPressure : BloodPressure;
+		attribute oxygenSaturation : OxygenSaturation;
+		attribute bodyTemperature : BodyTemperature;
+		attribute timestamp : Time::DateTime;
+	}
+	
+	item def AlertMessage {
+		attribute alertLevel : AlertLevel;
+		attribute vitalSignType : String;
+		attribute measuredValue : Real;
+		attribute threshold : Real;
+		attribute timestamp : Time::DateTime;
+		attribute patientId : String;
+	}
+	
+	port def VitalSignsInputPort {
+		in item vitalSignsData : VitalSignsData;
+	}
+	
+	port def AlertOutputPort {
+		out item alertMessage : AlertMessage;
+	}
+	
+	port def DisplayPort {
+		out item displayData : VitalSignsData;
+	}
+	
+	port def NetworkPort {
+		out item transmitData : AlertMessage;
+		in item acknowledgeData : Boolean;
+	}
+	
+	part def HeartRateSensor {
+		out port heartRateOutput {
+			out item hrData : HeartRate;
+		}
+		
+		attribute samplingRate : Real = 1.0;
+		attribute accuracy : Real = 0.98;
+	}
+	
+	part def BloodPressureSensor {
+		out port bpOutput {
+			out item bpData : BloodPressure;
+		}
+		
+		attribute samplingInterval : Real = 15.0;
+		attribute calibrationDate : Time::DateTime;
+	}
+	
+	part def OxygenSaturationSensor {
+		out port spo2Output {
+			out item spo2Data : OxygenSaturation;
+		}
+		
+		attribute samplingRate : Real = 1.0;
+		attribute sensorType : String = "pulse_oximeter";
+	}
+	
+	part def TemperatureSensor {
+		out port tempOutput {
+			out item tempData : BodyTemperature;
+		}
+		
+		attribute samplingInterval : Real = 60.0;
+		attribute sensorLocation : String = "forehead";
+	}
+	
+	constraint def VitalSignsThresholdConstraint {
+		in heartRate : HeartRate;
+		in bloodPressureSystolic : Real;
+		in bloodPressureDiastolic : Real;
+		in oxygenSaturation : OxygenSaturation;
+		in bodyTemperature : BodyTemperature;
+		
+		heartRate >= 40.0 and heartRate <= 180.0 and
+		bloodPressureSystolic >= 70.0 and bloodPressureSystolic <= 200.0 and
+		bloodPressureDiastolic >= 40.0 and bloodPressureDiastolic <= 130.0 and
+		oxygenSaturation >= 85.0 and oxygenSaturation <= 100.0 and
+		bodyTemperature >= 35.0[°C] and bodyTemperature <= 42.0[°C]
+	}
+	
+	state def MonitoringStates {
+		entry; then idle;
+		
+		state idle {
+			entry assign currentMode = "standby";
+		}
+		then measuring;
+		
+		state measuring {
+			entry assign currentMode = "active";
+			do action collectVitalSigns;
+		}
+		then analyzing;
+		
+		state analyzing {
+			do action evaluateVitalSigns;
+		}
+		then decision;
+		
+		state decision;
+		accept at decision
+			if normalCondition then measuring
+			if alertCondition then alerting
+			if criticalCondition then criticalAlert;
+		
+		state alerting {
+			entry assign alertStatus = "warning";
+			do action sendAlert;
+		}
+		then measuring;
+		
+		state criticalAlert {
+			entry assign alertStatus = "critical";
+			do action sendCriticalAlert;
+			do action activateAlarm;
+		}
+		then measuring;
+	}
+	
+	action def CollectVitalSigns {
+		in hrSensor : HeartRateSensor;
+		in bpSensor : BloodPressureSensor;
+		in spo2Sensor : OxygenSaturationSensor;
+		in tempSensor : TemperatureSensor;
+		out vitalSigns : VitalSignsData;
+		
+		action readHeartRate {
+			out hr : HeartRate;
+		}
+		then action readBloodPressure {
+			out bp : BloodPressure;
+		}
+		then action readOxygenSaturation {
+			out spo2 : OxygenSaturation;
+		}
+		then action readTemperature {
+			out temp : BodyTemperature;
+		}
+		then action aggregateData {
+			in heartRateValue : HeartRate;
+			in bloodPressureValue : BloodPressure;
+			in oxygenSaturationValue : OxygenSaturation;
+			in temperatureValue : BodyTemperature;
+			out aggregatedVitalSigns : VitalSignsData;
+		}
+	}
+	
+	action def EvaluateVitalSigns {
+		in vitalSigns : VitalSignsData;
+		out evaluationResult : String;
+		
+		first start;
+		then action checkHeartRate {
+			in hr : HeartRate;
+			out hrStatus : String;
+		}
+		then action checkBloodPressure {
+			in bp : BloodPressure;
+			out bpStatus : String;
+		}
+		then action checkOxygenSaturation {
+			in spo2 : OxygenSaturation;
+			out spo2Status : String;
+		}
+		then action checkTemperature {
+			in temp : BodyTemperature;
+			out tempStatus : String;
+		}
+		then action determineOverallStatus {
+			in hrStatus : String;
+			in bpStatus : String;
+			in spo2Status : String;
+			in tempStatus : String;
+			out overallStatus : String;
+		}
+		then done;
+	}
+	
+	action def SendAlert {
+		in alertData : AlertMessage;
+		out alertSent : Boolean;
+		
+		first start;
+		then action formatAlert {
+			in rawAlert : AlertMessage;
+			out formattedAlert : AlertMessage;
+		}
+		then action transmitAlert {
+			in alert : AlertMessage;
+			out transmissionStatus : Boolean;
+		}
+		then action logAlert {
+			in alert : AlertMessage;
+		}
+		then done;
+	}
+	
+	action def MonitorPatient {
+		first start;
+		then merge continuousMonitoring;
+		
+		then action collectData : CollectVitalSigns {
+			out currentVitalSigns : VitalSignsData;
+		}
+		
+		then action evaluateData : EvaluateVitalSigns {
+			in vitalSigns = collectData.currentVitalSigns;
+			out result : String;
+		}
+		
+		then decide;
+			if evaluateData.result == "normal" then displayData;
+			if evaluateData.result == "warning" then generateAlert;
+			if evaluateData.result == "critical" then generateCriticalAlert;
+		
+		action displayData {
+			in data : VitalSignsData;
+		}
+		then continuousMonitoring;
+		
+		action generateAlert : SendAlert {
+			in alertData : AlertMessage;
+		}
+		then continuousMonitoring;
+		
+		action generateCriticalAlert : SendAlert {
+			in alertData : AlertMessage;
+		}
+		then action activateAudibleAlarm;
+		then continuousMonitoring;
+		
+		action activateAudibleAlarm {
+			out alarmActive : Boolean;
+		}
+	}
+	
+	part def AlertProcessor {
+		in port vitalSignsInput : VitalSignsInputPort;
+		out port alertOutput : AlertOutputPort;
+		
+		attribute heartRateThresholdLow : Real = 50.0;
+		attribute heartRateThresholdHigh : Real = 120.0;
+		attribute bloodPressureSystolicThresholdLow : Real = 90.0;
+		attribute bloodPressureSystolicThresholdHigh : Real = 140.0;
+		attribute bloodPressureDiastolicThresholdLow : Real = 60.0;
+		attribute bloodPressureDiastolicThresholdHigh : Real = 90.0;
+		attribute oxygenSaturationThresholdLow : Real = 90.0;
+		attribute temperatureThresholdLow : Real = 36.0;
+		attribute temperatureThresholdHigh : Real = 38.5;
+		
+		perform action processVitalSigns : EvaluateVitalSigns;
+	}
+	
+	part def DataLogger {
+		in port dataInput {
+			in item logData : VitalSignsData;
+		}
+		
+		attribute storageCapacity : Real = 10000.0;
+		attribute currentRecordCount : Real = 0.0;
+		attribute loggingInterval : Real = 5.0;
+	}
+	
+	part def DisplayUnit {
+		in port displayInput : DisplayPort;
+		
+		attribute screenSize : Real = 7.0;
+		attribute resolution : String = "1024x600";
+		attribute brightness : Real = 80.0;
+		
+		perform action updateDisplay {
+			in displayData : VitalSignsData;
+		}
+	}
+	
+	part def AlarmUnit {
+		in port alarmTrigger {
+			in item triggerSignal : AlertMessage;
+		}
+		
+		attribute volumeLevel : Real = 85.0;
+		attribute alarmPattern : String = "continuous";
+		
+		perform action soundAlarm {
+			in trigger : AlertMessage;
+			out alarmActive : Boolean;
+		}
+	}
+	
+	part def NetworkInterface {
+		port networkPort : NetworkPort;
+		
+		attribute connectionType : String = "WiFi";
+		attribute encryptionEnabled : Boolean = true;
+		attribute transmissionRate : Real = 100.0;
+		
+		perform action transmitData {
+			in data : AlertMessage;
+			out success : Boolean;
+		}
+	}
+	
+	part def PowerSupply {
+		out port powerOutput {
+			out item voltage : Real;
+			out item current : Real;
+		}
+		
+		attribute batteryCapacity : Real = 5000.0;
+		attribute batteryLevel : Real = 100.0;
+		attribute chargingStatus : Boolean = false;
+		attribute voltage : Real = 12.0;
+	}
+	
+	part def PatientMonitoringDevice {
+		part heartRateSensor : HeartRateSensor;
+		part bloodPressureSensor : BloodPressureSensor;
+		part oxygenSaturationSensor : OxygenSaturationSensor;
+		part temperatureSensor : TemperatureSensor;
+		part alertProcessor : AlertProcessor;
+		part dataLogger : DataLogger;
+		part displayUnit : DisplayUnit;
+		part alarmUnit : AlarmUnit;
+		part networkInterface : NetworkInterface;
+		part powerSupply : PowerSupply;
+		
+		attribute deviceId : String = "PMD-001";
+		attribute patientId : String;
+		attribute operatingMode : String = "continuous";
+		
+		connection hrConnection connect 
+			heartRateSensor.heartRateOutput to alertProcessor.vitalSignsInput;
+		connection bpConnection connect 
+			bloodPressureSensor.bpOutput to alertProcessor.vitalSignsInput;
+		connection spo2Connection connect 
+			oxygenSaturationSensor.spo2Output to alertProcessor.vitalSignsInput;
+		connection tempConnection connect 
+			temperatureSensor.tempOutput to alertProcessor.vitalSignsInput;
+		connection alertConnection connect 
+			alertProcessor.alertOutput to alarmUnit.alarmTrigger;
+		connection networkConnection connect 
+			alertProcessor.alertOutput to networkInterface.networkPort;
+		connection displayConnection connect 
+			alertProcessor.vitalSignsInput to displayUnit.displayInput;
+		connection loggingConnection connect 
+			alertProcessor.vitalSignsInput to dataLogger.dataInput;
+		
+		perform action monitoringBehavior : MonitorPatient;
+		
+		state monitoringState : MonitoringStates;
+	}
+	
+	requirement def MonitoringAccuracyRequirement {
+		doc /* The device shall measure vital signs with specified accuracy. */
+		
+		subject device : PatientMonitoringDevice;
+		
+		require constraint {
+			device.heartRateSensor.accuracy >= 0.95
+		}
+		
+		require constraint {
+			device.oxygenSaturationSensor.samplingRate >= 1.0
+		}
+	}
+	
+	requirement def AlertResponseTimeRequirement {
+		doc /* The device shall generate alerts within 3 seconds of detecting abnormal vital signs. */
+		
+		subject device : PatientMonitoringDevice;
+		
+		attribute maxResponseTime : Real = 3.0;
+		
+		require constraint {
+			device.alertProcessor.processVitalSigns.duration <= maxResponseTime
+		}
+	}
+	
+	requirement def DataLoggingRequirement {
+		doc /* The device shall log all vital signs data at regular intervals. */
+		
+		subject device : PatientMonitoringDevice;
+		
+		require constraint {
+			device.dataLogger.loggingInterval <= 10.0
+		}
+		
+		require constraint {
+			device.dataLogger.storageCapacity >= 5000.0
+		}
+	}
+	
+	requirement def PowerManagementRequirement {
+		doc /* The device shall operate for at least 8 hours on battery power. */
+		
+		subject device : PatientMonitoringDevice;
+		
+		attribute minOperatingTime : Real = 8.0;
+		
+		require constraint {
+			device.powerSupply.batteryCapacity >= 4000.0
+		}
+	}
+	
+	requirement def AlertTransmissionRequirement {
+		doc /* Critical alerts shall be transmitted to the central monitoring station. */
+		
+		subject device : PatientMonitoringDevice;
+		
+		require constraint {
+			device.networkInterface.encryptionEnabled == true
+		}
+		
+		require constraint {
+			device.networkInterface.transmissionRate >= 50.0
+		}
+	}
+	
+	requirement <'PMD-001'> systemRequirement {
+		doc /* The patient monitoring device shall continuously track heart rate, 
+		       blood pressure, oxygen saturation, and body temperature, and shall 
+		       generate alerts when vital signs exceed safe thresholds. */
+		
+		subject monitoringDevice : PatientMonitoringDevice;
+		
+		require monitoringAccuracy : MonitoringAccuracyRequirement {
+			subject device = monitoringDevice;
+		}
+		
+		require alertResponseTime : AlertResponseTimeRequirement {
+			subject device = monitoringDevice;
+		}
+		
+		require dataLogging : DataLoggingRequirement {
+			subject device = monitoringDevice;
+		}
+		
+		require powerManagement : PowerManagementRequirement {
+			subject device = monitoringDevice;
+		}
+		
+		require alertTransmission : AlertTransmissionRequirement {
+			subject device = monitoringDevice;
+		}
+		
+		assume constraint {
+			doc /* Sensors are properly calibrated and attached to patient. */
+			monitoringDevice.heartRateSensor.accuracy >= 0.95 and
+			monitoringDevice.bloodPressureSensor.calibrationDate != null
+		}
+	}
+}
+---
+Candidate 3 (meta-llama/llama-4-maverick, rating=5/10):
+package 'Patient Monitoring Device' {
+    private import SI::*;
+    private import 'Medical Value Types'::*;
+    
+    // Value Types
+    value def HeartRateValue = Real with unit 'bpm';
+    value def BloodPressureValue = Real with unit 'mmHg';
+    value def OxygenSaturationValue = Real with unit '%';
+    
+    // Parts
+    part def PatientMonitoringDevice {
+        part sensorSuite : VitalSignSensorSuite;
+        part alertSystem : AlertSystem;
+        port patientInterface : PatientInterface;
+        port alertOutput : AlertOutput;
+        connection sensorConnection : sensorSuite.vitalSignsOutput -> patientInterface.vitalSignsInput;
+        connection alertConnection : alertSystem.alertOutput -> alertOutput;
+    }
+    
+    part def VitalSignSensorSuite {
+        part heartRateSensor : HeartRateSensor;
+        part bloodPressureSensor : BloodPressureSensor;
+        part oxygenSaturationSensor : OxygenSaturationSensor;
+        port vitalSignsOutput : out VitalSigns;
+        action def collectVitalSigns {
+            first start;
+            then action heartRateAction : ReadHeartRate {
+                out heartRate : HeartRateValue;
+            }
+            then action bloodPressureAction : ReadBloodPressure {
+                out bloodPressure : BloodPressureValue;
+            }
+            then action oxygenSaturationAction : ReadOxygenSaturation {
+                out oxygenSaturation : OxygenSaturationValue;
+            }
+            then action packageVitalSigns : PackageVitalSigns {
+                in heartRate = heartRateAction.heartRate;
+                in bloodPressure = bloodPressureAction.bloodPressure;
+                in oxygenSaturation = oxygenSaturationAction.oxygenSaturation;
+                out vitalSigns : VitalSigns;
+            }
+            then send vitalSigns to vitalSignsOutput;
+            then done;
+        }
+    }
+    
+    // Actions and Behaviors
+    action def ReadHeartRate { out heartRate : HeartRateValue; }
+    action def ReadBloodPressure { out bloodPressure : BloodPressureValue; }
+    action def ReadOxygenSaturation { out oxygenSaturation : OxygenSaturationValue; }
+    action def PackageVitalSigns {
+        in heartRate : HeartRateValue;
+        in bloodPressure : BloodPressureValue;
+        in oxygenSaturation : OxygenSaturationValue;
+        out vitalSigns : VitalSigns;
+    }
+    
+    // Item Definitions
+    item def VitalSigns {
+        attribute heartRate : HeartRateValue;
+        attribute bloodPressure : BloodPressureValue;
+        attribute oxygenSaturation : OxygenSaturationValue;
+    }
+    
+    // Ports and Interfaces
+    port def PatientInterface {
+        port vitalSignsInput : in VitalSigns;
+    }
+    
+    port def AlertOutput {
+        port alert : out Alert;
+    }
+    
+    // Alert System
+    part def AlertSystem {
+        port alertOutput : out Alert;
+        action def GenerateAlert {
+            in vitalSigns : VitalSigns;
+            out alert : Alert;
+        }
+        connection alertGeneration : GenerateAlert -> alertOutput;
+    }
+    
+    // Alert Definition
+    item def Alert {
+        attribute message : String;
+        attribute severity : AlertSeverity;
+    }
+    
+    // Alert Severity Enumeration
+    enum def AlertSeverity {
+        low,
+        medium,
+        high
+    }
+    
+    // Requirements
+    requirement <'1.1'> vitalSignTracking : VitalSignTrackingRequirement {
+        subject patientMonitoringDevice : PatientMonitoringDevice;
+    }
+    
+    requirement def VitalSignTrackingRequirement {
+        doc /* The patient monitoring device shall track vital signs. */
+    }
+    
+    requirement <'1.2'> alertGeneration : AlertGenerationRequirement {
+        subject patientMonitoringDevice : PatientMonitoringDevice;
+    }
+    
+    requirement def AlertGenerationRequirement {
+        doc /* The patient monitoring device shall generate alerts based on vital signs. */
+    }
+}
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a patient monitoring device that tracks vital signs and sends alerts.
