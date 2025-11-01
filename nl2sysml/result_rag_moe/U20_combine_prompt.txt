@@ -1,0 +1,1067 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes an intelligent battery charging system. The system is composed of a battery and a power system designed to manage the charging process.
+
+The system's primary function is to safely and automatically recharge the battery to its full capacity. The charging process operates as a continuous feedback loop. First, the power system monitors the battery's current state of charge. As long as the charge level is below 100%, the system actively supplies power to the battery. This cycle of monitoring the charge and then adding more power repeats continuously.
+
+Once the system detects that the battery has reached a full charge, it automatically terminates the charging process. This prevents overcharging, ensuring the safety and longevity of the battery.
+
+Example 1 SysML:
+package 'Control Structures Example' {
+	private import ScalarValues::*;
+	attribute def BatteryCharged;
+	part battery;
+	part powerSystem;
+	action def MonitorBattery { out charge : Real; }
+	action def AddCharge { in charge : Real; }
+	action def EndCharging;
+	action def ChargeBattery {
+		loop action charging {
+			action monitor : MonitorBattery {
+				out charge;
+			}
+			then if monitor.charge < 100 {
+				action addCharge : AddCharge {
+					in charge = monitor.charge;
+				}
+			}				
+		} until charging.monitor.charge >= 100;
+		then action endCharging : EndCharging;
+		then done;
+	}
+}
+---
+Example 2 NL:
+This model describes the fuel system of a vehicle. The vehicle contains an engine and a fuel tank assembly that work together to provide power.
+
+Fuel is transferred from a supply port on the tank assembly to a corresponding fuel port on the engine. The system also includes a fuel return line, which allows excess or unused fuel to flow from the engine back to the fuel tank. This creates a complete circulation loop, typical in many modern fuel injection systems.
+
+Example 2 SysML:
+package 'Flow Usage Example' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	part vehicle : Vehicle {
+		part tankAssy : FuelTankAssembly;
+		part eng : Engine;
+		flow of Fuel
+		  from tankAssy.fuelTankPort.fuelSupply
+			to eng.engineFuelPort.fuelSupply;
+		flow of Fuel
+		  from eng.engineFuelPort.fuelReturn
+			to tankAssy.fuelTankPort.fuelReturn;
+	} 
+}
+---
+Example 3 NL:
+This model describes a vehicle's fuel delivery system. The vehicle consists of two main components: a fuel tank assembly and an engine. The system's purpose is to transfer fuel from the tank assembly, which acts as the supplier, to the engine, which consumes the fuel to operate and power the vehicle.
+
+Example 3 SysML:
+package 'Flow Definition Example' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	flow def FuelFlow {
+		ref :>> payload : Fuel;
+		end port supplierPort : FuelOutPort;
+		end port consumerPort : FuelInPort;
+	}
+	part vehicle : Vehicle {
+		part tankAssy : FuelTankAssembly;
+		part eng : Engine;
+		flow : FuelFlow of Fuel
+		  from tankAssy.fuelTankPort.fuelSupply
+			to eng.engineFuelPort.fuelSupply;
+	} 
+}
+---
+Example 4 NL:
+This model represents a generic battery-powered electronic device and an analysis of how it can fail. The device consists of a main unit and a battery, which has a measurable power level.
+
+The model describes a specific failure scenario that begins with a root cause: the battery becoming old. The analysis shows that an aging battery can lead to a situation where its power level drops below the minimum threshold required for the device to function. This low-power condition then directly causes the device to shut down completely. This shutdown is classified as a high-severity failure, indicating that the device's continued operation is critical and its unexpected failure has significant consequences.
+
+Example 4 SysML:
+package 'User Keyword Example' {
+	private import ScalarValues::Real;
+	private import 'Semantic Metadata Example'::*;
+	private import RiskMetadata::LevelEnum;
+	part def Device {
+		part battery {
+			attribute power : Real;
+		}
+	}
+	#scenario def DeviceFailure {
+		ref device : Device;
+		attribute minPower : Real;
+		#cause 'battery old' {
+			:>> probability = 0.01;			
+		}
+		#causation connect 'battery old' to 'power low';
+		#situation 'power low' {
+			constraint { device.battery.power < minPower }			
+		}
+		#causation connect 'power low' to 'device shutoff';
+		#failure 'device shutoff' {
+			:>> severity = LevelEnum::high;
+		}
+	}
+}
+---
+Example 5 NL:
+This model describes a vehicle's core fuel system. The system consists of two primary components: a Fuel Tank Assembly, which serves as the fuel reservoir, and an Engine, which consumes the fuel to generate power.
+
+These two parts are linked by a standardized fuel interface, ensuring a proper connection for fuel delivery. In this arrangement, fuel flows from an output port on the tank assembly directly to an input port on the engine. This represents the fundamental relationship where the tank supplies fuel and the engine consumes it to operate the vehicle.
+
+Example 5 SysML:
+package 'Interface Example' {
+	private import 'Port Example'::*;
+	part def Vehicle;
+	interface def FuelInterface {
+		end supplierPort : FuelOutPort;
+		end consumerPort : FuelInPort;
+	}
+	part vehicle : Vehicle {	
+		part tankAssy : FuelTankAssembly;		
+		part eng : Engine;
+		interface : FuelInterface connect 
+			supplierPort ::> tankAssy.fuelTankPort to 
+			consumerPort ::> eng.engineFuelPort;
+	} 
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+Occurrence[1] = occ;
+}
+function destroy {
+doc
+/*
+* Ensure that the end of a given occurrence happens during a performance of this
+* function. The occurrence is also returned from the function.
+*/
+inout occ: Occurrence[0..1];
+private connector : HappensDuring from occ.endShot[0..1] to self;
+return : Occurrence[0..1] = occ;
+}
+function addNew {
+doc
+/*
+* Add a newly created occurrence to the given group of occurrences and return the
+* new occurrence.
+*/
+inout group: Occurrence[0..*] nonunique;
+inout occ: Occurrence[1];
+private composite step : add {
+inout seq1 = group;
+in seq2 = create(occ);
+
+402
+
+Kernel Modeling Language v1.0
+
+
+}
+return : Occurrence[1] = occ;
+}
+function addNewAt {
+doc
+/*
+* Add a newly created occurrence to the given ordered group of occurrences at the given
+* index and return the new occurrence.
+*/
+inout group: Occurrence[0..*] ordered nonunique;
+inout occ: Occurrence[1];
+in index: Positive[1];
+private composite step : addAt {
+inout seq = group;
+in values = create(occ);
+in startIndex = index;
+}
+return : Occurrence[1] = occ;
+}
+behavior removeOld {
+doc
+/*
+* Remove a given occurrence from a group of occurrences and destroy it.
+*/
+inout group: Occurrence[0..*] nonunique;
+inout occ: Occurrence[0..1];
+private composite step removeStep : remove {
+inout seq = group;
+in values = occ;
+}
+private succession removeStep then destroyStep;
+private composite step destroyStep : destroy {
+inout occ = removeOld::occ;
+}
+}
+behavior removeOldAt {
+doc
+/*
+* Removes the occurrence at a given index in an ordered group of occurrences
+* and destroy it.
+*/
+inout group: Occurrence[0..*] ordered nonunique;
+in index: Positive[1];
+private feature oldOcc = group[index];
+private composite step removeStep : remove {
+inout seq = group;
+in index = removeOldAt::index;
+}
+private succession removeStep then destroyStep;
+private composite step destroyStep : destroy {
+inout occ = oldOcc;
+
+Kernel Modeling Language v1.0
+
+403
+
+
+}
+}
+
+404
+
+Kernel Modeling Language v1.0
+
+
+10 Model Interchange
+10.1 Model Interchange Overview
+Model interchange is the capability to interchange models between tools using file-base resources (see Clause 2 ).
+The unit of interchange is the project, which is defined as fo
+---
+Spec 2 [Intro to the SysML v2 Language-Textual Notation]:
+eference {
+attribute :>> dimensions = ();
+…
+}
+attribute def CoordinateFrame :> VectorMeasurementReference {
+attribute transformation: CoordinateTransformation[0..1];
+}
+…
+}
+
+165
+
+A coordinate frame is a kind of vector measurement
+reference that can be located and oriented relative to
+another frame using a coordinate transformation.
+Last changed: 2022-09 (standard library package)
+
+Release 2025-07
+
+
+Units
+A measurement unit is a
+measurement scale defined as a standard library package Measurement {
+sequence of unit power factors.
+…
+abstract attribute def MeasurementUnit
+:> ScalarMeasurementReference {
+attribute unitPowerFactor : UnitPowerFactor[1..*] ordered;
+attribute unitConversion : UnitConversion[0..1];
+}
+
+A simple unit is a measurement
+unit with no power factor
+dependencies on other units.
+
+abstract attribute def SimpleUnit :> MeasurementUnit {
+attribute redefines unitPowerFactor[1] {
+attribute redefines unit = SimpleUnit::self;
+attribute redefines exponent = 1;
+}
+}
+
+A derived unit is any unit that is
+not simple.
+
+abstract attribute def DerivedUnit :> MeasurementUnit;
+
+A unit power factor is a
+representation of a reference
+unit raised to an exponent.
+
+166
+
+attribute def UnitPowerFactor {
+attribute unit : MeasurementUnit;
+attribute exponent : ScalarValues::Real;
+}
+…
+}
+
+Last changed: 2022-09 (standard library package)
+
+Release 2025-07
+
+
+International System of Quantities (ISQ)
+The International System of Quantities
+defines seven abstract units (length,
+standard library package ISQ { mass, time, electric current,
+import ISQBase::*;
+temperature, amount of substance,
+luminous intensity) and many other
+import ISQSpaceTime::*;
+units derived from those.
+…
+}
+standard library package ISQBase {
+A length unit is a simple unit.
+
+attribute def LengthUnit :> SimpleUnit {…}
+
+A length value is a quantity
+value with a real magnitude
+and a length-unit scale.
+
+attribute def LengthValue :> ScalarQuantityValue {
+attribute redefines num : ScalarValues::Real;
+attribute redefines mRef : LengthUnit;
+}
+
+A length is a quantity with a
+length value.
+
+attribute length: LengthValue :> quantity;
+…
+}
+package ISQSpaceTime {
+import ISQBase::*;
+…
+}
+
+167
+
+The ISQ standard (ISO 80000)
+is divided in
+---
+Spec 3 [Intro to the SysML v2 Language-Textual Notation]:
+compositeThing.
+
+Last changed: 2024-11 (import visibility)
+
+Release 2025-07
+
+
+Default Values
+
+package MassRollup2 {
+A default value is feature value that
+private import ScalarFunctions::*;
+applies unless explicitly overridden.
+part def MassedThing {
+attribute simpleMass :> ISQ::mass;
+attribute totalMass :> ISQ::mass default simpleMass;
+}
+A default value can be overridden
+when the feature is redefined,
+part compositeThing : MassedThing {
+with a default or bound value.
+part subcomponents: MassedThing[*];
+attribute :>> totalMass default mass + sum(subcomponents.totalMass);
+}
+Once bound, the value of the
+feature is {
+fixed as the result of the
+part filteredMassThing :> compositeThing
+value expression.
+attribute minMass : ISQ::mass
+attribute :>> totalMass =
+sum(subcomponents.totalMass.?{in p:>ISQ::mass; p >= minMass)});
+}
+A dot can be followed by a
+}
+select expression in order to
+filter a collection of values.
+74
+
+Last changed: 2024-07 (import visibility)
+
+Release 2025-07
+
+
+Car Mass Rollup Example (2)
+private alarValues::*;
+private import MassRollup2::*;
+
+The default of totalMass to
+simpleMass is inherited.
+
+part def CarPart :> MassedThing {
+The default for totalMass is overridden
+attribute serialNumber : String;
+as specified in compositeThing.
+}
+part car: CarPart :> compositeThing {
+attribute vin :>> serialNumber;
+part carParts : CarPart[*] :>> subcomponents;
+part engine :> carParts { … }
+part transmission :> carParts { … }
+}
+
+The totalMass default is not
+
+// Example usage
+overridden for the nested carParts.
+private import SI::kg;
+part c :> car {
+attribute :>> simpleMass = 1000[kg];
+part :>> engine {
+attribute :>> simpleMass = 100[kg];
+}
+part attribute transmission {
+attribute :>> simpleMass = 50[kg];
+}
+When computing the totalMass
+}
+// c.totalMass --> 1150.0[kg]
+75
+
+of c, c.engine and c.transmission,
+the relevant defaults are used.
+
+Last changed: 2024-11 (import visibility)
+
+Release 2025-07
+
+
+Calculation Definitions
+A calculation definition is a reusable,
+parameterized expression.
+calc def Power {
+in whlpwr : PowerValue;
+in Cd : Real;
+in Cf : Real;
+in tm : MassValue;
+in v : SpeedValue;
+return : PowerValue;
+
+Similarly to actions, the directed features
+of a calculati
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package 'PowerDistributionUnitSystem' {
+	private import ISQ::*;
+	private import SI::*;
+	private import ScalarValues::*;
+
+	// --- Value Types, Items, and Events ---
+	attribute def Current :> ElectricCurrentValue;
+	attribute def Power :> PowerValue;
+	attribute def Voltage :> ElectricPotentialDifferenceValue;
+
+	item def ElectricalPower {
+		attribute current : Current;
+		attribute voltage : Voltage;
+	}
+
+	event def ResetEvent;
+
+	// --- Port Definitions ---
+	port def PowerIn;
+	port def PowerOut;
+
+	// --- Component Definitions ---
+	part def Server {
+		port powerIn : PowerIn;
+		attribute operatingPower : Power default 250[W];
+	}
+
+	part def ServerRack {
+		part servers : Server[8];
+		port powerInputs : PowerIn[8];
+		connect servers.powerIn to powerInputs;
+	}
+
+	part def PowerDistributionUnit {
+		// --- Attributes and Ports ---
+		attribute maxCurrent : Current = 16[A];
+		attribute nominalVoltage : Voltage = 230[V];
+		attribute readonly totalCurrentDraw : Current;
+		port mainPowerIn : PowerIn;
+		port serverOutlets : PowerOut[8];
+
+		// --- Behavior: Overload Protection State Machine ---
+		state machine OverloadProtectionLogic {
+			initial state Operating;
+
+			state Operating {
+				doc "The PDU is supplying power normally to all outlets.";
+				transition to Tripped
+					when self.owner.totalCurrentDraw > self.owner.maxCurrent {
+					perform TripBreaker;
+				}
+			}
+
+			state Tripped {
+				doc "The PDU has detected an overload and has cut power to all outlets.";
+				transition to Operating on accept ResetEvent {
+					perform ResetBreaker;
+				}
+			}
+		}
+
+		// --- Actions controlled by the State Machine ---
+		action def TripBreaker {
+			doc "Opens the main circuit, interrupting power flow to all server outlets.";
+		}
+
+		action def ResetBreaker {
+			doc "Closes the main circuit, restoring power flow to server outlets.";
+		}
+	}
+
+	// --- Requirement Definition ---
+	requirement def OverloadProtection {
+		subject pdu : PowerDistributionUnit;
+		doc "The Power Distribution Unit shall interrupt power delivery to all connected
+		     servers if the total current draw exceeds the maximum rated current.";
+
+		#testcase def OverloadScenario {
+			subject pduTest : PowerDistributionUnit;
+			attribute serverPower : Power;
+
+			// Cause: Total power draw from servers exceeds the limit calculated from max current.
+			#cause 'Excessive Power Draw' {
+				constraint {
+					(8 * serverPower) / pduTest.nominalVoltage > pduTest.maxCurrent
+				}
+			}
+
+			#causation connect 'Excessive Power Draw' to 'Breaker Tripped';
+
+			// Failure: The PDU's protective state machine enters the 'Tripped' state.
+			#failure 'Breaker Tripped' {
+				constraint { pduTest.OverloadProtectionLogic.state = Tripped }
+				:>> severity = 3; // On a scale of 1-5
+			}
+		}
+	}
+
+	// --- System-Level Assembly and Interaction ---
+	part dataCenter {
+		part pdu : PowerDistributionUnit;
+		part rack : ServerRack;
+
+		// Connect PDU outlets to the server rack inputs
+		connect pdu.serverOutlets to rack.powerInputs;
+
+		// Define the flow of electrical power from the PDU to the servers
+		flow of ElectricalPower from pdu.serverOutlets to rack.powerInputs;
+
+		// Declaratively bind the PDU's current calculation to the sum of server power draws
+		bind pdu.totalCurrentDraw = sum(rack.servers.operatingPower) / pdu.nominalVoltage;
+
+		// Instantiate and apply the requirement to the PDU within this system
+		requirement pduRequirement : OverloadProtection {
+			subject = pdu;
+		}
+	}
+}
+---
+Candidate 2 (anthropic/claude-sonnet-4.5, rating=10/10):
+package 'Power Unit System' {
+	private import ScalarValues::*;
+	private import SI::*;
+	private import ISQ::*;
+	
+	attribute def PowerValue :> ISQ::PowerValue;
+	attribute def CurrentValue :> ISQ::ElectricCurrentValue;
+	attribute def VoltageValue :> ISQ::ElectricPotentialValue;
+	attribute def TemperatureValue :> ISQ::ThermodynamicTemperatureValue;
+	
+	port def PowerSupplyPort {
+		out attribute voltage : VoltageValue;
+		out attribute current : CurrentValue;
+		out attribute power : PowerValue;
+	}
+	
+	port def PowerConsumptionPort {
+		in attribute voltage : VoltageValue;
+		in attribute current : CurrentValue;
+		in attribute power : PowerValue;
+	}
+	
+	item def Electricity {
+		attribute voltage : VoltageValue;
+		attribute current : CurrentValue;
+		attribute power : PowerValue;
+	}
+	
+	part def Server {
+		port powerInput : PowerConsumptionPort;
+		attribute ratedPower : PowerValue;
+		attribute currentLoad : PowerValue;
+		attribute operationalStatus : ServerStatus;
+		
+		constraint powerRequirement {
+			currentLoad <= ratedPower
+		}
+	}
+	
+	enum def ServerStatus {
+		enum off;
+		enum idle;
+		enum active;
+		enum overloaded;
+	}
+	
+	enum def PowerUnitStatus {
+		enum standby;
+		enum normal;
+		enum warning;
+		enum overload;
+		enum shutdown;
+	}
+	
+	part def CircuitBreaker {
+		attribute tripCurrent : CurrentValue;
+		attribute currentState : BreakerState;
+		
+		state machine breakerBehavior {
+			initial state closed;
+			
+			state closed {
+				entry action enablePower;
+			}
+			
+			state tripped {
+				entry action cutPower;
+			}
+			
+			transition closedToTripped
+				first closed
+				accept overloadDetected
+				then tripped;
+			
+			transition trippedToClosed
+				first tripped
+				accept resetCommand
+				then closed;
+		}
+	}
+	
+	enum def BreakerState {
+		enum closed;
+		enum tripped;
+	}
+	
+	part def LoadMonitor {
+		in attribute totalCurrent : CurrentValue;
+		in attribute maxCurrent : CurrentValue;
+		out attribute loadPercentage : Real;
+		out attribute overloadDetected : Boolean;
+		
+		calc calculateLoad {
+			in current : CurrentValue = totalCurrent;
+			in maximum : CurrentValue = maxCurrent;
+			return percentage : Real = (current.num / maximum.num) * 100.0;
+		}
+		
+		constraint overloadCheck {
+			overloadDetected == (loadPercentage > 100.0)
+		}
+	}
+	
+	part def PowerDistributor {
+		port mainInput : PowerConsumptionPort;
+		port outputs : PowerSupplyPort[1..*];
+		attribute distributionEfficiency : Real;
+		
+		constraint powerBalance {
+			mainInput.power.num >= 
+				outputs.power.num->sum() / distributionEfficiency
+		}
+	}
+	
+	action def MonitorLoad {
+		in currentLoad : PowerValue;
+		in maxCapacity : PowerValue;
+		out loadLevel : Real;
+		out status : PowerUnitStatus;
+	}
+	
+	action def TripBreaker {
+		out tripSignal : Boolean;
+	}
+	
+	action def ResetBreaker {
+		in resetCommand : Boolean;
+	}
+	
+	action def AdjustPowerDistribution {
+		in serverLoads : PowerValue[*];
+		in availablePower : PowerValue;
+		out distributionPlan : PowerValue[*];
+	}
+	
+	part def PowerUnit {
+		port mainPowerInput : PowerConsumptionPort;
+		port serverOutputs : PowerSupplyPort[8];
+		
+		part breaker : CircuitBreaker {
+			attribute :>> tripCurrent = 50.0[A];
+		}
+		
+		part monitor : LoadMonitor {
+			attribute :>> maxCurrent = 50.0[A];
+		}
+		
+		part distributor : PowerDistributor {
+			attribute :>> distributionEfficiency = 0.95;
+		}
+		
+		attribute maxPowerCapacity : PowerValue = 10000.0[W];
+		attribute currentPowerDraw : PowerValue;
+		attribute operatingVoltage : VoltageValue = 240.0[V];
+		attribute maxCurrent : CurrentValue = 50.0[A];
+		attribute unitStatus : PowerUnitStatus;
+		attribute temperature : TemperatureValue;
+		attribute maxTemperature : TemperatureValue = 353.15[K];
+		
+		connection powerFlow : PowerFlowInterface connect
+			supplierPort ::> distributor.mainInput to
+			consumerPort ::> mainPowerInput;
+		
+		state machine powerManagement {
+			initial state standby;
+			
+			state standby {
+				entry action initializeSystem;
+				do action monitorInput : MonitorLoad {
+					in currentLoad = currentPowerDraw;
+					in maxCapacity = maxPowerCapacity;
+					out loadLevel;
+					out status;
+				}
+			}
+			
+			state normal {
+				do action continuousMonitoring : MonitorLoad {
+					in currentLoad = currentPowerDraw;
+					in maxCapacity = maxPowerCapacity;
+					out loadLevel;
+					out status;
+				}
+				
+				do action distributeLoad : AdjustPowerDistribution {
+					in serverLoads;
+					in availablePower = maxPowerCapacity;
+					out distributionPlan;
+				}
+			}
+			
+			state warning {
+				entry action raiseWarningAlert;
+				do action monitorCritical : MonitorLoad {
+					in currentLoad = currentPowerDraw;
+					in maxCapacity = maxPowerCapacity;
+					out loadLevel;
+					out status;
+				}
+			}
+			
+			state overload {
+				entry action activateOverloadProtection;
+				then action tripBreakerAction : TripBreaker {
+					out tripSignal;
+				}
+			}
+			
+			state shutdown {
+				entry action emergencyShutdown;
+			}
+			
+			transition standbyToNormal
+				first standby
+				if currentPowerDraw.num > 0.0 and currentPowerDraw.num < maxPowerCapacity.num * 0.8
+				then normal;
+			
+			transition normalToWarning
+				first normal
+				if currentPowerDraw.num >= maxPowerCapacity.num * 0.8 and currentPowerDraw.num < maxPowerCapacity.num
+				then warning;
+			
+			transition warningToNormal
+				first warning
+				if currentPowerDraw.num < maxPowerCapacity.num * 0.75
+				then normal;
+			
+			transition warningToOverload
+				first warning
+				if currentPowerDraw.num >= maxPowerCapacity.num or temperature >= maxTemperature
+				then overload;
+			
+			transition normalToOverload
+				first normal
+				if currentPowerDraw.num >= maxPowerCapacity.num * 1.1 or temperature >= maxTemperature
+				then overload;
+			
+			transition overloadToShutdown
+				first overload
+				accept tripSignal
+				then shutdown;
+			
+			transition shutdownToStandby
+				first shutdown
+				accept resetCommand
+				if temperature < maxTemperature * 0.9
+				then standby;
+		}
+		
+		constraint powerCapacityLimit {
+			currentPowerDraw <= maxPowerCapacity
+		}
+		
+		constraint currentLimit {
+			currentPowerDraw.num / operatingVoltage.num <= maxCurrent.num
+		}
+		
+		constraint thermalLimit {
+			temperature <= maxTemperature
+		}
+	}
+	
+	interface def PowerFlowInterface {
+		end supplierPort : PowerSupplyPort;
+		end consumerPort : PowerConsumptionPort;
+	}
+	
+	part def ServerRack {
+		part servers : Server[8];
+		part powerUnit : PowerUnit;
+		
+		attribute totalServerLoad : PowerValue;
+		
+		connection serverPowerConnections : PowerFlowInterface[8] connect
+			supplierPort ::> powerUnit.serverOutputs to
+			consumerPort ::> servers.powerInput;
+		
+		calc computeTotalLoad {
+			in serverLoads : PowerValue[*] = servers.currentLoad;
+			return total : PowerValue = serverLoads.num->sum()[W];
+		}
+		
+		constraint rackPowerBalance {
+			totalServerLoad <= powerUnit.maxPowerCapacity
+		}
+	}
+	
+	requirement def OverloadPreventionRequirement {
+		doc /* The power unit shall prevent overload conditions by monitoring 
+		       total power draw and tripping the circuit breaker when capacity 
+		       is exceeded. */
+		
+		subject powerUnit : PowerUnit;
+		
+		require constraint preventOverload {
+			powerUnit.currentPowerDraw <= powerUnit.maxPowerCapacity
+		}
+		
+		require constraint breakerTripsOnOverload {
+			powerUnit.currentPowerDraw > powerUnit.maxPowerCapacity implies
+				powerUnit.breaker.currentState == BreakerState::tripped
+		}
+		
+		require constraint thermalProtection {
+			powerUnit.temperature <= powerUnit.maxTemperature
+		}
+	}
+	
+	requirement def PowerSupplyRequirement {
+		doc /* The power unit shall supply stable electricity to all connected 
+		       servers within specified voltage and current limits. */
+		
+		subject powerUnit : PowerUnit;
+		
+		require constraint voltageStability {
+			powerUnit.operatingVoltage.num >= 230.0 and 
+			powerUnit.operatingVoltage.num <= 250.0
+		}
+		
+		require constraint currentWithinLimits {
+			powerUnit.currentPowerDraw.num / powerUnit.operatingVoltage.num <= 
+				powerUnit.maxCurrent.num
+		}
+		
+		require constraint continuousOperation {
+			powerUnit.unitStatus == PowerUnitStatus::normal or
+			powerUnit.unitStatus == PowerUnitStatus::warning implies
+				powerUnit.breaker.currentState == BreakerState::closed
+		}
+	}
+	
+	part serverRackSystem : ServerRack {
+		part :>> powerUnit {
+			attribute :>> maxPowerCapacity = 10000.0[W];
+			attribute :>> operatingVoltage = 240.0[V];
+			attribute :>> maxCurrent = 50.0[A];
+			attribute :>> maxTemperature = 353.15[K];
+		}
+		
+		part :>> servers[0] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 800.0[W];
+		}
+		
+		part :>> servers[1] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 950.0[W];
+		}
+		
+		part :>> servers[2] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 1100.0[W];
+		}
+		
+		part :>> servers[3] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 750.0[W];
+		}
+		
+		part :>> servers[4] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 900.0[W];
+		}
+		
+		part :>> servers[5] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 1050.0[W];
+		}
+		
+		part :>> servers[6] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 600.0[W];
+		}
+		
+		part :>> servers[7] {
+			attribute :>> ratedPower = 1200.0[W];
+			attribute :>> currentLoad = 850.0[W];
+		}
+	}
+	
+	requirement overloadPrevention : OverloadPreventionRequirement {
+		subject systemPowerUnit = serverRackSystem.powerUnit;
+	}
+	
+	requirement powerSupply : PowerSupplyRequirement {
+		subject systemPowerUnit = serverRackSystem.powerUnit;
+	}
+}
+---
+Candidate 3 (meta-llama/llama-4-maverick, rating=5/10):
+package 'Power Unit Example' {
+  private import ISQ::*;
+  private import ScalarValues::*;
+  private import SI::*;
+
+  // Define the power unit and its components
+  part def PowerUnit {
+    part powerSupply;
+    part distributionUnit;
+    part overloadProtection;
+    attribute maxPower : PowerValue;
+  }
+
+  // Define the server and its power requirements
+  part def Server {
+    attribute requiredPower : PowerValue;
+  }
+
+  // Define the power interface
+  interface def PowerInterface {
+    end supplierPort : PowerOutPort;
+    end consumerPort : PowerInPort;
+  }
+
+  // Define the power unit's behavior
+  action def SupplyPower {
+    in power : PowerValue;
+    out suppliedPower : PowerValue;
+  }
+
+  action def MonitorPower {
+    in power : PowerValue;
+    out currentPower : PowerValue;
+  }
+
+  action def PreventOverload {
+    in currentPower : PowerValue;
+    in maxPower : PowerValue;
+  }
+
+  // Define the state machine for the power unit
+  state machine def PowerUnitBehavior {
+    initial state idle;
+    state supplyingPower;
+    state overload;
+
+    transition from idle to supplyingPower;
+    transition from supplyingPower to overload when [currentPower > maxPower];
+
+    state supplyingPower {
+      do SupplyPower;
+      do MonitorPower;
+    }
+
+    state overload {
+      do PreventOverload;
+    }
+  }
+
+  // Define the power unit's structure
+  part powerUnit : PowerUnit {
+    part :>> powerSupply;
+    part :>> distributionUnit;
+    part :>> overloadProtection;
+    attribute :>> maxPower = 1000[W];
+
+    interface : PowerInterface connect 
+      supplierPort ::> powerSupply.powerOutPort to 
+      consumerPort ::> distributionUnit.powerInPort;
+
+    behavior : PowerUnitBehavior;
+  }
+
+  // Define the server's structure
+  part server : Server {
+    attribute :>> requiredPower = 500[W];
+    interface : PowerInterface connect 
+      consumerPort ::> server.powerInPort to 
+      supplierPort ::> powerUnit.distributionUnit.powerOutPort;
+  }
+
+  // Define the requirement
+  requirement def PreventOverloadRequirement {
+    doc /* The power unit shall prevent overload. */;
+    subject powerUnit;
+    assert {
+      powerUnit.overloadProtection.PreventOverload;
+    }
+  }
+
+  // Define the power value type
+  attribute def PowerValue :> ScalarQuantityValue {
+    attribute redefines num : ScalarValues::Real;
+    attribute redefines mRef : PowerUnit;
+  }
+
+  // Define the power unit for the power value type
+  attribute def PowerUnit :> DerivedUnit {
+    attribute unitPowerFactor = (unit = Watt; exponent = 1);
+  }
+
+  // Define the Watt unit
+  attribute def Watt :> SimpleUnit {
+    attribute redefines unit = Watt::self;
+    attribute redefines exponent = 1;
+  }
+}
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a power unit that supplies electricity to servers and prevents overload.

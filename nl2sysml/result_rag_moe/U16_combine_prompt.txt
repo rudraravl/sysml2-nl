@@ -1,0 +1,2432 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes the fundamental structure of a standard vehicle, likely a car or light truck. The vehicle is presented as an assembly of several key components.
+
+Specifically, it is composed of a single engine, a transmission, and a set of four wheels. The design recognizes that all these items—the engine, transmission, and each of the wheels—are distinct components that are all grouped together under the general category of "vehicle parts" to form the complete system.
+
+Example 1 SysML:
+package 'Subsetting Example' {
+	part def Vehicle {
+		part parts : VehiclePart[*];
+		part eng : Engine subsets parts;
+		part trans : Transmission subsets parts;
+		part wheels : Wheel[4] :> parts;
+	}
+	abstract part def VehiclePart;
+	part def Engine :> VehiclePart;
+	part def Transmission :> VehiclePart;
+	part def Wheel :> VehiclePart;
+}
+---
+Example 2 NL:
+This model describes the physical layout and flow of people and items within a section of a building. The system consists of three distinct areas: a central Hallway, an adjacent Classroom, and a Storeroom.
+
+The Hallway acts as a primary corridor, connecting to both the Classroom and the Storeroom through separate entryways. The system is designed to manage the movement of different entities between these spaces.
+
+Specifically, Students and Teachers can move back and forth between the Hallway and the Classroom. Furniture can be transported from the Hallway into either the Classroom or the Storeroom. A key feature of this layout is that access to the Storeroom is limited; only furniture is intended to move into it, not people. In addition, air is able to circulate between the hallway and both of the connected rooms.
+
+Example 2 SysML:
+package RoomModel { 
+    package RoomDefinitionModelLibrary{
+        private import Port_Definitions::*;
+        private import Flow_Definitions::*;
+        package Part_Definitions{
+            part def Classroom {
+                port classEntry: EntryWay_to_Classroom;
+            }
+            part def Storageroom {
+                port storageEntry: EntryWay_to_Storageroom;
+            }
+            part def Hallway {
+                port hallExit_to_Classroom: ~EntryWay_to_Classroom;
+                port hallExit_to_Storageroom: ~EntryWay_to_Storageroom;
+            }
+        }
+        package Port_Definitions{
+            port def EntryWay_to_Classroom {
+                in ref student:Student;
+                in ref teacher:Teacher;
+                in ref furniture:Furniture;
+                in ref air:Air;
+            }
+            port def EntryWay_to_Storageroom {
+                in ref furniture:  Furniture;
+                in ref air: Air;
+            }
+        }
+        package Flow_Definitions {
+                part def Air;
+                part def Furniture;
+                part def Student;
+                part def Teacher;
+        }
+    }
+    package Room_Configuration{
+        private import RoomDefinitionModelLibrary::*;
+        private import RoomDefinitionModelLibrary::Part_Definitions::*;
+        private import RoomDefinitionModelLibrary::Port_Definitions::*;
+        private import RoomDefinitionModelLibrary::Flow_Definitions::*;
+        part roomContext{
+            part c:Classroom;
+            part s:Storageroom;
+            part h:Hallway;
+            flow HallToClassroom_Air
+                from h.hallExit_to_Classroom.air
+                to c.classEntry.air;
+            flow HallToClassroom_Furniture
+                from h.hallExit_to_Classroom.furniture
+                to c.classEntry.furniture;
+            flow HallToClassroom_Student
+                from h.hallExit_to_Classroom.student
+                to c.classEntry.student;
+            flow HallToClassroom_Teacher
+                from h.hallExit_to_Classroom.teacher
+                to c.classEntry.teacher;
+            flow HallToStorageroom_Air
+                from h.hallExit_to_Storageroom.air
+                to s.storageEntry.air;
+            flow HallToStorageroom_Furniture
+                from h.hallExit_to_Storageroom.furniture
+                to s.storageEntry.furniture;
+        }
+    }
+}
+---
+Example 3 NL:
+This model represents a generic, fuel-powered vehicle. The vehicle is a physical object defined by its mass. It includes an essential component, a fuel tank, which is designed to hold the fuel required for operation. The system also specifies that the vehicle is operated by a person, who takes on the role of the driver.
+
+Example 3 SysML:
+package 'Items Example' {
+	private import ScalarValues::*;
+	item def Fuel;
+	item def Person;
+	part def Vehicle {
+		attribute mass : Real;
+		ref item driver : Person;
+		part fuelTank {
+			item fuel: Fuel;
+		}		
+	}
+}
+---
+Example 4 NL:
+This model describes the powertrain of a mechanical system, such as a vehicle. The primary function of this system is to provide power, which it accomplishes by generating torque.
+
+The system consists of a physical powertrain assembly which contains an engine. The engine is the specific, physical component that is responsible for carrying out the function of generating torque for the entire system. Essentially, the engine is designated as the system's "torque generator" within the powertrain.
+
+Example 4 SysML:
+package '12b-Allocation' {
+	private import LogicalModel::*;
+	private import PhysicalModel::*;
+	package LogicalModel {
+		action providePower {
+			action generateTorque;
+		}
+		part torqueGenerator {
+			perform providePower.generateTorque;
+		}
+	}
+	package PhysicalModel {
+		part powerTrain {
+			part engine {
+				perform providePower.generateTorque;
+			}
+		}
+	}
+	allocate torqueGenerator to powerTrain {
+		allocate torqueGenerator.generateTorque to powerTrain.engine.generateTorque;
+	}
+}
+---
+Example 5 NL:
+This model describes a fuel delivery system, likely for a vehicle or machine, composed of a Fuel Tank Assembly and an Engine.
+
+The system's primary function is to supply fuel from the tank to the engine. The connection between these two components is designed for a circulating fuel flow. A supply line moves fuel from the tank assembly to the engine, and a return line carries any unused fuel back from the engine to the tank. This two-way flow is common in fuel-injected systems to maintain constant pressure and help cool the fuel.
+
+A key feature of this system is that the temperature is monitored at the fuel connection points on both the engine and the tank assembly, indicating that fuel temperature is a critical operational parameter.
+
+Example 5 SysML:
+package 'Port Example' {
+	attribute def Temp;
+	part def Fuel;
+	port def FuelOutPort {
+		attribute temperature : Temp;
+		out item fuelSupply : Fuel;
+		in item fuelReturn : Fuel;
+	}
+	port def FuelInPort {
+		attribute temperature : Temp;
+		in item fuelSupply : Fuel;
+		out item fuelReturn : Fuel;
+	}
+	part def FuelTankAssembly {
+		port fuelTankPort : FuelOutPort;
+	}
+	part def Engine {
+		port engineFuelPort : FuelInPort;
+	}
+}
+---
+Spec 1 [Intro to the SysML v2 Language-Textual Notation]:
+mage; out picture : Picture; }
+scene
+
+«action def»
+TakePicture
+=
+
+scene
+
+action def TakePicture {
+in scene : Scene;
+out picture : Picture;
+
+«action»
+focus
+
+bind focus.scene = scene;
+
+image
+
+action focus : Focus { in scene; out image; };
+A flow connection
+can be usedcan
+to
+transfer
+be
+used to
+items
+transfer
+between
+flow focus.image to shoot.image;
+actions.
+items
+between actions.
+
+image
+
+«action»
+shoot
+=
+
+An action is a usage of an action definition
+performed in a specific context.
+
+picture
+
+action shoot : Shoot { in image; out picture; }
+
+picture
+
+bind shoot.picture = picture;
+
+}
+
+30
+
+An action has parameters
+corresponding to its action
+definition.
+Last changed: 2025-02 (“flow connection” renamed ”flow”)
+
+Release 2025-07
+
+
+Action Succession (1)
+action def Focus{ in scene : Scene; out image : Image; }
+action def Shoot{ in image : Image; out picture : Picture; }
+scene
+
+«action def»
+TakePicture
+=
+
+action def TakePicture {
+in scene : Scene;
+out picture : Picture;
+bind focus.scene = scene;
+
+scene
+
+«action»
+focus
+
+action focus : Focus { in scene; out image; }
+
+image
+
+flow focus.image to shoot.image;
+
+image
+
+first focus then shoot;
+
+«action»
+shoot
+=
+
+picture
+
+A succession asserts that the
+first action must complete
+before the second can begin.
+
+action shoot : Shoot { in image; out picture; }
+
+picture
+
+bind shoot.picture = picture;
+}
+
+31
+
+Last changed: 2024-09 (succession graphic)
+
+Release 2025-07
+
+
+Action Succession (2)
+
+action def Focus{ in scene : Scene; out image : Image; }
+action def Shoot{ in image : Image; out picture : Picture; }
+scene
+
+«action def»
+TakePicture
+=
+
+scene
+
+action def TakePicture {
+in scene : Scene;
+out picture : Picture;
+
+«action»
+focus
+
+bind focus.scene = scene;
+
+«succession image
+flow»
+image
+
+action focus : Focus { in scene; out image; }
+succession flow focus.image to shoot.image;
+
+«action»
+shoot
+=
+
+A succession flow requires the
+first action to finish producing
+its output before the second
+can begin consuming it.
+
+picture
+
+action shoot : Shoot { in image; out picture; }
+
+picture
+
+bind shoot.picture = picture;
+
+}
+
+32
+
+Last changed: 2024-09 (succession flow graphic)
+
+Release 2025-07
+
+
+Action Notation Shorthands
+
+scene
+
+«action def»
+TakePicture
+=
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+of a similar form in the body text.
+The language name in a textual representation is case insensitive. The name can be of a natural language, but will
+often be for a machine-parsable language. In particular, there are recognized standard language names.
+If the language is "kerml", then the body of the textual representation must be a legal representation of the
+represented element in the KerML textual notation. A tool can use such a textual representation to record the
+original KerML notation text from which an element is parsed. Other standard language names that can be used in a
+textual representation include "ocl" and "alf", in which case the body of the textual representation must be
+written in the Object Constraint Language [OCL] or the Action Language for fUML [Alf], respectively.
+However, for any other language than "kerml", the KerML specification does not define how the body text is to be
+semantically interpreted as part of the model being represented. An element with no other definition than a textual
+representation in a language other than KerML is essentially a semantically "opaque" element specified in the other
+language. Nevertheless, a conforming KerML tool may (but is not required to) interpret such an element consistently
+with the specification of the named language.
+
+20
+
+Kernel Modeling Language v1.0
+
+
+7.2.5 Namespaces
+7.2.5.1 Namespaces Overview
+Metamodel references:
+• Concrete syntax, 8.2.3.4
+• Abstract syntax, 8.3.2.4
+• Semantics, none
+A namespace is an element that contains other elements via membership relationships with those elements. The
+namespace is the source element and owner of the membership. The target of a membership can be any kind of
+element, known as the member element of the membership. If the membership is an owning membership, then the
+member element is known as an owned member element, which is the only owned related element of the
+membership.
+A namespace may also import memberships from other namespaces. Further, a type, which is kind of namespace,
+may inherit memberships from other types that it specializes (see 7.3.2 ).
+The members of a namespace are the member elements of all the memberships of the namespace (whether
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+t with typical formatting
+*
+for readable display in a text editor.
+*/
+}
+
+Kernel Modeling Language v1.0
+
+19
+
+
+would result in the following body text in the comment element in the represented model:
+This is an example of multiline
+comment text with typical formatting
+for readable display in a text editor.
+
+The body text of a comment can include markup information (such as HTML), and a tool may (but is not required
+to) display such text as rendered according to the markup. (See 8.2.3.3.2 for the complete rules for processing
+comment text.)
+7.2.4.3 Textual Representations
+A textual representation is an annotating element whose textual body represents its annotated element (known in
+this case as the represented element) in a given language. A textual representation is notated similarly to a
+documentation comment (see 7.2.4.2 ), but with the keyword rep used instead of comment. As for documentation, a
+textual representation is always owned by its represented element. In particular, if the textual representation is an
+owned member of a namespace (see 7.2.5 ), the represented element is the containing Namespace. A textual
+representation declaration must also specify the language used for the textual body as a literal string (see 8.2.2.5 )
+following the keyword language. If the textual representation has no short name or name, then the rep keyword
+can also be omitted.
+class C {
+feature x: Real;
+inv x_constraint {
+rep inOCL language "ocl"
+/* self.x > 0.0 */
+}
+}
+behavior setX(c : C, newX : Real) {
+language "alf"
+/* c.x = newX;
+* WriteLine("Set new x");
+*/
+}
+
+The lexical comment text given for a textual representation is processed as for regular comment text (see 7.2.4.2 ),
+and it is the result after such processing that is the textual representation body expected to conform to the named
+language.
+Note. Since the lexical form of a comment is used to specify the textual representation body, it is not possible to
+include comments of a similar form in the body text.
+The language name in a textual representation is case insensitive. The name can be of a natural language, but will
+often be for a machine-parsable language. In particular, there are recognized standard language na
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package VendingMachineSystem {
+    private import ScalarValues::*;
+
+    package Libraries {
+        package UnitsAndValues {
+            unit USD;
+            value def MonetaryValue : Real units USD;
+            value def SelectionCode : String;
+            value def StatusMessage : String;
+        }
+
+        package ItemDefinitions {
+            abstract item def VendedItem {
+                attribute price : MonetaryValue;
+            }
+            item def Snack :> VendedItem;
+            item def Drink :> VendedItem;
+        }
+    }
+
+    package Structure {
+        private import Libraries::UnitsAndValues::*;
+        private import Libraries::ItemDefinitions::*;
+
+        package PortDefinitions {
+            port def PaymentPort {
+                in value amount : MonetaryValue;
+            }
+            port def SelectionPort {
+                in value code : SelectionCode;
+            }
+            port def DisplayPort {
+                in value message : StatusMessage;
+            }
+            port def DispenseCommandPort {
+                in command;
+            }
+            port def ItemOutletPort {
+                out item product : VendedItem;
+            }
+        }
+
+        package ComponentDefinitions {
+            private import PortDefinitions::*;
+
+            part def SelectionPanel {
+                out port selectionMade : ~SelectionPort;
+            }
+
+            part def PaymentAcceptor {
+                in port moneyIn : PaymentPort;
+                out port creditUpdate : ~PaymentPort;
+            }
+
+            part def Display {
+                in port status : DisplayPort;
+            }
+
+            part def ItemStorage {
+                part stock : VendedItem[50];
+                out port itemAvailable : ItemOutletPort;
+            }
+
+            part def ItemDispenser {
+                in port command : DispenseCommandPort;
+                in port itemIn : ~ItemOutletPort;
+                out port itemOut : ItemOutletPort;
+            }
+
+            part def Controller {
+                attribute currentCredit : MonetaryValue = 0.0;
+
+                in port selectionIn : SelectionPort;
+                in port paymentIn : PaymentPort;
+                out port displayOut : ~DisplayPort;
+                out port dispenseCmd : ~DispenseCommandPort;
+                out port changeOut : ~PaymentPort;
+
+                exhibit state machine ControllerLogic;
+            }
+        }
+    }
+
+    package Behavior {
+        private import Structure::PortDefinitions::*;
+        private import Libraries::UnitsAndValues::*;
+        private import Libraries::ItemDefinitions::*;
+
+        state machine ControllerLogic {
+            initial state Idle;
+            state AcceptingPayment;
+            state AwaitingSelection;
+            state Dispensing;
+            state OutOfService;
+
+            transition from Idle to AcceptingPayment
+                on receive(paymentIn.amount) {
+                    action {
+                        rep language "kerml" /* self.currentCredit += amount; */
+                        send displayOut.message = "Credit: " + self.currentCredit;
+                    }
+                }
+
+            transition from AcceptingPayment to AcceptingPayment
+                on receive(paymentIn.amount) {
+                    action {
+                        rep language "kerml" /* self.currentCredit += amount; */
+                        send displayOut.message = "Credit: " + self.currentCredit;
+                    }
+                }
+
+            transition from AcceptingPayment to AwaitingSelection
+                on receive(selectionIn.code) {
+                    guard { rep language "kerml" /* self.currentCredit >= lookupPrice(code) */ }
+                    action {
+                        send displayOut.message = "Selection " + code + " accepted.";
+                    }
+                }
+
+            transition from AwaitingSelection to Dispensing {
+                action {
+                    send dispenseCmd;
+                    send displayOut.message = "Dispensing item...";
+                }
+            }
+
+            transition from Dispensing to Idle {
+                action {
+                    rep language "kerml" /*
+                        var change = self.currentCredit - itemPrice;
+                        if (change > 0.0) {
+                            send changeOut.amount = change;
+                        }
+                        self.currentCredit = 0.0;
+                    */
+                    send displayOut.message = "Thank you. Please take your item.";
+                }
+            }
+        }
+    }
+
+    package Requirements {
+        requirement def ValidPayment {
+            doc "The vending machine shall accept valid USD currency and correctly accumulate the total credit."
+        }
+        requirement def CorrectDispense {
+            doc "Upon receiving sufficient payment and a valid selection for an in-stock item, the machine shall dispense the correct item."
+        }
+        requirement def StockCheck {
+            doc "The vending machine shall not attempt to dispense an item that is out of stock and shall inform the user."
+        }
+        requirement def ChangeReturn {
+            doc "The vending machine shall return the correct change after a successful transaction."
+        }
+    }
+
+    package Assembly {
+        private import Structure::ComponentDefinitions::*;
+        private import Structure::PortDefinitions::*;
+        private import Requirements::*;
+
+        part def VendingMachine {
+            satisfy ValidPayment;
+            satisfy CorrectDispense;
+            satisfy StockCheck;
+            satisfy ChangeReturn;
+
+            // User-facing interface ports
+            in port moneySlot : PaymentPort;
+            in port keypad : SelectionPort;
+            out port itemChute : ItemOutletPort;
+            out port changeDispenser : ~PaymentPort;
+
+            // Internal components
+            part panel : SelectionPanel;
+            part acceptor : PaymentAcceptor;
+            part display : Display;
+            part storage : ItemStorage;
+            part dispenser : ItemDispenser;
+            part controller : Controller;
+
+            // Internal connections
+            connect moneySlot to acceptor.moneyIn;
+            connect keypad to panel.selectionMade;
+            connect dispenser.itemOut to itemChute;
+            connect controller.changeOut to changeDispenser;
+
+            connect panel.selectionMade to controller.selectionIn;
+            connect acceptor.creditUpdate to controller.paymentIn;
+            connect controller.displayOut to display.status;
+            connect controller.dispenseCmd to dispenser.command;
+            connect storage.itemAvailable to dispenser.itemIn;
+        }
+    }
+}
+---
+Candidate 2 (openai/gpt-5, rating=7/10):
+package 'VendingMachineModel' {
+	private import ScalarValues::*;
+	package Types {
+		attribute def USD;
+		attribute def Gram;
+		attribute def Celsius;
+		attribute def Volt;
+		attribute def Ampere;
+		item def ElectricalPower;
+		item def PaymentToken;
+		item def Coin :> PaymentToken;
+		item def Bill :> PaymentToken;
+		item def CardData :> PaymentToken;
+		item def Receipt;
+		item def Message;
+		item def SelectionCode;
+		item def VendRequest;
+		item def Verdict;
+		item def Product {
+			attribute mass : Gram;
+			attribute price : USD;
+		}
+		item def Snack :> Product;
+		item def Beverage :> Product;
+	}
+	package Ports {
+		private import Types::*;
+		port def UserEntryPort {
+			in item payment : PaymentToken;
+			in item selection : SelectionCode;
+			out item change : PaymentToken;
+			out item receipt : Receipt;
+			out item status : Message;
+		}
+		port def SelectionOutPort {
+			out item selection : SelectionCode;
+		}
+		port def SelectionInPort {
+			in item selection : SelectionCode;
+		}
+		port def PaymentInPort {
+			in item payment : PaymentToken;
+		}
+		port def ChangeOutPort {
+			out item change : PaymentToken;
+			out item receipt : Receipt;
+		}
+		port def AuthorizationRequestInPort {
+			in item vendRequest : VendRequest;
+		}
+		port def AuthorizationRequestOutPort {
+			out item vendRequest : VendRequest;
+		}
+		port def AuthorizationStatusInPort {
+			in item approved : Verdict;
+		}
+		port def AuthorizationStatusOutPort {
+			out item approved : Verdict;
+		}
+		port def CommandOutPort {
+			out item command : VendRequest;
+		}
+		port def CommandInPort {
+			in item command : VendRequest;
+		}
+		port def ProductInPort {
+			in item product : Product;
+		}
+		port def ProductOutPort {
+			attribute temperature : Celsius;
+			out item product : Product;
+		}
+		port def StockPort {
+			in item load : Product;
+		}
+		port def PowerInPort {
+			attribute voltage : Volt;
+			attribute current : Ampere;
+			in item power : ElectricalPower;
+		}
+		port def DeliveryPort {
+			attribute temperature : Celsius;
+			out item product : Product;
+		}
+	}
+	package LogicalBehavior {
+		private import Types::*;
+		action def ValidateSelection {
+			in selection : SelectionCode;
+			out request : VendRequest;
+			out valid : Verdict;
+		}
+		action def AuthorizePayment {
+			in request : VendRequest;
+			in payment : PaymentToken[*];
+			out approved : Verdict;
+			out change : PaymentToken[*];
+			out receipt : Receipt;
+		}
+		action def ReleaseProduct {
+			in request : VendRequest;
+			in approved : Verdict;
+			out product : Product;
+		}
+		action def VendItem {
+			in selection : SelectionCode;
+			in payment : PaymentToken[*];
+			out product : Product;
+			out change : PaymentToken[*];
+			out receipt : Receipt;
+			action validate : ValidateSelection { in selection; out request; out valid; };
+			action authorize : AuthorizePayment { in request; in payment; out approved; out change; out receipt; };
+			action release : ReleaseProduct { in request; in approved; out product; };
+			bind validate.selection = selection;
+			flow validate.request to authorize.request;
+			flow authorize.approved to release.approved;
+			flow validate.request to release.request;
+			succession flow validate.request to authorize.request;
+			succession flow authorize.approved to release.approved;
+			bind release.product = product;
+			bind authorize.change = change;
+			bind authorize.receipt = receipt;
+		}
+		part def VendingRoles {
+			part selectorRole {
+				perform VendItem.validate;
+			}
+			part paymentRole {
+				perform VendItem.authorize;
+			}
+			part dispenserRole {
+				perform VendItem.release;
+			}
+		}
+	}
+	package PhysicalStructure {
+		private import Types::*;
+		private import Ports::*;
+		private import LogicalBehavior::*;
+		part def UserInterface {
+			port userIO : UserEntryPort;
+			port selectionOut : SelectionOutPort;
+		}
+		part def PaymentModule {
+			port payIn : PaymentInPort;
+			port changeOut : ChangeOutPort;
+			port reqIn : AuthorizationRequestInPort;
+			port authOut : AuthorizationStatusOutPort;
+			perform VendItem.authorize;
+		}
+		part def Storage {
+			attribute capacity : Integer;
+			item inventory : Product[*];
+			port stockIn : StockPort;
+			port productOut : ProductOutPort;
+		}
+		part def Dispenser {
+			port productIn : ProductInPort;
+			port commandIn : CommandInPort;
+			port productOut : ProductOutPort;
+			perform VendItem.release;
+		}
+		part def Controller {
+			port selectionIn : SelectionInPort;
+			port reqOut : AuthorizationRequestOutPort;
+			port authIn : AuthorizationStatusInPort;
+			port commandOut : CommandOutPort;
+			perform VendItem.validate;
+		}
+		part def PowerSubsystem {
+			port powerIn : PowerInPort;
+		}
+		part def VendingMachine {
+			port user : UserEntryPort;
+			port delivery : DeliveryPort;
+			port stock : StockPort;
+			port power : PowerInPort;
+			part ui : UserInterface;
+			part payment : PaymentModule;
+			part storage : Storage;
+			part dispenser : Dispenser;
+			part controller : Controller;
+			part psu : PowerSubsystem;
+			flow user.payment to ui.userIO.payment;
+			flow user.selection to ui.userIO.selection;
+			flow ui.userIO.change to user.change;
+			flow ui.userIO.receipt to user.receipt;
+			flow ui.userIO.selection to ui.selectionOut.selection;
+			flow ui.selectionOut.selection to controller.selectionIn.selection;
+			flow ui.userIO.payment to payment.payIn.payment;
+			flow controller.reqOut.vendRequest to payment.reqIn.vendRequest;
+			flow payment.authOut.approved to controller.authIn.approved;
+			flow storage.productOut.product to dispenser.productIn.product;
+			flow controller.commandOut.command to dispenser.commandIn.command;
+			flow dispenser.productOut.product to delivery.product;
+			flow stock.load to storage.stockIn.load;
+			flow power.power to psu.powerIn.power;
+		}
+	}
+	package Configuration {
+		private import Types::*;
+		private import Ports::*;
+		private import PhysicalStructure::*;
+		private import LogicalBehavior::*;
+		part def PowerSource {
+			port out : ~PowerInPort;
+		}
+		part def Supplier {
+			port stockOut : ~StockPort;
+		}
+		part def Customer {
+			port payAndSelect : ~UserEntryPort;
+			port receive : ~DeliveryPort;
+		}
+		part vmContext {
+			part mains : PowerSource;
+			part supplier : Supplier;
+			part user : Customer;
+			part vm : VendingMachine;
+			flow mains.out.power to vm.power.power;
+			flow supplier.stockOut.load to vm.stock.load;
+			flow user.payAndSelect.payment to vm.user.payment;
+			flow user.payAndSelect.selection to vm.user.selection;
+			flow vm.user.change to user.payAndSelect.change;
+			flow vm.user.receipt to user.payAndSelect.receipt;
+			flow vm.delivery.product to user.receive.product;
+		}
+	}
+	package Allocation {
+		private import PhysicalStructure::*;
+		private import LogicalBehavior::*;
+		allocate VendingRoles.selectorRole to Controller {
+			allocate VendingRoles.selectorRole.validate to Controller.validate;
+		}
+		allocate VendingRoles.paymentRole to PaymentModule {
+			allocate VendingRoles.paymentRole.authorize to PaymentModule.authorize;
+		}
+		allocate VendingRoles.dispenserRole to Dispenser {
+			allocate VendingRoles.dispenserRole.release to Dispenser.release;
+		}
+	}
+	package Requirements {
+		requirement def R_DispenseAfterPayment;
+		requirement def R_ReturnChange;
+		requirement def R_RejectInvalidSelection;
+		requirement def R_DeliveryTemperature;
+		part RequirementSet {
+			part r1 : R_DispenseAfterPayment;
+			part r2 : R_ReturnChange;
+			part r3 : R_RejectInvalidSelection;
+			part r4 : R_DeliveryTemperature;
+		}
+	}
+}
+---
+Candidate 3 (anthropic/claude-sonnet-4.5, rating=10/10):
+package VendingMachineSystem {
+    
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
+    
+    attribute def Currency;
+    attribute def ProductCode;
+    attribute def Temperature;
+    
+    item def Money {
+        attribute amount : Real;
+        attribute currency : Currency;
+    }
+    
+    item def Product {
+        attribute code : ProductCode;
+        attribute name : String;
+        attribute price : Real;
+        attribute weight : MassValue;
+    }
+    
+    item def Beverage :> Product {
+        attribute volume : VolumeValue;
+        attribute temp : Temperature;
+    }
+    
+    item def Snack :> Product {
+        attribute expirationDate : String;
+    }
+    
+    item def Waste {
+        attribute weight : MassValue;
+        attribute type : String;
+    }
+    
+    port def PaymentPort {
+        in item payment : Money;
+        out item change : Money;
+    }
+    
+    port def ProductDispensePort {
+        out item dispensedProduct : Product;
+    }
+    
+    port def WasteDisposalPort {
+        in item wasteItem : Waste;
+        out item disposedWaste : Waste;
+    }
+    
+    port def UserInterfacePort {
+        in ref selection : ProductCode;
+        out ref status : String;
+    }
+    
+    part def InventorySlot {
+        attribute slotNumber : Integer;
+        attribute capacity : Integer;
+        attribute currentStock : Integer;
+        item storedProducts : Product[0..*];
+    }
+    
+    part def PaymentProcessor {
+        port paymentInterface : PaymentPort;
+        attribute totalInserted : Real;
+        attribute requiredAmount : Real;
+        
+        action processPayment {
+            in paymentReceived : Money;
+            out changeReturned : Money;
+            out paymentComplete : Boolean;
+        }
+    }
+    
+    part def DispensingMechanism {
+        port dispensePort : ProductDispensePort;
+        attribute motorSpeed : Real;
+        
+        action dispenseProduct {
+            in productToDispense : Product;
+            out dispensedItem : Product;
+        }
+    }
+    
+    part def WasteDisposalUnit {
+        port wastePort : WasteDisposalPort;
+        attribute wasteCapacity : MassValue;
+        attribute currentWasteLevel : MassValue;
+        item collectedWaste : Waste[0..*];
+        
+        action collectWaste {
+            in incomingWaste : Waste;
+            out storedWaste : Waste;
+        }
+        
+        action compactWaste {
+            in wasteToCompact : Waste;
+            out compactedWaste : Waste;
+        }
+        
+        action emptyWasteContainer {
+            in wasteToRemove : Waste[0..*];
+            out removedWaste : Waste[0..*];
+        }
+    }
+    
+    part def ControlUnit {
+        port userInterface : UserInterfacePort;
+        attribute currentState : String;
+        
+        action validateSelection {
+            in selectedCode : ProductCode;
+            out isValid : Boolean;
+        }
+        
+        action checkInventory {
+            in productCode : ProductCode;
+            out isAvailable : Boolean;
+        }
+        
+        action initiateDispense {
+            in product : Product;
+        }
+        
+        action handleWaste {
+            in wasteType : String;
+        }
+    }
+    
+    part def VendingMachine {
+        part controller : ControlUnit;
+        part paymentSystem : PaymentProcessor;
+        part dispenser : DispensingMechanism;
+        part wasteDisposal : WasteDisposalUnit;
+        part inventorySlots : InventorySlot[20];
+        
+        attribute machineId : String;
+        attribute operationalStatus : String;
+        
+        port customerPayment : PaymentPort;
+        port productOutput : ProductDispensePort;
+        port wasteInput : WasteDisposalPort;
+        port customerInterface : UserInterfacePort;
+        
+        flow paymentFlow from customerPayment.payment to paymentSystem.paymentInterface.payment;
+        flow changeFlow from paymentSystem.paymentInterface.change to customerPayment.change;
+        flow productFlow from dispenser.dispensePort.dispensedProduct to productOutput.dispensedProduct;
+        flow wasteFlow from wasteInput.wasteItem to wasteDisposal.wastePort.wasteItem;
+        flow selectionFlow from customerInterface.selection to controller.userInterface.selection;
+        flow statusFlow from controller.userInterface.status to customerInterface.status;
+        
+        action vendingOperation {
+            action receiveSelection {
+                in customerSelection : ProductCode;
+                out selectedProduct : Product;
+            }
+            
+            action acceptPayment {
+                in requiredPrice : Real;
+                out paymentConfirmed : Boolean;
+            }
+            
+            action dispenseItem {
+                in productToVend : Product;
+                out vendedProduct : Product;
+            }
+            
+            action disposeWaste {
+                in wasteGenerated : Waste;
+                out wasteDisposed : Waste;
+            }
+            
+            first receiveSelection then acceptPayment;
+            succession flow receiveSelection.selectedProduct to acceptPayment;
+            first acceptPayment then dispenseItem;
+            succession flow acceptPayment.paymentConfirmed to dispenseItem;
+            first dispenseItem then disposeWaste;
+        }
+        
+        state vendingStateMachine {
+            entry; then idle;
+            
+            state idle {
+                entry assign operationalStatus = "Ready";
+            }
+            
+            transition idle_to_selecting
+                first idle
+                accept SelectionMade
+                then selecting;
+            
+            state selecting {
+                entry assign operationalStatus = "Processing Selection";
+                do controller.validateSelection;
+            }
+            
+            transition selecting_to_awaitingPayment
+                first selecting
+                if controller.validateSelection.isValid
+                then awaitingPayment;
+            
+            transition selecting_to_idle
+                first selecting
+                if !controller.validateSelection.isValid
+                then idle;
+            
+            state awaitingPayment {
+                entry assign operationalStatus = "Awaiting Payment";
+                do paymentSystem.processPayment;
+            }
+            
+            transition awaitingPayment_to_dispensing
+                first awaitingPayment
+                if paymentSystem.processPayment.paymentComplete
+                then dispensing;
+            
+            state dispensing {
+                entry assign operationalStatus = "Dispensing Product";
+                do dispenser.dispenseProduct;
+            }
+            
+            transition dispensing_to_disposingWaste
+                first dispensing
+                then disposingWaste;
+            
+            state disposingWaste {
+                entry assign operationalStatus = "Disposing Waste";
+                do wasteDisposal.collectWaste;
+            }
+            
+            transition disposingWaste_to_idle
+                first disposingWaste
+                then idle;
+        }
+    }
+    
+    package Requirements {
+        requirement def VendingMachineRequirements {
+            doc /* Top-level requirements for vending machine system */
+            
+            requirement dispenseCapability {
+                doc /* The vending machine shall dispense products upon valid payment */
+                subject machine : VendingMachine;
+                require machine.vendingOperation.dispenseItem;
+            }
+            
+            requirement wasteDisposalCapability {
+                doc /* The vending machine shall be able to dispose of waste items */
+                subject machine : VendingMachine;
+                require machine.wasteDisposal.collectWaste;
+                require machine.wasteDisposal.compactWaste;
+                require machine.wasteDisposal.emptyWasteContainer;
+            }
+            
+            requirement wasteCapacityRequirement {
+                doc /* The waste disposal unit shall have minimum capacity of 5 kg */
+                subject disposal : WasteDisposalUnit;
+                assume constraint { disposal.wasteCapacity >= 5.0 }
+            }
+            
+            requirement inventoryManagement {
+                doc /* The vending machine shall track inventory levels */
+                subject machine : VendingMachine;
+                require machine.controller.checkInventory;
+            }
+            
+            requirement paymentProcessing {
+                doc /* The vending machine shall process payments and return change */
+                subject machine : VendingMachine;
+                require machine.paymentSystem.processPayment;
+            }
+        }
+    }
+    
+    package VendingMachineConfiguration {
+        private import VendingMachineSystem::*;
+        
+        part vendingMachineInstance : VendingMachine {
+            :>> machineId = "VM-001";
+            :>> operationalStatus = "Ready";
+            
+            part :>> wasteDisposal {
+                :>> wasteCapacity = 10.0;
+                :>> currentWasteLevel = 0.0;
+            }
+            
+            part :>> inventorySlots[0] {
+                :>> slotNumber = 1;
+                :>> capacity = 10;
+                :>> currentStock = 8;
+            }
+            
+            part :>> inventorySlots[1] {
+                :>> slotNumber = 2;
+                :>> capacity = 10;
+                :>> currentStock = 5;
+            }
+        }
+        
+        item beverageProduct : Beverage {
+            :>> code = "B01";
+            :>> name = "Cola";
+            :>> price = 1.50;
+            :>> weight = 0.355;
+            :>> volume = 0.355;
+        }
+        
+        item snackProduct : Snack {
+            :>> code = "S01";
+            :>> name = "Chips";
+            :>> price = 1.25;
+            :>> weight = 0.050;
+            :>> expirationDate = "2025-12-31";
+        }
+        
+        item packagingWaste : Waste {
+            :>> weight = 0.015;
+            :>> type = "Plastic";
+        }
+    }
+}
+---
+Candidate 4 (meta-llama/llama-4-maverick, rating=5/10):
+package vendingMachine {
+  part vendingMachine {
+    port in : item[1] // input item
+    port out : item[0..*] // output item (0 or more)
+    attribute capacity : Integer // maximum number of items
+    attribute count : Integer // current number of items
+    attribute state : State // current state (e.g. idle, vending, out of stock)
+  }
+  behavior VendingMachine {
+    operation vend : Item // return an item from the vending machine
+    operation restock : Item // restock the vending machine with new items
+  }
+  requirement VendingMachineRequirement {
+    VendingMachine {
+      attribute capacity : Integer // maximum capacity
+      attribute state : State // current state (e.g. idle, vending)
+    }
+  }
+}
+state Vending {
+  state Idle {
+    on entry {
+      // perform action on entry
+    }
+  }
+  state Vending {
+    on entry {
+      // perform action on entry
+    }
+    on exit {
+      // perform action on exit
+    }
+  }
+  state OutOfStock {
+    on entry {
+      // perform action on entry
+    }
+  }
+}
+transition IdleToVending {
+  trigger onVend;
+  guard vend;
+  effect vend;
+}
+transition VendingToOutOfStock {
+  trigger onVend;
+  effect outOfStock;
+}
+transition OutOfStockToVending {
+  trigger onRestock;
+  effect restock;
+}
+
+@startuml
+class VendingMachine {
+  - capacity: Integer
+  - state: State
+  + vend(): Item
+  + restock(): void
+}
+class Item {
+  - name: String
+  - price: Real
+}
+VendingMachine --* Item : contains 0..*
+@enduml
+
+To create a vending machine class diagram, we can use the following PlantUML code:
+
+@startuml
+class VendingMachine {
+  - items: List<Item>
+  - capacity: Integer
+  + vend(item: Item): Item
+  + restock(items: List<Item>): void
+}
+@enduml
+
+This PlantUML code defines a class diagram for a vending machine system. The `VendingMachine` class has attributes for the current state and a list of items. The `vend` operation is used to dispense an item, and the `restock` operation is used to restock the vending machine. The `contains` relationship is used to indicate that the vending machine contains a certain number of items.
+
+To illustrate the structure of the vending machine, we can use a class diagram. The class diagram shows the `VendingMachine` class with its attributes and operations.
+
+class VendingMachine {
+  - items: List<Item>
+  + vend(): Item
+  + restock(): void
+}
+
+The `VendingMachine` class has the following attributes:
+
+*   `items`: a list of items that are currently in the vending machine
+*   `capacity`: the maximum number of items that the vending machine can hold
+
+The `VendingMachine` class has the following operations:
+
+*   `vend(item: Item)`: vends an item from the vending machine
+*   `restock(items: List[Item])`: restocks the vending machine with new items
+
+The `restock` operation is used to restock the vending machine with new items. The `vend` operation is used to dispense an item from the vending machine.
+
+To illustrate the behavior of the vending machine, we can use a state machine diagram. The state machine diagram shows the different states that the vending machine can be in, such as " idle", "vend", and "out of stock".
+
+state idle {
+  state idle {
+    state idle {
+      state outOfStock {
+        state outOfStock {
+          state item: Item
+        }
+      }
+    }
+  }
+}
+
+The `VendingMachine` class has a state machine that defines its behavior. The state machine has the following states:
+
+*   `idle`: the vending machine is idle and waiting for a signal to dispense an item
+*   `vend`: the vending machine is vending an item
+*   `outOfStock`: the vending machine is out of stock
+
+The state machine also has the following transitions:
+
+*   `idle` to `vend`: the vending machine is vending an item
+*   `vend` to `idle`: the vending machine has finished vending an item
+
+The state machine is triggered by the `vend` signal, which is sent when the vending machine is triggered.
+
+To illustrate the behavior of the vending machine, we can use a state machine diagram. The state machine diagram shows the different states that the vending machine can be in, including the idle state, the vending state, and the out-of-stock state.
+
+To create a class diagram, we can use the following PlantUML code:
+
+class VendingMachine {
+  - capacity: Integer
+  - state: State
+  + vend(): Item
+  + restock(): void
+}
+
+class Item {
+  - name: String
+  - price: Real
+}
+
+class VendingMachine {
+  + vend(): Item
+  + restock(): void
+}
+
+This class diagram shows the structure of the vending machine and its relationships with other classes.
+
+To create a sequence diagram, we can use the following PlantUML code:
+
+@startuml
+participant VendingMachine as "VendingMachine"
+participant Item as "Item"
+
+VendingMachine ->> Item : vend()
+Item ->> VendingMachine : vend()
+
+@enduml
+
+This sequence diagram shows the interactions between the vending machine and the item.
+
+To create a state machine diagram, we can use the following PlantUML code:
+
+state Idle {
+  - name: String
+  - quantity: Integer
+}
+
+state Vending {
+  - name: String
+  - quantity: Integer
+}
+
+state OutOfStock {
+  - name: String
+  - quantity: Integer
+}
+
+This state machine diagram shows the different states that the vending machine can be in, including the idle state, the vending state, and the out-of-stock state.
+
+To create a class diagram, we can use the following class diagram:
+
+class VendingMachine {
+  - name: String
+  - quantity: Integer
+}
+
+class Item {
+  - name: String
+  - price: Real
+}
+
+This class diagram shows the structure of the vending machine and the item.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system. It is responsible for vending items to the user. The `Item` class represents the items that are being vended. The `State` class represents the state of the vending machine. The `VendingMachine` class has a composition relationship with the `Item` class, indicating that the `VendingMachine` class is composed of multiple `Item` objects.
+
+The `VendingMachine` class has a multiplicity of 1..*, indicating that it can have multiple instances of the `Item` class. The `Item` class has a multiplicity of 1..*, indicating that it can have multiple instances of the `Item` class.
+
+The `VendingMachine` class has a `vend` operation that is used to vend an item to the user. The `VendingMachine` class also has a `restock` operation that is used to restock the vending machine.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is responsible for vending items to the user.
+
+class VendingMachine {
+  - name: String
+  - quantity: Integer
+  - price: Real
+}
+
+This is the end of the class diagram.
+
+As you can see, the `VendingMachine` class has a number of attributes and operations that are used to manage the vending machine. The `VendingMachine` class has a `name` attribute that represents the name of the vending machine, a `quantity` attribute that represents the quantity of items in the vending machine, and a `restock` operation that is used to restock the vending machine.
+
+The `Item` class represents an item that is being vended by the vending machine. The `Item` class has a `name` attribute that represents the name of the item, and a `price` attribute that represents the price of the item.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is responsible for managing the vending machine. The `VendingMachine` class has a number of attributes and operations that are used to manage the vending machine.
+
+To create a new vending machine, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+  - quantity: Integer
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new item, you can use the following syntax:
+
+class Item {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `Item` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is responsible for managing the vending machine. The `Item` class is used to represent the items that are being vended.
+
+To create a new vending machine, you can use the following syntax:
+
+@startuml
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+@enduml
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new item, you can use the following syntax:
+
+class Item {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `Item` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is responsible for managing the vending machine. The `Item` class is used to represent the items that are being vended.
+
+To create a new vending machine, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new item, you can use the following syntax:
+
+class Item {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `Item` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is responsible for managing the vending machine, and the `Item` class is used to represent the items that are being vended.
+
+To create a new item, you can use the following syntax:
+
+class Item {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `Item` object with the specified attributes.
+
+In conclusion, the `Item` class is used to represent the items that are being vended, and the `VendingMachine` class is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is used to represent the vending machine that is being used to dispense the items.
+
+This is the end of the `VendingMachine` class.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is used to represent the items that are being vended.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+This syntax creates a new `VendingMachine` object with the specified attributes.
+
+In conclusion, the `VendingMachine` class is a critical component of the vending machine system, and it is used to represent the vending machine that is being used to dispense the items.
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax:
+
+class VendingMachine {
+  - name: String
+  - price: Real
+}
+
+To create a new `VendingMachine` object, you can use the following syntax, но не является обязательным.
+
+Чтобы создать объект, который можно использовать для хранения данных, можно использовать следующий синтаксис:
+
+class MyClass:
+    def __init__(self):
+        self.my_attribute = "Hello, World!"
+
+Этот синтаксис определяет класс `MyClass`, который имеет атрибут `my_attribute` со значением `"Hello, World!"`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот объект имеет атрибут `my_attribute`, который можно использовать для хранения данных.
+
+Чтобы получить доступ к атрибуту `my_attribute`, можно использовать следующий синтаксис:
+
+my_object.my_attribute
+
+Этот синтаксис позволяет получить доступ к атрибуту `my_attribute` объекта `my_object`.
+
+Чтобы изменить значение атрибута `my_attribute`, можно использовать следующий синтаксис:
+
+my_object.my_attribute = "New Value"
+
+Этот синтаксис позволяет изменить значение атрибута `my_attribute` на новое значение.
+
+Чтобы получить значение атрибута `my_attribute`, можно использовать следующий синтаксис:
+
+my_object.my_attribute
+
+Этот синтаксис позволяет получить значение атрибута `my_attribute`.
+
+В заключение, синтаксис `my_object.my_attribute` позволяет получить доступ к атрибуту `my_attribute` объекта `my_object`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис создает объект `my_object` класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис создает объект `my_object` класса `MyClass`.
+
+Чтобы изменить объект, можно использовать следующий синтаксис:
+
+my_object.my_attribute = "New Value"
+
+Этот синтаксис позволяет изменить значение атрибута `my_attribute` объекта `my_object`.
+
+В заключение, синтаксис `my_object.my_attribute = "New Value"` позволяет изменить значение атрибута `my_attribute` объекта `my_object`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+В заключение, синтаксис `my_object.my_attribute = "New Value"` позволяет изменить значение атрибута `my_attribute` объекта `my_object`.
+
+В заключение, синтаксис `my_object.my_attribute = "New Value"` позволяет изменить значение атрибута `my_attribute` объекта `my_object`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет получить объект класса `MyClass`.
+
+Чтобы изменить объект, можно использовать следующий синтаксис:
+
+my_object.my_attribute = "New Value"
+
+Этот синтаксис позволяет изменить значение атрибута `my_attribute`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет получить объект класса `MyClass`.
+
+Чтобы изменить объект, можно использовать следующий синтаксис:
+
+my_object.my_attribute = "New Value"
+
+Этот синтаксис позволяет изменить атрибут `my_attribute` объекта `my_object`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет получить объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет получить объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет получить объект класса `MyClass`.
+
+Чтобы изменить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет изменить объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет получить объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет получить объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`, который имеет атрибут `my_attribute`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы получить объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект, можно использовать следующий синтаксис:
+
+my_object = MyClass()
+
+Этот синтаксис позволяет создать объект класса `MyClass`.
+
+Чтобы создать объект
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a vending machine that is able to dispose items.

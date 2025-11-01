@@ -1,0 +1,1255 @@
+System:
+Synthesize a single best model by merging or selecting from candidates when provided. You generate valid SysML v2 concrete syntax only. No markdown, no fences, no prose. Prefer correct grammar and consistency. Produce complete, non-trivial models that satisfy the requirement with appropriate parts, ports, connections, items/value types (with units), behaviors (state machines/actions), and requirements when applicable. Avoid placeholders and undefined references.
+
+Human:
+Use the following examples and specification excerpts as guidance. Follow grammar; prefer simple, correct constructs.
+Example 1 NL:
+This model describes a system for defining and calculating the mass of physical objects, particularly for complex assemblies. It represents objects that can be either simple, single-piece parts or complex structures made up of multiple subcomponents.
+
+The system is built on two types of physical items:
+
+1.  **Simple Things:** These are fundamental, indivisible components. Think of a single bolt, a metal plate, or a resistor. Such an object has a straightforward mass, and its total mass is simply its own weight.
+
+2.  **Composite Things:** These represent assemblies or more complex objects built from other parts. A composite object has its own intrinsic mass (like the weight of an empty computer case or a car chassis) and also contains a collection of other components. These subcomponents can be either simple things or other, smaller composite things.
+
+The key function of this system is to "roll up" the mass hierarchically. The total mass of a composite object is calculated by taking the mass of its own structure and adding the total masses of all the individual parts contained within it. This allows for an accurate mass calculation of a highly complex product, like a satellite, by breaking it down into its systems, subsystems, and individual components.
+
+Example 1 SysML:
+package MassRollup1 {
+	private import NumericalFunctions::*;
+	part def MassedThing {
+		attribute simpleMass :> ISQ::mass; 
+		attribute totalMass :> ISQ::mass;
+	}
+	part simpleThing : MassedThing {
+		attribute :>> totalMass = simpleMass;
+	}
+	part compositeThing : MassedThing {
+		part subcomponents: MassedThing[*];		
+		attribute :>> totalMass =
+			simpleMass + sum(subcomponents.totalMass); 
+	}
+}
+---
+Example 2 NL:
+This model describes a long-range drone designed to operate up to 5 kilometers away from its user.
+
+The drone's ability to achieve this long-distance flight is based on a specific balance between its weight and power source. It incorporates a high-capacity battery, specified to hold at least a 6000 mAh charge, which provides the necessary energy for extended flight. To maximize the effectiveness of this power source, the drone's overall design is very lightweight, with a total mass strictly controlled to not exceed 750 grams.
+
+This combination of a powerful battery and a lightweight frame is the core technical approach used to satisfy the primary requirement for long-range operation.
+
+Example 2 SysML:
+package Drone_BaseArchitecture {
+    part def Drone;
+}
+package Drone_StakeholderRequirements {    
+    requirement <'REQ-42'> longDistance {
+        doc /* The drone shall have a sufficient range 
+             * to operate at a distance of 5 km from the 
+             * operator's location.
+            */  
+        subject drone : Drone_BaseArchitecture::Drone;
+    }
+}
+package Drone_SystemArchitecture {
+    part drone : Drone_BaseArchitecture::Drone {
+        attribute totalMass = 750;
+        part battery {
+            attribute capacity = 6000;
+        }        
+    }
+    satisfy Drone_StakeholderRequirements::longDistance by drone;  
+}
+package Drone_SystemRequirements {
+    import RequirementDerivation::*;
+    requirement <'REQ-9942'> totalMass {
+        subject drone :>> Drone_SystemArchitecture::drone;        
+        assert constraint {
+            drone.totalMass <= 750
+        }
+    }
+    requirement <'REQ-9943'> battery {
+        subject battery :>> Drone_SystemArchitecture::drone.battery;
+    }
+    requirement <'REQ-9944'> maxCapacity {
+        subject battery :>> Drone_SystemArchitecture::drone.battery;
+        assert constraint {
+            battery.capacity >= 6000
+        }
+    }
+    #derivation connection {
+        end #original ::> Drone_StakeholderRequirements::longDistance;
+        end #derive ::> Drone_SystemRequirements::totalMass;
+        end #derive ::> Drone_SystemRequirements::maxCapacity;
+    }
+}
+---
+Example 3 NL:
+This model represents a simplified vehicle designed for a mass properties analysis. The vehicle is defined by its major sub-systems: an engine, a front axle assembly, and a rear axle assembly.
+
+The core principle of this system is that the vehicle's total mass is determined by the sum of the individual masses of these key components. Each part—the engine, front axle, and rear axle—contributes its own weight to the overall vehicle. This represents a fundamental mass roll-up calculation common in engineering, where the properties of the whole system are derived from the properties of its constituent parts.
+
+Example 3 SysML:
+package ConstraintTest {
+	private import ISQ::MassValue;
+	private import SI::kg;
+	private import NumericalFunctions::sum;
+	constraint def MassAnalysis {
+		attribute totalMass: MassValue;
+		attribute componentMasses: MassValue[0..*];		
+		totalMass == sum(componentMasses)
+	}
+	part def Component {
+		attribute mass: MassValue;
+	}
+	part vehicle : Component {	
+		part engine : Component;
+		part frontAxleAssembly : Component;
+		part rearAxleAssembly : Component;	
+	}
+	part vehicle1a :> vehicle {
+		assert constraint massAnalysis : MassAnalysis {
+			attribute redefines totalMass;
+			attribute redefines componentMasses;
+		}
+		bind massAnalysis.totalMass = mass;
+		bind massAnalysis.componentMasses = engine.mass;
+		bind massAnalysis.componentMasses = frontAxleAssembly.mass;
+		bind massAnalysis.componentMasses = rearAxleAssembly.mass;
+	}
+	part vehicle1b :> vehicle {		
+		assert constraint massAnalysis : MassAnalysis {
+			attribute redefines totalMass = mass;
+			attribute redefines componentMasses = (engine.mass, frontAxleAssembly.mass, rearAxleAssembly.mass);		
+		}	
+	}
+	constraint def MassAnalysis2 { 
+		in totalMass : MassValue;
+		in componentMasses: MassValue[0..*];
+		totalMass == sum(componentMasses)
+	}
+	part vehicle2a :> vehicle {
+		assert constraint massConstraint : MassAnalysis2;
+		bind massConstraint.totalMass = mass;
+		bind massConstraint.componentMasses = engine.mass;
+		bind massConstraint.componentMasses = frontAxleAssembly.mass;
+		bind massConstraint.componentMasses = rearAxleAssembly.mass;
+	}
+	part vehicle2b :> vehicle {
+		assert constraint massAnalysis2 : MassAnalysis2 {
+			in totalMass = mass;
+			in componentMasses = (engine.mass, frontAxleAssembly.mass, rearAxleAssembly.mass);
+		}
+	}
+	constraint def MassAnalysis3 {
+		in totalMass : MassValue;
+		in componentMasses: MassValue[0..*];
+	}
+	constraint massAnalysis3 : MassAnalysis3 {
+		in totalMass : MassValue;
+		in componentMasses: MassValue[0..*];
+		totalMass == sum(componentMasses)
+	}
+	part vehicle3 :> vehicle {
+		assert massAnalysis3 {
+			in totalMass = mass;
+			in componentMasses = (engine.mass, frontAxleAssembly.mass, rearAxleAssembly.mass);
+		}
+	}
+	part vehicle4 :> vehicle {
+		assert constraint { mass == engine.mass + frontAxleAssembly.mass + rearAxleAssembly.mass }
+	}
+	constraint massLimitation { mass : MassValue; massLimit : MassValue; mass < massLimit }
+	assert not massLimitation { :>> mass = vehicle3.mass; :>> massLimit = vehicle4.mass; }
+}
+---
+Example 4 NL:
+This system describes a physical control knob for adjusting the vertical tilt of a vehicle's headlights.
+
+The knob allows a driver to change the angle of the headlight beams. A key feature of this system is that it has a built-in safety limitation. The tilt angle is strictly restricted to a predefined range, ensuring it can only be set between a minimum of 50 degrees and a maximum of 80 degrees. This prevents the driver from setting the headlights too low or, more importantly, too high, which could dazzle oncoming traffic.
+
+Example 4 SysML:
+package '15_08-Range Restriction' {
+	private import ISQ::*;
+	private import SI::*;
+	private import '15_01-Constants'::'Mathematical Constants'::pi;
+	part def HeadLightsTiltKnob {
+		attribute headLightsTile : LightBeamTiltAngleValue[1];
+	}
+	attribute def LightBeamTiltAngleValue :> PlaneAngleValue {
+		attribute angle: LightBeamTiltAngleValue :>> self {
+			doc
+			/*
+			 * Tilt angle shall be limited to the range between 50 and 80 degrees (inclusive).
+			 */
+		}
+		assert constraint { angle >= 50 ['°'] and angle <= 80 ['°'] }
+	}
+}
+---
+Example 5 NL:
+This model describes the fundamental components of a vehicle's drivetrain and wheel assembly. It defines a generic vehicle system that includes a transmission, an axle, and wheels.
+
+The system focuses specifically on the mechanical interface used to mount a wheel onto an axle. An axle is defined as a component with mounting points on both its left and right ends. A wheel has a central hub designed to connect to one of these mounting points.
+
+The core function described is the transfer of power. Rotational force, or torque, is transmitted from the axle's mounting point directly to the hub of the wheel. This transfer of torque is what causes the wheel to spin, ultimately propelling the vehicle. The model is detailed enough to also define the lugbolts used to physically fasten the wheel to the axle, even specifying a critical engineering property for them: their required tightening torque.
+
+Example 5 SysML:
+package VehicleDefinitions {
+	doc
+	/*
+	 * Example vehicle definitions model.
+	 */
+	private import ScalarValues::*;
+	private import Quantities::*;
+	private import MeasurementReferences::*;
+	private import ISQ::*;
+	private import SI::*;
+	/* PART DEFINITIONS */
+	part def Vehicle {
+		attribute mass :> ISQ::mass;
+	}
+	part def Transmission;	
+	part def AxleAssembly;
+	part def Axle {
+		port leftMountingPoint: AxleMountIF;
+		port rightMountingPoint: AxleMountIF;
+	}
+	part def Wheel {
+		port hub: WheelHubIF;
+	}
+	part def Lugbolt {
+		attribute tighteningTorque :> ISQ::torque;
+	}
+	/* PORT DEFINITIONS */
+	port def DriveIF { 
+		in driveTorque :> ISQ::torque;
+	}
+	port def AxleMountIF { 
+		out transferredTorque :> ISQ::torque;
+	}
+	port def WheelHubIF { 
+		in appliedTorque :> ISQ::torque;
+	}
+	/* INTERFACE DEFINITIONS */
+	interface def Mounting {
+		doc /* The definition of the interface for mounting a Wheel to an Axle. */
+		end axleMount: AxleMountIF;
+		end hub: WheelHubIF;
+		flow axleMount.transferredTorque to hub.appliedTorque;
+	}
+}
+---
+Spec 1 [1-Kernel_Modeling_Language]:
+, and an owningType that is a
+Class or another Feature typed by a Class, then it must directly or indirectly specialize
+Occurrences::Occurrence::portions from the Kernel Semantic Library.
+isPortion and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <> null and
+(owningType.oclIsKindOf(Class) or
+owningType.oclIsKindOf(Feature) and
+owningType.oclAsType(Feature).type->
+exists(oclIsKindOf(Class))) implies
+specializesFromLibrary('Occurrence::Occurrence::portions')
+
+checkFeatureResultRedefinition
+If a Feature is a result parameter of an owningType that is a Function or Expression, then, for each direct
+supertype of its owningType that is also a Function or Expression, it must redefine the result parameter.
+owningType <> null and
+(owningType.oclIsKindOf(Function) and
+self = owningType.oclAsType(Function).result or
+owningType.oclIsKindOf(Expression) and
+self = owningType.oclAsType(Expression).result) implies
+owningType.ownedSpecialization.general->
+select(oclIsKindOf(Function) or oclIsKindOf(Expression))->
+forAll(supertype |
+redefines(
+if superType.oclIsKindOf(Function) then
+superType.oclAsType(Function).result
+else
+superType.oclAsType(Expression).result
+endif)
+
+checkFeatureSpecialization
+A Feature must directly or indirectly specialize Base::things from the Kernel Semantic Library.
+specializesFromLibrary('Base::things')
+
+checkFeatureSubobjectSpecialization
+A composite Feature typed by a Structure, and whose ownedType is a Structure or another Feature typed
+by a Structure must directly or indirectly specialize Objects::Object::subobjects
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Structure)) and
+owningType <> null and
+(owningType.oclIsKindOf(Structure) or
+owningType.type->includes(oclIsKindOf(Structure))) implies
+specializesFromLibrary('Occurrence::Occurrence::suboccurrences')
+
+checkFeatureSuboccurrenceSpecialization
+
+168
+
+Kernel Modeling Language v1.0
+
+
+A composite Feature that has an ownedTyping relationship to a Class, and whose ownedType is a Class or
+another Feature typed by a Class, must directly or indirectly specialize
+Occurrences::Occurrence::suboccurrences
+isComposite and
+ownedTyping.type->includes(oclIsKindOf(Class)) and
+owningType <
+---
+Spec 2 [1-Kernel_Modeling_Language]:
+s::Transfer::target::targetInput, respectively, from the Kernel Semantic Library.
+owningType <> null and
+owningType.oclIsKindOf(FlowEnd) and
+owningType.ownedFeature->at(1) = self implies
+let flowType : Type = owningType.owningType in
+flowType <> null implies
+let i : Integer =
+flowType.ownedFeature.indexOf(owningType) in
+(i = 1 implies
+redefinesFromLibrary('Transfers::Transfer::source::sourceOutput')) and
+(i = 2 implies
+redefinesFromLibrary('Transfers::Transfer::source::targetInput'))
+
+checkFeatureObjectSpecialization
+If a Feature has an ownedTyping relationship to a Structure, then it must directly or indirectly specialize
+Objects::objects from the Kernel Semantics Library.
+ownedTyping.type->exists(selectByKind(Structure)) implies
+specializesFromLibary('Objects::objects')
+
+checkFeatureOccurrenceSpecialization
+If a Feature has an ownedTyping relationship to a Class, then it must directly or indirectly specialize
+Occurrences::occurrences from the Kernel Semantic Library.
+ownedTyping.type->exists(selectByKind(Class)) implies
+specializesFromLibrary('Occurrences::occurrences')
+
+checkFeatureOwnedCrossFeatureRedefinitionSpecialization
+If this Feature is the ownedCrossFeature of an end Feature, then, for any end Feature that is redefined by
+the owning end Feature of this Feature, this Feature must subset the crossFeature of the redefined end
+Feature, if this exists.
+isOwnedCrossFeature() implies
+ownedSubsetting.subsettedFeature->includesAll(
+
+166
+
+Kernel Modeling Language v1.0
+
+
+owner.oclAsType(Feature).ownedRedefinition.redefinedFeature->
+select(crossFeature <> null).crossFeature)
+
+checkFeatureOwnedCrossFeatureSpecialization
+If this Feature is the ownedCrossFeature of an end Feature, then it must directly or indirectly specialize the
+types of its owning end Feature.
+isOwnedCrossFeature() implies
+owner.oclAsType(Feature).type->forAll(t | self.specializes(t))
+
+checkFeatureOwnedCrossFeatureTypeFeaturing
+If this Feature is the ownedCrossFeature of an end Feature, then it must have featuringTypes consistent
+with the crossing from other end Features of the owningType of its end Feature.
+isOwnedCrossFeature() implies
+let otherEnds : OrderedSet(Feature) =
+owner.oclAsType(Featu
+---
+Spec 3 [1-Kernel_Modeling_Language]:
+he Steps that make up this Behavior.
+Operations
+None.
+Constraints
+checkBehaviorSpecialization
+A Behavior must directly or indirectly specialize the base Behavior Performances::Performance from the
+Kernel Semantic Library.
+specializesFromLibrary('Performances::Performance')
+
+deriveBehaviorStep
+The steps of a Behavior are its features that are Steps.
+step = feature->selectByKind(Step)
+
+validateBehaviorSpecialization
+A Behavior must not specialize a Structure.
+ownedSpecialization.general->forAll(not oclIsKindOf(Structure))
+
+8.3.4.6.3 Step
+Description
+A Step is a Feature that is typed by one or more Behaviors. Steps may be used by one Behavior to
+coordinate the performance of other Behaviors, supporting a steady refinement of behavioral descriptions. Steps
+can be ordered in time and can be connected using Flows to specify things flowing between their parameters.
+
+Kernel Modeling Language v1.0
+
+191
+
+
+General Classes
+Feature
+Attributes
+/behavior : Behavior [0..*] {subsets type, ordered}
+The Behaviors that type this Step.
+/parameter : Feature [0..*] {redefines directedFeature, ordered}
+The parameters of this Step, which are defined as its directedFeatures, whose values are passed into and/or
+out of a performance of the Step.
+Operations
+None.
+Constraints
+checkStepEnclosedPerformanceSpecialization
+AStep whose owningType is a Behavior or another Step must directly or indirectly specialize the Step
+Performances::Performance::enclosedPerformance.
+owningType <> null and
+(owningType.oclIsKindOf(Behavior) or
+owningType.oclIsKindOf(Step)) implies
+specializesFromLibrary('Performances::Performance::enclosedPerformance')
+
+checkStepOwnedPerformanceSpecialization
+A composite Step whose owningType is a Structure or a Feature typed by a Structure must directly or
+indirectly specialize the Step Objects::Object::ownedPerformance.
+isComposite and owningType <> null and
+(owningType.oclIsKindOf(Structure) or
+owningType.oclIsKindOf(Feature) and
+owningType.oclAsType(Feature).type->
+exists(oclIsKindOf(Structure)) implies
+specializesFromLibrary('Objects::Object::ownedPerformance')
+
+checkStepSpecialization
+A Step must directly or indirectly specialize the base Step Performances::performances fr
+---
+
+Use the following candidate models as additional context.
+Candidate 1 (gemini-2.5-pro, rating=5/10):
+package PickupDrone {
+	private import ISQ::*;
+	private import SI::*;
+	private import ScalarValues::*;
+
+	package DataTypes {
+		attribute def Position3D {
+			attribute x :> length;
+			attribute y :> length;
+			attribute z :> length;
+		}
+
+		enum GripperCommand {
+			open,
+			close
+		}
+
+		enum GraspStatus {
+			payloadSecure,
+			payloadInsecure,
+			noPayload
+		}
+	}
+
+	package Interfaces {
+		import PickupDrone::DataTypes::*;
+
+		port def CommandPort {
+			in command : GripperCommand;
+		}
+
+		port def StatusPort {
+			out status : GraspStatus;
+		}
+
+		port def PositionDataPort {
+			out position : Position3D;
+		}
+	}
+
+	package Components {
+		import PickupDrone::DataTypes::*;
+		import PickupDrone::Interfaces::*;
+		import PickupDrone::Behaviors::GripperBehavior;
+
+		part def Payload {
+			attribute mass :> MassValue = 0.5[kg];
+		}
+
+		part def Structure {
+			attribute payloadLocation : Position3D = {
+				x = 10.0[m],
+				y = 5.0[m],
+				z = 0.0[m]
+			};
+			part payload : Payload;
+		}
+
+		part def Gripper {
+			port cmdPort : CommandPort;
+			port statusPort : StatusPort;
+			attribute currentStatus : GraspStatus :> statusPort.status = GraspStatus::noPayload;
+			state machine GripperBehavior;
+		}
+
+		part def SensorSuite {
+			port detectedPayload : PositionDataPort;
+		}
+
+		part def FlightController {
+			port gripperCmd : CommandPort;
+			port gripperStatus : StatusPort;
+			port sensorData : PositionDataPort;
+		}
+
+		part def Drone {
+			attribute currentPosition : Position3D;
+			attribute maxLiftCapacity :> MassValue = 0.75[kg];
+
+			part gripper : Gripper;
+			part sensor : SensorSuite;
+			part controller : FlightController;
+
+			connect controller.gripperCmd to gripper.cmdPort;
+			connect gripper.statusPort to controller.gripperStatus;
+			connect sensor.detectedPayload to controller.sensorData;
+		}
+	}
+
+	package Behaviors {
+		import PickupDrone::DataTypes::*;
+		import PickupDrone::Components::*;
+
+		state machine def GripperBehavior {
+			in command : GripperCommand;
+			inout status : GraspStatus;
+
+			initial state Open {
+				entry { status = GraspStatus::noPayload; }
+				transition to Closing on command == GripperCommand::close;
+			}
+
+			state Closing {
+				transition to Closed;
+			}
+
+			state Closed {
+				entry { status = GraspStatus::payloadSecure; }
+				transition to Opening on command == GripperCommand::open;
+			}
+
+			state Opening {
+				transition to Open;
+			}
+		}
+
+		action def FlyTo {
+			in targetPosition : Position3D;
+			inout dronePosition : Position3D;
+			
+			success action {
+				dronePosition = targetPosition;
+			}
+		}
+
+		action def PerformPickup {
+			in drone : Drone;
+			in structure : Structure;
+			out payload : Payload;
+
+			step flyToStructure {
+				do FlyTo {
+					in targetPosition = structure.payloadLocation;
+					inout dronePosition = drone.currentPosition;
+				}
+			}
+
+			step positionOverPayload {
+				do FlyTo {
+					in targetPosition = drone.controller.sensorData.position;
+					inout dronePosition = drone.currentPosition;
+				}
+			}
+
+			step graspPayload {
+				do { drone.controller.gripperCmd.command = GripperCommand::close; }
+			}
+
+			step confirmGrasp {
+				while (drone.controller.gripperStatus.status != GraspStatus::payloadSecure) {
+					// Wait for secure grasp confirmation
+				}
+			}
+
+			step liftAndReturn {
+				let returnPosition = Position3D { x = 0[m], y = 0[m], z = 10[m] };
+				do FlyTo {
+					in targetPosition = returnPosition;
+					inout dronePosition = drone.currentPosition;
+				}
+			}
+
+			bind payload = structure.payload;
+		}
+	}
+
+	package Requirements {
+		import PickupDrone::Components::*;
+
+		requirement <'R-01'> PickupCapability {
+			doc /* The drone system shall be capable of autonomously 
+				 * flying to a structure, picking up a specified payload, 
+				 * and returning. */
+			subject drone : Drone;
+		}
+
+		requirement <'R-01.1'> LiftCapacity {
+			doc /* The drone shall be capable of lifting payloads up to its
+				 * specified maximum lift capacity. */
+			subject drone : Drone;
+			subject payload : Payload;
+			assert constraint {
+				drone.maxLiftCapacity >= payload.mass
+			}
+		}
+
+		requirement <'R-01.2'> GraspSecurity {
+			doc /* The gripper shall securely hold the payload during flight. */
+			subject gripper : Gripper;
+			assert constraint {
+				gripper.currentStatus == GraspStatus::payloadSecure
+			}
+		}
+	}
+
+	package SystemAssembly {
+		import PickupDrone::Components::*;
+		import PickupDrone::Requirements::*;
+		import PickupDrone::Behaviors::PerformPickup;
+
+		part pickupMission {
+			part theDrone : Drone;
+			part theStructure : Structure;
+
+			action pickupAction : PerformPickup {
+				in drone = theDrone;
+				in structure = theStructure;
+			}
+
+			satisfy PickupCapability by theDrone;
+
+			assert liftCheck : LiftCapacity {
+				subject drone = theDrone;
+				subject payload = theStructure.payload;
+			}
+		}
+	}
+}
+---
+Candidate 2 (openai/gpt-5, rating=7/10):
+package Drone_PickupSystem {
+	private import ISQ::*;
+	private import SI::*;
+	private import NumericalFunctions::*;
+	/* ITEM AND PART DEFINITIONS */
+	part def PickableItem {
+		attribute id : String;
+		attribute mass :> ISQ::mass;
+		attribute width :> ISQ::length;
+		attribute depth :> ISQ::length;
+		attribute height :> ISQ::length;
+	}
+	part def Battery {
+		attribute energyCapacity :> ISQ::energy;
+		attribute mass :> ISQ::mass;
+	}
+	part def Propulsion {
+		port lift: LiftIF;
+		attribute maxThrust :> ISQ::force;
+	}
+	part def Gripper {
+		port hand: GripperIF;
+		attribute maxGripForce :> ISQ::force;
+		attribute engaged : Boolean;
+		part held : PickableItem[0..1];
+	}
+	part def Drone {
+		attribute mass :> ISQ::mass;
+		part battery : Battery;
+		part propulsion : Propulsion;
+		part gripper : Gripper;
+	}
+	part def Structure {
+		attribute mass :> ISQ::mass;
+		part support : Frame;
+		port pickupSite : PickupSiteIF;
+		part storedItem : PickableItem;
+	}
+	part def Frame {
+		attribute height :> ISQ::length;
+		attribute width :> ISQ::length;
+		attribute depth :> ISQ::length;
+	}
+	/* PORT AND INTERFACE DEFINITIONS */
+	port def LiftIF {
+		out thrust :> ISQ::force;
+	}
+	port def PickupSiteIF {
+		out targetPresent : Boolean;
+		in receivedGripForce :> ISQ::force;
+	}
+	port def GripperIF {
+		in targetPresent : Boolean;
+		out appliedGripForce :> ISQ::force;
+	}
+	interface def Pickup {
+		end site : PickupSiteIF;
+		end hand : GripperIF;
+		flow site.targetPresent to hand.targetPresent;
+		flow hand.appliedGripForce to site.receivedGripForce;
+	}
+	/* CONSTANTS AND CONSTRAINTS */
+	constant g :> ISQ::acceleration = 9.80665 ['m/s^2'];
+	constraint def PickupFeasibility {
+		in maxThrust :> ISQ::force;
+		in droneMass :> ISQ::mass;
+		in objectMass :> ISQ::mass;
+		in gripCapability :> ISQ::force;
+		in accel :> ISQ::acceleration;
+		maxThrust >= (droneMass + objectMass) * accel * 1.20 and
+		gripCapability >= objectMass * accel * 1.50
+	}
+	/* BEHAVIORS */
+	behavior def ApproachStructure;
+	behavior def AlignToObject;
+	behavior def CloseGripper;
+	behavior def LiftWithObject;
+	behavior def PickUpFromStructure {
+		step approach : ApproachStructure;
+		step align : AlignToObject;
+		step close : CloseGripper;
+		step lift : LiftWithObject;
+	}
+}
+package Drone_PickupStakeholderRequirements {
+	requirement <'REQ-PU-001'> pickupFromStructure {
+		doc
+		/*
+		 * The drone shall be capable of picking up objects from a structure.
+		 */
+		subject drone : Drone_PickupSystem::Drone;
+	}
+}
+package Drone_PickupSystemArchitecture {
+	private import ISQ::*;
+	private import SI::*;
+	part pickupScenario {
+		part structure : Drone_PickupSystem::Structure {
+			attribute mass = 25 ['kg'];
+			part support {
+				attribute height = 1.2 ['m'];
+				attribute width = 0.8 ['m'];
+				attribute depth = 0.6 ['m'];
+			}
+			part storedItem {
+				attribute id = "Box-A1";
+				attribute mass = 1.2 ['kg'];
+				attribute width = 0.25 ['m'];
+				attribute depth = 0.20 ['m'];
+				attribute height = 0.15 ['m'];
+			}
+		}
+		part drone : Drone_PickupSystem::Drone {
+			attribute mass = 3.0 ['kg'];
+			part battery {
+				attribute energyCapacity = 150 ['Wh'];
+				attribute mass = 0.6 ['kg'];
+			}
+			part propulsion {
+				attribute maxThrust = 80 ['N'];
+			}
+			part gripper {
+				attribute maxGripForce = 60 ['N'];
+				attribute engaged = false;
+			}
+		}
+		interface pickupLink : Drone_PickupSystem::Pickup {
+			end site :>> structure.pickupSite;
+			end hand :>> drone.gripper.hand;
+		}
+		assert constraint feasibility : Drone_PickupSystem::PickupFeasibility;
+		bind feasibility.maxThrust = drone.propulsion.maxThrust;
+		bind feasibility.droneMass = drone.mass;
+		bind feasibility.objectMass = structure.storedItem.mass;
+		bind feasibility.gripCapability = drone.gripper.maxGripForce;
+		bind feasibility.accel = Drone_PickupSystem::g;
+	}
+	satisfy Drone_PickupStakeholderRequirements::pickupFromStructure by pickupScenario;
+}
+package Drone_PickupSystemRequirements {
+	import RequirementDerivation::*;
+	requirement <'REQ-PU-010'> liftCapability {
+		subject drone :>> Drone_PickupSystemArchitecture::pickupScenario.drone;
+		subject item :>> Drone_PickupSystemArchitecture::pickupScenario.structure.storedItem;
+		assert constraint {
+			drone.propulsion.maxThrust >= (drone.mass + item.mass) * Drone_PickupSystem::g * 1.20
+		}
+	}
+	requirement <'REQ-PU-011'> gripCapability {
+		subject gripper :>> Drone_PickupSystemArchitecture::pickupScenario.drone.gripper;
+		subject item :>> Drone_PickupSystemArchitecture::pickupScenario.structure.storedItem;
+		assert constraint {
+			gripper.maxGripForce >= item.mass * Drone_PickupSystem::g * 1.50
+		}
+	}
+	requirement <'REQ-PU-012'> pickupInterface {
+		subject site :>> Drone_PickupSystemArchitecture::pickupScenario.structure.pickupSite;
+		subject hand :>> Drone_PickupSystemArchitecture::pickupScenario.drone.gripper.hand;
+		assert constraint {
+			true
+		}
+	}
+	#derivation connection {
+		end #original ::> Drone_PickupStakeholderRequirements::pickupFromStructure;
+		end #derive ::> Drone_PickupSystemRequirements::liftCapability;
+		end #derive ::> Drone_PickupSystemRequirements::gripCapability;
+		end #derive ::> Drone_PickupSystemRequirements::pickupInterface;
+	}
+}
+package Drone_PickupBehaviorsBinding {
+	part def DroneWithPickup :> Drone_PickupSystem::Drone {
+		attribute missionReady : Boolean;
+	}
+	part missionDrone : DroneWithPickup {
+		attribute missionReady = true;
+	}
+	behavior def MissionPickUp :> Drone_PickupSystem::PickUpFromStructure;
+	step approach : Drone_PickupSystem::ApproachStructure;
+	step align : Drone_PickupSystem::AlignToObject;
+	step close : Drone_PickupSystem::CloseGripper;
+	step lift : Drone_PickupSystem::LiftWithObject;
+}
+---
+Candidate 3 (anthropic/claude-sonnet-4.5, rating=10/10):
+package DronePickupSystem {
+    private import ScalarValues::*;
+    private import Quantities::*;
+    private import MeasurementReferences::*;
+    private import ISQ::*;
+    private import SI::*;
+
+    attribute def GripForceValue :> ISQ::force;
+    attribute def PayloadMassValue :> ISQ::mass;
+    attribute def PositionValue :> ISQ::length;
+    attribute def VelocityValue :> ISQ::speed;
+
+    item def PickupObject {
+        attribute objectMass : PayloadMassValue;
+        attribute graspPoint : PositionValue[3];
+    }
+
+    port def PowerSupplyIF {
+        out voltage :> ISQ::voltage;
+        out current :> ISQ::electricCurrent;
+    }
+
+    port def MotorControlIF {
+        in commandSignal : Real;
+        out actuationForce :> ISQ::force;
+    }
+
+    port def SensorIF {
+        out detectedPosition : PositionValue[3];
+        out detectedMass : PayloadMassValue;
+    }
+
+    port def GripperIF {
+        in gripCommand : Real;
+        out gripForce : GripForceValue;
+        out grippedObject : PickupObject[0..1];
+    }
+
+    interface def GripperControl {
+        end controller : MotorControlIF;
+        end actuator : GripperIF;
+    }
+
+    part def Structure {
+        attribute structureHeight : PositionValue;
+        attribute structureWidth : PositionValue;
+        part placedObjects : PickupObject[0..*];
+    }
+
+    part def Battery {
+        attribute capacity : Real;
+        attribute voltage : Real;
+        port powerOut : PowerSupplyIF;
+    }
+
+    part def VisionSensor {
+        attribute detectionRange : PositionValue;
+        port sensorOutput : SensorIF;
+    }
+
+    part def ServoMotor {
+        attribute maxTorque :> ISQ::torque;
+        port motorControl : MotorControlIF;
+        port powerIn : PowerSupplyIF;
+    }
+
+    part def GripperMechanism {
+        attribute maxGripForce : GripForceValue;
+        attribute gripperOpenWidth : PositionValue;
+        port gripperPort : GripperIF;
+        port servoInput : MotorControlIF;
+        part leftFinger;
+        part rightFinger;
+        part servo : ServoMotor;
+    }
+
+    part def FlightController {
+        attribute currentPosition : PositionValue[3];
+        attribute targetPosition : PositionValue[3];
+        port visionInput : SensorIF;
+        port gripperControl : MotorControlIF;
+    }
+
+    part def PropulsionSystem {
+        attribute maxThrust :> ISQ::force;
+        part motors : ServoMotor[4];
+        part propellers[4];
+    }
+
+    part def DroneFrame {
+        attribute frameMass : PayloadMassValue;
+        part mountingPoints[4];
+    }
+
+    action def ApproachStructure {
+        in targetLocation : PositionValue[3];
+        in currentLocation : PositionValue[3];
+        out approachComplete : Boolean;
+    }
+
+    action def DetectObject {
+        in sensorData : PositionValue[3];
+        out objectDetected : Boolean;
+        out objectLocation : PositionValue[3];
+    }
+
+    action def PositionGripper {
+        in objectLocation : PositionValue[3];
+        in gripperLocation : PositionValue[3];
+        out positioningComplete : Boolean;
+    }
+
+    action def GraspObject {
+        in gripCommand : Real;
+        out graspSuccessful : Boolean;
+        out graspedItem : PickupObject[0..1];
+    }
+
+    action def LiftObject {
+        in liftHeight : PositionValue;
+        out liftComplete : Boolean;
+    }
+
+    action def ReturnToBase {
+        in baseLocation : PositionValue[3];
+        out returnComplete : Boolean;
+    }
+
+    state def PickupOperationStates {
+        entry; then idle;
+        
+        state idle;
+        transition idle_to_approaching
+            first idle
+            accept ApproachCommand
+            then approaching;
+        
+        state approaching {
+            entry action approachAction : ApproachStructure;
+        }
+        transition approaching_to_detecting
+            first approaching
+            if approachAction.approachComplete
+            then detecting;
+        
+        state detecting {
+            entry action detectAction : DetectObject;
+        }
+        transition detecting_to_positioning
+            first detecting
+            if detectAction.objectDetected
+            then positioning;
+        
+        state positioning {
+            entry action positionAction : PositionGripper;
+        }
+        transition positioning_to_grasping
+            first positioning
+            if positionAction.positioningComplete
+            then grasping;
+        
+        state grasping {
+            entry action graspAction : GraspObject;
+        }
+        transition grasping_to_lifting
+            first grasping
+            if graspAction.graspSuccessful
+            then lifting;
+        
+        state lifting {
+            entry action liftAction : LiftObject;
+        }
+        transition lifting_to_returning
+            first lifting
+            if liftAction.liftComplete
+            then returning;
+        
+        state returning {
+            entry action returnAction : ReturnToBase;
+        }
+        transition returning_to_idle
+            first returning
+            if returnAction.returnComplete
+            then idle;
+        
+        transition detecting_to_idle
+            first detecting
+            if not detectAction.objectDetected
+            then idle;
+        
+        transition grasping_to_idle
+            first grasping
+            if not graspAction.graspSuccessful
+            then idle;
+    }
+
+    part def PickupDrone {
+        attribute totalMass : PayloadMassValue;
+        attribute maxPayload : PayloadMassValue;
+        attribute currentPayload : PayloadMassValue;
+        
+        part frame : DroneFrame;
+        part battery : Battery;
+        part propulsion : PropulsionSystem;
+        part visionSensor : VisionSensor;
+        part gripper : GripperMechanism;
+        part controller : FlightController;
+        
+        part operationStateMachine : PickupOperationStates;
+        
+        connection batteryToPropulsion : PowerSupplyIF
+            connect battery.powerOut to propulsion.motors[1].powerIn;
+        
+        connection batteryToGripper : PowerSupplyIF
+            connect battery.powerOut to gripper.servo.powerIn;
+        
+        connection visionToController : SensorIF
+            connect visionSensor.sensorOutput to controller.visionInput;
+        
+        connection controllerToGripper : GripperControl
+            connect controller.gripperControl to gripper.servoInput;
+    }
+
+    part targetStructure : Structure {
+        attribute :>> structureHeight = 2.5;
+        attribute :>> structureWidth = 1.0;
+    }
+
+    part pickupDrone : PickupDrone {
+        attribute :>> totalMass = 1200.0;
+        attribute :>> maxPayload = 500.0;
+        
+        part :>> battery {
+            attribute :>> capacity = 8000.0;
+            attribute :>> voltage = 14.8;
+        }
+        
+        part :>> gripper {
+            attribute :>> maxGripForce = 25.0;
+            attribute :>> gripperOpenWidth = 0.15;
+        }
+        
+        part :>> visionSensor {
+            attribute :>> detectionRange = 5.0;
+        }
+        
+        part :>> propulsion {
+            attribute :>> maxThrust = 20.0;
+        }
+    }
+}
+
+package DronePickupRequirements {
+    import DronePickupSystem::*;
+    
+    requirement <'REQ-100'> pickupCapability {
+        doc /* The drone shall have the ability to pick up objects 
+             * from a structure autonomously.
+             */
+        subject drone : PickupDrone;
+        
+        require gripperPresence;
+        require visionCapability;
+        require payloadCapacity;
+        require stabilityDuringPickup;
+    }
+    
+    requirement <'REQ-101'> gripperPresence {
+        doc /* The drone shall be equipped with a gripper mechanism
+             * capable of grasping objects.
+             */
+        subject drone : PickupDrone;
+        
+        assert constraint {
+            drone.gripper != null
+        }
+    }
+    
+    requirement <'REQ-102'> visionCapability {
+        doc /* The drone shall have vision sensors to detect and
+             * locate objects on the structure.
+             */
+        subject drone : PickupDrone;
+        
+        assert constraint {
+            drone.visionSensor != null and
+            drone.visionSensor.detectionRange >= 3.0
+        }
+    }
+    
+    requirement <'REQ-103'> payloadCapacity {
+        doc /* The drone shall support a minimum payload capacity
+             * of 500 grams for picked objects.
+             */
+        subject drone : PickupDrone;
+        
+        assert constraint {
+            drone.maxPayload >= 500.0
+        }
+    }
+    
+    requirement <'REQ-104'> stabilityDuringPickup {
+        doc /* The drone total mass including payload shall not
+             * exceed safe operational limits.
+             */
+        subject drone : PickupDrone;
+        
+        assert constraint {
+            drone.totalMass + drone.currentPayload <= 1700.0
+        }
+    }
+    
+    requirement <'REQ-105'> gripForceAdequacy {
+        doc /* The gripper mechanism shall provide sufficient grip
+             * force to securely hold objects during flight.
+             */
+        subject gripper : GripperMechanism;
+        
+        assert constraint {
+            gripper.maxGripForce >= 20.0
+        }
+    }
+    
+    requirement <'REQ-106'> batteryEndurance {
+        doc /* The battery shall provide sufficient capacity for
+             * pickup operations including approach, grasp, and return.
+             */
+        subject battery : Battery;
+        
+        assert constraint {
+            battery.capacity >= 6000.0
+        }
+    }
+    
+    satisfy pickupCapability by pickupDrone;
+}
+---
+Candidate 4 (meta-llama/llama-4-maverick, rating=5/10):
+package DroneStructure {
+    private import ISQ::*;
+    private import SI::*;
+    part def Drone {
+        part gripper;
+        part battery;
+        attribute totalMass :> ISQ::mass;
+    }
+    part def Gripper {
+        attribute gripState : GripperState;
+        port gripPort : GripperIF;
+    }
+    part def Battery {
+        attribute capacity :> ISQ::energy;
+    }
+    enum def GripperState {
+        OPEN;
+        CLOSED;
+    }
+    port def GripperIF {
+        out gripForce :> ISQ::force;
+    }
+    interface def GripperMounting {
+        end gripperMount : GripperIF;
+    }
+    part def Object {
+        attribute mass :> ISQ::mass;
+        port objectPort : ObjectIF;
+    }
+    port def ObjectIF {
+        in gripForce :> ISQ::force;
+    }
+    interface def ObjectGripping {
+        end objectGrip : ObjectIF;
+        end gripper : GripperIF;
+        flow gripper.gripForce to objectGrip.gripForce;
+    }
+}
+
+package DroneBehavior {
+    private import DroneStructure::*;
+    behavior def DroneOperation {
+        state machine DroneStateMachine {
+            state IDLE;
+            state GRIPPING;
+            state RELEASING;
+            transition t1 : IDLE to GRIPPING;
+            transition t2 : GRIPPING to IDLE;
+            transition t3 : IDLE to RELEASING;
+        }
+        action gripObject {
+            in gripperState : GripperState;
+            out newGripperState : GripperState;
+            newGripperState = GripperState::CLOSED;
+        }
+        action releaseObject {
+            in gripperState : GripperState;
+            out newGripperState : GripperState;
+            newGripperState = GripperState::OPEN;
+        }
+    }
+}
+
+package DroneRequirements {
+    private import DroneStructure::*;
+    requirement <'REQ-1'> gripObject {
+        subject drone : DroneStructure::Drone;
+        doc /* The drone shall be able to grip an object. */
+    }
+    requirement <'REQ-2'> releaseObject {
+        subject drone : DroneStructure::Drone;
+        doc /* The drone shall be able to release an object. */
+    }
+    satisfy gripObject by DroneBehavior::DroneOperation;
+    satisfy releaseObject by DroneBehavior::DroneOperation;
+}
+
+package DroneConstraints {
+    private import DroneStructure::*;
+    constraint def MassConstraint {
+        in totalMass :> ISQ::mass;
+        in componentMasses :> ISQ::mass[0..*];
+        totalMass == sum(componentMasses);
+    }
+    part droneImpl : DroneStructure::Drone {
+        assert constraint massConstraint : MassConstraint;
+        bind massConstraint.totalMass = totalMass;
+        bind massConstraint.componentMasses = gripper.mass;
+        bind massConstraint.componentMasses = battery.capacity;
+    }
+}
+---
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a drone that has the ability to pick up objects from a structure.
