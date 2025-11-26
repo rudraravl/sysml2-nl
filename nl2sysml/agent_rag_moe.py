@@ -1,21 +1,14 @@
 """
-LangChain + MoE synthesis with compiler feedback
+LangChain + MoE synthesis
 
 Pipeline:
 - Build RAG context from dataset examples and spec chunks (local JSONL).
 - Compose System/Human messages (same template as agent_rag).
 - Query multiple experts (EXPERT_MODELS):
   * gemini-2.5-pro (direct via Google Generative AI)
-  * openrouter models: openai/gpt-5, anthropic/claude-sonnet-4.5, meta-llama/llama-4-maverick
-- Validate each candidate with SysML v2 compiler (if enabled)
-- Iteratively refine candidates based on compilation errors
-- Ask gemini-2.5-pro to synthesize a single best SysML v2 model, prioritizing valid candidates
+  * openrouter models: openai/gpt-5, anthropic/claude-sonnet-4.5, meta-llama/llama-4-maverick:free
+- Ask gemini-2.5-pro to synthesize a single best SysML v2 model, using the candidates as additional context.
 - Output only SysML v2 code; no markdown fences.
-
-Compiler Configuration (via .env):
-- SYSML_COMPILER_ENABLED: true/false (default: true)
-- MAX_REFINEMENT_ITERATIONS: number of refinement attempts (default: 2)
-- SYSML_COMPILER_CMD: compiler command (default: "sysml2-cli check")
 
 One-shot: pass requirement as CLI arg. Batch: no args → read nl2sysml/dataset.json and write results to nl2sysml/result_rag_moe.
 """
@@ -24,8 +17,6 @@ from pathlib import Path
 import os
 import json
 import re
-import subprocess
-import tempfile
 from typing import List, Tuple
 from urllib import request as _req
 
@@ -44,7 +35,7 @@ EXPERT_MODELS = [
 ]
 
 # Combiner model for the final synthesis step
-COMBINER_MODEL = "gemini-2.5-pro"
+COMBINER_MODEL = "anthropic/claude-sonnet-4.5"
 
 # Heuristic reliability rating per expert family (0–10)
 EXPERT_MODELS_RATING = {
@@ -53,11 +44,6 @@ EXPERT_MODELS_RATING = {
     "claude": 10,
     "llama": 5,
 }
-
-# Compiler feedback configuration
-COMPILER_ENABLED = os.getenv("SYSML_COMPILER_ENABLED", "true").lower() == "true"
-MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
-SYSML_COMPILER_CMD = os.getenv("SYSML_COMPILER_CMD", "sysml2-cli check")
 
 def _model_group(model_name: str) -> str:
     if model_name == "gemini-2.5-pro":
@@ -208,54 +194,6 @@ def _postprocess(code: str) -> str:
     return "\n".join(lines).strip()
 
 
-def _compile_sysml(code: str) -> Tuple[bool, List[str]]:
-    """
-    Validate SysML v2 syntax using external compiler.
-    Returns: (is_valid, error_messages)
-    """
-    if not COMPILER_ENABLED:
-        return True, []
-    
-    temp_path = None
-    try:
-        # Write code to temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sysml', delete=False, encoding='utf-8') as f:
-            f.write(code)
-            temp_path = f.name
-        
-        # Run compiler
-        cmd = SYSML_COMPILER_CMD.split() + [temp_path]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        
-        # Parse errors
-        is_valid = result.returncode == 0
-        errors = []
-        
-        if not is_valid:
-            output = result.stderr + result.stdout
-            for line in output.splitlines():
-                line_clean = line.strip()
-                if line_clean and any(kw in line_clean.lower() for kw in ['error', 'syntax', 'parse', 'expected']):
-                    errors.append(line_clean)
-        
-        return is_valid, errors[:10]  # Limit to 10 errors
-        
-    except Exception:
-        # Graceful fallback if compiler unavailable
-        return True, []
-    finally:
-        if temp_path:
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
-
-
 def _gemini_llm():
     from langchain_google_genai import ChatGoogleGenerativeAI
     return ChatGoogleGenerativeAI(model="gemini-2.5-pro", api_key=os.getenv("GEMINI_API_KEY"), temperature=0.2)
@@ -318,58 +256,24 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
         return ""
 
 
-def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_key: str | None) -> Tuple[str, bool, List[str]]:
+def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_key: str | None) -> str:
     """
-    Call a model with compiler feedback loop.
-    Returns: (code, is_valid, errors)
+    Call a model and enforce code-only output via postprocess and a single stricter retry if needed.
     """
-    code = ""
-    is_valid = False
-    errors = []
-    
-    for iteration in range(MAX_REFINEMENT_ITERATIONS):
-        # Generate code
-        if iteration == 0:
-            # Initial generation
-            if model == "gemini-2.5-pro":
-                out = _postprocess(_gemini_invoke(system_msg, human_msg))
-                if (not out) or ("```" in out):
-                    strong = _default_system_prompt("No markdown, no fences, no prose. Output SysML v2 code only.")
-                    out = _postprocess(_gemini_invoke(strong, human_msg))
-                code = out
-            else:
-                if not openrouter_key:
-                    return "", False, ["No API key"]
-                out = _postprocess(_openrouter_invoke(model, system_msg, human_msg, openrouter_key))
-                if (not out) or ("```" in out):
-                    strong = system_msg + " No markdown, no fences, no prose. Output SysML v2 code only."
-                    out = _postprocess(_openrouter_invoke(model, strong, human_msg, openrouter_key))
-                code = out
-        else:
-            # Refinement with error feedback
-            error_feedback = "\n".join(errors[:5])  # Limit to 5 errors
-            refinement_msg = (
-                f"{human_msg}\n\n"
-                f"PREVIOUS ATTEMPT HAD ERRORS:\n{error_feedback}\n\n"
-                f"Fix these syntax errors. Output only corrected SysML v2 code."
-            )
-            if model == "gemini-2.5-pro":
-                code = _postprocess(_gemini_invoke(system_msg, refinement_msg))
-            else:
-                if not openrouter_key:
-                    break
-                code = _postprocess(_openrouter_invoke(model, system_msg, refinement_msg, openrouter_key))
-        
-        if not code:
-            break
-            
-        # Validate
-        is_valid, errors = _compile_sysml(code)
-        
-        if is_valid:
-            break
-    
-    return code, is_valid, errors
+    if model == "gemini-2.5-pro":
+        out = _postprocess(_gemini_invoke(system_msg, human_msg))
+        if (not out) or ("```" in out):
+            strong = _default_system_prompt("No markdown, no fences, no prose. Output SysML v2 code only.")
+            out = _postprocess(_gemini_invoke(strong, human_msg))
+        return out
+    else:
+        if not openrouter_key:
+            return ""
+        out = _postprocess(_openrouter_invoke(model, system_msg, human_msg, openrouter_key))
+        if (not out) or ("```" in out):
+            strong = system_msg + " No markdown, no fences, no prose. Output SysML v2 code only."
+            out = _postprocess(_openrouter_invoke(model, strong, human_msg, openrouter_key))
+        return out
 
 
 def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
@@ -382,46 +286,39 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     sys_msg = _default_system_prompt(None)
     human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=prompt_text)
 
-    # Collect candidates with validation
-    candidates: List[Tuple[str, str, bool, List[str]]] = []
+    # Collect candidates (each receives RAG-context-augmented prompt)
+    candidates: List[Tuple[str, str]] = []
     for m in EXPERT_MODELS:
         _, ok = _load_env()
-        code, is_valid, errors = _invoke_with_retry(m, sys_msg, human_msg, ok)
-        if code:
-            candidates.append((m, code, is_valid, errors))
+        out = _invoke_with_retry(m, sys_msg, human_msg, ok)
+        if out:
+            candidates.append((m, out))
 
     # Synthesis by COMBINER_MODEL using candidates as extra context
     if candidates:
         cand_block = []
         cand_log = []
-        for i, (name, code, is_valid, errors) in enumerate(candidates, 1):
+        for i, (name, code) in enumerate(candidates, 1):
             grp = _model_group(name)
-            base_rating = EXPERT_MODELS_RATING.get(grp, 5)
-            
-            # Adjust rating based on validity
-            rating = base_rating + 2 if is_valid else max(base_rating - 1, 1)
-            status = "✓" if is_valid else f"✗({len(errors)} err)"
-            
-            cand_block.append(f"Candidate {i} {status} ({name}, rating={rating}/10):\n{code}\n---")
+            rating = EXPERT_MODELS_RATING.get(grp, 5)
+            cand_block.append(f"Candidate {i} ({name}, rating={rating}/10):\n{code}\n---")
             # Compact log snippet for prompt record
             snippet = "\n".join(code.splitlines()[:40])
-            cand_log.append(f"Candidate {i} {status} ({name}, rating={rating}/10):\n{snippet}\n---")
-        
-        synth_context = context + "\n\nUse the following candidate models as guidance. Prioritize VALID (✓) candidates.\n" + "\n".join(cand_block)
+            cand_log.append(f"Candidate {i} ({name}, rating={rating}/10):\n{snippet}\n---")
+        synth_context = context + "\n\nUse the following candidate models as additional context.\n" + "\n".join(cand_block)
         synth_sys_hint = (
-            "Synthesize the best model, prioritizing syntactically valid candidates. "
-            "Fix any syntax errors in invalid candidates when incorporating their ideas."
+            "Synthesize a single best model by merging or selecting from candidates when provided."
         )
         synth_sys_msg = _default_system_prompt(synth_sys_hint)
         synth_human_msg = PROMPT_HUMAN_TEMPLATE.format(context=synth_context, input=prompt_text)
         _, ok = _load_env()
-        final_code, final_valid, final_errors = _invoke_with_retry(COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok)
+        final = _invoke_with_retry(COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok)
+        candidates_section = "\n\nCandidates Included (snippets):\n" + "\n".join(cand_log)
     else:
         # Fallback to single call with combiner model
         _, ok = _load_env()
-        final_code, final_valid, final_errors = _invoke_with_retry(COMBINER_MODEL, sys_msg, human_msg, ok)
-        synth_sys_msg = sys_msg
-        synth_human_msg = human_msg
+        final = _invoke_with_retry(COMBINER_MODEL, sys_msg, human_msg, ok)
+        candidates_section = None
 
     # Build JSON prompt record
     base_prompt_str = "System:\n" + sys_msg + "\n\n" + "Human:\n" + human_msg
@@ -438,11 +335,9 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
         "claude_prompt": base_prompt_str,
         "llama_prompt": base_prompt_str,
         "combine_prompt": combine_prompt_str,
-        "final_valid": final_valid,
-        "final_errors": len(final_errors) if final_errors else 0,
     }
 
-    return final_code, prompt_record
+    return final, prompt_record
 
 
 if __name__ == "__main__":
