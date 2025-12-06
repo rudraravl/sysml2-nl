@@ -11,11 +11,10 @@ from transformers import AutoModel, AutoTokenizer
 from tqdm import tqdm
 
 
-PROJ_DIM = 768
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_DIR = REPO_ROOT / "dataset"
-NL_DIR = REPO_ROOT / "models" / "nl_encoder"
-SYSML_DIR = REPO_ROOT / "models" / "sysml_encoder"
+MODEL_DIR = REPO_ROOT / "embed" / "models" / "qwen_dual"
+PROJ_DIM = 768
 
 
 def load_pairs(dataset_dir: Path) -> list[dict[str, str]]:
@@ -23,6 +22,8 @@ def load_pairs(dataset_dir: Path) -> list[dict[str, str]]:
     pairs: list[dict[str, str]] = []
     with manifest.open() as f:
         for line in f:
+            if not line.strip():
+                continue
             rec = json.loads(line)
             nl = (dataset_dir / rec["paths"]["text"]).read_text(encoding="utf-8").strip()
             sysml = (dataset_dir / rec["paths"]["sysml"]).read_text(encoding="utf-8").strip()
@@ -31,14 +32,14 @@ def load_pairs(dataset_dir: Path) -> list[dict[str, str]]:
 
 
 class LoadedEncoder:
-    def __init__(self, model_dir: Path, device: torch.device) -> None:
+    def __init__(self, backbone_dir: Path, proj_path: Path, device: torch.device) -> None:
         self.device = device
-        self.encoder = AutoModel.from_pretrained(model_dir, trust_remote_code=True).to(device)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
+        self.encoder = AutoModel.from_pretrained(backbone_dir, trust_remote_code=True).to(device)
+        self.tokenizer = AutoTokenizer.from_pretrained(backbone_dir, trust_remote_code=True)
 
         hidden = self.encoder.config.hidden_size
         self.proj = nn.Linear(hidden, PROJ_DIM)
-        state = torch.load(model_dir / "proj.bin", map_location=device)
+        state = torch.load(proj_path, map_location=device)
         self.proj.load_state_dict(state)
         self.proj.to(device)
 
@@ -54,8 +55,8 @@ class LoadedEncoder:
             batch = texts[idx : idx + batch_size]
             tokens = self.tokenizer(
                 batch,
-                truncation=True,
                 padding=True,
+                truncation=True,
                 max_length=256,
                 return_tensors="pt",
             ).to(self.device)
@@ -70,27 +71,38 @@ class LoadedEncoder:
 
 def evaluate() -> None:
     data = load_pairs(DATASET_DIR)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    nl_enc = LoadedEncoder(NL_DIR, device)
-    sysml_enc = LoadedEncoder(SYSML_DIR, device)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Using device:", device)
+
+    nl_encoder = LoadedEncoder(
+        MODEL_DIR / "nl_backbone",
+        MODEL_DIR / "proj_nl.bin",
+        device,
+    )
+    sysml_encoder = LoadedEncoder(
+        MODEL_DIR / "sysml_backbone",
+        MODEL_DIR / "proj_sysml.bin",
+        device,
+    )
 
     print("Encoding NL...")
-    nl_emb = nl_enc.encode([x["nl"] for x in data], batch_size=8, desc="NL")
+    nl_emb = nl_encoder.encode([x["nl"] for x in data], desc="NL")
 
     print("Encoding SysML...")
-    sysml_emb = sysml_enc.encode([x["sysml"] for x in data], batch_size=8, desc="SysML")
+    sysml_emb = sysml_encoder.encode([x["sysml"] for x in data], desc="SysML")
 
     print("Computing similarity...")
     sims = 1 - pairwise_distances(nl_emb, sysml_emb, metric="cosine")
 
+    n = len(data)
     for k in [1, 5, 10]:
         hits = 0
-        for i in range(len(data)):
+        for i in range(n):
             topk = np.argsort(-sims[i])[:k]
             if i in topk:
                 hits += 1
-        print(f"Recall@{k}: {hits / len(data):.4f}")
+        print(f"Recall@{k}: {hits / n:.4f}")
 
 
 if __name__ == "__main__":
