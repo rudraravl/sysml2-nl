@@ -31,6 +31,13 @@ def load_pairs(dataset_dir: Path) -> list[dict[str, str]]:
     return pairs
 
 
+def mean_pool(hidden: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    mask = mask.unsqueeze(-1).float()
+    summed = (hidden * mask).sum(dim=1)
+    counts = mask.sum(dim=1).clamp(min=1e-6)
+    return summed / counts
+
+
 class LoadedEncoder:
     def __init__(self, backbone_dir: Path, proj_path: Path, device: torch.device) -> None:
         self.device = device
@@ -66,8 +73,8 @@ class LoadedEncoder:
             ).to(self.device)
             with torch.no_grad():
                 out = self.encoder(**tokens)
-                cls = out.last_hidden_state[:, 0]
-                emb = self.proj(cls)
+                pooled = mean_pool(out.last_hidden_state, tokens["attention_mask"])
+                emb = self.proj(pooled)
                 emb = nn.functional.normalize(emb, dim=-1)
             outputs.append(emb.cpu())
         return torch.cat(outputs, dim=0).numpy()

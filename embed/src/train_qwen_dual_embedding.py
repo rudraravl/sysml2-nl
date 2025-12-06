@@ -69,6 +69,13 @@ class Collator:
         }
 
 
+def mean_pool(hidden: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    mask = mask.unsqueeze(-1).float()
+    summed = (hidden * mask).sum(dim=1)
+    counts = mask.sum(dim=1).clamp(min=1e-6)
+    return summed / counts
+
+
 class QwenDualEncoder(nn.Module):
     """Frozen Qwen backbones with trainable projection heads."""
 
@@ -100,19 +107,15 @@ class QwenDualEncoder(nn.Module):
             for p in self.sysml_encoder.parameters():
                 p.requires_grad = False
 
-    @staticmethod
-    def _pool(hidden_states: torch.Tensor) -> torch.Tensor:
-        return hidden_states[:, 0]
-
     def encode_nl(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         out = self.nl_encoder(input_ids=ids, attention_mask=mask)
-        pooled = self._pool(out.last_hidden_state)
+        pooled = mean_pool(out.last_hidden_state, mask)
         emb = self.proj_nl(pooled)
         return nn.functional.normalize(emb, dim=-1)
 
     def encode_sysml(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         out = self.sysml_encoder(input_ids=ids, attention_mask=mask)
-        pooled = self._pool(out.last_hidden_state)
+        pooled = mean_pool(out.last_hidden_state, mask)
         emb = self.proj_sysml(pooled)
         return nn.functional.normalize(emb, dim=-1)
 
