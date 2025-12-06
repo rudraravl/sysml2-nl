@@ -35,7 +35,11 @@ class LoadedEncoder:
     def __init__(self, backbone_dir: Path, proj_path: Path, device: torch.device) -> None:
         self.device = device
         self.encoder = AutoModel.from_pretrained(backbone_dir, trust_remote_code=True).to(device)
-        self.tokenizer = AutoTokenizer.from_pretrained(backbone_dir, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            backbone_dir,
+            trust_remote_code=True,
+            fix_mistral_regex=True,
+        )
 
         hidden = self.encoder.config.hidden_size
         self.proj = nn.Linear(hidden, PROJ_DIM)

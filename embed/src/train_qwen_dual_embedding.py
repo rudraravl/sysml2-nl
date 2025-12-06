@@ -146,8 +146,16 @@ def main() -> None:
     print("Loading dataset...")
     ds = SysMLNLDataset(dataset_dir)
 
-    tok_nl = AutoTokenizer.from_pretrained(nl_model, trust_remote_code=True)
-    tok_sys = AutoTokenizer.from_pretrained(sysml_model, trust_remote_code=True)
+    tok_nl = AutoTokenizer.from_pretrained(
+        nl_model,
+        trust_remote_code=True,
+        fix_mistral_regex=True,
+    )
+    tok_sys = AutoTokenizer.from_pretrained(
+        sysml_model,
+        trust_remote_code=True,
+        fix_mistral_regex=True,
+    )
 
     use_cuda = torch.cuda.is_available()
     loader = DataLoader(
