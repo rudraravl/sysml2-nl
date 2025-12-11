@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""
+Test script to run a single example from nl_seed.jsonl through the MoE pipeline.
+Usage: python test_single.py [id_or_index]
+  - If id_or_index is a number, uses that line number (1-indexed)
+  - If id_or_index is a string like "U140", finds that ID
+  - If no argument, uses the first entry
+"""
+
+import json
+import sys
+from pathlib import Path
+from agent_rag_moe import generate_sysml_moe
+
+def main():
+    base = Path(__file__).parent
+    seed_file = base / "nl_seed.jsonl"
+    
+    if not seed_file.exists():
+        print(f"Error: {seed_file} not found")
+        sys.exit(1)
+    
+    # Read all entries
+    entries = []
+    with open(seed_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+    
+    if not entries:
+        print("Error: No entries found in nl_seed.jsonl")
+        sys.exit(1)
+    
+    # Determine which entry to use
+    if len(sys.argv) > 1:
+        arg = sys.argv[1].strip()
+        # Try as ID first
+        entry = None
+        for e in entries:
+            if e.get("id") == arg:
+                entry = e
+                break
+        
+        # If not found as ID, try as index
+        if entry is None:
+            try:
+                idx = int(arg) - 1  # Convert to 0-indexed
+                if 0 <= idx < len(entries):
+                    entry = entries[idx]
+                else:
+                    print(f"Error: Index {arg} out of range (1-{len(entries)})")
+                    sys.exit(1)
+            except ValueError:
+                print(f"Error: '{arg}' is not a valid ID or index")
+                sys.exit(1)
+    else:
+        entry = entries[0]
+    
+    # Extract information
+    entry_id = entry.get("id", "UNKNOWN")
+    description = entry.get("description", "")
+    domain = entry.get("domain", "unknown")
+    source_title = entry.get("source_title", "")
+    
+    if not description:
+        print(f"Error: Entry {entry_id} has no description")
+        sys.exit(1)
+    
+    print("=" * 70)
+    print(f"Testing MoE Pipeline")
+    print("=" * 70)
+    print(f"ID: {entry_id}")
+    print(f"Domain: {domain}")
+    print(f"Source: {source_title}")
+    print(f"Description: {description}")
+    print("=" * 70)
+    print("\nGenerating SysML v2 model...\n")
+    
+    # Generate SysML
+    try:
+        code, prompt_record = generate_sysml_moe(description)
+        
+        # Display results
+        print("\n" + "=" * 70)
+        print("Generated SysML v2 Code:")
+        print("=" * 70)
+        print(code)
+        print("=" * 70)
+        
+        # Show validation info if available
+        if "final_valid" in prompt_record:
+            print(f"\nValidation: {'✓ Valid' if prompt_record['final_valid'] else '✗ Invalid'}")
+            if prompt_record.get("final_errors", 0) > 0:
+                print(f"Errors: {prompt_record['final_errors']}")
+                if "final_error_details" in prompt_record:
+                    print("\nError Details:")
+                    for err in prompt_record["final_error_details"][:5]:  # Show first 5
+                        print(f"  Line {err['line']}, Col {err['column']}: {err['message']}")
+        
+        # Save to file
+        out_dir = base / "result_rag_moe"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        output_file = out_dir / f"{entry_id}.sysml"
+        output_file.write_text(f"// {description}\n{code}\n", encoding='utf-8')
+        print(f"\n✓ Saved to: {output_file}")
+        
+        # Save prompt record
+        prompt_file = out_dir / f"{entry_id}_test_prompt.json"
+        with open(prompt_file, 'w', encoding='utf-8') as f:
+            json.dump(prompt_record, f, indent=2, ensure_ascii=False)
+        print(f"✓ Prompt record saved to: {prompt_file}")
+        
+    except Exception as e:
+        print(f"\nError during generation: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+

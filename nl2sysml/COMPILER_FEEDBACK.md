@@ -2,19 +2,32 @@
 
 ## Overview
 
-The MoE agent now includes syntax validation and iterative refinement using a SysML v2 compiler. This feature significantly improves the quality of generated models by catching and fixing syntax errors automatically.
+The MoE agent now includes syntax validation and iterative refinement using the SysML v2 compiler from `sysml2-compiler`. This feature significantly improves the quality of generated models by catching and fixing syntax errors automatically.
+
+The implementation is **modular** - the compiler interface can be easily swapped out for different implementations without modifying the core pipeline.
 
 ## How It Works
 
 1. **Generation**: Each expert model generates a candidate SysML v2 model
 2. **Validation**: The compiler checks syntax and returns any errors
 3. **Refinement**: If errors exist, the model is given the error feedback and asked to fix them
-4. **Iteration**: Steps 2-3 repeat up to MAX_REFINEMENT_ITERATIONS times
+4. **Iteration**: Steps 2-3 repeat up to `MAX_REFINEMENT_ITERATIONS` times
 5. **Synthesis**: Valid candidates are prioritized in the final synthesis phase
+6. **Final Refinement**: The synthesized output is also validated and refined if needed
+
+## Architecture
+
+The compiler integration uses a simple modular design:
+
+- **`compiler_interface.py`**: Simple module with `check_code()` and `is_compiler_available()` functions
+- The compiler checking is separated from the core generation loop, making it easy to swap implementations
+- To use a different compiler, simply replace the `check_code()` function in `compiler_interface.py`
+
+This design keeps the compiler logic separate from the core pipeline without complex abstractions.
 
 ## Configuration
 
-Set these environment variables in your `.env` file:
+Set these environment variables in your `.env` file (in the project root):
 
 ```bash
 # Enable/disable compiler feedback (default: true)
@@ -23,40 +36,50 @@ SYSML_COMPILER_ENABLED=true
 # Number of refinement attempts per model (default: 2)
 MAX_REFINEMENT_ITERATIONS=2
 
-# Compiler command (default: "sysml2-cli check")
-# Adjust based on your SysML v2 compiler setup
-SYSML_COMPILER_CMD=sysml2-cli check
-# Or for Java-based compiler:
-# SYSML_COMPILER_CMD=java -jar /path/to/sysml2-cli.jar check
+# Check syntax only, ignore semantic errors (default: false, checks both syntax and semantic)
+COMPILER_SYNTAX_ONLY=false
+
+# Optional: Path to the parser JAR file (auto-detected if not set)
+SYSML_COMPILER_JAR_PATH=/path/to/sysml-parser-cli-1.0.0-shaded.jar
+
+# Optional: Path to SysML standard library (auto-detected if not set)
+SYSML_COMPILER_LIBRARY_PATH=/path/to/SysML-v2-Pilot-Implementation/sysml.library
+
+# Optional: Disable library loading (default: true, loads standard library)
+SYSML_COMPILER_LOAD_LIBRARY=true
 ```
 
 ## Setting Up SysML v2 Compiler
 
-### Option 1: SysML v2 Pilot Implementation (Recommended)
+The implementation uses the `sysml2-compiler` module located in the `sysml2-compiler/` directory. See `sysml2-compiler/README.md` for detailed setup instructions.
 
-```bash
-# Clone the repository
-git clone https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git
-cd SysML-v2-Pilot-Implementation
+### Quick Setup
 
-# Build with Gradle
-./gradlew build
+1. **Install Java 21** and **Maven 3.6+**
 
-# The CLI tool will be in: install/cli/build/install/sysml2-cli
-# Add to your PATH or use full path in .env
-```
+2. **Build the SysML v2 Pilot Implementation**:
+   ```bash
+   cd ~
+   git clone https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git
+   cd SysML-v2-Pilot-Implementation
+   mvn -Dxpect.tests.skip=true clean install
+   ```
 
-### Option 2: Docker Container
+3. **Build the parser CLI** (if not already built):
+   ```bash
+   cd sysml2-compiler/sysml-parser-cli
+   mvn clean package
+   ```
 
-```bash
-# Pull the SysML v2 container
-docker pull sysml/sysml-v2
+4. **Verify the setup**:
+   ```bash
+   cd sysml2-compiler
+   python3 check_sysml.py test_valid.sysml --syntax-only
+   ```
 
-# Use in wrapper script
-SYSML_COMPILER_CMD=docker run --rm -v $(pwd):/work sysml/sysml-v2 check
-```
+The compiler interface will auto-detect the JAR and library paths. If auto-detection fails, set `SYSML_COMPILER_JAR_PATH` and `SYSML_COMPILER_LIBRARY_PATH` in your `.env` file.
 
-### Option 3: Disable Compiler (Fallback)
+### Disable Compiler (Fallback)
 
 If you don't have a compiler available:
 
@@ -83,20 +106,39 @@ The agent now returns additional validation information:
 
 ## Troubleshooting
 
-### Compiler Not Found
-```
-Error: Command 'sysml2-cli' not found
-```
-**Solution**: Install the compiler or set `SYSML_COMPILER_ENABLED=false`
+### Compiler Not Found / Not Available
+If the compiler is not detected:
+1. Ensure the `sysml2-compiler` directory exists in the project root
+2. Verify the JAR file exists: `sysml2-compiler/sysml-parser-cli/target/sysml-parser-cli-1.0.0-shaded.jar`
+3. Set `SYSML_COMPILER_JAR_PATH` explicitly in `.env` if auto-detection fails
+4. Or set `SYSML_COMPILER_ENABLED=false` to disable compiler feedback
 
-### Timeout Errors
+### Java Not Found
 ```
-Error: Compilation timeout
+Error: java: command not found
 ```
-**Solution**: The default timeout is 30 seconds. For large models, you may need to modify the timeout in the `_compile_sysml()` function.
+**Solution**: Install Java 21 and ensure it's on your PATH:
+```bash
+java -version  # Should show version 21
+```
 
-### Permission Errors
-```
-Error: Permission denied
-```
-**Solution**: Ensure the compiler executable has proper permissions: `chmod +x /path/to/sysml2-cli`
+### Library Not Found
+If you see "Could not locate SysML standard library" warnings:
+1. Ensure the SysML v2 Pilot Implementation is cloned and built
+2. Set `SYSML_COMPILER_LIBRARY_PATH` to point to the `sysml.library` directory
+3. Or set `SYSML_COMPILER_LOAD_LIBRARY=false` to skip library loading (syntax-only mode)
+
+### Import Errors
+If you see `ImportError: cannot import name 'check_sysml'`:
+- Ensure the `sysml2-compiler` directory is in the correct location relative to `nl2sysml/`
+- The compiler interface will gracefully degrade if the import fails
+
+## Extending the Compiler Interface
+
+To swap in a different compiler implementation:
+
+1. Modify `compiler_interface.py` to implement your compiler
+2. Keep the same function signatures: `check_code(code: str, syntax_only: bool = False) -> CompilerResult` and `is_compiler_available() -> bool`
+3. The existing code in `agent_rag_moe.py` will work without modification
+
+The compiler interface is intentionally simple - just two functions that can be easily replaced.

@@ -17,11 +17,41 @@ from pathlib import Path
 import os
 import json
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from urllib import request as _req
 
 from dotenv import load_dotenv
 import google.generativeai as genai
+
+# Import compiler interface
+try:
+    from compiler_interface import check_code, is_compiler_available, CompilerResult
+    COMPILER_AVAILABLE = True
+except ImportError:
+    COMPILER_AVAILABLE = False
+    # Create dummy functions/classes for fallback
+    def check_code(code: str, syntax_only: bool = False):
+        class DummyResult:
+            def __init__(self):
+                self.errors = []
+                self.is_valid = False
+            @property
+            def error_count(self):
+                return 0
+            def format_errors(self):
+                return "No errors found."
+        return DummyResult()
+    def is_compiler_available():
+        return False
+    class CompilerResult:
+        def __init__(self, errors=None, is_valid=False):
+            self.errors = errors or []
+            self.is_valid = is_valid
+        @property
+        def error_count(self):
+            return len(self.errors)
+        def format_errors(self):
+            return "No errors found."
 
 
 # Expert models (one per line)
@@ -44,6 +74,10 @@ EXPERT_MODELS_RATING = {
     "claude": 10,
     "llama": 5,
 }
+
+# Compiler configuration
+MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
+COMPILER_SYNTAX_ONLY = os.getenv("COMPILER_SYNTAX_ONLY", "false").lower() == "true"
 
 def _model_group(model_name: str) -> str:
     if model_name == "gemini-2.5-pro":
@@ -276,6 +310,76 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str, openrouter_k
         return out
 
 
+def _refine_with_compiler(
+    code: str, 
+    model: str, 
+    system_msg: str, 
+    human_msg: str, 
+    openrouter_key: str | None,
+    max_iterations: int = MAX_REFINEMENT_ITERATIONS
+) -> Tuple[str, CompilerResult]:
+    """
+    Refine code iteratively using compiler feedback.
+    
+    Args:
+        code: Initial SysML code
+        model: Model name to use for refinement
+        system_msg: System message template
+        human_msg: Human message template (original prompt)
+        openrouter_key: OpenRouter API key
+        max_iterations: Maximum number of refinement iterations
+    
+    Returns:
+        Tuple of (refined_code, final_compiler_result)
+    """
+    if not is_compiler_available():
+        # No compiler available, return original code
+        return code, CompilerResult(errors=[], is_valid=False)
+    
+    current_code = code
+    iteration = 0
+    
+    while iteration < max_iterations:
+        # Check current code
+        result = check_code(current_code, syntax_only=COMPILER_SYNTAX_ONLY)
+        
+        # If valid, we're done
+        if result.is_valid:
+            return current_code, result
+        
+        # If no more iterations, return current code
+        if iteration >= max_iterations - 1:
+            return current_code, result
+        
+        # Prepare refinement prompt with error feedback
+        error_feedback = result.format_errors()
+        refinement_hint = (
+            f"The previous code had compilation errors. Please fix them:\n\n{error_feedback}\n\n"
+            "Generate corrected SysML v2 code that addresses these errors."
+        )
+        
+        refinement_system = system_msg + "\n\n" + refinement_hint
+        refinement_human = (
+            f"{human_msg}\n\n"
+            f"Previous code (had errors):\n```sysml\n{current_code}\n```\n\n"
+            f"Errors to fix:\n{error_feedback}\n\n"
+            "Generate the corrected code."
+        )
+        
+        # Get refined code
+        refined = _invoke_with_retry(model, refinement_system, refinement_human, openrouter_key)
+        if not refined or refined == current_code:
+            # No improvement, break
+            break
+        
+        current_code = refined
+        iteration += 1
+    
+    # Final check
+    final_result = check_code(current_code, syntax_only=COMPILER_SYNTAX_ONLY)
+    return current_code, final_result
+
+
 def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     """
     Returns (final_sysml, prompt_record_json)
@@ -287,37 +391,83 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=prompt_text)
 
     # Collect candidates (each receives RAG-context-augmented prompt)
-    candidates: List[Tuple[str, str]] = []
+    candidates: List[Tuple[str, str, CompilerResult]] = []
     for m in EXPERT_MODELS:
         _, ok = _load_env()
         out = _invoke_with_retry(m, sys_msg, human_msg, ok)
         if out:
-            candidates.append((m, out))
+            # Refine with compiler feedback if available
+            if is_compiler_available():
+                refined_out, result = _refine_with_compiler(
+                    out, m, sys_msg, human_msg, ok, MAX_REFINEMENT_ITERATIONS
+                )
+                candidates.append((m, refined_out, result))
+            else:
+                # No compiler, use original output
+                candidates.append((m, out, CompilerResult(errors=[], is_valid=False)))
 
     # Synthesis by COMBINER_MODEL using candidates as extra context
+    # Prioritize valid candidates
     if candidates:
+        # Sort candidates: valid ones first, then by error count
+        sorted_candidates = sorted(
+            candidates,
+            key=lambda x: (not x[2].is_valid, x[2].error_count)
+        )
+        
         cand_block = []
         cand_log = []
-        for i, (name, code) in enumerate(candidates, 1):
+        for i, (name, code, result) in enumerate(sorted_candidates, 1):
             grp = _model_group(name)
             rating = EXPERT_MODELS_RATING.get(grp, 5)
-            cand_block.append(f"Candidate {i} ({name}, rating={rating}/10):\n{code}\n---")
+            # Add validation status
+            valid_marker = "✓" if result.is_valid else f"✗({result.error_count} err)"
+            cand_block.append(
+                f"Candidate {i} ({name}, rating={rating}/10, {valid_marker}):\n{code}\n---"
+            )
             # Compact log snippet for prompt record
             snippet = "\n".join(code.splitlines()[:40])
-            cand_log.append(f"Candidate {i} ({name}, rating={rating}/10):\n{snippet}\n---")
-        synth_context = context + "\n\nUse the following candidate models as additional context.\n" + "\n".join(cand_block)
+            cand_log.append(
+                f"Candidate {i} ({name}, rating={rating}/10, {valid_marker}):\n{snippet}\n---"
+            )
+        
+        synth_context = context + "\n\nUse the following candidate models as additional context. "
+        if is_compiler_available():
+            synth_context += "Valid candidates (marked with ✓) are preferred.\n"
+        synth_context += "\n".join(cand_block)
+        
         synth_sys_hint = (
-            "Synthesize a single best model by merging or selecting from candidates when provided."
+            "Synthesize a single best model by merging or selecting from candidates when provided. "
         )
+        if is_compiler_available():
+            synth_sys_hint += "Prefer valid candidates (marked with ✓) when available."
         synth_sys_msg = _default_system_prompt(synth_sys_hint)
         synth_human_msg = PROMPT_HUMAN_TEMPLATE.format(context=synth_context, input=prompt_text)
         _, ok = _load_env()
         final = _invoke_with_retry(COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok)
+        
+        # Refine final output if compiler available
+        if is_compiler_available() and final:
+            final, final_result = _refine_with_compiler(
+                final, COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok, MAX_REFINEMENT_ITERATIONS
+            )
+        else:
+            final_result = CompilerResult(errors=[], is_valid=False)
+        
         candidates_section = "\n\nCandidates Included (snippets):\n" + "\n".join(cand_log)
     else:
         # Fallback to single call with combiner model
         _, ok = _load_env()
         final = _invoke_with_retry(COMBINER_MODEL, sys_msg, human_msg, ok)
+        
+        # Refine final output if compiler available
+        if is_compiler_available() and final:
+            final, final_result = _refine_with_compiler(
+                final, COMBINER_MODEL, sys_msg, human_msg, ok, MAX_REFINEMENT_ITERATIONS
+            )
+        else:
+            final_result = CompilerResult(errors=[], is_valid=False)
+        
         candidates_section = None
 
     # Build JSON prompt record
@@ -336,6 +486,21 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
         "llama_prompt": base_prompt_str,
         "combine_prompt": combine_prompt_str,
     }
+    
+    # Add compiler validation info if available
+    if is_compiler_available() and 'final_result' in locals():
+        prompt_record["final_valid"] = final_result.is_valid
+        prompt_record["final_errors"] = final_result.error_count
+        if final_result.errors:
+            prompt_record["final_error_details"] = [
+                {
+                    "line": e.line,
+                    "column": e.column,
+                    "message": e.message,
+                    "severity": e.severity
+                }
+                for e in final_result.errors
+            ]
 
     return final, prompt_record
 
