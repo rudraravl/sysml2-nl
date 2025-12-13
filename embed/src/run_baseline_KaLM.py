@@ -35,13 +35,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Using device:", device)
 
-    torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-    model_kwargs: dict[str, object] = {
-        "attn_implementation": "eager",
-        "torch_dtype": torch_dtype
-    }
-    if torch.cuda.is_available():
-        model_kwargs["attn_implementation"] = "flash_attention_2"
+    model_kwargs: dict[str, object] = {"dtype": "auto"}
 
     print(f"Loading model {MODEL_ID} ...")
     model = SentenceTransformer(
@@ -77,7 +71,7 @@ if __name__ == "__main__":
     )
 
     print("Computing similarity matrix...")
-    sims = model.similarity(nl_emb, sysml_emb).cpu().numpy()
+    sims = model.similarity(nl_emb.float(), sysml_emb.float()).cpu().numpy()
 
     print("Evaluating recall@K ...")
     recalls: list[tuple[int, float]] = []
