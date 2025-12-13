@@ -236,16 +236,20 @@ def _gemini_llm():
 def _gemini_invoke(system_msg: str, human_msg: str) -> str:
     # Avoid template parsing of braces by sending concrete messages directly
     from langchain_core.messages import SystemMessage, HumanMessage
-    llm = _gemini_llm()
-    resp = llm.invoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-    # LangChain returns an AIMessage; extract plain text content
     try:
-        return resp.content  # type: ignore[attr-defined]
-    except Exception:
+        llm = _gemini_llm()
+        resp = llm.invoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+        # LangChain returns an AIMessage; extract plain text content
         try:
-            return str(resp["content"])  # type: ignore[index]
+            return resp.content  # type: ignore[attr-defined]
         except Exception:
-            return str(resp)
+            try:
+                return str(resp["content"])  # type: ignore[index]
+            except Exception:
+                return str(resp)
+    except Exception as e:
+        print(f"    ✗ Error calling Gemini: {e}", flush=True)
+        return ""
 
 
 def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) -> str:
@@ -272,9 +276,10 @@ def _openrouter_invoke(model: str, system_msg: str, human_msg: str, key: str) ->
     }
     req = _req.Request(url, data=data, headers=headers)
     try:
-        with _req.urlopen(req, timeout=60) as resp:
+        with _req.urlopen(req, timeout=120) as resp:  # Increased timeout to 120s
             obj = json.loads(resp.read().decode("utf-8", errors="ignore"))
     except Exception as e:
+        print(f"    ✗ Error calling OpenRouter ({model}): {e}", flush=True)
         # Best-effort error surfacing under debug
         if os.getenv("OPENROUTER_DEBUG"):
             try:
@@ -392,19 +397,27 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
 
     # Collect candidates (each receives RAG-context-augmented prompt)
     candidates: List[Tuple[str, str, CompilerResult]] = []
-    for m in EXPERT_MODELS:
+    print(f"Generating candidates from {len(EXPERT_MODELS)} expert models...")
+    for i, m in enumerate(EXPERT_MODELS, 1):
+        print(f"  [{i}/{len(EXPERT_MODELS)}] Querying {m}...", flush=True)
         _, ok = _load_env()
         out = _invoke_with_retry(m, sys_msg, human_msg, ok)
         if out:
+            print(f"    ✓ Got response from {m}", flush=True)
             # Refine with compiler feedback if available
             if is_compiler_available():
+                print(f"    Validating and refining {m} output...", flush=True)
                 refined_out, result = _refine_with_compiler(
                     out, m, sys_msg, human_msg, ok, MAX_REFINEMENT_ITERATIONS
                 )
+                status = "✓ Valid" if result.is_valid else f"✗ {result.error_count} errors"
+                print(f"    {status} after refinement", flush=True)
                 candidates.append((m, refined_out, result))
             else:
                 # No compiler, use original output
                 candidates.append((m, out, CompilerResult(errors=[], is_valid=False)))
+        else:
+            print(f"    ✗ No response from {m}", flush=True)
 
     # Synthesis by COMBINER_MODEL using candidates as extra context
     # Prioritize valid candidates
@@ -444,13 +457,18 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
         synth_sys_msg = _default_system_prompt(synth_sys_hint)
         synth_human_msg = PROMPT_HUMAN_TEMPLATE.format(context=synth_context, input=prompt_text)
         _, ok = _load_env()
+        print(f"\nSynthesizing final model with {COMBINER_MODEL}...", flush=True)
         final = _invoke_with_retry(COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok)
+        print(f"  ✓ Got synthesis response", flush=True)
         
         # Refine final output if compiler available
         if is_compiler_available() and final:
+            print(f"  Validating and refining final output...", flush=True)
             final, final_result = _refine_with_compiler(
                 final, COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok, MAX_REFINEMENT_ITERATIONS
             )
+            status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
+            print(f"  {status} after refinement", flush=True)
         else:
             final_result = CompilerResult(errors=[], is_valid=False)
         
@@ -458,13 +476,18 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     else:
         # Fallback to single call with combiner model
         _, ok = _load_env()
+        print(f"\nNo candidates generated, using {COMBINER_MODEL} directly...", flush=True)
         final = _invoke_with_retry(COMBINER_MODEL, sys_msg, human_msg, ok)
+        print(f"  ✓ Got response", flush=True)
         
         # Refine final output if compiler available
         if is_compiler_available() and final:
+            print(f"  Validating and refining final output...", flush=True)
             final, final_result = _refine_with_compiler(
                 final, COMBINER_MODEL, sys_msg, human_msg, ok, MAX_REFINEMENT_ITERATIONS
             )
+            status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
+            print(f"  {status} after refinement", flush=True)
         else:
             final_result = CompilerResult(errors=[], is_valid=False)
         

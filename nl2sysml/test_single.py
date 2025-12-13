@@ -75,7 +75,24 @@ def main():
     print(f"Source: {source_title}")
     print(f"Description: {description}")
     print("=" * 70)
-    print("\nGenerating SysML v2 model...\n")
+    
+    # Check compiler status
+    import os
+    compiler_enabled = os.getenv("SYSML_COMPILER_ENABLED", "true").lower() != "false"
+    if compiler_enabled:
+        try:
+            from compiler_interface import is_compiler_available
+            if is_compiler_available():
+                print("Compiler: Enabled (will validate and refine)")
+            else:
+                print("Compiler: Disabled (not available)")
+        except:
+            print("Compiler: Disabled (not available)")
+    else:
+        print("Compiler: Disabled (via SYSML_COMPILER_ENABLED=false)")
+    
+    print("\nGenerating SysML v2 model...")
+    print("(This may take several minutes - calling multiple expert models)\n")
     
     # Generate SysML
     try:
