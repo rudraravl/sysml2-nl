@@ -1,20 +1,38 @@
 #!/usr/bin/env python3
 """
 Test script to run a single example from nl_seed.jsonl through the MoE pipeline.
-Usage: python test_single.py [id_or_index]
+Usage: python test_single.py [id_or_index] [--no-compiler]
   - If id_or_index is a number, uses that line number (1-indexed)
   - If id_or_index is a string like "U140", finds that ID
   - If no argument, uses the first entry
+  - --no-compiler: Disable compiler checking for faster testing
 """
 
 import json
 import sys
+import os
 from pathlib import Path
 from agent_rag_moe import generate_sysml_moe
 
 def main():
     base = Path(__file__).parent
     seed_file = base / "nl_seed.jsonl"
+    
+    # Parse arguments
+    args = sys.argv[1:]
+    disable_compiler = False
+    entry_arg = None
+    
+    for arg in args:
+        if arg == "--no-compiler":
+            disable_compiler = True
+        elif not arg.startswith("--"):
+            entry_arg = arg
+    
+    # Disable compiler if requested
+    if disable_compiler:
+        os.environ["SYSML_COMPILER_ENABLED"] = "false"
+        print("Compiler checking disabled (--no-compiler flag)\n")
     
     if not seed_file.exists():
         print(f"Error: {seed_file} not found")
@@ -33,8 +51,8 @@ def main():
         sys.exit(1)
     
     # Determine which entry to use
-    if len(sys.argv) > 1:
-        arg = sys.argv[1].strip()
+    if entry_arg:
+        arg = entry_arg.strip()
         # Try as ID first
         entry = None
         for e in entries:
@@ -77,7 +95,6 @@ def main():
     print("=" * 70)
     
     # Check compiler status
-    import os
     compiler_enabled = os.getenv("SYSML_COMPILER_ENABLED", "true").lower() != "false"
     if compiler_enabled:
         try:
