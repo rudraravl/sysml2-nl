@@ -71,6 +71,7 @@ if __name__ == "__main__":
     )
 
     print("Computing similarity matrix...")
+    # look for similiarity function
     sims = model.similarity(nl_emb.float(), sysml_emb.float()).cpu().numpy()
 
     print("Evaluating recall@K ...")
