@@ -14,7 +14,6 @@ DECK_NAME="$1"
 SOURCE_DIR="${SCRIPT_DIR}/${DECK_NAME}"
 SOURCE_TEX="${SOURCE_DIR}/main.tex"
 OUTPUT_DIR="${SOURCE_DIR}"
-OUTPUT_PDF="${SCRIPT_DIR}/${DECK_NAME}.pdf"
 LOG_FILE="${OUTPUT_DIR}/main.log"
 
 echo "Compiling deck: ${DECK_NAME}..."
@@ -59,13 +58,12 @@ echo "Generated: ${OUTPUT_DIR}/main.pdf"
 
 # Check final PDF size
 if [ -f "${OUTPUT_DIR}/main.pdf" ]; then
-    cp "${OUTPUT_DIR}/main.pdf" "$OUTPUT_PDF"
-    pdf_size=$(stat -f%z "$OUTPUT_PDF" 2>/dev/null || stat -c%s "$OUTPUT_PDF" 2>/dev/null || echo "unknown")
+    pdf_size=$(stat -f%z "${OUTPUT_DIR}/main.pdf" 2>/dev/null || stat -c%s "${OUTPUT_DIR}/main.pdf" 2>/dev/null || echo "unknown")
     echo "Final PDF size: $pdf_size bytes"
     
     # Count pages if possible
     if command -v pdfinfo >/dev/null 2>&1; then
-        page_count=$(pdfinfo "$OUTPUT_PDF" 2>/dev/null | grep "Pages:" | awk '{print $2}' || echo "unknown")
+        page_count=$(pdfinfo "${OUTPUT_DIR}/main.pdf" 2>/dev/null | grep "Pages:" | awk '{print $2}' || echo "unknown")
         echo "Page count: $page_count"
     fi
 else
@@ -81,5 +79,5 @@ echo "Cleanup complete!"
 
 echo "=== Summary ==="
 echo "Build files: cleaned from ${OUTPUT_DIR}"
-echo "Final PDF: ${OUTPUT_PDF}"
+echo "Final PDF: ${OUTPUT_DIR}/main.pdf"
 echo "Compilation completed successfully!"

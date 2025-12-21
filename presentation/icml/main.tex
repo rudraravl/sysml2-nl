@@ -11,6 +11,7 @@
 \usepackage{algorithmic}
 \usepackage{booktabs}
 \usepackage{multirow}
+\usepackage{float}
 
 % Title and authors
 \icmltitlerunning{NExSys: Naturally Expressive Systems Engineering}
@@ -171,78 +172,206 @@ Processing domain-specific languages (DSLs) presents unique challenges compared 
 \section{Methodology}
 \label{sec:methodology}
 
-% PLACEHOLDER: Detailed methodology section covering:
-\subsection{NExSys Architecture Overview}
-% - Dual encoder architecture for SysML2 and NL
-% - Qwen-based encoder configurations (NExSys-Encoder-7B, NExSys-Encoder-14B)
-% - Pooling strategies and representation extraction
-% - Projection heads for embedding alignment
+We train NExSys to align natural language (NL) and SysML2 in a shared embedding space using a joint objective that combines bidirectional contrastive alignment with task-specific regularization. Each paired example $(x_{\text{NL}}, x_{\text{Sys}})$ is encoded to embeddings $(z_{\text{NL}}, z_{\text{Sys}})$, and the model maximizes similarity for aligned pairs while minimizing similarity against in-batch negatives. The objective is symmetric (NL$\rightarrow$SysML2 and SysML2$\rightarrow$NL), with a temperature-scaled cosine similarity and optional hard-negative mining from near-miss pairs. This formulation directly targets cross-modal retrieval and traceability while remaining compatible with generation-oriented variants.
 
-\subsection{Contrastive Learning Framework}
-% - Hierarchical contrastive objectives
-% - Element-level, component-level, system-level losses
-% - Hard negative mining strategies
-% - Temperature scheduling and optimization
+We instantiate hierarchical contrastive objectives at three granularities: element-level (single requirement/part/constraint), component-level (a block with its owned features), and system-level (a package or subsystem). Positive pairs are constructed by aligning NL descriptions to the corresponding SysML2 fragment at each granularity; negatives are drawn from same-domain but different elements, plus mined near-neighbors in embedding space. The overall loss is a weighted sum $\mathcal{L}=\sum_{g \in \{\text{elem, comp, sys}\}} \lambda_g \mathcal{L}_g$, with $\lambda_g$ set on the development split and a curriculum that increases the weight on larger-granularity objectives as training progresses.
 
-\subsection{NExSys-ED: Encoder-Decoder for Generation}
-% - Architecture for bidirectional generation
-% - SysML2-specific decoding constraints
-% - Grammar-aware beam search
-% - Copy mechanisms for technical vocabulary
+We compare three model classes under the same training recipe. (1) \textbf{Embedding-only models} use lightweight projection heads on top of frozen or lightly tuned encoders to produce compact, retrieval-oriented representations. (2) \textbf{Encoder-only and encoder--decoder models} use Qwen-style bidirectional encoders for embeddings, with encoder--decoder variants sharing the encoder and adding a decoder for generation tasks. (3) \textbf{Decoder-only LLMs} (1--10B) are adapted for embedding extraction by pooling hidden states from a designated layer and applying a projection head, enabling direct comparison against embedding-focused architectures.
 
-\subsection{Training Procedure}
-% - Multi-task training strategy
-% - Curriculum learning approach
-% - Hyperparameter configurations
-% - Computational requirements
+Training uses multi-task batches that mix contrastive retrieval pairs with sequence-level objectives for encoder--decoder models (e.g., SysML2$\leftrightarrow$NL generation). We employ curriculum scheduling that starts with short, well-formed pairs and gradually introduces longer, multi-element SysML2 fragments. Hyperparameters (batch size, temperature, and learning rate) are tuned on a held-out development split, with final values reported in the experimental section once the full sweep completes.
 
-\section{Dataset Curation and Statistics}
+\section{Dataset Curation}
 \label{sec:data}
 
-% PLACEHOLDER: Dataset section covering:
-% - Data sources (open-source models, synthetic generation, manual curation)
-% - Annotation procedures and quality control
-% - Dataset statistics (size, domain distribution, complexity metrics)
-% - Train/validation/test splits
-% - Challenges in data collection
+We construct a multi-source SysML2--NL dataset to balance coverage, diversity, and controllable quality. All examples are normalized to a canonical textual SysML2 format, de-duplicated by structural hashes, and filtered for schema validity. The final dataset is split by project to avoid leakage across train/validation/test partitions.
+
+\subsection{Community Data}
+We collect community-contributed SysML2 snippets and accompanying documentation from open repositories. Examples cover multiple domains and typically include short requirements, component definitions, and brief explanatory text authored by practitioners.
+
+\subsection{Wiki Agent Dataset}
+We use a wiki-agent pipeline that harvests authoritative descriptions (e.g., requirements statements and component summaries) and aligns them with curated SysML2 fragments. This subset emphasizes terminological consistency and higher-quality prose derived from technical references.
+
+\subsection{SysML v1 Migration Data}
+We migrate legacy SysML v1 artifacts using a rule-based converter followed by expert cleaning, producing the Migrate subset. This source provides longer, structurally rich models with mixed legacy syntax that benefits from normalization.
+
+\subsection{Statistics}
+We track parsing and compile success rates for the normalized SysML2 text; the current pipeline achieves a preliminary success rate of XX.X\% on the development subset, with remaining failures primarily due to legacy syntax or missing type definitions. Detailed success rates will be reported once the full compilation pass is complete.
+We define a project as a single repository or wiki page bundle with shared identifiers and documentation. All NL variants derived from the same SysML2 seed remain within a single split. Structural hashes are computed from a canonicalized AST (whitespace/comments removed, identifiers normalized), and de-duplication is applied both within and across sources; overlapping v1-migrated items are removed when a community-native SysML2 version exists. Per-source compile success rates are currently Community: XX.X\%, Wiki: XX.X\%, Migrate: XX.X\%, and will be finalized after the full compilation pass.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Dataset statistics for SysML2--NL pairs; Wiki denotes the wiki-derived subset and Migrate denotes SysML v1 artifacts converted to SysML2.}
+\label{tab:dataset-stats}
+\begin{tabular}{lrrr}
+\toprule
+Dataset Split & \#Pairs & Avg SysML Length & Avg NL Length \\
+\midrule
+Community & TBD & TBD & TBD \\
+Wiki & TBD & TBD & TBD \\
+Migrate & TBD & TBD & TBD \\
+All & TBD & TBD & TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Experimental Evaluation}
 \label{sec:experiments}
 
-% PLACEHOLDER: Experiments section covering:
-\subsection{Experimental Setup}
-% - Baselines and comparison models
-% - NExSys variants (NExSys-Encoder-7B/14B, NExSys-ED-7B/14B)
-% - Evaluation metrics for each task
-% - Implementation details
+We structure the evaluation around five questions:
+\begin{enumerate}
+\item Evaluate current model ability on SysML embedding and retrieval.
+\item Prove the agent generates good SysML v2 code.
+\item Show performance across different data sources.
+\item Compare model categories on the dataset.
+\item Demonstrate that training on our dataset substantially improves performance.
+\end{enumerate}
 
-\subsection{SysML2-to-Text Generation}
-% - Results table with BLEU, ROUGE, METEOR scores
-% - NExSys-ED performance across domain categories
-% - Human evaluation results
-% - Qualitative examples
+We follow a consistent retrieval protocol across experiments. For each split, queries are evaluated against the full candidate pool of that split (size: XX,XX). We use cosine similarity over $\ell_2$-normalized embeddings, with in-batch negatives and additional random negatives sampled from the same split; no cross-encoder re-ranking is applied. Reported metrics are averaged over both retrieval directions unless stated otherwise.
 
-\subsection{Text-to-SysML2 Synthesis}
-% - Exact match accuracy
-% - Syntactic correctness rates
-% - Semantic validity assessment
-% - NExSys-ED results across complexity levels
+To ensure fair comparison across model classes, all embeddings are projected to a fixed dimension $d=\text{XX}$ and normalized before similarity. Encoder-only and encoder--decoder models use mean pooling over non-padding tokens; decoder-only models use last-layer mean pooling over non-padding tokens. Tokenization follows each model's native tokenizer, and all models are trained with the same batch size, temperature $\tau$, optimizer, and number of steps unless explicitly noted. For embedding-only baselines, the backbone is frozen unless the setting explicitly states fine-tuning.
 
-\subsection{Cross-Modal Retrieval}
-% - Recall@K metrics for NExSys-Encoder
-% - Mean reciprocal rank
-% - Retrieval visualization
+\subsection{Embedding and Retrieval Ability}
+This experiment establishes a zero-shot baseline for how well existing embedding models align SysML2 with natural language without any task-specific training. It answers whether the retrieval problem is already solvable with general-purpose embeddings and sets a reference point for subsequent improvements. We expect strong but uneven performance, with models trained on technical text performing better on Community and Wiki than on Migrate due to legacy syntax and longer sequences.
+\begin{table}[H]
+\centering
+\small
+\caption{Zero-shot embedding baselines on SysML2--NL retrieval (R@5); Wiki and Migrate follow the dataset naming in Table~\ref{tab:dataset-stats}.}
+\label{tab:sota-embeddings}
+\begin{tabular}{lcccc}
+\toprule
+Model & Community & Wiki & Migrate & All \\
+\midrule
+E5-large-v2 & XX.X & XX.X & XX.X & XX.X \\
+GTE-large & XX.X & XX.X & XX.X & XX.X \\
+Instructor-XL & XX.X & XX.X & XX.X & XX.X \\
+BGE-large & XX.X & XX.X & XX.X & XX.X \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\subsection{Requirements Traceability}
-% - Traceability link prediction accuracy using NExSys embeddings
-% - Comparison with existing methods
-% - Industrial case study results
+\subsection{Agent SysML v2 Code Generation}
+Here we evaluate whether the agent can generate SysML v2 code that is not only textually similar to references but also syntactically valid and compilable. This is critical for practical deployment, since downstream tooling requires parseable models. We report exact match on canonicalized strings (comments and whitespace removed) and an element-level F1 computed over extracted SysML2 elements and relations. Parse/compile success are measured with the SysML v2 pilot parser and compiler (type resolution enabled); compile success requires all references to resolve. We expect the full agent (RAG + compiler feedback) to outperform ablated variants, with exact match remaining lower than structural metrics due to multiple valid encodings.
+\begin{table}[H]
+\centering
+\setlength{\tabcolsep}{3pt}
+\caption{SysML v2 generation quality for the agent; higher validity and exact match indicate better code synthesis.}
+\label{tab:sysml-gen}
+\begin{tabular}{lrrrr}
+\toprule
+Model & Exact & Elem-F1 & Parse & Compile \\
+\midrule
+Baseline & XX.X & XX.X & XX.X & XX.X \\
++RAG & XX.X & XX.X & XX.X & XX.X \\
++Feedback & XX.X & XX.X & XX.X & XX.X \\
+\bottomrule
+\end{tabular}
+\end{table}
+We also track compiler feedback cost, reporting the mean number of repair rounds per sample (XX.X) and the 95th percentile (XX.X).
 
-\subsection{Ablation Studies}
-% - Impact of hierarchical objectives
-% - NExSys-Encoder vs NExSys-ED architecture comparisons
-% - Dataset size effects
-% - Pretraining vs. from-scratch
+\subsection{Source-wise Performance}
+This experiment measures robustness across data sources and identifies domain shifts introduced by the collection pipeline. It is important for understanding whether models trained on mixed data generalize or disproportionately favor certain sources. We report after-training performance for the best model, and expect Wiki to show higher retrieval scores due to cleaner language, while Migrate likely lags because of converted syntax and longer structural dependencies.
+\begin{table}[H]
+\centering
+\small
+\caption{Retrieval performance by data source using the best trained model; source differences highlight domain shift.}
+\label{tab:source-wise}
+\begin{tabular}{lrrr}
+\toprule
+Source & R@1 & R@5 & MRR \\
+\midrule
+Community & XX.X & XX.X & XX.X \\
+Wiki & XX.X & XX.X & XX.X \\
+Migrate & XX.X & XX.X & XX.X \\
+All & XX.X & XX.X & XX.X \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Cross-Source Generalization}
+We evaluate cross-source transfer by holding out one source at training time and testing on the held-out split. This highlights whether the embedding space captures structural alignment beyond source-specific distributions. We expect the largest degradation when holding out Migrate, reflecting the syntactic shift from converted v1 artifacts.
+\begin{table}[H]
+\centering
+\small
+\caption{Cross-source generalization with leave-one-source-out training (All metrics on the held-out source).}
+\label{tab:cross-source}
+\begin{tabular}{lrrr}
+\toprule
+Train Sources & Test Source & R@1 & MRR \\
+\midrule
+Community+Wiki & Migrate & XX.X & XX.X \\
+Community+Migrate & Wiki & XX.X & XX.X \\
+Wiki+Migrate & Community & XX.X & XX.X \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Model Category Comparison}
+We compare architectural families on a common dataset to assess which inductive biases are most suitable for joint embedding learning. This experiment motivates design choices for NExSys by isolating the effect of model class rather than training data. ``Before'' denotes pretrained models with the shared pooling and projection setup, without any task-specific fine-tuning; ``After'' denotes full joint training. We expect encoder--decoder models to achieve stronger retrieval due to richer cross-modal conditioning, while decoder-only models may lag on embedding quality but remain competitive when fine-tuned.
+\begin{table}[H]
+\centering
+\small
+\caption{Model class comparison on the full dataset; joint training yields consistent gains across architectures.}
+\label{tab:model-class}
+\begin{tabular}{lcrrr}
+\toprule
+Model Class & Training & R@1 & R@5 & MRR \\
+\midrule
+Embedding model & Before & XX.X & XX.X & XX.X \\
+Embedding model & After & XX.X & XX.X & XX.X \\
+Encoder-only & Before & XX.X & XX.X & XX.X \\
+Encoder-only & After & XX.X & XX.X & XX.X \\
+Encoder--Decoder & Before & XX.X & XX.X & XX.X \\
+Encoder--Decoder & After & XX.X & XX.X & XX.X \\
+Decoder-only & Before & XX.X & XX.X & XX.X \\
+Decoder-only & After & XX.X & XX.X & XX.X \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Effect of Training}
+This experiment tests whether our dataset and training objective meaningfully improve retrieval performance over raw pretrained baselines. It directly validates the value of the curated pairs and the joint training objective. Hard negatives are constructed by selecting nearest-neighbor SysML2 fragments from the same domain but with different element identifiers and requirements; these are mixed with random in-batch negatives. We anticipate the largest gains on hard negatives, since training explicitly introduces structured negatives and forces models to discriminate semantically close SysML2 fragments.
+\begin{table}[H]
+\centering
+\small
+\caption{Task-wise retrieval on the full dataset; hard negatives remain the most challenging setting despite training.}
+\label{tab:task-wise}
+\begin{tabular}{llrrr}
+\toprule
+Task & Model & R@1 & R@5 & MRR \\
+\midrule
+\multirow{3}{*}{NL $\rightarrow$ SysML} & Embedding & XX.X & XX.X & XX.X \\
+ & Encoder--decoder & XX.X & XX.X & XX.X \\
+ & Decoder-only & XX.X & XX.X & XX.X \\
+\midrule
+\multirow{3}{*}{SysML $\rightarrow$ NL} & Embedding & XX.X & XX.X & XX.X \\
+ & Encoder--decoder & XX.X & XX.X & XX.X \\
+ & Decoder-only & XX.X & XX.X & XX.X \\
+\midrule
+\multirow{3}{*}{Hard Negative} & Embedding & XX.X & XX.X & XX.X \\
+ & Encoder--decoder & XX.X & XX.X & XX.X \\
+ & Decoder-only & XX.X & XX.X & XX.X \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+We also evaluate robustness to non-semantic perturbations that should preserve meaning, including alpha-renaming of identifiers, statement reordering, and formatting changes. This tests whether models are sensitive to surface forms rather than SysML2 structure.
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Robustness to non-semantic perturbations; higher scores indicate invariance to surface changes.}
+\label{tab:robustness}
+\begin{tabular}{lrrr}
+\toprule
+Perturbation & Embedding & Enc--Dec & Dec-only \\
+\midrule
+Alpha-renaming & XX.X & XX.X & XX.X \\
+Reordering & XX.X & XX.X & XX.X \\
+Formatting & XX.X & XX.X & XX.X \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Analysis and Discussion}
 \label{sec:analysis}
