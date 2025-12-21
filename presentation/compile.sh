@@ -34,9 +34,22 @@ run_pdflatex() {
     fi
 }
 
+# Function to run bibtex with error checking
+run_bibtex() {
+    echo "Running bibtex..."
+    if ! (cd "$OUTPUT_DIR" && bibtex "main"); then
+        echo "Error: bibtex failed"
+        exit 1
+    fi
+}
+
 # First pass: pdflatex (creates .aux file)
 echo "=== First pass: pdflatex (creating auxiliary files) ==="
 run_pdflatex "first pass"
+
+# BibTeX pass: generate bibliography
+echo "=== BibTeX pass: generating bibliography ==="
+run_bibtex
 
 # Second pass: pdflatex to resolve cross-references
 echo "=== Second pass: pdflatex (resolving cross-references) ==="
@@ -75,6 +88,7 @@ fi
 echo "=== Cleaning up auxiliary files ==="
 cd "$OUTPUT_DIR"
 rm -f *.aux *.log *.out *.toc *.lof *.lot *.fls *.fdb_latexmk *.synctex.gz *.nav *.snm *.vrb
+rm -f *.bbl *.blg
 echo "Cleanup complete!"
 
 echo "=== Summary ==="
