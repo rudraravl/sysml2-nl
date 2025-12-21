@@ -340,111 +340,375 @@ package TemperatureLoggingSystem {
 	public import ISQ::*;
 	public import Time::*;
 
-	// Value and Item Definitions
-	value def Temperature redefines Real {
-		unit = ISQ::degreeCelsius;
-	}
-
-	item def TemperatureReading {
-		attribute value : Temperature;
-		attribute timestamp : TimeStamp;
-	}
-
-	item def ReadCommand;
-
-	// Interface and Port Definitions
-	interface def SensorIO {
-		in command : ReadCommand;
-		out reading : TemperatureReading;
-	}
-
-	interface def LoggerInput {
-		in reading : TemperatureReading;
-	}
-
-	// Part Definitions
-	part def TemperatureSensor {
-		port io : SensorIO;
-		attribute lastMeasuredTemp : Temperature;
-
-		action measureAndReport {
-			out reading : TemperatureReading via io;
-			let newReading = new TemperatureReading {
-				value = 23.5[°C], // Simulated value
-				timestamp = now()
-			};
-			self.lastMeasuredTemp = newReading.value;
-			reading = newReading;
+	package Definitions {
+		package ValueTypes {
+			value def Temperature is ISQ::ThermodynamicTemperature;
+			value def Timestamp is Time::DateTime;
 		}
 
-		accept command : ReadCommand via io {
-			do measureAndReport;
-		}
-	}
-
-	part def DataLogger {
-		port dataIn : LoggerInput;
-		attribute log : TemperatureReading[0..*] ordered;
-
-		action appendToLog {
-			in reading : TemperatureReading;
+		package ItemDefs {
+			import ValueTypes::*;
+			item def TemperatureReading {
+				attribute value : Temperature;
+				attribute time : Timestamp;
+			}
 		}
 
-		accept reading : TemperatureReading via dataIn {
-			do appendToLog(reading) then {
-				self.log = self.log->append(reading);
+		package InterfaceDefs {
+			import ItemDefs::TemperatureReading;
+			interface def DataBus {
+				flow reading : TemperatureReading;
+			}
+		}
+
+		package ActionDefs {
+			import ItemDefs::TemperatureReading;
+			import Libraries::Systems::Time;
+
+			action def PerformSensing {
+				out reading : TemperatureReading;
+				language "Alf"
+				/*
+				 * let readingValue = new TemperatureReading();
+				 * // Simulate a reading of 25 degrees Celsius
+				 * readingValue.value = 298.15; 
+				 * readingValue.time = Time.now();
+				 * reading = readingValue;
+				*/
+			}
+
+			action def StoreReading {
+				in dataPoint : TemperatureReading;
+				inout log : TemperatureReading[*];
+				language "Alf"
+				/*
+				 * log.add(dataPoint);
+				*/
+			}
+		}
+		
+		package PartDefs {
+			import ItemDefs::*;
+			import InterfaceDefs::*;
+			import ActionDefs::*;
+			import StateDefs::*;
+
+			part def TemperatureSensor {
+				port dataPort : DataBus~;
+				perform action performSensing : PerformSensing;
+				exhibit logic : SensorLogic {
+					bind sensor = self;
+				}
+			}
+
+			part def DataLogger {
+				attribute log : TemperatureReading[*] ordered;
+				port logPort : DataBus;
+				perform action storeReading : StoreReading;
+				exhibit logic : LoggerLogic {
+					bind logger = self;
+				}
+			}
+
+			part def CentralController {
+				port fromSensor : DataBus;
+				port toLogger : DataBus~;
+				exhibit logic : ControllerLogic {
+					bind controller = self;
+				}
+			}
+		}
+
+		package StateDefs {
+			import PartDefs::*;
+			import ItemDefs::TemperatureReading;
+
+			state def SensorLogic {
+				ref sensor : TemperatureSensor;
+				state Initializing;
+				state Sensing {
+					do {
+						let currentReading = sensor.performSensing();
+						send currentReading to sensor.dataPort;
+					}
+					after 1[s] transition to Sensing;
+				}
+				transition from Initializing to Sensing;
+			}
+
+			state def ControllerLogic {
+				ref controller : CentralController;
+				state Routing;
+				transition route_data
+					first Routing
+					accept reading : TemperatureReading via controller.fromSensor
+					do send reading to controller.toLogger
+					then Routing;
+			}
+
+			state def LoggerLogic {
+				ref logger : DataLogger;
+				state WaitingForData;
+				transition store_data
+					first WaitingForData
+					accept reading : TemperatureReading via logger.logPort
+					do logger.storeReading(reading, logger.log)
+					then WaitingForData;
+			}
+		}
+
+		package RequirementDefs {
+			requirement def MustLogTemperature {
+				id = "R-SYS-01";
+				doc "The system shall periodically sense the ambient temperature and store the reading.";
+			}
+
+			requirement def MustTimestampLogs {
+				id = "R-SYS-02";
+				refines MustLogTemperature;
+				doc "Each stored temperature reading must include the timestamp of when it was sensed.";
 			}
 		}
 	}
 
-	part def CentralController {
-		part sensor : TemperatureSensor;
-		part logger : DataLogger;
+	package Assembly {
+		private import Definitions::*;
 
-		connect sensor.io to logger.dataIn;
+		part system : TemperatureLoggingSystem {
+			satisfy requirement MustLogTemperature;
+			satisfy requirement MustTimestampLogs;
 
-		exhibit state logic : ControllerLogic;
+			part sensor : TemperatureSensor;
+			part dataLogger : DataLogger;
+			part controller : CentralController;
+			
+			connect sensor.dataPort to controller.fromSensor {
+				item flow of TemperatureReading from sensor.dataPort to controller.fromSensor;
+			}
 
-		requirement usage loggingFrequency {
-			ref def = LoggingFrequencyRequirement;
+			connect controller.toLogger to dataLogger.logPort {
+				item flow of TemperatureReading from controller.toLogger to dataLogger.logPort;
+			}
 		}
-		satisfy loggingFrequency by self.logic;
-
-		requirement usage dataStorage {
-			ref def = DataStorageRequirement;
-		}
-		satisfy dataStorage by self.logger.log, self.logger.appendToLog;
-	}
-
-	// Behavior Definition
-	state machine def ControllerLogic {
-		inout controller : CentralController;
-
-		initial transition to Idle;
-
-		state Idle;
-
-		transition from Idle to Idle {
-			trigger after(5[s]);
-			effect send new ReadCommand() to controller.sensor.io;
-		}
-	}
-
-	// Requirement Definitions
-	requirement def LoggingFrequencyRequirement {
-		id = "CTL-REQ-01";
-		text "The Central Controller shall trigger a temperature reading
-		      from the sensor periodically every 5 seconds.";
-	}
-
-	requirement def DataStorageRequirement {
-		id = "CTL-REQ-02";
-		text "All temperature readings produced by the sensor shall be
-		      recorded in the data logger's log.";
 	}
 }
 ---
-Candidate 2 (anthropic/claude-sonnet-4.5, rating=10/10):
+Candidate 2 (openai/gpt-5, rating=7/10):
+package TemperatureLoggingSystem {
+	public import ISQ::*;
+	public import Time::*;
+	package ItemDefinitions {
+		item def TemperatureSample {
+			attribute value :> ISQ::temperature;
+			attribute timestamp : Time::DateTime;
+		}
+	}
+	package SignalDefinitions {
+		signal def StartCmd;
+		signal def StopCmd;
+		signal def TempSampleSig {
+			attribute sample : ItemDefinitions::TemperatureSample;
+		}
+		signal def LogStatusSig {
+			attribute count : Integer;
+		}
+		signal def OverTempAlert {
+			attribute temperature :> ISQ::temperature;
+		}
+	}
+	package InterfaceDefinitions {
+		private import SignalDefinitions::*;
+		interface def ControllerCmdPort {
+			in StartCmd;
+			in StopCmd;
+		}
+		interface def SensorCtrlPort {
+			in StartCmd;
+			in StopCmd;
+		}
+		interface def SensorDataPort {
+			out TempSampleSig;
+		}
+		interface def StatusPort {
+			out LogStatusSig;
+			out OverTempAlert;
+		}
+	}
+	package PartDefinitions {
+		public import ItemDefinitions::*;
+		public import SignalDefinitions::*;
+		public import InterfaceDefinitions::*;
+		part def TemperatureSensor {
+			attribute samplePeriod :> ISQ::time;
+			attribute ready : Boolean;
+			port ctrlPort : SensorCtrlPort;
+			port dataOut : SensorDataPort;
+			perform action measureTemperature;
+			perform action senseAndPublish;
+			perform action performSelfTest;
+			exhibit state sensorStates {
+				state off;
+				state selfTest {
+					do performSelfTest;
+				}
+				state active {
+					do senseAndPublish;
+				}
+				transition initial then off;
+				transition off_To_selfTest
+					first off
+					accept StartCmd via ctrlPort
+					then selfTest;
+				transition selfTest_To_active
+					first selfTest
+					then active;
+				transition active_To_off
+					first active
+					accept StopCmd via ctrlPort
+					then off;
+			}
+		}
+		part def DataLogger {
+			attribute capacity : Integer;
+			attribute entries : TemperatureSample[*];
+			perform action log;
+			perform action clear;
+			constraint { capacity >= 100 }
+		}
+		part def CentralController {
+			attribute threshold :> ISQ::temperature;
+			port cmdPort : ControllerCmdPort;
+			port statusPort : StatusPort;
+			part sensor : TemperatureSensor {
+				attribute samplePeriod = 1.0;
+			}
+			part logger : DataLogger {
+				attribute capacity = 1024;
+			}
+			perform action monitorAndLog;
+			exhibit state controllerStates {
+				ref sensor : TemperatureSensor;
+				ref logger : DataLogger;
+				state off;
+				state monitoring {
+					entry do send new StartCmd() to sensor.ctrlPort;
+					do monitorAndLog;
+					exit do send new StopCmd() to sensor.ctrlPort;
+				}
+				transition initial then off;
+				transition off_To_monitoring
+					first off
+					accept StartCmd via cmdPort
+					then monitoring;
+				transition monitoring_To_off
+					first monitoring
+					accept StopCmd via cmdPort
+					then off;
+			}
+		}
+		part def TemperatureMonitoringSystem {
+			part controller : CentralController {
+				attribute threshold = 373.15;
+				part sensor as sensor {
+					attribute samplePeriod = 0.5;
+				}
+				part logger as logger {
+					attribute capacity = 2048;
+				}
+			}
+		}
+	}
+	package ActionDefinitions {
+		public import PartDefinitions::*;
+		public import ItemDefinitions::*;
+		public import SignalDefinitions::*;
+		action def TemperatureSensor::performSelfTest {
+			language "Alf"
+				/*
+				 * ready = false;
+				 * // Execute internal diagnostics (calibration, memory, interface)
+				 * ready = true;
+				 */
+		}
+		action def TemperatureSensor::measureTemperature {
+			out sample : TemperatureSample;
+			language "Alf"
+				/*
+				 * sample = new TemperatureSample();
+				 * // Read from hardware in SI units (Kelvin)
+				 * sample.value = 300.0;
+				 * sample.timestamp = new Time::DateTime();
+				 */
+		}
+		action def TemperatureSensor::senseAndPublish {
+			language "Alf"
+				/*
+				 * while (ready) {
+				 *     var s: TemperatureSample = null;
+				 *     measureTemperature(out s);
+				 *     send new TempSampleSig(sample = s) to dataOut;
+				 *     // Wait for samplePeriod (abstract delay)
+				 * }
+				 */
+		}
+		action def DataLogger::log {
+			in sample : TemperatureSample;
+			out newCount : Integer;
+			language "Alf"
+				/*
+				 * if (entries == null) {
+				 *     entries = Sequence{};
+				 * }
+				 * if (entries->size() >= capacity) {
+				 *     entries->removeAt(1);
+				 * }
+				 * entries->append(sample);
+				 * newCount = entries->size();
+				 */
+		}
+		action def DataLogger::clear {
+			language "Alf"
+				/*
+				 * if (entries != null) {
+				 *     entries->clear();
+				 * }
+				 */
+		}
+		action def CentralController::monitorAndLog {
+			language "Alf"
+				/*
+				 * while (true) {
+				 *     accept tempEvt: TempSampleSig via sensor.dataOut;
+				 *     var count: Integer = 0;
+				 *     logger.log(sample = tempEvt.sample, out count);
+				 *     send new LogStatusSig(count = count) to statusPort;
+				 *     if (tempEvt.sample.value > threshold) {
+				 *         send new OverTempAlert(temperature = tempEvt.sample.value) to statusPort;
+				 *     }
+				 * }
+				 */
+		}
+	}
+	package RequirementDefinitions {
+		requirement def LoggingRequirement {
+			attribute id : String;
+			attribute text : String;
+		}
+	}
+	package Requirements {
+		public import RequirementDefinitions::*;
+		requirement LR_001 : LoggingRequirement {
+			attribute id = "LR-001";
+			attribute text = "The central controller shall log timestamped temperature samples from the temperature sensor with a minimum capacity of 100 entries.";
+		}
+		requirement LR_002 : LoggingRequirement {
+			attribute id = "LR-002";
+			attribute text = "The central controller shall generate an over-temperature alert when the sample value exceeds the configured threshold.";
+		}
+	}
+}
+---
+Candidate 3 (anthropic/claude-sonnet-4.5, rating=10/10):
 package CentralControllerWithTemperatureSensor {
     import ScalarValues::*;
     import ISQ::*;
@@ -454,7 +718,7 @@ package CentralControllerWithTemperatureSensor {
     package ItemDefinitions {
         item def TemperatureReading {
             attribute timestamp : Time::DateTime;
-            attribute value : TemperatureValue;
+            attribute value : ISQ::ThermodynamicTemperatureValue;
             attribute sensorId : String;
         }
         
@@ -466,388 +730,344 @@ package CentralControllerWithTemperatureSensor {
         }
         
         enum def LogLevel {
-            enum info;
-            enum warning;
-            enum error;
-            enum critical;
+            enum DEBUG;
+            enum INFO;
+            enum WARNING;
+            enum ERROR;
         }
         
         item def LogBuffer {
-            attribute entries : LogEntry[*];
-            attribute maxCapacity : Integer;
+            attribute capacity : Integer;
             attribute currentSize : Integer;
-        }
-    }
-    
-    package AttributeDefinitions {
-        attribute def TemperatureValue :> ISQ::ThermodynamicTemperatureValue {
-            attribute :>> num : Real;
-            attribute :>> mRef : TemperatureUnit;
-        }
-        
-        attribute def SamplingRate :> ISQ::FrequencyValue {
-            attribute :>> num : Real;
-            attribute :>> mRef : FrequencyUnit;
+            attribute entries : LogEntry[*];
         }
     }
     
     package PortDefinitions {
-        port def TemperatureSensorPort {
-            out temperatureData : ItemDefinitions::TemperatureReading;
+        port def SensorDataPort {
+            out item temperatureData : ItemDefinitions::TemperatureReading;
         }
         
-        port def DataLogPort {
-            in logData : ItemDefinitions::TemperatureReading;
-            out logStatus : Boolean;
+        port def LogCommandPort {
+            in item logCmd : ItemDefinitions::LogEntry;
         }
         
-        port def ControlPort {
-            in startLogging : Boolean;
-            in stopLogging : Boolean;
-            in setSamplingRate : AttributeDefinitions::SamplingRate;
-            out systemStatus : String;
-        }
-    }
-    
-    package ActionDefinitions {
-        action def ReadTemperature {
-            in sensor : PartDefinitions::TemperatureSensor;
-            out reading : ItemDefinitions::TemperatureReading;
-            
-            language "Alf"
-            /*
-             * reading.timestamp = getCurrentTime();
-             * reading.value = sensor.currentTemperature;
-             * reading.sensorId = sensor.sensorIdentifier;
-             */
-        }
-        
-        action def LogData {
-            in reading : ItemDefinitions::TemperatureReading;
-            in logBuffer : ItemDefinitions::LogBuffer;
-            out success : Boolean;
-            
-            language "Alf"
-            /*
-             * if (logBuffer.currentSize < logBuffer.maxCapacity) {
-             *     LogEntry newEntry;
-             *     newEntry.entryId = logBuffer.currentSize + 1;
-             *     newEntry.timestamp = getCurrentTime();
-             *     newEntry.data = reading;
-             *     newEntry.logLevel = determineLogLevel(reading);
-             *     logBuffer.entries->add(newEntry);
-             *     logBuffer.currentSize = logBuffer.currentSize + 1;
-             *     success = true;
-             * } else {
-             *     success = false;
-             * }
-             */
-        }
-        
-        action def ProcessTemperatureData {
-            in reading : ItemDefinitions::TemperatureReading;
-            out logLevel : ItemDefinitions::LogLevel;
-            
-            language "Alf"
-            /*
-             * if (reading.value.num > 80.0) {
-             *     logLevel = LogLevel::critical;
-             * } else if (reading.value.num > 60.0) {
-             *     logLevel = LogLevel::warning;
-             * } else {
-             *     logLevel = LogLevel::info;
-             * }
-             */
-        }
-        
-        action def FlushLogBuffer {
-            inout logBuffer : ItemDefinitions::LogBuffer;
-            
-            language "Alf"
-            /*
-             * for (entry in logBuffer.entries) {
-             *     writeToStorage(entry);
-             * }
-             * logBuffer.entries->clear();
-             * logBuffer.currentSize = 0;
-             */
-        }
-        
-        action def ValidateReading {
-            in reading : ItemDefinitions::TemperatureReading;
-            out isValid : Boolean;
-            
-            language "Alf"
-            /*
-             * isValid = (reading.value.num >= -40.0 and 
-             *            reading.value.num <= 125.0 and
-             *            reading.sensorId != null);
-             */
-        }
-    }
-    
-    package StateDefinitions {
-        state def ControllerStates {
-            in controller : PartDefinitions::CentralController;
-            
-            entry action initialize;
-            
-            state idle {
-                entry action stopSampling;
-            }
-            
-            state active {
-                entry action startSampling;
-                
-                state logging {
-                    entry action enableLogging;
-                    do action continuousLogging {
-                        action sampleAndLog {
-                            first readTemp : ActionDefinitions::ReadTemperature {
-                                in sensor = controller.tempSensor;
-                                out reading;
-                            }
-                            then validateReading : ActionDefinitions::ValidateReading {
-                                in reading = readTemp.reading;
-                                out isValid;
-                            }
-                            then if validateReading.isValid {
-                                logData : ActionDefinitions::LogData {
-                                    in reading = readTemp.reading;
-                                    in logBuffer = controller.dataLogger.logBuffer;
-                                    out success;
-                                }
-                            }
-                        }
-                    }
-                    exit action disableLogging;
-                }
-                
-                state monitoring {
-                    entry action enableMonitoring;
-                    do action continuousMonitoring {
-                        action sampleOnly {
-                            first readTemp : ActionDefinitions::ReadTemperature {
-                                in sensor = controller.tempSensor;
-                                out reading;
-                            }
-                            then processData : ActionDefinitions::ProcessTemperatureData {
-                                in reading = readTemp.reading;
-                                out logLevel;
-                            }
-                        }
-                    }
-                }
-                
-                transition logging_to_monitoring
-                    first logging
-                    accept stopLogging
-                    then monitoring;
-                
-                transition monitoring_to_logging
-                    first monitoring
-                    accept startLogging
-                    then logging;
-            }
-            
-            state maintenance {
-                entry action performMaintenance;
-                do action flushLogs {
-                    action flush : ActionDefinitions::FlushLogBuffer {
-                        inout logBuffer = controller.dataLogger.logBuffer;
-                    }
-                }
-            }
-            
-            transition initial then idle;
-            
-            transition idle_to_active
-                first idle
-                accept startCommand
-                then active.logging;
-            
-            transition active_to_idle
-                first active
-                accept stopCommand
-                then idle;
-            
-            transition active_to_maintenance
-                first active
-                accept maintenanceRequest
-                then maintenance;
-            
-            transition maintenance_to_idle
-                first maintenance
-                accept maintenanceComplete
-                then idle;
+        port def StatusPort {
+            out item status : Boolean;
         }
     }
     
     package PartDefinitions {
         part def TemperatureSensor {
-            attribute sensorIdentifier : String;
-            attribute currentTemperature : AttributeDefinitions::TemperatureValue;
-            attribute accuracy : AttributeDefinitions::TemperatureValue;
-            attribute samplingRate : AttributeDefinitions::SamplingRate;
+            attribute sensorId : String;
+            attribute currentTemperature : ISQ::ThermodynamicTemperatureValue;
+            attribute samplingRate : ISQ::FrequencyValue;
             attribute isCalibrated : Boolean;
-            attribute lastCalibrationDate : Time::DateTime;
+            attribute isActive : Boolean;
             
-            port sensorPort : PortDefinitions::TemperatureSensorPort;
+            port dataPort : PortDefinitions::SensorDataPort;
+            port statusPort : PortDefinitions::StatusPort;
             
-            perform action measureTemperature {
-                out temp : AttributeDefinitions::TemperatureValue;
+            perform action senseTemperature {
+                out reading : ItemDefinitions::TemperatureReading;
             }
             
             perform action calibrate;
             
             exhibit state sensorStates {
-                entry action initial;
+                entry action initialize;
                 
-                state inactive;
-                
-                state active {
-                    state measuring {
-                        do measureTemperature;
-                    }
-                    
-                    state idle;
+                state inactive {
+                    entry action powerDown;
                 }
                 
                 state calibrating {
                     do calibrate;
                 }
                 
-                transition initial then inactive;
+                state active {
+                    entry action powerUp;
+                    do senseTemperature;
+                    
+                    state idle;
+                    state sampling {
+                        do action continuousSampling {
+                            out readings : ItemDefinitions::TemperatureReading[*];
+                        }
+                    }
+                    
+                    transition idle_to_sampling
+                        first idle
+                        accept SampleCommand
+                        then sampling;
+                    
+                    transition sampling_to_idle
+                        first sampling
+                        accept StopCommand
+                        then idle;
+                }
                 
-                transition inactive_to_active
+                transition initialize then inactive;
+                
+                transition inactive_to_calibrating
                     first inactive
-                    accept powerOn
-                    then active.idle;
-                
-                transition active_to_calibrating
-                    first active
-                    accept calibrationRequest
+                    accept CalibrationCommand
                     then calibrating;
                 
                 transition calibrating_to_active
                     first calibrating
-                    accept calibrationComplete
-                    then active.idle;
+                    accept CalibrationComplete
+                    then active;
+                
+                transition active_to_inactive
+                    first active
+                    accept ShutdownCommand
+                    then inactive;
             }
         }
         
         part def DataLogger {
+            attribute maxLogSize : Integer;
+            attribute currentLogCount : Integer;
+            attribute loggingEnabled : Boolean;
             attribute logBuffer : ItemDefinitions::LogBuffer;
-            attribute storageCapacity : Integer;
-            attribute isLogging : Boolean;
             
-            port logPort : PortDefinitions::DataLogPort;
+            port logPort : PortDefinitions::LogCommandPort;
             
-            perform action writeLog {
+            perform action logData {
                 in entry : ItemDefinitions::LogEntry;
-            }
-            
-            perform action readLog {
-                in entryId : Integer;
-                out entry : ItemDefinitions::LogEntry;
+                out success : Boolean;
             }
             
             perform action clearLog;
+            
+            perform action retrieveLog {
+                out entries : ItemDefinitions::LogEntry[*];
+            }
+            
+            perform action filterLogByLevel {
+                in level : ItemDefinitions::LogLevel;
+                out filteredEntries : ItemDefinitions::LogEntry[*];
+            }
+            
+            exhibit state loggerStates {
+                entry action initializeLogger;
+                
+                state disabled;
+                
+                state enabled {
+                    state ready;
+                    
+                    state logging {
+                        do logData;
+                    }
+                    
+                    state bufferFull {
+                        entry action notifyBufferFull;
+                    }
+                    
+                    transition ready_to_logging
+                        first ready
+                        accept ItemDefinitions::LogEntry via logPort
+                        if currentLogCount < maxLogSize
+                        then logging;
+                    
+                    transition logging_to_ready
+                        first logging
+                        accept LogComplete
+                        then ready;
+                    
+                    transition ready_to_bufferFull
+                        first ready
+                        accept ItemDefinitions::LogEntry via logPort
+                        if currentLogCount >= maxLogSize
+                        then bufferFull;
+                    
+                    transition bufferFull_to_ready
+                        first bufferFull
+                        accept ClearLogCommand
+                        do clearLog
+                        then ready;
+                }
+                
+                transition initializeLogger then disabled;
+                
+                transition disabled_to_enabled
+                    first disabled
+                    accept EnableLoggingCommand
+                    then enabled;
+                
+                transition enabled_to_disabled
+                    first enabled
+                    accept DisableLoggingCommand
+                    then disabled;
+            }
         }
         
         part def CentralController {
             attribute controllerId : String;
-            attribute operatingTemperature : AttributeDefinitions::TemperatureValue;
-            attribute samplingInterval : Time::DurationValue;
-            attribute loggingEnabled : Boolean;
-            attribute dataLogCount : Integer;
+            attribute operationalStatus : Boolean;
+            attribute loggingInterval : ISQ::DurationValue;
+            attribute temperatureThreshold : ISQ::ThermodynamicTemperatureValue;
             
-            port controlPort : PortDefinitions::ControlPort;
-            
-            part tempSensor : TemperatureSensor {
-                attribute :>> sensorIdentifier = "TEMP_SENSOR_001";
-                attribute :>> accuracy = 0.5[°C];
-                attribute :>> samplingRate = 1.0[Hz];
-                attribute :>> isCalibrated = true;
+            part temperatureSensor : TemperatureSensor {
+                :>> sensorId = "TEMP_SENSOR_01";
+                :>> samplingRate = 1.0[Hz];
             }
             
             part dataLogger : DataLogger {
-                attribute :>> storageCapacity = 10000;
-                attribute :>> isLogging = false;
-                attribute :>> logBuffer {
-                    attribute :>> maxCapacity = 1000;
-                    attribute :>> currentSize = 0;
+                :>> maxLogSize = 10000;
+                :>> loggingEnabled = true;
+            }
+            
+            connection sensorToLogger : SensorDataConnection
+                connect temperatureSensor.dataPort to dataLogger.logPort;
+            
+            perform action processTemperatureData {
+                in reading : ItemDefinitions::TemperatureReading;
+                out logEntry : ItemDefinitions::LogEntry;
+            }
+            
+            perform action monitorTemperature {
+                in threshold : ISQ::ThermodynamicTemperatureValue;
+                out alert : Boolean;
+            }
+            
+            perform action generateLogEntry {
+                in reading : ItemDefinitions::TemperatureReading;
+                in level : ItemDefinitions::LogLevel;
+                out entry : ItemDefinitions::LogEntry;
+            }
+            
+            exhibit state controllerStates {
+                entry action initializeController;
+                
+                state offline;
+                
+                state online {
+                    entry action startMonitoring;
+                    
+                    state monitoring {
+                        do action continuousMonitoring {
+                            in sensor : TemperatureSensor = temperatureSensor;
+                            in logger : DataLogger = dataLogger;
+                            
+                            language "Alf"
+                            /*
+                             * while (operationalStatus) {
+                             *     reading = sensor.senseTemperature();
+                             *     logEntry = generateLogEntry(reading, LogLevel::INFO);
+                             *     logger.logData(logEntry);
+                             *     if (reading.value > temperatureThreshold) {
+                             *         alertEntry = generateLogEntry(reading, LogLevel::WARNING);
+                             *         logger.logData(alertEntry);
+                             *     }
+                             * }
+                             */
+                        }
+                    }
+                    
+                    state alerting {
+                        entry action raiseAlert;
+                        do monitorTemperature;
+                    }
+                    
+                    transition monitoring_to_alerting
+                        first monitoring
+                        accept TemperatureAlert
+                        then alerting;
+                    
+                    transition alerting_to_monitoring
+                        first alerting
+                        accept AlertAcknowledged
+                        then monitoring;
                 }
-            }
-            
-            connection sensorToLogger : SensorLoggerConnection
-                connect tempSensor.sensorPort to dataLogger.logPort;
-            
-            perform action startDataLogging;
-            perform action stopDataLogging;
-            perform action configureLogging {
-                in rate : AttributeDefinitions::SamplingRate;
-            }
-            perform action retrieveLogs {
-                out logs : ItemDefinitions::LogEntry[*];
-            }
-            
-            exhibit controllerStates : StateDefinitions::ControllerStates {
-                in controller = CentralController::this;
+                
+                transition initializeController then offline;
+                
+                transition offline_to_online
+                    first offline
+                    accept StartCommand
+                    then online;
+                
+                transition online_to_offline
+                    first online
+                    accept StopCommand
+                    then offline;
             }
         }
         
-        binding def SensorLoggerConnection {
-            end sensorEnd : PortDefinitions::TemperatureSensorPort;
-            end loggerEnd : PortDefinitions::DataLogPort;
+        connection def SensorDataConnection {
+            end source : PortDefinitions::SensorDataPort;
+            end target : PortDefinitions::LogCommandPort;
+        }
+    }
+    
+    package ActionDefinitions {
+        action def ProcessSensorData {
+            in sensorReading : ItemDefinitions::TemperatureReading;
+            in threshold : ISQ::ThermodynamicTemperatureValue;
+            out processedEntry : ItemDefinitions::LogEntry;
+            out exceedsThreshold : Boolean;
+            
+            action evaluateThreshold {
+                in reading : ISQ::ThermodynamicTemperatureValue = sensorReading.value;
+                in limit : ISQ::ThermodynamicTemperatureValue = threshold;
+                out result : Boolean;
+                
+                result = reading > limit;
+            }
+            
+            action createLogEntry {
+                in data : ItemDefinitions::TemperatureReading = sensorReading;
+                in level : ItemDefinitions::LogLevel;
+                out entry : ItemDefinitions::LogEntry;
+            }
+            
+            first evaluateThreshold
+            then createLogEntry;
         }
     }
     
     package RequirementDefinitions {
-        requirement def TemperatureLoggingRequirement {
-            doc /* The central controller shall continuously log temperature data 
-                   from the temperature sensor at a configurable sampling rate. */
-            
-            subject centralController : PartDefinitions::CentralController;
-            
-            require loggingCapability {
-                doc /* The controller shall be capable of logging at least 1000 
-                       temperature readings before requiring buffer flush. */
-                assume centralController.dataLogger.logBuffer.maxCapacity >= 1000;
-            }
-            
-            require samplingRateRange {
-                doc /* The temperature sensor shall support sampling rates 
-                       between 0.1 Hz and 10 Hz. */
-                assume centralController.tempSensor.samplingRate.num >= 0.1 and
-                       centralController.tempSensor.samplingRate.num <= 10.0;
-            }
-            
-            require temperatureRange {
-                doc /* The temperature sensor shall measure temperatures 
-                       in the range of -40°C to 125°C. */
-                assume centralController.tempSensor.currentTemperature.num >= -40.0 and
-                       centralController.tempSensor.currentTemperature.num <= 125.0;
-            }
-            
-            require dataIntegrity {
-                doc /* Each logged temperature reading shall include a timestamp, 
-                       sensor identifier, and temperature value. */
-            }
-        }
-        
-        requirement def SensorAccuracyRequirement {
-            doc /* The temperature sensor shall maintain an accuracy of ±0.5°C 
-                   across its operating range. */
+        requirement def TemperatureSensingRequirement {
+            doc /* The system shall sense temperature at a configurable sampling rate. */
             
             subject sensor : PartDefinitions::TemperatureSensor;
             
-            require accuracySpec {
-                assume sensor.accuracy.num <= 0.5;
+            require constraint {
+                sensor.samplingRate >= 0.1[Hz] and sensor.samplingRate <= 100.0[Hz]
             }
+        }
+        
+        requirement def DataLoggingRequirement {
+            doc /* The system shall log all temperature readings with timestamp and sensor identification. */
             
-            require calibrationInterval {
-                doc /* The sensor shall be calibrated at least once every 365 days. */
+            subject logger : PartDefinitions::DataLogger;
+            
+            require constraint {
+                logger.loggingEnabled == true
+            }
+        }
+        
+        requirement def LogCapacityRequirement {
+            doc /* The data logger shall maintain a minimum capacity of 1000 log entries. */
+            
+            subject logger : PartDefinitions::DataLogger;
+            
+            require constraint {
+                logger.maxLogSize >= 1000
+            }
+        }
+        
+        requirement def ControllerOperationalRequirement {
+            doc /* The central controller shall continuously monitor temperature and log data when operational. */
+            
+            subject controller : PartDefinitions::CentralController;
+            
+            require constraint {
+                controller.operationalStatus implies 
+                    (controller.temperatureSensor.isActive and controller.dataLogger.loggingEnabled)
             }
         }
     }
@@ -856,76 +1076,77 @@ package CentralControllerWithTemperatureSensor {
         private import PartDefinitions::*;
         private import RequirementDefinitions::*;
         
-        part temperatureMonitoringSystem {
-            part mainController : CentralController {
-                attribute :>> controllerId = "CTRL_MAIN_001";
-                attribute :>> samplingInterval = 1.0[s];
-                attribute :>> loggingEnabled = true;
-                attribute :>> dataLogCount = 0;
-                
-                satisfy loggingReq : TemperatureLoggingRequirement {
-                    subject centralController = mainController;
-                }
-                
-                satisfy sensorAccuracyReq : SensorAccuracyRequirement {
-                    subject sensor = mainController.tempSensor;
-                }
-            }
+        part centralControllerSystem : CentralController {
+            :>> controllerId = "CTRL_001";
+            :>> operationalStatus = true;
+            :>> loggingInterval = 1.0[s];
+            :>> temperatureThreshold = 75.0[°C];
+            
+            satisfy tempSensingReq : TemperatureSensingRequirement by temperatureSensor;
+            satisfy dataLoggingReq : DataLoggingRequirement by dataLogger;
+            satisfy logCapacityReq : LogCapacityRequirement by dataLogger;
+            satisfy operationalReq : ControllerOperationalRequirement by centralControllerSystem;
         }
     }
 }
 ---
-Candidate 3 (meta-llama/llama-4-maverick, rating=5/10):
+Candidate 4 (meta-llama/llama-4-maverick, rating=5/10):
 package 'Central Controller with Temperature Sensor' {
     package Definitions {
         part def CentralController {
             attribute log : Log[*];
             port temperaturePort : TemperaturePort;
-        }
-        part def TemperatureSensor {
-            port temperaturePort : TemperaturePort;
-            perform action senseTemperature {
-                out temperature : Temperature;
+            perform action logData;
+            exhibit state controllerStates {
+                state idle;
+                state logging;
+                transition idle_To_logging
+                    first idle
+                    accept StartLoggingSignal
+                    then logging;
+                transition logging_To_idle
+                    first logging
+                    accept StopLoggingSignal
+                    then idle;
             }
         }
-        port def TemperaturePort {
-            in item temperature : Temperature;
+        part def TemperatureSensor {
+            port temperatureOutputPort : TemperatureOutputPort;
+            attribute temperature : ISQ::temperature;
         }
-        data def Temperature : ISQ::temperature;
+        interface def TemperaturePort {
+            in item temperature : ISQ::temperature;
+        }
+        interface def TemperatureOutputPort {
+            out item temperature : ISQ::temperature;
+        }
         data def Log {
             attribute timestamp : Time::DateTime;
-            attribute temperature : Temperature;
+            attribute temperature : ISQ::temperature;
         }
-        action def logTemperature {
-            in temperature : Temperature;
+        action def logData {
+            in temperature : ISQ::temperature;
+            out log : Log;
+            log := new Log {
+                timestamp = Time::now();
+                temperature = temperature;
+            }
         }
+        signal def StartLoggingSignal;
+        signal def StopLoggingSignal;
     }
     package Usages {
         private import Definitions::*;
         part centralControllerSystem {
-            part centralController : CentralController {
-                exhibit state loggingStates {
-                    do logTemperatureData;
-                }
-                action def logTemperatureData {
-                    accept temperature : Temperature via temperaturePort;
-                    do logTemperature(temperature);
-                }
-                perform action logTemperature {
-                    in temperature : Temperature;
-                    log += new Log {
-                        timestamp = Time::now();
-                        ::temperature = temperature;
-                    }
-                }
+            part centralController : CentralController;
+            part temperatureSensor : TemperatureSensor;
+            connect centralController.temperaturePort = temperatureSensor.temperatureOutputPort;
+            action logTemperatureData {
+                in temperature : ISQ::temperature;
+                do centralController.logData(temperature);
             }
-            part temperatureSensor : TemperatureSensor {
-                perform action senseTemperature {
-                    out temperature : Temperature = 25[degC]; // example temperature
-                }
-                then send temperature to centralController.temperaturePort;
-            }
-            bind temperatureSensor.temperaturePort = centralController.temperaturePort;
+            accept temperatureSensor.temperatureOutputPort.temperature
+                then logTemperatureData(temperatureSensor.temperatureOutputPort.temperature);
         }
     }
 }

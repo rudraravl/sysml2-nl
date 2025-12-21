@@ -109,7 +109,6 @@ def main():
         print("Compiler: Disabled (via SYSML_COMPILER_ENABLED=false)")
     
     print("\nGenerating SysML v2 model...")
-    print("(This may take several minutes - calling multiple expert models)\n")
     
     # Generate SysML
     try:

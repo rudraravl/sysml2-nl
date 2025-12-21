@@ -361,178 +361,403 @@ A.3.6 Timing for behaviors, Sequences ..........................................
 
 Use the following candidate models as additional context.
 Candidate 1 (gemini-2.5-pro, rating=5/10):
-package BasicDrone {
-	package DroneDomain {
-		private import ScalarValues::*;
+package DroneSystem {
+	import ISQ::Units::*;
+	import ScalarValues::*;
 
-		abstract value type ScalarValue;
-		value type Voltage :> ScalarValue specializes Real {
-			attribute value: Real;
-		}
-		value type Capacity :> ScalarValue specializes Real {
-			attribute value: Real;
-		}
-		value type Altitude :> ScalarValue specializes Real {
-			attribute value: Real;
-		}
-		value type RotationalSpeed :> ScalarValue specializes Real {
-			attribute value: Real;
-		}
-		value type Throttle :> ScalarValue specializes Real {
-			attribute value: Real;
-		}
-
-		item def ElectricalPower {
-			attribute voltage : Voltage;
-		}
-		item def AltitudeData {
-			attribute reading : Altitude;
-		}
-		item def MotorControlSignal {
-			attribute throttleValue : Throttle;
-		}
+	// Value and Item Type Definitions
+	value def Voltage redefines RealValue {
+		in unit :> V;
 	}
 
-	package DroneSystem {
-		import DroneDomain::*;
+	value def Capacity redefines RealValue {
+		in unit :> A * h;
+	}
 
-		part def Battery {
-			attribute capacity : Capacity = 5000.0;
-			attribute currentVoltage : Voltage = 14.8;
-			port powerSource {
-				out item power : ElectricalPower;
-			}
-			flow of power from powerSource.power {
-				voltage = currentVoltage
-			}
-		}
+	value def Altitude redefines RealValue {
+		in unit :> m;
+	}
 
-		part def Motor {
-			attribute currentSpeed : RotationalSpeed;
-			port powerInput {
-				in item power : ElectricalPower;
-			}
-			port controlInput {
-				in item signal : MotorControlSignal;
-			}
-			constraint speedControl {
-				currentSpeed.value == signal.throttleValue.value * 250.0
-			}
-		}
+	value def RotationalSpeed redefines RealValue {
+		// Using Hertz (1/s) for RPM (revolutions per minute) is unconventional,
+		// but standard units are preferred. Here we assume a conversion factor is applied.
+		in unit :> Hz;
+	}
 
-		part def AltitudeSensor {
-			attribute measuredAltitude : Altitude;
-			port powerInput {
-				in item power : ElectricalPower;
-			}
-			port dataOutput {
-				out item data : AltitudeData;
-			}
-			flow of data from dataOutput.data {
-				reading = measuredAltitude
-			}
-		}
+	item def PowerSignal {
+		attribute voltage : Voltage;
+	}
 
-		part def PowerDistribution {
-			port batteryInput {
-				in item power : ElectricalPower;
-			}
-			port controllerOutput {
-				out item power : ElectricalPower;
-			}
-			port motorOutputs[4] {
-				out item power : ElectricalPower;
-			}
-			flow of power from batteryInput.power to controllerOutput.power;
-			for i in 1..4 {
-				flow of power from batteryInput.power to motorOutputs[i].power;
-			}
-		}
+	item def AltitudeData {
+		attribute reading : Altitude;
+	}
 
-		part def FlightController {
-			attribute targetAltitude : Altitude = 20.0;
-			port powerInput {
-				in item power : ElectricalPower;
-			}
-			port sensorInput {
-				in item data : AltitudeData;
-			}
-			port motorControl[4] {
-				out item signal : MotorControlSignal;
-			}
+	item def MotorCommand {
+		attribute targetSpeed : RotationalSpeed;
+	}
 
-			action def maintainAltitude {
-				in currentAltitude : Altitude;
-				in target : Altitude;
-				out throttle[4] : Throttle;
+	// Part Definitions
+	part def Battery {
+		attribute maxCapacity : Capacity = 5[A*h];
+		attribute currentCharge : Capacity;
+		attribute outputVoltage : Voltage = 14.8[V];
+		out item port powerOut : PowerSignal;
+		bind powerOut.voltage to outputVoltage;
+	}
 
-				let altitudeError = target.value - currentAltitude.value;
-				let baseThrottle = 55.0;
-				let adjustment = altitudeError * 2.5;
-				for i in 1..4 {
-					throttle[i].value = baseThrottle + adjustment;
-				}
-			}
+	part def PowerDistributionUnit {
+		in item port powerIn : PowerSignal;
+		out item port motorPowerOut[4] : PowerSignal;
+		out item port fcPowerOut : PowerSignal;
+		out item port sensorPowerOut : PowerSignal;
+		bind motorPowerOut.voltage to powerIn.voltage;
+		bind fcPowerOut.voltage to powerIn.voltage;
+		bind sensorPowerOut.voltage to powerIn.voltage;
+	}
 
-			state machine FlightBehavior {
-				initial state Grounded;
-				state Flying {
-					state Hovering {
-						perform action maintainAltitude(
-							currentAltitude = sensorInput.data.reading,
-							target = targetAltitude,
-							throttle = motorControl.signal.throttleValue
-						);
-					}
-				}
-				transition from Grounded to Flying on takeoff;
-				transition from Flying to Grounded on land;
-			}
-		}
+	part def Motor {
+		in item port powerIn : PowerSignal;
+		in item port commandIn : MotorCommand;
+		attribute currentSpeed : RotationalSpeed;
 
-		part def Drone {
-			part battery : Battery;
-			part motor : Motor[4];
-			part altitudeSensor : AltitudeSensor;
-			part flightController : FlightController;
-			part powerDistribution : PowerDistribution;
-
-			connect battery.powerSource to powerDistribution.batteryInput;
-			connect powerDistribution.controllerOutput to flightController.powerInput;
-			connect powerDistribution.controllerOutput to altitudeSensor.powerInput;
-			for i in 1..4 {
-				connect powerDistribution.motorOutputs[i] to motor[i].powerInput;
-			}
-
-			connect altitudeSensor.dataOutput to flightController.sensorInput;
-			for i in 1..4 {
-				connect flightController.motorControl[i] to motor[i].controlInput;
+		action updateSpeed {
+			in command : MotorCommand;
+			inout currentSpeed;
+			accept command then {
+				currentSpeed = command.targetSpeed;
 			}
 		}
 	}
 
-	package DroneRequirements {
-		import DroneSystem::Drone;
+	part def AltitudeSensor {
+		in item port powerIn : PowerSignal;
+		out item port dataOut : AltitudeData;
+		attribute measuredAltitude : Altitude;
 
-		requirement altitudeHold {
-			doc "The drone shall be capable of holding a stable altitude.";
-			subject drone : Drone;
-		}
-
-		requirement hoverAccuracy refines altitudeHold {
-			doc "During hover, the drone's altitude must remain within +/- 0.5m of the target altitude.";
-			subject drone : Drone;
-			assert constraint {
-				drone.flightController.FlightBehavior.is(Flying.Hovering) implies
-				abs(drone.altitudeSensor.measuredAltitude.value - drone.flightController.targetAltitude.value) <= 0.5
+		perform action measure {
+			out data : AltitudeData;
+			first start;
+			then action senseAltitude;
+			then action outputData {
+				data.reading = measuredAltitude;
 			}
+			then done;
+		}
+	}
+
+	part def FlightController {
+		in item port powerIn : PowerSignal;
+		in item port altitudeSenseIn : AltitudeData;
+		out item port motorCommandOut[4] : MotorCommand;
+		attribute targetAltitude : Altitude = 20[m];
+		attribute isStable : Boolean;
+
+		action calculateMotorAdjustment {
+			in currentAlt : Altitude;
+			in targetAlt : Altitude;
+			out speedAdjustment : RotationalSpeed;
 		}
 
-		satisfy altitudeHold by drone.flightController.maintainAltitude;
+		state machine FlightSM {
+			initial state Grounded;
+			state Climbing;
+			state Hovering;
+			state Landing;
+
+			transition from Grounded to Climbing on takeOffCmd;
+
+			transition from Climbing to Hovering
+				when altitudeSenseIn.reading.value >= targetAltitude.value
+				do {
+					isStable = true;
+				};
+
+			transition from Hovering to Climbing
+				when altitudeSenseIn.reading.value < targetAltitude.value - 0.5
+				do {
+					isStable = false;
+				};
+
+			transition from Hovering to Landing on landCmd;
+
+			transition from Landing to Grounded
+				when altitudeSenseIn.reading.value <= 0.1;
+		}
 	}
+
+	// Top-level Drone Assembly
+	part def Drone {
+		part battery : Battery;
+		part pdu : PowerDistributionUnit;
+		part motors[4] : Motor;
+		part altimeter : AltitudeSensor;
+		part flightController : FlightController;
+
+		connect battery.powerOut to pdu.powerIn;
+		connect pdu.motorPowerOut to motors.powerIn;
+		connect pdu.fcPowerOut to flightController.powerIn;
+		connect pdu.sensorPowerOut to altimeter.powerIn;
+		connect altimeter.dataOut to flightController.altitudeSenseIn;
+		connect flightController.motorCommandOut to motors.commandIn;
+	}
+
+	// Requirements
+	requirement <'DR-REQ-01'> stableHover {
+		doc "The drone shall be capable of maintaining a stable hover at a commanded altitude within +/- 0.5 meters in calm wind conditions.";
+		subject drone : Drone;
+		assert constraint {
+			drone.flightController.isStable implies
+			abs(drone.altimeter.measuredAltitude.value - drone.flightController.targetAltitude.value) <= 0.5
+		}
+	}
+
+	requirement <'SYS-REQ-10'> sensorAccuracy {
+		doc "The altitude sensor shall provide measurements with an accuracy of +/- 0.2 meters.";
+		subject altimeter : AltitudeSensor;
+	}
+
+	// Derivation of Requirements
+	#derivation connection {
+		end #original ::> stableHover;
+		end #derive ::> sensorAccuracy;
+	}
+
+	// System Instantiation
+	part simpleDrone : Drone;
 }
 ---
-Candidate 2 (anthropic/claude-sonnet-4.5, rating=10/10):
+Candidate 2 (openai/gpt-5, rating=7/10):
+package Drone_SharedTypes {
+	private import ScalarValues::Real;
+	value def VoltageV : Real;
+	value def CurrentA : Real;
+	value def PowerW : Real;
+	value def RPM : Real;
+	value def Charge_mAh : Real;
+	value def Frequency_Hz : Real;
+	value def Altitude_m : Real;
+	value def Percent : Real;
+	value def Time_s : Real;
+
+	item def DCElectric {
+		attribute voltage : VoltageV;
+		attribute current : CurrentA;
+	}
+	item def AltitudeSample {
+		attribute altitude : Altitude_m;
+		attribute timestamp : Time_s;
+	}
+}
+package Drone_BaseArchitecture {
+	private import Drone_SharedTypes::*;
+	private import ScalarValues::Real;
+
+	part def Battery {
+		attribute nominalVoltage : VoltageV;
+		attribute capacity : Charge_mAh;
+		attribute stateOfCharge : Percent;
+		attribute internalResistance_Ohm : Real;
+		port powerOut {
+			out item supply : DCElectric;
+		}
+		port statusPort {
+			out attribute soc : Percent;
+		}
+		perform action updateDelivery {
+			in attribute loadCurrent : CurrentA;
+			out attribute deliveredVoltage : VoltageV;
+			first start;
+			then action computeTerminalVoltage;
+			then action updateSOC;
+			then done;
+		}
+	}
+	part def Motor {
+		attribute minVoltageToRun : VoltageV;
+		attribute kv_RPM_per_V : Real;
+		attribute shaftSpeed : RPM;
+		port powerIn {
+			in item supply : DCElectric;
+		}
+		port ctrlIn {
+			in attribute throttle : Percent;
+		}
+		perform action drive {
+			in attribute throttleCmd : Percent;
+			in item bus : DCElectric;
+			out attribute targetSpeed : RPM;
+			first start;
+			then action checkBusVoltage;
+			then action computeTargetSpeed;
+			then done;
+		}
+	}
+	part def AltitudeSensor {
+		attribute updateRate : Frequency_Hz;
+		attribute bias_m : Altitude_m;
+		port powerIn {
+			in item supply : DCElectric;
+		}
+		port dataOut {
+			out item sample : AltitudeSample;
+		}
+		perform action sample {
+			out item outSample : AltitudeSample;
+			first start;
+			then action measure;
+			then action compensateBias;
+			then action publish;
+			then done;
+		}
+	}
+	part def FlightController {
+		attribute targetAltitude : Altitude_m;
+		attribute kP : Real;
+		port powerIn {
+			in item supply : DCElectric;
+		}
+		port altitudeIn {
+			in item meas : AltitudeSample;
+		}
+		port throttleOut {
+			out attribute throttleCmd : Percent;
+		}
+		port batteryMon {
+			in attribute soc : Percent;
+		}
+		perform action controlLoop {
+			in item altitude : AltitudeSample;
+			in attribute socIn : Percent;
+			out attribute throttle : Percent;
+			first start;
+			then action computeError;
+			then action proportionalControl;
+			then action applyFailsafe;
+			then done;
+		}
+	}
+	part def PowerDistribution {
+		port inPort {
+			in item supply : DCElectric;
+		}
+		port toMotor {
+			out item motorSupply : DCElectric;
+		}
+		port toSensor {
+			out item sensorSupply : DCElectric;
+		}
+		port toController {
+			out item controllerSupply : DCElectric;
+		}
+	}
+	part def Drone {
+		attribute targetCruiseAltitude : Altitude_m;
+		port telemetry {
+			out item altitudeOut : AltitudeSample;
+		}
+	}
+}
+package Drone_SystemArchitecture {
+	private import Drone_SharedTypes::*;
+	private import Drone_BaseArchitecture::*;
+	part drone : Drone {
+		:>> targetCruiseAltitude = 100;
+		part battery : Battery {
+			:>> nominalVoltage = 11.1;
+			:>> capacity = 6000;
+			:>> stateOfCharge = 100;
+			:>> internalResistance_Ohm = 0.05;
+			port powerOut {
+				out item supply : DCElectric;
+			}
+			port statusPort {
+				out attribute soc : Percent;
+			}
+		}
+		part motor : Motor {
+			:>> minVoltageToRun = 9.0;
+			:>> kv_RPM_per_V = 920;
+			:>> shaftSpeed = 0;
+		}
+		part altitudeSensor : AltitudeSensor {
+			:>> updateRate = 20;
+			:>> bias_m = 0.5;
+		}
+		part controller : FlightController {
+			:>> targetAltitude = 100;
+			:>> kP = 0.5;
+		}
+		part pdm : PowerDistribution;
+		/* Power connections */
+		connect battery.powerOut to pdm.inPort;
+		connect pdm.toMotor to motor.powerIn;
+		connect pdm.toSensor to altitudeSensor.powerIn;
+		connect pdm.toController to controller.powerIn;
+		/* Data/control connections */
+		connect controller.altitudeIn to altitudeSensor.dataOut;
+		connect controller.throttleOut to motor.ctrlIn;
+		connect battery.statusPort to controller.batteryMon;
+		/* Telemetry exposure */
+		connect telemetry to altitudeSensor.dataOut;
+	}
+}
+package Drone_StakeholderRequirements {
+	requirement <'SR-001'> basicFunctions {
+		doc /* The drone shall include a battery, a motor, and an altitude sensor to sustain powered flight and provide altitude measurement. */
+		subject drone : Drone_BaseArchitecture::Drone;
+	}
+	requirement <'SR-002'> altitudeUpdate {
+		doc /* The altitude sensor shall provide measurements at a rate of at least 10 Hz during flight. */
+		subject sensor : Drone_BaseArchitecture::AltitudeSensor;
+	}
+	requirement <'SR-003'> endurance {
+		doc /* The energy storage shall support not less than 10 minutes of motor operation at nominal load. */
+		subject battery : Drone_BaseArchitecture::Battery;
+	}
+	requirement <'SR-004'> undervoltageProtection {
+		doc /* The motor shall not be commanded to run when bus voltage is below its minimum running voltage. */
+		subject motor : Drone_BaseArchitecture::Motor;
+	}
+}
+package Drone_SystemRequirements {
+	private import RequirementDerivation::*;
+	requirement <'REQ-ALT-01'> updateRate {
+		subject sensor :>> Drone_SystemArchitecture::drone.altitudeSensor;
+		assert constraint { sensor.updateRate >= 10 }
+	}
+	requirement <'REQ-BAT-01'> capacity {
+		subject battery :>> Drone_SystemArchitecture::drone.battery;
+		assert constraint { battery.capacity >= 3000 }
+	}
+	requirement <'REQ-MTR-01'> supplyGuard {
+		subject motor :>> Drone_SystemArchitecture::drone.motor;
+		subject pdm :>> Drone_SystemArchitecture::drone.pdm;
+		assert constraint { pdm.toMotor.motorSupply.voltage >= motor.minVoltageToRun }
+	}
+	#derivation connection {
+		end #original ::> Drone_StakeholderRequirements::altitudeUpdate;
+		end #derive ::> updateRate;
+	}
+	#derivation connection {
+		end #original ::> Drone_StakeholderRequirements::endurance;
+		end #derive ::> capacity;
+	}
+	#derivation connection {
+		end #original ::> Drone_StakeholderRequirements::undervoltageProtection;
+		end #derive ::> supplyGuard;
+	}
+}
+package Drone_Compliance {
+	satisfy Drone_StakeholderRequirements::basicFunctions by Drone_SystemArchitecture::drone;
+	satisfy Drone_StakeholderRequirements::altitudeUpdate by Drone_SystemArchitecture::drone.altitudeSensor;
+	satisfy Drone_StakeholderRequirements::endurance by Drone_SystemArchitecture::drone.battery;
+	satisfy Drone_StakeholderRequirements::undervoltageProtection by Drone_SystemArchitecture::drone.motor;
+	satisfy Drone_SystemRequirements::updateRate by Drone_SystemArchitecture::drone.altitudeSensor;
+	satisfy Drone_SystemRequirements::capacity by Drone_SystemArchitecture::drone.battery;
+	satisfy Drone_SystemRequirements::supplyGuard by Drone_SystemArchitecture::drone.pdm;
+}
+---
+Candidate 3 (anthropic/claude-sonnet-4.5, rating=10/10):
 package DroneSystem {
     import ScalarValues::*;
     import ISQ::*;
@@ -553,10 +778,18 @@ package DroneSystem {
         attribute unit : EnergyUnit;
     }
     
-    attribute def AltitudeValue :> LengthValue;
+    attribute def AltitudeValue :> Real {
+        attribute :>> num : Real;
+        attribute unit : LengthUnit;
+    }
     
     attribute def RPMValue :> Real {
         attribute :>> num : Real;
+    }
+    
+    attribute def PowerValue :> Real {
+        attribute :>> num : Real;
+        attribute unit : PowerUnit;
     }
     
     enum def BatteryStateKind {
@@ -572,211 +805,284 @@ package DroneSystem {
         enum starting;
         enum running;
         enum stopping;
+        enum fault;
     }
     
-    port def PowerPort {
+    item def ElectricalPower {
         attribute voltage : VoltageValue;
         attribute current : CurrentValue;
     }
     
-    port def SensorDataPort {
-        out attribute altitude : AltitudeValue;
-        out attribute timestamp : Real;
+    item def SensorData {
+        attribute altitude : AltitudeValue;
+        attribute timestamp : Real;
     }
     
-    port def MotorControlPort {
-        in attribute targetRPM : RPMValue;
-        out attribute actualRPM : RPMValue;
+    item def ControlSignal {
+        attribute targetRPM : RPMValue;
+        attribute enabled : Boolean;
     }
     
     part def Battery {
         attribute capacity : CapacityValue;
         attribute currentCharge : CapacityValue;
         attribute voltage : VoltageValue;
+        attribute maxCurrent : CurrentValue;
         attribute stateOfCharge : Real;
         
-        port powerOut : PowerPort {
-            out attribute :>> voltage;
-            out attribute :>> current;
+        port powerOut {
+            out item electricalPower : ElectricalPower;
         }
         
-        perform action monitorBattery {
-            in attribute charge :> currentCharge;
-            out attribute state : BatteryStateKind;
-            
-            first start;
-            then action calculateSOC {
-                in chargeLevel :> charge;
-                out soc : Real;
-            }
-            then action determineState {
-                in soc : Real;
-                out batteryState : BatteryStateKind;
-            }
-            then done;
+        port statusPort {
+            out attribute batteryState : BatteryStateKind;
+            out attribute chargeLevel : Real;
         }
         
         state batteryStateMachine {
             entry; then full;
             
-            state full;
+            state full {
+                entry assign stateOfCharge = 1.0;
+                entry assign batteryState = BatteryStateKind::full;
+            }
+            
+            state normal {
+                entry assign batteryState = BatteryStateKind::normal;
+            }
+            
+            state low {
+                entry assign batteryState = BatteryStateKind::low;
+            }
+            
+            state critical {
+                entry assign batteryState = BatteryStateKind::critical;
+            }
+            
+            state depleted {
+                entry assign batteryState = BatteryStateKind::depleted;
+                entry assign stateOfCharge = 0.0;
+            }
+            
             transition full_to_normal
                 first full
-                accept at when stateOfCharge < 0.9
+                accept at stateOfCharge < 0.9
                 then normal;
-            
-            state normal;
+                
             transition normal_to_low
                 first normal
-                accept at when stateOfCharge < 0.3
+                accept at stateOfCharge < 0.3
                 then low;
-            
-            state low;
+                
             transition low_to_critical
                 first low
-                accept at when stateOfCharge < 0.15
+                accept at stateOfCharge < 0.15
                 then critical;
-            
-            state critical;
+                
             transition critical_to_depleted
                 first critical
-                accept at when stateOfCharge < 0.05
+                accept at stateOfCharge < 0.05
                 then depleted;
+        }
+        
+        action dischargeBattery {
+            in powerDemand : PowerValue;
+            out updatedCharge : CapacityValue;
             
-            state depleted;
+            first start;
+            then action calculateDischarge {
+                in demand :>> powerDemand;
+                out newCharge : CapacityValue;
+            }
+            then action updateState {
+                in charge :>> calculateDischarge.newCharge;
+            }
+            then done;
         }
     }
     
     part def Motor {
         attribute maxRPM : RPMValue;
         attribute currentRPM : RPMValue;
-        attribute powerConsumption : Real;
-        attribute motorState : MotorStateKind;
+        attribute powerConsumption : PowerValue;
+        attribute efficiency : Real;
         
-        port powerIn : PowerPort {
-            in attribute :>> voltage;
-            in attribute :>> current;
+        port powerIn {
+            in item electricalPower : ElectricalPower;
         }
         
-        port controlPort : MotorControlPort {
-            in attribute :>> targetRPM;
-            out attribute actualRPM = currentRPM;
+        port controlPort {
+            in item controlSignal : ControlSignal;
         }
         
-        perform action runMotor {
-            in targetSpeed : RPMValue;
-            out actualSpeed : RPMValue;
-            
-            first start;
-            then action spinUp {
-                in target :> targetSpeed;
-                out speed : RPMValue;
-            }
-            then action maintainSpeed {
-                in desiredSpeed :> targetSpeed;
-                out currentSpeed :> actualSpeed;
-            }
-            then done;
+        port statusPort {
+            out attribute motorState : MotorStateKind;
+            out attribute rpm : RPMValue;
         }
         
         state motorStateMachine {
             entry; then off;
             
-            state off;
-            transition off_to_starting
-                first off
-                accept at when controlPort.targetRPM.num > 0.0
-                then starting;
+            state off {
+                entry assign motorState = MotorStateKind::off;
+                entry assign currentRPM.num = 0.0;
+            }
             
             state starting {
-                entry action rampUp;
+                entry assign motorState = MotorStateKind::starting;
+                do action rampUp {
+                    first start;
+                    then action increaseRPM;
+                    then done;
+                }
             }
-            transition starting_to_running
-                first starting
-                accept at when currentRPM.num >= controlPort.targetRPM.num * 0.95
-                then running;
             
             state running {
-                entry action stabilize;
+                entry assign motorState = MotorStateKind::running;
+                do action maintainSpeed {
+                    first start;
+                    then action regulateRPM;
+                    then done;
+                }
             }
-            transition running_to_stopping
-                first running
-                accept at when controlPort.targetRPM.num == 0.0
-                then stopping;
             
             state stopping {
-                entry action rampDown;
+                entry assign motorState = MotorStateKind::stopping;
+                do action rampDown {
+                    first start;
+                    then action decreaseRPM;
+                    then done;
+                }
             }
+            
+            state fault {
+                entry assign motorState = MotorStateKind::fault;
+            }
+            
+            transition off_to_starting
+                first off
+                accept controlSignal.enabled == true
+                then starting;
+                
+            transition starting_to_running
+                first starting
+                accept at currentRPM.num >= controlSignal.targetRPM.num * 0.95
+                then running;
+                
+            transition running_to_stopping
+                first running
+                accept controlSignal.enabled == false
+                then stopping;
+                
             transition stopping_to_off
                 first stopping
-                accept at when currentRPM.num < 10.0
+                accept at currentRPM.num <= 0.0
                 then off;
+                
+            transition any_to_fault
+                first off, starting, running, stopping
+                accept electricalPower.voltage.num < 10.0
+                then fault;
         }
     }
     
     part def AltitudeSensor {
+        attribute measurementRange : AltitudeValue;
+        attribute accuracy : AltitudeValue;
         attribute currentAltitude : AltitudeValue;
-        attribute accuracy : LengthValue;
-        attribute measurementRate : Real;
+        attribute samplingRate : Real;
         
-        port dataOut : SensorDataPort {
-            out attribute :>> altitude = currentAltitude;
-            out attribute :>> timestamp;
+        port powerIn {
+            in item electricalPower : ElectricalPower;
         }
         
-        perform action measureAltitude {
-            out altitude : AltitudeValue;
-            out time : Real;
+        port dataOut {
+            out item sensorData : SensorData;
+        }
+        
+        action measureAltitude {
+            out measurement : SensorData;
             
             first start;
             then action readSensor {
-                out rawValue : Real;
+                out rawValue : AltitudeValue;
             }
-            then action processData {
-                in raw : Real;
-                out processed :> altitude;
+            then action calibrateReading {
+                in raw :>> readSensor.rawValue;
+                out calibrated : AltitudeValue;
             }
-            then action addTimestamp {
-                out ts :> time;
+            then action packageData {
+                in altitude :>> calibrateReading.calibrated;
+                out data :>> measurement;
             }
             then done;
+        }
+        
+        state sensorStateMachine {
+            entry; then idle;
+            
+            state idle;
+            
+            state measuring {
+                do measureAltitude;
+            }
+            
+            state transmitting {
+                do action sendData {
+                    first start;
+                    then action transmit;
+                    then done;
+                }
+            }
+            
+            transition idle_to_measuring
+                first idle
+                then measuring;
+                
+            transition measuring_to_transmitting
+                first measuring
+                then transmitting;
+                
+            transition transmitting_to_idle
+                first transmitting
+                then idle;
         }
     }
     
     part def DroneController {
-        attribute operatingMode : String;
-        
-        port batteryMonitorPort {
-            in attribute batteryLevel : Real;
+        port batteryStatusIn {
             in attribute batteryState : BatteryStateKind;
+            in attribute chargeLevel : Real;
         }
         
-        port motorCommandPort : MotorControlPort {
-            out attribute :>> targetRPM;
-            in attribute :>> actualRPM;
+        port motorStatusIn {
+            in attribute motorState : MotorStateKind;
+            in attribute rpm : RPMValue;
         }
         
-        port altitudeInputPort : SensorDataPort {
-            in attribute :>> altitude;
-            in attribute :>> timestamp;
+        port altitudeDataIn {
+            in item sensorData : SensorData;
         }
         
-        perform action controlFlight {
-            in desiredAltitude : AltitudeValue;
-            in currentAltitude : AltitudeValue;
-            out motorCommand : RPMValue;
-            
+        port motorControlOut {
+            out item controlSignal : ControlSignal;
+        }
+        
+        action controlLoop {
             first start;
-            then action calculateError {
-                in desired :> desiredAltitude;
-                in actual :> currentAltitude;
-                out error : Real;
+            then action readSensors {
+                out altitude : AltitudeValue;
+                out batteryLevel : Real;
             }
-            then action computeMotorSpeed {
-                in altitudeError : Real;
-                out speed :> motorCommand;
+            then action computeControl {
+                in currentAltitude :>> readSensors.altitude;
+                in battery :>> readSensors.batteryLevel;
+                out motorCommand : ControlSignal;
             }
-            then done;
+            then action sendCommands {
+                in command :>> computeControl.motorCommand;
+            }
+            loop back computeControl;
         }
     }
     
@@ -784,205 +1090,239 @@ package DroneSystem {
         part battery : Battery {
             :>> capacity.num = 5000.0;
             :>> currentCharge.num = 5000.0;
-            :>> voltage.num = 11.1;
+            :>> voltage.num = 14.8;
+            :>> maxCurrent.num = 30.0;
             :>> stateOfCharge = 1.0;
         }
         
         part motor : Motor {
             :>> maxRPM.num = 8000.0;
             :>> currentRPM.num = 0.0;
-            :>> powerConsumption = 0.0;
-            :>> motorState = MotorStateKind::off;
+            :>> powerConsumption.num = 150.0;
+            :>> efficiency = 0.85;
         }
         
         part altitudeSensor : AltitudeSensor {
-            :>> currentAltitude.num = 0.0;
+            :>> measurementRange.num = 500.0;
             :>> accuracy.num = 0.5;
-            :>> measurementRate = 10.0;
+            :>> currentAltitude.num = 0.0;
+            :>> samplingRate = 10.0;
         }
         
-        part controller : DroneController {
-            :>> operatingMode = "autonomous";
-        }
+        part controller : DroneController;
         
         connect battery.powerOut to motor.powerIn;
-        connect controller.motorCommandPort to motor.controlPort;
-        connect altitudeSensor.dataOut to controller.altitudeInputPort;
+        connect battery.powerOut to altitudeSensor.powerIn;
+        connect battery.statusPort to controller.batteryStatusIn;
+        connect motor.statusPort to controller.motorStatusIn;
+        connect altitudeSensor.dataOut to controller.altitudeDataIn;
+        connect controller.motorControlOut to motor.controlPort;
+    }
+    
+    requirement <'REQ-001'> droneOperationalRequirement {
+        doc /* The drone shall maintain stable operation with 
+             * integrated battery, motor, and altitude sensing.
+             */
+        subject drone : drone;
         
-        perform action operateDrone {
-            first start;
-            then action initializeSystems {
-                action powerUp;
-                action calibrateSensors;
-            }
-            then action flightLoop {
-                action readAltitude;
-                action updateMotor;
-                action monitorBattery;
-            }
-            then action shutdown {
-                action stopMotor;
-                action saveLogs;
-            }
-            then done;
+        require batteryCapacityReq;
+        require motorPerformanceReq;
+        require altitudeSensingReq;
+    }
+    
+    requirement <'REQ-002'> batteryCapacityReq {
+        doc /* The battery shall provide sufficient capacity 
+             * for extended flight operations.
+             */
+        subject battery :>> drone.battery;
+        
+        assert constraint {
+            battery.capacity.num >= 4000.0
         }
     }
     
-    package Requirements {
-        requirement <'REQ-001'> droneOperation {
-            doc /* The drone shall operate with integrated battery, 
-                 * motor, and altitude sensor systems.
-                 */
-            subject drone :>> DroneSystem::drone;
-        }
+    requirement <'REQ-003'> motorPerformanceReq {
+        doc /* The motor shall achieve operational RPM range 
+             * for flight control.
+             */
+        subject motor :>> drone.motor;
         
-        requirement <'REQ-002'> batteryCapacity {
-            doc /* The battery shall provide sufficient capacity 
-                 * for drone operation.
-                 */
-            subject battery :>> DroneSystem::drone.battery;
-            assert constraint {
-                battery.capacity.num >= 5000.0
-            }
+        assert constraint {
+            motor.maxRPM.num >= 6000.0
         }
-        
-        requirement <'REQ-003'> motorPerformance {
-            doc /* The motor shall achieve target RPM for altitude control.
-                 */
-            subject motor :>> DroneSystem::drone.motor;
-            assert constraint {
-                motor.maxRPM.num >= 8000.0
-            }
-        }
-        
-        requirement <'REQ-004'> altitudeMeasurement {
-            doc /* The altitude sensor shall provide accurate altitude readings.
-                 */
-            subject sensor :>> DroneSystem::drone.altitudeSensor;
-            assert constraint {
-                sensor.accuracy.num <= 1.0
-            }
-        }
-        
-        satisfy droneOperation by drone;
-        satisfy batteryCapacity by drone.battery;
-        satisfy motorPerformance by drone.motor;
-        satisfy altitudeMeasurement by drone.altitudeSensor;
     }
+    
+    requirement <'REQ-004'> altitudeSensingReq {
+        doc /* The altitude sensor shall provide accurate 
+             * altitude measurements within operational range.
+             */
+        subject sensor :>> drone.altitudeSensor;
+        
+        assert constraint {
+            sensor.accuracy.num <= 1.0 and
+            sensor.measurementRange.num >= 300.0
+        }
+    }
+    
+    satisfy droneOperationalRequirement by drone;
 }
 ---
-Candidate 3 (meta-llama/llama-4-maverick, rating=5/10):
+Candidate 4 (meta-llama/llama-4-maverick, rating=5/10):
+To generate a complete SysML v2 model for the given requirement, we can create the following structure:
+
 package DroneModel {
-    import ScalarValues::Real;
-    import Units::SI::*;
-    import Metaobjects::SemanticMetadata;
-
-    // Define value types with units
-    valueType Voltage = Real {
-        unit = volt;
-    }
-    valueType Current = Real {
-        unit = ampere;
-    }
-    valueType Altitude = Real {
-        unit = meter;
-    }
-
-    // Define the drone's components
-    part def Drone {
+    // Define the top-level drone
+    package drone {
+        // Define the battery
         part battery {
-            attribute voltage : Voltage;
-            attribute capacity : Real {
-                unit = ampereHour;
-            }
-            attribute stateOfCharge : Real;
+            // Define the characteristics of the battery
+            attribute capacity : Real;
+            attribute voltage : Real;
         }
+        
+        // Define the motor
         part motor {
-            attribute speed : Real {
-                unit = revolutionPerMinute;
-            }
-            port controlPort {
-                in attribute command : Real;
-            }
+            // Define the characteristics of the motor
+            attribute power : Real;
+            attribute efficiency : Real;
         }
+        
+        // Define the altitude sensor
         part altitudeSensor {
-            port sensorPort {
-                out attribute altitude : Altitude;
-            }
-        }
-        port batteryPort {
-            out attribute voltage : Voltage;
-            out attribute stateOfCharge : Real;
-        }
-        port motorControlPort {
-            out attribute command : Real;
-        }
-        port altitudeDataPort {
-            in attribute altitude : Altitude;
+            // Define the characteristics of the altitude sensor
+            attribute maxAltitude : Real;
+            attribute accuracy : Real;
         }
     }
+}
 
-    // Define the drone's behavior
-    part drone : Drone {
-        // Connect components
-        connect batteryPort to battery;
-        connect motorControlPort to motor.controlPort;
-        connect altitudeDataPort to altitudeSensor.sensorPort;
+To create the desired model, we need to instantiate the `drone` package and its components. The `drone` package will contain the battery, motor, and altitude sensor as parts. The `drone` will be connected to the motor, which will be connected to the battery.
 
-        // Define the motor control behavior
-        perform action controlMotor {
-            in attribute desiredSpeed : Real {
-                unit = revolutionPerMinute;
-            }
-            out attribute command : Real;
-            first start;
-            then action calculateCommand {
-                command = desiredSpeed / 1000;
-            }
-            then action sendCommand {
-                motorControlPort.command = command;
-            }
-            then done;
-        }
-
-        // Define the state machine for the drone's operation
-        state machine operation {
-            state idle;
-            state flying;
-            transition from idle to flying {
-                trigger event startFlying;
-                effect action startMotor {
-                    motor.speed = 1000;
-                    perform controlMotor(desiredSpeed = 500);
-                }
-            }
-            transition from flying to idle {
-                trigger event stopFlying;
-                effect action stopMotor {
-                    motor.speed = 0;
-                }
-            }
-        }
+package drone {
+    part battery : Battery {
+        // Define the battery characteristics
+        voltage = 12V;
+        capacity = 5000mAh;
     }
+    
+    part motor : Motor {
+        // Define the motor characteristics
+        power = 100W;
+        voltage = 12V;
+    }
+    
+    part altitudeSensor : AltitudeSensor {
+        // Define the altitude sensor characteristics
+        maxAltitude = 1000m;
+        accuracy = 1m;
+    }
+}
 
-    // Define requirements for the drone
-    requirement <'REQ-001'> batteryCapacity {
-        subject battery :>> drone.battery;
-        assert constraint {
-            battery.capacity >= 5
-        }
+We can now create an instance of the drone and connect the parts accordingly.
+
+instance droneInstance : drone {
+    battery = batteryInstance;
+    motor = motorInstance;
+    altitudeSensor = altitudeSensorInstance;
+}
+
+In this example, we have defined a drone with a battery, motor, and altitude sensor. The battery is connected to the motor, and the motor is connected to the altitude sensor.
+
+To satisfy the requirement, we need to ensure that the drone is properly connected to the battery and that the battery is properly charged. We also need to ensure that the altitude sensor is properly connected to the drone.
+
+connection batteryToDrone {
+    // Connect the battery to the drone
+    connector batteryConnector {
+        // Define the connector characteristics
+        type = Electrical;
+        value = 12V;
     }
-    requirement <'REQ-002'> altitudeSensorAccuracy {
-        subject altitudeSensor :>> drone.altitudeSensor;
-        assert constraint {
-            abs(altitudeSensor.sensorPort.altitude - 10) <= 1
-        }
+    connector droneConnector {
+        // Define the connector characteristics
+        type = Electrical;
+        value = 12V;
     }
-    requirement <'REQ-003'> motorSpeedControl {
-        subject motor :>> drone.motor;
-        assert constraint {
-            motor.speed >= 0 and motor.speed <= 1000
-        }
+    connection batteryToDroneConnector {
+        // Connect the battery to the drone
+        connector = batteryConnector;
+        connector = droneConnector;
+    }
+}
+
+By creating this structure, we can ensure that the drone is properly powered and that the altitude sensor is properly connected to the drone.
+
+Note that this is a simplified example and actual implementation may vary based on the specific requirements and constraints of the system. 
+
+To generate the required connections, we need to create the necessary ports and connectors on the drone and the battery. We can achieve this by creating the appropriate interfaces and connections between the components.
+
+interface DroneInterface {
+    // Define the interface for the drone
+}
+
+interface BatteryInterface {
+    // Define the interface for the battery
+}
+
+connection DroneInterfaceToBatteryInterface {
+    // Connect the drone interface to the battery interface
+    connector = BatteryInterface;
+}
+
+By creating these connections, we can ensure that the drone is properly powered and that the altitude sensor is properly connected to the drone.
+
+In this example, we have created a SysML model that represents the drone's electrical system. The model includes the necessary components, such as the battery, motor, and altitude sensor, and defines the connections between them. The model also includes the necessary interfaces and connectors to ensure that the components are properly connected.
+
+This SysML model can be used to analyze the electrical system of the drone and ensure that it is properly designed and implemented. 
+
+In the context of the drone, the electrical system is a critical component that requires careful design and implementation. The electrical system must be designed to provide the necessary power to the drone's components, including the motor, battery, and sensors. 
+
+To ensure that the drone is properly powered, the electrical system must be designed to provide a stable and efficient power supply. This can be achieved by using a high-quality battery that is designed to provide the necessary power to the drone's components.
+
+In addition to providing power to the drone's components, the electrical system must also provide power to the drone's electrical systems, such as the navigation system and the communication system. The power supply must be designed to provide a stable and reliable source of power to these systems.
+
+Overall, the electrical system is a critical component of the drone's electrical system, and its design and implementation require careful consideration of the power requirements and the electrical loads. 
+
+To ensure that the electrical system is properly designed, it is essential to define the requirements for the electrical system, including the power requirements, the voltage requirements, and the current requirements. 
+
+In this example, we have defined the electrical system to include a battery that provides a stable voltage of 12V. We have also defined the power requirements for the drone's components, including the motor and the navigation system.
+
+By defining the electrical system in this way, we can ensure that the drone is properly powered and that the electrical system is designed to meet the necessary power requirements. 
+
+In this example, we have defined the electrical system to include a battery that provides a stable voltage of 12V. We have also defined the power requirements for the electrical system, including the power requirements for the motor and the navigation system.
+
+To ensure that the electrical system is properly designed, we must also consider the electrical loads that are connected to the system. The electrical loads include the motor, the navigation system, and the communication system. We must ensure that the electrical system is designed to handle the electrical loads of these components.
+
+By considering the electrical loads and the power requirements of the electrical system, we can ensure that the electrical system is properly designed to handle the power requirements of the drone. This includes ensuring that the electrical system is designed to handle the maximum power requirements of the drone, as well as ensuring that the electrical system is designed to provide a stable voltage to the drone's components.
+
+Overall, the electrical system is a critical component of the drone, and it is essential to ensure that it is properly designed to meet the power requirements of the drone.
+package electricalSystem {
+    // Define the electrical system package
+}
+
+package drone {
+    // Define the drone package
+    part drone : ElectricalSystem {
+        // Define the electrical system
+        voltage = 12V;
+        current = 10A;
+    }
+}
+
+package battery {
+    // Define the battery package
+    part battery : Battery {
+        // Define the battery characteristics
+        voltage = 12V;
+        capacity = 5000mAh;
+    }
+}
+
+package electricalSystem {
+    // Define the electrical system package
+    part electricalSystem : ElectricalSystem {
+        // Define the electrical system characteristics
+        voltage = 12V;
+        current = 10A;
     }
 }
 ---

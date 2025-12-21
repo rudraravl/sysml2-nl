@@ -1,139 +1,260 @@
 // Create a part called AvionicMotor. It uses electrical power to generate mechanical torque. It has three properties: rated power in kilowatts, nominal voltage in volts, and maximum speed in RPM.
 package AvionicMotorSystem {
-	private import SI::*;
-	private import ISQ::*;
-	private import ScalarValues::*;
+    private import SI::*;
+    private import ISQ::*;
+    private import ScalarValues::*;
 
-	doc /* 
-	 * This model describes an Avionic Motor system, which converts electrical power 
-	 * into mechanical torque. It includes the motor's physical properties, behavior,
-	 * performance requirements, and its usage within a simple actuator assembly.
-	 */
+    attribute def RPMUnit :> DimensionOneUnit = 1/min;
+    attribute <rpm> revolutionsPerMinute : RPMUnit;
 
-	// Custom unit definition for Revolutions Per Minute (RPM)
-	attribute <'rpm'> 'revolutions per minute' : AngularVelocityUnit = (2 * pi / 60) * rad/s;
+    item def ElectricalPower {
+        attribute voltage :> ISQ::electricPotential;
+        attribute current :> ISQ::electricCurrent;
+        attribute power :> ISQ::power;
+    }
 
-	// Port definitions for electrical and mechanical interfaces
-	port def ElectricalPort {
-		in voltage :> electricPotential;
-		in current :> electricCurrent;
-	}
+    item def MechanicalPower {
+        attribute torque :> ISQ::torque;
+        attribute angularSpeed : Real;
+        attribute power :> ISQ::power;
+    }
 
-	port def MechanicalPort {
-		out torque :> torque;
-		out speed :> angularVelocity;
-	}
+    port def ElectricalPort {
+        in item electricalPower : ElectricalPower;
+    }
 
-	// Signals to control the motor's state
-	signal def PowerOn;
-	signal def PowerOff;
+    port def MechanicalPort {
+        out item mechanicalPower : MechanicalPower;
+    }
 
-	// Behavior model for the motor's operational states
-	state def MotorOperatingState {
-		entry; 
-		then Off;
+    part def AvionicMotor {
+        doc /* An avionic motor that converts electrical power to mechanical torque. */
 
-		state Off {
-			doc /* Motor is powered down and inactive. */
-		}
-		transition from Off to Running on PowerOn;
+        attribute ratedPower :> ISQ::power;
+        attribute nominalVoltage :> ISQ::electricPotential;
+        attribute maximumSpeed : Real;
 
-		state Running {
-			doc /* Motor is powered on and converting energy. */
-		}
-		transition from Running to Off on PowerOff;
-	}
+        attribute efficiency : Real;
+        attribute torqueConstant :> ISQ::torque / ISQ::electricCurrent;
+        attribute backEmfConstant :> ISQ::electricPotential / ISQ::angularVelocity;
+        attribute windingResistance :> ISQ::resistance;
+        attribute windingInductance :> ISQ::inductance;
+        attribute rotorInertia :> ISQ::momentOfInertia;
 
-	// Requirement definition for motor performance
-	requirement def PerformanceRequirement {
-		doc /* Specifies the minimum performance criteria for an avionic motor. */
-		subject motor : AvionicMotor;
+        port electricalInput : ElectricalPort;
+        port mechanicalOutput : MechanicalPort;
 
-		attribute requiredMinPower :> power;
-		attribute requiredMaxSpeed :> angularVelocity;
-		attribute requiredVoltage :> electricPotential;
+        attribute def MotorState {
+            attribute currentSpeed : Real;
+            attribute currentTorque :> ISQ::torque;
+            attribute currentCurrent :> ISQ::electricCurrent;
+            attribute temperature :> ISQ::thermodynamicTemperature;
+        }
 
-		require constraint PowerCapability {
-			doc /* The motor's rated power must meet or exceed the requirement. */
-			motor.ratedPower >= requiredMinPower
-		}
-		require constraint SpeedCapability {
-			doc /* The motor's maximum speed must meet or exceed the requirement. */
-			motor.maximumSpeed >= requiredMaxSpeed
-		}
-		require constraint VoltageCompatibility {
-			doc /* The motor's nominal voltage must match the required system voltage. */
-			motor.nominalVoltage == requiredVoltage
-		}
-	}
+        attribute motorState : MotorState;
 
-	// Core part definition for the Avionic Motor
-	part def AvionicMotor {
-		doc /* Converts electrical power to mechanical torque for avionics applications. */
+        action def ConvertPower {
+            in inputVoltage :> ISQ::electricPotential;
+            in inputCurrent :> ISQ::electricCurrent;
+            in loadTorque :> ISQ::torque;
+            out outputTorque :> ISQ::torque;
+            out outputSpeed : Real;
+        }
 
-		// Physical and performance properties
-		attribute ratedPower :> power;
-		attribute nominalVoltage :> electricPotential;
-		attribute maximumSpeed :> angularVelocity;
-		attribute efficiency : Real = 0.95; // Default efficiency
+        perform action convertElectricalToMechanical : ConvertPower {
+            in inputVoltage = electricalInput.electricalPower.voltage;
+            in inputCurrent = electricalInput.electricalPower.current;
+            out outputTorque = mechanicalOutput.mechanicalPower.torque;
+            out outputSpeed = mechanicalOutput.mechanicalPower.angularSpeed;
+        }
 
-		// Interface ports
-		port electricalIn : ElectricalPort;
-		port mechanicalOut : MechanicalPort;
+        state def MotorOperatingStates {
+            entry; then off;
 
-		// Internal behavior
-		exhibit state machine : MotorOperatingState;
+            state off;
+            state starting;
+            state running;
+            state overload;
+            state fault;
 
-		// Constraint defining the physical relationship between power, torque, and speed
-		constraint PowerConversion {
-			doc /* Torque is a function of input power and output speed, adjusted for efficiency. */
-			mechanicalOut.torque * mechanicalOut.speed == 
-			electricalIn.voltage * electricalIn.current * efficiency
-		}
+            transition off_to_starting
+                first off
+                accept PowerOnCommand
+                then starting;
 
-		// Constraint ensuring operation does not exceed physical limits
-		constraint SpeedLimit {
-			mechanicalOut.speed <= maximumSpeed
-		}
-	}
+            transition starting_to_running
+                first starting
+                if motorState.currentSpeed >= 0.8 * maximumSpeed
+                then running;
 
-	// Supporting parts for a system-level context
-	part def PowerSupply {
-		port electricalOut : ElectricalPort {
-			direction = out;
-		}
-	}
+            transition running_to_overload
+                first running
+                if electricalInput.electricalPower.current > 1.5 * (ratedPower / nominalVoltage)
+                then overload;
 
-	part def MechanicalLoad {
-		port mechanicalIn : MechanicalPort {
-			direction = in;
-		}
-	}
+            transition overload_to_running
+                first overload
+                if electricalInput.electricalPower.current <= (ratedPower / nominalVoltage)
+                then running;
 
-	// System-level assembly demonstrating the motor's usage
-	part def ActuatorAssembly {
-		doc /* An assembly combining a power supply, motor, and load. */
+            transition running_to_fault
+                first running
+                if motorState.temperature > 423.15[K]
+                then fault;
 
-		// Component instances
-		part motor : AvionicMotor {
-			attribute redefines ratedPower = 15[kW];
-			attribute redefines nominalVoltage = 270[V];
-			attribute redefines maximumSpeed = 8000[rpm];
-			attribute redefines efficiency = 0.92;
-		}
-		part psu : PowerSupply;
-		part load : MechanicalLoad;
+            transition overload_to_fault
+                first overload
+                if motorState.temperature > 423.15[K]
+                then fault;
 
-		// Connections between components
-		connect psu.electricalOut to motor.electricalIn;
-		connect motor.mechanicalOut to load.mechanicalIn;
+            transition fault_to_off
+                first fault
+                accept ResetCommand
+                then off;
 
-		// Specific requirement instance for the motor in this assembly
-		requirement motorPerformance : PerformanceRequirement {
-			subject redefines motor = self.motor;
-			attribute redefines requiredMinPower = 14[kW];
-			attribute redefines requiredMaxSpeed = 7500[rpm];
-			attribute redefines requiredVoltage = 270[V];
-		}
-	}
+            transition running_to_off
+                first running
+                accept PowerOffCommand
+                then off;
+        }
+
+        exhibit state motorBehavior : MotorOperatingStates;
+
+        constraint ElectricalPowerBalance {
+            electricalInput.electricalPower.power == 
+                electricalInput.electricalPower.voltage * electricalInput.electricalPower.current;
+        }
+
+        constraint MechanicalPowerOutput {
+            mechanicalOutput.mechanicalPower.power == 
+                mechanicalOutput.mechanicalPower.torque * mechanicalOutput.mechanicalPower.angularSpeed;
+        }
+
+        constraint TorqueGeneration {
+            mechanicalOutput.mechanicalPower.torque == 
+                torqueConstant * electricalInput.electricalPower.current;
+        }
+
+        constraint BackEmf {
+            electricalInput.electricalPower.voltage == 
+                electricalInput.electricalPower.current * windingResistance + 
+                backEmfConstant * mechanicalOutput.mechanicalPower.angularSpeed;
+        }
+    }
+
+    requirement def MotorPerformanceRequirement {
+        subject motor : AvionicMotor;
+    }
+
+    requirement def RatedPowerRequirement :> MotorPerformanceRequirement {
+        doc /* The motor shall deliver rated power at nominal voltage. */
+        attribute actualPower :> ISQ::power;
+        attribute requiredPower :> ISQ::power;
+        require constraint { actualPower >= requiredPower }
+    }
+
+    requirement def MaximumSpeedRequirement :> MotorPerformanceRequirement {
+        doc /* The motor shall not exceed maximum rated speed. */
+        attribute actualSpeed : Real;
+        attribute maxSpeed : Real;
+        require constraint { actualSpeed <= maxSpeed }
+    }
+
+    requirement def VoltageRangeRequirement :> MotorPerformanceRequirement {
+        doc /* The motor shall operate within specified voltage range. */
+        attribute operatingVoltage :> ISQ::electricPotential;
+        attribute minVoltage :> ISQ::electricPotential;
+        attribute maxVoltage :> ISQ::electricPotential;
+        require constraint { 
+            operatingVoltage >= minVoltage and operatingVoltage <= maxVoltage 
+        }
+    }
+
+    requirement def EfficiencyRequirement :> MotorPerformanceRequirement {
+        doc /* The motor shall maintain minimum efficiency at rated load. */
+        attribute actualEfficiency : Real;
+        attribute minEfficiency : Real;
+        require constraint { actualEfficiency >= minEfficiency }
+    }
+
+    part avionicMotorInstance : AvionicMotor {
+        attribute redefines ratedPower = 5.0[kW];
+        attribute redefines nominalVoltage = 28.0[V];
+        attribute redefines maximumSpeed = 12000.0;
+        attribute redefines efficiency = 0.92;
+        attribute redefines torqueConstant = 0.04[N*m/A];
+        attribute redefines backEmfConstant = 0.04[V*s/rad];
+        attribute redefines windingResistance = 0.05[Ω];
+        attribute redefines windingInductance = 0.002[H];
+        attribute redefines rotorInertia = 0.001[kg*m^2];
+    }
+
+    requirement ratedPowerReq : RatedPowerRequirement {
+        subject motor = avionicMotorInstance;
+        attribute redefines requiredPower = 5.0[kW];
+        attribute redefines actualPower = avionicMotorInstance.mechanicalOutput.mechanicalPower.power;
+    }
+
+    requirement maxSpeedReq : MaximumSpeedRequirement {
+        subject motor = avionicMotorInstance;
+        attribute redefines actualSpeed = avionicMotorInstance.motorState.currentSpeed;
+        attribute redefines maxSpeed = avionicMotorInstance.maximumSpeed;
+    }
+
+    requirement voltageRangeReq : VoltageRangeRequirement {
+        subject motor = avionicMotorInstance;
+        attribute redefines operatingVoltage = avionicMotorInstance.electricalInput.electricalPower.voltage;
+        attribute redefines minVoltage = 22.0[V];
+        attribute redefines maxVoltage = 32.0[V];
+    }
+
+    requirement efficiencyReq : EfficiencyRequirement {
+        subject motor = avionicMotorInstance;
+        attribute redefines actualEfficiency = avionicMotorInstance.efficiency;
+        attribute redefines minEfficiency = 0.90;
+    }
+
+    part def PowerSupply {
+        attribute outputVoltage :> ISQ::electricPotential;
+        attribute maxCurrent :> ISQ::electricCurrent;
+        port output : ElectricalPort;
+    }
+
+    part def MechanicalLoad {
+        attribute loadInertia :> ISQ::momentOfInertia;
+        attribute frictionCoefficient : Real;
+        port input : MechanicalPort;
+    }
+
+    part motorSystem {
+        part powerSupply : PowerSupply {
+            attribute redefines outputVoltage = 28.0[V];
+            attribute redefines maxCurrent = 200.0[A];
+        }
+
+        part motor : AvionicMotor :> avionicMotorInstance;
+
+        part mechanicalLoad : MechanicalLoad {
+            attribute redefines loadInertia = 0.005[kg*m^2];
+            attribute redefines frictionCoefficient = 0.01;
+        }
+
+        connect powerSupply.output to motor.electricalInput;
+        connect motor.mechanicalOutput to mechanicalLoad.input;
+    }
+
+    analysis def MotorPerformanceAnalysis {
+        subject motor : AvionicMotor;
+        return outputTorque :> ISQ::torque;
+        return outputPower :> ISQ::power;
+        return operatingEfficiency : Real;
+
+        objective performanceObjective {
+            doc /* Analyze motor performance under rated conditions. */
+            require ratedPowerReq;
+            require maxSpeedReq;
+            require voltageRangeReq;
+            require efficiencyReq;
+        }
+    }
 }
