@@ -58,10 +58,10 @@ The implementation uses the `sysml2-compiler` module located in the `sysml2-comp
 1. **Install Java 21** and **Maven 3.6+**
 
 2. **Build the SysML v2 Pilot Implementation**:
-   ```bash
+```bash
    cd ~
-   git clone https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git
-   cd SysML-v2-Pilot-Implementation
+git clone https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git
+cd SysML-v2-Pilot-Implementation
    mvn -Dxpect.tests.skip=true clean install
    ```
 
@@ -72,7 +72,7 @@ The implementation uses the `sysml2-compiler` module located in the `sysml2-comp
    ```
 
 4. **Verify the setup**:
-   ```bash
+```bash
    cd sysml2-compiler
    python3 check_sysml.py test_valid.sysml --syntax-only
    ```
