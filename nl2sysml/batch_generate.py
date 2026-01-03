@@ -53,7 +53,7 @@ def create_meta_json(entry: Dict[str, Any], sysml_code: str, prompt_record: Dict
 def generate_batch(
     seed_file: Path,
     output_dir: Path,
-    num_entries: int = 50,
+    num_entries: int = 100,
     start_from: int = 0,
     resume: bool = True
 ):
@@ -221,7 +221,7 @@ def main():
     parser.add_argument(
         "--num-entries",
         type=int,
-        default=50,
+        default=1574,
         help="Number of entries to process (default: 50)"
     )
     parser.add_argument(

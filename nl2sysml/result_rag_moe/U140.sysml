@@ -6,8 +6,9 @@ package AirIoniserSystem {
     private import Time::*;
 
     attribute def IonConcentration :> Real;
-    attribute def ParticleCount :> Real;
-    attribute def OzoneLevel :> Real;
+    attribute def VoltageLevel :> Real;
+    attribute def AirFlowRate :> Real;
+    attribute def ParticleConcentration :> Real;
 
     enum def OperatingMode {
         off;
@@ -18,380 +19,329 @@ package AirIoniserSystem {
         auto;
     }
 
-    enum def IonPolarity {
-        negative;
-        positive;
-        bipolar;
+    enum def AirQualityLevel {
+        excellent;
+        good;
+        moderate;
+        poor;
+        hazardous;
     }
 
-    item def AirSample {
-        attribute ionDensity : IonConcentration;
-        attribute particleCount : ParticleCount;
-        attribute ozonePpm : OzoneLevel;
-        attribute temperature : ThermodynamicTemperatureValue;
-        attribute flowRate : VolumeFlowRateValue;
+    item def Air {
+        attribute particleCount : ParticleConcentration;
+        attribute ionLevel : IonConcentration;
+        attribute quality : AirQualityLevel;
     }
 
-    port def AirPort {
-        attribute sample : AirSample;
-    }
-
-    port def PowerPort {
-        attribute voltage : ElectricPotentialValue;
-        attribute current : ElectricCurrentValue;
-    }
-
-    port def ControlPort {
-        attribute command : OperatingMode;
-        attribute feedback : Real;
-    }
-
-    part def PowerSupply {
-        attribute inputVoltage : ElectricPotentialValue;
-        attribute outputVoltage : ElectricPotentialValue;
-        attribute maxCurrent : ElectricCurrentValue;
-        port acIn : PowerPort;
-        port dcOut : PowerPort;
+    item def NegativeIon {
+        attribute charge : Real;
     }
 
     part def HighVoltageGenerator {
-        attribute inputVoltage : ElectricPotentialValue;
-        attribute outputVoltage : ElectricPotentialValue;
-        attribute frequency : FrequencyValue;
-        port powerIn : PowerPort;
-        port hvOut : PowerPort;
+        attribute outputVoltage : VoltageLevel;
+        attribute powerConsumption : PowerValue;
+        port voltageOut;
     }
 
     part def IonEmitter {
-        attribute polarity : IonPolarity;
         attribute emissionRate : IonConcentration;
         attribute needleCount : Integer;
-        port hvIn : PowerPort;
-        port airIn : AirPort;
-        port airOut : AirPort;
+        port voltageIn;
+        port ionOut;
+    }
+
+    part def AirQualitySensor {
+        attribute sensitivity : Real;
+        attribute measurementRange : IonConcentration;
+        port airIn;
+        port dataOut;
     }
 
     part def Fan {
         attribute speed : Real;
-        attribute maxFlowRate : VolumeFlowRateValue;
-        attribute commandedFlowRate : VolumeFlowRateValue;
-        port powerIn : PowerPort;
-        port airIn : AirPort;
-        port airOut : AirPort;
+        attribute flowRate : AirFlowRate;
+        attribute maxFlowRate : AirFlowRate;
+        port airIn;
+        port airOut;
+        port controlIn;
     }
 
-    part def AirQualitySensor {
-        attribute particleReading : ParticleCount;
-        attribute ionReading : IonConcentration;
-        attribute ozoneReading : OzoneLevel;
-        port sensorPort : AirPort;
-        port dataOut : ControlPort;
-    }
-
-    part def Controller {
+    part def ControlUnit {
         attribute currentMode : OperatingMode;
-        attribute targetIonDensity : IonConcentration;
-        attribute ionTolerance : IonConcentration;
-        attribute maxOzonePpm : OzoneLevel;
-        attribute minFlowRate : VolumeFlowRateValue;
-        attribute maxFlowRate : VolumeFlowRateValue;
-        port sensorIn : ControlPort;
-        port fanControl : ControlPort;
-        port emitterControl : ControlPort;
-        port userInterface : ControlPort;
+        attribute targetIonLevel : IonConcentration;
+        port sensorIn;
+        port fanControlOut;
+        port generatorControlOut;
+        port userInterface;
     }
 
-    action def MonitorAirQuality {
-        in airSample : AirSample;
-        out ionDensity : IonConcentration;
-        out particleCount : ParticleCount;
-        out ozonePpm : OzoneLevel;
+    part def PowerSupply {
+        attribute inputVoltage : VoltageLevel;
+        attribute outputVoltage : VoltageLevel;
+        attribute maxCurrent : Real;
+        port powerIn;
+        port powerOut;
     }
 
-    action def GenerateIons {
-        in voltage : ElectricPotentialValue;
-        in polarity : IonPolarity;
-        in airflowRate : VolumeFlowRateValue;
-        out ionConcentration : IonConcentration;
-        out ozoneGenerated : OzoneLevel;
+    part def FilterAssembly {
+        attribute filterEfficiency : Real;
+        attribute filterLifespan : DurationValue;
+        port airIn;
+        port airOut;
     }
 
-    action def CirculateAir {
-        in fanSpeed : Real;
-        in airIn : AirSample;
-        out airOut : AirSample;
-        out flowRate : VolumeFlowRateValue;
+    part def AirIoniser {
+        attribute operationalStatus : OperatingMode;
+        attribute coverageArea : AreaValue;
+        attribute totalMass : MassValue;
+
+        part powerSupply : PowerSupply {
+            attribute :>> inputVoltage = 120.0;
+            attribute :>> outputVoltage = 12.0;
+            attribute :>> maxCurrent = 2.0;
+        }
+
+        part controller : ControlUnit {
+            attribute :>> currentMode = OperatingMode::standby;
+            attribute :>> targetIonLevel = 5000.0;
+        }
+
+        part hvGenerator : HighVoltageGenerator {
+            attribute :>> outputVoltage = 5000.0;
+            attribute :>> powerConsumption = 15.0 [W];
+        }
+
+        part emitter : IonEmitter {
+            attribute :>> emissionRate = 8000000.0;
+            attribute :>> needleCount = 6;
+        }
+
+        part airSensor : AirQualitySensor {
+            attribute :>> sensitivity = 0.95;
+            attribute :>> measurementRange = 10000000.0;
+        }
+
+        part circulationFan : Fan {
+            attribute :>> speed = 0.0;
+            attribute :>> flowRate = 0.0 [m^3/s];
+            attribute :>> maxFlowRate = 0.15 [m^3/s];
+        }
+
+        part preFilter : FilterAssembly {
+            attribute :>> filterEfficiency = 0.85;
+            attribute :>> filterLifespan = 2160.0 [h];
+        }
+
+        connection powerSupplyToGenerator connect powerSupply.powerOut to hvGenerator;
+        connection generatorToEmitter connect hvGenerator.voltageOut to emitter.voltageIn;
+        connection sensorToController connect airSensor.dataOut to controller.sensorIn;
+        connection controllerToFan connect controller.fanControlOut to circulationFan.controlIn;
+        connection controllerToGenerator connect controller.generatorControlOut to hvGenerator;
+        connection filterToFan connect preFilter.airOut to circulationFan.airIn;
+        connection fanToEmitter connect circulationFan.airOut to emitter;
+        connection emitterToSensor connect emitter.ionOut to airSensor.airIn;
     }
 
-    action def AdjustOperation {
-        in measuredIon : IonConcentration;
-        in targetIon : IonConcentration;
-        in tolerance : IonConcentration;
-        in ozone : OzoneLevel;
-        in maxOzone : OzoneLevel;
-        in mode : OperatingMode;
-        out newVoltage : ElectricPotentialValue;
-        out newFanSpeed : Real;
-    }
+    action def IonGenerationProcess {
+        in inputAir : Air;
+        in voltage : VoltageLevel;
+        out ionizedAir : Air;
 
-    action def PurifyAir {
         first start;
-        then merge monitoringLoop;
-        
-        action monitor : MonitorAirQuality {
-            in airSample : AirSample;
-            out currentIonDensity : IonConcentration;
-            out currentParticles : ParticleCount;
-            out currentOzone : OzoneLevel;
+        then action applyHighVoltage {
+            in v = voltage;
         }
-        then monitoringLoop;
-        
-        then decide;
-            if monitor.currentOzone > 0.05 then reduceOperation;
-            if monitor.currentIonDensity < 8.0E9 then increaseIonisation;
-            if monitor.currentIonDensity >= 8.0E9 then maintainIonisation;
-        
-        action reduceOperation {
-            action lowerVoltage : AdjustOperation {
-                in measuredIon = monitor.currentIonDensity;
-                in ozone = monitor.currentOzone;
-                out safeVoltage : ElectricPotentialValue;
-                out safeSpeed : Real;
-            }
-            action circulateMax : CirculateAir {
-                in fanSpeed = lowerVoltage.safeSpeed;
-            }
+        then action generateIons {
+            out ions : NegativeIon[*];
         }
-        then monitoringLoop;
-        
-        action increaseIonisation {
-            action raiseVoltage : AdjustOperation {
-                in measuredIon = monitor.currentIonDensity;
-                in ozone = monitor.currentOzone;
-                out highVoltage : ElectricPotentialValue;
-                out highSpeed : Real;
-            }
-            action generateHighIons : GenerateIons {
-                in voltage = raiseVoltage.highVoltage;
-                in polarity = IonPolarity::negative;
-            }
-            action circulateHigh : CirculateAir {
-                in fanSpeed = raiseVoltage.highSpeed;
-            }
+        then action attachIonsToAir {
+            in air = inputAir;
+            in ions = generateIons.ions;
+            out result = ionizedAir;
         }
-        then monitoringLoop;
-        
-        action maintainIonisation {
-            action steadyVoltage : AdjustOperation {
-                in measuredIon = monitor.currentIonDensity;
-                in ozone = monitor.currentOzone;
-                out steadyV : ElectricPotentialValue;
-                out steadySpeed : Real;
-            }
-            action generateSteadyIons : GenerateIons {
-                in voltage = steadyVoltage.steadyV;
-                in polarity = IonPolarity::negative;
-            }
-            action circulateSteady : CirculateAir {
-                in fanSpeed = steadyVoltage.steadySpeed;
-            }
-        }
-        then monitoringLoop;
+        then done;
     }
 
-    state def IoniserStates {
+    action def AirPurificationCycle {
+        first start;
+        then merge continuePurification;
+        then action intakeAir {
+            out rawAir : Air;
+        }
+        then action filterParticles {
+            in air = intakeAir.rawAir;
+            out cleanedAir : Air;
+        }
+        then action ionizeAir {
+            in air = filterParticles.cleanedAir;
+            out ionizedAir : Air;
+        }
+        then action measureQuality {
+            in air = ionizeAir.ionizedAir;
+            out quality : AirQualityLevel;
+        }
+        then decide;
+            if measureQuality.quality == AirQualityLevel::excellent then completeLoop;
+            if measureQuality.quality != AirQualityLevel::excellent then adjustSettings;
+        action adjustSettings {
+            in currentQuality = measureQuality.quality;
+        }
+        then continuePurification;
+        action completeLoop;
+        then done;
+    }
+
+    state def IoniserOperatingStates {
         entry; then off;
-        
+
         state off;
         transition off_to_standby
             first off
             accept OperatingMode::standby
             then standby;
-        
-        state standby;
-        transition standby_to_active
+
+        state standby {
+            entry action initializeSystem;
+        }
+        transition standby_to_operating
             first standby
             accept OperatingMode::low
-            then active;
-        
-        state active {
-            entry; then lowPower;
-            
-            state lowPower;
-            state mediumPower;
-            state highPower;
-            
+            then operating;
+
+        state operating {
+            entry action startIonGeneration;
+            do action continuousIonization : AirPurificationCycle;
+
+            state low {
+                entry action setLowPower;
+            }
+            state medium {
+                entry action setMediumPower;
+            }
+            state high {
+                entry action setHighPower;
+            }
+            state auto {
+                entry action enableAutoMode;
+                do action autoAdjust;
+            }
+
             transition low_to_medium
-                first lowPower
+                first low
                 accept OperatingMode::medium
-                then mediumPower;
-            
+                then medium;
+
             transition medium_to_high
-                first mediumPower
+                first medium
                 accept OperatingMode::high
-                then highPower;
-            
-            transition high_to_medium
-                first highPower
-                accept OperatingMode::medium
-                then mediumPower;
-            
-            transition medium_to_low
-                first mediumPower
-                accept OperatingMode::low
-                then lowPower;
+                then high;
+
+            transition low_to_auto
+                first low
+                accept OperatingMode::auto
+                then auto;
+
+            transition medium_to_auto
+                first medium
+                accept OperatingMode::auto
+                then auto;
+
+            transition high_to_auto
+                first high
+                accept OperatingMode::auto
+                then auto;
         }
-        
-        transition active_to_standby
-            first active
+
+        transition operating_to_standby
+            first operating
             accept OperatingMode::standby
             then standby;
-        
+
         transition standby_to_off
             first standby
             accept OperatingMode::off
             then off;
+
+        transition operating_to_off
+            first operating
+            accept OperatingMode::off
+            then off;
     }
 
-    part def AirIoniser {
-        attribute operatingMode : OperatingMode;
-        attribute totalPower : PowerValue;
-        attribute ionOutput : IonConcentration;
-        attribute coverageArea : AreaValue;
-        
-        port airInlet : AirPort;
-        port airOutlet : AirPort;
-        port mainPower : PowerPort;
-        
-        part powerSupply : PowerSupply {
-            attribute :>> inputVoltage = 120 [V];
-            attribute :>> outputVoltage = 12 [V];
-            attribute :>> maxCurrent = 2.5 [A];
-        }
-        
-        part hvGenerator : HighVoltageGenerator {
-            attribute :>> inputVoltage = 12 [V];
-            attribute :>> outputVoltage = 6000 [V];
-            attribute :>> frequency = 50000 [Hz];
-        }
-        
-        part emitter : IonEmitter {
-            attribute :>> polarity = IonPolarity::negative;
-            attribute :>> emissionRate = 10000000;
-            attribute :>> needleCount = 6;
-        }
-        
-        part fan : Fan {
-            attribute :>> speed = 70;
-            attribute :>> maxFlowRate = 200 [m^3/h];
-            attribute :>> commandedFlowRate = 120 [m^3/h];
-        }
-        
-        part sensor : AirQualitySensor {
-            attribute :>> particleReading = 0;
-            attribute :>> ionReading = 0;
-            attribute :>> ozoneReading = 0;
-        }
-        
-        part controller : Controller {
-            attribute :>> currentMode = OperatingMode::standby;
-            attribute :>> targetIonDensity = 10000000;
-            attribute :>> ionTolerance = 1000000;
-            attribute :>> maxOzonePpm = 0.05;
-            attribute :>> minFlowRate = 80 [m^3/h];
-            attribute :>> maxFlowRate = 200 [m^3/h];
-        }
-        
-        connection powerToDC connect mainPower to powerSupply.acIn;
-        connection dcToHV connect powerSupply.dcOut to hvGenerator.powerIn;
-        connection hvToEmitter connect hvGenerator.hvOut to emitter.hvIn;
-        connection dcToFan connect powerSupply.dcOut to fan.powerIn;
-        
-        connection airIntake connect airInlet to fan.airIn;
-        connection fanToEmitter connect fan.airOut to emitter.airIn;
-        connection emitterToSensor connect emitter.airOut to sensor.sensorPort;
-        connection sensorToOutlet connect sensor.sensorPort to airOutlet;
-        
-        connection sensorToController connect sensor.dataOut to controller.sensorIn;
-        connection controllerToFan connect controller.fanControl to fan.powerIn;
-        connection controllerToEmitter connect controller.emitterControl to emitter.hvIn;
-        
-        perform action purifyAir : PurifyAir;
-    }
-
-    requirement <'REQ-AI-001'> primaryFunction {
-        doc /* The air ioniser system shall purify indoor air by generating 
-             * negative ions that attach to airborne particles, causing them 
-             * to become electrically charged and precipitate out of the air, 
-             * thereby reducing allergens, dust, smoke, bacteria, and other 
-             * pollutants to improve overall air quality and create a healthier 
-             * breathing environment.
+    requirement <'REQ-001'> primaryFunction {
+        doc /* The air ioniser shall generate negative ions to purify indoor air 
+             * by attaching to airborne particles and causing them to precipitate.
              */
         subject ioniser : AirIoniser;
     }
 
-    requirement <'REQ-AI-002'> ionGeneration {
-        doc /* The system shall generate negative ions at a minimum concentration 
-             * of 10 million ions per cubic centimeter to effectively neutralize 
-             * airborne contaminants.
+    requirement <'REQ-002'> ionGenerationRate {
+        doc /* The system shall generate at least 5 million negative ions per 
+             * cubic centimeter to effectively purify air.
+             */
+        subject emitter : AirIoniser::emitter;
+        assert constraint {
+            emitter.emissionRate >= 5000000.0
+        }
+    }
+
+    requirement <'REQ-003'> coverageAreaRequirement {
+        doc /* The air ioniser shall effectively purify air in a room up to 
+             * 40 square meters.
              */
         subject ioniser : AirIoniser;
         assert constraint {
-            ioniser.ionOutput >= 10000000
+            ioniser.coverageArea >= 40.0 [m^2]
         }
     }
 
-    requirement <'REQ-AI-003'> coverageArea {
-        doc /* The air ioniser shall provide effective coverage for an area of 
-             * at least 40 square meters.
+    requirement <'REQ-004'> powerConsumption {
+        doc /* The system shall consume no more than 20 watts during normal 
+             * operation to ensure energy efficiency.
              */
-        subject ioniser : AirIoniser;
+        subject generator : AirIoniser::hvGenerator;
         assert constraint {
-            ioniser.coverageArea >= 40 [m^2]
+            generator.powerConsumption <= 20.0 [W]
         }
     }
 
-    requirement <'REQ-AI-004'> ozoneSafety {
-        doc /* The system shall maintain ozone generation below 0.05 ppm to 
-             * comply with safety standards and prevent health hazards.
+    requirement <'REQ-005'> operatingModes {
+        doc /* The air ioniser shall provide multiple operating modes including 
+             * off, standby, low, medium, high, and automatic adjustment.
              */
-        subject ioniser : AirIoniser;
-        assert constraint {
-            ioniser.sensor.ozoneReading <= 0.05
-        }
+        subject controller : AirIoniser::controller;
     }
 
-    requirement <'REQ-AI-005'> powerEfficiency {
-        doc /* The air ioniser shall consume no more than 30 watts during 
-             * normal operation to ensure energy efficiency.
+    requirement <'REQ-006'> airQualityMonitoring {
+        doc /* The system shall continuously monitor air quality and adjust 
+             * ionization levels automatically in auto mode.
              */
-        subject ioniser : AirIoniser;
-        assert constraint {
-            ioniser.totalPower <= 30 [W]
-        }
+        subject sensor : AirIoniser::airSensor;
     }
 
-    requirement <'REQ-AI-006'> airflowRate {
-        doc /* The system shall maintain a minimum airflow rate of 100 cubic 
-             * meters per hour to ensure adequate air circulation.
+    requirement <'REQ-007'> safetyVoltage {
+        doc /* The high voltage generator output shall not exceed 6000 volts 
+             * to ensure safe operation.
              */
-        subject ioniser : AirIoniser;
+        subject generator : AirIoniser::hvGenerator;
         assert constraint {
-            ioniser.fan.commandedFlowRate >= 100 [m^3/h]
+            generator.outputVoltage <= 6000.0
         }
     }
 
-    part airIoniserSystem : AirIoniser {
-        attribute :>> operatingMode = OperatingMode::auto;
-        attribute :>> totalPower = 25 [W];
-        attribute :>> ionOutput = 12000000;
-        attribute :>> coverageArea = 45 [m^2];
+    part airIoniserUnit : AirIoniser {
+        attribute :>> operationalStatus = OperatingMode::auto;
+        attribute :>> coverageArea = 45.0 [m^2];
+        attribute :>> totalMass = 1.8 [kg];
+
+        perform action operateContinuously : AirPurificationCycle;
     }
 
-    satisfy primaryFunction by airIoniserSystem;
-    satisfy ionGeneration by airIoniserSystem;
-    satisfy coverageArea by airIoniserSystem;
-    satisfy ozoneSafety by airIoniserSystem;
-    satisfy powerEfficiency by airIoniserSystem;
-    satisfy airflowRate by airIoniserSystem;
+    satisfy primaryFunction by airIoniserUnit;
+    satisfy ionGenerationRate by airIoniserUnit.emitter;
+    satisfy coverageAreaRequirement by airIoniserUnit;
+    satisfy powerConsumption by airIoniserUnit.hvGenerator;
+    satisfy operatingModes by airIoniserUnit.controller;
+    satisfy airQualityMonitoring by airIoniserUnit.airSensor;
+    satisfy safetyVoltage by airIoniserUnit.hvGenerator;
 }

@@ -57,7 +57,7 @@ except ImportError:
 # Expert models (one per line)
 EXPERT_MODELS = [
     "gemini-2.5-pro",
-    "openai/gpt-5",
+    "openai/gpt-5.1-codex-max",
     "anthropic/claude-sonnet-4.5",
     
     "meta-llama/llama-4-maverick",
@@ -396,102 +396,58 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=prompt_text)
 
     # Collect candidates (each receives RAG-context-augmented prompt)
-    candidates: List[Tuple[str, str, CompilerResult]] = []
-    print(f"Generating candidates from {len(EXPERT_MODELS)} expert models...")
+    # No compiler validation on individual candidates - happens after synthesis
+    candidates: List[Tuple[str, str]] = []
     for i, m in enumerate(EXPERT_MODELS, 1):
         print(f"  [{i}/{len(EXPERT_MODELS)}] Querying {m}...", flush=True)
         _, ok = _load_env()
         out = _invoke_with_retry(m, sys_msg, human_msg, ok)
         if out:
             print(f"    ✓ Got response from {m}", flush=True)
-            # Refine with compiler feedback if available
-            if is_compiler_available():
-                print(f"    Validating and refining {m} output...", flush=True)
-                refined_out, result = _refine_with_compiler(
-                    out, m, sys_msg, human_msg, ok, MAX_REFINEMENT_ITERATIONS
-                )
-                status = "✓ Valid" if result.is_valid else f"✗ {result.error_count} errors"
-                print(f"    {status} after refinement", flush=True)
-                candidates.append((m, refined_out, result))
-            else:
-                # No compiler, use original output
-                candidates.append((m, out, CompilerResult(errors=[], is_valid=False)))
+            candidates.append((m, out))
         else:
             print(f"    ✗ No response from {m}", flush=True)
 
     # Synthesis by COMBINER_MODEL using candidates as extra context
-    # Prioritize valid candidates
     if candidates:
-        # Sort candidates: valid ones first, then by error count
-        sorted_candidates = sorted(
-            candidates,
-            key=lambda x: (not x[2].is_valid, x[2].error_count)
-        )
-        
         cand_block = []
         cand_log = []
-        for i, (name, code, result) in enumerate(sorted_candidates, 1):
+        for i, (name, code) in enumerate(candidates, 1):
             grp = _model_group(name)
             rating = EXPERT_MODELS_RATING.get(grp, 5)
-            # Add validation status
-            valid_marker = "✓" if result.is_valid else f"✗({result.error_count} err)"
-            cand_block.append(
-                f"Candidate {i} ({name}, rating={rating}/10, {valid_marker}):\n{code}\n---"
-            )
+            cand_block.append(f"Candidate {i} ({name}, rating={rating}/10):\n{code}\n---")
             # Compact log snippet for prompt record
             snippet = "\n".join(code.splitlines()[:40])
-            cand_log.append(
-                f"Candidate {i} ({name}, rating={rating}/10, {valid_marker}):\n{snippet}\n---"
-            )
-        
-        synth_context = context + "\n\nUse the following candidate models as additional context. "
-        if is_compiler_available():
-            synth_context += "Valid candidates (marked with ✓) are preferred.\n"
-        synth_context += "\n".join(cand_block)
-        
+            cand_log.append(f"Candidate {i} ({name}, rating={rating}/10):\n{snippet}\n---")
+        synth_context = context + "\n\nUse the following candidate models as additional context.\n" + "\n".join(cand_block)
         synth_sys_hint = (
-            "Synthesize a single best model by merging or selecting from candidates when provided. "
+            "Synthesize a single best model by merging or selecting from candidates when provided."
         )
-        if is_compiler_available():
-            synth_sys_hint += "Prefer valid candidates (marked with ✓) when available."
         synth_sys_msg = _default_system_prompt(synth_sys_hint)
         synth_human_msg = PROMPT_HUMAN_TEMPLATE.format(context=synth_context, input=prompt_text)
         _, ok = _load_env()
         print(f"\nSynthesizing final model with {COMBINER_MODEL}...", flush=True)
         final = _invoke_with_retry(COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok)
-        print(f"  ✓ Got synthesis response", flush=True)
-        
-        # Refine final output if compiler available
-        if is_compiler_available() and final:
-            print(f"  Validating and refining final output...", flush=True)
-            final, final_result = _refine_with_compiler(
-                final, COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok, MAX_REFINEMENT_ITERATIONS
-            )
-            status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
-            print(f"  {status} after refinement", flush=True)
-        else:
-            final_result = CompilerResult(errors=[], is_valid=False)
-        
-        candidates_section = "\n\nCandidates Included (snippets):\n" + "\n".join(cand_log)
+        print("  ✓ Got synthesis response", flush=True)
     else:
         # Fallback to single call with combiner model
         _, ok = _load_env()
         print(f"\nNo candidates generated, using {COMBINER_MODEL} directly...", flush=True)
         final = _invoke_with_retry(COMBINER_MODEL, sys_msg, human_msg, ok)
-        print(f"  ✓ Got response", flush=True)
-        
-        # Refine final output if compiler available
-        if is_compiler_available() and final:
-            print(f"  Validating and refining final output...", flush=True)
-            final, final_result = _refine_with_compiler(
-                final, COMBINER_MODEL, sys_msg, human_msg, ok, MAX_REFINEMENT_ITERATIONS
-            )
-            status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
-            print(f"  {status} after refinement", flush=True)
-        else:
-            final_result = CompilerResult(errors=[], is_valid=False)
-        
-        candidates_section = None
+        print("  ✓ Got response", flush=True)
+        synth_sys_msg = sys_msg
+        synth_human_msg = human_msg
+
+    # Compiler validation and refinement happens AFTER synthesis
+    # The synthesis model does a synthesis pass, then gets checked by compiler MAX_REFINEMENT_ITERATIONS times
+    final_result = CompilerResult(errors=[], is_valid=False)
+    if is_compiler_available() and final:
+        print(f"  Validating and refining final output (up to {MAX_REFINEMENT_ITERATIONS} iterations)...", flush=True)
+        final, final_result = _refine_with_compiler(
+            final, COMBINER_MODEL, synth_sys_msg, synth_human_msg, ok, MAX_REFINEMENT_ITERATIONS
+        )
+        status = "✓ Valid" if final_result.is_valid else f"✗ {final_result.error_count} errors"
+        print(f"  {status} after refinement", flush=True)
 
     # Build JSON prompt record
     base_prompt_str = "System:\n" + sys_msg + "\n\n" + "Human:\n" + human_msg
@@ -511,7 +467,7 @@ def generate_sysml_moe(prompt_text: str) -> Tuple[str, dict]:
     }
     
     # Add compiler validation info if available
-    if is_compiler_available() and 'final_result' in locals():
+    if is_compiler_available():
         prompt_record["final_valid"] = final_result.is_valid
         prompt_record["final_errors"] = final_result.error_count
         if final_result.errors:
