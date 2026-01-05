@@ -245,20 +245,22 @@ To ensure fair comparison across model classes, all embeddings are projected to 
 
 \subsection{Embedding and Retrieval Ability}
 This experiment establishes a zero-shot baseline for how well existing embedding models align SysML2 with natural language without any task-specific training. It answers whether the retrieval problem is already solvable with general-purpose embeddings and sets a reference point for subsequent improvements. We expect strong but uneven performance, with models trained on technical text performing better on Community and Wiki than on Migrate due to legacy syntax and longer sequences.
+\textbf{Evaluation protocol.} We embed all NL descriptions and SysML2 models and retrieve by cosine similarity (embeddings $\ell_2$-normalized; no cross-encoder re-ranking). For each query, a hit occurs if its paired item (same dataset ID) appears in the top-$K$ candidates. We report \emph{bidirectional} recall@5 as the average of NL$\rightarrow$SysML2 and SysML2$\rightarrow$NL recalls. Source columns (Off/Com/Pilot/ESA/Agent) restrict both queries and candidate pools to the same source; \textbf{All} uses the full dataset as the candidate pool.
 \begin{table}[H]
 \centering
 \small
 \setlength{\tabcolsep}{3pt}
-\caption{Zero-shot embedding baselines on SysML2--NL retrieval (R@5) by data source.}
+\caption{Zero-shot embedding baselines on SysML2--NL retrieval (\%, bidirectional R@5). Off/Com/Pilot/ESA/Agent are evaluated within-source (queries and candidates from the same source); All retrieves against the full dataset. Scores average NL$\rightarrow$SysML2 and SysML2$\rightarrow$NL recalls; a hit is the paired item at the same dataset ID.}
 \label{tab:sota-embeddings}
 \begin{tabular}{lcccccc}
 \toprule
 Model & Off & Com & Pilot & ESA & Agent & All \\
 \midrule
-E5-large-v2 & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
-GTE-large & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
-Instructor-XL & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
-BGE-large & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
+KaLM-12B & 92.0 & 98.6 & 98.9 & 100.0 & 99.1 & 97.8 \\
+Qwen3-Emb-8B & 87.6 & 97.2 & 99.4 & 95.0 & 99.4 & 97.1 \\
+Llama-Emb-8B & 85.0 & 97.2 & 97.8 & 100.0 & 99.4 & 96.5 \\
+BGE-large & 72.6 & 88.9 & 89.4 & 90.0 & 95.9 & 90.3 \\
+MiniLM-L6 & 76.0 & 81.9 & 70.6 & 85.0 & 74.4 & 71.7 \\
 \bottomrule
 \end{tabular}
 \end{table}

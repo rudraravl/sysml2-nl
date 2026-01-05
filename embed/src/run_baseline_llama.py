@@ -11,7 +11,7 @@ from retrieval_eval import eval_bidirectional_recalls_by_source, format_paper_ro
 
 
 MODEL_ID = "nvidia/llama-embed-nemotron-8b"
-MODEL_CLASS = "E"  # decoder-only embedding model
+MODEL_CLASS = "E"  # embedding model baseline
 
 
 if __name__ == "__main__":
