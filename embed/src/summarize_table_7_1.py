@@ -8,13 +8,7 @@ import numpy as np
 from retrieval_eval import SPLIT_ORDER, format_paper_row
 
 
-LOG_FILES = [
-    "log_run_baseline_minilm.txt",
-    "log_run_baseline_bge.txt",
-    "log_run_baseline_qwen3_embed.txt",
-    "log_run_baseline_llama.txt",
-    "log_run_baseline_kalm.txt",
-]
+LOG_GLOB = "log_run_baseline_*.txt"
 
 
 def _parse_log(path: Path) -> tuple[str, str, dict[str, float]]:
@@ -53,10 +47,7 @@ def _avg(rows: list[dict[str, float]]) -> dict[str, float]:
 def main() -> None:
     here = Path(__file__).resolve().parent
     parsed = []
-    for name in LOG_FILES:
-        p = here / name
-        if not p.exists():
-            continue
+    for p in sorted(here.glob(LOG_GLOB)):
         try:
             parsed.append(_parse_log(p))
         except Exception as e:
