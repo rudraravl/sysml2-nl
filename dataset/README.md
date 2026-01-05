@@ -13,6 +13,36 @@ with natural language descriptions (`.txt`), along with metadata and a canonical
 - **1,549 samples** from agent-generated SysML (with generated NL)
 - **Quality tiers**: A+ (Official Release), A (Pilot Implementation, ESA), B (Community)
 
+## Dataset Curation
+
+This dataset is curated to cover both *real* SysML v2 models (official and community-authored) and *synthetic* models that expand domain breadth while staying close to SysML v2 concrete syntax. All entries are normalized into a single paired format (`.sysml` + `.txt` + `meta.json`), indexed by `index/manifest.jsonl`, and integrity-checked via SHA256 and schema validation (`dataset/scripts/build_manifest.py`, `dataset/scripts/validate_manifest.py`).
+
+### Community Data
+
+Community models are sourced from public SysML v2 repositories (e.g., `SysML-v2-Models`) and curated for uniqueness and usability:
+- **De-duplication and filtering**: remove near-duplicates and non-model artifacts; keep representative examples across domains and modeling styles.
+- **Normalization**: ensure UTF-8 encoding and consistent file layout; preserve original provenance via `meta.json.source_path`.
+- **Pairing**: each model is paired with a natural-language description (`.txt`) suitable for embedding/alignment tasks (either provided upstream or generated during dataset preparation, depending on the source).
+
+### Agent-Generated Data (Wikipedia-Seeded)
+
+Agent-generated entries start from lightweight “wiki seeds” and are expanded into full SysML v2 models through a pipeline that combines **retrieval**, **Mixture-of-Experts (MoE)**, and **compiler feedback**.
+
+1) **Wiki seed → prompt pool**  
+`nl2sysml/nl_generator.py` harvests candidate device/system titles from the Wikipedia API (categories and curated pages), filters out noisy/meta pages, deduplicates titles, and converts them into short, high-level natural-language requirements (the `.txt` side for each generated pair).
+
+2) **Retrieval (RAG) grounding**  
+For each prompt, the generator builds a compact context block by retrieving:
+- **Few-shot dataset examples**: similar NL↔SysML pairs sampled from `dataset/data/` (to mirror dataset style and common idioms).
+- **SysML v2 spec snippets**: pre-chunked excerpts from `nl2sysml/spec_index/chunks.jsonl` (produced by `script/ingest_sysml_spec.py` from SysML v2 specification PDFs).  
+This grounding step is implemented in `nl2sysml/agent_rag.py` / `nl2sysml/agent_rag_moe.py`.
+
+3) **MoE candidate generation + synthesis**  
+`nl2sysml/agent_rag_moe.py` queries multiple “expert” LLMs to propose candidate SysML v2 models for the same prompt, then uses a separate “combiner” model to synthesize a single best model by selecting/merging candidates. This improves robustness across domains and mitigates single-model failure modes.
+
+4) **Compiler feedback (optional refinement loop)**  
+As an additional QA step, generated candidates can be validated with a SysML v2 compiler and iteratively repaired by feeding diagnostics back to the model (see `nl2sysml/COMPILER_FEEDBACK.md`; a minimal API-based demo lives in `nl2sysml/compiler-demo/demo.py`). When this loop is used, syntactically valid candidates are prioritized during final selection/synthesis.
+
 ## Data Sources
 
 - **000001 - 000250**: SysML v2 models from [OMG SysML v2 Official Release](https://github.com/Systems-Modeling/SysML-v2-Release) (Most Important - Official Examples, Training & Validation)

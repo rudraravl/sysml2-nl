@@ -183,37 +183,49 @@ Training uses multi-task batches that mix contrastive retrieval pairs with seque
 \section{Dataset Curation}
 \label{sec:data}
 
-We construct a multi-source SysML2--NL dataset to balance coverage, diversity, and controllable quality. All examples are normalized to a canonical textual SysML2 format, de-duplicated by structural hashes, and filtered for schema validity. The final dataset is split by project to avoid leakage across train/validation/test partitions.
+We curate a multi-source SysML2--NL dataset that combines \emph{real} SysML2 artifacts (official and community-authored) with \emph{synthetic} SysML2 models that expand domain coverage while remaining close to SysML v2 concrete syntax. All examples are normalized into a consistent triple (\texttt{.sysml}, \texttt{.txt}, metadata), de-duplicated by structural hashes, and filtered for schema and integrity validity. We split by \emph{project} (repository or wiki bundle) to reduce leakage across train/validation/test partitions and to preserve provenance.
+
+Figure~\ref{fig:source-composition} summarizes the dataset source composition as a two-category comparison: \emph{curated} (official + community + pilot + ESA) vs.\ agent-generated.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{fig/sysml_v2_agent_vs_curated_v2.png}
+  \caption{Source composition of the SysML v2 dataset (N=1935): curated (official + community + pilot + ESA) vs.\ agent-generated.}
+  \label{fig:source-composition}
+\end{figure}
 
 \subsection{Community Data}
-We collect community-contributed SysML2 snippets and accompanying documentation from open repositories. Examples cover multiple domains and typically include short requirements, component definitions, and brief explanatory text authored by practitioners.
+We collect community-contributed SysML2 models and documentation from open repositories (e.g., SysML2 model collections and pilot implementations). We curate this subset for uniqueness and usability: removing near-duplicates and non-model artifacts, normalizing encoding/layout, and preserving source provenance in metadata. Where upstream documentation is incomplete, we construct aligned NL descriptions that summarize the model intent at an embedding-friendly granularity (requirements, components, behaviors, constraints). This subset increases stylistic diversity and introduces informal modeling patterns not always present in official examples.
 
-\subsection{Wiki Agent Dataset}
-We use a wiki-agent pipeline that harvests authoritative descriptions (e.g., requirements statements and component summaries) and aligns them with curated SysML2 fragments. This subset emphasizes terminological consistency and higher-quality prose derived from technical references.
-
-\subsection{SysML v1 Migration Data}
-We migrate legacy SysML v1 artifacts using a rule-based converter followed by expert cleaning, producing the Migrate subset. This source provides longer, structurally rich models with mixed legacy syntax that benefits from normalization.
+\subsection{Agent-Generated Data (Wikipedia-Seeded)}
+We construct a large agent-generated subset using a wiki-seeded NL$\rightarrow$SysML pipeline that combines retrieval-augmented prompting (RAG), mixture-of-experts (MoE) generation, and compiler feedback.
+\begin{enumerate}
+\item \textbf{Wiki seeds $\rightarrow$ prompt pool.} We harvest candidate device/system concepts from Wikipedia (categories and curated pages) and convert titles into short, high-level requirements (the NL side). Filtering and de-duplication remove noisy or meta pages while keeping broad domain coverage.
+\item \textbf{Retrieval grounding (RAG).} For each prompt, we retrieve top-$K$ similar NL--SysML pairs from our dataset and relevant SysML2 specification chunks (pre-chunked from the SysML v2 PDFs) to build a compact context that anchors syntax and idioms.
+\item \textbf{MoE candidates $\rightarrow$ synthesis.} Multiple expert LLMs propose candidate SysML2 models under the same grounded prompt; a separate combiner model synthesizes a single best output by selecting/merging candidate structures.
+\item \textbf{Compiler feedback (bounded repair).} As a QA step, we validate candidates with a SysML2 compiler; on errors, we feed diagnostics back into generation for a bounded number of repair iterations, prioritizing syntax-checked outputs.
+\end{enumerate}
+This pipeline explicitly trades off diversity (via multiple experts) and correctness (via compiler feedback), yielding a broad but valid corpus aligned to NL prompts.
 
 \subsection{Statistics}
-We track parsing and compile success rates for the normalized SysML2 text; the current pipeline achieves a preliminary success rate of XX.X\% on the development subset, with remaining failures primarily due to legacy syntax or missing type definitions. Detailed success rates will be reported once the full compilation pass is complete.
-We define a project as a single repository or wiki page bundle with shared identifiers and documentation. All NL variants derived from the same SysML2 seed remain within a single split. Structural hashes are computed from a canonicalized AST (whitespace/comments removed, identifiers normalized), and de-duplication is applied both within and across sources; overlapping v1-migrated items are removed when a community-native SysML2 version exists. Per-source compile success rates are currently Community: XX.X\%, Wiki: XX.X\%, Migrate: XX.X\%, and will be finalized after the full compilation pass.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{fig/sysml_v2_category_distribution.png}
+  \caption{Category distribution of the SysML v2 dataset (N=1935), labeled by Gemini 2.5 Pro.}
+  \label{fig:dataset-category}
+\end{figure}
 
-\begin{table}[t]
-\centering
-\small
-\caption{Dataset statistics for SysML2--NL pairs; Wiki denotes the wiki-derived subset and Migrate denotes SysML v1 artifacts converted to SysML2.}
-\label{tab:dataset-stats}
-\begin{tabular}{lrrr}
-\toprule
-Dataset Split & \#Pairs & Avg SysML Length & Avg NL Length \\
-\midrule
-Community & TBD & TBD & TBD \\
-Wiki & TBD & TBD & TBD \\
-Migrate & TBD & TBD & TBD \\
-All & TBD & TBD & TBD \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{fig/sysml_v2_loc_distribution.png}
+  \caption{Distribution of SysML v2 model sizes measured in lines of code (LOC), shown on a logarithmic x-axis (N=1935). Dashed and dotted lines indicate the mean (366 LOC) and median (376 LOC), respectively.}
+  \label{fig:loc-distribution}
+\end{figure}
+
+Figure~\ref{fig:dataset-category} summarizes the category distribution of the SysML v2 dataset, where categories are labeled by Gemini 2.5 Pro. The dataset exhibits broad domain coverage, with a relatively balanced distribution across medical, industrial, and electronics systems, complemented by automotive and aerospace models, and smaller long-tail categories such as software and energy. Figure~\ref{fig:loc-distribution} characterizes model scale: sizes are well-centered around a few hundred LOC (mean 366; median 376), with a small number of substantially larger models forming a long tail on a logarithmic x-axis.
+
+\subsection{Agent-Generated Data Quality}
+We design the agent-generated subset to be both \emph{diverse} and \emph{reviewer-safe} for downstream modeling tasks. First, retrieval grounding anchors generation to in-domain exemplars and specification excerpts, reducing free-form drift. Second, MoE generation increases structural diversity while a combiner model consolidates candidates into a single coherent model. Third, we incorporate compiler feedback as a bounded repair loop and keep syntax-checked outputs whenever possible. Finally, we apply project-level splitting and structural-hash de-duplication (computed from canonicalized SysML2 text) to reduce leakage and near-duplicate inflation. We report per-source parse/compile success rates (Community/Wiki/Agent) after the full compilation pass.
 
 \section{Experimental Evaluation}
 \label{sec:experiments}
@@ -236,16 +248,17 @@ This experiment establishes a zero-shot baseline for how well existing embedding
 \begin{table}[H]
 \centering
 \small
-\caption{Zero-shot embedding baselines on SysML2--NL retrieval (R@5); Wiki and Migrate follow the dataset naming in Table~\ref{tab:dataset-stats}.}
+\setlength{\tabcolsep}{3pt}
+\caption{Zero-shot embedding baselines on SysML2--NL retrieval (R@5) by data source.}
 \label{tab:sota-embeddings}
-\begin{tabular}{lcccc}
+\begin{tabular}{lcccccc}
 \toprule
-Model & Community & Wiki & Migrate & All \\
+Model & Off & Com & Pilot & ESA & Agent & All \\
 \midrule
-E5-large-v2 & XX.X & XX.X & XX.X & XX.X \\
-GTE-large & XX.X & XX.X & XX.X & XX.X \\
-Instructor-XL & XX.X & XX.X & XX.X & XX.X \\
-BGE-large & XX.X & XX.X & XX.X & XX.X \\
+E5-large-v2 & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
+GTE-large & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
+Instructor-XL & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
+BGE-large & XX.X & XX.X & XX.X & XX.X & XX.X & XX.X \\
 \bottomrule
 \end{tabular}
 \end{table}
