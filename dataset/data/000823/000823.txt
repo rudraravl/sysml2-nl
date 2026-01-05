@@ -1,0 +1,17 @@
+This model describes the VistA Imaging System, a comprehensive, enterprise-level medical image management platform designed for the Veterans Health Administration. Its primary function is to acquire, securely store, retrieve, and display medical images from a wide variety of clinical sources, ensuring they are fully integrated with a patient's electronic health record.
+
+The system is composed of several key components that work together to manage the entire lifecycle of a medical image:
+
+*   **Modality Interface:** This component connects directly to medical imaging equipment like CT scanners, MRI machines, and X-ray units. It is responsible for receiving the raw images, validating that they are in the correct format (DICOM compliant), and ensuring all necessary patient and study metadata is present before passing them into the system.
+
+*   **Image Archive:** This is the core long-term storage unit of the system. It functions as a secure, high-capacity digital warehouse for all medical images. It is designed with redundancy and automatic backup procedures to prevent data loss and includes an indexing system to keep track of every image's location. It constantly verifies the integrity of stored files to guard against data corruption.
+
+*   **VistA Integration Bridge:** This component acts as the communication link between the imaging system and the main VistA Electronic Health Record (EHR). It receives imaging orders from the EHR, updates a patient's central record when new images are available, and ensures patient demographic data is synchronized across both systems.
+
+*   **Security and Audit Module:** This is a critical component that manages access and privacy. It authenticates users, ensures they are authorized to view specific patient images based on their role, encrypts all image data for security, and maintains a detailed log of every action performed in the system for auditing purposes.
+
+*   **Image Retrieval Engine:** When a clinician needs to view a patient's scans, this engine handles the request. It searches the archive using patient or study information, quickly locates all the relevant images, assembles them into a complete study, and uses caching to speed up access for frequently reviewed cases.
+
+*   **Clinical Workstation:** This is the user-facing part of the system where doctors and radiologists view the images. It provides high-quality image rendering and includes essential diagnostic tools, such as the ability to adjust brightness/contrast, apply image enhancements, and make precise measurements on the screen.
+
+In operation, a new medical image is first received and validated by the Modality Interface. It is then immediately processed by the Security Module to encrypt it and log the acquisition. The secured image is then stored in the Image Archive, and the VistA Integration Bridge updates the patient's main health record. Later, a clinician uses a Clinical Workstation to request the study, which the Retrieval Engine finds and delivers for display and diagnosis.

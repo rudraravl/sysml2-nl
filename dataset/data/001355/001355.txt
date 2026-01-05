@@ -1,0 +1,11 @@
+This model describes an automated reasoning system, essentially a software-based logic engine designed to think like an expert. Its primary purpose is to analyze a collection of known facts and rules to answer complex questions and derive new, logically sound conclusions.
+
+The system is built around a central **Knowledge Repository**, which acts as its memory. This repository stores two types of information: **Logical Facts** (simple statements of truth, like "Socrates is a man") and **Inference Rules** (logical principles, like "IF a person is a man, THEN they are mortal"). Each fact can have a confidence score, a source, and a timestamp, indicating its reliability and origin.
+
+When a user submits a query, a **Reasoning Coordinator** takes charge of the entire process. Before attempting to answer, it first uses a **Consistency Validator** to check the relevant knowledge for any contradictions, such as conflicting facts or rules that create logical loops. This ensures the system doesn't reason from a flawed foundation.
+
+Based on the nature of the query, the Coordinator intelligently selects one of two reasoning strategies. For open-ended questions where the goal is to discover all possible outcomes from the current facts, it employs a **Forward Chaining Engine**. This engine works by starting with the known facts and applying rules iteratively to deduce new facts until no more conclusions can be drawn.
+
+Alternatively, to verify a specific hypothesis or answer a direct question (e.g., "Is Socrates mortal?"), the Coordinator uses a **Backward Chaining Engine**. This engine works backward from the proposed goal, searching for rules that could prove it and then trying to establish the preconditions for those rules, making it a more focused and efficient approach for targeted questions.
+
+Once the reasoning process is complete, the system produces a detailed **Reasoning Conclusion**. This isn't just a simple answer; it includes the supporting facts, the overall confidence in the conclusion, and a complete trace of the logical steps taken. Finally, an **Explanation Generator** translates this trace into a human-readable narrative, clearly showing how the system arrived at its answer, making its internal logic transparent and verifiable.

@@ -1,0 +1,9 @@
+This is an automated machine vision system designed for quality control on a manufacturing production line. Its main purpose is to automatically inspect parts as they move along a conveyor belt, identify any manufacturing defects, and make real-time decisions to either accept or reject each part.
+
+The system is composed of several integrated components. A **Conveyor Interface** monitors the production line and, when a part moves into position, sends a trigger signal. This signal simultaneously activates a specialized **Illumination Unit** to provide consistent lighting and a high-resolution **Digital Camera** to capture a detailed image of the part.
+
+Once captured, the raw image is sent to an **Image Preprocessor**. This component cleans up the image by reducing noise, enhancing contrast, and detecting edges to make potential defects more visible. The enhanced image is then passed to the core **Defect Detection Engine**, which uses advanced algorithms to analyze the image, identify potential defects, and classify them. It generates a detailed inspection report that includes the type, location, severity, and a confidence score for each defect found.
+
+Finally, a **Quality Decision Module** receives this report and evaluates it against pre-set quality criteria, such as the maximum number of allowable defects and a minimum confidence threshold. Based on this evaluation, it makes a final pass/fail judgment and sends a control command back to the conveyor system, which would then either allow the part to continue or activate a mechanism to reject it from the line.
+
+The entire inspection cycle for a single part follows a defined operational sequence: it starts in an idle state, moves through acquiring, processing, analyzing, and deciding states, and then returns to idle to await the next part. The system also includes a fault state to safely handle any operational errors.

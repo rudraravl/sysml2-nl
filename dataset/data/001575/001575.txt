@@ -1,0 +1,9 @@
+This model describes the core navigation and mapping system for an autonomous mobile robot, designed to operate in unknown environments. Its primary function is to simultaneously build a 2D map of its surroundings while accurately tracking its own position within that map, a process known as SLAM (Simultaneous Localization and Mapping).
+
+The system is equipped with a suite of sensors to perceive its environment and motion. A **Laser Range Finder** (LIDAR) scans the area to detect obstacles and measure distances. **Wheel Encoders** track the rotation of the wheels to provide odometry data, which is a rough estimate of movement. An **Inertial Measurement Unit (IMU)** provides acceleration and angular velocity data to help refine the robot's orientation and motion.
+
+These sensor inputs are processed in a continuous, cyclical fashion. First, a **Motion Model** uses the odometry data to predict the robot's new position. This prediction is then corrected by a **Scan Matcher**, which aligns the latest laser scan with the existing map to get a more accurate location. A **Pose Estimator** then fuses the predicted position, the scan-matched position, and the IMU data to produce a final, high-confidence estimate of the robot's pose (its X, Y coordinates and orientation).
+
+Concurrently, a **Map Builder** uses this accurate pose and the laser scan to update and expand an **Occupancy Grid** map of the environment. This map represents the world as a grid, where each cell has a probability of being occupied by an obstacle.
+
+The system continuously outputs the robot's real-time position and the updated environmental map. This information is then used by a **Path Planner**, which calculates and issues motion commands (linear and angular velocities) to navigate the robot towards a target destination while safely avoiding obstacles. The robot's operation progresses through states, starting with initialization before moving into active mapping and localization.

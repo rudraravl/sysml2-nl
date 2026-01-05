@@ -1,0 +1,11 @@
+This model describes a complete Automatic Number Plate Recognition (ANPR) system, the kind often used for automated toll collection, law enforcement, or parking garage management. The system is designed to automatically detect a vehicle, read its license plate in real-time, and log the information in a database.
+
+The system is composed of several specialized hardware and software components that work in a coordinated sequence. It all begins with a **Vehicle Detector**, a sensor with a range of at least 50 meters that spots an approaching vehicle and sends a trigger signal. This signal activates the rest of the system, which is managed by a central **Control Unit**.
+
+Upon receiving the trigger, the Control Unit simultaneously commands a high-resolution **Camera** to capture an image and an **Illumination Unit** to provide a flash of infrared light. This ensures a clear, well-lit picture of the license plate, day or night.
+
+The raw image from the camera is immediately passed to an **Image Processor**. This component's sole job is to prepare the image for reading by enhancing its contrast, automatically finding the rectangular region of the license plate, and cropping out the rest of the vehicle.
+
+This smaller, processed image of just the plate is then sent to the core **Optical Character Recognition (OCR) Engine**. The OCR engine analyzes the image, segments it into individual characters, and identifies each letter and number to determine the full plate number. It also validates the plate's format and calculates a confidence score for the accuracy of its reading.
+
+Finally, the recognized plate number, along with metadata like the timestamp and the system's location, is formed into a complete vehicle record. This record is handed off to a **Database Manager**, which stores it for later querying and reporting. The entire process, from image capture to recognition, is designed to be extremely fast—completed in under 500 milliseconds—and highly accurate.

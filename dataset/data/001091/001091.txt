@@ -1,0 +1,9 @@
+This model describes a digital hygrometer system designed to continuously measure, display, and log environmental relative humidity and temperature.
+
+The core of the system is a capacitive humidity sensor and a separate temperature sensor, both of which are exposed to the ambient environment. The humidity sensor detects changes in moisture and outputs a raw analog voltage signal, while the temperature sensor provides a direct temperature reading.
+
+These raw signals are handled by a central signal processor. This processor converts the analog humidity signal into a digital value. Critically, it uses the data from the temperature sensor to compensate the humidity reading, correcting for any temperature-induced inaccuracies. The processor also applies stored calibration data, including correction factors and offsets, to ensure the final measurement is as precise as possible. The result is a complete data reading containing the final humidity and temperature values, a timestamp, and the sensor's current status.
+
+This processed reading is then used in two ways. First, it is sent to a display unit that shows the current conditions to the user. This display can be switched between several modes, such as showing only humidity, only temperature, both combined, or a graph of recent trends. Second, the reading is sent to a data logger, which saves the measurements to internal storage at regular intervals, creating a historical log for analysis.
+
+A single power supply provides electricity to all the electronic components, including the sensors, processor, display, and logger. The entire system operates according to a defined lifecycle, moving from a powered-off state to initialization, then to a ready state where it can begin continuous measurement, undergo calibration, or be shut down. It also includes an error state to manage any sensor or system malfunctions.

@@ -1,0 +1,11 @@
+This is a real-time signal analysis system designed to continuously monitor an incoming data stream, analyze its spectral characteristics, and report on its quality. The system is built from several specialized components that work together to process the signal from input to output.
+
+Upon receiving a raw signal, it first passes through a **Signal Conditioner** module. This component's job is to clean up the signal by filtering out unwanted noise based on pre-set configuration parameters, such as a specific cutoff frequency.
+
+The cleaned signal is then sent simultaneously to two parallel processing units: a **Frequency Analyzer** and a **Noise Estimator**. The Frequency Analyzer examines the signal to identify its most prominent frequency and the strength (amplitude) of that frequency. At the same time, the Noise Estimator calculates the level of background noise present in the signal.
+
+The results from both of these units are then fed into a **Quality Assessor**. This component uses the signal's peak strength and the estimated noise level to calculate key performance metrics, including the signal-to-noise ratio (SNR) and an overall quality index score.
+
+Finally, a **Data Aggregator** collects all the individual pieces of information—the dominant frequency, peak amplitude, SNR, and quality index—and assembles them into a single, comprehensive analysis report. This final report is then sent out of the system for use by other equipment or for display to an operator.
+
+The entire system operates through a clear set of states. It powers on, initializes itself with configuration settings, and then enters a ready state. It waits in this state until a new signal arrives, at which point it cycles through processing, outputting the result, and returning to the ready state to await the next signal. This allows for continuous, looped analysis of an ongoing data stream. The system is designed to be high-performance, with requirements for fast processing (under 100 milliseconds) and high accuracy in its frequency and noise measurements.

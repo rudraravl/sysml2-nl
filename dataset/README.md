@@ -3,13 +3,14 @@
 This repository contains a comprehensive dataset that pairs SysML v2 textual models (`.sysml`)
 with natural language descriptions (`.txt`), along with metadata and a canonical manifest index.
 
-**Total: 386 samples** from official OMG sources, community repositories, and ESA aerospace models.
+**Total: 1,935 samples** from official OMG sources, community repositories, ESA aerospace models, and agent-generated SysML.
 
 ### Dataset Composition
 - **250 samples** from OMG SysML v2 Official Release (examples, training, validation)
 - **36 samples** from community SysML-v2-Models repository  
 - **90 samples** from OMG SysML-v2-Pilot-Implementation repository (unique content only)
 - **10 samples** from ESA/ESA_Comet aerospace models
+- **1,549 samples** from agent-generated SysML (with generated NL)
 - **Quality tiers**: A+ (Official Release), A (Pilot Implementation, ESA), B (Community)
 
 ## Data Sources
@@ -24,6 +25,7 @@ with natural language descriptions (`.txt`), along with metadata and a canonical
   - **000301 - 000360**: Domain Libraries (60 samples) - Quantities, units, and measurement libraries
   - **000361 - 000376**: Test Cases (16 samples) - Validation tests and tool-specific implementations
 - **000377 - 000386**: SysML v2 models from ESA/ESA_Comet aerospace projects ([MontiCore/sysmlv2](https://github.com/MontiCore/sysmlv2)) (Aerospace Domain)
+- **000387 - 001935**: SysML v2 models from agent generation (syntax-checked corpus)
 
 ## Layout
 - `data/<id>/` holds triplets: `<id>.sysml`, `<id>.txt`, `meta.json`
@@ -41,7 +43,7 @@ Each sample includes a `meta.json` file with the following structure:
 {
   "id": "000001",
   "source_path": "/path/to/original/sysml/file.sysml",
-  "split": "official|community|pilot|esa",
+  "split": "official|community|pilot|esa|agent",
   "quality": "A+|A|B|C",
   "category": "not processed",
   "created": "2024-01-01T12:00:00.000000"
@@ -52,7 +54,7 @@ Each sample includes a `meta.json` file with the following structure:
 - **source_path**: Original file path of the SysML model
 - **split**: Dataset split (official, community, pilot, esa)
 - **quality**: Quality tier (A+ for official release, A for pilot/ESA, B for community)
-- **category**: Placeholder for future categorization (currently "not processed")
+- **category**: Placeholder for future categorization (empty for agent-generated entries)
 - **created**: ISO timestamp when the sample was created
 
 ## Quick start

@@ -1,0 +1,9 @@
+This model describes an automated, electrically-powered fluid pumping subsystem designed to transfer fluid, likely fuel, from a supply tank to a receiving vessel at a precise, controlled flow rate.
+
+The core of the system is a fuel pump driven by a 24V electric motor. Its primary function is to move fluid at a target rate of 150 liters per minute and handle pressures up to 600 kPa. The entire operation is managed by a dedicated pump controller, which acts as the system's brain.
+
+A comprehensive sensor suite provides the controller with real-time data. This includes pressure sensors at the pump's inlet and outlet, a flow meter to measure the actual fluid transfer rate, and a temperature sensor to monitor the pump's operating heat. The controller uses this feedback to continuously adjust the pump's performance.
+
+The system incorporates several crucial safety and flow control components. Two check valves are installed, one at the inlet and one at the outlet, to ensure fluid flows in only one direction and prevent backflow. For over-pressure protection, a mechanical relief valve is included that will automatically open if the system pressure exceeds a safe limit of 650 kPa.
+
+The pump operates through a well-defined set of states. It begins in an `idle` state, moves through `starting` and `priming` phases, and then enters the `running` state for normal operation. It can be commanded to stop, and it will automatically enter a safe `faulted` state if it detects dangerous conditions like over-pressure, over-temperature, or cavitation, requiring a manual reset to resume operation.

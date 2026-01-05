@@ -1,0 +1,9 @@
+This model describes a complete ultrasonic sensing unit, a device designed to measure the distance to an object without physical contact. It is the type of sensor commonly found in robotics for obstacle avoidance, in automotive systems for parking assistance, or in industrial settings for level sensing.
+
+The core of the system is an **ultrasonic transducer**, which acts as both a speaker and a microphone for sound waves outside the range of human hearing. To take a measurement, the unit first sends out a short, high-frequency sound pulse from this transducer. It then switches to a listening mode, waiting for the echo of that pulse to bounce off a nearby object and return.
+
+A central **signal processor** acts as the brain of the unit. It precisely times how long it takes for the echo to return after the initial pulse was sent out. Using this "time of flight" and a known value for the speed of sound, it calculates the distance to the object.
+
+To ensure accuracy, the system includes a **temperature compensator**. Because the speed of sound changes with air temperature, this component measures the ambient temperature and provides a corrected speed of sound value to the signal processor. This allows the sensor to maintain reliable measurements across a wide range of operating temperatures (from -20°C to 60°C).
+
+The entire measurement process is a distinct cycle: the sensor is typically in an idle state, then transitions to a measuring state where it transmits the pulse, listens for the echo, and computes the distance. If an echo isn't received within a set time, it times out. Once a valid measurement is calculated, it is checked to ensure it falls within the sensor's effective range (typically 2 cm to 4 meters) before the final distance is reported. The unit then returns to an idle state, ready for the next measurement.

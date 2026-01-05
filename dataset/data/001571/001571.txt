@@ -1,0 +1,15 @@
+This model describes a semi-automated manufacturing assembly cell designed to combine human oversight with robotic precision for complex assembly tasks. The system is built to handle operations where human judgment is critical for approval and problem-solving, while a robot performs the repetitive, high-accuracy physical work.
+
+The core of the system is an integrated cell containing five key components that work in concert:
+
+1.  **Operator Station:** This is the human-machine interface (HMI) where a person supervises the entire process. From this station, the operator can start tasks, monitor the robot's progress in real-time, and review data from completed operations. Crucially, the system requires the operator to give explicit approval before the robot can begin critical or sensitive assembly steps. In case of an error or a quality failure, the operator uses this station to intervene and provide further instructions.
+
+2.  **Robotic Manipulator:** This is the physical robotic arm that performs the hands-on assembly. It is capable of precise movements and can apply specific, controlled amounts of force, such as tightening a bolt to a precise torque specification. It is equipped with sensors to provide feedback on its actual position and the force it is exerting.
+
+3.  **Automated Controller:** This is the "brain" of the robotic manipulator. It receives high-level assembly instructions (like "move to position X and apply Y force") and translates them into a detailed motion trajectory for the robot to follow. It continuously monitors sensor data from the arm to ensure movements are accurate, stay within safety limits, and meet the required tolerances.
+
+4.  **Task Coordinator:** This component acts as the supervisor or workflow manager for the entire cell. It maintains a queue of assembly jobs, communicates task status to the operator's station, and determines the overall operating mode (e.g., semi-automated or manual). It is the central hub that ensures the operator, controller, and other components are synchronized.
+
+5.  **Quality Inspection Unit:** After the robotic arm has finished its assembly task on a workpiece, this automated unit performs a quality check. It uses its own set of criteria to inspect the part, verifying that the assembly was performed correctly and to specification. It then reports a pass or fail result.
+
+A typical workflow proceeds as follows: A raw workpiece enters the cell. The Task Coordinator schedules the next assembly instruction and sends a request for approval to the Operator Station. After the human operator approves the task, the Automated Controller commands the Robotic Manipulator to perform the physical assembly. Once the robot's action is complete, the workpiece is passed to the Quality Inspection Unit. If the part passes, it is marked as complete and unloaded. If it fails inspection or if an error occurs during the robotic operation, the system alerts the operator, who then decides on the next course of action.

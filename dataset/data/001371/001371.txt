@@ -1,0 +1,13 @@
+This model describes a complete Bluetooth Low Energy (BLE) communication system, designed for low-power wireless data exchange between devices, typical in IoT and sensor network applications.
+
+The system is composed of two primary types of devices: a central device and one or more peripheral devices. The **peripheral device**, exemplified as a "BLE Sensor Node," is a small, battery-powered unit designed for long operational life. Its main job is to collect data, such as temperature, humidity, and its own battery level, and make itself available for connection.
+
+The **central device**, represented as a "BLE Gateway," acts as a hub. It is a more powerful unit responsible for discovering, connecting to, and managing communications with multiple peripheral devices simultaneously (up to seven in this configuration).
+
+The operational flow begins with the peripheral device entering an "advertising" state, where it periodically broadcasts small packets of information. This broadcast announces its presence and capabilities, like its name and the data services it offers. The central device, in a "scanning" state, listens for these advertisements.
+
+Upon discovering a sensor node, the central gateway can initiate a connection. Once connected, the devices can engage in a two-way data exchange. The sensor node transmits its collected sensor data in structured packets to the gateway. The entire communication process is secured with an authentication and encryption layer, ensuring that data is protected from eavesdropping.
+
+Internally, each device contains a layered architecture to manage this process. A physical radio layer handles the actual transmission and reception of signals in the 2.4 GHz frequency band. Above this, a link layer manages device addressing, connection timing, and packet processing. A host controller coordinates commands and events, while specialized managers handle the device's role (central or peripheral), the organization of data into services and characteristics (GATT), and security procedures like pairing and encryption.
+
+The system is fundamentally designed for energy efficiency, with strict constraints on the power consumption of the peripheral sensor to ensure a long battery life, making it ideal for creating networks of wireless sensors that can operate for months or years without intervention.

@@ -1,0 +1,9 @@
+This model describes an autonomous mobile robot (AMR) system designed for logistics and task execution, likely within a warehouse, factory, or similar controlled environment. The system consists of three primary components: a central mission controller, a physical charging dock, and one or more mobile robots.
+
+The core of the system is the mobile robot, an autonomous vehicle built to carry out assigned work. For navigation and awareness, it is equipped with a Lidar sensor that constantly scans the environment to detect obstacles and determine its own position and orientation. This data is fed into its onboard path planner, which calculates the most efficient, obstacle-free routes to target locations.
+
+Movement is handled by a drive system, managed by a motion controller that executes the planned path by controlling the robot's linear and angular velocity. The robot is powered by a rechargeable battery system which it intelligently monitors. A key feature is its self-preservation; when the battery charge drops below a critical threshold (20%), the robot will automatically suspend its current task and navigate back to its designated charging dock to recharge.
+
+The robot's operation is governed by a clear set of states. It can be idle (awaiting instructions), navigating to a destination, executing a work task, returning to base for power, or actively charging. It also includes a safety-critical error state, which halts all motion if a system fault is detected.
+
+The entire operation is orchestrated by a central mission controller, which manages a queue of work tasks and dispatches them to available robots. This controller also monitors the status of each robot to ensure tasks are completed successfully.

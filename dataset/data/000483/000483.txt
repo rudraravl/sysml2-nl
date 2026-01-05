@@ -1,0 +1,9 @@
+This model describes a resilient, autonomous, network-connected device, specifically identified as an "Autonomous Edge Sensor Node." The core purpose of this system is to operate reliably even when it becomes disconnected from its central network or parent controller—a state referred to as being "orphaned."
+
+When the device loses its connection, it doesn't simply stop working. Instead, it enters an autonomous mode where it continues its primary functions, such as gathering sensor data. Any data it collects is stored locally in an internal data store, which has a capacity for 5000 data packets, ensuring no critical information is lost during the outage.
+
+While disconnected, the device intelligently tries to re-establish its connection. It uses a sophisticated reconnection strategy, initially attempting to reconnect every 30 seconds. If it fails, it progressively waits longer between each subsequent attempt (using an exponential backoff algorithm) to avoid flooding the network. This process is managed by a dedicated reconnection controller.
+
+To prolong its operational life during extended outages, the device includes a power manager that monitors the battery level. It can automatically switch to a low-power mode to conserve energy when the battery runs low. Throughout this entire process, a diagnostic monitor continuously checks the device's internal health, monitoring its CPU usage, memory, and temperature to ensure its own operational integrity.
+
+Once the network connection is restored, the device's first priority is to synchronize all the data it buffered locally, transmitting the stored packets to the parent system to ensure there are no gaps in the data record. After synchronization is complete, it resumes its normal, connected operation.

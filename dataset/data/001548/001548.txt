@@ -1,0 +1,15 @@
+This model describes a complete robotic competition system, featuring two autonomous robots competing against each other on a standardized field. The overall system is designed to run a match, manage game rules, and track scores.
+
+The core of the system is the **Competition Robot**, a sophisticated machine built to navigate a field, identify and manipulate objects, and score points without human intervention. Each robot is a self-contained unit composed of several key subsystems:
+
+*   A **Drive System** with wheels provides mobility, allowing the robot to navigate to specific locations on the field at speeds up to 3.5 meters per second.
+*   A **Vision System** acts as the robot's eyes, capable of detecting and identifying "Game Pieces" within a 5-meter range. It also constantly determines the robot's own position and orientation on the field, a process known as localization.
+*   A **Manipulator**, which is essentially a gripper or arm, is used to grasp, carry, and release the game pieces with a significant amount of force.
+*   An onboard **Battery** provides electrical power to the drive system, manipulator, and all electronics. The system is designed to monitor its own energy levels to ensure it can complete the match.
+*   An **Autonomous Controller** serves as the robot's brain. It takes in data from the vision system, formulates a strategy for scoring, and then commands the drive system and manipulator to execute the plan.
+
+The competition takes place on a **Competition Field**, a rectangular area containing twenty scorable "Game Pieces." The field has designated zones, including specific scoring areas for each of the two teams (red and blue) and a central loading station.
+
+A **Competition Manager** component acts as the official referee and game controller. It manages the match timer, transitions the game through different phases (such as setup, autonomous, and teleoperated), and calculates the final scores for each team to determine a winner.
+
+In a typical match, each robot executes a primary task loop: it scans the field to find the nearest game piece, navigates to it, uses its manipulator to acquire the piece, transports it to its team's scoring zone, and deposits it to score points. This cycle repeats throughout the autonomous portion of the match. The robot's behavior is governed by its current mode, transitioning between states like navigating, acquiring, transporting, and depositing. It also has a fault state, for instance, if its battery runs critically low.

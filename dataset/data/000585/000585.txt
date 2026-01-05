@@ -1,0 +1,17 @@
+This model describes an industrial dielectric heating system, a piece of equipment designed for rapidly and uniformly heating non-conductive materials using high-frequency electromagnetic energy. It functions like a very powerful and precise industrial microwave oven, used for processes like curing plastics, drying wood, or preheating materials in a production line.
+
+The system is composed of several key functional components that work together:
+
+*   **RF Power Generator:** This is the heart of the system, responsible for creating the high-power, high-frequency (e.g., 27.12 MHz) electromagnetic energy required for heating. It can adjust its power output based on commands to control the heating rate.
+
+*   **Dielectric Applicator:** This is the shielded heating chamber where the material is placed. It's designed to take the energy from the generator and create a uniform electric field across the material, ensuring it heats evenly from the inside out.
+
+*   **Temperature Sensor:** To maintain precise control, a fiber optic temperature sensor constantly measures the temperature of the material being heated. A fiber optic type is used specifically because it is not affected by the strong electromagnetic field inside the chamber.
+
+*   **Heating Controller:** This is the system's brain. It receives the desired target temperature from a user interface and the real-time temperature reading from the sensor. Using a PID control algorithm, it continuously calculates the necessary power level and instructs the RF Power Generator to adjust its output to reach and maintain the target temperature accurately.
+
+*   **Cooling System:** Generating tens of kilowatts of RF power produces a significant amount of waste heat. A dedicated cooling system circulates coolant to manage the temperature of the power generator and other electronics, preventing them from overheating during operation.
+
+*   **Safety System:** A comprehensive safety system ensures safe operation. It monitors critical conditions like the chamber door being closed, the status of the emergency stop button, and whether the material's temperature has exceeded a maximum safe limit. If any of these conditions become unsafe, it immediately shuts down the power generator to protect both the operator and the equipment.
+
+The system operates through a defined lifecycle of modes: It starts in a **standby** mode, moves to **preheating** and then **active heating** to bring the material up to temperature. It can then enter a **holding** mode to maintain that temperature for a specific duration. Finally, it enters a **cooling** phase before returning to standby. At any point, a safety violation will trigger a **fault** mode, shutting the system down until the issue is resolved.

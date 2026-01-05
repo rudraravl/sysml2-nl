@@ -1,0 +1,12 @@
+This is a computational system designed to simulate the motion of incompressible, viscous fluids, such as water or air, by numerically solving the fundamental Navier-Stokes equations. Its primary purpose is to predict how a fluid's velocity and pressure will change over time within a defined three-dimensional space.
+
+The system operates on a virtual "Computational Domain," which represents the physical space where the fluid flow occurs. This domain is divided into a fine grid of individual "Fluid Cells." Each cell tracks the local properties of the fluid at its specific location, including its velocity vector, pressure, and density.
+
+The core of the system is a sophisticated "Navier-Stokes Solver" that orchestrates the entire simulation. This solver is composed of several specialized computational modules that work together:
+*   A **Convection Solver** calculates how the fluid moves and carries its own momentum.
+*   A **Diffusion Solver** models the effects of the fluid's internal friction (viscosity), which tends to smooth out velocity differences.
+*   A **Pressure Corrector** and a **Continuity Enforcer** collaborate to ensure that the simulation adheres to the physical law of mass conservation, preventing the fluid from being artificially created or destroyed within the domain.
+
+To run a simulation, a user defines the physical properties of the fluid, such as its density and viscosity, and sets up boundary conditions that describe what is happening at the edges of the domain—for example, specifying an inlet velocity, an outlet pressure, or the presence of a solid wall.
+
+The simulation progresses in discrete time steps. In each step, the solver calculates the combined effects of convection, diffusion, pressure differences, and any external body forces (like gravity) to update the velocity and pressure in every fluid cell. This iterative process repeats, advancing the simulation forward in time and generating a complete history of the fluid's dynamic behavior. The system's operational lifecycle is managed through states such as initializing, computing, and completing the simulation.

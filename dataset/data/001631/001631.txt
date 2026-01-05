@@ -1,0 +1,18 @@
+This model describes a comprehensive safety system for industrial robots designed to work in close proximity to human employees in a factory or workshop. The system's primary purpose is to prevent accidents by creating a constantly monitored, intelligent safety bubble around the robot. It does this by detecting where workers are, assessing the risk of a collision in real-time, and automatically controlling the robot's actions—slowing it down, pausing it, or bringing it to an emergency stop—to keep people safe.
+
+The system is built from several key components working in concert:
+
+*   **A Multi-Layered Sensor Network:** To reliably detect people, the system doesn't rely on a single technology. It uses a combination of four laser scanners to map the floor area, two vision cameras for visual detection, and eight proximity sensors for close-range monitoring. This redundancy ensures that a person is detected even if one sensor type is obstructed. Additionally, a force-torque sensor is integrated into the robot itself to directly measure any physical contact, ensuring any incidental force remains below safe injury thresholds.
+
+*   **A Central Safety Controller (Safety PLC):** This is the brain of the operation. It's a highly reliable, safety-certified computer that receives and processes all the data from the various sensors. It continuously analyzes this information to determine the exact location of any nearby workers.
+
+*   **A Collaborative Robot:** This is the six-axis industrial robot arm that the system is protecting. It is capable of performing tasks like assembly or material handling but is designed to receive and act on commands from the safety controller, which can override its normal operational program at any moment.
+
+The system operates based on a series of nested safety zones around the robot:
+
+1.  **Collaborative Zone (over 3.5 meters):** When a worker is in this outer area, the robot can operate at its normal, full speed.
+2.  **Warning Zone (2 to 3.5 meters):** As a person steps into this zone, the safety controller automatically commands the robot to reduce its speed, making its movements more predictable and safer.
+3.  **Restricted Zone (1 to 2 meters):** If a worker gets closer and enters this zone, the system initiates a "safeguarded stop," smoothly bringing the robot to a complete halt. It remains paused but powered on, ready to resume once the person moves back to a safer distance.
+4.  **Prohibited Zone (within 0.5 meters):** Breaching this innermost zone triggers an immediate emergency stop. This is the fastest possible stop, designed to prevent imminent collision. The system will not resume normal operation until it is manually reset.
+
+In essence, this is an intelligent guardian for a robotic work cell. It uses a fusion of sensor data to maintain constant situational awareness and enforces a strict set of safety rules, allowing humans and robots to share a workspace productively and, most importantly, safely.

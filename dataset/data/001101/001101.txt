@@ -1,0 +1,15 @@
+This model describes an Inertial Reference Unit (IRU), a self-contained navigation system used to track the position, velocity, and orientation of a vehicle or platform. Its key feature is that it operates autonomously, calculating its state purely by sensing its own motion, without needing external signals like GPS.
+
+The system is composed of two main functional parts: an Inertial Measurement Unit (IMU) and a Navigation Computer.
+
+The **Inertial Measurement Unit (IMU)** is the sensory core of the system. It contains a suite of six sensors: three accelerometers and three gyroscopes, arranged to measure motion along three perpendicular axes (X, Y, and Z). The accelerometers detect linear acceleration (changes in speed), while the gyroscopes detect angular velocity (the rate of turning or rotation). Each of these individual sensors performs internal processing to compensate for environmental factors like temperature, filter out noise, and then package its measurements into a clean data stream.
+
+This sensor data is fed to the **Navigation Computer**, which acts as the brain of the system. The computer executes a continuous, high-speed calculation cycle to determine the vehicle's state. This process involves several steps:
+1.  It acquires the latest readings from all six sensors in the IMU.
+2.  It applies pre-loaded calibration data to correct for known inaccuracies and biases in the individual sensors, ensuring higher precision.
+3.  Using the corrected gyroscope data, it calculates and updates the vehicle's attitude (its roll, pitch, and yaw angles).
+4.  It then uses this attitude information to distinguish between acceleration due to movement and the constant pull of gravity.
+5.  By integrating this true acceleration over time, it calculates the vehicle's current velocity.
+6.  By integrating the velocity, it determines the vehicle's current position relative to its starting point.
+
+Finally, the computer bundles the calculated position, velocity, and attitude into a complete **Navigation State** report, which also includes a quality metric and a timestamp. This report is the primary output of the IRU, provided continuously to guide the larger vehicle or system it is installed in.

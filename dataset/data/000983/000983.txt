@@ -1,0 +1,13 @@
+This model describes a high-sensitivity scientific instrument designed to precisely measure light intensity (irradiance). It is a complete, self-contained sensing unit built around a specialized back-illuminated image sensor.
+
+The core of the system is the **Back-Illuminated Sensor**, an advanced design where light enters the silicon from the rear, avoiding obstruction by the metal wiring on the front. This architecture provides exceptionally high light-gathering efficiency (quantum efficiency) across a broad spectrum, from visible to near-infrared wavelengths. The sensor assembly itself is a sophisticated component, featuring a microlens array to focus light onto each pixel, an anti-reflective coating to maximize absorption, and a photodiode array that converts incoming photons into an electrical charge.
+
+To achieve high accuracy, especially for faint light sources, the unit incorporates an active **Thermal Controller**. This system uses a thermoelectric cooler and a temperature sensor to maintain the main sensor at a very low, stable operating temperature (around -15°C or 258K). This cooling is critical for minimizing thermal noise, also known as dark current, which could otherwise corrupt the measurement.
+
+The measurement process involves several stages and components working in sequence:
+1.  During an exposure, the sensor captures light and accumulates an electrical charge pattern that corresponds to the image.
+2.  This analog charge is then transferred to the **Readout Circuitry**, which amplifies the faint signal, reduces electronic noise, and converts it into a raw digital data stream using a high-bit-depth analog-to-digital converter.
+3.  The raw digital data is fed into a dedicated **Signal Processing Unit**. This processor performs sophisticated image correction routines, applying calibration data to correct for sensor imperfections (dark frame and flat-field corrections) and filtering out noise.
+4.  Finally, the processor calculates the precise irradiance value from the corrected data, producing the final scientific measurement.
+
+The entire unit operates through a well-defined sequence of states: starting in an `idle` state, it moves to `exposing` to capture light, then to `readout` and `processing` to generate the data, and finally to a `complete` state before returning to idle. The system is powered by an external source via a `powerRegulator` and is controlled through an interface that allows for setting exposure times and monitoring its status.

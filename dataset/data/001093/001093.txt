@@ -1,0 +1,11 @@
+This model describes an automated biometric identification system, known as IRIS (Iris Recognition Identification System). It is designed to verify a person's identity with high accuracy by capturing a detailed image of their eye and comparing its unique iris patterns against a secure database.
+
+The system is composed of several specialized hardware and software components that work together in a coordinated sequence. The process begins with a **near-infrared (NIR) illuminator**, which safely shines light at a specific wavelength (850 nm) onto the user's eye. This specialized light makes the intricate patterns of the iris clearly visible for capture, regardless of eye color.
+
+An **optical system**, essentially a camera lens with a fixed focal length, focuses this light onto a **high-resolution image sensor**. This sensor captures a detailed digital photograph (1280x960 pixels) of the iris.
+
+Once the raw image is captured, it is sent to an **Image Processor**. This digital processing unit is responsible for converting the picture into a usable biometric signature. It first enhances the image quality, isolates (or segments) the iris from the rest of the eye, and then normalizes the circular iris pattern into a rectangular block to account for variations in pupil size. Finally, it extracts the unique features—such as furrows and crypts—and encodes them into a compact, digital biometric template.
+
+This newly generated "live" template is then handled by a **Matching Engine**. For verification, the system retrieves a previously stored template for the claimed identity from a secure and encrypted **Template Database**, which can hold up to 100,000 individual records. The Matching Engine compares the live template with the stored one, calculates a match score, and determines if they are from the same person based on a predefined threshold.
+
+A central **System Controller** manages this entire workflow, from initiating the capture command to delivering the final yes/no match result. The system operates through a series of states: it remains idle until a command is given, then cycles through illuminating, capturing, processing, and matching states before returning to idle to await the next verification.

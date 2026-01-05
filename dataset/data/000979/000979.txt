@@ -1,0 +1,9 @@
+This model describes an autonomous Attitude Control System (ACS) for a spacecraft, designed to precisely manage the craft's orientation, or pointing direction, in space.
+
+The system's core component is a central Attitude Controller, which functions as the brain. It receives target orientation commands (specified by roll, pitch, and yaw angles) and works to achieve and maintain that pointing direction.
+
+To understand its current orientation, the system relies on a sensor suite consisting of two main instruments. An Inertial Measurement Unit (IMU) provides continuous, high-frequency data about the spacecraft's angular rotation rates. For absolute and highly accurate orientation information, a Star Tracker periodically takes measurements by referencing the positions of known stars. The controller fuses the data from both sensors to get a precise and stable estimate of the spacecraft's current attitude.
+
+To change or maintain its orientation, the spacecraft uses a set of three Reaction Wheels, one for each of the roll, pitch, and yaw axes. These are essentially flywheels that can be spun up or slowed down. Based on the difference between the target and actual attitude, the controller calculates the required corrective torques. It then sends commands to the reaction wheels, and as their speed changes, they impart an equal and opposite torque on the spacecraft body, causing it to rotate into the desired orientation.
+
+The system operates through several distinct modes, such as actively acquiring a new target, holding a steady position once the target is reached, and entering a safe mode in case of a problem. The entire system is engineered to meet stringent mission requirements for pointing accuracy, stability, and responsiveness.

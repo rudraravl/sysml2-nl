@@ -1,0 +1,9 @@
+This model describes an industrial-grade gasoline pumping subsystem designed to safely and reliably transfer gasoline from a supply tank to a receiving vessel.
+
+The core of the system is a powerful electric gasoline pump. This pump is a complex assembly consisting of several key parts. An electric motor, powered by a high-voltage electrical supply, drives an impeller. This spinning impeller is what generates the pressure needed to move the gasoline through the pipes. The entire mechanism is housed within a sealed casing that has an inlet for incoming fluid and a discharge outlet.
+
+The system is highly instrumented for monitoring and safety. It includes sensors to measure the inlet and discharge pressure, the flow rate of the gasoline, the motor's temperature, and its vibration levels. This instrumentation is crucial for the pump's operational logic.
+
+Operationally, the pump functions through distinct states. It starts in a `stopped` state. When a start command is received from an external control system, it enters a `priming` state. During priming, it verifies that there is sufficient gasoline pressure at the inlet before fully engaging. If it's properly primed, it transitions to the `running` state and actively pumps fuel. If not, it enters a `faulted` state. The pump will also shut down and enter the faulted state if critical safety conditions are breached, such as the motor overheating or a failure in the casing's sealing system, at which point it will raise an alarm. The pump can be returned to the stopped state by a command from the control system.
+
+The complete subsystem includes the supply tank where the gasoline is stored, the receiving vessel where it's delivered, and the associated piping that connects them to the pump. A dedicated control system manages the pump's operation by sending start/stop commands and monitoring its status, while a separate electrical supply provides the necessary power.

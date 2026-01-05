@@ -1,0 +1,13 @@
+This model describes a high-performance computing sandbox environment designed to safely and efficiently execute user-submitted computational tasks, or "workloads." It is an automated system that manages the entire lifecycle of a job, from submission to completion, within an isolated environment.
+
+The system is composed of four main components that work together:
+
+1.  A **Workload Scheduler** acts as the central coordinator and entry point. It receives incoming job requests, each with specified requirements for compute power, memory, and priority. The scheduler validates these requests and, based on its scheduling policy (e.g., "PriorityBased"), decides which job to run next. It queries the system's resource status before dispatching a job.
+
+2.  The **Execution Engine** is the core processing unit where the actual work gets done. It can run up to 50 jobs concurrently. This engine operates in various states: it is 'idle' when there are no jobs, 'active' while processing tasks, and can enter an 'overloaded' state if resource demand exceeds capacity, allowing it to throttle new tasks to maintain stability.
+
+3.  A dedicated **Resource Monitor** continuously tracks the system's health and performance. It monitors the utilization of compute and memory resources in real-time and provides this status information to the scheduler to enable intelligent job allocation.
+
+4.  A **Result Aggregator** collects the outcomes from all completed jobs. It logs whether a job succeeded or failed, how long it took, and the resources it consumed. This component also calculates overall performance metrics, such as the system's success rate.
+
+The typical workflow is as follows: A workload request is sent to the Scheduler. The Scheduler validates it and checks with the Resource Monitor for available capacity. If resources are free, the job is dispatched to the Execution Engine. If the system is busy, the job is placed in a queue. Once the Engine completes the job, it produces a result that is collected by the Aggregator, and the resources used by the job are released for the next task in the queue.

@@ -1,0 +1,11 @@
+This model represents a Sonos-style wireless multi-room audio system, designed to play synchronized, high-fidelity music throughout a home. The system is composed of individual smart speakers, a central controller application, and various music sources.
+
+Each **Sonos Speaker** is a self-contained audio playback device intended for a specific room, such as a "Living Room" or "Kitchen." Internally, each speaker has its own Wi-Fi module for network connectivity, an audio processor for decoding the music stream, an amplifier to power the sound, and the physical speaker drivers that produce it.
+
+A key feature of the system is its use of two wireless networks. The speakers connect to a standard home Wi-Fi network to receive commands from the controller and stream music from the source. They also form a dedicated wireless mesh network among themselves. This mesh network is used to pass synchronization data between speakers, ensuring that when multiple speakers are grouped together, their audio playback is perfectly aligned with a latency of less than two milliseconds to eliminate any echo or delay.
+
+The **Sonos Controller** is the user's interface to the system, typically an application running on a smartphone or computer. From the controller, a user can issue commands to play, pause, or stop music, adjust the volume of individual speakers, and group or ungroup rooms for simultaneous playback.
+
+The system can play audio from different **Music Sources**, such as online streaming services (like Spotify) or a local digital music library stored on a home network.
+
+Operationally, each speaker operates in different states. It remains `idle` until it receives a command, after which it connects to the network and becomes `ready`. When instructed to play, it first enters a `buffering` state to load a portion of the audio before beginning `playing`. From there, it can be `paused`, `resumed`, or `stopped` by the user via the controller.

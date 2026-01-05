@@ -1,0 +1,11 @@
+This model describes an Operational Design Domain (ODD) management system for an autonomous vehicle. The system's primary purpose is to ensure the vehicle's self-driving features are active only within safe, predefined environmental and driving conditions. It acts as a safety supervisor, continuously monitoring the world and deciding if it's safe for the car to drive itself.
+
+The system relies on a comprehensive suite of sensors to understand its surroundings. These include:
+*   **Weather sensors** that detect conditions like clear skies, rain, or fog, and measure temperature.
+*   **Visibility sensors** that gauge how far ahead the car can "see."
+*   **Road sensors** that identify the type of road (e.g., highway or city street), the density of surrounding traffic, and the sharpness of curves.
+*   **Vehicle sensors** that track the car's own speed.
+
+Data from all these sensors is continuously fed into a central **ODD Monitor**. This component compares the real-time conditions against a built-in set of strict operational limits. For instance, the system is programmed to operate autonomously only at speeds under 120 km/h, with visibility over 100 meters, in clear, cloudy, or light rain conditions, and on highways or urban streets with light to moderate traffic.
+
+Based on the monitor's evaluation, a **Decision Controller** manages the vehicle's overall state. If all conditions are within the defined safe limits, it keeps the car in autonomous mode. However, if any condition is violated—for example, if a sudden downpour begins or traffic becomes congested—the controller automatically transitions the vehicle to a "degraded" or "manual override" mode. This safely disengages the autonomous functions until the environment returns to a state where the car is designed to operate safely on its own.

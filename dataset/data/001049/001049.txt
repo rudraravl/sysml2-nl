@@ -1,0 +1,15 @@
+This model describes a Fine Guidance Sensor (FGS), a highly precise star tracker system used for stabilizing spacecraft, space telescopes, or other astronomical instruments. Its primary function is to lock onto a celestial object, typically a star, and provide extremely accurate angular position and rate data, which allows a larger system to maintain a steady orientation or pointing direction.
+
+The system is comprised of several key components that work together to capture and process light:
+
+*   An **Optical Assembly** acts as the system's "eye." It uses a set of primary and secondary mirrors to collect and focus light from a target star. This assembly also includes a filter wheel, allowing it to observe the star in different light wavelengths.
+
+*   A **PhotoDetector** sits at the focal point of the optics. This is a sensitive digital sensor, similar to a high-end camera chip, which converts the focused starlight into a raw digital signal.
+
+*   An onboard **Signal Processor** is the brain of the unit. It takes the raw data from the detector and performs several critical tasks. It first cleans up the image to reduce electronic noise. Then, a "Centroid Engine" calculates the exact center of the star's image on the detector with sub-pixel accuracy. Finally, a "Motion Tracker" follows the star's position over time, predicting its movement to ensure a stable lock.
+
+*   To ensure its extreme accuracy, the sensor includes a **Calibration Unit**. This component contains a database of known reference stars and can run self-calibration routines to correct for any imperfections in the optics or electronics.
+
+*   A **Control Unit** manages the overall operation. This includes a thermal controller to keep the sensor at a precise, stable temperature (which is crucial for low-noise performance) and a mode controller to manage the sensor's state.
+
+The sensor operates through several distinct modes. It typically starts in a standby state, then enters an "acquiring" mode to search for a guide star. Once a star is found, it enters "tracking" mode to lock onto it. Finally, it transitions to a "measuring" mode where it continuously outputs the high-fidelity guidance data. The system can also enter a self-calibration mode as needed or a fault mode if an error occurs.

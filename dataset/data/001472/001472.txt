@@ -1,0 +1,13 @@
+This model describes an IrDA (Infrared Data Association) wireless communication system, designed for short-range, point-to-point data exchange between electronic devices using beams of infrared light. This is the kind of technology commonly found in older laptops, printers, and remote controls for cable-free, line-of-sight communication.
+
+The heart of the system is an **Infrared Transceiver**, a self-contained unit responsible for both sending and receiving data. This transceiver is composed of several key components working together:
+
+*   An **Infrared LED** acts as the transmitter, converting electrical data into pulses of infrared light at a specific wavelength (880nm). It emits this light in a relatively narrow cone (30-degree angle) to focus the signal towards a receiving device.
+*   A **PhotoDetector** is the receiver, which is sensitive to the same infrared wavelength and converts incoming light pulses back into electrical data.
+*   A **Physical Layer Processor** is the low-level controller that directly manages the LED and photodetector. It handles the encoding of digital data into the precise flashing patterns (modulation) required for transmission and decodes the patterns from incoming signals.
+*   A **Link Access Protocol Controller** manages the reliability of the connection. It packages user data into formal "frames" with addresses and error-checking sequences. It ensures that frames are sent and received correctly, handling retransmissions if data is corrupted.
+*   A **Link Management Controller** acts as the high-level coordinator. It is responsible for finding other IrDA devices, negotiating communication parameters like speed, and maintaining the overall state of the connection.
+
+The system's operation follows a clear lifecycle. It starts in a **disconnected** state. To begin communication, it enters a **discovery** phase, broadcasting signals to find other nearby devices. Once a device is found, they enter a **negotiation** phase to agree on a common data speed and other parameters. If successful, they establish a **connected** link.
+
+While connected, the system can be **transmitting** data, **receiving** data, or sitting **idle** while monitoring the link. The entire process is designed for reliable, half-duplex (one direction at a time) communication over a short distance, typically up to one meter. The connection can be terminated by the user or will be dropped automatically if the devices move too far apart or the signal quality degrades.

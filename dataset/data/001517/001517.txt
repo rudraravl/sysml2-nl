@@ -1,0 +1,9 @@
+This model describes an open-source autonomous mobile robot, designed primarily for research and educational purposes. Its key function is to navigate independently within unknown indoor environments, such as offices or labs, by simultaneously building a map and tracking its own position on it (a process known as SLAM).
+
+The robot is built on a two-wheeled **mobile base** with a differential drive system, which allows it to move forward, backward, and turn in place. Wheel encoders continuously track the rotation of the wheels to calculate the robot's position and velocity (odometry).
+
+For environment perception, the robot relies on a 360-degree **Lidar sensor** mounted on top. This sensor spins to create a detailed map of the surroundings by measuring distances to objects and walls up to 12 meters away, enabling the robot to detect and avoid obstacles.
+
+The "brain" of the robot is a central **compute module**, which runs on an Ubuntu operating system and uses the ROS 2 (Robot Operating System) framework. This computer receives and integrates data from the Lidar sensor and the wheel encoders. It uses this information to build the map, plan efficient, collision-free paths to a goal, and send precise velocity commands to the motor drivers that control the wheels.
+
+All of the robot's electronic components are powered by a rechargeable **battery pack**. The system continuously monitors its own power levels. The robot operates in several states: it initializes its systems, stands by for commands, and then enters an active navigation mode. If the battery becomes low, it can trigger a low-power mode, where it might autonomously seek out a charging station before its power is critically depleted.

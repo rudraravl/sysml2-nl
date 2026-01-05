@@ -1,0 +1,9 @@
+This model describes an automated industrial material processing system, referred to as the MatC System. Its purpose is to transform a raw material feedstock into a processed, quality-assured final product.
+
+The system is composed of several key physical components that work together in a sequence. It begins with a **Material Receptor**, essentially an input hopper with a 500 kg capacity, which receives the initial batch of raw material. From there, the material is fed into a **Processing Chamber**. This chamber is the core of the system, where the material is heated to a specific temperature (300°C) and held at atmospheric pressure for a set duration to induce a chemical or physical transformation.
+
+Once the treatment is complete, the batch of newly processed material is checked by a **Quality Analyzer**. This component takes a sample to ensure the product meets a predefined quality grade. If the material passes the analysis, it is sent to a **Material Dispenser**, which outputs the final product at a controlled rate of 10 kg per hour from a 100 kg buffer. If the material fails the quality check, the system is designed to send it back for reprocessing.
+
+The entire operation is orchestrated by a central **SystemController**. This controller acts as the brain, managing the sequence of operations, monitoring the status of each component, and providing an interface for an operator. A dedicated **Power Distribution** unit takes in a high-voltage supply and provides the appropriate electrical power to all other components in the system.
+
+The system operates through a clear set of states, such as 'Offline', 'Initializing', 'Ready', 'Processing', and 'Dispensing'. It waits in a 'Ready' state for an operator's command to begin a batch. It also includes a critical safety feature that allows for an immediate emergency shutdown, which transitions the system into a safe 'Fault' state.
