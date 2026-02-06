@@ -23,7 +23,7 @@ tmux send-keys -t "$SESSION_NAME:frontend" "cd $SCRIPT_DIR && ./run_frontend.sh"
 # Create a logs window (optional, for monitoring)
 tmux new-window -t "$SESSION_NAME" -n "logs"
 tmux send-keys -t "$SESSION_NAME:logs" "echo 'Use this window for logs or debugging'" C-m
-tmux send-keys -t "$SESSION_NAME:logs" "echo 'tail -f /var/log/nginx/sysml-nl-access.log'" C-m
+tmux send-keys -t "$SESSION_NAME:logs" "tail -f /var/log/nginx/sysml-nl-access.log" C-m
 
 # Select backend window
 tmux select-window -t "$SESSION_NAME:backend"
@@ -46,4 +46,4 @@ echo "  Ctrl+b d  - Detach from session"
 echo ""
 
 # Attach to session
-tmux attach -t "$SESSION_NAME"
+# tmux attach -t "$SESSION_NAME"

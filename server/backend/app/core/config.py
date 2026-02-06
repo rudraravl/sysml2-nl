@@ -9,13 +9,15 @@ IDLE_UNLOAD_SECONDS = int(os.getenv("IDLE_UNLOAD_SECONDS", "600"))
 MODEL_DEVICE = os.getenv("MODEL_DEVICE", "cuda")
 
 # Input limits
-MAX_INPUT_CHARS = int(os.getenv("MAX_INPUT_CHARS", "20000"))
-DEFAULT_MAX_NEW_TOKENS = int(os.getenv("DEFAULT_MAX_NEW_TOKENS", "768"))
+MAX_INPUT_CHARS = int(os.getenv("MAX_INPUT_CHARS", "50000"))
+DEFAULT_MAX_NEW_TOKENS = int(os.getenv("DEFAULT_MAX_NEW_TOKENS", "4096"))
+MAX_NEW_TOKENS_LIMIT = int(os.getenv("MAX_NEW_TOKENS_LIMIT", "65536"))
 
 # Model IDs
-# For gated models (gemma), set HF_TOKEN env var or run: huggingface-cli login
-# Fallback: TinyLlama/TinyLlama-1.1B-Chat-v1.0 (public, for testing)
-GEMMA_MODEL_ID = os.getenv("GEMMA_MODEL_ID", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+# Generator: google/gemma-3-12b-it (for generation via model.generate())
+# Encoder: tencent/KaLM-Embedding-Gemma3-12B-2511 (for embedding via encode())
+# For gated models, set HF_TOKEN env var or run: huggingface-cli login
+GEMMA_MODEL_ID = os.getenv("GEMMA_MODEL_ID", "google/gemma-3-12b-it")
 KALM_EMB_ID = os.getenv("KALM_EMB_ID", "tencent/KaLM-Embedding-Gemma3-12B-2511")
 
 # HuggingFace token (for gated models)

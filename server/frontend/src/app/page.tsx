@@ -52,7 +52,7 @@ export default function Home() {
         body: JSON.stringify({ 
           text: inputText,
           pipeline: pipeline,
-          max_new_tokens: 768
+          max_new_tokens: 4096
         }),
       })
 

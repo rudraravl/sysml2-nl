@@ -8,7 +8,7 @@ class NL2SysMLRequest(BaseModel):
     """Request for NL to SysML conversion."""
     text: str = Field(..., min_length=1, description="Natural language input")
     pipeline: Literal["kalm", "qwen", "llama"] = Field(default="kalm")
-    max_new_tokens: int = Field(default=768, ge=1, le=4096)
+    max_new_tokens: int = Field(default=4096, ge=1, le=65536)
 
 
 class Diagnostics(BaseModel):

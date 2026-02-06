@@ -1,11 +1,21 @@
-"""Model manager with load-on-demand and idle unload."""
+"""Model manager with load-on-demand and idle unload.
+
+IMPORTANT USAGE RULES:
+- Generator (gemma): Only use model.generate(), never for embedding
+- Encoder (kalm): Only use for embedding (encode/forward), never generate()
+- Never mix tokenizers from different checkpoints
+- Use apply_chat_template for chat models
+"""
 
 import gc
 import time
 import asyncio
 from typing import Any, Optional
 
-from app.core.config import IDLE_UNLOAD_SECONDS, MODEL_DEVICE, GEMMA_MODEL_ID
+from app.core.config import (
+    IDLE_UNLOAD_SECONDS, MODEL_DEVICE, 
+    GEMMA_MODEL_ID, KALM_EMB_ID, HF_TOKEN
+)
 from app.core.logging import get_logger
 
 log = get_logger(__name__)
@@ -21,47 +31,66 @@ class ModelManager:
         self._lock = asyncio.Lock()
         self._device = MODEL_DEVICE
 
-    async def get_generator(self, key: str = "gemma") -> tuple[Any, Any, bool, int]:
+    async def get_generator(self) -> tuple[Any, Any, bool, int]:
         """
-        Get tokenizer and model, loading if needed.
+        Get generator tokenizer and model (Gemma).
+        Only for model.generate() - never use for embedding.
         Returns: (tokenizer, model, loaded_from_cache, load_ms)
         """
+        key = "generator"
         async with self._lock:
-            start = time.time()
             cached = key in self._models
 
             if not cached:
-                log.info(f"Loading model: {key}")
+                log.info(f"Loading generator: {GEMMA_MODEL_ID}")
                 load_start = time.time()
-                tokenizer, model = self._load_model(key)
+                tokenizer, model = self._load_generator()
                 self._tokenizers[key] = tokenizer
                 self._models[key] = model
                 load_ms = int((time.time() - load_start) * 1000)
-                log.info(f"Model {key} loaded in {load_ms}ms on {self._device}")
+                log.info(f"Generator loaded in {load_ms}ms on {self._device}")
             else:
                 load_ms = 0
-                log.debug(f"Model {key} already loaded")
+                log.debug("Generator already loaded")
 
             self._last_used[key] = time.time()
             return self._tokenizers[key], self._models[key], cached, load_ms
 
-    def _load_model(self, key: str) -> tuple[Any, Any]:
-        """Load tokenizer and model synchronously."""
+    async def get_encoder(self) -> tuple[Any, Any, bool, int]:
+        """
+        Get encoder tokenizer and model (KaLM).
+        Only for embedding (encode/forward) - never use generate().
+        Returns: (tokenizer, model, loaded_from_cache, load_ms)
+        """
+        key = "encoder"
+        async with self._lock:
+            cached = key in self._models
+
+            if not cached:
+                log.info(f"Loading encoder: {KALM_EMB_ID}")
+                load_start = time.time()
+                tokenizer, model = self._load_encoder()
+                self._tokenizers[key] = tokenizer
+                self._models[key] = model
+                load_ms = int((time.time() - load_start) * 1000)
+                log.info(f"Encoder loaded in {load_ms}ms on {self._device}")
+            else:
+                load_ms = 0
+                log.debug("Encoder already loaded")
+
+            self._last_used[key] = time.time()
+            return self._tokenizers[key], self._models[key], cached, load_ms
+
+    def _load_generator(self) -> tuple[Any, Any]:
+        """Load generator (Gemma) - for text generation only."""
         from transformers import AutoTokenizer, AutoModelForCausalLM
         import torch
-        from app.core.config import HF_TOKEN
 
-        if key == "gemma":
-            model_id = GEMMA_MODEL_ID
-        else:
-            raise ValueError(f"Unknown model key: {key}")
-
-        log.info(f"Loading model: {model_id}")
         kwargs = {"token": HF_TOKEN} if HF_TOKEN else {}
 
-        tokenizer = AutoTokenizer.from_pretrained(model_id, **kwargs)
+        tokenizer = AutoTokenizer.from_pretrained(GEMMA_MODEL_ID, **kwargs)
         model = AutoModelForCausalLM.from_pretrained(
-            model_id,
+            GEMMA_MODEL_ID,
             torch_dtype=torch.bfloat16,
             device_map=self._device if self._device == "cuda" else None,
             **kwargs,
@@ -73,10 +102,26 @@ class ModelManager:
         model.eval()
         return tokenizer, model
 
-    def touch(self, key: str):
-        """Update last_used timestamp."""
-        if key in self._models:
-            self._last_used[key] = time.time()
+    def _load_encoder(self) -> tuple[Any, Any]:
+        """Load encoder (KaLM) - for embedding only, never generate()."""
+        from transformers import AutoTokenizer, AutoModel
+        import torch
+
+        kwargs = {"token": HF_TOKEN} if HF_TOKEN else {}
+
+        tokenizer = AutoTokenizer.from_pretrained(KALM_EMB_ID, **kwargs)
+        model = AutoModel.from_pretrained(
+            KALM_EMB_ID,
+            torch_dtype=torch.bfloat16,
+            device_map=self._device if self._device == "cuda" else None,
+            **kwargs,
+        )
+
+        if self._device == "cuda" and model.device.type != "cuda":
+            model = model.to(self._device)
+
+        model.eval()
+        return tokenizer, model
 
     async def unload_if_idle(self, now: Optional[float] = None) -> list[str]:
         """Unload models that have been idle beyond threshold."""

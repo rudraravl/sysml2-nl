@@ -1,6 +1,7 @@
 #!/bin/bash
 # SysML-NL Backend Runner
 # Run this script to start the FastAPI backend
+# Uses conda base environment
 
 set -e
 
@@ -12,17 +13,12 @@ cd "$BACKEND_DIR"
 echo "=== SysML-NL Backend ==="
 echo "Directory: $BACKEND_DIR"
 
-# Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
-fi
+# Activate conda base environment
+eval "$(conda shell.bash hook)"
+conda activate base
 
-# Activate virtual environment
-source venv/bin/activate
-
-# Install dependencies
-echo "Installing dependencies..."
+# Install dependencies if needed (first time only)
+echo "Checking dependencies..."
 pip install -q -r requirements.txt
 
 # Run the server (single worker for model management)

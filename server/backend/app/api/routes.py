@@ -38,15 +38,6 @@ async def nl2sysml(req: NL2SysMLRequest):
     )
 
 
-# Keep backward compatibility with old endpoint
-@router.post("/api/nl2llm")
-async def nl2llm_legacy(req: dict):
-    """Legacy endpoint for backward compatibility."""
-    text = req.get("text", "")
-    if not text:
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
-    return {"result": "hello-sysml"}
-
 
 @router.get("/api/version", response_model=VersionResponse)
 async def version():
