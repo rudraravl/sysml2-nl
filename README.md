@@ -54,6 +54,11 @@ sysml2-nl/
 │   ├── gen_dataset_SysML_v2_Models.py     # Script to generate community samples (000251-000286)
 │   ├── gen_dataset_SysML-v2-Pilot.py      # Script to generate pilot implementation samples (000287-000685)
 │   └── gen_NL_SysML_v2_Models.py          # Script to generate natural language descriptions from SysML v2 models using Gemini API
+├── server/                    # Web service for NL to SysML conversion (Nginx + Next.js + FastAPI)
+│   ├── README.md              # Server documentation with deployment instructions
+│   ├── frontend/              # Next.js 14 frontend with Monokai theme UI
+│   ├── backend/               # FastAPI backend with /api/nl2llm endpoint
+│   └── deploy/                # Deployment scripts (nginx.conf, tmux_start.sh, stop.sh, status.sh)
 └── tmp/                       # Temporary directory for external repositories and processing
     ├── SysML-v2-Models/       # External SysML v2 models repository for dataset generation
     │   └── models/            # Source SysML v2 model files organized by example categories
@@ -81,3 +86,14 @@ cd tmp/SysMLv2_Models_Validation
 ./run.sh
 ```
 This will automatically build the application and start the web server at http://localhost:5213 where you can upload and validate SysML v2 model files.
+
+## NL-to-SysML Web Service
+
+The `server/` directory contains a web service for converting natural language to SysML, deployed on GCP VM (34.83.162.173). Architecture: Nginx (:80) → Next.js frontend (:3000) + FastAPI backend (:8000), all bound to localhost except Nginx.
+```bash
+cd server/deploy
+./tmux_start.sh      # Start all services
+./stop.sh            # Stop all services
+./status.sh          # Check service status
+```
+Access at http://34.83.162.173/ or test API: `curl -X POST http://34.83.162.173/api/nl2llm -H "Content-Type: application/json" -d '{"text":"test"}'`

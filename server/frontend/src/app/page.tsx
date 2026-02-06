@@ -3,9 +3,19 @@
 import { useState, useRef, useEffect } from 'react'
 import styles from './page.module.css'
 
+type Pipeline = 'kalm' | 'qwen' | 'llama'
+
+interface Diagnostics {
+  loaded_from_cache: boolean
+  model_load_ms: number
+  gen_ms: number
+}
+
 export default function Home() {
   const [inputText, setInputText] = useState('')
   const [result, setResult] = useState<string | null>(null)
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null)
+  const [pipeline, setPipeline] = useState<Pipeline>('kalm')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -30,15 +40,20 @@ export default function Home() {
     setIsLoading(true)
     setError(null)
     setResult(null)
+    setDiagnostics(null)
     setIsAnimating(true)
 
     try {
-      const response = await fetch('/api/nl2llm', {
+      const response = await fetch('/api/nl2sysml', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: inputText }),
+        body: JSON.stringify({ 
+          text: inputText,
+          pipeline: pipeline,
+          max_new_tokens: 768
+        }),
       })
 
       if (!response.ok) {
@@ -47,7 +62,8 @@ export default function Home() {
       }
 
       const data = await response.json()
-      setResult(data.result)
+      setResult(data.sysml)
+      setDiagnostics(data.diagnostics)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -59,6 +75,7 @@ export default function Home() {
   const handleClear = () => {
     setInputText('')
     setResult(null)
+    setDiagnostics(null)
     setError(null)
     textareaRef.current?.focus()
   }
@@ -88,13 +105,33 @@ export default function Home() {
           </p>
           <div className={styles.badge}>
             <span className={styles.badgeDot} />
-            MVP v0.1
+            v0.2
           </div>
         </header>
 
         {/* Main Card */}
         <div className={styles.card}>
           <form onSubmit={handleSubmit} className={styles.form}>
+            {/* Pipeline Selection */}
+            <div className={styles.pipelineSection}>
+              <label className={styles.label}>
+                <span className={styles.labelIcon}>⚙</span>
+                Pipeline
+              </label>
+              <div className={styles.pipelineButtons}>
+                {(['kalm', 'qwen', 'llama'] as Pipeline[]).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`${styles.pipelineBtn} ${pipeline === p ? styles.pipelineBtnActive : ''}`}
+                    onClick={() => setPipeline(p)}
+                  >
+                    {p.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Input Section */}
             <div className={styles.inputSection}>
               <label className={styles.label}>
@@ -182,6 +219,17 @@ export default function Home() {
                     </button>
                   </div>
                   <pre className={styles.resultCode}>{result}</pre>
+                  {diagnostics && (
+                    <div className={styles.diagnostics}>
+                      <span className={styles.diagItem}>
+                        {diagnostics.loaded_from_cache ? '⚡ cached' : '🔄 loaded'}
+                      </span>
+                      {diagnostics.model_load_ms > 0 && (
+                        <span className={styles.diagItem}>load: {diagnostics.model_load_ms}ms</span>
+                      )}
+                      <span className={styles.diagItem}>gen: {diagnostics.gen_ms}ms</span>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>

@@ -1,19 +1,38 @@
 """
 SysML-NL Converter Backend - FastAPI Application
-MVP: Returns fixed "hello-sysml" for nl2llm endpoint
+Supports multiple pipelines: kalm, qwen, llama
+With load-on-demand model management and idle unload.
 """
 
-from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+
+from app.api.routes import router
+from app.runtime.lifecycle import start_background_tasks, stop_background_tasks
+from app.core.logging import get_logger
+
+log = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage startup and shutdown."""
+    log.info("Starting SysML-NL backend")
+    await start_background_tasks(app)
+    yield
+    log.info("Shutting down SysML-NL backend")
+    await stop_background_tasks(app)
+
 
 app = FastAPI(
     title="SysML-NL Converter API",
-    description="Convert natural language to SysML",
-    version="0.1.0",
+    description="Convert natural language to SysML v2",
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
-# CORS middleware (mainly for local development)
+# CORS middleware (for local development, Nginx handles same-origin in prod)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,43 +41,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class NL2LLMRequest(BaseModel):
-    """Request model for nl2llm endpoint"""
-    text: str = Field(..., min_length=1, description="Natural language input text")
-
-
-class NL2LLMResponse(BaseModel):
-    """Response model for nl2llm endpoint"""
-    result: str = Field(..., description="Converted result")
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
-
-
-@app.post("/api/nl2llm", response_model=NL2LLMResponse)
-async def nl2llm(request: NL2LLMRequest):
-    """
-    Convert natural language to LLM format.
-    
-    MVP: Returns fixed "hello-sysml" for any input.
-    """
-    if not request.text or not request.text.strip():
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
-    
-    # MVP: Fixed return value
-    # TODO: Replace with actual pipeline (Qwen3-Embedding + Qwen3-Instruct / Qwen3-VL)
-    return NL2LLMResponse(result="hello-sysml")
-
-
-@app.get("/api/version")
-async def get_version():
-    """Get API version information"""
-    return {
-        "version": "0.1.0",
-        "stage": "MVP",
-        "description": "SysML-NL Converter"
-    }
+# Include routes
+app.include_router(router)
