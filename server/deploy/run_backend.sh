@@ -22,7 +22,7 @@ echo "Checking dependencies..."
 pip install -q -r requirements.txt
 
 # Run the server (single worker for model management)
-echo "Starting FastAPI server on 127.0.0.1:8000..."
+echo "Starting FastAPI server on 0.0.0.0:8000..."
 echo "Model idle timeout: ${IDLE_UNLOAD_SECONDS:-600}s"
 echo "----------------------------------------"
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1

@@ -24,7 +24,7 @@ if [ ! -d ".next" ]; then
     npm run build
 fi
 
-# Run the server
-echo "Starting Next.js server on 127.0.0.1:3000..."
+# Run the server on port 80 (requires sudo for privileged port)
+echo "Starting Next.js server on 0.0.0.0:80..."
 echo "----------------------------------------"
-npm run start -- -p 3000 -H 127.0.0.1
+sudo env "PATH=$PATH" npm run start -- -p 80 -H 0.0.0.0
