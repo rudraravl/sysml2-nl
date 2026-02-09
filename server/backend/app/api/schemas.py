@@ -15,10 +15,17 @@ class Diagnostics(BaseModel):
     """Generation diagnostics."""
     model_config = ConfigDict(protected_namespaces=())
     
+    # Generator diagnostics (common to all pipelines)
     loaded_from_cache: bool
     model_load_ms: int
     gen_ms: int
     unloaded_models: list[str] = Field(default_factory=list)
+    
+    # Encoder/embedding diagnostics (kalm pipeline only)
+    encoder_loaded_from_cache: Optional[bool] = None
+    encoder_load_ms: Optional[int] = None
+    embedding_ms: Optional[int] = None
+    embedding_dim: Optional[int] = None
 
 
 class NL2SysMLResponse(BaseModel):

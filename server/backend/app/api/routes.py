@@ -26,14 +26,24 @@ async def nl2sysml(req: NL2SysMLRequest):
     pipeline = get_pipeline(req.pipeline)
     sysml, diag_extra = await pipeline.run(req.text, req.max_new_tokens)
 
+    # Map pipeline-specific diagnostics to common fields
+    # kalm pipeline uses generator_* prefix, others use direct names
+    loaded_from_cache = diag_extra.get("generator_loaded_from_cache", diag_extra.get("loaded_from_cache", False))
+    model_load_ms = diag_extra.get("generator_load_ms", diag_extra.get("model_load_ms", 0))
+    
     return NL2SysMLResponse(
         pipeline=req.pipeline,
         sysml=sysml,
         diagnostics=Diagnostics(
-            loaded_from_cache=diag_extra.get("loaded_from_cache", False),
-            model_load_ms=diag_extra.get("model_load_ms", 0),
+            loaded_from_cache=loaded_from_cache,
+            model_load_ms=model_load_ms,
             gen_ms=diag_extra.get("gen_ms", 0),
             unloaded_models=diag_extra.get("unloaded_models", []),
+            # Encoder/embedding fields (kalm pipeline only)
+            encoder_loaded_from_cache=diag_extra.get("encoder_loaded_from_cache"),
+            encoder_load_ms=diag_extra.get("encoder_load_ms"),
+            embedding_ms=diag_extra.get("embedding_ms"),
+            embedding_dim=diag_extra.get("embedding_dim"),
         ),
     )
 

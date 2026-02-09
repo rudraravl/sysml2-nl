@@ -1,6 +1,15 @@
 """Central configuration."""
 
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from repository root (3 levels up from this file)
+# server/backend/app/core/config.py -> repo root
+_repo_root = Path(__file__).resolve().parents[4]
+_env_file = _repo_root / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file)
 
 # Idle timeout (10 minutes default)
 IDLE_UNLOAD_SECONDS = int(os.getenv("IDLE_UNLOAD_SECONDS", "600"))

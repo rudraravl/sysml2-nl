@@ -9,6 +9,11 @@ interface Diagnostics {
   loaded_from_cache: boolean
   model_load_ms: number
   gen_ms: number
+  // Encoder/embedding fields (kalm pipeline only)
+  encoder_loaded_from_cache?: boolean
+  encoder_load_ms?: number
+  embedding_ms?: number
+  embedding_dim?: number
 }
 
 export default function Home() {
@@ -221,11 +226,27 @@ export default function Home() {
                   <pre className={styles.resultCode}>{result}</pre>
                   {diagnostics && (
                     <div className={styles.diagnostics}>
+                      {/* Encoder diagnostics (kalm pipeline) */}
+                      {diagnostics.encoder_loaded_from_cache !== undefined && (
+                        <span className={styles.diagItem}>
+                          {diagnostics.encoder_loaded_from_cache ? '⚡ enc cached' : '🔄 enc loaded'}
+                        </span>
+                      )}
+                      {diagnostics.encoder_load_ms !== undefined && diagnostics.encoder_load_ms > 0 && (
+                        <span className={styles.diagItem}>enc load: {diagnostics.encoder_load_ms}ms</span>
+                      )}
+                      {diagnostics.embedding_ms !== undefined && (
+                        <span className={styles.diagItem}>emb: {diagnostics.embedding_ms}ms</span>
+                      )}
+                      {diagnostics.embedding_dim !== undefined && (
+                        <span className={styles.diagItem}>dim: {diagnostics.embedding_dim}</span>
+                      )}
+                      {/* Generator diagnostics */}
                       <span className={styles.diagItem}>
-                        {diagnostics.loaded_from_cache ? '⚡ cached' : '🔄 loaded'}
+                        {diagnostics.loaded_from_cache ? '⚡ gen cached' : '🔄 gen loaded'}
                       </span>
                       {diagnostics.model_load_ms > 0 && (
-                        <span className={styles.diagItem}>load: {diagnostics.model_load_ms}ms</span>
+                        <span className={styles.diagItem}>gen load: {diagnostics.model_load_ms}ms</span>
                       )}
                       <span className={styles.diagItem}>gen: {diagnostics.gen_ms}ms</span>
                     </div>
