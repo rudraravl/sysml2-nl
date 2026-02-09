@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Increase timeout for API proxying (5 minutes for model loading)
+  experimental: {
+    proxyTimeout: 300000, // 5 minutes in milliseconds
+  },
   // Proxy API requests to backend
   async rewrites() {
     return [

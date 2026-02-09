@@ -24,7 +24,35 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [copied, setCopied] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Copy to clipboard with fallback for HTTP
+  const copyToClipboard = async (text: string) => {
+    try {
+      // Try modern clipboard API first (requires HTTPS)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // Fallback for HTTP: use textarea + execCommand
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      }
+      // Show feedback
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
 
   useEffect(() => {
     // Auto-resize textarea
@@ -49,6 +77,10 @@ export default function Home() {
     setIsAnimating(true)
 
     try {
+      // Use AbortController with 5 minute timeout for model loading
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
+      
       const response = await fetch('/api/nl2sysml', {
         method: 'POST',
         headers: {
@@ -59,7 +91,10 @@ export default function Home() {
           pipeline: pipeline,
           max_new_tokens: 4096
         }),
+        signal: controller.signal,
       })
+      
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const data = await response.json()
@@ -70,7 +105,11 @@ export default function Home() {
       setResult(data.sysml)
       setDiagnostics(data.diagnostics)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Request timed out. The model may still be loading - please try again.')
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      }
     } finally {
       setIsLoading(false)
       setTimeout(() => setIsAnimating(false), 300)
@@ -213,42 +252,29 @@ export default function Home() {
                       SysML Output
                     </span>
                     <button 
-                      className={styles.copyBtn}
-                      onClick={() => navigator.clipboard.writeText(result)}
-                      title="Copy to clipboard"
+                      className={`${styles.copyBtn} ${copied ? styles.copyBtnSuccess : ''}`}
+                      onClick={() => copyToClipboard(result)}
+                      title={copied ? "Copied!" : "Copy to clipboard"}
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                      </svg>
+                      {copied ? (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                      )}
                     </button>
                   </div>
                   <pre className={styles.resultCode}>{result}</pre>
                   {diagnostics && (
                     <div className={styles.diagnostics}>
-                      {/* Encoder diagnostics (kalm pipeline) */}
-                      {diagnostics.encoder_loaded_from_cache !== undefined && (
-                        <span className={styles.diagItem}>
-                          {diagnostics.encoder_loaded_from_cache ? '⚡ enc cached' : '🔄 enc loaded'}
-                        </span>
-                      )}
-                      {diagnostics.encoder_load_ms !== undefined && diagnostics.encoder_load_ms > 0 && (
-                        <span className={styles.diagItem}>enc load: {diagnostics.encoder_load_ms}ms</span>
-                      )}
-                      {diagnostics.embedding_ms !== undefined && (
-                        <span className={styles.diagItem}>emb: {diagnostics.embedding_ms}ms</span>
-                      )}
-                      {diagnostics.embedding_dim !== undefined && (
-                        <span className={styles.diagItem}>dim: {diagnostics.embedding_dim}</span>
-                      )}
-                      {/* Generator diagnostics */}
-                      <span className={styles.diagItem}>
-                        {diagnostics.loaded_from_cache ? '⚡ gen cached' : '🔄 gen loaded'}
-                      </span>
                       {diagnostics.model_load_ms > 0 && (
-                        <span className={styles.diagItem}>gen load: {diagnostics.model_load_ms}ms</span>
+                        <span className={styles.diagItem}>⏱ load: {(diagnostics.model_load_ms / 1000).toFixed(1)}s</span>
                       )}
-                      <span className={styles.diagItem}>gen: {diagnostics.gen_ms}ms</span>
+                      <span className={styles.diagItem}>⚡ gen: {(diagnostics.gen_ms / 1000).toFixed(1)}s</span>
                     </div>
                   )}
                 </div>
