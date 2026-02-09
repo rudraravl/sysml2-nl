@@ -47,7 +47,7 @@ class KaLMGemmaPipeline(BasePipeline):
     def name(self) -> str:
         return "kalm"
 
-    async def _generate_embedding(self, text: str) -> tuple[torch.Tensor, bool, int]:
+    async def _generate_embedding(self, text: str) -> tuple[torch.Tensor, bool, int, list[str]]:
         """
         Generate embedding for input text using KaLM encoder.
         
@@ -55,9 +55,9 @@ class KaLMGemmaPipeline(BasePipeline):
             text: Input text to encode
             
         Returns:
-            (embedding, loaded_from_cache, load_ms)
+            (embedding, loaded_from_cache, load_ms, evicted_models)
         """
-        enc_tokenizer, enc_model, enc_cached, enc_load_ms = await model_manager.get_encoder()
+        enc_tokenizer, enc_model, enc_cached, enc_load_ms, enc_evicted = await model_manager.get_encoder()
         
         # Tokenize input for encoder
         inputs = enc_tokenizer(
@@ -76,7 +76,7 @@ class KaLMGemmaPipeline(BasePipeline):
             # L2 normalize for cosine similarity compatibility
             embedding = torch.nn.functional.normalize(embedding, p=2, dim=1)
         
-        return embedding, enc_cached, enc_load_ms
+        return embedding, enc_cached, enc_load_ms, enc_evicted
 
     async def run(self, text: str, max_new_tokens: int) -> tuple[str, dict]:
         """Generate SysML from natural language using embedding-guided generation."""
@@ -90,12 +90,12 @@ class KaLMGemmaPipeline(BasePipeline):
         # Step 1: Generate embedding using KaLM encoder
         # log.info("Generating embedding with KaLM encoder...")
         # emb_start = time.time()
-        # embedding, enc_cached, enc_load_ms = await self._generate_embedding(text)
+        # embedding, enc_cached, enc_load_ms, enc_evicted = await self._generate_embedding(text)
         # emb_ms = int((time.time() - emb_start) * 1000)
         # log.info(f"Embedding generated: shape={embedding.shape}, time={emb_ms}ms")
 
         # Step 2: Get generator (Gemma) for text generation
-        gen_tokenizer, gen_model, gen_cached, gen_load_ms = await model_manager.get_generator()
+        gen_tokenizer, gen_model, gen_cached, gen_load_ms, gen_evicted = await model_manager.get_generator()
 
         # Build prompt using chat template (proper way for chat models)
         # The embedding provides semantic understanding; prompt guides generation
@@ -143,6 +143,7 @@ class KaLMGemmaPipeline(BasePipeline):
             "generator_loaded_from_cache": gen_cached,
             "generator_load_ms": gen_load_ms,
             "gen_ms": gen_ms,
+            "evicted_models": gen_evicted,  # Models evicted due to memory pressure
         }
 
         return sysml, diagnostics

@@ -1,9 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Ensure we can work behind Nginx proxy
+  // Proxy API requests to backend
   async rewrites() {
-    return [];
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://127.0.0.1:8000/api/:path*',
+      },
+      {
+        source: '/health',
+        destination: 'http://127.0.0.1:8000/health',
+      },
+    ];
   },
 }
 
