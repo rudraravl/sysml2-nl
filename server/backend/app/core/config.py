@@ -23,11 +23,18 @@ DEFAULT_MAX_NEW_TOKENS = int(os.getenv("DEFAULT_MAX_NEW_TOKENS", "4096"))
 MAX_NEW_TOKENS_LIMIT = int(os.getenv("MAX_NEW_TOKENS_LIMIT", "65536"))
 
 # Model IDs
-# Generator: google/gemma-3-12b-it (for generation via model.generate())
-# Encoder: tencent/KaLM-Embedding-Gemma3-12B-2511 (for embedding via encode())
+# KaLM-Gemma Pipeline:
+#   Generator: google/gemma-3-12b-it (for generation via model.generate())
+#   Encoder: tencent/KaLM-Embedding-Gemma3-12B-2511 (for embedding via encode())
 # For gated models, set HF_TOKEN env var or run: huggingface-cli login
 GEMMA_MODEL_ID = os.getenv("GEMMA_MODEL_ID", "google/gemma-3-12b-it")
 KALM_EMB_ID = os.getenv("KALM_EMB_ID", "tencent/KaLM-Embedding-Gemma3-12B-2511")
+
+# Qwen Pipeline:
+#   Generator: Qwen/Qwen3-8B-Instruct (for generation)
+#   Encoder: Qwen/Qwen3-Embedding-8B (for embedding)
+QWEN_MODEL_ID = os.getenv("QWEN_MODEL_ID", "Qwen/Qwen3-8B")
+QWEN_EMB_ID = os.getenv("QWEN_EMB_ID", "Qwen/Qwen3-Embedding-8B")
 
 # HuggingFace token (for gated models)
 HF_TOKEN = os.getenv("HF_TOKEN", None)

@@ -14,7 +14,8 @@ from typing import Any, Optional
 
 from app.core.config import (
     IDLE_UNLOAD_SECONDS, MODEL_DEVICE, 
-    GEMMA_MODEL_ID, KALM_EMB_ID, HF_TOKEN
+    GEMMA_MODEL_ID, KALM_EMB_ID, HF_TOKEN,
+    QWEN_MODEL_ID, QWEN_EMB_ID
 )
 from app.core.logging import get_logger
 
@@ -183,6 +184,104 @@ class ModelManager:
         tokenizer = AutoTokenizer.from_pretrained(KALM_EMB_ID, **kwargs)
         model = AutoModel.from_pretrained(
             KALM_EMB_ID,
+            torch_dtype=torch.bfloat16,
+            device_map=self._device if self._device == "cuda" else None,
+            **kwargs,
+        )
+
+        if self._device == "cuda" and model.device.type != "cuda":
+            model = model.to(self._device)
+
+        model.eval()
+        return tokenizer, model
+
+    # ==================== Qwen Models ====================
+
+    async def get_qwen_generator(self) -> tuple[Any, Any, bool, int, list[str]]:
+        """
+        Get Qwen generator tokenizer and model.
+        Returns: (tokenizer, model, loaded_from_cache, load_ms, evicted_models)
+        """
+        key = "qwen_generator"
+        evicted = []
+        async with self._lock:
+            cached = key in self._models
+
+            if not cached:
+                evicted = self._ensure_gpu_memory(MIN_FREE_GPU_MEMORY_GB)
+                
+                log.info(f"Loading Qwen generator: {QWEN_MODEL_ID}")
+                load_start = time.time()
+                tokenizer, model = self._load_qwen_generator()
+                self._tokenizers[key] = tokenizer
+                self._models[key] = model
+                load_ms = int((time.time() - load_start) * 1000)
+                log.info(f"Qwen generator loaded in {load_ms}ms on {self._device}")
+            else:
+                load_ms = 0
+                log.debug("Qwen generator already loaded")
+
+            self._last_used[key] = time.time()
+            return self._tokenizers[key], self._models[key], cached, load_ms, evicted
+
+    async def get_qwen_encoder(self) -> tuple[Any, Any, bool, int, list[str]]:
+        """
+        Get Qwen encoder tokenizer and model for embeddings.
+        Returns: (tokenizer, model, loaded_from_cache, load_ms, evicted_models)
+        """
+        key = "qwen_encoder"
+        evicted = []
+        async with self._lock:
+            cached = key in self._models
+
+            if not cached:
+                evicted = self._ensure_gpu_memory(MIN_FREE_GPU_MEMORY_GB)
+                
+                log.info(f"Loading Qwen encoder: {QWEN_EMB_ID}")
+                load_start = time.time()
+                tokenizer, model = self._load_qwen_encoder()
+                self._tokenizers[key] = tokenizer
+                self._models[key] = model
+                load_ms = int((time.time() - load_start) * 1000)
+                log.info(f"Qwen encoder loaded in {load_ms}ms on {self._device}")
+            else:
+                load_ms = 0
+                log.debug("Qwen encoder already loaded")
+
+            self._last_used[key] = time.time()
+            return self._tokenizers[key], self._models[key], cached, load_ms, evicted
+
+    def _load_qwen_generator(self) -> tuple[Any, Any]:
+        """Load Qwen generator for text generation."""
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        import torch
+
+        kwargs = {"token": HF_TOKEN} if HF_TOKEN else {}
+
+        tokenizer = AutoTokenizer.from_pretrained(QWEN_MODEL_ID, **kwargs)
+        model = AutoModelForCausalLM.from_pretrained(
+            QWEN_MODEL_ID,
+            torch_dtype=torch.bfloat16,
+            device_map=self._device if self._device == "cuda" else None,
+            **kwargs,
+        )
+
+        if self._device == "cuda" and model.device.type != "cuda":
+            model = model.to(self._device)
+
+        model.eval()
+        return tokenizer, model
+
+    def _load_qwen_encoder(self) -> tuple[Any, Any]:
+        """Load Qwen encoder for embeddings."""
+        from transformers import AutoTokenizer, AutoModel
+        import torch
+
+        kwargs = {"token": HF_TOKEN} if HF_TOKEN else {}
+
+        tokenizer = AutoTokenizer.from_pretrained(QWEN_EMB_ID, **kwargs)
+        model = AutoModel.from_pretrained(
+            QWEN_EMB_ID,
             torch_dtype=torch.bfloat16,
             device_map=self._device if self._device == "cuda" else None,
             **kwargs,
