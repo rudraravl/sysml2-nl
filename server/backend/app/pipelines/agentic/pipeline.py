@@ -27,16 +27,17 @@ from app.core.logging import get_logger
 
 log = get_logger(__name__)
 
-# Expert models (using available models on OpenRouter)
+# Expert models
 EXPERT_MODELS = [
-    "gemini-2.0-flash",  # Fast Gemini model
-    "openai/gpt-4o-mini",  # OpenAI via OpenRouter
-    "anthropic/claude-3.5-sonnet",  # Claude via OpenRouter
-    "meta-llama/llama-3.1-70b-instruct",  # Llama via OpenRouter
+    "gemini-3-pro-preview",
+    "openai/gpt-4o",
+    "anthropic/claude-sonnet-4.5",
+    "meta-llama/llama-4-maverick",
+    # include qwen 235B
 ]
 
 # Combiner model for the final synthesis step
-COMBINER_MODEL = "anthropic/claude-3.5-sonnet"
+COMBINER_MODEL = "anthropic/claude-sonnet-4.5"
 
 # Heuristic reliability rating per expert family (0–10)
 EXPERT_MODELS_RATING = {
@@ -255,9 +256,40 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str) -> str:
 class AgenticPipeline(BasePipeline):
     """Pipeline using MoE with RAG for SysML generation."""
 
+    def __init__(self):
+        self._progress_callback = None
+
     @property
     def name(self) -> str:
         return "agentic"
+
+    def set_progress_callback(self, callback):
+        """Set a callback function for progress updates."""
+        self._progress_callback = callback
+
+    def _report_progress(self, stage: str, detail: str = ""):
+        """Report progress to callback if set."""
+        if self._progress_callback:
+            self._progress_callback(stage, detail)
+        log.info(f"[{stage}] {detail}")
+
+    async def _query_expert(self, model: str, sys_msg: str, human_msg: str, loop) -> Tuple[str, str, float]:
+        """Query a single expert model. Returns (model_name, output, duration_ms)."""
+        import time
+        start = time.time()
+        try:
+            out = await loop.run_in_executor(None, _invoke_with_retry, model, sys_msg, human_msg)
+            duration = int((time.time() - start) * 1000)
+            if out:
+                self._report_progress("expert_done", f"{model} returned {len(out)} chars in {duration}ms")
+                return (model, out, duration)
+            else:
+                self._report_progress("expert_done", f"{model} returned empty in {duration}ms")
+                return (model, "", duration)
+        except Exception as e:
+            duration = int((time.time() - start) * 1000)
+            self._report_progress("expert_failed", f"{model} failed: {e}")
+            return (model, "", duration)
 
     async def run(self, text: str, max_new_tokens: int) -> tuple[str, dict]:
         """Generate SysML from natural language using RAG + MoE synthesis."""
@@ -283,31 +315,50 @@ class AgenticPipeline(BasePipeline):
         root = Path(__file__).resolve().parents[5]
         
         # Step 1: Build RAG context
+        self._report_progress("rag", "Building RAG context...")
         rag_start = time.time()
         context = _rag_context(text, root, k=3)
         rag_ms = int((time.time() - rag_start) * 1000)
-        log.info(f"RAG context built in {rag_ms}ms")
+        self._report_progress("rag_done", f"RAG context built in {rag_ms}ms")
 
         sys_msg = _default_system_prompt(None)
         human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=text)
 
-        # Step 2: Query all expert models (run in thread pool to avoid blocking)
+        # Step 2: Query all expert models IN PARALLEL
+        self._report_progress("experts", f"Querying {len(EXPERT_MODELS)} experts in parallel...")
         gen_start = time.time()
-        candidates: List[Tuple[str, str]] = []
         
         loop = asyncio.get_event_loop()
-        for m in EXPERT_MODELS:
-            log.info(f"Querying expert: {m}")
-            try:
-                out = await loop.run_in_executor(None, _invoke_with_retry, m, sys_msg, human_msg)
-                if out:
-                    candidates.append((m, out))
-                    log.info(f"Expert {m} returned {len(out)} chars")
-            except Exception as e:
-                log.warning(f"Expert {m} failed: {e}")
+        
+        # Create tasks for all experts
+        tasks = [
+            self._query_expert(m, sys_msg, human_msg, loop)
+            for m in EXPERT_MODELS
+        ]
+        
+        # Run all expert queries in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Collect successful candidates
+        candidates: List[Tuple[str, str]] = []
+        expert_times: dict[str, int] = {}
+        
+        for result in results:
+            if isinstance(result, Exception):
+                continue
+            model, output, duration = result
+            expert_times[model] = duration
+            if output:
+                candidates.append((model, output))
+        
+        experts_ms = int((time.time() - gen_start) * 1000)
+        self._report_progress("experts_done", f"Got {len(candidates)}/{len(EXPERT_MODELS)} responses in {experts_ms}ms")
 
         # Step 3: Synthesis by COMBINER_MODEL using candidates as extra context
+        synth_start = time.time()
         if candidates:
+            self._report_progress("synthesis", f"Synthesizing with {COMBINER_MODEL}...")
+            
             cand_block = []
             for i, (name, code) in enumerate(candidates, 1):
                 grp = _model_group(name)
@@ -319,24 +370,27 @@ class AgenticPipeline(BasePipeline):
             synth_sys_msg = _default_system_prompt(synth_sys_hint)
             synth_human_msg = PROMPT_HUMAN_TEMPLATE.format(context=synth_context, input=text)
             
-            log.info(f"Synthesizing with {COMBINER_MODEL} using {len(candidates)} candidates")
             final = await loop.run_in_executor(None, _invoke_with_retry, COMBINER_MODEL, synth_sys_msg, synth_human_msg)
         else:
             # Fallback to single call with combiner model
-            log.info(f"No candidates, falling back to {COMBINER_MODEL}")
+            self._report_progress("synthesis", f"No candidates, falling back to {COMBINER_MODEL}...")
             final = await loop.run_in_executor(None, _invoke_with_retry, COMBINER_MODEL, sys_msg, human_msg)
 
-        gen_ms = int((time.time() - gen_start) * 1000)
-        log.info(f"MoE synthesis completed in {gen_ms}ms")
+        synth_ms = int((time.time() - synth_start) * 1000)
+        total_ms = int((time.time() - gen_start) * 1000)
+        self._report_progress("done", f"Synthesis completed in {synth_ms}ms, total {total_ms}ms")
 
         # Diagnostics
         diagnostics = {
             "loaded_from_cache": True,  # API doesn't load models
             "model_load_ms": 0,
-            "gen_ms": gen_ms,
+            "gen_ms": total_ms,
             "rag_ms": rag_ms,
+            "experts_ms": experts_ms,
+            "synth_ms": synth_ms,
             "num_candidates": len(candidates),
             "expert_models": [c[0] for c in candidates],
+            "expert_times": expert_times,
             "combiner_model": COMBINER_MODEL,
             "evicted_models": [],
         }

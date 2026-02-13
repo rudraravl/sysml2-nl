@@ -14,6 +14,25 @@ interface Diagnostics {
   encoder_load_ms?: number
   embedding_ms?: number
   embedding_dim?: number
+  // Agentic pipeline fields
+  experts_ms?: number
+  synth_ms?: number
+  rag_ms?: number
+  num_candidates?: number
+  expert_models?: string[]
+  expert_times?: Record<string, number>
+}
+
+// Human-readable progress messages
+const PROGRESS_MESSAGES: Record<string, string> = {
+  'rag': 'Building knowledge context...',
+  'rag_done': 'Context ready',
+  'experts': 'Querying expert models...',
+  'expert_done': 'Expert responded',
+  'expert_failed': 'Expert unavailable',
+  'experts_done': 'All experts responded',
+  'synthesis': 'Synthesizing final result...',
+  'done': 'Complete!',
 }
 
 export default function Home() {
@@ -25,6 +44,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [progressMsg, setProgressMsg] = useState<string>('')
+  const [progressDetail, setProgressDetail] = useState<string>('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Copy to clipboard with fallback for HTTP
@@ -62,30 +83,84 @@ export default function Home() {
     }
   }, [inputText])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!inputText.trim()) {
-      setError('Please enter some text')
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-    setResult(null)
-    setDiagnostics(null)
-    setIsAnimating(true)
+  // Handle streaming request for agentic pipeline
+  const handleAgenticStream = async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
 
     try {
-      // Use AbortController with 5 minute timeout for model loading
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
-      
+      const response = await fetch('/api/nl2sysml/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text: inputText,
+          pipeline: 'agentic',
+          max_new_tokens: 4096
+        }),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || 'Request failed')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        
+        // Process SSE events
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              
+              if (data.type === 'progress') {
+                const msg = PROGRESS_MESSAGES[data.stage] || data.stage
+                setProgressMsg(msg)
+                setProgressDetail(data.detail || '')
+              } else if (data.type === 'result') {
+                setResult(data.sysml)
+                setDiagnostics(data.diagnostics)
+                setProgressMsg('')
+                setProgressDetail('')
+              } else if (data.type === 'error') {
+                throw new Error(data.message)
+              }
+              // Ignore heartbeat messages
+            } catch (parseErr) {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  // Handle regular (non-streaming) request
+  const handleRegularRequest = async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
+    
+    try {
       const response = await fetch('/api/nl2sysml', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text: inputText,
           pipeline: pipeline,
@@ -104,6 +179,34 @@ export default function Home() {
       const data = await response.json()
       setResult(data.sysml)
       setDiagnostics(data.diagnostics)
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!inputText.trim()) {
+      setError('Please enter some text')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    setResult(null)
+    setDiagnostics(null)
+    setProgressMsg('')
+    setProgressDetail('')
+    setIsAnimating(true)
+
+    try {
+      // Use streaming for agentic pipeline to show progress
+      if (pipeline === 'agentic') {
+        await handleAgenticStream()
+      } else {
+        await handleRegularRequest()
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         setError('Request timed out. The model may still be loading - please try again.')
@@ -112,6 +215,8 @@ export default function Home() {
       }
     } finally {
       setIsLoading(false)
+      setProgressMsg('')
+      setProgressDetail('')
       setTimeout(() => setIsAnimating(false), 300)
     }
   }
@@ -228,6 +333,21 @@ export default function Home() {
                 )}
               </button>
             </div>
+
+            {/* Progress indicator for agentic pipeline */}
+            {isLoading && progressMsg && (
+              <div className={styles.progressSection}>
+                <div className={styles.progressBar}>
+                  <div className={styles.progressBarInner} />
+                </div>
+                <div className={styles.progressText}>
+                  <span className={styles.progressMsg}>{progressMsg}</span>
+                  {progressDetail && (
+                    <span className={styles.progressDetail}>{progressDetail}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </form>
 
           {/* Result Section */}

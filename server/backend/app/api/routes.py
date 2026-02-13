@@ -1,6 +1,9 @@
 """API routes."""
 
+import json
+import asyncio
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.api.schemas import (
     NL2SysMLRequest,
@@ -45,6 +48,68 @@ async def nl2sysml(req: NL2SysMLRequest):
             embedding_ms=diag_extra.get("embedding_ms"),
             embedding_dim=diag_extra.get("embedding_dim"),
         ),
+    )
+
+
+@router.post("/api/nl2sysml/stream")
+async def nl2sysml_stream(req: NL2SysMLRequest):
+    """Convert natural language to SysML with streaming progress updates (SSE)."""
+    log.info(f"Stream request: pipeline={req.pipeline}, text_len={len(req.text)}")
+
+    async def event_generator():
+        progress_queue = asyncio.Queue()
+        
+        def progress_callback(stage: str, detail: str):
+            # Put progress update in queue (non-blocking)
+            try:
+                progress_queue.put_nowait({"type": "progress", "stage": stage, "detail": detail})
+            except:
+                pass
+        
+        pipeline = get_pipeline(req.pipeline)
+        
+        # Set progress callback if agentic pipeline
+        if hasattr(pipeline, 'set_progress_callback'):
+            pipeline.set_progress_callback(progress_callback)
+        
+        # Start the pipeline in a task
+        async def run_pipeline():
+            try:
+                sysml, diag_extra = await pipeline.run(req.text, req.max_new_tokens)
+                await progress_queue.put({"type": "result", "sysml": sysml, "diagnostics": diag_extra})
+            except Exception as e:
+                await progress_queue.put({"type": "error", "message": str(e)})
+        
+        task = asyncio.create_task(run_pipeline())
+        
+        # Stream progress updates
+        while True:
+            try:
+                # Wait for next update with timeout
+                msg = await asyncio.wait_for(progress_queue.get(), timeout=0.5)
+                yield f"data: {json.dumps(msg)}\n\n"
+                
+                if msg["type"] in ("result", "error"):
+                    break
+            except asyncio.TimeoutError:
+                # Send heartbeat to keep connection alive
+                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+                
+                # Check if task is done
+                if task.done():
+                    break
+        
+        # Ensure task is complete
+        await task
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
     )
 
 
