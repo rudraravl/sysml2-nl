@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Literal
 
-PipelineName = Literal["kalm", "qwen", "llama"]
+PipelineName = Literal["agentic", "kalm", "qwen", "llama"]
 
 
 class BasePipeline(ABC):

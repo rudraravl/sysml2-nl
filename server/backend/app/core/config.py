@@ -39,6 +39,12 @@ QWEN_EMB_ID = os.getenv("QWEN_EMB_ID", "Qwen/Qwen3-Embedding-8B")
 # HuggingFace token (for gated models)
 HF_TOKEN = os.getenv("HF_TOKEN", None)
 
+# Agentic Pipeline (MoE with RAG):
+#   Uses Gemini API and OpenRouter for multiple expert models
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", None)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", None)
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+
 # Check CUDA availability at import time
 try:
     import torch

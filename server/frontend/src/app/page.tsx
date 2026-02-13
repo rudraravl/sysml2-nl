@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import styles from './page.module.css'
 
-type Pipeline = 'kalm' | 'qwen' | 'llama'
+type Pipeline = 'agentic' | 'kalm' | 'qwen' | 'llama'
 
 interface Diagnostics {
   loaded_from_cache: boolean
@@ -20,7 +20,7 @@ export default function Home() {
   const [inputText, setInputText] = useState('')
   const [result, setResult] = useState<string | null>(null)
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null)
-  const [pipeline, setPipeline] = useState<Pipeline>('kalm')
+  const [pipeline, setPipeline] = useState<Pipeline>('agentic')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -163,7 +163,7 @@ export default function Home() {
                 Pipeline
               </label>
               <div className={styles.pipelineButtons}>
-                {(['kalm', 'qwen', 'llama'] as Pipeline[]).map((p) => (
+                {(['agentic', 'kalm', 'qwen', 'llama'] as Pipeline[]).map((p) => (
                   <button
                     key={p}
                     type="button"

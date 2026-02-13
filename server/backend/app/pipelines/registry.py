@@ -13,10 +13,13 @@ def _init_pipelines():
     if _pipelines:
         return
 
+    from app.pipelines.agentic.pipeline import AgenticPipeline
     from app.pipelines.kalm_gemma.pipeline import KaLMGemmaPipeline
     from app.pipelines.qwen.pipeline import QwenPipeline
     from app.pipelines.llama.pipeline import LlamaPipeline
 
+    # Agentic first (API-based with RAG)
+    _pipelines["agentic"] = AgenticPipeline()
     _pipelines["kalm"] = KaLMGemmaPipeline()
     _pipelines["qwen"] = QwenPipeline()
     _pipelines["llama"] = LlamaPipeline()
