@@ -7,10 +7,12 @@ Pipeline (from nl2sysml/agent_rag_moe.py):
   * gemini-2.5-pro (direct via Google Generative AI)
   * openrouter models: openai/gpt-5.1-codex-max, anthropic/claude-sonnet-4.5, meta-llama/llama-4-maverick
 - Ask combiner model to synthesize a single best SysML v2 model.
+- Optional: validate and refine output with SysML v2 syntax checker (if available on server).
 - Output only SysML v2 code; no markdown fences.
 """
 
 import os
+import sys
 import json
 import re
 import asyncio
@@ -26,6 +28,40 @@ from app.core.config import MAX_INPUT_CHARS, GEMINI_API_KEY, OPENROUTER_API_KEY,
 from app.core.logging import get_logger
 
 log = get_logger(__name__)
+
+# --- Syntax checker (compiler) integration (same as nl2sysml/agent_rag_moe.py) ---
+# Project root: server/backend/app/pipelines/agentic/pipeline.py -> parents[5]
+_REPO_ROOT = Path(__file__).resolve().parents[5]
+if _REPO_ROOT.exists() and str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+def _get_compiler_api():
+    """Lazy import of compiler_interface from nl2sysml. Returns (check_code, is_compiler_available, CompilerResult)."""
+    try:
+        from nl2sysml.compiler_interface import check_code, is_compiler_available, CompilerResult
+        return check_code, is_compiler_available, CompilerResult
+    except Exception as e:
+        log.info("Syntax checker not available: %s", e)
+        class _DummyResult:
+            def __init__(self, errors=None, is_valid=False):
+                self.errors = errors or []
+                self.is_valid = is_valid
+            @property
+            def error_count(self):
+                return len(self.errors)
+            def format_errors(self):
+                return "No errors found."
+        def _check_code(_code: str, syntax_only: bool = False):
+            return _DummyResult(errors=[], is_valid=False)
+        def _is_compiler_available():
+            return False
+        return _check_code, _is_compiler_available, _DummyResult
+
+_check_code_fn, _is_compiler_available_fn, _CompilerResultClass = _get_compiler_api()
+
+# Env for refinement (same as agent_rag_moe.py)
+MAX_REFINEMENT_ITERATIONS = int(os.getenv("MAX_REFINEMENT_ITERATIONS", "2"))
+COMPILER_SYNTAX_ONLY = os.getenv("COMPILER_SYNTAX_ONLY", "false").lower() == "true"
 
 # Expert models
 EXPERT_MODELS = [
@@ -253,6 +289,49 @@ def _invoke_with_retry(model: str, system_msg: str, human_msg: str) -> str:
         return out
 
 
+def _refine_with_compiler_sync(
+    code: str,
+    combiner_model: str,
+    synth_sys_msg: str,
+    synth_human_msg: str,
+    max_iterations: int,
+) -> Tuple[str, "CompilerResult"]:
+    """
+    Refine code iteratively using compiler feedback (sync, for use in run_in_executor).
+    Returns (refined_code, final_compiler_result). CompilerResult type from compiler_interface.
+    """
+    CompilerResult = _CompilerResultClass  # noqa: F811
+    if not _is_compiler_available_fn():
+        return code, CompilerResult(errors=[], is_valid=False)
+    current_code = code
+    iteration = 0
+    while iteration < max_iterations:
+        result = _check_code_fn(current_code, syntax_only=COMPILER_SYNTAX_ONLY)
+        if result.is_valid:
+            return current_code, result
+        if iteration >= max_iterations - 1:
+            return current_code, result
+        error_feedback = result.format_errors()
+        refinement_hint = (
+            f"The previous code had compilation errors. Please fix them:\n\n{error_feedback}\n\n"
+            "Generate corrected SysML v2 code that addresses these errors."
+        )
+        refinement_system = synth_sys_msg + "\n\n" + refinement_hint
+        refinement_human = (
+            f"{synth_human_msg}\n\n"
+            f"Previous code (had errors):\n```sysml\n{current_code}\n```\n\n"
+            f"Errors to fix:\n{error_feedback}\n\n"
+            "Generate the corrected code."
+        )
+        refined = _invoke_with_retry(combiner_model, refinement_system, refinement_human)
+        if not refined or refined == current_code:
+            break
+        current_code = refined
+        iteration += 1
+    final_result = _check_code_fn(current_code, syntax_only=COMPILER_SYNTAX_ONLY)
+    return current_code, final_result
+
+
 class AgenticPipeline(BasePipeline):
     """Pipeline using MoE with RAG for SysML generation."""
 
@@ -374,11 +453,44 @@ class AgenticPipeline(BasePipeline):
         else:
             # Fallback to single call with combiner model
             self._report_progress("synthesis", f"No candidates, falling back to {COMBINER_MODEL}...")
+            synth_sys_msg = sys_msg
+            synth_human_msg = human_msg
             final = await loop.run_in_executor(None, _invoke_with_retry, COMBINER_MODEL, sys_msg, human_msg)
 
         synth_ms = int((time.time() - synth_start) * 1000)
         total_ms = int((time.time() - gen_start) * 1000)
         self._report_progress("done", f"Synthesis completed in {synth_ms}ms, total {total_ms}ms")
+
+        # Step 4: Optional syntax check and refinement (if compiler available on server)
+        final_valid = False
+        final_errors = 0
+        final_error_details: List[dict] = []
+        if _is_compiler_available_fn() and final and final.strip():
+            self._report_progress("syntax_check", f"Validating and refining (up to {MAX_REFINEMENT_ITERATIONS} iterations)...")
+            refine_start = time.time()
+            final, final_result = await loop.run_in_executor(
+                None,
+                _refine_with_compiler_sync,
+                final,
+                COMBINER_MODEL,
+                synth_sys_msg,
+                synth_human_msg,
+                MAX_REFINEMENT_ITERATIONS,
+            )
+            final_valid = final_result.is_valid
+            final_errors = getattr(final_result, "error_count", len(final_result.errors))
+            if getattr(final_result, "errors", None):
+                final_error_details = [
+                    {"line": e.line, "column": e.column, "message": e.message, "severity": getattr(e, "severity", "error")}
+                    for e in final_result.errors
+                ]
+            refine_ms = int((time.time() - refine_start) * 1000)
+            self._report_progress("syntax_check_done", f"{'Valid' if final_valid else f'{final_errors} errors'} in {refine_ms}ms")
+        else:
+            if not _is_compiler_available_fn():
+                log.debug("Syntax checker not available; skipping validation")
+            elif not (final and final.strip()):
+                log.debug("No synthesis output; skipping validation")
 
         # Diagnostics
         diagnostics = {
@@ -393,6 +505,11 @@ class AgenticPipeline(BasePipeline):
             "expert_times": expert_times,
             "combiner_model": COMBINER_MODEL,
             "evicted_models": [],
+            "syntax_check_available": _is_compiler_available_fn(),
+            "final_valid": final_valid,
+            "final_errors": final_errors,
         }
+        if final_error_details:
+            diagnostics["final_error_details"] = final_error_details
 
         return final, diagnostics
