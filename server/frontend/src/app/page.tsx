@@ -46,6 +46,7 @@ export default function Home() {
   const [copied, setCopied] = useState(false)
   const [progressMsg, setProgressMsg] = useState<string>('')
   const [progressDetail, setProgressDetail] = useState<string>('')
+  const [showArchitecture, setShowArchitecture] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Copy to clipboard with fallback for HTTP
@@ -252,11 +253,220 @@ export default function Home() {
           <p className={styles.subtitle}>
             Natural Language → SysML Converter
           </p>
-          <div className={styles.badge}>
-            <span className={styles.badgeDot} />
-            v0.2
-          </div>
+          <button 
+            className={styles.archBtn}
+            onClick={() => setShowArchitecture(true)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={styles.archIcon}>
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+              <path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4"/>
+            </svg>
+            Architecture
+          </button>
         </header>
+
+        {/* Architecture Modal */}
+        {showArchitecture && (
+          <div className={styles.modalOverlay} onClick={() => setShowArchitecture(false)}>
+            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <h2 className={styles.modalTitle}>Agentic Pipeline Architecture</h2>
+                <button className={styles.modalClose} onClick={() => setShowArchitecture(false)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <div className={styles.modalBody}>
+                {/* Pipeline Flow Diagram */}
+                <div className={styles.pipelineFlow}>
+                  {/* Step 1: Input */}
+                  <div className={styles.pipelineStep}>
+                    <div className={styles.stepNumber}>1</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                          <line x1="16" y1="13" x2="8" y2="13"/>
+                          <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>Input</h3>
+                        <p>Natural language requirement description</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={styles.pipelineArrow}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M19 12l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 2: Input Agent (Coming Soon) */}
+                  <div className={`${styles.pipelineStep} ${styles.stepComingSoon}`}>
+                    <div className={styles.stepNumber}>2</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="M12 16v-4M12 8h.01"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>Input Agent <span className={styles.comingSoonBadge}>Coming Soon</span></h3>
+                        <p>Refines input, performs semantic search, and extracts key requirements</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={styles.pipelineArrow}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M19 12l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 3: RAG */}
+                  <div className={styles.pipelineStep}>
+                    <div className={styles.stepNumber}>3</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                          <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>RAG (Retrieval-Augmented Generation)</h3>
+                        <p>Retrieves relevant examples from dataset and SysML v2 specification chunks</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={styles.pipelineArrow}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M19 12l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 4: MoE */}
+                  <div className={styles.pipelineStep}>
+                    <div className={styles.stepNumber}>4</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="6" cy="6" r="3"/>
+                          <circle cx="18" cy="6" r="3"/>
+                          <circle cx="6" cy="18" r="3"/>
+                          <circle cx="18" cy="18" r="3"/>
+                          <path d="M6 9v6M18 9v6M9 6h6M9 18h6"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>MoE (Mixture of Experts)</h3>
+                        <p>Queries multiple LLMs in parallel: Gemini, GPT-4o, Claude, Llama</p>
+                        <div className={styles.expertList}>
+                          <span className={styles.expertTag}>gemini-3-pro</span>
+                          <span className={styles.expertTag}>gpt-4o</span>
+                          <span className={styles.expertTag}>claude-sonnet-4.5</span>
+                          <span className={styles.expertTag}>llama-4-maverick</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={styles.pipelineArrow}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M19 12l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 5: Synthesis */}
+                  <div className={styles.pipelineStep}>
+                    <div className={styles.stepNumber}>5</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                          <polyline points="2 17 12 22 22 17"/>
+                          <polyline points="2 12 12 17 22 12"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>Synthesis (Combiner)</h3>
+                        <p>Claude synthesizes the best SysML model from all expert candidates</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={styles.pipelineArrow}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M19 12l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 6: Compiler Feedback */}
+                  <div className={styles.pipelineStep}>
+                    <div className={styles.stepNumber}>6</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="16 18 22 12 16 6"/>
+                          <polyline points="8 6 2 12 8 18"/>
+                          <line x1="12" y1="2" x2="12" y2="22"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>Compiler Feedback & Refinement</h3>
+                        <p>Validates syntax with SysML v2 compiler, iteratively refines errors</p>
+                        <div className={styles.refinementLoop}>
+                          <span>Check</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                          <span>Fix</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                          <span>Repeat</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={styles.pipelineArrow}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M19 12l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 7: Output */}
+                  <div className={`${styles.pipelineStep} ${styles.stepFinal}`}>
+                    <div className={styles.stepNumber}>7</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                          <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>Output</h3>
+                        <p>Valid SysML v2 model ready for use</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Card */}
         <div className={styles.card}>

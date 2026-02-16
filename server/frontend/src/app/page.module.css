@@ -81,30 +81,278 @@
   margin-bottom: 1rem;
 }
 
-.badge {
+/* Architecture Button */
+.archBtn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 1rem;
+  padding: 0.5rem 1rem;
   background: var(--bg-elevated);
   border-radius: 100px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-family: var(--font-mono);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.badgeDot {
-  width: 6px;
-  height: 6px;
-  background: var(--accent-green);
+.archBtn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.archIcon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Modal Overlay */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.modalTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modalClose {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modalClose svg {
+  width: 18px;
+  height: 18px;
+}
+
+.modalClose:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-pink);
+  color: var(--accent-pink);
+}
+
+.modalBody {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+/* Pipeline Flow */
+.pipelineFlow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pipelineStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.stepNumber {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-cyan);
+  color: var(--bg-primary);
   border-radius: 50%;
-  animation: pulse 2s ease-in-out infinite;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+.stepBox {
+  flex: 1;
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.stepBox:hover {
+  border-color: var(--accent-cyan);
+  background: var(--bg-elevated);
+}
+
+.stepIcon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--accent-cyan);
+}
+
+.stepIcon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.stepContent {
+  flex: 1;
+}
+
+.stepContent h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.stepContent p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pipelineArrow {
+  display: flex;
+  justify-content: center;
+  padding-left: 42px;
+  color: var(--text-muted);
+}
+
+.pipelineArrow svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Coming Soon Step */
+.stepComingSoon .stepNumber {
+  background: var(--text-muted);
+}
+
+.stepComingSoon .stepBox {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.stepComingSoon .stepIcon {
+  color: var(--text-muted);
+}
+
+.comingSoonBadge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: var(--accent-purple);
+  color: white;
+  font-size: 0.65rem;
+  border-radius: 100px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+/* Final Step */
+.stepFinal .stepNumber {
+  background: var(--accent-green);
+}
+
+.stepFinal .stepIcon {
+  color: var(--accent-green);
+}
+
+/* Expert List */
+.expertList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.expertTag {
+  padding: 0.2rem 0.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--accent-purple);
+}
+
+/* Refinement Loop */
+.refinementLoop {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.refinementLoop svg {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-cyan);
 }
 
 /* Card */
