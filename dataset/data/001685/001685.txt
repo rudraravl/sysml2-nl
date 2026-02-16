@@ -1,0 +1,13 @@
+This model describes an astronomical visualization system, named Stardraw, designed to generate accurate, custom star charts. Its main purpose is to take specific details from a user—such as their geographical location (latitude and longitude), the exact time of observation, and their desired field of view—and produce a high-quality visual map of the sky for that precise moment and viewpoint.
+
+The system is built around a comprehensive catalog of celestial objects, where each object is defined by its celestial coordinates (right ascension and declination), visual brightness (magnitude), and spectral type. The overall system is composed of four main functional components that work in sequence:
+
+1.  **Observation Interface:** This is the entry point where a user provides their viewing parameters. It captures the desired location, time, and viewing limits (like how faint an object can be to still be included on the chart).
+
+2.  **Celestial Catalog:** This component acts as a large astronomical database. Based on the user's request, it searches its records to find all celestial objects within the specified area of the sky.
+
+3.  **Chart Processor:** This is the system's computational core. It takes the raw data from the catalog and filters it to determine which objects would actually be visible to the user. It filters out stars that are too dim based on the user's magnitude limit and then calculates the final specifications for the chart, including its center, scale, and the precise placement of each visible object.
+
+4.  **Chart Renderer:** This final component takes the processed specifications and generates the actual visual star chart. It creates a high-quality, high-resolution image in a standard format (like PNG) that is ready to be delivered to the user.
+
+The system operates through a clear workflow: it starts in an idle state, waiting for a request. Once it receives observation parameters, it queries the catalog, processes the resulting data, renders the chart, and finally delivers the output before returning to its idle state to await the next request.

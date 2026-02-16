@@ -1,0 +1,9 @@
+This model describes a digital odometer system for a vehicle. Its primary function is to measure, store, and display the total cumulative distance the vehicle has traveled, along with its current speed and a resettable trip distance for shorter journeys.
+
+The system is composed of several interconnected electronic components. It starts with a **Wheel Rotation Sensor** that detects the revolution of a wheel and generates a specific number of electronic pulses for each full rotation.
+
+These pulses are fed into a central **Distance Calculation Unit**. This unit acts as the brain of the system, using the known diameter of the vehicle's wheel to convert the stream of pulses into meaningful data. It calculates the incremental distance traveled and the vehicle's current speed based on the frequency of the pulses.
+
+The calculated information is then sent to a **Display Unit**, which presents the total distance, trip distance, and current speed to the driver. The system also includes a separate **Trip Meter** that tracks the distance for individual journeys. This trip distance can be reset by the driver at any time without affecting the main odometer reading.
+
+To ensure the total mileage is never lost, a **Non-Volatile Storage** component saves the cumulative distance. This means the data is retained even when the vehicle is turned off or loses power. When the vehicle is started, the system first loads this saved value before beginning new measurements. The system operates through various states, including being powered off, initializing by loading stored data, and continuously measuring distance while the vehicle is in motion.

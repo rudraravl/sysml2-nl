@@ -1,0 +1,11 @@
+This model represents an Implantable Loop Recorder (ILR), a miniature medical device designed for long-term, continuous monitoring of a patient's heart rhythm. Implanted just under the skin, it is used to diagnose infrequent cardiac arrhythmias in patients who experience symptoms like unexplained fainting or palpitations.
+
+The system is a self-contained unit with several key components working together. Two **Sensing Electrodes** continuously pick up the heart's faint electrical signals. This raw signal is then boosted by a **Signal Amplifier** and converted from an analog signal into a digital format by an **Analog-to-Digital Converter**, creating a standard ECG waveform.
+
+A **Signal Processor** then filters this digital waveform to remove noise and extracts key features like heart rate. The core of the device's diagnostic capability lies in the **Arrhythmia Detection Engine**, which analyzes the clean heart rhythm in real-time to automatically identify and classify abnormalities.
+
+The device's name comes from its **Loop Memory** system. It constantly records the patient's heart activity into a buffer that overwrites itself over time. When the detection engine flags an arrhythmia, the device saves a complete record of the event, which includes the crucial data from the loop buffer leading up to the event, the event itself, and a period afterward. These saved incidents are stored as discrete events in the memory.
+
+The entire system is powered by a long-life **Battery Power Source** and all operations are managed and coordinated by a central **Microcontroller Unit**. For data retrieval, a **Wireless Telemetry Unit** allows the device to securely transmit the stored event recordings and its own status (like battery life) to an external programmer or home monitoring system, enabling doctors to review the data remotely.
+
+Operationally, the recorder functions in different states. After an initial startup, it spends most of its time in a `continuousMonitoring` state. When an arrhythmia is detected, it transitions to an `eventRecording` state to save the data, then returns to monitoring. It can also enter a `transmittingData` state when communicating with a clinic's equipment and will switch to a `lowPowerMode` to conserve energy if the battery runs low.

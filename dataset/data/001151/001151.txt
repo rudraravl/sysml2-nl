@@ -1,0 +1,9 @@
+This describes a motion detection system designed for automated security and surveillance. The system is built to continuously monitor a specific area, detect movement using a passive infrared (PIR) sensor, and intelligently analyze the detected signals to avoid false alarms before issuing an alert.
+
+The system is composed of three main functional components that work in sequence. First, a PIR sensor acts as the primary detector, sensing changes in infrared radiation caused by movement, such as a person walking by. The range and sensitivity of this sensor can be adjusted.
+
+When the sensor detects a potential event, it sends a raw motion signal to a Signal Analyzer. This second component is the brain of the system, responsible for determining if the detected signal is genuine motion or just environmental noise (like a gust of wind). It analyzes the signal's characteristics against a pre-set noise threshold and calculates a confidence level for the detection.
+
+If the analyzer confirms that the motion is real and the confidence level is above a required minimum (e.g., 80%), it triggers the third component, an Alert Generator. This final part creates and sends out a formal alert signal. The alert specifies the time of the event, the confidence in the detection, and a severity level (low, medium, or high).
+
+The entire system operates through different states. It can be in a power-saving `standby` mode, an `active` state where it is actively monitoring, a `detecting` state while processing a signal, and an `alerting` state when it sends a notification. This entire process is designed to be reliable, with a specified operational range of at least 10 meters and a high degree of accuracy in its detections.

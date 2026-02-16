@@ -1,0 +1,14 @@
+This model describes a spacecraft's attitude control system, which is responsible for precisely controlling the spacecraft's orientation (its attitude) in three dimensions: roll, pitch, and yaw. The primary mission of this system is to autonomously point the spacecraft accurately for tasks like Earth observation, aiming communication antennas, or directing scientific instruments.
+
+The system is composed of several key physical components that work together in a continuous control loop:
+
+*   **Attitude Control Computer:** This is the "brain" of the system. It receives commands for a desired orientation (a target attitude) and continuously processes data from the sensors to understand the spacecraft's current state. By comparing the target attitude with the measured attitude, it calculates any pointing error and determines the corrective action needed.
+
+*   **Sensors:** The system uses a combination of sensors to determine its orientation.
+    *   A **Star Tracker** acts like a celestial navigation tool. It's essentially a camera that identifies patterns of stars to calculate the spacecraft's absolute attitude with very high precision.
+    *   A **Gyroscope Unit** measures the rate of rotation, or how fast the spacecraft is turning on each of its three axes. This provides constant, rapid feedback on any changes in motion.
+    The data from both sensors are fused by the computer to maintain a complete and accurate understanding of the spacecraft's orientation and movement.
+
+*   **Actuators:** To physically change the spacecraft's orientation, the system uses three **Reaction Wheels**, one for each axis of control (X, Y, and Z). A reaction wheel is a type of flywheel that is spun by an electric motor. Based on commands from the control computer, the speed of these wheels is carefully increased or decreased. Due to the principle of conservation of angular momentum, changing a wheel's spin speed causes the spacecraft's body to rotate in the opposite direction, allowing for very fine and precise pointing adjustments without using propellant. The system also monitors if a wheel is approaching its maximum rotational speed, a condition known as saturation, where it can no longer provide effective control.
+
+In operation, the system works continuously: the computer receives a target, the sensors measure the current state, the computer calculates the error, and then it commands the reaction wheels to spin at specific speeds to apply corrective torques, nudging the spacecraft into the correct orientation and holding it there with great stability and accuracy. The system is designed to meet strict performance requirements for pointing accuracy (within 0.01 degrees), stabilization time, and the ability to generate sufficient torque for maneuvers.

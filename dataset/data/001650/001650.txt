@@ -1,0 +1,7 @@
+This is a compact, wireless environmental sensor device designed to measure and report ambient temperature, humidity, and atmospheric pressure.
+
+At its core is a dual-core ESP32 microcontroller, which serves as the brain of the system, handling all processing, data management, and wireless communication. For environmental sensing, the device uses a BME280 sensor, which is capable of accurately measuring a wide range of temperature, humidity, and pressure conditions.
+
+The system includes a dedicated voltage regulator for power management. This component takes a flexible DC input voltage (between 4.5V and 12V) and converts it to a stable 3.3V supply required by both the microcontroller and the sensor. A blue LED indicator is integrated into the device to provide visual feedback on its operational status.
+
+Functionally, the system operates in a continuous cycle. After powering on and initializing its hardware, it connects to a local 2.4 GHz WiFi access point. Once connected, it enters its main loop: it acquires a set of readings from the environmental sensor, packages this data (temperature, humidity, pressure) with a timestamp, and transmits it wirelessly over the network. The device is also capable of receiving remote commands, allowing for external control or configuration updates.

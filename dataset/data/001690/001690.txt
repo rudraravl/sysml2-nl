@@ -1,0 +1,9 @@
+This model represents a 1-Wire communication system, designed for low-cost data acquisition from multiple devices over a single data line. The system is composed of a central master controller and several slave devices connected on a shared communication bus.
+
+At its core, the system's purpose is to enable a master controller to communicate with and control various peripheral devices using just one data wire (plus a ground reference). In this specific configuration, the system is set up for environmental monitoring and data storage, featuring three digital temperature sensors (DS18B20) and a 1024-bit EEPROM memory chip (DS2431).
+
+Each slave device, whether a sensor or memory chip, has a unique 64-bit factory-programmed address. This allows the master controller to selectively communicate with any individual device on the shared bus, even though they are all physically connected to the same wire.
+
+The communication process is always initiated by the master. It sends out a reset pulse to alert all devices, which then respond to signal their presence. The master can then issue commands to a specific device by its unique address, or to all devices at once. For instance, the master can command a temperature sensor to begin a measurement. The sensor will then perform the temperature conversion, which takes a fixed amount of time (750 milliseconds), and hold the result until the master requests to read it. Similarly, the master can write data to, or read data from, specific memory locations on the EEPROM chip.
+
+A key feature of this system is its support for "parasite power," where some devices, like two of the temperature sensors in this model, can draw their operating power directly from the data line itself. This simplifies wiring significantly, making it ideal for distributed sensing applications. The entire system operates under strict timing and electrical rules to ensure reliable communication.

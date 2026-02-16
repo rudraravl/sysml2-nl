@@ -1,0 +1,15 @@
+This model describes a wireless sensor network system based on the IEEE 802.15.4 standard, which is commonly used for low-power, low-data-rate applications like Zigbee and other IoT technologies. The system is designed for reliable, battery-efficient communication between numerous sensor devices and a central hub.
+
+The network consists of two types of physical devices: a single **Coordinator Node** and multiple **End Device Nodes**. These components work together in a star topology, where all end devices communicate directly with the central coordinator.
+
+The **Coordinator Node** acts as the central hub and manager of the network. Its primary job is to establish the Personal Area Network (PAN), assign a unique network ID, and manage which devices are allowed to join. It periodically broadcasts beacon signals, which are like network announcements, allowing other devices to discover and connect to it. The coordinator also handles receiving data from all the sensor nodes and can manage data transfers between them.
+
+The **End Device Nodes** are the remote sensor units. These are typically battery-powered devices designed for long operational life. Their behavior follows a clear cycle: they first scan for the coordinator's beacon signals to find and join the network. Once associated, they enter their main loop of gathering sensor data, transmitting it to the coordinator, and then entering a low-power sleep mode to conserve energy. They wake up periodically to repeat this process.
+
+Both types of nodes contain the necessary hardware and logic for wireless communication, conceptually separated into two main layers:
+
+1.  A **Physical Layer**, which is the actual radio hardware. It operates in the 2.4 GHz frequency band and is responsible for modulating digital data into radio waves for transmission and demodulating incoming signals back into data, including performing error checks on the received packets.
+
+2.  A **MAC (Media Access Control) Layer**, which acts as the traffic controller for the radio. It manages the device's unique address on the network. To avoid collisions, it uses a "listen-before-talk" mechanism (CSMA/CA), where a device first checks if the channel is clear before transmitting. It also ensures reliable communication by constructing data packets with proper addressing and expecting an acknowledgment from the receiver. If an acknowledgment isn't received, it will automatically re-transmit the packet.
+
+In essence, this system enables a collection of simple, low-power sensors to form a coordinated, reliable network for sending small amounts of data, like temperature readings or status updates, to a central point for collection and processing.

@@ -1,0 +1,9 @@
+This model describes a complete Time-of-Flight (ToF) camera system designed to perceive the world in three dimensions by creating real-time depth maps. Its primary function is to measure the distance to objects in a scene on a pixel-by-pixel basis.
+
+The system works by actively illuminating its surroundings. A built-in Laser Emitter sends out brief, controlled pulses of infrared light. This light travels out, reflects off various objects, and returns to the camera. An Optical System, essentially the camera's lens, collects this faint, reflected light and focuses it onto a specialized Photodetector Array. This array is a sensor grid that detects the incoming light for each individual pixel.
+
+The core of the system is a high-precision Timing Circuit. It meticulously measures the round-trip duration—the "time of flight"—for the light pulse, from the moment it's emitted to the moment its reflection is detected by each pixel. A central Depth Processor then takes this time measurement and, using the constant speed of light, calculates the exact distance to the object that reflected the light for every single pixel in the array.
+
+Finally, the processor assembles all of these individual distance calculations into a cohesive "depth map," which is a 2D image where the value of each pixel represents its distance from the camera. This entire process is repeated rapidly, allowing the camera to capture 3D information at a specified frame rate, such as 30 frames per second.
+
+The camera system is a self-contained unit with defined interfaces. It requires an external power supply, is controlled via a simple command interface that tells it when to capture a frame, and outputs the final depth map through a data port for use by another system, like a robot's navigation computer or a gesture recognition application. The specific configuration shown has a 640x480 resolution, an effective range of 0.1 to 10 meters, and a depth accuracy of about one centimeter.

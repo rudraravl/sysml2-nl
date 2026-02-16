@@ -1,0 +1,11 @@
+This model describes a Gaseous Ionization Detector system, specifically configured as a Proportional Counter. It is a scientific instrument designed to detect and measure ionizing radiation by observing its interaction with a specialized gas.
+
+The core of the system is a **Detection Chamber**, a sealed volume filled with a specific gas mixture (in this case, "P10," which is 90% Argon and 10% Methane). This chamber is supported by a **Gas Flow Controller** that ensures the gas pressure and composition remain stable, which is critical for accurate measurements.
+
+Inside the chamber is an **Electrode Assembly**, consisting of a central anode wire and an outer cathode shell. A **High Voltage Supply** creates a strong electric field between these electrodes.
+
+The detection process begins when a particle of radiation enters the chamber and collides with gas molecules, stripping away electrons and creating electron-ion pairs. The strong electric field pulls these newly freed electrons toward the central anode wire. As they accelerate, they gain enough energy to ionize other gas molecules, creating an "avalanche" effect that significantly amplifies the initial charge. This "gas amplification" is a key feature, turning a single radiation event into a measurable electrical current.
+
+This small, amplified current is then processed by a series of electronic modules. First, a **Preamplifier Circuit** converts the current into a larger voltage pulse and shapes it for clean analysis. Next, a **Pulse Discriminator** acts as a filter, examining the height of each pulse (which corresponds to the energy of the initial radiation) and only accepting pulses that fall within a predefined energy window. This helps to reject background noise. Finally, a **Counter Module** counts each accepted pulse, providing a digital readout of the number of radiation events and their rate of occurrence.
+
+The entire system operates through several states. It starts in **Standby** and moves to an **Initialization** phase upon power-on, waiting for the high voltage and gas flow to stabilize. Once ready, it enters a **Detecting** state, actively looking for radiation events. When an event is registered and processed, the system cycles back to the ready state to await the next one. It also includes a **Fault** state to manage system errors.

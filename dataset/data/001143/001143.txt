@@ -1,0 +1,13 @@
+This model represents a complete microbolometer-based thermal imaging system, essentially a sophisticated camera that visualizes heat instead of visible light. Its purpose is to detect invisible infrared radiation from objects in a scene and create a calibrated image showing their temperature distribution.
+
+The system is built from several key components working in sequence. It starts with an **optical system**, a specialized lens that gathers and focuses infrared radiation onto the main sensor.
+
+The heart of the camera is the **Microbolometer Focal Plane Array**, a 640x480 grid of tiny heat-sensitive detectors. When focused infrared energy hits these detectors, they warm up, causing a predictable change in their electrical resistance. To ensure high accuracy and sensitivity, a **thermoelectric cooler** constantly works to keep this sensor array at a very stable, cool operating temperature.
+
+A **Readout Integrated Circuit (ROIC)** is directly connected to the sensor array. It rapidly measures the unique resistance change from each of the thousands of detectors, amplifies these very small signals, and converts them into a raw digital data frame.
+
+This raw data is then sent to a **Signal Processing Unit**. This processor cleans up the image by correcting for minor performance variations between individual detectors and fixing any data from faulty pixels. Most importantly, it uses calibration data to convert the raw signal values into precise temperature measurements for each pixel, generating a final, accurate thermal image. This entire process happens continuously, producing an output of 30 frames per second.
+
+Finally, a **Display Interface** prepares the processed thermal image for viewing on an external monitor or built-in screen.
+
+The camera operates through several states: upon power-on, it goes through a warm-up and calibration phase before it is ready for active imaging. It can also be placed in a standby mode to conserve power and has a fault state to indicate if an error is detected. Overall, this describes a high-performance thermal camera capable of detecting temperature differences as small as 0.05 Kelvin.

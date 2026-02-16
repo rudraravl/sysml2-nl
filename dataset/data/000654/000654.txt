@@ -1,0 +1,9 @@
+This model describes a medical device known as an Intermittent Pneumatic Compression (IPC) system. It is designed to prevent deep vein thrombosis (DVT), a condition where blood clots form in the deep veins of the body, typically in the legs. The system is used for patients who are immobilized for long periods, such as after surgery or during extended bed rest.
+
+The core of the system is a multi-chamber `CompressionSleeve` that is wrapped around a patient's limb. This sleeve contains three separate inflatable chambers: a distal chamber (farthest from the body), a middle chamber, and a proximal chamber (closest to the body).
+
+The system operates by executing a therapeutic cycle to enhance blood flow. An `AirCompressor` generates pressurized air, which is directed by a `ValveManifold`. The central `Controller` orchestrates the entire process, sending commands to the manifold to route air into the sleeve's chambers in a specific sequence. The chambers are inflated sequentially, starting with the distal chamber and moving up to the proximal one, which effectively massages the limb and pushes blood towards the heart, simulating the natural pumping action of walking muscles.
+
+After inflating and holding a specific therapeutic pressure for a set duration, the controller signals the valves to release the air, deflating all chambers to allow the veins to refill. This cycle of inflation, hold, deflation, and a brief rest period is repeated for the duration of a therapy session.
+
+A `PressureSensor` constantly monitors the actual pressure within the sleeve and provides real-time feedback to the controller. This allows the system to accurately achieve and maintain the prescribed therapeutic pressure. For patient safety, a dedicated `SafetyMonitor` continuously observes the pressure levels. If the pressure ever exceeds a maximum safe limit, this monitor can trigger an emergency shutdown of the system to prevent any potential injury to the patient.

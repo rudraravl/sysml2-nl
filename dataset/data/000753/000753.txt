@@ -1,0 +1,14 @@
+This model represents a Scanning Laser Ophthalmoscope (SLO), a sophisticated medical imaging system used to create high-resolution, real-time images of the human retina. Its primary function is to provide detailed views of retinal structures for clinical diagnosis and monitoring of eye diseases.
+
+The system works by scanning a focused, low-power laser beam across the retina in a precise grid pattern (raster scan). Instead of capturing a whole image at once like a camera, it builds the image point-by-point by measuring the intensity of light reflected back from each spot on the retina.
+
+The core components of the SLO and their interactions are as follows:
+
+*   A **Laser Source** generates a stable, coherent laser beam at a specific wavelength (785 nm).
+*   A **Scan Controller** generates the electronic signals that drive a **Scanning Mirror System**. This system consists of fast-moving mirrors that deflect the laser beam horizontally and vertically, creating the 512x512 pixel scanning pattern needed to cover a 20-degree field of view on the retina.
+*   An **Optical System** (a set of lenses) takes the scanning beam from the mirrors, focuses it into a tiny spot on the retinal surface, and also collects the light that reflects back from that spot.
+*   A key component is the **Confocal Aperture**, a very small pinhole. The reflected light must pass through this aperture before reaching the detector. This acts as a spatial filter, blocking any stray or out-of-focus light, which is crucial for producing sharp, high-contrast images and enabling the system to image thin optical layers of the retina.
+*   A sensitive **Photodetector** receives the filtered light that passes through the aperture and converts its intensity into an electrical signal.
+*   A **Signal Processor** then digitizes this analog signal for each point in the scan, assembling these individual pixel values into a complete 512x512 digital image.
+
+The entire imaging process is managed by a state-based controller that moves the system through phases like initializing, aligning with the patient's eye, active scanning, processing, and finally making the image available. The system is designed to operate at 30 frames per second, providing a live view, while adhering to strict laser safety standards to protect the patient's vision.

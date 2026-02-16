@@ -1,0 +1,15 @@
+This model represents a KNX Building Automation System, designed to intelligently and automatically control a building's environment, including its lighting and heating systems. It operates as a distributed network where various smart devices communicate with each other over a shared communication line known as the KNX bus.
+
+The system is comprised of several key components working in concert:
+
+*   **Sensors**: A suite of sensors monitors the building's environment. This includes a Temperature Sensor to measure room temperature, a Lighting Sensor for ambient light levels, and a Presence Sensor to detect if a room is occupied. Each sensor is a distinct device on the network with its own unique physical address.
+
+*   **Actuators**: These are the components that perform physical actions. A Dimming Actuator controls the brightness of light fixtures, while a Heating Actuator adjusts the valve on a radiator or underfloor heating system.
+
+*   **Automation Controller**: This component acts as the central intelligence for a specific area. It receives data from the sensors, compares it against user-defined setpoints (like a desired temperature or light level), and makes decisions about what actions to take.
+
+*   **Infrastructure**: The system is powered by a dedicated KNX Power Supply and can be scaled across different physical areas using Line Couplers, which intelligently route messages between different segments of the bus.
+
+The core operation of the system revolves around the exchange of data packets called "telegrams" over the KNX bus. When a sensor detects a change—for example, the presence sensor detects someone entering a room—it broadcasts a telegram containing this information. The Automation Controller listens for these telegrams. Upon receiving the presence data, along with data from the temperature and light sensors, it decides on the appropriate response. It might then send a command telegram to the Dimming Actuator to turn the lights on to a specific brightness and another to the Heating Actuator to adjust the room temperature.
+
+This decentralized communication, where sensors broadcast information and actuators listen for relevant commands, allows the system to efficiently manage the building's climate and lighting to enhance comfort and optimize energy consumption.

@@ -1,0 +1,12 @@
+This is a decision-support system designed to help a user make strategic choices by evaluating multiple options and calculating the opportunity cost. The system's primary function is to select the most beneficial course of action from a list of alternatives and clearly quantify the value of the next-best option that was forgone.
+
+The system works by first taking in a set of at least two "options," which could represent investment opportunities, business projects, or any other set of choices. Each option is defined by key attributes such as its expected monetary value, the required investment, the time it will take to realize its benefits, an associated risk level, and a subjective utility score. The user also provides their personal evaluation criteria, which are weights that specify the importance of return, risk, time, and utility in their decision-making process.
+
+The system is composed of several specialized components that work in sequence:
+
+1.  An **Option Evaluator** analyzes and scores all the provided options based on the user's weighted criteria, producing a ranked list from best to worst.
+2.  An **Opportunity Cost Calculator** then takes the top two options from this list. It calculates the opportunity cost, defined as the value differential between the chosen best option and the second-best alternative.
+3.  A **Decision Validator** checks the top-ranked choice against practical constraints, such as the user's available budget and time limits, to ensure the decision is feasible. If the best option violates a constraint, the system can enter a state for revision.
+4.  Once a decision is validated, a **Report Generator** creates a comprehensive summary. This report details the selected option, justifies the choice, presents the calculated opportunity cost, and identifies the next-best alternative.
+
+The entire process follows a clear workflow, moving from an idle state through evaluation, cost calculation, validation, and finally reporting, before returning to idle to await the next decision-making task. In essence, it provides a structured, data-driven framework for making complex choices, ensuring that decisions are not only optimal but also practical and well-documented.

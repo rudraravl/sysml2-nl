@@ -1,0 +1,12 @@
+This is a wheel speed sensing system, a common component in vehicles used for anti-lock braking (ABS), traction control, and speedometer systems. It is designed to accurately measure the rotational speed of a vehicle's wheel and provide that data to the car's main computer.
+
+The system is composed of two main physical parts: a toothed, ferromagnetic `Tone Ring` that rotates with the wheel, and a stationary `Wheel Speed Sensor` mounted close to it.
+
+The sensor itself is a self-contained unit housed in a durable, IP67-rated stainless steel casing to protect it from harsh road conditions. Inside this housing, several components work together:
+*   A `Sensing Element` detects the magnetic field variations created by the passing teeth of the rotating tone ring, generating a raw electrical pulse signal. The frequency of these pulses is directly proportional to the wheel's speed.
+*   A `Signal Conditioner` takes this raw, often noisy signal, amplifies it, and filters it to produce a clean, reliable pulse train.
+*   A `Speed Calculator` processor then uses the frequency of this clean signal, along with pre-configured information about the wheel's radius and the number of teeth on the tone ring, to calculate the wheel's precise angular velocity and the vehicle's corresponding linear speed.
+
+The sensor continuously performs self-diagnostics, checking its power supply, signal quality, and internal temperature to ensure it is functioning correctly. It operates through various states: upon receiving power, it initializes and runs a self-check. If everything is normal, it becomes operational, ready to measure speed. If a fault is detected, it enters a fault state and can attempt to recover.
+
+The final output is a structured data package containing the calculated speed, a timestamp, and a quality score, which is sent to other vehicle systems. The sensor also reports its operational status and any fault codes through a separate diagnostic port.

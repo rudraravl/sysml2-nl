@@ -1,0 +1,11 @@
+This model describes a low-power, short-range wireless communication system designed for embedded devices, such as those found in home automation, industrial monitoring, or wireless sensor networks. It uses the MiWi protocol, which operates on the 2.4 GHz frequency band, similar to Wi-Fi and Bluetooth, but is optimized for reliability and low power consumption over high speed.
+
+The system is composed of two main types of devices: a central **Network Coordinator** and multiple **End Devices**.
+
+The **Network Coordinator** acts as the brain and manager of the network. Its primary job is to establish the wireless network on a specific channel, assign it a unique ID, and authorize other devices to join. It also plays a key role in routing data packets between devices that may not be in direct range of each other.
+
+The **End Devices** are the remote nodes of the network, such as sensors collecting temperature data or actuators controlling a light switch. These devices are designed to be power-efficient, often running on batteries. They can enter a "sleep" mode to conserve energy, waking up only to transmit data or check for incoming messages.
+
+Internally, each device (both coordinator and end device) is built from a **Microcontroller Unit (MCU)** and an **RF Transceiver**. The MCU is the processor that runs the communication software, manages the device's state, and processes data. The RF Transceiver is the radio hardware that physically sends and receives the data packets over the air.
+
+In operation, an end device powers on, scans the airwaves for an existing MiWi network, and then requests to join it. Once connected, it can reliably transmit data to the coordinator or other end devices. The system supports a "mesh" topology, meaning that if an end device is too far from the coordinator, its message can be relayed through intermediate devices to reach its destination. This extends the overall range and robustness of the network. Communication is handled in discrete packets, which include source and destination addresses, the data payload, and mechanisms to ensure delivery is confirmed.

@@ -1,0 +1,10 @@
+This is a capacitive displacement sensing unit designed to perform high-precision, non-contact linear distance measurements. It operates on the principle of detecting changes in electrical capacitance between its sensor probe and a target surface; as the distance to the target changes, the capacitance changes in a predictable way. The system processes this change to output a precise displacement reading.
+
+The unit is composed of four main functional components that work in sequence:
+
+1.  A **Capacitive Sensor Probe** is the physical sensing element that generates a raw capacitance signal based on the distance to the object being measured.
+2.  A **Signal Conditioning Circuit** takes this raw, low-level signal and converts it into a clean, stable analog voltage. This circuit amplifies the signal to a usable level and filters out electrical noise.
+3.  An **Analog-to-Digital Converter (ADC)** samples this conditioned analog voltage and converts it into a digital representation.
+4.  A **Digital Signal Processor (DSP)** receives the digital data and performs final computations. It applies a calibration table to ensure accuracy, converts the digital value into a final physical displacement unit (such as millimeters), compensates for temperature effects, and validates the measurement's quality and range before outputting the result.
+
+The sensing unit operates through several distinct states. On startup, it performs a self-test and calibration. If successful, it enters a ready state, awaiting a command to begin measuring. While active, it can perform measurements continuously or in a triggered mode. If any issues are detected, the unit enters a fault state to log the problem and attempt recovery. The entire system is powered by an external voltage supply.

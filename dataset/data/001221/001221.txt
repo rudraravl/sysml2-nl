@@ -1,0 +1,9 @@
+This model describes a rain sensing unit designed to automatically measure precipitation. Its core function is to detect rainfall, calculate the rate at which it's falling, and keep a running total of the accumulated rainfall depth.
+
+The system is built around a capacitive rain sensor. This component detects the presence of raindrops on its sensing surface by measuring a change in its electrical capacitance. This raw capacitance signal is then passed to a signal conditioner, which filters out noise and amplifies the signal to make it more reliable.
+
+A central calibration processor takes this refined signal and converts it into a meaningful precipitation rate (e.g., in millimeters per hour). To ensure accuracy across varying weather conditions, this processor uses an internal temperature sensor to compensate for temperature effects on the readings.
+
+The calculated instantaneous rain rate is then sent to a data accumulator. This component integrates the rate over time to determine the total accumulated rainfall depth. Finally, the unit packages the current rate, total depth, a timestamp, and its current operational status into a data report that is sent to an external system.
+
+The entire unit operates through a series of states. It can be powered off, in a standby mode awaiting commands, actively measuring, or running a calibration routine. An external system can send commands to start or stop measurements, reset the accumulated total, or trigger a new calibration. The unit is designed to be robust, operating over a wide temperature range (-40°C to +85°C) and providing accurate precipitation measurements within 10 seconds of rainfall starting.

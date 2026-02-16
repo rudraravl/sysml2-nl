@@ -1,0 +1,13 @@
+This model describes a PLCBUS-based home automation system, which allows for the remote control of electrical devices by sending digital signals over a home's existing AC power wiring. This technology eliminates the need for dedicated control wires, turning the electrical grid of the house into a communication network.
+
+The system consists of several key components that work together. The communication medium is the **Power Line Network** itself—the standard 120V/60Hz electrical wiring found in a residence. All intelligent devices in the system connect to this network both for power and for communication.
+
+The core components include controllable devices and controllers:
+*   **Dimmable Lights:** These are light fixtures or modules that can be turned on, off, and have their brightness levels adjusted in response to commands received over the power line. Each light has a unique address (a "Home Code" and "Unit Code") and contains internal circuitry like a relay for on/off switching and a dimmer circuit for adjusting brightness.
+*   **Switched Outlets:** These are electrical outlets that can be remotely switched on or off. They also have a unique address and contain a relay to control the flow of power to any appliance plugged into them.
+*   **Wall Switches:** These act as input devices. While they look like traditional light switches, they don't directly control a circuit. Instead, when pressed, they transmit a command message onto the power line to control a target device, such as a dimmable light or a switched outlet elsewhere in the house.
+*   **PLCBUS Controller:** This is a central hub that can manage and coordinate all the devices in the system. It can be used to schedule events, create complex automation scenes, and monitor the status of connected lights and outlets.
+
+Every device communicates using a specialized **PLCBUS Transceiver**. This component is responsible for modulating digital commands into a high-frequency signal (around 131 kHz) to transmit over the power lines and for demodulating incoming signals back into digital commands.
+
+In a typical scenario, a user pressing a Wall Switch causes it to broadcast a specific **PLCBUS Message**. This message contains the target device's address and a command, such as "on," "off," or "dim." All devices on the network "hear" this message, but only the device whose address matches the one in the message will execute the command. The system supports two-way communication, allowing devices to report their status (e.g., "status on") back to a controller.

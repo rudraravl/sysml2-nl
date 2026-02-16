@@ -1,0 +1,14 @@
+This model describes an autonomous geographic survey system that uses a fleet of coordinated robots to map and collect data from designated areas. The system is designed to operate without direct human intervention, planning its own routes and executing missions to gather scientific or environmental information.
+
+The system consists of two main parts: a central Mission Coordinator and one or more Autonomous Robots.
+
+The **Mission Coordinator** acts as the central command hub. It maintains a comprehensive **Terrain Database**, which is a collection of detailed digital maps containing elevation data and known obstacles for various geographic regions. When a survey mission for a specific area is initiated, the coordinator retrieves the relevant map and plans the overall strategy. It then assigns specific routes, composed of a series of waypoints, to the available robots, sending them navigation instructions. The coordinator also monitors the robots' progress during their missions, ensuring they stay on track and operate safely.
+
+Each **Autonomous Robot** is a self-contained mobile platform responsible for carrying out the survey tasks. It is equipped with several key subsystems:
+*   A **Positioning System**, like a GPS unit, which constantly tracks the robot's precise geographic coordinates, heading, and altitude.
+*   A **Route Calculator** (or navigator) that processes the mission instructions from the coordinator. It manages the robot's movement along the planned route, continuously evaluating its progress toward the next waypoint.
+*   A **Survey Instrument**, which is the primary data-gathering tool. This could be a camera, a LiDAR scanner, an atmospheric sensor, or any other device needed for the specific mission.
+
+In a typical operation, a robot begins in a **Standby** state. Once it receives a mission from the coordinator, it enters **Route Execution**, navigating autonomously from one waypoint to the next. Upon arriving at a waypoint, it transitions to a **Data Collection** state, where its survey instrument captures the required information. After the survey at that point is complete, it resumes navigating to the next waypoint. This cycle continues until the entire route is surveyed, after which the robot enters a **Returning** state to travel back to its base and await new instructions.
+
+Overall, the system provides a comprehensive, automated solution for systematically mapping and collecting high-quality, geographically-referenced data over large areas, with built-in requirements for positioning accuracy, fast route planning, and reliable data collection.

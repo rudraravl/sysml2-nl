@@ -1,0 +1,11 @@
+This is an automated diagnostic system designed to test the health and accuracy of precision shunt resistors. Shunt resistors are critical components used in power systems to measure electrical current accurately. This "ShuntCheck" system ensures these components are functioning correctly, preventing measurement errors in the larger systems they serve.
+
+The system is composed of several key parts that work together to perform a complete diagnostic test. At its core is the shunt resistor being tested. The test is initiated by a `Precision Current Source`, which injects a carefully calibrated electrical current through the shunt.
+
+As the current flows, two monitoring components take measurements:
+1.  A `Voltage Monitor` (or voltmeter) measures the tiny voltage drop that the current creates across the shunt's terminals.
+2.  A `Current Monitor` (or ammeter) verifies that the amount of current being applied by the source is accurate.
+
+These voltage and current measurements are fed into a central `Diagnostic Processor`. This processor acts as the brain of the system. It uses the measurements to calculate the shunt's actual resistance based on Ohm's Law. It then compares this calculated resistance to the shunt's known, ideal resistance value.
+
+Based on this comparison, the processor determines the shunt's condition, classifying it as one of four states: `normal` (within tolerance), `degraded` (drifting out of tolerance), `open` (a broken circuit), or `shorted` (a failed, low-resistance path). The system is designed to perform this entire test cycle very quickly—in under one second—to minimize any disruption. Finally, it outputs a complete diagnostic report containing the measured resistance, the percentage of deviation from the expected value, and a clear pass/fail result with a timestamp.

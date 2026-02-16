@@ -1,0 +1,9 @@
+This model describes a self-contained Occupancy Sensing Unit, an electronic device designed to monitor and report the number of people within a specific area, such as a conference room or an office space. Its primary function is to provide accurate, real-time data about how a space is being used.
+
+The unit is built from three main components that work in sequence. First, an **Occupancy Sensor** serves as the primary detector. This sensor is designed to monitor a specific room with a known area and capacity, and it has a defined detection range (e.g., 8 meters) and a fast response time (1.5 seconds). It continuously scans the area at a set frequency (2 times per second). For each measurement, it generates data that includes a timestamp, the number of occupants counted, the occupancy level (as a percentage of capacity), and a confidence score for that reading.
+
+The raw data from this sensor is immediately passed to an internal **Signal Processor**. This component acts as the brains of the unit, filtering the sensor's raw readings to improve accuracy, remove noise, and reduce the chance of false positives.
+
+Once processed, the refined measurement data is sent to an onboard **Data Storage** unit. This component logs the history of occupancy measurements, capable of holding thousands of records which are saved at regular intervals (e.g., every second).
+
+The entire system operates in a continuous cycle. After being initialized, the unit enters an "active" state to perform a measurement, moves to a "processing" state to analyze the data, and then enters a "reporting" state before returning to an "idle" mode to conserve power. It is designed to meet strict performance requirements, demanding at least 95% accuracy and a response time of under two seconds, all while operating on a standard low-voltage power supply.
