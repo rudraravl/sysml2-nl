@@ -1,13 +1,14 @@
 """
 Agentic Pipeline with RAG + MoE synthesis.
 
-Pipeline:
-1. Input Agent: Refines input, extracts concepts, identifies domain (parallel with RAG)
-2. RAG: Retrieves relevant examples and spec chunks (parallel with Input Agent)
-3. MoE: Queries multiple expert LLMs in parallel
-4. Synthesis: Combiner model synthesizes best result from all experts
-5. Compiler Feedback: Validates with SysML v2 compiler, iteratively refines errors
-6. Output: Final valid SysML v2 model
+Pipeline (from nl2sysml/agent_rag_moe.py):
+- Build RAG context from dataset examples and spec chunks.
+- Query multiple experts (EXPERT_MODELS):
+  * gemini-2.5-pro (direct via Google Generative AI)
+  * openrouter models: openai/gpt-5.1-codex-max, anthropic/claude-sonnet-4.5, meta-llama/llama-4-maverick
+- Ask combiner model to synthesize a single best SysML v2 model.
+- Optional: validate and refine output with SysML v2 syntax checker (if available on server).
+- Output only SysML v2 code; no markdown fences.
 """
 
 import os
@@ -16,7 +17,7 @@ import json
 import re
 import asyncio
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional
 from urllib import request as _req
 
 from fastapi import HTTPException
@@ -25,7 +26,6 @@ import google.generativeai as genai
 from app.pipelines.base import BasePipeline
 from app.core.config import MAX_INPUT_CHARS, GEMINI_API_KEY, OPENROUTER_API_KEY, OPENROUTER_BASE_URL
 from app.core.logging import get_logger
-from app.pipelines.agentic.inputagent import InputAgent, run_input_agent
 
 log = get_logger(__name__)
 
@@ -390,50 +390,18 @@ class AgenticPipeline(BasePipeline):
         # Configure Gemini
         genai.configure(api_key=GEMINI_API_KEY)
 
-        # Get project root (5 levels up from this file: app/pipelines/agentic/pipeline.py)
+        # Get project root (4 levels up from this file: app/pipelines/agentic/pipeline.py)
         root = Path(__file__).resolve().parents[5]
-        loop = asyncio.get_event_loop()
         
-        # Step 1: Run Input Agent and RAG in PARALLEL
-        self._report_progress("input_agent", "Analyzing input & building context...")
-        prep_start = time.time()
-        
-        # Create progress callbacks for sub-tasks
-        def input_agent_progress(stage: str, detail: str):
-            self._report_progress(f"input_agent_{stage}", detail)
-        
-        # Run input agent and RAG concurrently
-        async def run_rag():
-            return await loop.run_in_executor(None, _rag_context, text, root, 3)
-        
-        input_agent_task = run_input_agent(text, progress_callback=input_agent_progress)
-        rag_task = run_rag()
-        
-        # Wait for both to complete
-        input_analysis, rag_context = await asyncio.gather(input_agent_task, rag_task)
-        
-        prep_ms = int((time.time() - prep_start) * 1000)
-        input_agent_ms = prep_ms  # Approximate
-        rag_ms = prep_ms  # Both ran in parallel
-        
-        self._report_progress("prep_done", f"Input analysis & RAG complete in {prep_ms}ms")
-        
-        # Build enhanced context from input agent
-        input_agent_context = ""
-        if input_analysis:
-            agent = InputAgent()
-            input_agent_context = agent.format_enhanced_prompt(input_analysis)
-            log.info(f"Input agent identified domains: {input_analysis.get('domains', [])}")
-            log.info(f"Input agent suggested constructs: {input_analysis.get('constructs', [])}")
-        
-        # Combine contexts: Input Agent analysis + RAG examples
-        full_context = input_agent_context + rag_context if rag_context else input_agent_context
-        
-        # Use refined input if available
-        refined_text = input_analysis.get("refined", text) if input_analysis else text
+        # Step 1: Build RAG context
+        self._report_progress("rag", "Building RAG context...")
+        rag_start = time.time()
+        context = _rag_context(text, root, k=3)
+        rag_ms = int((time.time() - rag_start) * 1000)
+        self._report_progress("rag_done", f"RAG context built in {rag_ms}ms")
 
         sys_msg = _default_system_prompt(None)
-        human_msg = PROMPT_HUMAN_TEMPLATE.format(context=full_context, input=refined_text)
+        human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=text)
 
         # Step 2: Query all expert models IN PARALLEL
         self._report_progress("experts", f"Querying {len(EXPERT_MODELS)} experts in parallel...")
@@ -529,9 +497,7 @@ class AgenticPipeline(BasePipeline):
             "loaded_from_cache": True,  # API doesn't load models
             "model_load_ms": 0,
             "gen_ms": total_ms,
-            "input_agent_ms": input_agent_ms,
             "rag_ms": rag_ms,
-            "prep_ms": prep_ms,
             "experts_ms": experts_ms,
             "synth_ms": synth_ms,
             "num_candidates": len(candidates),
@@ -542,10 +508,6 @@ class AgenticPipeline(BasePipeline):
             "syntax_check_available": _is_compiler_available_fn(),
             "final_valid": final_valid,
             "final_errors": final_errors,
-            # Input agent analysis
-            "input_domains": input_analysis.get("domains", []) if input_analysis else [],
-            "input_constructs": input_analysis.get("constructs", []) if input_analysis else [],
-            "input_refined": input_analysis.get("refined") != text if input_analysis else False,
         }
         if final_error_details:
             diagnostics["final_error_details"] = final_error_details
