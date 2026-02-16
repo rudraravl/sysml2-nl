@@ -4,6 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 PROMPT = """
 Describe the actual system or object that this SysML v2 model represents. Focus on what the real-world system is, what it does, and how its components work together - not on the code or modeling structure.
@@ -19,37 +20,49 @@ SysML v2 Model:
 Description:
 """
 
+PARALLEL = 10
+
+START_ID = 387
+END_ID = 1936
+
+def generate_for_id(i):
+    id = f"{i:06d}"
+    dir = Path(__file__).parent.parent / "dataset" / "data" / id
+    if not dir.exists():
+        return "missing", id
+    
+    sysml = dir / f"{id}.sysml"
+    txt = dir / f"{id}.txt"
+    meta = dir / "meta.json"
+    
+    # Skip if txt file already exists
+    if txt.exists():
+        return "skipped", id
+    
+    with open(sysml) as f:
+        content = f.read()
+    model = genai.GenerativeModel('gemini-2.5-pro')
+    response = model.generate_content(PROMPT.format(content=content))
+    
+    with open(txt, 'w') as f:
+        f.write(response.text)
+    
+    # Read meta.json to get metadata (but don't modify it)
+    with open(meta) as f:
+        json.load(f)
+    
+    return "done", id
+
 def main():
     load_dotenv(Path(__file__).parent.parent / ".env")
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     # model = genai.GenerativeModel('gemini-2.5-flash')
-    model = genai.GenerativeModel('gemini-2.5-pro')
-    
-    for i in tqdm(range(1, 387), desc="Processing"):
-        id = f"{i:06d}"
-        dir = Path(__file__).parent.parent / "dataset" / "data" / id
-        if not dir.exists(): 
-            continue
-        
-        sysml = dir / f"{id}.sysml"
-        txt = dir / f"{id}.txt"
-        meta = dir / "meta.json"
-        
-        # Skip if txt file already exists
-        if txt.exists():
-            print(f"Skipping {id} - txt file already exists")
-            continue
-        
-        with open(sysml) as f: 
-            content = f.read()
-        response = model.generate_content(PROMPT.format(content=content))
-        
-        with open(txt, 'w') as f: 
-            f.write(response.text)
-        
-        # Read meta.json to get metadata (but don't modify it)
-        with open(meta) as f: 
-            data = json.load(f)
+    with ThreadPoolExecutor(max_workers=PARALLEL) as executor:
+        futures = [executor.submit(generate_for_id, i) for i in range(START_ID, END_ID)]
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing"):
+            status, id = future.result()
+            if status == "skipped":
+                print(f"Skipping {id} - txt file already exists")
 
 if __name__ == "__main__":
     main()
