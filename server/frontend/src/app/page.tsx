@@ -25,13 +25,30 @@ interface Diagnostics {
 
 // Human-readable progress messages
 const PROGRESS_MESSAGES: Record<string, string> = {
+  // Input Agent + RAG (parallel)
+  'input_agent': 'Analyzing input & building context...',
+  'input_agent_start': 'Input Agent: Starting analysis...',
+  'input_agent_keywords': 'Input Agent: Extracting keywords...',
+  'input_agent_domains': 'Input Agent: Identifying domains...',
+  'input_agent_constructs': 'Input Agent: Suggesting constructs...',
+  'input_agent_llm': 'Input Agent: Refining with LLM...',
+  'input_agent_llm_done': 'Input Agent: Refinement complete',
+  'input_agent_done': 'Input Agent: Analysis complete',
+  'prep_done': 'Input analysis & context ready',
+  // Legacy RAG messages (for backward compat)
   'rag': 'Building knowledge context...',
   'rag_done': 'Context ready',
+  // MoE
   'experts': 'Querying expert models...',
   'expert_done': 'Expert responded',
   'expert_failed': 'Expert unavailable',
   'experts_done': 'All experts responded',
+  // Synthesis
   'synthesis': 'Synthesizing final result...',
+  // Compiler
+  'syntax_check': 'Validating with compiler...',
+  'syntax_check_done': 'Validation complete',
+  // Done
   'done': 'Complete!',
 }
 
@@ -308,19 +325,48 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 2: Input Agent (Coming Soon) */}
-                  <div className={`${styles.pipelineStep} ${styles.stepComingSoon}`}>
+                  {/* Steps 2 & 3: Input Agent + RAG (parallel) */}
+                  <div className={styles.parallelSteps}>
                     <div className={styles.stepNumber}>2</div>
-                    <div className={styles.stepBox}>
-                      <div className={styles.stepIcon}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10"/>
-                          <path d="M12 16v-4M12 8h.01"/>
-                        </svg>
+                    <div className={styles.parallelBoxes}>
+                      {/* Input Agent */}
+                      <div className={styles.stepBoxParallel}>
+                        <div className={styles.stepIcon}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 8v4l2 2"/>
+                            <path d="M4.93 4.93l2.83 2.83"/>
+                            <path d="M19.07 4.93l-2.83 2.83"/>
+                          </svg>
+                        </div>
+                        <div className={styles.stepContent}>
+                          <h3>Input Agent</h3>
+                          <p>Refines input, extracts keywords, identifies domain</p>
+                          <div className={styles.agentFeatures}>
+                            <span>Keywords</span>
+                            <span>Domain</span>
+                            <span>Constructs</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className={styles.stepContent}>
-                        <h3>Input Agent <span className={styles.comingSoonBadge}>Coming Soon</span></h3>
-                        <p>Refines input, performs semantic search, and extracts key requirements</p>
+                      
+                      {/* RAG */}
+                      <div className={styles.stepBoxParallel}>
+                        <div className={styles.stepIcon}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                          </svg>
+                        </div>
+                        <div className={styles.stepContent}>
+                          <h3>RAG</h3>
+                          <p>Retrieves examples & spec chunks</p>
+                          <div className={styles.agentFeatures}>
+                            <span>Examples</span>
+                            <span>Spec</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -331,33 +377,9 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 3: RAG */}
+                  {/* Step 3: MoE */}
                   <div className={styles.pipelineStep}>
                     <div className={styles.stepNumber}>3</div>
-                    <div className={styles.stepBox}>
-                      <div className={styles.stepIcon}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                          <circle cx="12" cy="10" r="3"/>
-                        </svg>
-                      </div>
-                      <div className={styles.stepContent}>
-                        <h3>RAG (Retrieval-Augmented Generation)</h3>
-                        <p>Retrieves relevant examples from dataset and SysML v2 specification chunks</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className={styles.pipelineArrow}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 5v14M19 12l-7 7-7-7"/>
-                    </svg>
-                  </div>
-
-                  {/* Step 4: MoE */}
-                  <div className={styles.pipelineStep}>
-                    <div className={styles.stepNumber}>4</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -387,9 +409,9 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 5: Synthesis */}
+                  {/* Step 4: Synthesis */}
                   <div className={styles.pipelineStep}>
-                    <div className={styles.stepNumber}>5</div>
+                    <div className={styles.stepNumber}>4</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -411,9 +433,9 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 6: Compiler Feedback */}
+                  {/* Step 5: Compiler Feedback */}
                   <div className={styles.pipelineStep}>
-                    <div className={styles.stepNumber}>6</div>
+                    <div className={styles.stepNumber}>5</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -446,9 +468,9 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 7: Output */}
+                  {/* Step 6: Output */}
                   <div className={`${styles.pipelineStep} ${styles.stepFinal}`}>
-                    <div className={styles.stepNumber}>7</div>
+                    <div className={styles.stepNumber}>6</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
