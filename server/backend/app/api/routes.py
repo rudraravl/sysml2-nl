@@ -58,12 +58,16 @@ async def nl2sysml_stream(req: NL2SysMLRequest):
 
     async def event_generator():
         progress_queue = asyncio.Queue()
+        loop = asyncio.get_event_loop()
         
         def progress_callback(stage: str, detail: str):
-            # Put progress update in queue (non-blocking)
+            # Thread-safe: callbacks may come from run_in_executor threads
             try:
-                progress_queue.put_nowait({"type": "progress", "stage": stage, "detail": detail})
-            except:
+                loop.call_soon_threadsafe(
+                    progress_queue.put_nowait,
+                    {"type": "progress", "stage": stage, "detail": detail}
+                )
+            except Exception:
                 pass
         
         pipeline = get_pipeline(req.pipeline)

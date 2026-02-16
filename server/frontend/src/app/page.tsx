@@ -25,19 +25,15 @@ interface Diagnostics {
 
 // Human-readable progress messages
 const PROGRESS_MESSAGES: Record<string, string> = {
-  // Input Agent + RAG (parallel)
-  'input_agent': 'Analyzing input & building context...',
-  'input_agent_start': 'Input Agent: Starting analysis...',
-  'input_agent_keywords': 'Input Agent: Extracting keywords...',
-  'input_agent_domains': 'Input Agent: Identifying domains...',
-  'input_agent_constructs': 'Input Agent: Suggesting constructs...',
-  'input_agent_llm': 'Input Agent: Refining with LLM...',
-  'input_agent_llm_done': 'Input Agent: Refinement complete',
-  'input_agent_done': 'Input Agent: Analysis complete',
-  'prep_done': 'Input analysis & context ready',
-  // Legacy RAG messages (for backward compat)
+  // RAG
   'rag': 'Building knowledge context...',
   'rag_done': 'Context ready',
+  // Input Agent (after RAG)
+  'input_agent': 'Input Agent: Searching online & refining prompt...',
+  'input_agent_start': 'Input Agent: Initializing Gemini 2.5 Pro...',
+  'input_agent_search': 'Input Agent: Searching for SysML v2 patterns...',
+  'input_agent_done': 'Input Agent: Prompt refined',
+  'input_agent_error': 'Input Agent: Search failed, using original prompt',
   // MoE
   'experts': 'Querying expert models...',
   'expert_done': 'Expert responded',
@@ -325,47 +321,23 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Steps 2 & 3: Input Agent + RAG (parallel) */}
-                  <div className={styles.parallelSteps}>
+                  {/* Step 2: RAG */}
+                  <div className={styles.pipelineStep}>
                     <div className={styles.stepNumber}>2</div>
-                    <div className={styles.parallelBoxes}>
-                      {/* Input Agent */}
-                      <div className={styles.stepBoxParallel}>
-                        <div className={styles.stepIcon}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 8v4l2 2"/>
-                            <path d="M4.93 4.93l2.83 2.83"/>
-                            <path d="M19.07 4.93l-2.83 2.83"/>
-                          </svg>
-                        </div>
-                        <div className={styles.stepContent}>
-                          <h3>Input Agent</h3>
-                          <p>Refines input, extracts keywords, identifies domain</p>
-                          <div className={styles.agentFeatures}>
-                            <span>Keywords</span>
-                            <span>Domain</span>
-                            <span>Constructs</span>
-                          </div>
-                        </div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                          <circle cx="12" cy="10" r="3"/>
+                        </svg>
                       </div>
-                      
-                      {/* RAG */}
-                      <div className={styles.stepBoxParallel}>
-                        <div className={styles.stepIcon}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                            <circle cx="12" cy="10" r="3"/>
-                          </svg>
-                        </div>
-                        <div className={styles.stepContent}>
-                          <h3>RAG</h3>
-                          <p>Retrieves examples & spec chunks</p>
-                          <div className={styles.agentFeatures}>
-                            <span>Examples</span>
-                            <span>Spec</span>
-                          </div>
+                      <div className={styles.stepContent}>
+                        <h3>RAG (Retrieval)</h3>
+                        <p>Retrieves similar examples & SysML v2 spec chunks from local dataset</p>
+                        <div className={styles.agentFeatures}>
+                          <span>Examples</span>
+                          <span>Spec Chunks</span>
                         </div>
                       </div>
                     </div>
@@ -377,9 +349,38 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 3: MoE */}
+                  {/* Step 3: Input Agent */}
                   <div className={styles.pipelineStep}>
                     <div className={styles.stepNumber}>3</div>
+                    <div className={styles.stepBox}>
+                      <div className={styles.stepIcon}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8"/>
+                          <path d="M21 21l-4.35-4.35"/>
+                          <path d="M11 8v6M8 11h6"/>
+                        </svg>
+                      </div>
+                      <div className={styles.stepContent}>
+                        <h3>Input Agent (Gemini 2.5 Pro + Google Search)</h3>
+                        <p>Reads RAG context, searches online for SysML v2 syntax &amp; domain knowledge, refines prompt</p>
+                        <div className={styles.agentFeatures}>
+                          <span>Web Search</span>
+                          <span>Syntax Lookup</span>
+                          <span>Prompt Refinement</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className={styles.pipelineArrow}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 5v14M19 12l-7 7-7-7"/>
+                    </svg>
+                  </div>
+
+                  {/* Step 4: MoE */}
+                  <div className={styles.pipelineStep}>
+                    <div className={styles.stepNumber}>4</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -409,9 +410,9 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 4: Synthesis */}
+                  {/* Step 5: Synthesis */}
                   <div className={styles.pipelineStep}>
-                    <div className={styles.stepNumber}>4</div>
+                    <div className={styles.stepNumber}>5</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -433,9 +434,9 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 5: Compiler Feedback */}
+                  {/* Step 6: Compiler Feedback */}
                   <div className={styles.pipelineStep}>
-                    <div className={styles.stepNumber}>5</div>
+                    <div className={styles.stepNumber}>6</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -468,9 +469,9 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  {/* Step 6: Output */}
+                  {/* Step 7: Output */}
                   <div className={`${styles.pipelineStep} ${styles.stepFinal}`}>
-                    <div className={styles.stepNumber}>6</div>
+                    <div className={styles.stepNumber}>7</div>
                     <div className={styles.stepBox}>
                       <div className={styles.stepIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

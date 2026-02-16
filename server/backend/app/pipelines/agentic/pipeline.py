@@ -26,6 +26,7 @@ import google.generativeai as genai
 from app.pipelines.base import BasePipeline
 from app.core.config import MAX_INPUT_CHARS, GEMINI_API_KEY, OPENROUTER_API_KEY, OPENROUTER_BASE_URL
 from app.core.logging import get_logger
+from app.pipelines.agentic.inputagent import run_input_agent
 
 log = get_logger(__name__)
 
@@ -400,10 +401,35 @@ class AgenticPipeline(BasePipeline):
         rag_ms = int((time.time() - rag_start) * 1000)
         self._report_progress("rag_done", f"RAG context built in {rag_ms}ms")
 
-        sys_msg = _default_system_prompt(None)
-        human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=text)
+        # Step 2: Input Agent — refine prompt with Gemini 2.5 Pro + Google Search
+        self._report_progress("input_agent", "Input Agent: Refining prompt with online search...")
+        ia_result = await run_input_agent(
+            nl_input=text,
+            rag_context=context,
+            progress_callback=self._progress_callback,
+        )
+        ia_ms = ia_result.get("duration_ms", 0)
+        refined_prompt = ia_result.get("refined_prompt", "")
+        search_queries = ia_result.get("search_queries", [])
 
-        # Step 2: Query all expert models IN PARALLEL
+        # Use the refined prompt if available; otherwise fall back to original
+        if refined_prompt:
+            log.info(f"Input Agent produced refined prompt ({len(refined_prompt)} chars)")
+            # The refined prompt already contains enriched context + requirement + guidance
+            sys_msg = _default_system_prompt(None)
+            human_msg = (
+                refined_prompt + "\n\n"
+                "Generate SysML v2 code for the above requirement. "
+                "Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, "
+                "item/value types (with units), behaviors (state machines/actions), and requirements as applicable. "
+                "Avoid placeholders."
+            )
+        else:
+            log.info("Input Agent returned empty; using original RAG prompt")
+            sys_msg = _default_system_prompt(None)
+            human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=text)
+
+        # Step 3: Query all expert models IN PARALLEL
         self._report_progress("experts", f"Querying {len(EXPERT_MODELS)} experts in parallel...")
         gen_start = time.time()
         
@@ -433,7 +459,7 @@ class AgenticPipeline(BasePipeline):
         experts_ms = int((time.time() - gen_start) * 1000)
         self._report_progress("experts_done", f"Got {len(candidates)}/{len(EXPERT_MODELS)} responses in {experts_ms}ms")
 
-        # Step 3: Synthesis by COMBINER_MODEL using candidates as extra context
+        # Step 4: Synthesis by COMBINER_MODEL using candidates as extra context
         synth_start = time.time()
         if candidates:
             self._report_progress("synthesis", f"Synthesizing with {COMBINER_MODEL}...")
@@ -461,7 +487,7 @@ class AgenticPipeline(BasePipeline):
         total_ms = int((time.time() - gen_start) * 1000)
         self._report_progress("done", f"Synthesis completed in {synth_ms}ms, total {total_ms}ms")
 
-        # Step 4: Optional syntax check and refinement (if compiler available on server)
+        # Step 5: Optional syntax check and refinement (if compiler available on server)
         final_valid = False
         final_errors = 0
         final_error_details: List[dict] = []
@@ -498,6 +524,8 @@ class AgenticPipeline(BasePipeline):
             "model_load_ms": 0,
             "gen_ms": total_ms,
             "rag_ms": rag_ms,
+            "input_agent_ms": ia_ms,
+            "input_agent_searches": search_queries,
             "experts_ms": experts_ms,
             "synth_ms": synth_ms,
             "num_candidates": len(candidates),
