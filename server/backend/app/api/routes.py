@@ -9,6 +9,8 @@ from app.api.schemas import (
     NL2SysMLRequest,
     NL2SysMLResponse,
     Diagnostics,
+    RefineRequest,
+    RefineResponse,
     VersionResponse,
     HealthResponse,
     StatusResponse,
@@ -116,6 +118,51 @@ async def nl2sysml_stream(req: NL2SysMLRequest):
         }
     )
 
+
+
+@router.post("/api/nl2sysml/refine", response_model=RefineResponse)
+async def nl2sysml_refine(req: RefineRequest):
+    """Refine existing SysML output using only the combiner model."""
+    import time
+    from pathlib import Path
+    from app.pipelines.agentic.pipeline import (
+        _rag_context, _default_system_prompt, _invoke_with_retry,
+        COMBINER_MODEL, GEMINI_API_KEY,
+    )
+    import google.generativeai as genai
+
+    log.info(f"Refine request: instruction_len={len(req.instruction)}, sysml_len={len(req.current_sysml)}")
+
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
+
+    genai.configure(api_key=GEMINI_API_KEY)
+    root = Path(__file__).resolve().parents[4]
+    loop = asyncio.get_event_loop()
+
+    start = time.time()
+
+    # Rebuild RAG context for the original requirement
+    context = await loop.run_in_executor(None, _rag_context, req.original_text, root, 3)
+
+    sys_msg = _default_system_prompt(
+        "You are refining an existing SysML v2 model based on user feedback. "
+        "Apply the requested changes precisely. Keep all correct parts unchanged."
+    )
+    human_msg = (
+        f"{context}\n\n"
+        f"Original requirement:\n{req.original_text}\n\n"
+        f"Current SysML v2 model:\n{req.current_sysml}\n\n"
+        f"Refinement instruction:\n{req.instruction}\n\n"
+        "Apply the refinement instruction to the SysML model above. "
+        "Output only the complete refined SysML v2 code."
+    )
+
+    refined = await loop.run_in_executor(None, _invoke_with_retry, COMBINER_MODEL, sys_msg, human_msg)
+    gen_ms = int((time.time() - start) * 1000)
+
+    log.info(f"Refine complete in {gen_ms}ms, output {len(refined)} chars")
+    return RefineResponse(sysml=refined or req.current_sysml, gen_ms=gen_ms)
 
 
 @router.get("/api/version", response_model=VersionResponse)

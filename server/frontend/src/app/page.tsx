@@ -60,6 +60,8 @@ export default function Home() {
   const [progressMsg, setProgressMsg] = useState<string>('')
   const [progressDetail, setProgressDetail] = useState<string>('')
   const [showArchitecture, setShowArchitecture] = useState(false)
+  const [refineText, setRefineText] = useState<string>('')
+  const [isRefining, setIsRefining] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Copy to clipboard with fallback for HTTP
@@ -198,6 +200,47 @@ export default function Home() {
     }
   }
 
+  const handleRefine = async () => {
+    if (!result || !refineText.trim()) return
+    setIsRefining(true)
+    setError(null)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 300000)
+    try {
+      const response = await fetch('/api/nl2sysml/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          original_text: inputText,
+          current_sysml: result,
+          instruction: refineText,
+          max_new_tokens: 4096,
+        }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || 'Refinement failed')
+      }
+      const data = await response.json()
+      setResult(data.sysml)
+      setRefineText('')
+      if (diagnostics) {
+        setDiagnostics({ ...diagnostics, gen_ms: data.gen_ms })
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Refinement timed out. Please try again.')
+      } else {
+        setError(err instanceof Error ? err.message : 'Refinement failed')
+      }
+    } finally {
+      clearTimeout(timeoutId)
+      setIsRefining(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -212,6 +255,7 @@ export default function Home() {
     setDiagnostics(null)
     setProgressMsg('')
     setProgressDetail('')
+    setRefineText('')
     setIsAnimating(true)
 
     try {
@@ -618,6 +662,29 @@ export default function Home() {
                           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                         </svg>
+                      )}
+                    </button>
+                  </div>
+                  {/* Refine Section */}
+                  <div className={styles.refineSection}>
+                    <input
+                      type="text"
+                      className={styles.refineInput}
+                      placeholder="Add refinement instructions (e.g. 'add a pressure sensor port')"
+                      value={refineText}
+                      onChange={(e) => setRefineText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !isRefining && refineText.trim()) handleRefine() }}
+                      disabled={isRefining || isLoading}
+                    />
+                    <button
+                      className={styles.refineBtn}
+                      onClick={handleRefine}
+                      disabled={isRefining || isLoading || !refineText.trim()}
+                    >
+                      {isRefining ? (
+                        <><span className={styles.spinner} />Refining...</>
+                      ) : (
+                        <>✦ Refine</>
                       )}
                     </button>
                   </div>

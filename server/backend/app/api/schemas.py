@@ -35,6 +35,20 @@ class NL2SysMLResponse(BaseModel):
     diagnostics: Diagnostics
 
 
+class RefineRequest(BaseModel):
+    """Request to refine existing SysML output."""
+    original_text: str = Field(..., min_length=1, description="Original NL requirement")
+    current_sysml: str = Field(..., min_length=1, description="Current generated SysML code")
+    instruction: str = Field(..., min_length=1, description="Refinement instruction from user")
+    max_new_tokens: int = Field(default=4096, ge=1, le=65536)
+
+
+class RefineResponse(BaseModel):
+    """Response from refinement."""
+    sysml: str
+    gen_ms: int
+
+
 class VersionResponse(BaseModel):
     """API version info."""
     version: str
