@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react'
 import styles from './page.module.css'
+import SysMLComposer from './SysMLComposer'
 
 type Pipeline = 'agentic' | 'kalm' | 'qwen' | 'llama'
+type InputMode = 'freeform' | 'structured'
 
 interface Diagnostics {
   loaded_from_cache: boolean
@@ -49,6 +51,7 @@ const PROGRESS_MESSAGES: Record<string, string> = {
 }
 
 export default function Home() {
+  const [inputMode, setInputMode] = useState<InputMode>('freeform')
   const [inputText, setInputText] = useState('')
   const [result, setResult] = useState<string | null>(null)
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null)
@@ -535,7 +538,31 @@ export default function Home() {
           </div>
         )}
 
-        {/* Main Card */}
+        {/* Mode Tabs: Freeform vs Structured */}
+        <div className={styles.modeTabs}>
+          <button
+            type="button"
+            className={`${styles.modeTab} ${inputMode === 'freeform' ? styles.modeTabActive : ''}`}
+            onClick={() => setInputMode('freeform')}
+          >
+            Freeform Text
+          </button>
+          <button
+            type="button"
+            className={`${styles.modeTab} ${inputMode === 'structured' ? styles.modeTabActive : ''}`}
+            onClick={() => setInputMode('structured')}
+          >
+            Structured
+          </button>
+        </div>
+
+        {/* Structured Composer (tab) */}
+        {inputMode === 'structured' && (
+          <SysMLComposer />
+        )}
+
+        {/* Main Card (Freeform) */}
+        {inputMode === 'freeform' && (
         <div className={styles.card}>
           <form onSubmit={handleSubmit} className={styles.form}>
             {/* Pipeline Selection */}
@@ -702,6 +729,7 @@ export default function Home() {
             </div>
           )}
         </div>
+        )}
 
         {/* Footer */}
         <footer className={styles.footer}>

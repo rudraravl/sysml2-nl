@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api.sysml_composer_routes import router as sysml_composer_router
 from app.runtime.lifecycle import start_background_tasks, stop_background_tasks
 from app.core.logging import get_logger
 
@@ -43,3 +44,4 @@ app.add_middleware(
 
 # Include routes
 app.include_router(router)
+app.include_router(sysml_composer_router)
