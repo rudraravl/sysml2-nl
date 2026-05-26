@@ -57,9 +57,9 @@ except ImportError:
 # Expert models (one per line)
 EXPERT_MODELS = [
     "gemini-2.5-pro",
-    "openai/gpt-5.1-codex-max",
+    # "openai/gpt-5.1-codex-max", # used in standard MOE, GPT 5.4 for Aabaltion study
     "anthropic/claude-sonnet-4.5",
-    
+    "openai/gpt-5.4",
     "meta-llama/llama-4-maverick",
     # "meta-llama/llama-4-maverick:free",
 ]
