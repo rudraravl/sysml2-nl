@@ -11,13 +11,18 @@ if str(_REPO_ROOT) not in sys.path:
 
 from nl2sysml.sysml_execution import ExecutionRequest, run_sysml_execution  # noqa: E402
 
-_SAMPLE = _REPO_ROOT / "dataset/data/000001/000001.sysml"
+_SAMPLE = _REPO_ROOT / "dataset/data/000200/000200.sysml"
 
 result = run_sysml_execution(
     ExecutionRequest(
-        candidate_sysml=_SAMPLE.read_text(encoding="utf-8")
+        candidate_sysml=_SAMPLE.read_text(encoding="utf-8"),
+        simulation_vectors={"fuelCmd": 1},
     )
 )
-payload = result.to_dict()
+print(f"success={result.success} syntax_ok={result.syntax_ok} behavior_ok={result.behavior_ok}")
+print(f"layer2_status={result.layer2_status}")
+if result.harness_metadata:
+    print(f"harness_profile={result.harness_metadata.get('profile')}")
+    print(f"probes_runnable={result.harness_metadata.get('probes_runnable')}")
 if not result.success and result.diagnostic_pack:
     print(result.diagnostic_pack["recommended_repair_prompt"])

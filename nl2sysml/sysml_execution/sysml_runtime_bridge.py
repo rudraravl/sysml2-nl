@@ -2,21 +2,49 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Dict, List, Optional
 
 from .models import KernelExecutionOutput
 
-# NOTE: Kernel iopub message shapes vary by SysML kernel build. Parsing is best-effort.
+# OMG SysML Jupyter kernel (Java) emits:
+#   - iopub execute_result with content.data["text/plain"] on success
+#   - iopub stream (stderr) with "ERROR:..." on parse/semantic failures
+# It does NOT reliably populate content["text"] on iopub (unlike IPython).
+
+
+def _apply_jupyter_path_override(explicit: Optional[str] = None) -> None:
+    """
+    Optional kernelspec search path override.
+
+    By default KernelManager uses the active Python environment (project ``.venv``),
+    where ``jupyter kernelspec install`` registers ``kernels/sysml``. Only set
+    ``jupyter_path`` or ``SYSML_JUPYTER_PATH`` for non-standard layouts.
+    """
+    override = explicit or os.environ.get("SYSML_JUPYTER_PATH")
+    if not override:
+        return
+    existing = os.environ.get("JUPYTER_PATH", "")
+    parts = [override]
+    if existing:
+        parts.extend(p for p in existing.split(os.pathsep) if p and p not in parts)
+    os.environ["JUPYTER_PATH"] = os.pathsep.join(parts)
 
 
 def _message_text(content: Dict[str, Any]) -> str:
-    if "text" in content and content["text"]:
+    if content.get("text"):
         return str(content["text"])
-    if "ename" in content and "evalue" in content:
+    data = content.get("data") or {}
+    if isinstance(data, dict):
+        for key in ("text/plain", "text/html"):
+            if data.get(key):
+                return str(data[key])
+    if content.get("ename") and content.get("evalue"):
         return f"{content['ename']}: {content['evalue']}"
-    if "traceback" in content:
-        return "\n".join(str(t) for t in content["traceback"])
+    traceback = content.get("traceback")
+    if traceback:
+        return "\n".join(str(t) for t in traceback)
     return ""
 
 
@@ -32,18 +60,31 @@ def _serialize_message(msg: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _kernel_spec_available(kernel_name: str) -> bool:
+    try:
+        from jupyter_client.kernelspec import KernelSpecManager
+
+        return kernel_name in KernelSpecManager().find_kernel_specs()
+    except Exception:
+        return False
+
+
 def execute_sysml_candidate(
     consolidated_payload: str,
     *,
     kernel_name: str = "sysml",
     timeout_sec: float = 120.0,
+    jupyter_path: Optional[str] = None,
+    kernel_ready_timeout_sec: float = 180.0,
 ) -> KernelExecutionOutput:
     """
-    Connect to the SysML reference runtime, deliver code, and capture stream blocks.
+    Headless SysML v2 kernel session: start kernel, execute payload, collect outputs, shutdown.
 
-    Requires the official SysML v2 Jupyter kernel (kernel spec name ``sysml``),
-    e.g. in an OrbStack Linux container.
+    The reference Java kernel returns primary output on iopub ``execute_result`` (``text/plain``)
+    and diagnostics on iopub ``stream`` stderr (often prefixed with ``ERROR:``).
     """
+    _apply_jupyter_path_override(jupyter_path)
+
     try:
         from jupyter_client.manager import KernelManager
     except ImportError as exc:
@@ -51,6 +92,20 @@ def execute_sysml_candidate(
             execution_status_payload="",
             kernel_available=False,
             bridge_error=f"jupyter_client not installed: {exc}",
+        )
+
+    if not _kernel_spec_available(kernel_name):
+        hint = (
+            f"Jupyter kernelspec '{kernel_name}' not found in the active environment. "
+            "From the project root with .venv activated: "
+            "``jupyter kernelspec list`` should show sysml under "
+            "``.venv/share/jupyter/kernels/sysml``. "
+            "Or set SYSML_JUPYTER_PATH to an alternate share/jupyter directory."
+        )
+        return KernelExecutionOutput(
+            execution_status_payload="",
+            kernel_available=False,
+            bridge_error=hint,
         )
 
     manager: Optional[KernelManager] = None
@@ -66,17 +121,16 @@ def execute_sysml_candidate(
         manager.start_kernel()
         client = manager.client()
         client.start_channels()
+        client.wait_for_ready(timeout=kernel_ready_timeout_sec)
 
         msg_id = client.execute(consolidated_payload)
         deadline = time.monotonic() + timeout_sec
-        idle_seen = False
+        execute_idle = False
 
-        while time.monotonic() < deadline:
+        while time.monotonic() < deadline and not execute_idle:
             try:
                 msg = client.get_iopub_msg(timeout=1.0)
             except Exception:
-                if idle_seen:
-                    break
                 continue
 
             serialized = _serialize_message(msg)
@@ -88,36 +142,48 @@ def execute_sysml_candidate(
 
             msg_type = serialized.get("msg_type")
             text = serialized.get("text") or ""
+            content = serialized.get("content") or {}
 
             if msg_type == "stream":
-                stream_name = (serialized.get("content") or {}).get("name", "stdout")
+                stream_name = content.get("name", "stdout")
+                line = text
                 if stream_name == "stderr":
-                    stderr_lines.append(text)
+                    stderr_lines.append(line)
+                    if line.lstrip().upper().startswith("ERROR"):
+                        error_lines.append(line)
                 else:
-                    stdout_lines.append(text)
-            elif msg_type in ("error", "execute_result", "display_data"):
-                if msg_type == "error":
-                    error_lines.append(text)
-                elif text:
+                    stdout_lines.append(line)
+            elif msg_type == "error":
+                error_lines.append(text or str(content))
+            elif msg_type == "execute_result":
+                if text.strip():
                     stdout_lines.append(text)
             elif msg_type == "status":
-                state = (serialized.get("content") or {}).get("execution_state")
-                if state == "idle":
-                    idle_seen = True
+                if content.get("execution_state") == "idle":
+                    execute_idle = True
 
-        try:
-            shell_msg = client.get_shell_msg(timeout=5.0)
+        shell_deadline = time.monotonic() + min(30.0, timeout_sec)
+        while time.monotonic() < shell_deadline:
+            try:
+                shell_msg = client.get_shell_msg(timeout=1.0)
+            except Exception:
+                break
+            if (shell_msg.get("parent_header") or {}).get("msg_id") != msg_id:
+                continue
             shell_reply = _serialize_message(shell_msg)
-            if shell_reply.get("text"):
-                stdout_lines.append(shell_reply["text"])
+            raw_messages.append(shell_reply)
+            reply_text = shell_reply.get("text") or ""
             status = (shell_reply.get("content") or {}).get("status")
             if status == "error":
-                error_lines.append(shell_reply.get("text") or "shell execution error")
-        except Exception:
-            pass
+                error_lines.append(reply_text or "execute_reply status=error")
+            elif reply_text.strip():
+                stdout_lines.append(reply_text)
+            break
 
         status_payload = "\n".join(
-            line for line in (stdout_lines + stderr_lines + error_lines) if line
+            part.strip()
+            for part in stdout_lines + stderr_lines + error_lines
+            if part and str(part).strip()
         )
         return KernelExecutionOutput(
             execution_status_payload=status_payload,
@@ -130,7 +196,9 @@ def execute_sysml_candidate(
         )
 
     except Exception as exc:
-        partial = "\n".join(stdout_lines + stderr_lines + error_lines)
+        partial = "\n".join(
+            p for p in stdout_lines + stderr_lines + error_lines if p
+        )
         return KernelExecutionOutput(
             execution_status_payload=partial,
             stdout_lines=stdout_lines,

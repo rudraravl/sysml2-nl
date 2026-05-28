@@ -24,12 +24,25 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from .extractor import extract_topology
+from .extractor import classify_topology, extract_topology, requires_layer2
 from .harness_builder import build_consolidated_payload, build_harness_block
-from .models import ExecutionRequest, ExecutionResult, KernelExecutionOutput
+from .models import (
+    ExecutionRequest,
+    ExecutionResult,
+    HarnessMetadata,
+    KernelExecutionOutput,
+    Layer2Status,
+    ModelProfile,
+)
 from .sysml_runtime_bridge import execute_sysml_candidate
 
-_ERROR_MARKERS = ("[ERROR]", "Constraint Violation", "constraint violation", "AssertionError")
+_ERROR_MARKERS = (
+    "[ERROR]",
+    "ERROR:",
+    "Constraint Violation",
+    "constraint violation",
+    "AssertionError",
+)
 _STATE_CHANGE_RE = re.compile(
     r"(?:state|transition|enter|exit)\s*[:\-]?\s*(\w+)",
     re.IGNORECASE,
@@ -40,6 +53,10 @@ _ASSERT_RESULT_RE = re.compile(
 )
 _VARIABLE_MISMATCH_RE = re.compile(
     r"(\w+)\s*(?:=|expected|was)\s*([^\s,;]+)",
+    re.IGNORECASE,
+)
+_ACTION_TRACE_RE = re.compile(
+    r"(?:perform|action)\s+[`'\"]?([^`'\"]+)[`'\"]?\s*(?:completed|started|done)?",
     re.IGNORECASE,
 )
 
@@ -85,6 +102,85 @@ def _parse_state_traces(logs: List[str]) -> List[str]:
     return traces
 
 
+def _parse_action_traces(logs: List[str]) -> List[str]:
+    traces: List[str] = []
+    for log in logs:
+        for m in _ACTION_TRACE_RE.finditer(log):
+            traces.append(f"action_trace:{m.group(1).strip()}")
+    return traces
+
+
+def _compute_syntax_ok(kernel_out: KernelExecutionOutput, logs: List[str], status_payload: str) -> bool:
+    if not kernel_out.kernel_available or kernel_out.bridge_error:
+        return False
+    combined_lower = (status_payload + "\n" + "\n".join(logs)).lower()
+    has_error_marker = any(m.lower() in combined_lower for m in _ERROR_MARKERS)
+    shell_status = None
+    if kernel_out.shell_reply:
+        shell_status = (kernel_out.shell_reply.get("content") or {}).get("status")
+    shell_ok = shell_status in (None, "ok")
+    return shell_ok and not has_error_marker and not kernel_out.error_lines
+
+
+def _compute_behavior_ok(
+    syntax_ok: bool,
+    harness_meta: HarnessMetadata,
+    logs: List[str],
+    constraint_manifest: List[Dict[str, Any]],
+) -> bool:
+    if harness_meta.profile == ModelProfile.ANALYSIS_TOOL:
+        return True
+    if not harness_meta.probes_runnable:
+        return False
+    if not syntax_ok:
+        return False
+    failed_constraints = any(
+        c.get("outcome") in ("failed", "violated", "false") for c in constraint_manifest
+    )
+    if failed_constraints:
+        return False
+    has_executable_probe = (
+        harness_meta.has_perform_probe
+        or harness_meta.has_assign_probe
+        or harness_meta.has_assert_probe
+    )
+    if not has_executable_probe:
+        return False
+    action_traces = _parse_action_traces(logs)
+    if action_traces:
+        return True
+    # Structural reachability: kernel compiled harness with real probes (no log traces yet).
+    return syntax_ok and harness_meta.probes_emitted > 0
+
+
+def _build_layer2_bypassed_pack(
+    harness_meta: HarnessMetadata,
+    profile: ModelProfile,
+) -> Dict[str, Any]:
+    reasons = list(harness_meta.skipped_reasons)
+    if not harness_meta.probes_runnable:
+        reasons.append("harness probes not runnable")
+    message = (
+        "Layer 2 bypassed: model requires behavioral verification but harness could not "
+        f"emit runnable probes (profile={profile.value})."
+    )
+    if reasons:
+        message += f" Reasons: {'; '.join(reasons)}"
+    return {
+        "error_type": "layer2_bypassed",
+        "message": message,
+        "suspect_variables": [],
+        "recommended_repair_prompt": (
+            "Layer 2 was not executed rigorously. "
+            f"{message} "
+            "Ensure extraction finds composite actions / parts and provide simulation_vectors "
+            "for input pins where needed."
+        ),
+        "skipped_reasons": reasons,
+        "profile": profile.value,
+    }
+
+
 def _build_diagnostic_pack(
     status_payload: str,
     logs: List[str],
@@ -97,7 +193,7 @@ def _build_diagnostic_pack(
             return None
 
     error_type = "constraint_violation"
-    if "[ERROR]" in combined:
+    if "[ERROR]" in combined or "ERROR:" in combined.upper():
         error_type = "kernel_error"
     elif any("transition" in log.lower() for log in logs):
         error_type = "behavioral_trace_failure"
@@ -132,47 +228,88 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
     Returns structured JSON-serializable result via ``ExecutionResult.to_dict()``.
     """
     topology = extract_topology(request.candidate_sysml)
-    harness_block = build_harness_block(topology, request)
+    profile = classify_topology(topology)
+    layer2_required = requires_layer2(topology, profile)
+
+    harness_result = build_harness_block(topology, request)
+    harness_block = harness_result.harness_block
+    harness_meta = harness_result.metadata
     consolidated = build_consolidated_payload(request.candidate_sysml, harness_block)
 
     kernel_out = execute_sysml_candidate(
         consolidated,
         kernel_name=request.kernel_name,
         timeout_sec=request.execution_timeout_sec,
+        jupyter_path=request.jupyter_path,
+        kernel_ready_timeout_sec=request.kernel_ready_timeout_sec,
     )
 
     logs = _parse_execution_logs(kernel_out)
-    state_traces = _parse_state_traces(logs)
-    logs.extend(state_traces)
+    logs.extend(_parse_state_traces(logs))
+    logs.extend(_parse_action_traces(logs))
 
     constraint_manifest = _parse_constraint_manifest(logs)
     status_payload = kernel_out.execution_status_payload or "\n".join(logs)
 
-    diagnostic_pack = None
-    if kernel_out.bridge_error or not kernel_out.kernel_available:
+    syntax_ok = _compute_syntax_ok(kernel_out, logs, status_payload)
+
+    if profile == ModelProfile.ANALYSIS_TOOL:
+        layer2_status = Layer2Status.NOT_REQUIRED.value
+        behavior_ok = True
+        if kernel_out.bridge_error or not kernel_out.kernel_available:
+            diagnostic_pack = {
+                "error_type": "kernel_unavailable",
+                "message": kernel_out.bridge_error or "SysML kernel not available",
+                "suspect_variables": [],
+                "recommended_repair_prompt": (
+                    "Install the SysML Jupyter kernel for syntax validation. "
+                    "Layer 2 behavioral execution is not required for analysis/tooling models."
+                ),
+            }
+            success = False
+        else:
+            diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
+            success = syntax_ok
+    elif kernel_out.bridge_error or not kernel_out.kernel_available:
+        layer2_status = Layer2Status.KERNEL_UNAVAILABLE.value
         diagnostic_pack = {
             "error_type": "kernel_unavailable",
             "message": kernel_out.bridge_error or "SysML kernel not available",
             "suspect_variables": [],
             "recommended_repair_prompt": (
-                "Install and register the SysML Jupyter kernel (kernel_name='sysml'), "
-                "e.g. in OrbStack, then retry execution."
+                "Install the SysML Jupyter kernel in the project .venv "
+                "(``jupyter kernelspec list`` should show sysml), "
+                "or set SYSML_JUPYTER_PATH to .venv/share/jupyter."
             ),
         }
-    else:
+        behavior_ok = False
+        success = False
+    elif not layer2_required:
+        layer2_status = Layer2Status.NOT_REQUIRED.value
+        behavior_ok = True
         diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
+        success = syntax_ok
+    elif not harness_meta.probes_runnable:
+        layer2_status = Layer2Status.BYPASSED.value
+        diagnostic_pack = _build_layer2_bypassed_pack(harness_meta, profile)
+        behavior_ok = False
+        success = False
+    else:
+        behavior_ok = _compute_behavior_ok(syntax_ok, harness_meta, logs, constraint_manifest)
+        if behavior_ok:
+            layer2_status = Layer2Status.VERIFIED.value
+            diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
+        else:
+            layer2_status = Layer2Status.BYPASSED.value
+            diagnostic_pack = _build_layer2_bypassed_pack(harness_meta, profile)
+            if syntax_ok:
+                diagnostic_pack["message"] = (
+                    "Layer 2 harness compiled but behavioral verification did not complete."
+                )
+        success = syntax_ok and behavior_ok
 
-    has_error_marker = any(m.lower() in status_payload.lower() for m in _ERROR_MARKERS)
-    failed_constraints = any(
-        c.get("outcome") in ("failed", "violated", "false") for c in constraint_manifest
-    )
-    success = (
-        kernel_out.kernel_available
-        and kernel_out.bridge_error is None
-        and not has_error_marker
-        and not failed_constraints
-        and bool(status_payload or logs)
-    )
+    if diagnostic_pack is None and not success and layer2_status == Layer2Status.VERIFIED.value:
+        diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
 
     return ExecutionResult(
         success=success,
@@ -184,6 +321,10 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
         consolidated_payload=consolidated,
         extracted_topology=topology,
         harness_block=harness_block,
+        syntax_ok=syntax_ok,
+        behavior_ok=behavior_ok,
+        layer2_status=layer2_status,
+        harness_metadata=harness_meta.to_dict(),
     )
 
 
@@ -208,18 +349,31 @@ def _cli() -> None:
         result = run_sysml_execution(req)
     else:
         topology = extract_topology(code)
-        harness = build_harness_block(topology, req)
-        consolidated = build_consolidated_payload(code, harness)
+        harness_result = build_harness_block(topology, req)
+        profile = classify_topology(topology)
+        layer2_required = requires_layer2(topology, profile)
         result = ExecutionResult(
-            success=True,
+            success=not layer2_required or harness_result.metadata.probes_runnable,
             execution_status_payload="dry-run (harness only; pass --execute for kernel)",
             execution_logs=[],
             constraint_manifest=[],
-            diagnostic_pack=None,
+            diagnostic_pack=(
+                _build_layer2_bypassed_pack(harness_result.metadata, profile)
+                if layer2_required and not harness_result.metadata.probes_runnable
+                else None
+            ),
             raw_kernel_messages=[],
-            consolidated_payload=consolidated,
+            consolidated_payload=build_consolidated_payload(code, harness_result.harness_block),
             extracted_topology=topology,
-            harness_block=harness,
+            harness_block=harness_result.harness_block,
+            syntax_ok=False,
+            behavior_ok=False,
+            layer2_status=(
+                Layer2Status.BYPASSED.value
+                if layer2_required and not harness_result.metadata.probes_runnable
+                else Layer2Status.NOT_REQUIRED.value
+            ),
+            harness_metadata=harness_result.metadata.to_dict(),
         )
 
     payload = result.to_dict()
