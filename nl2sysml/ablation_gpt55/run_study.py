@@ -17,13 +17,6 @@ if str(NL2SYSML_DIR) not in sys.path:
 if str(ABLATION_DIR) not in sys.path:
     sys.path.insert(0, str(ABLATION_DIR))
 
-from agent_rag_moe import (  # noqa: E402
-    PROMPT_HUMAN_TEMPLATE,
-    _default_system_prompt,
-    _invoke_with_retry,
-    _load_env,
-    _rag_context,
-)
 from compiler_interface import check_code  # noqa: E402
 from config import (  # noqa: E402
     COMPILER_SYNTAX_ONLY,
@@ -31,11 +24,10 @@ from config import (  # noqa: E402
     GENERATED_DIR,
     GPT55_MODEL,
     HTML_REPORT,
-    RAG_K,
-    REPO_ROOT,
     RESULT_CSV,
 )
 from executable_rules import EXECUTABLE_RULE_IDS, evaluate_executable_rules  # noqa: E402
+from generators import generate_with_rag  # noqa: E402
 from report import render_html  # noqa: E402
 
 
@@ -84,30 +76,6 @@ def load_dataset(path: Path, ids_filter: set[str] | None) -> list[dict[str, str]
     return rows
 
 
-def generate_gpt55(description: str) -> tuple[str, dict[str, Any]]:
-    _gkey, openrouter_key = _load_env()
-    if not openrouter_key:
-        raise RuntimeError("OPENROUTER_API_KEY missing in environment/.env")
-
-    context = _rag_context(description, REPO_ROOT, k=RAG_K)
-    executable_hint = (
-        "Generate SysML v2 code only. Include executable behavior when applicable. "
-        "For signal accepts, expose typed payload/output parameters. "
-        "For messages, assign signatures and realize signal messages with flows/connectors. "
-        "For state machines, call only locally defined or structurally reachable actions. "
-        "For submachine states, reference defined state machines in the owning structure."
-    )
-    system_msg = _default_system_prompt(executable_hint)
-    human_msg = PROMPT_HUMAN_TEMPLATE.format(context=context, input=description)
-    code = _invoke_with_retry(GPT55_MODEL, system_msg, human_msg, openrouter_key)
-    return code, {
-        "model": GPT55_MODEL,
-        "context_length": len(context),
-        "system_prompt": system_msg,
-        "human_prompt": human_msg,
-    }
-
-
 def compiler_counts(result: Any) -> tuple[int, int]:
     errors = getattr(result, "errors", []) or []
     syntax_count = sum(1 for e in errors if e.is_syntax_error())
@@ -126,7 +94,7 @@ def evaluate_prompt(prompt_id: str, description: str, *, resume: bool) -> dict[s
         print(f"  {prompt_id}: using existing {sysml_path}")
     else:
         print(f"  {prompt_id}: generating with {GPT55_MODEL}...", flush=True)
-        code, prompt_record = generate_gpt55(description)
+        code, prompt_record = generate_with_rag(description)
         sysml_path.write_text(f"// {description}\n{code.strip()}\n", encoding="utf-8")
         prompt_path.write_text(json.dumps(prompt_record, indent=2), encoding="utf-8")
 

@@ -1,8 +1,40 @@
-# GPT-5.5 Executable Rule Ablation
+# GPT-5.5 Ablation Studies
 
-This isolated study runs GPT-5.5 on the 20 prompts in `nl2sysml/dataset.json`,
-checks compiler validity, and evaluates the five `Executable` rules from the
-SysML 2 Rule Verification Guide:
+Isolated experiments under `nl2sysml/ablation_gpt55/`. Does not modify `agent_rag_moe.py` or write to `result_rag_moe/`.
+
+## Stage A — Baseline on `nl_seed.jsonl`
+
+**GPT-5.5 only**: default system prompt + NL description. No RAG, no MOE, no compiler repair.
+
+From repository root:
+
+```bash
+python nl2sysml/ablation_gpt55/batch_nl_seed.py --dry-run
+python nl2sysml/ablation_gpt55/batch_nl_seed.py
+python nl2sysml/ablation_gpt55/batch_nl_seed.py --num-entries 100
+python nl2sysml/ablation_gpt55/batch_nl_seed.py --start-from 25   # resume
+python nl2sysml/ablation_gpt55/batch_nl_seed.py --no-resume      # overwrite
+```
+
+Outputs (gitignored):
+
+- `results/baseline_nl_seed/{U###}/{U###}.sysml`
+- `results/baseline_nl_seed/{U###}/{U###}.txt`
+- `results/baseline_nl_seed/{U###}/meta.json`
+- `results/baseline_nl_seed/{U###}/{U###}_prompt.json`
+- `results/baseline_nl_seed/generation.log`
+
+Requires only `OPENROUTER_API_KEY` in repo-root `.env`.
+
+Override model:
+
+```bash
+GPT55_MODEL=openai/gpt-5.5 python nl2sysml/ablation_gpt55/batch_nl_seed.py
+```
+
+## Executable-rule study (`dataset.json`)
+
+Runs GPT-5.5 **with RAG** on the 20 prompts in `nl2sysml/dataset.json`, then checks compiler validity and five `Executable` rules from the SysML 2 Rule Verification Guide:
 
 - `ACCEPTEVENTOUTPUT`
 - `MESSAGEFLOWNEEDED`
@@ -10,58 +42,28 @@ SysML 2 Rule Verification Guide:
 - `STMINTEGRITY`
 - `SUBMACHINESTR`
 
-The rule checker is a text-first static analyzer. It reports `pass`, `fail`,
-`not_applicable`, and `unsupported`, with rationale fields in the CSV.
-
-## Run
-
-From repository root:
-
 ```bash
 python nl2sysml/ablation_gpt55/run_study.py --dry-run
 python nl2sysml/ablation_gpt55/run_study.py
-```
-
-Run a subset:
-
-```bash
 python nl2sysml/ablation_gpt55/run_study.py --ids U1,U9
-```
-
-Resume using existing generated files:
-
-```bash
 python nl2sysml/ablation_gpt55/run_study.py --resume
-```
-
-Rebuild HTML from the current CSV:
-
-```bash
 python nl2sysml/ablation_gpt55/run_study.py --summary-only
 ```
 
-## Configuration
+Outputs:
 
-The default model is:
+- `generated/{ID}.sysml`, `generated/{ID}_prompt.json`
+- `result.csv`, `index.html`
 
-```text
-openai/gpt-5.5
-```
+Requires `OPENROUTER_API_KEY` and SysML compiler setup per `nl2sysml/COMPILER_FEEDBACK.md`.
 
-Override it with:
+## Layout
 
-```bash
-GPT55_MODEL=openai/gpt-5.5 python nl2sysml/ablation_gpt55/run_study.py
-```
-
-Required environment:
-
-- `OPENROUTER_API_KEY` in repo-root `.env`
-- SysML compiler environment configured as in `nl2sysml/COMPILER_FEEDBACK.md`
-
-## Outputs
-
-- `nl2sysml/ablation_gpt55/generated/{ID}.sysml`
-- `nl2sysml/ablation_gpt55/generated/{ID}_prompt.json`
-- `nl2sysml/ablation_gpt55/result.csv`
-- `nl2sysml/ablation_gpt55/index.html`
+| File | Role |
+|------|------|
+| `config.py` | Paths, model id, shared constants |
+| `generators.py` | `generate_baseline()` (Stage A), `generate_with_rag()` (rule study) |
+| `batch_nl_seed.py` | Batch CLI for `nl_seed.jsonl` baseline |
+| `run_study.py` | Executable-rule evaluation on `dataset.json` |
+| `executable_rules.py` | Text-first rule checker |
+| `report.py` | HTML report from `result.csv` |
