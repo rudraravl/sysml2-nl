@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Batch Stage A: GPT-5.5 baseline generation from nl_seed.jsonl (no RAG, no MOE).
 
+OpenRouter generation only — no SysML JVM/compiler checks or repair.
+
 Full corpus:
   python nl2sysml/ablation_gpt55/batch_nl_seed.py --num-entries 1574
 """
@@ -9,12 +11,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# Ensure compiler is never loaded for this script (even if SYSML_COMPILER_ENABLED=true).
+os.environ["SYSML_COMPILER_ENABLED"] = "false"
 
 ABLATION_DIR = Path(__file__).resolve().parent
 NL2SYSML_DIR = ABLATION_DIR.parent
@@ -31,20 +37,6 @@ from config import (  # noqa: E402
 )
 from generators import generate_baseline  # noqa: E402
 
-try:
-    from compiler_interface import check_code, is_compiler_available
-except ImportError:
-
-    def is_compiler_available() -> bool:
-        return False
-
-    def check_code(code: str, syntax_only: bool = False):  # type: ignore[no-redef]
-        class _Dummy:
-            is_valid = False
-            error_count = 0
-
-        return _Dummy()
-
 
 def create_meta_json(entry: dict[str, Any], prompt_record: dict[str, Any]) -> dict[str, Any]:
     meta: dict[str, Any] = {
@@ -55,7 +47,7 @@ def create_meta_json(entry: dict[str, Any], prompt_record: dict[str, Any]) -> di
         "model": prompt_record.get("model", GPT55_MODEL),
         "retrieval_used": False,
         "moe_used": False,
-        "quality": "A" if prompt_record.get("compiler_valid") else "B",
+        "compiler_checked": False,
         "category": entry.get("domain", "unknown"),
         "created": datetime.now().isoformat(),
     }
@@ -63,19 +55,7 @@ def create_meta_json(entry: dict[str, Any], prompt_record: dict[str, Any]) -> di
         meta["provenance"] = entry.get("provenance")
     if entry.get("source_title"):
         meta["source_title"] = entry.get("source_title")
-    if "compiler_valid" in prompt_record:
-        meta["validation"] = {
-            "is_valid": prompt_record.get("compiler_valid", False),
-            "error_count": prompt_record.get("compiler_error_count", 0),
-        }
     return meta
-
-
-def _attach_compiler_stats(prompt_record: dict[str, Any], code: str) -> None:
-    if is_compiler_available() and code.strip():
-        result = check_code(code)
-        prompt_record["compiler_valid"] = bool(getattr(result, "is_valid", False))
-        prompt_record["compiler_error_count"] = int(getattr(result, "error_count", 0))
 
 
 def generate_batch(
@@ -110,8 +90,9 @@ def generate_batch(
             fh.write(log_msg + "\n")
 
     log(f"Stage A baseline: model={model}, prompts={total}, output={output_dir}")
+    log("Compiler/JVM checks disabled (GPT output only)")
 
-    stats = {"processed": 0, "skipped": 0, "errors": 0, "valid": 0, "invalid": 0}
+    stats = {"processed": 0, "skipped": 0, "errors": 0}
 
     for idx, entry in enumerate(entries_to_process[start_from:], start=start_from):
         entry_id = str(entry.get("id", f"UNKNOWN_{idx}"))
@@ -135,7 +116,6 @@ def generate_batch(
         try:
             start_time = time.time()
             sysml_code, prompt_record = generate_baseline(description, model=model)
-            _attach_compiler_stats(prompt_record, sysml_code)
             elapsed = time.time() - start_time
 
             if not sysml_code or not sysml_code.strip():
@@ -156,17 +136,7 @@ def generate_batch(
             )
 
             stats["processed"] += 1
-            if prompt_record.get("compiler_valid"):
-                stats["valid"] += 1
-                log(f"  OK (compiler valid, {elapsed:.1f}s)")
-            elif "compiler_valid" in prompt_record:
-                stats["invalid"] += 1
-                log(
-                    f"  OK ({prompt_record.get('compiler_error_count', '?')} compiler errors, {elapsed:.1f}s)",
-                    "WARNING",
-                )
-            else:
-                log(f"  OK (compiler not checked, {elapsed:.1f}s)")
+            log(f"  OK ({elapsed:.1f}s)")
 
         except KeyboardInterrupt:
             log("Interrupted by user", "WARNING")
@@ -185,7 +155,7 @@ def generate_batch(
         if (idx + 1) % 10 == 0:
             log(
                 f"Progress: {idx + 1}/{total} "
-                f"({stats['processed']} generated, {stats['valid']} valid, {stats['errors']} errors)"
+                f"({stats['processed']} generated, {stats['errors']} errors)"
             )
 
     print("\n" + "=" * 70)
@@ -193,15 +163,13 @@ def generate_batch(
     print(f"  Processed: {stats['processed']}")
     print(f"  Skipped:   {stats['skipped']}")
     print(f"  Errors:    {stats['errors']}")
-    print(f"  Valid:     {stats['valid']}")
-    print(f"  Invalid:   {stats['invalid']}")
     print(f"  Output:    {output_dir}")
     print("=" * 70)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Stage A: GPT-5.5 baseline batch on nl_seed.jsonl (no RAG, no MOE)",
+        description="Stage A: GPT-5.5 baseline batch on nl_seed.jsonl (no RAG, no MOE, no compiler)",
     )
     parser.add_argument(
         "--num-entries",
@@ -221,7 +189,7 @@ def main() -> None:
         raise SystemExit(f"Seed file not found: {args.seed_file}")
 
     if args.dry_run:
-        print("Dry run — Stage A baseline:")
+        print("Dry run — Stage A baseline (GPT only, no compiler):")
         print(f"  Model:      {args.model}")
         print(f"  Seed file:  {args.seed_file}")
         print(f"  Entries:    {args.num_entries} (start at {args.start_from})")
