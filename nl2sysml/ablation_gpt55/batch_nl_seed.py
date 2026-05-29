@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Batch Stage A: GPT-5.5 baseline generation from nl_seed.jsonl (no RAG, no MOE)."""
-"""python nl2sysml/ablation_gpt55/batch_nl_seed.py --num-entries 1574
-    ^runs for all 1574 entries in nl_seed.jsonl^
+"""Batch Stage A: GPT-5.5 baseline generation from nl_seed.jsonl (no RAG, no MOE).
+
+Full corpus:
+  python nl2sysml/ablation_gpt55/batch_nl_seed.py --num-entries 1574
 """
 
 from __future__ import annotations
