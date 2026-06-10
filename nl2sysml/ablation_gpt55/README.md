@@ -67,3 +67,28 @@ Requires `OPENROUTER_API_KEY` and SysML compiler setup per `nl2sysml/COMPILER_FE
 | `run_study.py` | Executable-rule evaluation on `dataset.json` |
 | `executable_rules.py` | Text-first rule checker |
 | `report.py` | HTML report from `result.csv` |
+
+## Codex CLI GPT-5.5 baseline
+
+Runs Codex as a single-shot completion over generated dataset prompts:
+
+```bash
+python nl2sysml/ablation_gpt55/batch_codex_gpt55.py --dry-run --limit 3
+python nl2sysml/ablation_gpt55/batch_codex_gpt55.py --limit 10
+python nl2sysml/ablation_gpt55/batch_codex_gpt55.py
+```
+
+For each sample from `dataset/data/000387` onward, the script reads
+`gen_prompt.txt` and writes:
+
+- `dataset/data/<ID>/<ID>.codex.sysml`
+- `dataset/data/<ID>/<ID>.codex.log`
+
+The Codex invocation uses `--sandbox read-only`, `--ignore-rules`,
+`--ignore-user-config`, `--ephemeral`, and `--skip-git-repo-check`, with an
+empty temporary working directory. The prompt explicitly tells Codex not to use
+tools, inspect files, or run commands.
+
+The current Codex CLI on this machine does not expose `--ask-for-approval`; do
+not include `--ask-for-approval never` unless `codex exec --help` shows it in
+your installed version.
