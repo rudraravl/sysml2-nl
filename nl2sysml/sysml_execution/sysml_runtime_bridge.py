@@ -162,6 +162,10 @@ def execute_sysml_candidate(
                 if content.get("execution_state") == "idle":
                     execute_idle = True
 
+        timed_out = not execute_idle
+        if timed_out:
+            error_lines.append(f"ERROR: kernel execution timed out after {timeout_sec} seconds")
+
         shell_deadline = time.monotonic() + min(30.0, timeout_sec)
         while time.monotonic() < shell_deadline:
             try:
@@ -193,6 +197,7 @@ def execute_sysml_candidate(
             raw_kernel_messages=raw_messages,
             shell_reply=shell_reply,
             kernel_available=True,
+            timed_out=timed_out,
         )
 
     except Exception as exc:
@@ -208,6 +213,7 @@ def execute_sysml_candidate(
             shell_reply=shell_reply,
             kernel_available=False,
             bridge_error=str(exc),
+            timed_out=False,
         )
     finally:
         if client is not None:

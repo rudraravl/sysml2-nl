@@ -292,7 +292,9 @@ def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
         success = syntax_ok
     elif not harness_meta.probes_runnable:
         layer2_status = Layer2Status.BYPASSED.value
-        diagnostic_pack = _build_layer2_bypassed_pack(harness_meta, profile)
+        diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
+        if diagnostic_pack is None:
+            diagnostic_pack = _build_layer2_bypassed_pack(harness_meta, profile)
         behavior_ok = False
         success = False
     else:
@@ -302,8 +304,10 @@ def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
             diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
         else:
             layer2_status = Layer2Status.BYPASSED.value
-            diagnostic_pack = _build_layer2_bypassed_pack(harness_meta, profile)
-            if syntax_ok:
+            diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
+            if diagnostic_pack is None:
+                diagnostic_pack = _build_layer2_bypassed_pack(harness_meta, profile)
+            if syntax_ok and diagnostic_pack.get("error_type") == "layer2_bypassed":
                 diagnostic_pack["message"] = (
                     "Layer 2 harness compiled but behavioral verification did not complete."
                 )
@@ -329,6 +333,7 @@ def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
         vector_source="provided" if request.simulation_vectors else None,
         semantic_validity="not_assessed" if request.simulation_vectors else None,
         selected_simulation_vectors=request.simulation_vectors,
+        kernel_timed_out=kernel_out.timed_out,
     )
 
 

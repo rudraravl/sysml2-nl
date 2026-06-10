@@ -32,10 +32,11 @@ _SPIKES: List[Dict[str, Any]] = [
         "payload": """
 package SpikeAssign {
     attribute def Count;
-    action def Probe { in count: Count; assign count = 1; }
+    action def Probe { in count; }
+    action Test { perform action probe: Probe { in count = 1; } }
 }
 """,
-        "expect": "assign_compiles",
+        "expect": "input_value_compiles",
     },
     {
         "name": "nested_action_usage",

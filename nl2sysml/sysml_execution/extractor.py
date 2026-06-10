@@ -243,6 +243,13 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     root_package = _extract_root_package(text)
     packages = _dedupe_preserve_order(_ids_from_findall(_PACKAGE_RE.findall(text)))
     part_defs = _dedupe_preserve_order(_ids_from_findall(_PART_DEF_RE.findall(text)))
+    part_def_owners = {}
+    for idx, line in enumerate(lines):
+        match = _PART_DEF_RE.match(line)
+        if match:
+            owner = _current_owner(lines, idx - 1)
+            if owner:
+                part_def_owners[_id_from_match(match)] = owner
 
     part_instances: List[str] = []
     for row in _PART_INSTANCE_RE.findall(text):
@@ -401,6 +408,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         root_package=root_package,
         packages=packages,
         part_defs=part_defs,
+        part_def_owners=part_def_owners,
         part_instances=part_instances,
         attributes=attributes,
         attribute_defs=attribute_defs,

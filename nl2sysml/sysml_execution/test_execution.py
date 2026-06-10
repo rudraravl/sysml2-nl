@@ -93,7 +93,7 @@ class TestHarness000200(unittest.TestCase):
         result = build_harness_block(topo, req)
         self.assertTrue(result.metadata.probes_runnable)
         self.assertIn("perform action", result.harness_block)
-        self.assertIn("assign fuelCmd", result.harness_block)
+        self.assertIn("in fuelCmd = 1;", result.harness_block)
 
     def test_harness_requires_every_input_vector(self):
         code = """
@@ -158,6 +158,13 @@ class TestExtraction000600(unittest.TestCase):
         topo = extract_topology(_load("000600"))
         self.assertEqual(classify_topology(topo), ModelProfile.PART_STATE)
         self.assertIsNotNone(topo.primary_part_def())
+
+    def test_nested_part_def_is_qualified(self):
+        topo = extract_topology(_load("000003"))
+        self.assertEqual(
+            topo.qualified_part_def("Ideal Gas Parcel"),
+            "'Turbojet Stage Analysis'::'Thermodynamics Structure'::'Ideal Gas Parcel'",
+        )
 
     def test_harness_has_part_subject(self):
         topo = extract_topology(_load("000600"))

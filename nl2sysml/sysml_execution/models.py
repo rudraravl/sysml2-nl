@@ -113,6 +113,7 @@ class ExtractedTopology:
     root_package: Optional[str] = None
     packages: List[str] = field(default_factory=list)
     part_defs: List[str] = field(default_factory=list)
+    part_def_owners: Dict[str, str] = field(default_factory=dict)
     part_instances: List[str] = field(default_factory=list)
     attributes: List[ExtractedAttribute] = field(default_factory=list)
     attribute_defs: List[ExtractedAttributeDef] = field(default_factory=list)
@@ -131,6 +132,17 @@ class ExtractedTopology:
 
     def primary_part_def(self) -> Optional[str]:
         return self.part_defs[0] if self.part_defs else None
+
+    def qualified_part_def(self, name: str) -> str:
+        """Return a root/package-qualified reference for a part definition."""
+        root = self.primary_package()
+        owner = self.part_def_owners.get(name)
+        segments = [segment for segment in (root, owner, name) if segment]
+        deduped: List[str] = []
+        for segment in segments:
+            if not deduped or segment != deduped[-1]:
+                deduped.append(segment)
+        return "::".join(self.quoted_name(segment) for segment in deduped)
 
     def primary_part_instance(self) -> Optional[str]:
         return self.part_instances[0] if self.part_instances else None
@@ -199,6 +211,7 @@ class KernelExecutionOutput:
     shell_reply: Optional[Dict[str, Any]] = None
     kernel_available: bool = True
     bridge_error: Optional[str] = None
+    timed_out: bool = False
 
 
 @dataclass
@@ -222,6 +235,7 @@ class ExecutionResult:
     semantic_validity: Optional[str] = None
     selected_simulation_vectors: Optional[Dict[str, Any]] = None
     vector_attempts: List[Dict[str, Any]] = field(default_factory=list)
+    kernel_timed_out: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)

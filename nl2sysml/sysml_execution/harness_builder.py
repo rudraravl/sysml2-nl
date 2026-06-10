@@ -106,8 +106,12 @@ def _build_action_composite_harness(
     ]
 
     if root:
-        lines.append(f"    private import {_ref(root, topology)}::Usages::*;")
-        lines.append(f"    private import {_ref(root, topology)}::Definitions::*;")
+        lines.append(f"    private import {_ref(root, topology)}::*;")
+        for package_name in ("Usages", "Definitions"):
+            if package_name in topology.packages:
+                lines.append(
+                    f"    private import {_ref(root, topology)}::{package_name}::*;"
+                )
     else:
         skipped.append("no root package for cross-package imports")
 
@@ -137,10 +141,10 @@ def _build_action_composite_harness(
                     pin_names = ad.inputs
                     break
 
-        assign_lines: List[str] = []
+        input_value_lines: List[str] = []
         for pin in pin_names:
             if pin in sim:
-                assign_lines.append(f"            assign {pin} = {_format_value(sim[pin])};")
+                input_value_lines.append(f"            in {pin} = {_format_value(sim[pin])};")
                 has_assign = True
 
         accept_comments: List[str] = []
@@ -157,9 +161,9 @@ def _build_action_composite_harness(
 
         # Reference the action *definition* via usage:Type (see dataset 000216), not
         # `action run : 'provide power'` which nests a usage as an untyped sub-action.
-        if assign_lines or accept_comments:
+        if input_value_lines or accept_comments:
             lines.append(f"        perform action {target_ref}: {type_ref} {{")
-            lines.extend(assign_lines)
+            lines.extend(input_value_lines)
             lines.extend(accept_comments)
             if topology.flows:
                 lines.append("            // extracted item flows:")
@@ -238,7 +242,8 @@ def _build_part_state_harness(
     has_perform = False
 
     if part_def:
-        lines.append(f"    part {part_inst_name} :> {part_def};")
+        qualified_part_def = topology.qualified_part_def(part_def)
+        lines.append(f"    part {part_inst_name} : {qualified_part_def};")
         probes_emitted += 1
     elif topology.part_instances:
         lines.append(f"    // instance-only model: {topology.part_instances[0]}")
@@ -258,44 +263,32 @@ def _build_part_state_harness(
         if target_behaviors:
             sm = target_behaviors[0]
             lines.append(f"        // target state machine / behavior: {sm}")
-            if part_def:
-                lines.append(f"        in part subject :> {part_def};")
             lines.append(f"        // perform {topology.quoted_name(sm)};")
-            has_perform = True
-        elif part_def:
-            lines.append(f"        in part subject :> {part_def};")
         lines.append("    }")
         lines.append("")
         lines.append("    action sentinelBehaviorRun : SentinelBehaviorProbe {")
-        if part_def:
-            lines.append(f"        bind subject = {part_inst_name};")
         lines.append("    }")
         probes_emitted += 1
 
     if emit_constraint and part_def:
         lines.append("")
         lines.append("    action def SentinelConstraintProbe {")
-        lines.append(f"        in part subject :> {part_def};")
 
         for key, value in sim.items():
-            lines.append(f"        assign subject.{key} = {_format_value(value)};")
-            has_assign = True
+            lines.append(f"        // requested input {key} = {_format_value(value)}")
 
         for inv in invariants[:10]:
             if inv and not inv.startswith("constraint_"):
-                lines.append(f"        assert {inv};")
-                has_assert = True
+                lines.append(f"        // requested invariant: {inv}")
 
         if topology.constraints and not invariants:
             for c in topology.constraints[:10]:
                 if c.name and not c.name.startswith("constraint_"):
-                    lines.append(f"        assert {c.name};")
-                    has_assert = True
+                    lines.append(f"        // extracted constraint: {c.name}")
 
         lines.append("    }")
         lines.append("")
         lines.append("    action sentinelConstraintRun : SentinelConstraintProbe {")
-        lines.append(f"        bind subject = {part_inst_name};")
         lines.append("    }")
         probes_emitted += 1
     elif emit_constraint and not part_def:
