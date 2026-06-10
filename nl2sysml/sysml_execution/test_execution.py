@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
@@ -16,8 +17,17 @@ from nl2sysml.sysml_execution.extractor import (  # noqa: E402
     requires_layer2,
 )
 from nl2sysml.sysml_execution.harness_builder import build_harness_block  # noqa: E402
-from nl2sysml.sysml_execution.models import ExecutionRequest, Layer2Status, ModelProfile  # noqa: E402
+from nl2sysml.sysml_execution.models import (  # noqa: E402
+    ExecutionRequest,
+    KernelExecutionOutput,
+    Layer2Status,
+    ModelProfile,
+)
 from nl2sysml.sysml_execution.orchestrator import run_sysml_execution  # noqa: E402
+from nl2sysml.sysml_execution.vector_fallback import (  # noqa: E402
+    build_preset_vector_attempts,
+    required_action_inputs,
+)
 
 _DATA = _REPO_ROOT / "dataset" / "data"
 
@@ -84,6 +94,63 @@ class TestHarness000200(unittest.TestCase):
         self.assertTrue(result.metadata.probes_runnable)
         self.assertIn("perform action", result.harness_block)
         self.assertIn("assign fuelCmd", result.harness_block)
+
+    def test_harness_requires_every_input_vector(self):
+        code = """
+package MultiInput {
+    action def Probe { in firstInput: Integer; in secondInput: Integer; }
+    action run: Probe {
+        in firstInput: Integer;
+        in secondInput: Integer;
+        action child: Probe;
+    }
+}
+"""
+        topo = extract_topology(code)
+        result = build_harness_block(
+            topo,
+            ExecutionRequest(candidate_sysml="", simulation_vectors={"firstInput": 1}),
+        )
+        self.assertFalse(result.metadata.probes_runnable)
+        self.assertEqual(result.metadata.missing_inputs, ["secondInput"])
+
+
+class TestPresetVectorFallback(unittest.TestCase):
+    def test_builds_attempts_for_000200_fuel_cmd(self):
+        topology = extract_topology(_load("000200"))
+        required = required_action_inputs(topology)
+        attempts = build_preset_vector_attempts(required, preset_values=[0, 1])
+        self.assertEqual(required, ["fuelCmd"])
+        self.assertEqual(attempts, [{"fuelCmd": 0}, {"fuelCmd": 1}])
+
+    @patch("nl2sysml.sysml_execution.orchestrator.execute_sysml_candidate")
+    def test_stops_on_first_kernel_accepted_preset(self, execute_mock):
+        rejected = KernelExecutionOutput(
+            execution_status_payload="ERROR: rejected",
+            stderr_lines=["ERROR: rejected"],
+            error_lines=["ERROR: rejected"],
+        )
+        accepted = KernelExecutionOutput(
+            execution_status_payload="accepted",
+            shell_reply={"content": {"status": "ok"}},
+        )
+        execute_mock.side_effect = [rejected, accepted]
+
+        result = run_sysml_execution(
+            ExecutionRequest(
+                candidate_sysml=_load("000200"),
+                try_preset_vectors=True,
+                preset_values=[0, 1, -1],
+            )
+        )
+
+        self.assertEqual(execute_mock.call_count, 2)
+        self.assertEqual(result.selected_simulation_vectors, {"fuelCmd": 1})
+        self.assertEqual(result.vector_source, "preset_fallback")
+        self.assertEqual(result.semantic_validity, "unknown")
+        self.assertEqual(len(result.vector_attempts), 2)
+        self.assertFalse(result.vector_attempts[0]["kernel_accepted"])
+        self.assertTrue(result.vector_attempts[1]["kernel_accepted"])
 
 
 class TestExtraction000600(unittest.TestCase):

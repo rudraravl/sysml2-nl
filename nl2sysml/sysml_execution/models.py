@@ -35,6 +35,8 @@ class ExecutionRequest:
     execution_timeout_sec: float = 120.0
     kernel_ready_timeout_sec: float = 180.0
     jupyter_path: Optional[str] = None  # override; default uses active .venv kernelspecs
+    try_preset_vectors: bool = False
+    preset_values: Optional[List[Any]] = None
 
 
 @dataclass
@@ -159,6 +161,9 @@ class HarnessMetadata:
     has_perform_probe: bool = False
     has_assign_probe: bool = False
     has_assert_probe: bool = False
+    required_inputs: List[str] = field(default_factory=list)
+    provided_inputs: List[str] = field(default_factory=list)
+    missing_inputs: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -170,6 +175,9 @@ class HarnessMetadata:
             "has_perform_probe": self.has_perform_probe,
             "has_assign_probe": self.has_assign_probe,
             "has_assert_probe": self.has_assert_probe,
+            "required_inputs": self.required_inputs,
+            "provided_inputs": self.provided_inputs,
+            "missing_inputs": self.missing_inputs,
         }
 
 
@@ -210,6 +218,10 @@ class ExecutionResult:
     behavior_ok: bool = False
     layer2_status: str = Layer2Status.NOT_REQUIRED.value
     harness_metadata: Optional[Dict[str, Any]] = None
+    vector_source: Optional[str] = None
+    semantic_validity: Optional[str] = None
+    selected_simulation_vectors: Optional[Dict[str, Any]] = None
+    vector_attempts: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)

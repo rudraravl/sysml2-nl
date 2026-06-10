@@ -23,6 +23,11 @@ from .models import (
 from .harness_builder import build_consolidated_payload, build_harness_block
 from .orchestrator import run_sysml_execution, run_sysml_execution_from_file
 from .sysml_runtime_bridge import execute_sysml_candidate
+from .vector_fallback import (
+    DEFAULT_PRESET_VALUES,
+    build_preset_vector_attempts,
+    required_action_inputs,
+)
 
 __all__ = [
     "ExecutionRequest",
@@ -41,4 +46,7 @@ __all__ = [
     "requires_layer2",
     "run_sysml_execution",
     "run_sysml_execution_from_file",
+    "DEFAULT_PRESET_VALUES",
+    "build_preset_vector_attempts",
+    "required_action_inputs",
 ]

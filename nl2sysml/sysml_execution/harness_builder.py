@@ -15,6 +15,8 @@ from .models import (
 
 
 def _format_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return str(value).lower()
     if isinstance(value, str):
         return f'"{value}"'
     return str(value)
@@ -187,14 +189,18 @@ def _build_action_composite_harness(
 
     lines.append("}")
 
-    if composite and pin_names and not has_assign:
-        skipped.append("no assign probes emitted for input pins (provide simulation_vectors)")
+    provided_inputs = [pin for pin in pin_names if pin in (request.simulation_vectors or {})]
+    missing_inputs = [pin for pin in pin_names if pin not in (request.simulation_vectors or {})]
+    if composite and missing_inputs:
+        skipped.append(
+            "missing simulation_vectors for input pins: " + ", ".join(missing_inputs)
+        )
 
     probes_runnable = (
         composite is not None
         and bool(root)
         and not any(s.startswith("no composite") or s.startswith("no root package") for s in skipped)
-        and (not pin_names or has_assign)
+        and not missing_inputs
     )
 
     meta = HarnessMetadata(
@@ -206,6 +212,9 @@ def _build_action_composite_harness(
         has_perform_probe=has_perform,
         has_assign_probe=has_assign,
         has_assert_probe=False,
+        required_inputs=pin_names,
+        provided_inputs=provided_inputs,
+        missing_inputs=missing_inputs,
     )
     return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
 

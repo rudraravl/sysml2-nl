@@ -30,6 +30,13 @@ Until the kernel or SysML API Services exposes evaluation/simulation:
 2. **Fail closed** — models with `ACTION_COMPOSITE` / `PART_STATE` profiles get `success=false` when `probes_runnable` is false (e.g. missing `simulation_vectors` for required input pins).
 3. **ANALYSIS_TOOL** — models with `metadata ToolExecution` only: `layer2_status=not_required` (external tool not invoked).
 
+## Preset fallback vectors
+
+For underspecified action inputs, callers may set `try_preset_vectors=True` or pass
+`--try-preset-vectors`. The orchestrator tries bounded preset values until the kernel
+accepts the model plus harness. Results are labeled `vector_source=preset_fallback` and
+`semantic_validity=unknown`; acceptance does not prove the values are valid engineering inputs.
+
 Re-run probes after kernel upgrades:
 
 ```bash

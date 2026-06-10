@@ -35,6 +35,7 @@ from .models import (
     ModelProfile,
 )
 from .sysml_runtime_bridge import execute_sysml_candidate
+from .vector_fallback import build_preset_vector_attempts, required_action_inputs
 
 _ERROR_MARKERS = (
     "[ERROR]",
@@ -222,7 +223,7 @@ def _build_diagnostic_pack(
     }
 
 
-def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
+def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
     """
     Run extraction, harness synthesis, and headless kernel execution.
     Returns structured JSON-serializable result via ``ExecutionResult.to_dict()``.
@@ -325,7 +326,73 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
         behavior_ok=behavior_ok,
         layer2_status=layer2_status,
         harness_metadata=harness_meta.to_dict(),
+        vector_source="provided" if request.simulation_vectors else None,
+        semantic_validity="not_assessed" if request.simulation_vectors else None,
+        selected_simulation_vectors=request.simulation_vectors,
     )
+
+
+def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
+    """
+    Run one explicit vector, or try bounded preset vectors for unspecified action inputs.
+
+    Preset acceptance means only that the kernel accepted the model plus harness. It does
+    not establish that the selected values are semantically valid engineering inputs.
+    """
+    if not request.try_preset_vectors:
+        return _run_single_execution(request)
+
+    topology = extract_topology(request.candidate_sysml)
+    required_inputs = required_action_inputs(topology, request.target_behaviors)
+    missing_inputs = [
+        name for name in required_inputs if name not in (request.simulation_vectors or {})
+    ]
+    if not missing_inputs:
+        return _run_single_execution(request)
+    attempts = build_preset_vector_attempts(
+        required_inputs,
+        request.simulation_vectors,
+        request.preset_values,
+    )
+    if not attempts:
+        return _run_single_execution(request)
+
+    attempt_log: List[Dict[str, Any]] = []
+    last_result: Optional[ExecutionResult] = None
+    for vectors in attempts:
+        attempt_request = ExecutionRequest(
+            candidate_sysml=request.candidate_sysml,
+            target_behaviors=request.target_behaviors,
+            target_invariants=request.target_invariants,
+            simulation_vectors=vectors,
+            try_preset_vectors=False,
+            kernel_name=request.kernel_name,
+            execution_timeout_sec=request.execution_timeout_sec,
+            kernel_ready_timeout_sec=request.kernel_ready_timeout_sec,
+            jupyter_path=request.jupyter_path,
+        )
+        result = _run_single_execution(attempt_request)
+        accepted = result.syntax_ok and bool(
+            result.harness_metadata and result.harness_metadata.get("probes_runnable")
+        )
+        attempt_log.append(
+            {
+                "simulation_vectors": vectors,
+                "kernel_accepted": accepted,
+                "syntax_ok": result.syntax_ok,
+                "layer2_status": result.layer2_status,
+            }
+        )
+        result.vector_attempts = list(attempt_log)
+        result.vector_source = "preset_fallback"
+        result.semantic_validity = "unknown"
+        result.selected_simulation_vectors = vectors if accepted else None
+        last_result = result
+        if accepted or result.layer2_status == Layer2Status.KERNEL_UNAVAILABLE.value:
+            return result
+
+    assert last_result is not None
+    return last_result
 
 
 def _cli() -> None:
@@ -341,10 +408,18 @@ def _cli() -> None:
         help="Run headless Jupyter SysML kernel (requires kernel spec 'sysml')",
     )
     parser.add_argument("-o", "--output", help="Write JSON result to file")
+    parser.add_argument(
+        "--try-preset-vectors",
+        action="store_true",
+        help="Try preset values for unspecified action inputs; semantic validity remains unknown",
+    )
     args = parser.parse_args()
 
     code = Path(args.sysml_file).read_text(encoding="utf-8")
-    req = ExecutionRequest(candidate_sysml=code)
+    req = ExecutionRequest(
+        candidate_sysml=code,
+        try_preset_vectors=args.try_preset_vectors,
+    )
     if args.execute:
         result = run_sysml_execution(req)
     else:
@@ -395,6 +470,8 @@ def run_sysml_execution_from_file(
     target_behaviors: Optional[List[str]] = None,
     target_invariants: Optional[List[str]] = None,
     simulation_vectors: Optional[Dict[str, Any]] = None,
+    try_preset_vectors: bool = False,
+    preset_values: Optional[List[Any]] = None,
     kernel_name: str = "sysml",
     execution_timeout_sec: float = 120.0,
 ) -> ExecutionResult:
@@ -408,6 +485,8 @@ def run_sysml_execution_from_file(
             target_behaviors=target_behaviors,
             target_invariants=target_invariants,
             simulation_vectors=simulation_vectors,
+            try_preset_vectors=try_preset_vectors,
+            preset_values=preset_values,
             kernel_name=kernel_name,
             execution_timeout_sec=execution_timeout_sec,
         )
