@@ -1,0 +1,1057 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-4_ws43x2
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb49e-9320-7462-b7e9-5ad27382469b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Honda pumps and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HondaPumpSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate :> Real {
+        unit = L / min;
+    }
+
+    attribute def Pressure :> Real {
+        unit = kPa;
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = rpm;
+    }
+
+    attribute def FuelVolume :> Real {
+        unit = L;
+    }
+
+    attribute def WaterVolume :> Real {
+        unit = L;
+    }
+
+    attribute def Temperature :> Real {
+        unit = degC;
+    }
+
+    attribute def Power :> Real {
+        unit = W;
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = s;
+    }
+
+    attribute def Efficiency :> Real {
+        unit = one;
+    }
+
+    enum def PumpOperatingMode {
+        enum idle;
+        enum priming;
+        enum pumping;
+        enum lowFuelShutdown;
+        enum overheatShutdown;
+        enum blockedFlowShutdown;
+        enum maintenanceRequired;
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute suspendedSolidsConcentration : Real;
+    }
+
+    item def Gasoline {
+        attribute volume : FuelVolume;
+        attribute octaneRating : Real;
+    }
+
+    item def ExhaustGas {
+        attribute temperature : Temperature;
+    }
+
+    port def WaterInletPort {
+        in item incomingWater : Water;
+        attribute suctionPressure : Pressure;
+    }
+
+    port def WaterOutletPort {
+        out item dischargedWater : Water;
+        attribute dischargePressure : Pressure;
+        attribute dischargeFlow : FlowRate;
+    }
+
+    port def FuelFillPort {
+        in item fuel : Gasoline;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def MechanicalTorquePort {
+        out attribute shaftSpeed : RotationalSpeed;
+        out attribute shaftPower : Power;
+    }
+
+    port def ImpellerDrivePort {
+        in attribute receivedSpeed : RotationalSpeed;
+        in attribute receivedPower : Power;
+    }
+
+    port def ControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        out attribute runningIndication : Boolean;
+        out attribute faultIndication : Boolean;
+    }
+
+    action def DrawWater {
+        in item sourceWater : Water;
+        out item pumpCavityWater : Water;
+        in attribute suctionPressure : Pressure;
+    }
+
+    action def AccelerateImpeller {
+        in attribute engineSpeed : RotationalSpeed;
+        out attribute impellerSpeed : RotationalSpeed;
+    }
+
+    action def AddKineticEnergy {
+        in item pumpCavityWater : Water;
+        in attribute impellerSpeed : RotationalSpeed;
+        out item pressurizedWater : Water;
+        out attribute developedPressure : Pressure;
+    }
+
+    action def DischargeWater {
+        in item pressurizedWater : Water;
+        out item deliveredWater : Water;
+        out attribute deliveredFlow : FlowRate;
+    }
+
+    action def BurnFuel {
+        in item fuelCharge : Gasoline;
+        out item exhaustGas : ExhaustGas;
+        out attribute crankshaftPower : Power;
+    }
+
+    action def ShutDownEngine {
+        out attribute engineRunning : Boolean;
+    }
+
+    part def FuelTank {
+        attribute capacity : FuelVolume = 3.1 [L];
+        attribute currentFuel : FuelVolume;
+        attribute lowFuelThreshold : FuelVolume = 0.25 [L];
+
+        port fill : FuelFillPort;
+
+        constraint fuelWithinTank {
+            currentFuel >= 0 [L] and currentFuel <= capacity
+        }
+
+        constraint lowFuelDetected {
+            currentFuel <= lowFuelThreshold
+        }
+    }
+
+    part def FourStrokeEngine {
+        attribute displacement : Real = 163;
+        attribute ratedSpeed : RotationalSpeed = 3600 [rpm];
+        attribute idleSpeed : RotationalSpeed = 1600 [rpm];
+        attribute ratedPower : Power = 3600 [W];
+        attribute oilTemperature : Temperature;
+        attribute maximumOilTemperature : Temperature = 125 [degC];
+        attribute running : Boolean = false;
+
+        port fuelSupply : FuelFillPort;
+        port exhaustOutlet : ExhaustPort;
+        port crankshaft : MechanicalTorquePort;
+        port control : ControlPort;
+
+        perform action burnFuel : BurnFuel;
+
+        state engineState {
+            state off;
+            state starting;
+            state runningAtIdle;
+            state runningRated;
+            state stoppedByFault;
+
+            initial then off;
+
+            transition off_to_starting
+                first off
+                accept control.startCommand
+                then starting;
+
+            transition starting_to_idle
+                first starting
+                if fuelSupply.fuel.volume > 0 [L]
+                then runningAtIdle;
+
+            transition idle_to_rated
+                first runningAtIdle
+                if crankshaft.shaftSpeed >= idleSpeed
+                then runningRated;
+
+            transition rated_to_idle
+                first runningRated
+                accept control.stopCommand
+                then runningAtIdle;
+
+            transition idle_to_off
+                first runningAtIdle
+                accept control.stopCommand
+                then off;
+
+            transition overheat_fault
+                first runningRated
+                if oilTemperature > maximumOilTemperature
+                then stoppedByFault;
+
+            transition fault_to_off
+                first stoppedByFault
+                do ShutDownEngine
+                then off;
+        }
+    }
+
+    part def CentrifugalPumpHead {
+        attribute inletDiameter : Real = 50;
+        attribute outletDiameter : Real = 50;
+        attribute nominalFlow : FlowRate = 620 [L/min];
+        attribute maximumTotalHeadPressure : Pressure = 320 [kPa];
+        attribute primed : Boolean = false;
+        attribute casingWaterVolume : WaterVolume = 0.7 [L];
+        attribute impellerEfficiency : Efficiency = 0.68;
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+        port drive : ImpellerDrivePort;
+
+        perform action drawWater : DrawWater;
+        perform action accelerateImpeller : AccelerateImpeller;
+        perform action addEnergy : AddKineticEnergy;
+        perform action discharge : DischargeWater;
+
+        constraint validDischarge {
+            outlet.dischargeFlow <= nominalFlow and outlet.dischargePressure <= maximumTotalHeadPressure
+        }
+
+        constraint primingRequired {
+            primed == true implies casingWaterVolume > 0.2 [L]
+        }
+
+        state pumpHydraulicState {
+            state dry;
+            state priming;
+            state ready;
+            state flowing;
+            state blocked;
+
+            initial then dry;
+
+            transition dry_to_priming
+                first dry
+                if casingWaterVolume > 0.2 [L]
+                then priming;
+
+            transition priming_to_ready
+                first priming
+                if primed == true
+                then ready;
+
+            transition ready_to_flowing
+                first ready
+                if drive.receivedSpeed > 2500 [rpm]
+                then flowing;
+
+            transition flowing_to_blocked
+                first flowing
+                if outlet.dischargeFlow < 10 [L/min] and outlet.dischargePressure > 280 [kPa]
+                then blocked;
+
+            transition blocked_to_ready
+                first blocked
+                if outlet.dischargeFlow >= 10 [L/min]
+                then ready;
+        }
+    }
+
+    part def SuctionHose {
+        attribute length : Real = 6.0;
+        attribute insideDiameter : Real = 50;
+        attribute strainerClean : Boolean = true;
+        attribute maximumSuctionLift : Real = 7.5;
+
+        port sourceEnd : WaterInletPort;
+        port pumpEnd : WaterInletPort;
+
+        constraint suctionUsable {
+            strainerClean == true
+        }
+    }
+
+    part def DischargeHose {
+        attribute length : Real = 15.0;
+        attribute insideDiameter : Real = 50;
+        attribute kinked : Boolean = false;
+
+        port pumpEnd : WaterOutletPort;
+        port deliveryEnd : WaterOutletPort;
+
+        constraint dischargeUsable {
+            kinked == false
+        }
+    }
+
+    part def OperatorInterface {
+        attribute chokeOpen : Boolean;
+        attribute throttleSetting : Real;
+        attribute recoilPulled : Boolean;
+        attribute stopSwitchPressed : Boolean;
+
+        port controls : ControlPort;
+
+        constraint throttleRange {
+            throttleSetting >= 0 and throttleSetting <= 1
+        }
+    }
+
+    part def PumpFrame {
+        attribute mass : Real = 24.0;
+        attribute vibrationIsolated : Boolean = true;
+        attribute corrosionProtected : Boolean = true;
+    }
+
+    part def HondaPortableWaterPump {
+        attribute operatingMode : PumpOperatingMode = PumpOperatingMode::idle;
+        attribute dryMass : Real = 26.0;
+        attribute maximumFlow : FlowRate = 620 [L/min];
+        attribute maximumPressure : Pressure = 320 [kPa];
+        attribute primaryFunction : String = "Move water from a lower-pressure source to a higher-pressure discharge point using a gasoline engine driving a centrifugal pump.";
+
+        part frame : PumpFrame;
+        part fuelTank : FuelTank;
+        part engine : FourStrokeEngine;
+        part pumpHead : CentrifugalPumpHead;
+        part suctionHose : SuctionHose;
+        part dischargeHose : DischargeHose;
+        part operatorInterface : OperatorInterface;
+
+        port waterSourceConnection : WaterInletPort;
+        port waterDeliveryConnection : WaterOutletPort;
+        port fuelFillConnection : FuelFillPort;
+        port exhaustExit : ExhaustPort;
+        port operatorControls : ControlPort;
+
+        connect fuelFillConnection to fuelTank.fill;
+        connect fuelTank.fill to engine.fuelSupply;
+        connect engine.exhaustOutlet to exhaustExit;
+        connect engine.crankshaft to pumpHead.drive;
+        connect operatorControls to operatorInterface.controls;
+        connect operatorInterface.controls to engine.control;
+        connect waterSourceConnection to suctionHose.sourceEnd;
+        connect suctionHose.pumpEnd to pumpHead.inlet;
+        connect pumpHead.outlet to dischargeHose.pumpEnd;
+        connect dischargeHose.deliveryEnd to waterDeliveryConnection;
+
+        perform action pumpWater {
+            first DrawWater;
+            then AccelerateImpeller;
+            then AddKineticEnergy;
+            then DischargeWater;
+        }
+
+        state systemState {
+            state stopped;
+            state fueled;
+            state started;
+            state primingPump;
+            state deliveringWater;
+            state shuttingDown;
+            state faulted;
+
+            initial then stopped;
+
+            transition stopped_to_fueled
+                first stopped
+                if fuelTank.currentFuel > fuelTank.lowFuelThreshold
+                then fueled;
+
+            transition fueled_to_started
+                first fueled
+                accept operatorControls.startCommand
+                then started;
+
+            transition started_to_priming
+                first started
+                if pumpHead.casingWaterVolume > 0.2 [L]
+                then primingPump;
+
+            transition priming_to_delivering
+                first primingPump
+                if pumpHead.primed == true and engine.running == true
+                then deliveringWater;
+
+            transition delivering_to_shutdown
+                first deliveringWater
+                accept operatorControls.stopCommand
+                then shuttingDown;
+
+            transition shutdown_to_stopped
+                first shuttingDown
+                do ShutDownEngine
+                then stopped;
+
+            transition low_fuel_fault
+                first deliveringWater
+                if fuelTank.currentFuel <= fuelTank.lowFuelThreshold
+                then faulted;
+
+            transition overpressure_fault
+                first deliveringWater
+                if pumpHead.outlet.dischargePressure > maximumPressure
+                then faulted;
+
+            transition blocked_flow_fault
+                first deliveringWater
+                if pumpHead.outlet.dischargeFlow < 10 [L/min]
+                then faulted;
+
+            transition fault_to_stopped
+                first faulted
+                do ShutDownEngine
+                then stopped;
+        }
+
+        constraint missionPerformance {
+            pumpHead.outlet.dischargeFlow <= maximumFlow and
+            pumpHead.outlet.dischargePressure <= maximumPressure
+        }
+
+        constraint enginePumpCompatibility {
+            engine.crankshaft.shaftSpeed == pumpHead.drive.receivedSpeed
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The portable pump shall transfer water from a source to a discharge location by converting fuel energy into mechanical shaft power and hydraulic pressure. */
+        attribute requiredFlow : FlowRate = 500 [L/min];
+        attribute requiredPressure : Pressure = 250 [kPa];
+
+        require constraint {
+            HondaPortableWaterPump::maximumFlow >= requiredFlow and
+            HondaPortableWaterPump::maximumPressure >= requiredPressure
+        }
+    }
+
+    requirement def PrimeBeforePumpingRequirement {
+        doc /* The pump shall not enter sustained water delivery until the pump casing contains sufficient water and the centrifugal pump head is primed. */
+
+        require constraint {
+            HondaPortableWaterPump::pumpHead.primed == true implies
+            HondaPortableWaterPump::pumpHead.casingWaterVolume > 0.2 [L]
+        }
+    }
+
+    requirement def LowFuelProtectionRequirement {
+        doc /* The pump shall shut down or indicate a fault when available fuel falls below the defined low fuel threshold during operation. */
+
+        require constraint {
+            HondaPortableWaterPump::fuelTank.currentFuel <= HondaPortableWaterPump::fuelTank.lowFuelThreshold implies
+            HondaPortableWaterPump::operatingMode == PumpOperatingMode::lowFuelShutdown
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        doc /* The pump shall prevent operation above its rated discharge pressure. */
+
+        require constraint {
+            HondaPortableWaterPump::pumpHead.outlet.dischargePressure <= HondaPortableWaterPump::maximumPressure
+        }
+    }
+
+    requirement def OperatorStopRequirement {
+        doc /* The operator shall be able to command pump shutdown through the control interface. */
+
+        require constraint {
+            HondaPortableWaterPump::operatorControls.stopCommand == true implies
+            HondaPortableWaterPump::engine.running == false
+        }
+    }
+
+    requirement def PortablePumpSystemRequirement {
+        doc /* The Honda-style portable water pump system shall provide a gasoline-powered, self-contained water transfer capability for dewatering, irrigation, and utility service. */
+
+        subject pump : HondaPortableWaterPump;
+
+        require PrimaryFunctionRequirement;
+        require PrimeBeforePumpingRequirement;
+        require LowFuelProtectionRequirement;
+        require OverPressureProtectionRequirement;
+        require OperatorStopRequirement;
+    }
+
+    analysis def PumpFlowAnalysis {
+        subject pump : HondaPortableWaterPump;
+
+        attribute hydraulicPower : Power;
+        attribute estimatedEfficiency : Efficiency;
+
+        constraint hydraulicPowerEstimate {
+            hydraulicPower == pump.pumpHead.outlet.dischargePressure * pump.pumpHead.outlet.dischargeFlow * estimatedEfficiency
+        }
+
+        constraint acceptableEfficiency {
+            estimatedEfficiency >= 0.55 and estimatedEfficiency <= 0.75
+        }
+    }
+
+    part hondaUtilityPump : HondaPortableWaterPump {
+        fuelTank.currentFuel = 2.8 [L];
+        engine.oilTemperature = 85 [degC];
+        engine.running = true;
+        pumpHead.primed = true;
+        pumpHead.casingWaterVolume = 0.7 [L];
+        pumpHead.outlet.dischargeFlow = 540 [L/min];
+        pumpHead.outlet.dischargePressure = 260 [kPa];
+        operatorInterface.throttleSetting = 0.85;
+        operatingMode = PumpOperatingMode::pumping;
+    }
+
+}
+tokens used
+4,692
+package HondaPumpSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate :> Real {
+        unit = L / min;
+    }
+
+    attribute def Pressure :> Real {
+        unit = kPa;
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = rpm;
+    }
+
+    attribute def FuelVolume :> Real {
+        unit = L;
+    }
+
+    attribute def WaterVolume :> Real {
+        unit = L;
+    }
+
+    attribute def Temperature :> Real {
+        unit = degC;
+    }
+
+    attribute def Power :> Real {
+        unit = W;
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = s;
+    }
+
+    attribute def Efficiency :> Real {
+        unit = one;
+    }
+
+    enum def PumpOperatingMode {
+        enum idle;
+        enum priming;
+        enum pumping;
+        enum lowFuelShutdown;
+        enum overheatShutdown;
+        enum blockedFlowShutdown;
+        enum maintenanceRequired;
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute suspendedSolidsConcentration : Real;
+    }
+
+    item def Gasoline {
+        attribute volume : FuelVolume;
+        attribute octaneRating : Real;
+    }
+
+    item def ExhaustGas {
+        attribute temperature : Temperature;
+    }
+
+    port def WaterInletPort {
+        in item incomingWater : Water;
+        attribute suctionPressure : Pressure;
+    }
+
+    port def WaterOutletPort {
+        out item dischargedWater : Water;
+        attribute dischargePressure : Pressure;
+        attribute dischargeFlow : FlowRate;
+    }
+
+    port def FuelFillPort {
+        in item fuel : Gasoline;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def MechanicalTorquePort {
+        out attribute shaftSpeed : RotationalSpeed;
+        out attribute shaftPower : Power;
+    }
+
+    port def ImpellerDrivePort {
+        in attribute receivedSpeed : RotationalSpeed;
+        in attribute receivedPower : Power;
+    }
+
+    port def ControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        out attribute runningIndication : Boolean;
+        out attribute faultIndication : Boolean;
+    }
+
+    action def DrawWater {
+        in item sourceWater : Water;
+        out item pumpCavityWater : Water;
+        in attribute suctionPressure : Pressure;
+    }
+
+    action def AccelerateImpeller {
+        in attribute engineSpeed : RotationalSpeed;
+        out attribute impellerSpeed : RotationalSpeed;
+    }
+
+    action def AddKineticEnergy {
+        in item pumpCavityWater : Water;
+        in attribute impellerSpeed : RotationalSpeed;
+        out item pressurizedWater : Water;
+        out attribute developedPressure : Pressure;
+    }
+
+    action def DischargeWater {
+        in item pressurizedWater : Water;
+        out item deliveredWater : Water;
+        out attribute deliveredFlow : FlowRate;
+    }
+
+    action def BurnFuel {
+        in item fuelCharge : Gasoline;
+        out item exhaustGas : ExhaustGas;
+        out attribute crankshaftPower : Power;
+    }
+
+    action def ShutDownEngine {
+        out attribute engineRunning : Boolean;
+    }
+
+    part def FuelTank {
+        attribute capacity : FuelVolume = 3.1 [L];
+        attribute currentFuel : FuelVolume;
+        attribute lowFuelThreshold : FuelVolume = 0.25 [L];
+
+        port fill : FuelFillPort;
+
+        constraint fuelWithinTank {
+            currentFuel >= 0 [L] and currentFuel <= capacity
+        }
+
+        constraint lowFuelDetected {
+            currentFuel <= lowFuelThreshold
+        }
+    }
+
+    part def FourStrokeEngine {
+        attribute displacement : Real = 163;
+        attribute ratedSpeed : RotationalSpeed = 3600 [rpm];
+        attribute idleSpeed : RotationalSpeed = 1600 [rpm];
+        attribute ratedPower : Power = 3600 [W];
+        attribute oilTemperature : Temperature;
+        attribute maximumOilTemperature : Temperature = 125 [degC];
+        attribute running : Boolean = false;
+
+        port fuelSupply : FuelFillPort;
+        port exhaustOutlet : ExhaustPort;
+        port crankshaft : MechanicalTorquePort;
+        port control : ControlPort;
+
+        perform action burnFuel : BurnFuel;
+
+        state engineState {
+            state off;
+            state starting;
+            state runningAtIdle;
+            state runningRated;
+            state stoppedByFault;
+
+            initial then off;
+
+            transition off_to_starting
+                first off
+                accept control.startCommand
+                then starting;
+
+            transition starting_to_idle
+                first starting
+                if fuelSupply.fuel.volume > 0 [L]
+                then runningAtIdle;
+
+            transition idle_to_rated
+                first runningAtIdle
+                if crankshaft.shaftSpeed >= idleSpeed
+                then runningRated;
+
+            transition rated_to_idle
+                first runningRated
+                accept control.stopCommand
+                then runningAtIdle;
+
+            transition idle_to_off
+                first runningAtIdle
+                accept control.stopCommand
+                then off;
+
+            transition overheat_fault
+                first runningRated
+                if oilTemperature > maximumOilTemperature
+                then stoppedByFault;
+
+            transition fault_to_off
+                first stoppedByFault
+                do ShutDownEngine
+                then off;
+        }
+    }
+
+    part def CentrifugalPumpHead {
+        attribute inletDiameter : Real = 50;
+        attribute outletDiameter : Real = 50;
+        attribute nominalFlow : FlowRate = 620 [L/min];
+        attribute maximumTotalHeadPressure : Pressure = 320 [kPa];
+        attribute primed : Boolean = false;
+        attribute casingWaterVolume : WaterVolume = 0.7 [L];
+        attribute impellerEfficiency : Efficiency = 0.68;
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+        port drive : ImpellerDrivePort;
+
+        perform action drawWater : DrawWater;
+        perform action accelerateImpeller : AccelerateImpeller;
+        perform action addEnergy : AddKineticEnergy;
+        perform action discharge : DischargeWater;
+
+        constraint validDischarge {
+            outlet.dischargeFlow <= nominalFlow and outlet.dischargePressure <= maximumTotalHeadPressure
+        }
+
+        constraint primingRequired {
+            primed == true implies casingWaterVolume > 0.2 [L]
+        }
+
+        state pumpHydraulicState {
+            state dry;
+            state priming;
+            state ready;
+            state flowing;
+            state blocked;
+
+            initial then dry;
+
+            transition dry_to_priming
+                first dry
+                if casingWaterVolume > 0.2 [L]
+                then priming;
+
+            transition priming_to_ready
+                first priming
+                if primed == true
+                then ready;
+
+            transition ready_to_flowing
+                first ready
+                if drive.receivedSpeed > 2500 [rpm]
+                then flowing;
+
+            transition flowing_to_blocked
+                first flowing
+                if outlet.dischargeFlow < 10 [L/min] and outlet.dischargePressure > 280 [kPa]
+                then blocked;
+
+            transition blocked_to_ready
+                first blocked
+                if outlet.dischargeFlow >= 10 [L/min]
+                then ready;
+        }
+    }
+
+    part def SuctionHose {
+        attribute length : Real = 6.0;
+        attribute insideDiameter : Real = 50;
+        attribute strainerClean : Boolean = true;
+        attribute maximumSuctionLift : Real = 7.5;
+
+        port sourceEnd : WaterInletPort;
+        port pumpEnd : WaterInletPort;
+
+        constraint suctionUsable {
+            strainerClean == true
+        }
+    }
+
+    part def DischargeHose {
+        attribute length : Real = 15.0;
+        attribute insideDiameter : Real = 50;
+        attribute kinked : Boolean = false;
+
+        port pumpEnd : WaterOutletPort;
+        port deliveryEnd : WaterOutletPort;
+
+        constraint dischargeUsable {
+            kinked == false
+        }
+    }
+
+    part def OperatorInterface {
+        attribute chokeOpen : Boolean;
+        attribute throttleSetting : Real;
+        attribute recoilPulled : Boolean;
+        attribute stopSwitchPressed : Boolean;
+
+        port controls : ControlPort;
+
+        constraint throttleRange {
+            throttleSetting >= 0 and throttleSetting <= 1
+        }
+    }
+
+    part def PumpFrame {
+        attribute mass : Real = 24.0;
+        attribute vibrationIsolated : Boolean = true;
+        attribute corrosionProtected : Boolean = true;
+    }
+
+    part def HondaPortableWaterPump {
+        attribute operatingMode : PumpOperatingMode = PumpOperatingMode::idle;
+        attribute dryMass : Real = 26.0;
+        attribute maximumFlow : FlowRate = 620 [L/min];
+        attribute maximumPressure : Pressure = 320 [kPa];
+        attribute primaryFunction : String = "Move water from a lower-pressure source to a higher-pressure discharge point using a gasoline engine driving a centrifugal pump.";
+
+        part frame : PumpFrame;
+        part fuelTank : FuelTank;
+        part engine : FourStrokeEngine;
+        part pumpHead : CentrifugalPumpHead;
+        part suctionHose : SuctionHose;
+        part dischargeHose : DischargeHose;
+        part operatorInterface : OperatorInterface;
+
+        port waterSourceConnection : WaterInletPort;
+        port waterDeliveryConnection : WaterOutletPort;
+        port fuelFillConnection : FuelFillPort;
+        port exhaustExit : ExhaustPort;
+        port operatorControls : ControlPort;
+
+        connect fuelFillConnection to fuelTank.fill;
+        connect fuelTank.fill to engine.fuelSupply;
+        connect engine.exhaustOutlet to exhaustExit;
+        connect engine.crankshaft to pumpHead.drive;
+        connect operatorControls to operatorInterface.controls;
+        connect operatorInterface.controls to engine.control;
+        connect waterSourceConnection to suctionHose.sourceEnd;
+        connect suctionHose.pumpEnd to pumpHead.inlet;
+        connect pumpHead.outlet to dischargeHose.pumpEnd;
+        connect dischargeHose.deliveryEnd to waterDeliveryConnection;
+
+        perform action pumpWater {
+            first DrawWater;
+            then AccelerateImpeller;
+            then AddKineticEnergy;
+            then DischargeWater;
+        }
+
+        state systemState {
+            state stopped;
+            state fueled;
+            state started;
+            state primingPump;
+            state deliveringWater;
+            state shuttingDown;
+            state faulted;
+
+            initial then stopped;
+
+            transition stopped_to_fueled
+                first stopped
+                if fuelTank.currentFuel > fuelTank.lowFuelThreshold
+                then fueled;
+
+            transition fueled_to_started
+                first fueled
+                accept operatorControls.startCommand
+                then started;
+
+            transition started_to_priming
+                first started
+                if pumpHead.casingWaterVolume > 0.2 [L]
+                then primingPump;
+
+            transition priming_to_delivering
+                first primingPump
+                if pumpHead.primed == true and engine.running == true
+                then deliveringWater;
+
+            transition delivering_to_shutdown
+                first deliveringWater
+                accept operatorControls.stopCommand
+                then shuttingDown;
+
+            transition shutdown_to_stopped
+                first shuttingDown
+                do ShutDownEngine
+                then stopped;
+
+            transition low_fuel_fault
+                first deliveringWater
+                if fuelTank.currentFuel <= fuelTank.lowFuelThreshold
+                then faulted;
+
+            transition overpressure_fault
+                first deliveringWater
+                if pumpHead.outlet.dischargePressure > maximumPressure
+                then faulted;
+
+            transition blocked_flow_fault
+                first deliveringWater
+                if pumpHead.outlet.dischargeFlow < 10 [L/min]
+                then faulted;
+
+            transition fault_to_stopped
+                first faulted
+                do ShutDownEngine
+                then stopped;
+        }
+
+        constraint missionPerformance {
+            pumpHead.outlet.dischargeFlow <= maximumFlow and
+            pumpHead.outlet.dischargePressure <= maximumPressure
+        }
+
+        constraint enginePumpCompatibility {
+            engine.crankshaft.shaftSpeed == pumpHead.drive.receivedSpeed
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The portable pump shall transfer water from a source to a discharge location by converting fuel energy into mechanical shaft power and hydraulic pressure. */
+        attribute requiredFlow : FlowRate = 500 [L/min];
+        attribute requiredPressure : Pressure = 250 [kPa];
+
+        require constraint {
+            HondaPortableWaterPump::maximumFlow >= requiredFlow and
+            HondaPortableWaterPump::maximumPressure >= requiredPressure
+        }
+    }
+
+    requirement def PrimeBeforePumpingRequirement {
+        doc /* The pump shall not enter sustained water delivery until the pump casing contains sufficient water and the centrifugal pump head is primed. */
+
+        require constraint {
+            HondaPortableWaterPump::pumpHead.primed == true implies
+            HondaPortableWaterPump::pumpHead.casingWaterVolume > 0.2 [L]
+        }
+    }
+
+    requirement def LowFuelProtectionRequirement {
+        doc /* The pump shall shut down or indicate a fault when available fuel falls below the defined low fuel threshold during operation. */
+
+        require constraint {
+            HondaPortableWaterPump::fuelTank.currentFuel <= HondaPortableWaterPump::fuelTank.lowFuelThreshold implies
+            HondaPortableWaterPump::operatingMode == PumpOperatingMode::lowFuelShutdown
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        doc /* The pump shall prevent operation above its rated discharge pressure. */
+
+        require constraint {
+            HondaPortableWaterPump::pumpHead.outlet.dischargePressure <= HondaPortableWaterPump::maximumPressure
+        }
+    }
+
+    requirement def OperatorStopRequirement {
+        doc /* The operator shall be able to command pump shutdown through the control interface. */
+
+        require constraint {
+            HondaPortableWaterPump::operatorControls.stopCommand == true implies
+            HondaPortableWaterPump::engine.running == false
+        }
+    }
+
+    requirement def PortablePumpSystemRequirement {
+        doc /* The Honda-style portable water pump system shall provide a gasoline-powered, self-contained water transfer capability for dewatering, irrigation, and utility service. */
+
+        subject pump : HondaPortableWaterPump;
+
+        require PrimaryFunctionRequirement;
+        require PrimeBeforePumpingRequirement;
+        require LowFuelProtectionRequirement;
+        require OverPressureProtectionRequirement;
+        require OperatorStopRequirement;
+    }
+
+    analysis def PumpFlowAnalysis {
+        subject pump : HondaPortableWaterPump;
+
+        attribute hydraulicPower : Power;
+        attribute estimatedEfficiency : Efficiency;
+
+        constraint hydraulicPowerEstimate {
+            hydraulicPower == pump.pumpHead.outlet.dischargePressure * pump.pumpHead.outlet.dischargeFlow * estimatedEfficiency
+        }
+
+        constraint acceptableEfficiency {
+            estimatedEfficiency >= 0.55 and estimatedEfficiency <= 0.75
+        }
+    }
+
+    part hondaUtilityPump : HondaPortableWaterPump {
+        fuelTank.currentFuel = 2.8 [L];
+        engine.oilTemperature = 85 [degC];
+        engine.running = true;
+        pumpHead.primed = true;
+        pumpHead.casingWaterVolume = 0.7 [L];
+        pumpHead.outlet.dischargeFlow = 540 [L/min];
+        pumpHead.outlet.dischargePressure = 260 [kPa];
+        operatorInterface.throttleSetting = 0.85;
+        operatingMode = PumpOperatingMode::pumping;
+    }
+
+}

@@ -1,0 +1,827 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-uah76u10
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4d2-8ddf-7743-be17-07860999629d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Scoop wheel and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ScoopWheelSpecification {
+    import ScalarValues::*;
+
+    attribute def Length :> Real;
+    attribute def Angle :> Real;
+    attribute def AngularVelocity :> Real;
+    attribute def Torque :> Real;
+    attribute def Power :> Real;
+    attribute def MassFlowRate :> Real;
+    attribute def Volume :> Real;
+    attribute def Density :> Real;
+    attribute def Efficiency :> Real;
+    attribute def Time :> Real;
+    attribute def Force :> Real;
+    attribute def Temperature :> Real;
+
+    item def BulkMaterial {
+        attribute bulkDensity : Density;
+        attribute particleDiameter : Length;
+        attribute moistureContent : Real;
+        attribute abrasivenessIndex : Real;
+    }
+
+    item def MechanicalPower {
+        attribute torque : Torque;
+        attribute rotationalSpeed : AngularVelocity;
+        attribute power : Power;
+    }
+
+    item def MaterialFlow {
+        attribute material : BulkMaterial;
+        attribute massFlowRate : MassFlowRate;
+        attribute volumetricFlowRate : Real;
+    }
+
+    item def ControlSignal {
+        attribute requestedSpeed : AngularVelocity;
+        attribute enableRotation : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def StatusSignal {
+        attribute actualSpeed : AngularVelocity;
+        attribute actualThroughput : MassFlowRate;
+        attribute jamDetected : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute operatingState : String;
+    }
+
+    port def MaterialIntakePort {
+        in item incomingMaterial : MaterialFlow;
+    }
+
+    port def MaterialDischargePort {
+        out item dischargedMaterial : MaterialFlow;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : MechanicalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item status : StatusSignal;
+    }
+
+    part def Scoop {
+        attribute scoopVolume : Volume = 0.035;
+        attribute lipRadius : Length = 0.018;
+        attribute wallThickness : Length = 0.006;
+        attribute fillFactor : Efficiency = 0.78;
+        attribute retainedMaterialMass : Real;
+
+        port intakePort : MaterialIntakePort;
+        port dischargePort : MaterialDischargePort;
+    }
+
+    part def ScoopRim {
+        attribute outerDiameter : Length = 3.2;
+        attribute innerDiameter : Length = 2.7;
+        attribute rimWidth : Length = 0.55;
+        attribute scoopCount : Integer = 24;
+        attribute nominalTipSpeed : Real = 1.1;
+
+        part scoops : Scoop[24];
+    }
+
+    part def HubAndSpokes {
+        attribute hubDiameter : Length = 0.42;
+        attribute spokeCount : Integer = 12;
+        attribute allowableRadialLoad : Force = 42000.0;
+    }
+
+    part def DriveShaft {
+        attribute shaftDiameter : Length = 0.18;
+        attribute shaftLength : Length = 1.1;
+        attribute ratedTorque : Torque = 9200.0;
+        attribute actualSpeed : AngularVelocity;
+
+        port powerIn : PowerInputPort;
+    }
+
+    part def BearingAssembly {
+        attribute bearingCount : Integer = 2;
+        attribute designLife : Time = 60000.0;
+        attribute maxOperatingTemperature : Temperature = 85.0;
+        attribute frictionLoss : Power = 0.35;
+    }
+
+    part def WheelAssembly {
+        attribute wheelDiameter : Length = 3.2;
+        attribute wheelWidth : Length = 0.55;
+        attribute nominalSpeed : AngularVelocity = 0.72;
+        attribute maximumSpeed : AngularVelocity = 1.05;
+        attribute minimumEffectiveSpeed : AngularVelocity = 0.25;
+        attribute mechanicalEfficiency : Efficiency = 0.86;
+
+        port lowerIntake : MaterialIntakePort;
+        port upperDischarge : MaterialDischargePort;
+        port rotationalPower : PowerInputPort;
+
+        part rim : ScoopRim;
+        part hub : HubAndSpokes;
+        part shaft : DriveShaft;
+        part bearings : BearingAssembly;
+
+        connect rotationalPower to shaft.powerIn;
+        connect lowerIntake to rim.scoops.intakePort;
+        connect rim.scoops.dischargePort to upperDischarge;
+    }
+
+    part def LowerCollectionBasin {
+        attribute basinLength : Length = 4.0;
+        attribute basinWidth : Length = 1.4;
+        attribute minimumFillDepth : Length = 0.35;
+        attribute nominalMaterialLevel : Length = 0.75;
+
+        port materialOut : MaterialIntakePort;
+    }
+
+    part def UpperDischargeChute {
+        attribute chuteWidth : Length = 0.62;
+        attribute chuteSlopeAngle : Angle = 34.0;
+        attribute linerThickness : Length = 0.012;
+        attribute dischargeHeight : Length = 2.65;
+
+        port materialIn : MaterialDischargePort;
+    }
+
+    part def DriveMotor {
+        attribute ratedPower : Power = 18.5;
+        attribute ratedTorque : Torque = 9800.0;
+        attribute ratedSpeed : AngularVelocity = 0.76;
+        attribute overloadFactor : Real = 1.6;
+
+        port mechanicalOutput : PowerInputPort;
+        port commandIn : ControlInputPort;
+    }
+
+    part def SpeedSensor {
+        attribute measurementRangeMin : AngularVelocity = 0.0;
+        attribute measurementRangeMax : AngularVelocity = 1.4;
+        attribute accuracy : Real = 0.01;
+
+        port statusOut : StatusOutputPort;
+    }
+
+    part def TorqueSensor {
+        attribute maxMeasuredTorque : Torque = 15000.0;
+        attribute overloadThreshold : Torque = 11500.0;
+
+        port statusOut : StatusOutputPort;
+    }
+
+    part def JamDetector {
+        attribute jamSpeedThreshold : AngularVelocity = 0.12;
+        attribute jamTorqueThreshold : Torque = 12500.0;
+        attribute detectionDelay : Time = 2.0;
+
+        port statusOut : StatusOutputPort;
+    }
+
+    part def Controller {
+        attribute targetSpeed : AngularVelocity = 0.72;
+        attribute startRampTime : Time = 12.0;
+        attribute stopRampTime : Time = 8.0;
+        attribute overloadTripDelay : Time = 1.5;
+
+        port operatorCommand : ControlInputPort;
+        port motorCommand : ControlInputPort;
+        port systemStatus : StatusOutputPort;
+    }
+
+    action def ScoopMaterial {
+        in item materialAtLowerBasin : MaterialFlow;
+        out item materialCaptured : MaterialFlow;
+
+        attribute captureEfficiency : Efficiency = 0.78;
+        attribute scoopImmersionDepth : Length = 0.42;
+    }
+
+    action def LiftMaterial {
+        in item materialCaptured : MaterialFlow;
+        in item wheelPower : MechanicalPower;
+        out item materialElevated : MaterialFlow;
+
+        attribute liftHeight : Length = 2.65;
+        attribute requiredTorque : Torque;
+    }
+
+    action def DischargeMaterial {
+        in item materialElevated : MaterialFlow;
+        out item materialToChute : MaterialFlow;
+
+        attribute dischargeAngle : Angle = 146.0;
+        attribute residualCarrybackFraction : Real = 0.04;
+    }
+
+    action def TransferBulkMaterial {
+        in item lowerMaterial : MaterialFlow;
+        in item drivePower : MechanicalPower;
+        out item upperMaterial : MaterialFlow;
+
+        action scoop : ScoopMaterial {
+            in item materialAtLowerBasin = lowerMaterial;
+        }
+
+        action lift : LiftMaterial {
+            in item materialCaptured = scoop.materialCaptured;
+            in item wheelPower = drivePower;
+        }
+
+        action discharge : DischargeMaterial {
+            in item materialElevated = lift.materialElevated;
+            out item materialToChute = upperMaterial;
+        }
+    }
+
+    state def ScoopWheelOperatingState {
+        state Off;
+        state Starting;
+        state Running;
+        state Stopping;
+        state JamClearing;
+        state Faulted;
+
+        transition initial then Off;
+
+        transition Off_to_Starting
+            first Off
+            accept ControlSignal
+            if command.enableRotation and not command.emergencyStop
+            then Starting;
+
+        transition Starting_to_Running
+            first Starting
+            if actualSpeed >= 0.68
+            then Running;
+
+        transition Running_to_Stopping
+            first Running
+            accept ControlSignal
+            if not command.enableRotation
+            then Stopping;
+
+        transition Stopping_to_Off
+            first Stopping
+            if actualSpeed <= 0.03
+            then Off;
+
+        transition Running_to_JamClearing
+            first Running
+            if jamDetected
+            then JamClearing;
+
+        transition JamClearing_to_Running
+            first JamClearing
+            if not jamDetected and actualSpeed >= 0.50
+            then Running;
+
+        transition Any_to_Faulted
+            first Off
+            accept ControlSignal
+            if command.emergencyStop
+            then Faulted;
+    }
+
+    part def ScoopWheelSystem {
+        attribute primaryFunction : String = "Continuously collect bulk material from a lower basin with rotating scoops, lift it around the wheel arc, and discharge it at a higher elevation into an outlet chute.";
+        attribute nominalThroughput : MassFlowRate = 32.0;
+        attribute minimumRequiredThroughput : MassFlowRate = 25.0;
+        attribute maximumOperatingTorque : Torque = 11000.0;
+        attribute nominalLiftHeight : Length = 2.65;
+        attribute nominalWheelSpeed : AngularVelocity = 0.72;
+        attribute serviceEfficiency : Efficiency = 0.80;
+
+        port materialInput : MaterialIntakePort;
+        port materialOutput : MaterialDischargePort;
+        port operatorControl : ControlInputPort;
+        port systemStatus : StatusOutputPort;
+
+        part lowerBasin : LowerCollectionBasin;
+        part scoopWheel : WheelAssembly;
+        part dischargeChute : UpperDischargeChute;
+        part driveMotor : DriveMotor;
+        part speedSensor : SpeedSensor;
+        part torqueSensor : TorqueSensor;
+        part jamDetector : JamDetector;
+        part controller : Controller;
+
+        connect materialInput to lowerBasin.materialOut;
+        connect lowerBasin.materialOut to scoopWheel.lowerIntake;
+        connect scoopWheel.upperDischarge to dischargeChute.materialIn;
+        connect dischargeChute.materialIn to materialOutput;
+
+        connect driveMotor.mechanicalOutput to scoopWheel.rotationalPower;
+        connect operatorControl to controller.operatorCommand;
+        connect controller.motorCommand to driveMotor.commandIn;
+
+        connect speedSensor.statusOut to controller.systemStatus;
+        connect torqueSensor.statusOut to controller.systemStatus;
+        connect jamDetector.statusOut to controller.systemStatus;
+        connect controller.systemStatus to systemStatus;
+
+        perform action transfer : TransferBulkMaterial {
+            in item lowerMaterial = materialInput.incomingMaterial;
+            in item drivePower = driveMotor.mechanicalOutput.suppliedPower;
+            out item upperMaterial = materialOutput.dischargedMaterial;
+        }
+
+        exhibit state behavior : ScoopWheelOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The scoop wheel system shall provide a high-level material transfer function by using rotating scoops to capture material at a low elevation, lift it through the wheel rotation path, and discharge it at a higher elevation. */
+
+        require constraint {
+            system.nominalThroughput >= system.minimumRequiredThroughput
+        }
+
+        require constraint {
+            system.nominalLiftHeight >= 2.5
+        }
+
+        require constraint {
+            system.serviceEfficiency >= 0.75
+        }
+    }
+
+    requirement def ControlledRotationRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The controller shall regulate wheel speed during start, run, and stop operations to prevent spillage, mechanical overload, and uncontrolled discharge. */
+
+        require constraint {
+            system.nominalWheelSpeed >= 0.25 and system.nominalWheelSpeed <= 1.05
+        }
+
+        require constraint {
+            system.maximumOperatingTorque <= 11000.0
+        }
+    }
+
+    requirement def JamProtectionRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The system shall detect a jam condition using low speed and high torque indications, stop normal transfer, and enter a jam-clearing state before returning to operation. */
+
+        require constraint {
+            system.jamDetector.detectionDelay <= 2.0
+        }
+
+        require constraint {
+            system.jamDetector.jamTorqueThreshold <= system.torqueSensor.maxMeasuredTorque
+        }
+    }
+
+    requirement def DischargeContainmentRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The discharge chute shall receive material from the scoop wheel at the upper arc and direct the material into the downstream process with limited carryback. */
+
+        require constraint {
+            system.dischargeChute.dischargeHeight >= system.nominalLiftHeight
+        }
+
+        require constraint {
+            system.transfer.discharge.residualCarrybackFraction <= 0.05
+        }
+    }
+
+    part scoopWheelInstallation : ScoopWheelSystem {
+        attribute nominalThroughput = 32.0;
+        attribute minimumRequiredThroughput = 25.0;
+        attribute nominalLiftHeight = 2.65;
+        attribute nominalWheelSpeed = 0.72;
+        attribute serviceEfficiency = 0.80;
+    }
+}
+tokens used
+4,744
+package ScoopWheelSpecification {
+    import ScalarValues::*;
+
+    attribute def Length :> Real;
+    attribute def Angle :> Real;
+    attribute def AngularVelocity :> Real;
+    attribute def Torque :> Real;
+    attribute def Power :> Real;
+    attribute def MassFlowRate :> Real;
+    attribute def Volume :> Real;
+    attribute def Density :> Real;
+    attribute def Efficiency :> Real;
+    attribute def Time :> Real;
+    attribute def Force :> Real;
+    attribute def Temperature :> Real;
+
+    item def BulkMaterial {
+        attribute bulkDensity : Density;
+        attribute particleDiameter : Length;
+        attribute moistureContent : Real;
+        attribute abrasivenessIndex : Real;
+    }
+
+    item def MechanicalPower {
+        attribute torque : Torque;
+        attribute rotationalSpeed : AngularVelocity;
+        attribute power : Power;
+    }
+
+    item def MaterialFlow {
+        attribute material : BulkMaterial;
+        attribute massFlowRate : MassFlowRate;
+        attribute volumetricFlowRate : Real;
+    }
+
+    item def ControlSignal {
+        attribute requestedSpeed : AngularVelocity;
+        attribute enableRotation : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def StatusSignal {
+        attribute actualSpeed : AngularVelocity;
+        attribute actualThroughput : MassFlowRate;
+        attribute jamDetected : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute operatingState : String;
+    }
+
+    port def MaterialIntakePort {
+        in item incomingMaterial : MaterialFlow;
+    }
+
+    port def MaterialDischargePort {
+        out item dischargedMaterial : MaterialFlow;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : MechanicalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item status : StatusSignal;
+    }
+
+    part def Scoop {
+        attribute scoopVolume : Volume = 0.035;
+        attribute lipRadius : Length = 0.018;
+        attribute wallThickness : Length = 0.006;
+        attribute fillFactor : Efficiency = 0.78;
+        attribute retainedMaterialMass : Real;
+
+        port intakePort : MaterialIntakePort;
+        port dischargePort : MaterialDischargePort;
+    }
+
+    part def ScoopRim {
+        attribute outerDiameter : Length = 3.2;
+        attribute innerDiameter : Length = 2.7;
+        attribute rimWidth : Length = 0.55;
+        attribute scoopCount : Integer = 24;
+        attribute nominalTipSpeed : Real = 1.1;
+
+        part scoops : Scoop[24];
+    }
+
+    part def HubAndSpokes {
+        attribute hubDiameter : Length = 0.42;
+        attribute spokeCount : Integer = 12;
+        attribute allowableRadialLoad : Force = 42000.0;
+    }
+
+    part def DriveShaft {
+        attribute shaftDiameter : Length = 0.18;
+        attribute shaftLength : Length = 1.1;
+        attribute ratedTorque : Torque = 9200.0;
+        attribute actualSpeed : AngularVelocity;
+
+        port powerIn : PowerInputPort;
+    }
+
+    part def BearingAssembly {
+        attribute bearingCount : Integer = 2;
+        attribute designLife : Time = 60000.0;
+        attribute maxOperatingTemperature : Temperature = 85.0;
+        attribute frictionLoss : Power = 0.35;
+    }
+
+    part def WheelAssembly {
+        attribute wheelDiameter : Length = 3.2;
+        attribute wheelWidth : Length = 0.55;
+        attribute nominalSpeed : AngularVelocity = 0.72;
+        attribute maximumSpeed : AngularVelocity = 1.05;
+        attribute minimumEffectiveSpeed : AngularVelocity = 0.25;
+        attribute mechanicalEfficiency : Efficiency = 0.86;
+
+        port lowerIntake : MaterialIntakePort;
+        port upperDischarge : MaterialDischargePort;
+        port rotationalPower : PowerInputPort;
+
+        part rim : ScoopRim;
+        part hub : HubAndSpokes;
+        part shaft : DriveShaft;
+        part bearings : BearingAssembly;
+
+        connect rotationalPower to shaft.powerIn;
+        connect lowerIntake to rim.scoops.intakePort;
+        connect rim.scoops.dischargePort to upperDischarge;
+    }
+
+    part def LowerCollectionBasin {
+        attribute basinLength : Length = 4.0;
+        attribute basinWidth : Length = 1.4;
+        attribute minimumFillDepth : Length = 0.35;
+        attribute nominalMaterialLevel : Length = 0.75;
+
+        port materialOut : MaterialIntakePort;
+    }
+
+    part def UpperDischargeChute {
+        attribute chuteWidth : Length = 0.62;
+        attribute chuteSlopeAngle : Angle = 34.0;
+        attribute linerThickness : Length = 0.012;
+        attribute dischargeHeight : Length = 2.65;
+
+        port materialIn : MaterialDischargePort;
+    }
+
+    part def DriveMotor {
+        attribute ratedPower : Power = 18.5;
+        attribute ratedTorque : Torque = 9800.0;
+        attribute ratedSpeed : AngularVelocity = 0.76;
+        attribute overloadFactor : Real = 1.6;
+
+        port mechanicalOutput : PowerInputPort;
+        port commandIn : ControlInputPort;
+    }
+
+    part def SpeedSensor {
+        attribute measurementRangeMin : AngularVelocity = 0.0;
+        attribute measurementRangeMax : AngularVelocity = 1.4;
+        attribute accuracy : Real = 0.01;
+
+        port statusOut : StatusOutputPort;
+    }
+
+    part def TorqueSensor {
+        attribute maxMeasuredTorque : Torque = 15000.0;
+        attribute overloadThreshold : Torque = 11500.0;
+
+        port statusOut : StatusOutputPort;
+    }
+
+    part def JamDetector {
+        attribute jamSpeedThreshold : AngularVelocity = 0.12;
+        attribute jamTorqueThreshold : Torque = 12500.0;
+        attribute detectionDelay : Time = 2.0;
+
+        port statusOut : StatusOutputPort;
+    }
+
+    part def Controller {
+        attribute targetSpeed : AngularVelocity = 0.72;
+        attribute startRampTime : Time = 12.0;
+        attribute stopRampTime : Time = 8.0;
+        attribute overloadTripDelay : Time = 1.5;
+
+        port operatorCommand : ControlInputPort;
+        port motorCommand : ControlInputPort;
+        port systemStatus : StatusOutputPort;
+    }
+
+    action def ScoopMaterial {
+        in item materialAtLowerBasin : MaterialFlow;
+        out item materialCaptured : MaterialFlow;
+
+        attribute captureEfficiency : Efficiency = 0.78;
+        attribute scoopImmersionDepth : Length = 0.42;
+    }
+
+    action def LiftMaterial {
+        in item materialCaptured : MaterialFlow;
+        in item wheelPower : MechanicalPower;
+        out item materialElevated : MaterialFlow;
+
+        attribute liftHeight : Length = 2.65;
+        attribute requiredTorque : Torque;
+    }
+
+    action def DischargeMaterial {
+        in item materialElevated : MaterialFlow;
+        out item materialToChute : MaterialFlow;
+
+        attribute dischargeAngle : Angle = 146.0;
+        attribute residualCarrybackFraction : Real = 0.04;
+    }
+
+    action def TransferBulkMaterial {
+        in item lowerMaterial : MaterialFlow;
+        in item drivePower : MechanicalPower;
+        out item upperMaterial : MaterialFlow;
+
+        action scoop : ScoopMaterial {
+            in item materialAtLowerBasin = lowerMaterial;
+        }
+
+        action lift : LiftMaterial {
+            in item materialCaptured = scoop.materialCaptured;
+            in item wheelPower = drivePower;
+        }
+
+        action discharge : DischargeMaterial {
+            in item materialElevated = lift.materialElevated;
+            out item materialToChute = upperMaterial;
+        }
+    }
+
+    state def ScoopWheelOperatingState {
+        state Off;
+        state Starting;
+        state Running;
+        state Stopping;
+        state JamClearing;
+        state Faulted;
+
+        transition initial then Off;
+
+        transition Off_to_Starting
+            first Off
+            accept ControlSignal
+            if command.enableRotation and not command.emergencyStop
+            then Starting;
+
+        transition Starting_to_Running
+            first Starting
+            if actualSpeed >= 0.68
+            then Running;
+
+        transition Running_to_Stopping
+            first Running
+            accept ControlSignal
+            if not command.enableRotation
+            then Stopping;
+
+        transition Stopping_to_Off
+            first Stopping
+            if actualSpeed <= 0.03
+            then Off;
+
+        transition Running_to_JamClearing
+            first Running
+            if jamDetected
+            then JamClearing;
+
+        transition JamClearing_to_Running
+            first JamClearing
+            if not jamDetected and actualSpeed >= 0.50
+            then Running;
+
+        transition Any_to_Faulted
+            first Off
+            accept ControlSignal
+            if command.emergencyStop
+            then Faulted;
+    }
+
+    part def ScoopWheelSystem {
+        attribute primaryFunction : String = "Continuously collect bulk material from a lower basin with rotating scoops, lift it around the wheel arc, and discharge it at a higher elevation into an outlet chute.";
+        attribute nominalThroughput : MassFlowRate = 32.0;
+        attribute minimumRequiredThroughput : MassFlowRate = 25.0;
+        attribute maximumOperatingTorque : Torque = 11000.0;
+        attribute nominalLiftHeight : Length = 2.65;
+        attribute nominalWheelSpeed : AngularVelocity = 0.72;
+        attribute serviceEfficiency : Efficiency = 0.80;
+
+        port materialInput : MaterialIntakePort;
+        port materialOutput : MaterialDischargePort;
+        port operatorControl : ControlInputPort;
+        port systemStatus : StatusOutputPort;
+
+        part lowerBasin : LowerCollectionBasin;
+        part scoopWheel : WheelAssembly;
+        part dischargeChute : UpperDischargeChute;
+        part driveMotor : DriveMotor;
+        part speedSensor : SpeedSensor;
+        part torqueSensor : TorqueSensor;
+        part jamDetector : JamDetector;
+        part controller : Controller;
+
+        connect materialInput to lowerBasin.materialOut;
+        connect lowerBasin.materialOut to scoopWheel.lowerIntake;
+        connect scoopWheel.upperDischarge to dischargeChute.materialIn;
+        connect dischargeChute.materialIn to materialOutput;
+
+        connect driveMotor.mechanicalOutput to scoopWheel.rotationalPower;
+        connect operatorControl to controller.operatorCommand;
+        connect controller.motorCommand to driveMotor.commandIn;
+
+        connect speedSensor.statusOut to controller.systemStatus;
+        connect torqueSensor.statusOut to controller.systemStatus;
+        connect jamDetector.statusOut to controller.systemStatus;
+        connect controller.systemStatus to systemStatus;
+
+        perform action transfer : TransferBulkMaterial {
+            in item lowerMaterial = materialInput.incomingMaterial;
+            in item drivePower = driveMotor.mechanicalOutput.suppliedPower;
+            out item upperMaterial = materialOutput.dischargedMaterial;
+        }
+
+        exhibit state behavior : ScoopWheelOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The scoop wheel system shall provide a high-level material transfer function by using rotating scoops to capture material at a low elevation, lift it through the wheel rotation path, and discharge it at a higher elevation. */
+
+        require constraint {
+            system.nominalThroughput >= system.minimumRequiredThroughput
+        }
+
+        require constraint {
+            system.nominalLiftHeight >= 2.5
+        }
+
+        require constraint {
+            system.serviceEfficiency >= 0.75
+        }
+    }
+
+    requirement def ControlledRotationRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The controller shall regulate wheel speed during start, run, and stop operations to prevent spillage, mechanical overload, and uncontrolled discharge. */
+
+        require constraint {
+            system.nominalWheelSpeed >= 0.25 and system.nominalWheelSpeed <= 1.05
+        }
+
+        require constraint {
+            system.maximumOperatingTorque <= 11000.0
+        }
+    }
+
+    requirement def JamProtectionRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The system shall detect a jam condition using low speed and high torque indications, stop normal transfer, and enter a jam-clearing state before returning to operation. */
+
+        require constraint {
+            system.jamDetector.detectionDelay <= 2.0
+        }
+
+        require constraint {
+            system.jamDetector.jamTorqueThreshold <= system.torqueSensor.maxMeasuredTorque
+        }
+    }
+
+    requirement def DischargeContainmentRequirement {
+        subject system : ScoopWheelSystem;
+
+        doc /* The discharge chute shall receive material from the scoop wheel at the upper arc and direct the material into the downstream process with limited carryback. */
+
+        require constraint {
+            system.dischargeChute.dischargeHeight >= system.nominalLiftHeight
+        }
+
+        require constraint {
+            system.transfer.discharge.residualCarrybackFraction <= 0.05
+        }
+    }
+
+    part scoopWheelInstallation : ScoopWheelSystem {
+        attribute nominalThroughput = 32.0;
+        attribute minimumRequiredThroughput = 25.0;
+        attribute nominalLiftHeight = 2.65;
+        attribute nominalWheelSpeed = 0.72;
+        attribute serviceEfficiency = 0.80;
+    }
+}

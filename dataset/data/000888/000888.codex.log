@@ -1,0 +1,653 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-dz2ojb9c
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb499-5291-7420-a8bc-1a1d864d975b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Handy billy and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HandyBillySystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Force {
+    :> scalarValue;
+    unit = "N";
+  }
+
+  attribute def Mass {
+    :> scalarValue;
+    unit = "kg";
+  }
+
+  attribute def Length {
+    :> scalarValue;
+    unit = "m";
+  }
+
+  attribute def Velocity {
+    :> scalarValue;
+    unit = "m/s";
+  }
+
+  attribute def Efficiency {
+    :> scalarValue;
+    unit = "1";
+  }
+
+  attribute def MechanicalAdvantage {
+    :> scalarValue;
+    unit = "1";
+  }
+
+  item def RopeSegment {
+    attribute tension : Force;
+    attribute speed : Velocity;
+  }
+
+  item def LiftedLoad {
+    attribute mass : Mass;
+    attribute weight : Force;
+    attribute verticalPosition : Length;
+    attribute liftVelocity : Velocity;
+  }
+
+  item def HumanPullInput {
+    attribute pullForce : Force;
+    attribute pullSpeed : Velocity;
+    attribute pullLength : Length;
+  }
+
+  port def RopePort {
+    inout rope : RopeSegment;
+  }
+
+  port def LoadPort {
+    inout load : LiftedLoad;
+  }
+
+  port def OperatorPort {
+    in input : HumanPullInput;
+  }
+
+  port def AnchorPort {
+    out reactionForce : Force;
+  }
+
+  part def Pulley {
+    attribute sheaveRadius : Length;
+    attribute bearingEfficiency : Efficiency;
+    attribute ropeTensionIn : Force;
+    attribute ropeTensionOut : Force;
+
+    port ropeIn : RopePort;
+    port ropeOut : RopePort;
+
+    perform action transmitRopeForce {
+      in inTension : Force;
+      out outTension : Force;
+      attribute localEfficiency : Efficiency = bearingEfficiency;
+    }
+  }
+
+  part def FixedBlock {
+    part fixedSheave : Pulley {
+      attribute sheaveRadius = 0.045 [m];
+      attribute bearingEfficiency = 0.94;
+    }
+
+    port anchor : AnchorPort;
+    port standingRope : RopePort;
+    port haulingRope : RopePort;
+  }
+
+  part def MovingBlock {
+    part movingSheave : Pulley {
+      attribute sheaveRadius = 0.045 [m];
+      attribute bearingEfficiency = 0.94;
+    }
+
+    port loadAttachment : LoadPort;
+    port ropeIn : RopePort;
+    port ropeOut : RopePort;
+  }
+
+  part def RopeAssembly {
+    attribute ropeDiameter : Length = 0.010 [m];
+    attribute workingLength : Length = 12.0 [m];
+    attribute minimumBreakingForce : Force = 12000 [N];
+    attribute currentTension : Force;
+    attribute hauledLength : Length;
+
+    port standingEnd : RopePort;
+    port aroundMovingBlock : RopePort;
+    port aroundFixedBlock : RopePort;
+    port haulingEnd : RopePort;
+  }
+
+  part def Hook {
+    attribute ratedLoad : Mass = 250 [kg];
+    attribute throatOpening : Length = 0.025 [m];
+
+    port loadSide : LoadPort;
+  }
+
+  part def Operator {
+    attribute maximumSustainedPullForce : Force = 350 [N];
+    attribute appliedPullForce : Force;
+    attribute appliedPullSpeed : Velocity;
+
+    port hands : OperatorPort;
+
+    perform action pullHaulingEnd {
+      in desiredLiftVelocity : Velocity;
+      out pullInput : HumanPullInput;
+    }
+  }
+
+  part def HandyBilly {
+    attribute nominalMechanicalAdvantage : MechanicalAdvantage = 2.0;
+    attribute systemEfficiency : Efficiency = 0.88;
+    attribute maximumSafeLoadMass : Mass = 150 [kg];
+    attribute liftedHeight : Length;
+    attribute requiredPullForce : Force;
+    attribute loadForce : Force;
+
+    part fixedBlock : FixedBlock;
+    part movingBlock : MovingBlock;
+    part rope : RopeAssembly;
+    part hook : Hook;
+    part operator : Operator;
+
+    port supportAnchor : AnchorPort;
+    port loadInterface : LoadPort;
+    port operatorInterface : OperatorPort;
+
+    connect fixedBlock.anchor to supportAnchor;
+    connect hook.loadSide to loadInterface;
+    connect operator.hands to operatorInterface;
+
+    connect rope.standingEnd to fixedBlock.standingRope;
+    connect rope.aroundMovingBlock to movingBlock.ropeIn;
+    connect movingBlock.ropeOut to fixedBlock.haulingRope;
+    connect rope.haulingEnd to operator.hands;
+    connect movingBlock.loadAttachment to hook.loadSide;
+
+    action def LiftLoad {
+      in load : LiftedLoad;
+      in operatorInput : HumanPullInput;
+      out liftedLoad : LiftedLoad;
+
+      attribute gravitationalAcceleration = 9.80665 [m/s^2];
+      attribute idealMechanicalAdvantage : MechanicalAdvantage = 2.0;
+      attribute actualMechanicalAdvantage : MechanicalAdvantage = idealMechanicalAdvantage * systemEfficiency;
+      attribute inputForce : Force = operatorInput.pullForce;
+      attribute outputForce : Force = inputForce * actualMechanicalAdvantage;
+    }
+
+    action def HoldLoad {
+      in load : LiftedLoad;
+      out heldLoad : LiftedLoad;
+
+      attribute holdingForce : Force = load.weight;
+      attribute requiredBrakeOrHandForce : Force = holdingForce / (nominalMechanicalAdvantage * systemEfficiency);
+    }
+
+    action def LowerLoad {
+      in load : LiftedLoad;
+      in operatorInput : HumanPullInput;
+      out loweredLoad : LiftedLoad;
+
+      attribute controlledDescentVelocity : Velocity = load.liftVelocity;
+      attribute resistingPullForce : Force = load.weight / (nominalMechanicalAdvantage * systemEfficiency);
+    }
+
+    perform lift : LiftLoad;
+    perform hold : HoldLoad;
+    perform lower : LowerLoad;
+
+    state def OperatingState {
+      entry action initialize {
+        out ready = true;
+      }
+
+      state Stowed;
+      state Rigged;
+      state Lifting;
+      state Holding;
+      state Lowering;
+      state Overload;
+      state Secured;
+
+      transition first Stowed then Rigged
+        accept RigSystem;
+
+      transition Rigged then Lifting
+        accept ApplyPull
+        if operator.appliedPullForce > 0 [N];
+
+      transition Lifting then Holding
+        accept StopPull;
+
+      transition Holding then Lifting
+        accept ResumePull
+        if operator.appliedPullForce > 0 [N];
+
+      transition Holding then Lowering
+        accept PayOutRope;
+
+      transition Lowering then Holding
+        accept StopLowering;
+
+      transition Lifting then Overload
+        if loadForce > maximumSafeLoadMass * 9.80665 [m/s^2];
+
+      transition Holding then Overload
+        if loadForce > maximumSafeLoadMass * 9.80665 [m/s^2];
+
+      transition Overload then Secured
+        accept RemoveLoad;
+
+      transition Holding then Secured
+        accept SecureLoad;
+
+      transition Secured then Stowed
+        accept DerigSystem;
+    }
+
+    exhibit state operatingState : OperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The Handy Billy shall provide a portable block-and-tackle lifting function that allows an operator to raise, hold, and lower a suspended load by applying a smaller pulling force over a longer rope travel distance.
+    */
+
+    require constraint {
+      system.nominalMechanicalAdvantage >= 2.0;
+    }
+  }
+
+  requirement def SafeWorkingLoadRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The system shall not be used for loads exceeding its maximum safe load mass.
+    */
+
+    require constraint {
+      system.loadForce <= system.maximumSafeLoadMass * 9.80665 [m/s^2];
+    }
+  }
+
+  requirement def RopeStrengthRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The rope minimum breaking force shall be at least four times the maximum expected rope tension.
+    */
+
+    require constraint {
+      system.rope.minimumBreakingForce >= 4.0 * system.rope.currentTension;
+    }
+  }
+
+  requirement def OperatorEffortRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The required pull force shall remain within a sustained human pulling capability for the rated operating load.
+    */
+
+    require constraint {
+      system.requiredPullForce <= system.operator.maximumSustainedPullForce;
+    }
+  }
+
+  part handyBillySystem : HandyBilly {
+    attribute liftedHeight = 0.0 [m];
+    attribute loadForce = 981 [N];
+    attribute requiredPullForce = 557 [N];
+  }
+
+  satisfy PrimaryFunctionRequirement by handyBillySystem;
+  satisfy SafeWorkingLoadRequirement by handyBillySystem;
+  satisfy RopeStrengthRequirement by handyBillySystem;
+  satisfy OperatorEffortRequirement by handyBillySystem;
+}
+tokens used
+2,377
+package HandyBillySystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Force {
+    :> scalarValue;
+    unit = "N";
+  }
+
+  attribute def Mass {
+    :> scalarValue;
+    unit = "kg";
+  }
+
+  attribute def Length {
+    :> scalarValue;
+    unit = "m";
+  }
+
+  attribute def Velocity {
+    :> scalarValue;
+    unit = "m/s";
+  }
+
+  attribute def Efficiency {
+    :> scalarValue;
+    unit = "1";
+  }
+
+  attribute def MechanicalAdvantage {
+    :> scalarValue;
+    unit = "1";
+  }
+
+  item def RopeSegment {
+    attribute tension : Force;
+    attribute speed : Velocity;
+  }
+
+  item def LiftedLoad {
+    attribute mass : Mass;
+    attribute weight : Force;
+    attribute verticalPosition : Length;
+    attribute liftVelocity : Velocity;
+  }
+
+  item def HumanPullInput {
+    attribute pullForce : Force;
+    attribute pullSpeed : Velocity;
+    attribute pullLength : Length;
+  }
+
+  port def RopePort {
+    inout rope : RopeSegment;
+  }
+
+  port def LoadPort {
+    inout load : LiftedLoad;
+  }
+
+  port def OperatorPort {
+    in input : HumanPullInput;
+  }
+
+  port def AnchorPort {
+    out reactionForce : Force;
+  }
+
+  part def Pulley {
+    attribute sheaveRadius : Length;
+    attribute bearingEfficiency : Efficiency;
+    attribute ropeTensionIn : Force;
+    attribute ropeTensionOut : Force;
+
+    port ropeIn : RopePort;
+    port ropeOut : RopePort;
+
+    perform action transmitRopeForce {
+      in inTension : Force;
+      out outTension : Force;
+      attribute localEfficiency : Efficiency = bearingEfficiency;
+    }
+  }
+
+  part def FixedBlock {
+    part fixedSheave : Pulley {
+      attribute sheaveRadius = 0.045 [m];
+      attribute bearingEfficiency = 0.94;
+    }
+
+    port anchor : AnchorPort;
+    port standingRope : RopePort;
+    port haulingRope : RopePort;
+  }
+
+  part def MovingBlock {
+    part movingSheave : Pulley {
+      attribute sheaveRadius = 0.045 [m];
+      attribute bearingEfficiency = 0.94;
+    }
+
+    port loadAttachment : LoadPort;
+    port ropeIn : RopePort;
+    port ropeOut : RopePort;
+  }
+
+  part def RopeAssembly {
+    attribute ropeDiameter : Length = 0.010 [m];
+    attribute workingLength : Length = 12.0 [m];
+    attribute minimumBreakingForce : Force = 12000 [N];
+    attribute currentTension : Force;
+    attribute hauledLength : Length;
+
+    port standingEnd : RopePort;
+    port aroundMovingBlock : RopePort;
+    port aroundFixedBlock : RopePort;
+    port haulingEnd : RopePort;
+  }
+
+  part def Hook {
+    attribute ratedLoad : Mass = 250 [kg];
+    attribute throatOpening : Length = 0.025 [m];
+
+    port loadSide : LoadPort;
+  }
+
+  part def Operator {
+    attribute maximumSustainedPullForce : Force = 350 [N];
+    attribute appliedPullForce : Force;
+    attribute appliedPullSpeed : Velocity;
+
+    port hands : OperatorPort;
+
+    perform action pullHaulingEnd {
+      in desiredLiftVelocity : Velocity;
+      out pullInput : HumanPullInput;
+    }
+  }
+
+  part def HandyBilly {
+    attribute nominalMechanicalAdvantage : MechanicalAdvantage = 2.0;
+    attribute systemEfficiency : Efficiency = 0.88;
+    attribute maximumSafeLoadMass : Mass = 150 [kg];
+    attribute liftedHeight : Length;
+    attribute requiredPullForce : Force;
+    attribute loadForce : Force;
+
+    part fixedBlock : FixedBlock;
+    part movingBlock : MovingBlock;
+    part rope : RopeAssembly;
+    part hook : Hook;
+    part operator : Operator;
+
+    port supportAnchor : AnchorPort;
+    port loadInterface : LoadPort;
+    port operatorInterface : OperatorPort;
+
+    connect fixedBlock.anchor to supportAnchor;
+    connect hook.loadSide to loadInterface;
+    connect operator.hands to operatorInterface;
+
+    connect rope.standingEnd to fixedBlock.standingRope;
+    connect rope.aroundMovingBlock to movingBlock.ropeIn;
+    connect movingBlock.ropeOut to fixedBlock.haulingRope;
+    connect rope.haulingEnd to operator.hands;
+    connect movingBlock.loadAttachment to hook.loadSide;
+
+    action def LiftLoad {
+      in load : LiftedLoad;
+      in operatorInput : HumanPullInput;
+      out liftedLoad : LiftedLoad;
+
+      attribute gravitationalAcceleration = 9.80665 [m/s^2];
+      attribute idealMechanicalAdvantage : MechanicalAdvantage = 2.0;
+      attribute actualMechanicalAdvantage : MechanicalAdvantage = idealMechanicalAdvantage * systemEfficiency;
+      attribute inputForce : Force = operatorInput.pullForce;
+      attribute outputForce : Force = inputForce * actualMechanicalAdvantage;
+    }
+
+    action def HoldLoad {
+      in load : LiftedLoad;
+      out heldLoad : LiftedLoad;
+
+      attribute holdingForce : Force = load.weight;
+      attribute requiredBrakeOrHandForce : Force = holdingForce / (nominalMechanicalAdvantage * systemEfficiency);
+    }
+
+    action def LowerLoad {
+      in load : LiftedLoad;
+      in operatorInput : HumanPullInput;
+      out loweredLoad : LiftedLoad;
+
+      attribute controlledDescentVelocity : Velocity = load.liftVelocity;
+      attribute resistingPullForce : Force = load.weight / (nominalMechanicalAdvantage * systemEfficiency);
+    }
+
+    perform lift : LiftLoad;
+    perform hold : HoldLoad;
+    perform lower : LowerLoad;
+
+    state def OperatingState {
+      entry action initialize {
+        out ready = true;
+      }
+
+      state Stowed;
+      state Rigged;
+      state Lifting;
+      state Holding;
+      state Lowering;
+      state Overload;
+      state Secured;
+
+      transition first Stowed then Rigged
+        accept RigSystem;
+
+      transition Rigged then Lifting
+        accept ApplyPull
+        if operator.appliedPullForce > 0 [N];
+
+      transition Lifting then Holding
+        accept StopPull;
+
+      transition Holding then Lifting
+        accept ResumePull
+        if operator.appliedPullForce > 0 [N];
+
+      transition Holding then Lowering
+        accept PayOutRope;
+
+      transition Lowering then Holding
+        accept StopLowering;
+
+      transition Lifting then Overload
+        if loadForce > maximumSafeLoadMass * 9.80665 [m/s^2];
+
+      transition Holding then Overload
+        if loadForce > maximumSafeLoadMass * 9.80665 [m/s^2];
+
+      transition Overload then Secured
+        accept RemoveLoad;
+
+      transition Holding then Secured
+        accept SecureLoad;
+
+      transition Secured then Stowed
+        accept DerigSystem;
+    }
+
+    exhibit state operatingState : OperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The Handy Billy shall provide a portable block-and-tackle lifting function that allows an operator to raise, hold, and lower a suspended load by applying a smaller pulling force over a longer rope travel distance.
+    */
+
+    require constraint {
+      system.nominalMechanicalAdvantage >= 2.0;
+    }
+  }
+
+  requirement def SafeWorkingLoadRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The system shall not be used for loads exceeding its maximum safe load mass.
+    */
+
+    require constraint {
+      system.loadForce <= system.maximumSafeLoadMass * 9.80665 [m/s^2];
+    }
+  }
+
+  requirement def RopeStrengthRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The rope minimum breaking force shall be at least four times the maximum expected rope tension.
+    */
+
+    require constraint {
+      system.rope.minimumBreakingForce >= 4.0 * system.rope.currentTension;
+    }
+  }
+
+  requirement def OperatorEffortRequirement {
+    subject system : HandyBilly;
+
+    doc
+    /*
+     The required pull force shall remain within a sustained human pulling capability for the rated operating load.
+    */
+
+    require constraint {
+      system.requiredPullForce <= system.operator.maximumSustainedPullForce;
+    }
+  }
+
+  part handyBillySystem : HandyBilly {
+    attribute liftedHeight = 0.0 [m];
+    attribute loadForce = 981 [N];
+    attribute requiredPullForce = 557 [N];
+  }
+
+  satisfy PrimaryFunctionRequirement by handyBillySystem;
+  satisfy SafeWorkingLoadRequirement by handyBillySystem;
+  satisfy RopeStrengthRequirement by handyBillySystem;
+  satisfy OperatorEffortRequirement by handyBillySystem;
+}

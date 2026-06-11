@@ -1,0 +1,611 @@
+package PumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def VolumeFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def RotationalSpeed :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Torque :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::cubicMetre;
+    }
+
+    attribute def VolumetricDisplacement {
+        :>> unit = SI::cubicMetre;
+    }
+
+    attribute def Percentage {
+        :>> unit = SI::one;
+    }
+
+    item def HydraulicFluid {
+        attribute density : ISQ::density;
+        attribute dynamicViscosity : ISQ::dynamicViscosity;
+        attribute bulkModulus : Pressure;
+        attribute temperature : Temperature;
+        attribute contaminationLevel : Integer;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ISQ::electricPotential;
+        attribute current : ISQ::electricCurrent;
+        attribute frequency : ISQ::frequency;
+    }
+
+    item def ControlSignal {
+        attribute command : Percentage;
+        attribute valid : Boolean;
+        attribute timestamp : Real;
+    }
+
+    item def SensorSignal {
+        attribute measuredValue : Real;
+        attribute valid : Boolean;
+        attribute timestamp : Real;
+    }
+
+    port def FluidInletPort {
+        in item fluid : HydraulicFluid;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluid : HydraulicFluid;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def BidirectionalFluidPort {
+        inout item fluid : HydraulicFluid;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item signal : ControlSignal;
+    }
+
+    port def SensorOutputPort {
+        out item signal : SensorSignal;
+    }
+
+    part def FluidReservoir {
+        attribute usableVolume : Volume = 0.18 [SI::cubicMetre];
+        attribute minimumFluidVolume : Volume = 0.04 [SI::cubicMetre];
+        attribute nominalFluidTemperature : Temperature = 313.15 [SI::kelvin];
+
+        port outlet : FluidOutletPort;
+        port returnInlet : FluidInletPort;
+
+        state def ReservoirState {
+            state normal;
+            state lowLevel;
+            state overheated;
+
+            transition first normal;
+            transition normal to lowLevel
+                if currentFluidVolume <= minimumFluidVolume;
+            transition lowLevel to normal
+                if currentFluidVolume > minimumFluidVolume;
+            transition normal to overheated
+                if fluidTemperature > 353.15 [SI::kelvin];
+            transition overheated to normal
+                if fluidTemperature <= 343.15 [SI::kelvin];
+        }
+
+        attribute currentFluidVolume : Volume;
+        attribute fluidTemperature : Temperature;
+        exhibit state reservoirState : ReservoirState;
+    }
+
+    part def SuctionFilter {
+        attribute nominalMicronRating : Real = 25.0;
+        attribute maximumDifferentialPressure : Pressure = 35000 [SI::pascal];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port cloggingSensor : SensorOutputPort;
+
+        action filterFluid {
+            in item unfilteredFluid : HydraulicFluid;
+            out item filteredFluid : HydraulicFluid;
+            out attribute differentialPressure : Pressure;
+        }
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : ISQ::power = 22000 [SI::watt];
+        attribute ratedSpeed : RotationalSpeed = 30 [SI::hertz];
+        attribute ratedTorque : Torque = 116.7 [SI::newtonMetre];
+        attribute efficiency : Percentage = 0.93;
+
+        port powerIn : ElectricalPowerPort;
+        port speedCommand : ControlInputPort;
+        port shaftOutput : MechanicalRotaryPort;
+
+        state def MotorState {
+            state off;
+            state starting;
+            state running;
+            state faulted;
+
+            transition first off;
+            transition off to starting
+                if enableCommand == true;
+            transition starting to running
+                if measuredSpeed >= commandedSpeed * 0.95;
+            transition running to off
+                if enableCommand == false;
+            transition running to faulted
+                if windingTemperature > 403.15 [SI::kelvin] or overCurrent == true;
+            transition faulted to off
+                if resetCommand == true and enableCommand == false;
+        }
+
+        attribute enableCommand : Boolean;
+        attribute resetCommand : Boolean;
+        attribute overCurrent : Boolean;
+        attribute commandedSpeed : RotationalSpeed;
+        attribute measuredSpeed : RotationalSpeed;
+        attribute windingTemperature : Temperature;
+        exhibit state motorState : MotorState;
+    }
+
+    port def MechanicalRotaryPort {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+    }
+
+    part def VariableDisplacementPump {
+        attribute minimumDisplacement : VolumetricDisplacement = 4.0e-6 [SI::cubicMetre];
+        attribute maximumDisplacement : VolumetricDisplacement = 7.1e-5 [SI::cubicMetre];
+        attribute nominalDisplacement : VolumetricDisplacement = 5.6e-5 [SI::cubicMetre];
+        attribute volumetricEfficiency : Percentage = 0.91;
+        attribute mechanicalEfficiency : Percentage = 0.88;
+        attribute maximumOutletPressure : Pressure = 21000000 [SI::pascal];
+        attribute compensatorSetPressure : Pressure = 17500000 [SI::pascal];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port shaftInput : MechanicalRotaryPort;
+        port displacementCommand : ControlInputPort;
+        port caseDrain : FluidOutletPort;
+        port pressureFeedback : SensorOutputPort;
+
+        attribute commandedDisplacementRatio : Percentage;
+        attribute actualDisplacement : VolumetricDisplacement;
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute deliveredFlow : VolumeFlowRate;
+        attribute caseDrainFlow : VolumeFlowRate;
+
+        action regulateDisplacement {
+            in attribute pressureCommand : Pressure;
+            in attribute measuredOutletPressure : Pressure;
+            in attribute flowDemand : VolumeFlowRate;
+            out attribute displacementRatio : Percentage;
+        }
+
+        action pumpFluid {
+            in item inletFluid : HydraulicFluid;
+            in attribute shaftSpeed : RotationalSpeed;
+            in attribute displacement : VolumetricDisplacement;
+            out item pressurizedFluid : HydraulicFluid;
+            out attribute outletFlow : VolumeFlowRate;
+            out attribute outletPressure : Pressure;
+        }
+
+        state def PumpState {
+            state stopped;
+            state priming;
+            state pressureBuilding;
+            state pressureCompensated;
+            state deliveringFlow;
+            state cavitationRisk;
+            state overPressureFault;
+
+            transition first stopped;
+            transition stopped to priming
+                if shaftSpeed > 2 [SI::hertz];
+            transition priming to pressureBuilding
+                if inletPressure > 70000 [SI::pascal];
+            transition pressureBuilding to deliveringFlow
+                if deliveredFlow > 0.0004 [SI::cubicMetrePerSecond]
+                and outletPressure < compensatorSetPressure;
+            transition deliveringFlow to pressureCompensated
+                if outletPressure >= compensatorSetPressure;
+            transition pressureCompensated to deliveringFlow
+                if outletPressure < compensatorSetPressure * 0.94;
+            transition pressureBuilding to cavitationRisk
+                if inletPressure < 50000 [SI::pascal];
+            transition deliveringFlow to cavitationRisk
+                if inletPressure < 50000 [SI::pascal];
+            transition cavitationRisk to pressureBuilding
+                if inletPressure >= 70000 [SI::pascal];
+            transition deliveringFlow to overPressureFault
+                if outletPressure > maximumOutletPressure;
+            transition pressureCompensated to overPressureFault
+                if outletPressure > maximumOutletPressure;
+            transition overPressureFault to stopped
+                if shaftSpeed <= 0.5 [SI::hertz] and resetCommand == true;
+        }
+
+        attribute resetCommand : Boolean;
+        exhibit state pumpState : PumpState;
+    }
+
+    part def ReliefValve {
+        attribute crackingPressure : Pressure = 19000000 [SI::pascal];
+        attribute fullOpenPressure : Pressure = 21000000 [SI::pascal];
+        attribute maximumBypassFlow : VolumeFlowRate = 0.006 [SI::cubicMetrePerSecond];
+
+        port pressureInlet : FluidInletPort;
+        port bypassOutlet : FluidOutletPort;
+
+        state def ReliefValveState {
+            state closed;
+            state modulating;
+            state fullyOpen;
+
+            transition first closed;
+            transition closed to modulating
+                if inletPressure >= crackingPressure;
+            transition modulating to closed
+                if inletPressure < crackingPressure * 0.95;
+            transition modulating to fullyOpen
+                if inletPressure >= fullOpenPressure;
+            transition fullyOpen to modulating
+                if inletPressure < fullOpenPressure * 0.98;
+        }
+
+        attribute inletPressure : Pressure;
+        attribute bypassFlow : VolumeFlowRate;
+        exhibit state reliefValveState : ReliefValveState;
+    }
+
+    part def CheckValve {
+        attribute openingDifferentialPressure : Pressure = 15000 [SI::pascal];
+        attribute reverseLeakageFlow : VolumeFlowRate = 1.0e-7 [SI::cubicMetrePerSecond];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        state def CheckValveState {
+            state closed;
+            state open;
+
+            transition first closed;
+            transition closed to open
+                if inletPressure - outletPressure >= openingDifferentialPressure;
+            transition open to closed
+                if inletPressure <= outletPressure;
+        }
+
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        exhibit state checkValveState : CheckValveState;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeMin : Pressure = 0 [SI::pascal];
+        attribute measurementRangeMax : Pressure = 25000000 [SI::pascal];
+        attribute accuracy : Percentage = 0.005;
+
+        port sensedFluid : BidirectionalFluidPort;
+        port signalOut : SensorOutputPort;
+
+        action measurePressure {
+            in attribute actualPressure : Pressure;
+            out item signal : SensorSignal;
+        }
+    }
+
+    part def FlowSensor {
+        attribute measurementRangeMax : VolumeFlowRate = 0.008 [SI::cubicMetrePerSecond];
+        attribute accuracy : Percentage = 0.01;
+
+        port sensedFluid : BidirectionalFluidPort;
+        port signalOut : SensorOutputPort;
+
+        action measureFlow {
+            in attribute actualFlow : VolumeFlowRate;
+            out item signal : SensorSignal;
+        }
+    }
+
+    part def PumpController {
+        attribute targetPressure : Pressure = 16000000 [SI::pascal];
+        attribute standbyPressure : Pressure = 2500000 [SI::pascal];
+        attribute maximumAllowedPressure : Pressure = 20000000 [SI::pascal];
+        attribute minimumAllowedInletPressure : Pressure = 60000 [SI::pascal];
+        attribute requestedFlow : VolumeFlowRate;
+        attribute pumpCommand : Percentage;
+        attribute motorCommand : Percentage;
+        attribute faultActive : Boolean;
+
+        port operatorCommandIn : ControlInputPort;
+        port pressureFeedbackIn : ControlInputPort;
+        port flowFeedbackIn : ControlInputPort;
+        port displacementCommandOut : SensorOutputPort;
+        port motorCommandOut : SensorOutputPort;
+        port alarmOut : SensorOutputPort;
+
+        action computePumpCommand {
+            in attribute pressureSetpoint : Pressure;
+            in attribute measuredPressure : Pressure;
+            in attribute flowDemand : VolumeFlowRate;
+            out attribute displacementCommand : Percentage;
+            out attribute speedCommand : Percentage;
+        }
+
+        action detectFaults {
+            in attribute measuredPressure : Pressure;
+            in attribute measuredFlow : VolumeFlowRate;
+            in attribute inletPressure : Pressure;
+            out attribute shutdownRequired : Boolean;
+        }
+
+        state def ControlState {
+            state disabled;
+            state standby;
+            state pressureControl;
+            state flowAssist;
+            state shutdownFault;
+
+            transition first disabled;
+            transition disabled to standby
+                if operatorEnable == true;
+            transition standby to pressureControl
+                if requestedFlow > 0.0002 [SI::cubicMetrePerSecond];
+            transition pressureControl to standby
+                if requestedFlow <= 0.0002 [SI::cubicMetrePerSecond];
+            transition pressureControl to flowAssist
+                if measuredPressure < targetPressure * 0.90
+                and requestedFlow > 0.003 [SI::cubicMetrePerSecond];
+            transition flowAssist to pressureControl
+                if measuredPressure >= targetPressure * 0.98;
+            transition standby to shutdownFault
+                if faultActive == true;
+            transition pressureControl to shutdownFault
+                if faultActive == true;
+            transition flowAssist to shutdownFault
+                if faultActive == true;
+            transition shutdownFault to disabled
+                if operatorEnable == false and resetCommand == true;
+        }
+
+        attribute operatorEnable : Boolean;
+        attribute resetCommand : Boolean;
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : VolumeFlowRate;
+        exhibit state controlState : ControlState;
+    }
+
+    part def HeatExchanger {
+        attribute heatRemovalCapacity : ISQ::power = 4500 [SI::watt];
+        attribute maximumFluidTemperature : Temperature = 348.15 [SI::kelvin];
+
+        port hotFluidIn : FluidInletPort;
+        port cooledFluidOut : FluidOutletPort;
+
+        action coolReturnFluid {
+            in item hotFluid : HydraulicFluid;
+            out item cooledFluid : HydraulicFluid;
+        }
+    }
+
+    part def PumpingSubsystem {
+        attribute ratedOutletPressure : Pressure = 16000000 [SI::pascal];
+        attribute maximumOutletPressure : Pressure = 21000000 [SI::pascal];
+        attribute ratedFlow : VolumeFlowRate = 0.0038 [SI::cubicMetrePerSecond];
+        attribute minimumContinuousFlow : VolumeFlowRate = 0.0003 [SI::cubicMetrePerSecond];
+        attribute fluidOperatingTemperatureMin : Temperature = 283.15 [SI::kelvin];
+        attribute fluidOperatingTemperatureMax : Temperature = 348.15 [SI::kelvin];
+
+        port supplyOutlet : FluidOutletPort;
+        port returnInlet : FluidInletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommand : ControlInputPort;
+        port statusOut : SensorOutputPort;
+
+        part reservoir : FluidReservoir;
+        part suctionFilter : SuctionFilter;
+        part motor : ElectricMotor;
+        part pump : VariableDisplacementPump;
+        part outletCheckValve : CheckValve;
+        part reliefValve : ReliefValve;
+        part pressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part controller : PumpController;
+        part heatExchanger : HeatExchanger;
+
+        connect reservoir.outlet to suctionFilter.inlet;
+        connect suctionFilter.outlet to pump.inlet;
+        connect electricalSupply to motor.powerIn;
+        connect motor.shaftOutput to pump.shaftInput;
+        connect pump.outlet to outletCheckValve.inlet;
+        connect outletCheckValve.outlet to supplyOutlet;
+        connect pump.caseDrain to reservoir.returnInlet;
+        connect supplyOutlet to pressureSensor.sensedFluid;
+        connect supplyOutlet to flowSensor.sensedFluid;
+        connect pressureSensor.signalOut to controller.pressureFeedbackIn;
+        connect flowSensor.signalOut to controller.flowFeedbackIn;
+        connect operatorCommand to controller.operatorCommandIn;
+        connect controller.displacementCommandOut to pump.displacementCommand;
+        connect controller.motorCommandOut to motor.speedCommand;
+        connect pump.outlet to reliefValve.pressureInlet;
+        connect reliefValve.bypassOutlet to heatExchanger.hotFluidIn;
+        connect returnInlet to heatExchanger.hotFluidIn;
+        connect heatExchanger.cooledFluidOut to reservoir.returnInlet;
+        connect controller.alarmOut to statusOut;
+        connect pump.pressureFeedback to statusOut;
+
+        action startSubsystem {
+            out attribute ready : Boolean;
+            first startMotor;
+            then primePump;
+            then enablePressureControl;
+        }
+
+        action stopSubsystem {
+            first reduceDisplacementToMinimum;
+            then disableMotor;
+            then depressurizeOutlet;
+        }
+
+        action deliverPressurizedFluid {
+            in item reservoirFluid : HydraulicFluid;
+            in attribute demandFlow : VolumeFlowRate;
+            in attribute commandedPressure : Pressure;
+            out item suppliedFluid : HydraulicFluid;
+            out attribute suppliedFlow : VolumeFlowRate;
+            out attribute suppliedPressure : Pressure;
+
+            first filterSuctionFluid;
+            then rotatePump;
+            then regulatePumpDisplacement;
+            then pressurizeFluid;
+            then preventReverseFlow;
+            then supplyLoad;
+        }
+
+        state def SubsystemState {
+            state off;
+            state starting;
+            state readyStandby;
+            state supplying;
+            state pressureLimited;
+            state coolingReturnFlow;
+            state faultShutdown;
+
+            transition first off;
+            transition off to starting
+                if controller.operatorEnable == true;
+            transition starting to readyStandby
+                if motor.motorState == MotorState::running
+                and pump.pumpState != PumpState::cavitationRisk;
+            transition readyStandby to supplying
+                if controller.requestedFlow > minimumContinuousFlow;
+            transition supplying to readyStandby
+                if controller.requestedFlow <= minimumContinuousFlow;
+            transition supplying to pressureLimited
+                if pressureSensor.sensedFluid.pressure >= reliefValve.crackingPressure;
+            transition pressureLimited to supplying
+                if pressureSensor.sensedFluid.pressure < reliefValve.crackingPressure * 0.95;
+            transition supplying to coolingReturnFlow
+                if reservoir.fluidTemperature > 333.15 [SI::kelvin];
+            transition coolingReturnFlow to supplying
+                if reservoir.fluidTemperature <= 323.15 [SI::kelvin];
+            transition readyStandby to faultShutdown
+                if controller.faultActive == true
+                or pump.pumpState == PumpState::overPressureFault
+                or motor.motorState == MotorState::faulted;
+            transition supplying to faultShutdown
+                if controller.faultActive == true
+                or pump.pumpState == PumpState::overPressureFault
+                or motor.motorState == MotorState::faulted;
+            transition pressureLimited to faultShutdown
+                if pressureSensor.sensedFluid.pressure > maximumOutletPressure;
+            transition faultShutdown to off
+                if controller.resetCommand == true and controller.operatorEnable == false;
+        }
+
+        exhibit state subsystemState : SubsystemState;
+
+        requirement reqVariableDisplacementPump {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall use a variable displacement pump as the primary hydraulic energy conversion device. */
+            require constraint { subsystem.pump.maximumDisplacement > subsystem.pump.minimumDisplacement }
+        }
+
+        requirement reqRatedFlow {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall supply rated flow at rated outlet pressure during normal operation. */
+            require constraint {
+                subsystem.flowSensor.sensedFluid.flowRate >= subsystem.ratedFlow
+                and subsystem.pressureSensor.sensedFluid.pressure >= subsystem.ratedOutletPressure
+            }
+        }
+
+        requirement reqPressureProtection {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall limit outlet pressure to prevent damage to downstream equipment. */
+            require constraint {
+                subsystem.pressureSensor.sensedFluid.pressure <= subsystem.maximumOutletPressure
+            }
+        }
+
+        requirement reqSuctionProtection {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall detect inadequate inlet pressure and command a protected operating mode. */
+            require constraint {
+                subsystem.pump.inlet.pressure < subsystem.controller.minimumAllowedInletPressure
+                implies subsystem.pump.pumpState == VariableDisplacementPump::PumpState::cavitationRisk
+            }
+        }
+
+        requirement reqTemperatureControl {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall keep hydraulic fluid within the specified operating temperature range. */
+            require constraint {
+                subsystem.reservoir.fluidTemperature >= subsystem.fluidOperatingTemperatureMin
+                and subsystem.reservoir.fluidTemperature <= subsystem.fluidOperatingTemperatureMax
+            }
+        }
+
+        requirement reqReverseFlowPrevention {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall prevent reverse flow from the supply outlet into the pump outlet. */
+            require constraint {
+                subsystem.outletCheckValve.reverseLeakageFlow <= 1.0e-7 [SI::cubicMetrePerSecond]
+            }
+        }
+
+        requirement reqControlledStartup {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall start in a sequence that energizes the motor, primes the pump, and enables pressure control only after stable inlet pressure is available. */
+            require constraint {
+                subsystem.subsystemState == PumpingSubsystem::SubsystemState::readyStandby
+                implies subsystem.pump.inlet.pressure >= 70000 [SI::pascal]
+            }
+        }
+
+        requirement reqFaultShutdown {
+            subject subsystem : PumpingSubsystem;
+            doc /* The pumping subsystem shall enter fault shutdown when motor, pump, or pressure protection limits are exceeded. */
+            require constraint {
+                subsystem.controller.faultActive == true
+                or subsystem.motor.motorState == ElectricMotor::MotorState::faulted
+                or subsystem.pump.pumpState == VariableDisplacementPump::PumpState::overPressureFault
+                implies subsystem.subsystemState == PumpingSubsystem::SubsystemState::faultShutdown
+            }
+        }
+    }
+
+    part pumpingSubsystem : PumpingSubsystem;
+
+}

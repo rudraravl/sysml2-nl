@@ -1,0 +1,304 @@
+package SurgicalMaskSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value def Percent {
+        attribute value : Real;
+        constraint range {
+            value >= 0.0 and value <= 100.0
+        }
+    }
+
+    value def PressureDrop {
+        attribute value : Real;
+        attribute unit : String = "Pa";
+    }
+
+    value def AirFlowRate {
+        attribute value : Real;
+        attribute unit : String = "L/min";
+    }
+
+    value def ParticleDiameter {
+        attribute value : Real;
+        attribute unit : String = "um";
+    }
+
+    value def Length {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    value def Force {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    item def AmbientAir {
+        attribute temperature : Real;
+        attribute relativeHumidity : Percent;
+    }
+
+    item def ExhaledAir {
+        attribute flowRate : AirFlowRate;
+        attribute dropletLoad : Real;
+        attribute aerosolLoad : Real;
+    }
+
+    item def InhaledAir {
+        attribute flowRate : AirFlowRate;
+        attribute residualParticleLoad : Real;
+    }
+
+    item def RespiratoryDroplet {
+        attribute diameter : ParticleDiameter;
+        attribute containsBiologicalMaterial : Boolean;
+    }
+
+    item def FilteredAir {
+        attribute flowRate : AirFlowRate;
+        attribute particleReduction : Percent;
+    }
+
+    port def AirInletPort {
+        in item air : AmbientAir;
+        in item exhaledAir : ExhaledAir;
+    }
+
+    port def AirOutletPort {
+        out item filteredAir : FilteredAir;
+        out item inhaledAir : InhaledAir;
+    }
+
+    port def FaceSealPort {
+        inout item leakageAir : AmbientAir;
+    }
+
+    port def MechanicalAttachmentPort {
+        in attribute strapTension : Force;
+    }
+
+    part def NonwovenLayer {
+        attribute thickness : Length;
+        attribute basisWeight : Real;
+        attribute fiberDiameter : ParticleDiameter;
+        attribute breathabilityPressureDrop : PressureDrop;
+    }
+
+    part def OuterFluidResistantLayer :> NonwovenLayer {
+        attribute splashResistance : Percent = Percent { value = 95.0; }
+    }
+
+    part def MeltblownFilterLayer :> NonwovenLayer {
+        attribute bacterialFiltrationEfficiency : Percent = Percent { value = 95.0; }
+        attribute particulateFiltrationEfficiency : Percent = Percent { value = 90.0; }
+        attribute mostPenetratingParticleSize : ParticleDiameter = ParticleDiameter { value = 0.3; unit = "um"; }
+    }
+
+    part def InnerComfortLayer :> NonwovenLayer {
+        attribute skinContactSoftness : Percent = Percent { value = 85.0; }
+        attribute moistureAbsorption : Percent = Percent { value = 40.0; }
+    }
+
+    part def NoseClip {
+        attribute length : Length = Length { value = 120.0; unit = "mm"; }
+        attribute bendRetention : Percent = Percent { value = 90.0; }
+        attribute appliedSealForce : Force;
+    }
+
+    part def EarLoop {
+        attribute relaxedLength : Length = Length { value = 170.0; unit = "mm"; }
+        attribute elongationAtUse : Percent = Percent { value = 25.0; }
+        attribute tension : Force;
+    }
+
+    part def MaskBody {
+        port inlet : AirInletPort;
+        port outlet : AirOutletPort;
+
+        part outerLayer : OuterFluidResistantLayer {
+            attribute thickness = Length { value = 0.18; unit = "mm"; }
+            attribute basisWeight = 25.0;
+            attribute fiberDiameter = ParticleDiameter { value = 18.0; unit = "um"; }
+            attribute breathabilityPressureDrop = PressureDrop { value = 12.0; unit = "Pa"; }
+        }
+
+        part filterLayer : MeltblownFilterLayer {
+            attribute thickness = Length { value = 0.22; unit = "mm"; }
+            attribute basisWeight = 25.0;
+            attribute fiberDiameter = ParticleDiameter { value = 2.5; unit = "um"; }
+            attribute breathabilityPressureDrop = PressureDrop { value = 28.0; unit = "Pa"; }
+        }
+
+        part innerLayer : InnerComfortLayer {
+            attribute thickness = Length { value = 0.16; unit = "mm"; }
+            attribute basisWeight = 22.0;
+            attribute fiberDiameter = ParticleDiameter { value = 15.0; unit = "um"; }
+            attribute breathabilityPressureDrop = PressureDrop { value = 10.0; unit = "Pa"; }
+        }
+    }
+
+    action def FilterRespiratoryAir {
+        in item incomingAir : ExhaledAir;
+        in attribute filtrationEfficiency : Percent;
+        out item cleanedAir : FilteredAir;
+
+        action captureLargeDroplets;
+        action electrostaticCaptureAerosols;
+        action diffuseAirflow;
+        action dischargeFilteredAir;
+
+        first start;
+        then captureLargeDroplets;
+        then electrostaticCaptureAerosols;
+        then diffuseAirflow;
+        then dischargeFilteredAir;
+    }
+
+    action def FitMaskToFace {
+        in attribute strapTension : Force;
+        in attribute noseClipForce : Force;
+        out attribute sealIntegrity : Percent;
+
+        action stretchEarLoops;
+        action bendNoseClip;
+        action compressMaskEdges;
+        action verifyCoverage;
+
+        first stretchEarLoops;
+        then bendNoseClip;
+        then compressMaskEdges;
+        then verifyCoverage;
+    }
+
+    state def MaskUseState {
+        state Packaged;
+        state Positioned;
+        state Fitted;
+        state Filtering;
+        state Saturated;
+        state Removed;
+        state Disposed;
+
+        transition first Packaged;
+        transition Packaged_to_Positioned
+            first Packaged
+            then Positioned;
+
+        transition Positioned_to_Fitted
+            first Positioned
+            then Fitted;
+
+        transition Fitted_to_Filtering
+            first Fitted
+            then Filtering;
+
+        transition Filtering_to_Saturated
+            first Filtering
+            then Saturated;
+
+        transition Filtering_to_Removed
+            first Filtering
+            then Removed;
+
+        transition Saturated_to_Removed
+            first Saturated
+            then Removed;
+
+        transition Removed_to_Disposed
+            first Removed
+            then Disposed;
+    }
+
+    part def SurgicalMask {
+        doc /* A surgical mask is a disposable face-worn barrier whose primary high-level function is to reduce transfer of respiratory droplets and particles between the wearer and the surrounding environment while allowing breathable airflow. */
+
+        port environmentSide : AirInletPort;
+        port wearerSide : AirOutletPort;
+        port facialSeal : FaceSealPort;
+        port leftAttachment : MechanicalAttachmentPort;
+        port rightAttachment : MechanicalAttachmentPort;
+
+        attribute nominalWidth : Length = Length { value = 175.0; unit = "mm"; }
+        attribute nominalHeight : Length = Length { value = 95.0; unit = "mm"; }
+        attribute totalPressureDrop : PressureDrop = PressureDrop { value = 50.0; unit = "Pa"; }
+        attribute bacterialFiltrationEfficiency : Percent = Percent { value = 95.0; }
+        attribute particleFiltrationEfficiency : Percent = Percent { value = 90.0; }
+        attribute leakageLimit : Percent = Percent { value = 8.0; }
+        attribute intendedUseDurationHours : Real = 4.0;
+
+        part body : MaskBody;
+        part noseClip : NoseClip {
+            attribute appliedSealForce = Force { value = 1.2; unit = "N"; }
+        }
+        part leftEarLoop : EarLoop {
+            attribute tension = Force { value = 1.0; unit = "N"; }
+        }
+        part rightEarLoop : EarLoop {
+            attribute tension = Force { value = 1.0; unit = "N"; }
+        }
+
+        perform action fit : FitMaskToFace;
+        perform action filterAir : FilterRespiratoryAir;
+        exhibit state usage : MaskUseState;
+
+        connect environmentSide to body.inlet;
+        connect body.outlet to wearerSide;
+        connect leftAttachment to leftEarLoop;
+        connect rightAttachment to rightEarLoop;
+        connect facialSeal to noseClip;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject mask : SurgicalMask;
+
+        doc /* The surgical mask shall reduce emission and inhalation transfer of respiratory droplets and particles while maintaining breathable airflow for the wearer. */
+
+        require constraint {
+            mask.bacterialFiltrationEfficiency.value >= 95.0 and
+            mask.particleFiltrationEfficiency.value >= 90.0 and
+            mask.totalPressureDrop.value <= 60.0
+        }
+    }
+
+    requirement def FitRequirement {
+        subject mask : SurgicalMask;
+
+        doc /* The mask shall conform to the face using ear-loop tension and nose-clip deformation so that edge leakage remains limited during normal breathing. */
+
+        require constraint {
+            mask.leakageLimit.value <= 10.0
+        }
+    }
+
+    requirement def ComfortRequirement {
+        subject mask : SurgicalMask;
+
+        doc /* The mask shall maintain dimensions and material properties suitable for continuous short-term clinical or public-health use. */
+
+        require constraint {
+            mask.intendedUseDurationHours >= 2.0 and
+            mask.intendedUseDurationHours <= 8.0
+        }
+    }
+
+    requirement def DisposableBarrierRequirement {
+        subject mask : SurgicalMask;
+
+        doc /* The mask shall be a single-user disposable barrier consisting of layered nonwoven materials, mechanical attachment features, and a deformable nose clip. */
+
+        require constraint {
+            mask.nominalWidth.value >= 160.0 and
+            mask.nominalHeight.value >= 85.0
+        }
+    }
+
+    part surgicalMaskSystem : SurgicalMask;
+
+    satisfy PrimaryFunctionRequirement by surgicalMaskSystem;
+    satisfy FitRequirement by surgicalMaskSystem;
+    satisfy ComfortRequirement by surgicalMaskSystem;
+    satisfy DisposableBarrierRequirement by surgicalMaskSystem;
+}

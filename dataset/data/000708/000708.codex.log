@@ -1,0 +1,939 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7y1hpn00
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3e7-c389-7e62-9d42-0a89515e00f9
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Neil Robertson stretcher and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NeilRobertsonStretcherSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def LengthValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def MassValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def ForceValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def AngleValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def TimeValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def LoadRating {
+        maxWorkingLoad : MassValue = (scalar = 150.0, unit = "kg");
+        proofLoad : ForceValue = (scalar = 2200.0, unit = "N");
+        safetyFactor : Real = 6.0;
+    }
+
+    item def Casualty {
+        attribute bodyMass : MassValue;
+        attribute shoulderBreadth : LengthValue;
+        attribute bodyLength : LengthValue;
+        attribute injuryStatus : String;
+        attribute immobilizationRequired : Boolean;
+    }
+
+    item def RescueTeamCommand {
+        attribute commandText : String;
+        attribute priority : String;
+    }
+
+    item def SecuredCasualty {
+        attribute containedMass : MassValue;
+        attribute immobilized : Boolean;
+        attribute readyForLift : Boolean;
+    }
+
+    item def LiftLoad {
+        attribute loadMass : MassValue;
+        attribute loadForce : ForceValue;
+        attribute orientationAngle : AngleValue;
+    }
+
+    item def InspectionStatus {
+        attribute serviceable : Boolean;
+        attribute defectDescription : String;
+        attribute inspectionTime : TimeValue;
+    }
+
+    item def EnvironmentalCondition {
+        attribute confinedSpace : Boolean;
+        attribute wetSurface : Boolean;
+        attribute ambientTemperature : Real;
+        attribute temperatureUnit : String = "degC";
+    }
+
+    port def CasualtyLoadingPort {
+        in casualty : Casualty;
+        out securedCasualty : SecuredCasualty;
+    }
+
+    port def CommandPort {
+        in command : RescueTeamCommand;
+    }
+
+    port def LiftInterfacePort {
+        out liftLoad : LiftLoad;
+        in externalLiftForce : ForceValue;
+    }
+
+    port def InspectionPort {
+        out status : InspectionStatus;
+    }
+
+    port def EnvironmentPort {
+        in condition : EnvironmentalCondition;
+    }
+
+    part def FlexibleSplintBody {
+        attribute overallLength : LengthValue = (scalar = 1.83, unit = "m");
+        attribute shoulderWidth : LengthValue = (scalar = 0.56, unit = "m");
+        attribute footWidth : LengthValue = (scalar = 0.25, unit = "m");
+        attribute mass : MassValue = (scalar = 8.0, unit = "kg");
+        attribute material : String = "canvas reinforced with cane or synthetic battens";
+        attribute longitudinalFlexibility : String = "wraps around casualty while resisting collapse";
+        attribute fluidResistant : Boolean = true;
+
+        port loadPort : CasualtyLoadingPort;
+    }
+
+    part def HeadSupport {
+        attribute padded : Boolean = true;
+        attribute adjustable : Boolean = true;
+        attribute headImmobilizationAngle : AngleValue = (scalar = 0.0, unit = "deg");
+    }
+
+    part def FootPocket {
+        attribute closedEnd : Boolean = true;
+        attribute drainageOpenings : Integer = 2;
+        attribute minimumFootRetentionForce : ForceValue = (scalar = 200.0, unit = "N");
+    }
+
+    part def BodyStrap {
+        attribute strapName : String;
+        attribute width : LengthValue = (scalar = 0.05, unit = "m");
+        attribute tensileRating : ForceValue = (scalar = 3000.0, unit = "N");
+        attribute adjustable : Boolean = true;
+        attribute quickRelease : Boolean = false;
+
+        port commandPort : CommandPort;
+    }
+
+    part def StrapSet {
+        part chestStrap : BodyStrap {
+            :>> strapName = "chest restraint";
+        }
+        part pelvisStrap : BodyStrap {
+            :>> strapName = "pelvis restraint";
+        }
+        part thighStrap : BodyStrap {
+            :>> strapName = "thigh restraint";
+        }
+        part legStrap : BodyStrap {
+            :>> strapName = "lower leg restraint";
+        }
+        part foreheadStrap : BodyStrap {
+            :>> strapName = "forehead restraint";
+            :>> width = (scalar = 0.04, unit = "m");
+        }
+
+        attribute minimumNumberSecured : Integer = 5;
+    }
+
+    part def CarryHandle {
+        attribute handlePosition : String;
+        attribute gripLength : LengthValue = (scalar = 0.14, unit = "m");
+        attribute handleRating : ForceValue = (scalar = 1200.0, unit = "N");
+    }
+
+    part def HandleSet {
+        part leftShoulderHandle : CarryHandle {
+            :>> handlePosition = "left shoulder";
+        }
+        part rightShoulderHandle : CarryHandle {
+            :>> handlePosition = "right shoulder";
+        }
+        part leftHipHandle : CarryHandle {
+            :>> handlePosition = "left hip";
+        }
+        part rightHipHandle : CarryHandle {
+            :>> handlePosition = "right hip";
+        }
+        part footHandle : CarryHandle {
+            :>> handlePosition = "foot end";
+        }
+    }
+
+    part def LiftingBridle {
+        attribute attachmentPointCount : Integer = 4;
+        attribute bridleRating : ForceValue = (scalar = 9000.0, unit = "N");
+        attribute verticalLiftPermitted : Boolean = true;
+        attribute horizontalLiftPermitted : Boolean = true;
+
+        port liftPort : LiftInterfacePort;
+    }
+
+    part def IdentityAndInspectionLabel {
+        attribute serialNumber : String;
+        attribute manufactureDate : String;
+        attribute lastInspectionDate : String;
+        attribute nextInspectionDue : String;
+        attribute ratedLoad : LoadRating;
+
+        port inspectionPort : InspectionPort;
+    }
+
+    part def NeilRobertsonStretcher {
+        attribute primaryFunction : String = "Immobilize, secure, and transport a casualty through confined or difficult access spaces while permitting manual carry, horizontal lift, or vertical hoist.";
+        attribute emptyMass : MassValue = (scalar = 8.0, unit = "kg");
+        attribute stowedLength : LengthValue = (scalar = 0.95, unit = "m");
+        attribute stowedDiameter : LengthValue = (scalar = 0.28, unit = "m");
+        attribute operationalLoadRating : LoadRating;
+        attribute reusable : Boolean = true;
+
+        part splintBody : FlexibleSplintBody;
+        part headSupport : HeadSupport;
+        part footPocket : FootPocket;
+        part straps : StrapSet;
+        part handles : HandleSet;
+        part bridle : LiftingBridle;
+        part label : IdentityAndInspectionLabel;
+
+        port casualtyPort : CasualtyLoadingPort;
+        port commandPort : CommandPort;
+        port liftPort : LiftInterfacePort;
+        port inspectionPort : InspectionPort;
+        port environmentPort : EnvironmentPort;
+
+        connect casualtyPort to splintBody.loadPort;
+        connect liftPort to bridle.liftPort;
+        connect inspectionPort to label.inspectionPort;
+
+        action secureCasualty {
+            in casualty : Casualty;
+            in condition : EnvironmentalCondition;
+            out secured : SecuredCasualty;
+
+            first start;
+            then inspectStretcher;
+            then positionStretcher;
+            then placeCasualtyOnBody;
+            then supportHeadAndFeet;
+            then wrapFlexibleBody;
+            then fastenChestStrap;
+            then fastenPelvisStrap;
+            then fastenThighAndLegStraps;
+            then fastenForeheadStrap;
+            then verifyImmobilization;
+            then outputSecuredCasualty;
+            then done;
+
+            action inspectStretcher {
+                out inspection : InspectionStatus;
+            }
+
+            action positionStretcher {
+                in confinedSpace : Boolean = condition.confinedSpace;
+            }
+
+            action placeCasualtyOnBody {
+                in bodyMass : MassValue = casualty.bodyMass;
+            }
+
+            action supportHeadAndFeet;
+            action wrapFlexibleBody;
+            action fastenChestStrap;
+            action fastenPelvisStrap;
+            action fastenThighAndLegStraps;
+            action fastenForeheadStrap;
+
+            action verifyImmobilization {
+                out immobilized : Boolean;
+            }
+
+            action outputSecuredCasualty {
+                out secured : SecuredCasualty {
+                    :>> containedMass = casualty.bodyMass;
+                    :>> immobilized = true;
+                    :>> readyForLift = true;
+                }
+            }
+        }
+
+        action transportCasualty {
+            in secured : SecuredCasualty;
+            in command : RescueTeamCommand;
+            out transported : Boolean;
+
+            first selectTransportMode;
+            then applyManualCarryOrHoist;
+            then maintainCasualtyOrientation;
+            then monitorStrapSecurity;
+            then deliverCasualtyToHandoverPoint;
+            then done;
+
+            action selectTransportMode {
+                out mode : String;
+            }
+
+            action applyManualCarryOrHoist {
+                in loadMass : MassValue = secured.containedMass;
+            }
+
+            action maintainCasualtyOrientation {
+                attribute maximumTilt : AngleValue = (scalar = 30.0, unit = "deg");
+            }
+
+            action monitorStrapSecurity;
+            action deliverCasualtyToHandoverPoint;
+        }
+
+        state def OperationalStateMachine {
+            state stowed;
+            state deployed;
+            state loading;
+            state secured;
+            state lifting;
+            state carrying;
+            state handover;
+            state outOfService;
+
+            transition initial then stowed;
+
+            transition stowed_to_deployed
+                first stowed
+                accept command : RescueTeamCommand
+                if command.commandText == "deploy"
+                then deployed;
+
+            transition deployed_to_loading
+                first deployed
+                accept casualty : Casualty
+                if casualty.immobilizationRequired
+                then loading;
+
+            transition loading_to_secured
+                first loading
+                accept securedCasualty : SecuredCasualty
+                if securedCasualty.immobilized and securedCasualty.readyForLift
+                then secured;
+
+            transition secured_to_lifting
+                first secured
+                accept command : RescueTeamCommand
+                if command.commandText == "hoist"
+                then lifting;
+
+            transition secured_to_carrying
+                first secured
+                accept command : RescueTeamCommand
+                if command.commandText == "carry"
+                then carrying;
+
+            transition lifting_to_handover
+                first lifting
+                accept command : RescueTeamCommand
+                if command.commandText == "handover"
+                then handover;
+
+            transition carrying_to_handover
+                first carrying
+                accept command : RescueTeamCommand
+                if command.commandText == "handover"
+                then handover;
+
+            transition any_to_outOfService
+                first deployed
+                accept status : InspectionStatus
+                if not status.serviceable
+                then outOfService;
+        }
+    }
+
+    part def RescueOperation {
+        attribute operationName : String = "Confined space casualty extraction using Neil Robertson stretcher";
+        attribute objective : String = "Provide high-level casualty immobilization and transport capability where rigid stretchers are difficult to maneuver.";
+
+        part stretcher : NeilRobertsonStretcher;
+        part casualty : Casualty {
+            :>> bodyMass = (scalar = 82.0, unit = "kg");
+            :>> shoulderBreadth = (scalar = 0.48, unit = "m");
+            :>> bodyLength = (scalar = 1.78, unit = "m");
+            :>> injuryStatus = "suspected spinal or limb injury";
+            :>> immobilizationRequired = true;
+        }
+
+        part environment : EnvironmentalCondition {
+            :>> confinedSpace = true;
+            :>> wetSurface = true;
+            :>> ambientTemperature = 12.0;
+        }
+
+        connect stretcher.environmentPort.condition to environment;
+        connect stretcher.casualtyPort.casualty to casualty;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Neil Robertson stretcher system shall secure and immobilize a casualty for extraction from confined, vertical, or difficult access environments. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.primaryFunction == "Immobilize, secure, and transport a casualty through confined or difficult access spaces while permitting manual carry, horizontal lift, or vertical hoist."
+        }
+    }
+
+    requirement def CasualtyContainmentRequirement {
+        doc /* The stretcher shall retain a casualty with a body mass up to 150 kg during manual carrying and hoisting. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.operationalLoadRating.maxWorkingLoad.scalar >= 150.0
+        }
+    }
+
+    requirement def ImmobilizationRequirement {
+        doc /* The stretcher shall provide head, torso, pelvis, thigh, and lower leg restraint to reduce casualty motion during extraction. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.straps.minimumNumberSecured >= 5
+        }
+    }
+
+    requirement def ConfinedSpaceRequirement {
+        doc /* The stretcher shall be flexible enough to wrap around the casualty and compact enough for use in confined access routes. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.stowedDiameter.scalar <= 0.30 and stretcher.stowedLength.scalar <= 1.00
+        }
+    }
+
+    requirement def HoistInterfaceRequirement {
+        doc /* The stretcher shall provide rated lifting attachment points for vertical or horizontal rescue hoist operations. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.bridle.verticalLiftPermitted and
+            stretcher.bridle.horizontalLiftPermitted and
+            stretcher.bridle.attachmentPointCount >= 4
+        }
+    }
+
+    requirement def ManualCarryRequirement {
+        doc /* The stretcher shall provide multiple handholds to permit coordinated manual carrying by rescue personnel. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.handles.leftShoulderHandle.handleRating.scalar >= 1000.0 and
+            stretcher.handles.rightShoulderHandle.handleRating.scalar >= 1000.0 and
+            stretcher.handles.leftHipHandle.handleRating.scalar >= 1000.0 and
+            stretcher.handles.rightHipHandle.handleRating.scalar >= 1000.0
+        }
+    }
+
+    requirement def InspectionRequirement {
+        doc /* The stretcher shall carry identification, rated load, and inspection status information before use. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.label.ratedLoad.maxWorkingLoad.scalar >= 150.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NeilRobertsonStretcher;
+    satisfy CasualtyContainmentRequirement by NeilRobertsonStretcher;
+    satisfy ImmobilizationRequirement by NeilRobertsonStretcher;
+    satisfy ConfinedSpaceRequirement by NeilRobertsonStretcher;
+    satisfy HoistInterfaceRequirement by NeilRobertsonStretcher;
+    satisfy ManualCarryRequirement by NeilRobertsonStretcher;
+    satisfy InspectionRequirement by NeilRobertsonStretcher;
+}
+tokens used
+3,806
+package NeilRobertsonStretcherSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def LengthValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def MassValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def ForceValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def AngleValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def TimeValue {
+        :>> scalar : Real;
+        unit : String;
+    }
+
+    attribute def LoadRating {
+        maxWorkingLoad : MassValue = (scalar = 150.0, unit = "kg");
+        proofLoad : ForceValue = (scalar = 2200.0, unit = "N");
+        safetyFactor : Real = 6.0;
+    }
+
+    item def Casualty {
+        attribute bodyMass : MassValue;
+        attribute shoulderBreadth : LengthValue;
+        attribute bodyLength : LengthValue;
+        attribute injuryStatus : String;
+        attribute immobilizationRequired : Boolean;
+    }
+
+    item def RescueTeamCommand {
+        attribute commandText : String;
+        attribute priority : String;
+    }
+
+    item def SecuredCasualty {
+        attribute containedMass : MassValue;
+        attribute immobilized : Boolean;
+        attribute readyForLift : Boolean;
+    }
+
+    item def LiftLoad {
+        attribute loadMass : MassValue;
+        attribute loadForce : ForceValue;
+        attribute orientationAngle : AngleValue;
+    }
+
+    item def InspectionStatus {
+        attribute serviceable : Boolean;
+        attribute defectDescription : String;
+        attribute inspectionTime : TimeValue;
+    }
+
+    item def EnvironmentalCondition {
+        attribute confinedSpace : Boolean;
+        attribute wetSurface : Boolean;
+        attribute ambientTemperature : Real;
+        attribute temperatureUnit : String = "degC";
+    }
+
+    port def CasualtyLoadingPort {
+        in casualty : Casualty;
+        out securedCasualty : SecuredCasualty;
+    }
+
+    port def CommandPort {
+        in command : RescueTeamCommand;
+    }
+
+    port def LiftInterfacePort {
+        out liftLoad : LiftLoad;
+        in externalLiftForce : ForceValue;
+    }
+
+    port def InspectionPort {
+        out status : InspectionStatus;
+    }
+
+    port def EnvironmentPort {
+        in condition : EnvironmentalCondition;
+    }
+
+    part def FlexibleSplintBody {
+        attribute overallLength : LengthValue = (scalar = 1.83, unit = "m");
+        attribute shoulderWidth : LengthValue = (scalar = 0.56, unit = "m");
+        attribute footWidth : LengthValue = (scalar = 0.25, unit = "m");
+        attribute mass : MassValue = (scalar = 8.0, unit = "kg");
+        attribute material : String = "canvas reinforced with cane or synthetic battens";
+        attribute longitudinalFlexibility : String = "wraps around casualty while resisting collapse";
+        attribute fluidResistant : Boolean = true;
+
+        port loadPort : CasualtyLoadingPort;
+    }
+
+    part def HeadSupport {
+        attribute padded : Boolean = true;
+        attribute adjustable : Boolean = true;
+        attribute headImmobilizationAngle : AngleValue = (scalar = 0.0, unit = "deg");
+    }
+
+    part def FootPocket {
+        attribute closedEnd : Boolean = true;
+        attribute drainageOpenings : Integer = 2;
+        attribute minimumFootRetentionForce : ForceValue = (scalar = 200.0, unit = "N");
+    }
+
+    part def BodyStrap {
+        attribute strapName : String;
+        attribute width : LengthValue = (scalar = 0.05, unit = "m");
+        attribute tensileRating : ForceValue = (scalar = 3000.0, unit = "N");
+        attribute adjustable : Boolean = true;
+        attribute quickRelease : Boolean = false;
+
+        port commandPort : CommandPort;
+    }
+
+    part def StrapSet {
+        part chestStrap : BodyStrap {
+            :>> strapName = "chest restraint";
+        }
+        part pelvisStrap : BodyStrap {
+            :>> strapName = "pelvis restraint";
+        }
+        part thighStrap : BodyStrap {
+            :>> strapName = "thigh restraint";
+        }
+        part legStrap : BodyStrap {
+            :>> strapName = "lower leg restraint";
+        }
+        part foreheadStrap : BodyStrap {
+            :>> strapName = "forehead restraint";
+            :>> width = (scalar = 0.04, unit = "m");
+        }
+
+        attribute minimumNumberSecured : Integer = 5;
+    }
+
+    part def CarryHandle {
+        attribute handlePosition : String;
+        attribute gripLength : LengthValue = (scalar = 0.14, unit = "m");
+        attribute handleRating : ForceValue = (scalar = 1200.0, unit = "N");
+    }
+
+    part def HandleSet {
+        part leftShoulderHandle : CarryHandle {
+            :>> handlePosition = "left shoulder";
+        }
+        part rightShoulderHandle : CarryHandle {
+            :>> handlePosition = "right shoulder";
+        }
+        part leftHipHandle : CarryHandle {
+            :>> handlePosition = "left hip";
+        }
+        part rightHipHandle : CarryHandle {
+            :>> handlePosition = "right hip";
+        }
+        part footHandle : CarryHandle {
+            :>> handlePosition = "foot end";
+        }
+    }
+
+    part def LiftingBridle {
+        attribute attachmentPointCount : Integer = 4;
+        attribute bridleRating : ForceValue = (scalar = 9000.0, unit = "N");
+        attribute verticalLiftPermitted : Boolean = true;
+        attribute horizontalLiftPermitted : Boolean = true;
+
+        port liftPort : LiftInterfacePort;
+    }
+
+    part def IdentityAndInspectionLabel {
+        attribute serialNumber : String;
+        attribute manufactureDate : String;
+        attribute lastInspectionDate : String;
+        attribute nextInspectionDue : String;
+        attribute ratedLoad : LoadRating;
+
+        port inspectionPort : InspectionPort;
+    }
+
+    part def NeilRobertsonStretcher {
+        attribute primaryFunction : String = "Immobilize, secure, and transport a casualty through confined or difficult access spaces while permitting manual carry, horizontal lift, or vertical hoist.";
+        attribute emptyMass : MassValue = (scalar = 8.0, unit = "kg");
+        attribute stowedLength : LengthValue = (scalar = 0.95, unit = "m");
+        attribute stowedDiameter : LengthValue = (scalar = 0.28, unit = "m");
+        attribute operationalLoadRating : LoadRating;
+        attribute reusable : Boolean = true;
+
+        part splintBody : FlexibleSplintBody;
+        part headSupport : HeadSupport;
+        part footPocket : FootPocket;
+        part straps : StrapSet;
+        part handles : HandleSet;
+        part bridle : LiftingBridle;
+        part label : IdentityAndInspectionLabel;
+
+        port casualtyPort : CasualtyLoadingPort;
+        port commandPort : CommandPort;
+        port liftPort : LiftInterfacePort;
+        port inspectionPort : InspectionPort;
+        port environmentPort : EnvironmentPort;
+
+        connect casualtyPort to splintBody.loadPort;
+        connect liftPort to bridle.liftPort;
+        connect inspectionPort to label.inspectionPort;
+
+        action secureCasualty {
+            in casualty : Casualty;
+            in condition : EnvironmentalCondition;
+            out secured : SecuredCasualty;
+
+            first start;
+            then inspectStretcher;
+            then positionStretcher;
+            then placeCasualtyOnBody;
+            then supportHeadAndFeet;
+            then wrapFlexibleBody;
+            then fastenChestStrap;
+            then fastenPelvisStrap;
+            then fastenThighAndLegStraps;
+            then fastenForeheadStrap;
+            then verifyImmobilization;
+            then outputSecuredCasualty;
+            then done;
+
+            action inspectStretcher {
+                out inspection : InspectionStatus;
+            }
+
+            action positionStretcher {
+                in confinedSpace : Boolean = condition.confinedSpace;
+            }
+
+            action placeCasualtyOnBody {
+                in bodyMass : MassValue = casualty.bodyMass;
+            }
+
+            action supportHeadAndFeet;
+            action wrapFlexibleBody;
+            action fastenChestStrap;
+            action fastenPelvisStrap;
+            action fastenThighAndLegStraps;
+            action fastenForeheadStrap;
+
+            action verifyImmobilization {
+                out immobilized : Boolean;
+            }
+
+            action outputSecuredCasualty {
+                out secured : SecuredCasualty {
+                    :>> containedMass = casualty.bodyMass;
+                    :>> immobilized = true;
+                    :>> readyForLift = true;
+                }
+            }
+        }
+
+        action transportCasualty {
+            in secured : SecuredCasualty;
+            in command : RescueTeamCommand;
+            out transported : Boolean;
+
+            first selectTransportMode;
+            then applyManualCarryOrHoist;
+            then maintainCasualtyOrientation;
+            then monitorStrapSecurity;
+            then deliverCasualtyToHandoverPoint;
+            then done;
+
+            action selectTransportMode {
+                out mode : String;
+            }
+
+            action applyManualCarryOrHoist {
+                in loadMass : MassValue = secured.containedMass;
+            }
+
+            action maintainCasualtyOrientation {
+                attribute maximumTilt : AngleValue = (scalar = 30.0, unit = "deg");
+            }
+
+            action monitorStrapSecurity;
+            action deliverCasualtyToHandoverPoint;
+        }
+
+        state def OperationalStateMachine {
+            state stowed;
+            state deployed;
+            state loading;
+            state secured;
+            state lifting;
+            state carrying;
+            state handover;
+            state outOfService;
+
+            transition initial then stowed;
+
+            transition stowed_to_deployed
+                first stowed
+                accept command : RescueTeamCommand
+                if command.commandText == "deploy"
+                then deployed;
+
+            transition deployed_to_loading
+                first deployed
+                accept casualty : Casualty
+                if casualty.immobilizationRequired
+                then loading;
+
+            transition loading_to_secured
+                first loading
+                accept securedCasualty : SecuredCasualty
+                if securedCasualty.immobilized and securedCasualty.readyForLift
+                then secured;
+
+            transition secured_to_lifting
+                first secured
+                accept command : RescueTeamCommand
+                if command.commandText == "hoist"
+                then lifting;
+
+            transition secured_to_carrying
+                first secured
+                accept command : RescueTeamCommand
+                if command.commandText == "carry"
+                then carrying;
+
+            transition lifting_to_handover
+                first lifting
+                accept command : RescueTeamCommand
+                if command.commandText == "handover"
+                then handover;
+
+            transition carrying_to_handover
+                first carrying
+                accept command : RescueTeamCommand
+                if command.commandText == "handover"
+                then handover;
+
+            transition any_to_outOfService
+                first deployed
+                accept status : InspectionStatus
+                if not status.serviceable
+                then outOfService;
+        }
+    }
+
+    part def RescueOperation {
+        attribute operationName : String = "Confined space casualty extraction using Neil Robertson stretcher";
+        attribute objective : String = "Provide high-level casualty immobilization and transport capability where rigid stretchers are difficult to maneuver.";
+
+        part stretcher : NeilRobertsonStretcher;
+        part casualty : Casualty {
+            :>> bodyMass = (scalar = 82.0, unit = "kg");
+            :>> shoulderBreadth = (scalar = 0.48, unit = "m");
+            :>> bodyLength = (scalar = 1.78, unit = "m");
+            :>> injuryStatus = "suspected spinal or limb injury";
+            :>> immobilizationRequired = true;
+        }
+
+        part environment : EnvironmentalCondition {
+            :>> confinedSpace = true;
+            :>> wetSurface = true;
+            :>> ambientTemperature = 12.0;
+        }
+
+        connect stretcher.environmentPort.condition to environment;
+        connect stretcher.casualtyPort.casualty to casualty;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Neil Robertson stretcher system shall secure and immobilize a casualty for extraction from confined, vertical, or difficult access environments. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.primaryFunction == "Immobilize, secure, and transport a casualty through confined or difficult access spaces while permitting manual carry, horizontal lift, or vertical hoist."
+        }
+    }
+
+    requirement def CasualtyContainmentRequirement {
+        doc /* The stretcher shall retain a casualty with a body mass up to 150 kg during manual carrying and hoisting. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.operationalLoadRating.maxWorkingLoad.scalar >= 150.0
+        }
+    }
+
+    requirement def ImmobilizationRequirement {
+        doc /* The stretcher shall provide head, torso, pelvis, thigh, and lower leg restraint to reduce casualty motion during extraction. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.straps.minimumNumberSecured >= 5
+        }
+    }
+
+    requirement def ConfinedSpaceRequirement {
+        doc /* The stretcher shall be flexible enough to wrap around the casualty and compact enough for use in confined access routes. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.stowedDiameter.scalar <= 0.30 and stretcher.stowedLength.scalar <= 1.00
+        }
+    }
+
+    requirement def HoistInterfaceRequirement {
+        doc /* The stretcher shall provide rated lifting attachment points for vertical or horizontal rescue hoist operations. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.bridle.verticalLiftPermitted and
+            stretcher.bridle.horizontalLiftPermitted and
+            stretcher.bridle.attachmentPointCount >= 4
+        }
+    }
+
+    requirement def ManualCarryRequirement {
+        doc /* The stretcher shall provide multiple handholds to permit coordinated manual carrying by rescue personnel. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.handles.leftShoulderHandle.handleRating.scalar >= 1000.0 and
+            stretcher.handles.rightShoulderHandle.handleRating.scalar >= 1000.0 and
+            stretcher.handles.leftHipHandle.handleRating.scalar >= 1000.0 and
+            stretcher.handles.rightHipHandle.handleRating.scalar >= 1000.0
+        }
+    }
+
+    requirement def InspectionRequirement {
+        doc /* The stretcher shall carry identification, rated load, and inspection status information before use. */
+        subject stretcher : NeilRobertsonStretcher;
+
+        require constraint {
+            stretcher.label.ratedLoad.maxWorkingLoad.scalar >= 150.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NeilRobertsonStretcher;
+    satisfy CasualtyContainmentRequirement by NeilRobertsonStretcher;
+    satisfy ImmobilizationRequirement by NeilRobertsonStretcher;
+    satisfy ConfinedSpaceRequirement by NeilRobertsonStretcher;
+    satisfy HoistInterfaceRequirement by NeilRobertsonStretcher;
+    satisfy ManualCarryRequirement by NeilRobertsonStretcher;
+    satisfy InspectionRequirement by NeilRobertsonStretcher;
+}

@@ -1,0 +1,540 @@
+package GastricIntubationSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Volume_ml :> Real {
+        unit = "mL";
+    }
+
+    attribute def FlowRate_ml_per_min :> Real {
+        unit = "mL/min";
+    }
+
+    attribute def Pressure_kPa :> Real {
+        unit = "kPa";
+    }
+
+    attribute def Length_cm :> Real {
+        unit = "cm";
+    }
+
+    attribute def Diameter_mm :> Real {
+        unit = "mm";
+    }
+
+    attribute def Time_s :> Real {
+        unit = "s";
+    }
+
+    attribute def pHValue :> Real {
+        unit = "pH";
+    }
+
+    item def GastricContent {
+        attribute volume : Volume_ml;
+        attribute acidity : pHValue;
+        attribute containsParticulateMatter : Boolean;
+    }
+
+    item def Air {
+        attribute pressure : Pressure_kPa;
+    }
+
+    item def Lubricant {
+        attribute volume : Volume_ml;
+    }
+
+    item def EnteralFormula {
+        attribute volume : Volume_ml;
+        attribute flowRate : FlowRate_ml_per_min;
+    }
+
+    item def IrrigationFluid {
+        attribute volume : Volume_ml;
+        attribute flowRate : FlowRate_ml_per_min;
+    }
+
+    item def PlacementConfirmationSignal {
+        attribute aspirateDetected : Boolean;
+        attribute gastricPH : pHValue;
+        attribute externalTubeLength : Length_cm;
+        attribute confirmed : Boolean;
+    }
+
+    port def TubeDistalPort {
+        in item deliveredFormula : EnteralFormula;
+        in item deliveredIrrigationFluid : IrrigationFluid;
+        out item aspiratedContent : GastricContent;
+    }
+
+    port def TubeProximalPort {
+        in item formulaInput : EnteralFormula;
+        in item irrigationInput : IrrigationFluid;
+        out item aspirateOutput : GastricContent;
+        out item confirmationOutput : PlacementConfirmationSignal;
+    }
+
+    port def SuctionInterfacePort {
+        in item aspirateIn : GastricContent;
+        out attribute suctionPressure : Pressure_kPa;
+    }
+
+    port def FeedingInterfacePort {
+        out item formulaOut : EnteralFormula;
+        out item irrigationOut : IrrigationFluid;
+    }
+
+    port def PatientNasalPort {
+        in item insertedTubeSegment : Air;
+        out item exhaledAir : Air;
+    }
+
+    port def PatientGastricPort {
+        in item formulaReceived : EnteralFormula;
+        in item irrigationReceived : IrrigationFluid;
+        out item gastricAspirate : GastricContent;
+    }
+
+    part def GastricIntubationSystem {
+        attribute primaryFunction : String = "Provide controlled access to the stomach through a flexible tube for decompression, aspiration, gastric content sampling, irrigation, and enteral delivery while maintaining safe placement and flow control.";
+
+        part patient : Patient;
+        part clinician : Clinician;
+        part tubeAssembly : NasogastricTubeAssembly;
+        part insertionKit : InsertionKit;
+        part drainageSubsystem : GastricDrainageSubsystem;
+        part feedingSubsystem : EnteralFeedingSubsystem;
+        part placementMonitor : PlacementMonitoringSubsystem;
+        part safetyController : SafetyController;
+
+        connect tubeAssembly.distalPort to patient.stomachPort;
+        connect tubeAssembly.proximalPort to drainageSubsystem.tubePort;
+        connect tubeAssembly.proximalPort to feedingSubsystem.tubePort;
+        connect tubeAssembly.proximalPort to placementMonitor.samplePort;
+        connect drainageSubsystem.statusPort to safetyController.drainageStatusPort;
+        connect feedingSubsystem.statusPort to safetyController.feedingStatusPort;
+        connect placementMonitor.confirmationPort to safetyController.confirmationPort;
+        connect clinician.commandPort to safetyController.commandPort;
+
+        exhibit state intubationLifecycle;
+        perform action conductGastricIntubation;
+    }
+
+    part def Patient {
+        attribute ageYears : Real;
+        attribute bodyMass_kg : Real;
+        attribute gastricResidualVolume : Volume_ml;
+        attribute aspirationRiskPresent : Boolean;
+
+        port nostrilPort : PatientNasalPort;
+        port stomachPort : PatientGastricPort;
+    }
+
+    part def Clinician {
+        attribute trainedForGastricIntubation : Boolean;
+        port commandPort {
+            out attribute startInsertion : Boolean;
+            out attribute startAspiration : Boolean;
+            out attribute startFeeding : Boolean;
+            out attribute stopAllFlow : Boolean;
+        }
+    }
+
+    part def NasogastricTubeAssembly {
+        attribute tubeLength : Length_cm = 120.0;
+        attribute outerDiameter : Diameter_mm = 5.3;
+        attribute internalDiameter : Diameter_mm = 3.5;
+        attribute radiopaqueLinePresent : Boolean = true;
+        attribute sideHolesCount : Integer = 4;
+        attribute externalMarkingLength : Length_cm;
+        attribute kinkDetected : Boolean;
+
+        part distalTip : DistalTip;
+        part sidePorts : SidePortSet;
+        part proximalConnector : ProximalConnector;
+        part securementDevice : TubeSecurementDevice;
+
+        port distalPort : TubeDistalPort;
+        port proximalPort : TubeProximalPort;
+    }
+
+    part def DistalTip {
+        attribute roundedTip : Boolean = true;
+        attribute weighted : Boolean = false;
+    }
+
+    part def SidePortSet {
+        attribute portCount : Integer = 4;
+        attribute totalOpenArea_mm2 : Real = 18.0;
+    }
+
+    part def ProximalConnector {
+        attribute compatibleWithSyringe : Boolean = true;
+        attribute compatibleWithFeedingSet : Boolean = true;
+        attribute capClosed : Boolean;
+    }
+
+    part def TubeSecurementDevice {
+        attribute adheredToSkin : Boolean;
+        attribute preventsMigration : Boolean;
+        attribute maxAllowedMigration : Length_cm = 2.0;
+    }
+
+    part def InsertionKit {
+        part lubricant : LubricantSupply;
+        part syringe : AspirationSyringe;
+        part pHStrip : PHIndicatorStrip;
+        part gloves : BarrierProtection;
+    }
+
+    part def LubricantSupply {
+        attribute availableVolume : Volume_ml = 10.0;
+    }
+
+    part def AspirationSyringe {
+        attribute capacity : Volume_ml = 60.0;
+        attribute generatedNegativePressure : Pressure_kPa = -20.0;
+    }
+
+    part def PHIndicatorStrip {
+        attribute minimumPH : pHValue = 1.0;
+        attribute maximumPH : pHValue = 9.0;
+        attribute gastricConfirmationThreshold : pHValue = 5.5;
+    }
+
+    part def BarrierProtection {
+        attribute sterile : Boolean = true;
+        attribute singleUse : Boolean = true;
+    }
+
+    part def GastricDrainageSubsystem {
+        attribute targetSuctionPressure : Pressure_kPa = -10.0;
+        attribute maximumSuctionPressure : Pressure_kPa = -20.0;
+        attribute collectedVolume : Volume_ml;
+        attribute active : Boolean;
+
+        part collectionCanister : CollectionCanister;
+        part suctionRegulator : SuctionRegulator;
+        part antiRefluxValve : AntiRefluxValve;
+
+        port tubePort : TubeProximalPort;
+        port statusPort {
+            out attribute drainageActive : Boolean;
+            out attribute canisterFull : Boolean;
+            out attribute suctionPressure : Pressure_kPa;
+        }
+    }
+
+    part def CollectionCanister {
+        attribute capacity : Volume_ml = 1000.0;
+        attribute currentVolume : Volume_ml;
+        attribute sealed : Boolean = true;
+    }
+
+    part def SuctionRegulator {
+        attribute setPressure : Pressure_kPa = -10.0;
+        attribute measuredPressure : Pressure_kPa;
+        attribute pressureLimit : Pressure_kPa = -20.0;
+    }
+
+    part def AntiRefluxValve {
+        attribute closedAgainstBackflow : Boolean;
+        attribute crackingPressure : Pressure_kPa = 0.5;
+    }
+
+    part def EnteralFeedingSubsystem {
+        attribute prescribedFormulaVolume : Volume_ml;
+        attribute targetFlowRate : FlowRate_ml_per_min = 60.0;
+        attribute maximumFlowRate : FlowRate_ml_per_min = 125.0;
+        attribute feedingActive : Boolean;
+
+        part feedingPump : FeedingPump;
+        part formulaContainer : FormulaContainer;
+        part flushReservoir : IrrigationReservoir;
+
+        port tubePort : TubeProximalPort;
+        port statusPort {
+            out attribute feedingActive : Boolean;
+            out attribute flowRate : FlowRate_ml_per_min;
+            out attribute formulaRemaining : Volume_ml;
+        }
+    }
+
+    part def FeedingPump {
+        attribute commandedFlowRate : FlowRate_ml_per_min;
+        attribute measuredFlowRate : FlowRate_ml_per_min;
+        attribute occlusionDetected : Boolean;
+        attribute airInLineDetected : Boolean;
+    }
+
+    part def FormulaContainer {
+        attribute initialVolume : Volume_ml = 500.0;
+        attribute remainingVolume : Volume_ml;
+        attribute formulaExpired : Boolean;
+    }
+
+    part def IrrigationReservoir {
+        attribute availableVolume : Volume_ml = 250.0;
+        attribute flushVolumePerEvent : Volume_ml = 30.0;
+    }
+
+    part def PlacementMonitoringSubsystem {
+        attribute requiredGastricPHMaximum : pHValue = 5.5;
+        attribute expectedExternalLength : Length_cm;
+        attribute measuredExternalLength : Length_cm;
+        attribute placementConfirmed : Boolean;
+
+        part aspirateSensor : AspirateDetector;
+        part pHReader : GastricPHReader;
+        part tubeMarkingReader : TubeMarkingReader;
+
+        port samplePort : TubeProximalPort;
+        port confirmationPort {
+            out item confirmationSignal : PlacementConfirmationSignal;
+        }
+    }
+
+    part def AspirateDetector {
+        attribute aspiratePresent : Boolean;
+        attribute minimumDetectableVolume : Volume_ml = 0.5;
+    }
+
+    part def GastricPHReader {
+        attribute measuredPH : pHValue;
+        attribute validReading : Boolean;
+    }
+
+    part def TubeMarkingReader {
+        attribute measuredExternalLength : Length_cm;
+        attribute migrationDetected : Boolean;
+        attribute migrationLimit : Length_cm = 2.0;
+    }
+
+    part def SafetyController {
+        attribute systemReady : Boolean;
+        attribute tubePlacementConfirmed : Boolean;
+        attribute aspirationModeAllowed : Boolean;
+        attribute feedingModeAllowed : Boolean;
+        attribute alarmActive : Boolean;
+
+        port commandPort {
+            in attribute startInsertion : Boolean;
+            in attribute startAspiration : Boolean;
+            in attribute startFeeding : Boolean;
+            in attribute stopAllFlow : Boolean;
+        }
+
+        port confirmationPort {
+            in item confirmationSignal : PlacementConfirmationSignal;
+        }
+
+        port drainageStatusPort {
+            in attribute drainageActive : Boolean;
+            in attribute canisterFull : Boolean;
+            in attribute suctionPressure : Pressure_kPa;
+        }
+
+        port feedingStatusPort {
+            in attribute feedingActive : Boolean;
+            in attribute flowRate : FlowRate_ml_per_min;
+            in attribute formulaRemaining : Volume_ml;
+        }
+    }
+
+    action def ConductGastricIntubation {
+        in part patient : Patient;
+        in part tubeAssembly : NasogastricTubeAssembly;
+        in part insertionKit : InsertionKit;
+        in part placementMonitor : PlacementMonitoringSubsystem;
+        in part drainageSubsystem : GastricDrainageSubsystem;
+        in part feedingSubsystem : EnteralFeedingSubsystem;
+        out attribute readyForTherapy : Boolean;
+
+        first start;
+
+        action preparePatient {
+            out attribute prepared : Boolean;
+        }
+
+        action lubricateTube {
+            in item lubricant : Lubricant;
+            out attribute lubricated : Boolean;
+        }
+
+        action insertTube {
+            in attribute insertionLength : Length_cm;
+            out attribute inserted : Boolean;
+        }
+
+        action confirmGastricPlacement {
+            out item confirmation : PlacementConfirmationSignal;
+        }
+
+        action secureTube {
+            out attribute secured : Boolean;
+        }
+
+        action selectTherapyMode {
+            in attribute decompressionRequested : Boolean;
+            in attribute feedingRequested : Boolean;
+            out attribute therapySelected : Boolean;
+        }
+
+        action performGastricDecompression {
+            in attribute suctionPressure : Pressure_kPa;
+            out item removedContent : GastricContent;
+        }
+
+        action performEnteralDelivery {
+            in item formula : EnteralFormula;
+            out attribute delivered : Boolean;
+        }
+
+        then preparePatient;
+        then lubricateTube;
+        then insertTube;
+        then confirmGastricPlacement;
+        then secureTube;
+        then selectTherapyMode;
+
+        if selectTherapyMode.decompressionRequested then performGastricDecompression;
+        if selectTherapyMode.feedingRequested then performEnteralDelivery;
+
+        then done;
+    }
+
+    state def IntubationLifecycle {
+        state idle;
+        state preparing;
+        state inserting;
+        state awaitingPlacementConfirmation;
+        state tubeSecured;
+        state decompressionMode;
+        state feedingMode;
+        state pausedForSafety;
+        state completed;
+        state alarm;
+
+        initial then idle;
+
+        transition idle_to_preparing
+            first idle
+            accept when true
+            then preparing;
+
+        transition preparing_to_inserting
+            first preparing
+            accept when true
+            then inserting;
+
+        transition inserting_to_confirmation
+            first inserting
+            accept when true
+            then awaitingPlacementConfirmation;
+
+        transition confirmation_to_secured
+            first awaitingPlacementConfirmation
+            accept when tubePlacementConfirmed
+            then tubeSecured;
+
+        transition confirmation_to_alarm
+            first awaitingPlacementConfirmation
+            accept when not tubePlacementConfirmed
+            then alarm;
+
+        transition secured_to_decompression
+            first tubeSecured
+            accept when aspirationModeAllowed
+            then decompressionMode;
+
+        transition secured_to_feeding
+            first tubeSecured
+            accept when feedingModeAllowed
+            then feedingMode;
+
+        transition decompression_to_paused
+            first decompressionMode
+            accept when canisterFull or suctionPressure < -20.0
+            then pausedForSafety;
+
+        transition feeding_to_paused
+            first feedingMode
+            accept when flowRate > 125.0 or not tubePlacementConfirmed
+            then pausedForSafety;
+
+        transition paused_to_secured
+            first pausedForSafety
+            accept when tubePlacementConfirmed and not alarmActive
+            then tubeSecured;
+
+        transition secured_to_completed
+            first tubeSecured
+            accept when true
+            then completed;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The gastric intubation system shall provide controlled access to the stomach for aspiration, decompression, sampling, irrigation, and enteral delivery through a safely placed gastric tube. */
+    }
+
+    requirement def PlacementConfirmationRequirement {
+        doc /* The system shall prevent suction and feeding modes until gastric placement is confirmed by aspirate detection, gastric pH assessment, and external tube length verification. */
+        attribute maxGastricPH : pHValue = 5.5;
+        attribute maxTubeMigration : Length_cm = 2.0;
+    }
+
+    requirement def SuctionSafetyRequirement {
+        doc /* The drainage subsystem shall regulate negative pressure to reduce mucosal injury risk during gastric decompression. */
+        attribute minimumAllowedPressure : Pressure_kPa = -20.0;
+        attribute nominalPressure : Pressure_kPa = -10.0;
+    }
+
+    requirement def FeedingControlRequirement {
+        doc /* The feeding subsystem shall deliver prescribed enteral formula only when tube placement is confirmed and flow is within commanded limits. */
+        attribute maxFlowRate : FlowRate_ml_per_min = 125.0;
+    }
+
+    requirement def BackflowPreventionRequirement {
+        doc /* The system shall prevent reverse flow from the collection canister or feeding line into the patient. */
+    }
+
+    requirement def SingleUseBarrierRequirement {
+        doc /* Patient-contact insertion accessories shall be sterile and single use to reduce contamination risk. */
+    }
+
+    satisfy PrimaryFunctionRequirement by GastricIntubationSystem;
+    satisfy PlacementConfirmationRequirement by PlacementMonitoringSubsystem;
+    satisfy SuctionSafetyRequirement by GastricDrainageSubsystem;
+    satisfy FeedingControlRequirement by EnteralFeedingSubsystem;
+    satisfy BackflowPreventionRequirement by AntiRefluxValve;
+    satisfy SingleUseBarrierRequirement by BarrierProtection;
+
+    concern def ClinicalSafety {
+        doc /* Avoid airway misplacement, excessive suction, uncontrolled feeding, contamination, and gastric backflow. */
+    }
+
+    concern def TherapeuticAccess {
+        doc /* Maintain reliable gastric access for decompression, sampling, irrigation, and nutrition delivery. */
+    }
+
+    view def HighLevelSystemView {
+        expose GastricIntubationSystem;
+        expose Patient;
+        expose Clinician;
+        expose NasogastricTubeAssembly;
+        expose GastricDrainageSubsystem;
+        expose EnteralFeedingSubsystem;
+        expose PlacementMonitoringSubsystem;
+        expose SafetyController;
+    }
+
+    view def RequirementTraceView {
+        expose PrimaryFunctionRequirement;
+        expose PlacementConfirmationRequirement;
+        expose SuctionSafetyRequirement;
+        expose FeedingControlRequirement;
+        expose BackflowPreventionRequirement;
+        expose SingleUseBarrierRequirement;
+    }
+}

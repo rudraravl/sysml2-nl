@@ -1,0 +1,504 @@
+package HeatingPadSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Temperature {
+        :> scalarValues::Real;
+        unit = "degC";
+    }
+
+    value def Power {
+        :> scalarValues::Real;
+        unit = "W";
+    }
+
+    value def Voltage {
+        :> scalarValues::Real;
+        unit = "V";
+    }
+
+    value def Current {
+        :> scalarValues::Real;
+        unit = "A";
+    }
+
+    value def Time {
+        :> scalarValues::Real;
+        unit = "s";
+    }
+
+    value def HeatFlux {
+        :> scalarValues::Real;
+        unit = "W/m^2";
+    }
+
+    value def Percent {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute availablePower : Power;
+    }
+
+    item def ThermalEnergy {
+        attribute surfaceTemperature : Temperature;
+        attribute heatOutput : Power;
+        attribute heatFlux : HeatFlux;
+    }
+
+    item def UserCommand {
+        attribute requestedOn : Boolean;
+        attribute requestedHeatLevel : HeatLevel;
+        attribute timerDuration : Time;
+    }
+
+    item def StatusIndication {
+        attribute isPowered : Boolean;
+        attribute activeHeatLevel : HeatLevel;
+        attribute measuredTemperature : Temperature;
+        attribute faultPresent : Boolean;
+        attribute remainingTime : Time;
+    }
+
+    enum def HeatLevel {
+        enum low;
+        enum medium;
+        enum high;
+    }
+
+    enum def FaultCode {
+        enum noFault;
+        enum overTemperature;
+        enum sensorFailure;
+        enum heaterOpenCircuit;
+        enum supplyOutOfRange;
+        enum timerExpired;
+    }
+
+    port def PowerInputPort {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def HeatOutputPort {
+        out item heat : ThermalEnergy;
+    }
+
+    port def CommandInputPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : StatusIndication;
+    }
+
+    port def SensorSignalPort {
+        out item measuredTemperature : Temperature;
+    }
+
+    port def HeaterDrivePort {
+        in item drivePower : Power;
+    }
+
+    part def HeatingElement {
+        attribute ratedPower : Power = 100 [W];
+        attribute resistance : Real = 144.0;
+        attribute maximumElementTemperature : Temperature = 85 [degC];
+
+        port drive : HeaterDrivePort;
+        port thermalOutput : HeatOutputPort;
+
+        action convertElectricalPowerToHeat {
+            in item commandedPower : Power;
+            out item generatedHeat : ThermalEnergy;
+
+            first start;
+            then computeHeat;
+            then done;
+
+            action computeHeat {
+                generatedHeat.heatOutput = commandedPower;
+            }
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeLow : Temperature = 0 [degC];
+        attribute measurementRangeHigh : Temperature = 100 [degC];
+        attribute accuracy : Temperature = 1.5 [degC];
+
+        port thermalInput : HeatOutputPort;
+        port signal : SensorSignalPort;
+
+        action measureSurfaceTemperature {
+            in item actualTemperature : Temperature;
+            out item reportedTemperature : Temperature;
+
+            first sample;
+            then filter;
+            then publish;
+
+            action filter {
+                reportedTemperature = actualTemperature;
+            }
+        }
+    }
+
+    part def Controller {
+        attribute targetLow : Temperature = 38 [degC];
+        attribute targetMedium : Temperature = 45 [degC];
+        attribute targetHigh : Temperature = 52 [degC];
+        attribute safetyCutoffTemperature : Temperature = 60 [degC];
+        attribute restartTemperature : Temperature = 50 [degC];
+        attribute defaultTimerDuration : Time = 7200 [s];
+        attribute remainingTime : Time;
+        attribute selectedHeatLevel : HeatLevel;
+        attribute activeFault : FaultCode = FaultCode::noFault;
+
+        port commandInput : CommandInputPort;
+        port temperatureInput : SensorSignalPort;
+        port heaterDrive : HeaterDrivePort;
+        port statusOutput : StatusOutputPort;
+
+        action regulateTemperature {
+            in item command : UserCommand;
+            in item measuredTemperature : Temperature;
+            out item drivePower : Power;
+            out item status : StatusIndication;
+
+            first evaluateCommand;
+            then selectTarget;
+            then compareTemperature;
+            then commandHeater;
+            then publishStatus;
+
+            action evaluateCommand {
+                selectedHeatLevel = command.requestedHeatLevel;
+            }
+
+            action selectTarget {
+                if selectedHeatLevel == HeatLevel::low {
+                    status.activeHeatLevel = HeatLevel::low;
+                } else if selectedHeatLevel == HeatLevel::medium {
+                    status.activeHeatLevel = HeatLevel::medium;
+                } else {
+                    status.activeHeatLevel = HeatLevel::high;
+                }
+            }
+
+            action compareTemperature {
+                status.measuredTemperature = measuredTemperature;
+            }
+
+            action commandHeater {
+                if activeFault == FaultCode::noFault and command.requestedOn {
+                    drivePower = 100 [W];
+                } else {
+                    drivePower = 0 [W];
+                }
+            }
+
+            action publishStatus {
+                status.isPowered = command.requestedOn;
+                status.faultPresent = activeFault != FaultCode::noFault;
+                status.remainingTime = remainingTime;
+            }
+        }
+
+        state def ThermalControlStateMachine {
+            state off;
+            state preheating;
+            state regulating;
+            state standby;
+            state fault;
+
+            entry action initialize {
+                remainingTime = defaultTimerDuration;
+                activeFault = FaultCode::noFault;
+            }
+
+            transition first off;
+
+            transition off_to_preheating
+                first off
+                accept UserCommand
+                if command.requestedOn
+                then preheating;
+
+            transition preheating_to_regulating
+                first preheating
+                if temperatureInput.measuredTemperature >= targetLow
+                then regulating;
+
+            transition regulating_to_standby
+                first regulating
+                if temperatureInput.measuredTemperature >= selectedTargetTemperature()
+                then standby;
+
+            transition standby_to_regulating
+                first standby
+                if temperatureInput.measuredTemperature <= restartTemperature
+                then regulating;
+
+            transition any_to_fault_over_temperature
+                first preheating
+                if temperatureInput.measuredTemperature >= safetyCutoffTemperature
+                then fault;
+
+            transition regulating_to_fault_over_temperature
+                first regulating
+                if temperatureInput.measuredTemperature >= safetyCutoffTemperature
+                then fault;
+
+            transition standby_to_fault_over_temperature
+                first standby
+                if temperatureInput.measuredTemperature >= safetyCutoffTemperature
+                then fault;
+
+            transition preheating_to_off_timer
+                first preheating
+                if remainingTime <= 0 [s]
+                then off;
+
+            transition regulating_to_off_timer
+                first regulating
+                if remainingTime <= 0 [s]
+                then off;
+
+            transition standby_to_off_timer
+                first standby
+                if remainingTime <= 0 [s]
+                then off;
+
+            transition fault_to_off_reset
+                first fault
+                accept UserCommand
+                if not command.requestedOn
+                then off;
+        }
+
+        calc selectedTargetTemperature() : Temperature {
+            if selectedHeatLevel == HeatLevel::low {
+                return targetLow;
+            } else if selectedHeatLevel == HeatLevel::medium {
+                return targetMedium;
+            } else {
+                return targetHigh;
+            }
+        }
+    }
+
+    part def UserInterface {
+        attribute powerButtonPressed : Boolean;
+        attribute heatLevelSetting : HeatLevel = HeatLevel::medium;
+        attribute timerSetting : Time = 7200 [s];
+
+        port commandOutput : CommandInputPort;
+        port statusInput : StatusOutputPort;
+
+        action captureUserCommand {
+            out item command : UserCommand;
+
+            first readPowerButton;
+            then readHeatSelector;
+            then readTimer;
+            then emitCommand;
+
+            action emitCommand {
+                command.requestedOn = powerButtonPressed;
+                command.requestedHeatLevel = heatLevelSetting;
+                command.timerDuration = timerSetting;
+            }
+        }
+    }
+
+    part def InsulatedCover {
+        attribute outerSurfaceMaximumTemperature : Temperature = 55 [degC];
+        attribute washable : Boolean = true;
+        attribute thermalTransferEfficiency : Percent = 82 [%];
+
+        port heatInput : HeatOutputPort;
+        port bodyContactOutput : HeatOutputPort;
+
+        action distributeHeat {
+            in item generatedHeat : ThermalEnergy;
+            out item deliveredHeat : ThermalEnergy;
+
+            first receiveHeat;
+            then spreadHeat;
+            then deliverHeat;
+
+            action spreadHeat {
+                deliveredHeat.heatOutput = generatedHeat.heatOutput * thermalTransferEfficiency / 100 [%];
+                deliveredHeat.surfaceTemperature = generatedHeat.surfaceTemperature;
+            }
+        }
+    }
+
+    part def PowerSupply {
+        attribute nominalInputVoltage : Voltage = 120 [V];
+        attribute nominalOutputVoltage : Voltage = 24 [V];
+        attribute maximumOutputPower : Power = 120 [W];
+
+        port wallInput : PowerInputPort;
+        port regulatedOutput : PowerInputPort;
+
+        action conditionPower {
+            in item wallPower : ElectricalEnergy;
+            out item regulatedPower : ElectricalEnergy;
+
+            first receiveAC;
+            then convertToLowVoltage;
+            then provideOutput;
+
+            action convertToLowVoltage {
+                regulatedPower.voltage = nominalOutputVoltage;
+                regulatedPower.availablePower = maximumOutputPower;
+            }
+        }
+    }
+
+    part def HeatingPad {
+        attribute productName : String = "Controlled Electric Heating Pad";
+        attribute primaryFunction : String = "Convert electrical energy into controlled, comfortable surface heat for localized warming of a user's body.";
+        attribute ratedSurfaceArea : Real = 0.18;
+        attribute maximumSafeSurfaceTemperature : Temperature = 60 [degC];
+        attribute automaticShutoffTime : Time = 7200 [s];
+
+        port externalPower : PowerInputPort;
+        port userCommands : CommandInputPort;
+        port userStatus : StatusOutputPort;
+        port deliveredHeat : HeatOutputPort;
+
+        part supply : PowerSupply;
+        part controller : Controller;
+        part heater : HeatingElement;
+        part sensor : TemperatureSensor;
+        part interface : UserInterface;
+        part cover : InsulatedCover;
+
+        connection power_to_supply connect externalPower to supply.wallInput;
+        connection supply_to_controller connect supply.regulatedOutput to controller.heaterDrive;
+        connection command_to_controller connect interface.commandOutput to controller.commandInput;
+        connection external_command_to_interface connect userCommands to interface.commandOutput;
+        connection controller_to_heater connect controller.heaterDrive to heater.drive;
+        connection heater_to_cover connect heater.thermalOutput to cover.heatInput;
+        connection cover_to_user connect cover.bodyContactOutput to deliveredHeat;
+        connection cover_to_sensor connect cover.bodyContactOutput to sensor.thermalInput;
+        connection sensor_to_controller connect sensor.signal to controller.temperatureInput;
+        connection controller_to_status connect controller.statusOutput to interface.statusInput;
+        connection status_to_user connect controller.statusOutput to userStatus;
+
+        action provideLocalizedHeat {
+            in item electricalInput : ElectricalEnergy;
+            in item userCommand : UserCommand;
+            out item bodyHeat : ThermalEnergy;
+            out item indication : StatusIndication;
+
+            first acceptPower;
+            then acceptCommand;
+            then conditionElectricalPower;
+            then regulateHeat;
+            then transferHeatToCover;
+            then deliverComfortHeat;
+            then reportStatus;
+
+            action acceptPower {
+                electricalInput.availablePower >= 100 [W];
+            }
+
+            action acceptCommand {
+                userCommand.requestedOn == true;
+            }
+
+            action conditionElectricalPower {
+                perform supply.conditionPower;
+            }
+
+            action regulateHeat {
+                perform controller.regulateTemperature;
+            }
+
+            action transferHeatToCover {
+                perform heater.convertElectricalPowerToHeat;
+                perform cover.distributeHeat;
+            }
+
+            action deliverComfortHeat {
+                bodyHeat.surfaceTemperature <= maximumSafeSurfaceTemperature;
+            }
+
+            action reportStatus {
+                indication.faultPresent == false;
+            }
+        }
+    }
+
+    requirement def PrimaryHeatingFunctionRequirement {
+        subject pad : HeatingPad;
+
+        doc /* The heating pad shall provide controlled localized heat by converting electrical energy into thermal energy and transferring it through an insulated cover to the user-contact surface. */
+
+        require constraint {
+            pad.deliveredHeat.heat.surfaceTemperature >= 38 [degC] and
+            pad.deliveredHeat.heat.surfaceTemperature <= 52 [degC]
+        }
+    }
+
+    requirement def SafetyTemperatureRequirement {
+        subject pad : HeatingPad;
+
+        doc /* The heating pad shall stop driving the heating element before the user-contact surface exceeds the maximum safe surface temperature. */
+
+        require constraint {
+            pad.deliveredHeat.heat.surfaceTemperature <= pad.maximumSafeSurfaceTemperature
+        }
+    }
+
+    requirement def AutomaticShutoffRequirement {
+        subject pad : HeatingPad;
+
+        doc /* The heating pad shall automatically remove heater drive power after the configured automatic shutoff time has elapsed. */
+
+        require constraint {
+            pad.controller.remainingTime <= pad.automaticShutoffTime
+        }
+    }
+
+    requirement def UserSelectableHeatRequirement {
+        subject pad : HeatingPad;
+
+        doc /* The heating pad shall support low, medium, and high heat settings selected by the user. */
+
+        require constraint {
+            pad.controller.targetLow < pad.controller.targetMedium and
+            pad.controller.targetMedium < pad.controller.targetHigh
+        }
+    }
+
+    requirement def StatusFeedbackRequirement {
+        subject pad : HeatingPad;
+
+        doc /* The heating pad shall report power state, selected heat level, measured temperature, remaining timer duration, and fault status to the user interface. */
+
+        require constraint {
+            pad.userStatus.status.measuredTemperature <= pad.maximumSafeSurfaceTemperature
+        }
+    }
+
+    satisfy PrimaryHeatingFunctionSatisfaction by HeatingPad::provideLocalizedHeat satisfies PrimaryHeatingFunctionRequirement;
+    satisfy SafetyTemperatureSatisfaction by HeatingPad::controller::ThermalControlStateMachine satisfies SafetyTemperatureRequirement;
+    satisfy AutomaticShutoffSatisfaction by HeatingPad::controller::ThermalControlStateMachine satisfies AutomaticShutoffRequirement;
+    satisfy UserSelectableHeatSatisfaction by HeatingPad::interface satisfies UserSelectableHeatRequirement;
+    satisfy StatusFeedbackSatisfaction by HeatingPad::controller satisfies StatusFeedbackRequirement;
+
+    part heatingPadSystem : HeatingPad {
+        attribute productName = "Household Therapeutic Heating Pad";
+        attribute primaryFunction = "Deliver regulated, safe, localized warmth to a user's body by sensing surface temperature and modulating electrical power to a resistive heating element.";
+        attribute automaticShutoffTime = 7200 [s];
+        attribute maximumSafeSurfaceTemperature = 60 [degC];
+    }
+}

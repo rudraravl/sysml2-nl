@@ -1,0 +1,423 @@
+package ArduPilotAutonomousAircraftSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Volt :> Real {
+    unit = "V";
+  }
+
+  attribute def Ampere :> Real {
+    unit = "A";
+  }
+
+  attribute def Watt :> Real {
+    unit = "W";
+  }
+
+  attribute def Meter :> Real {
+    unit = "m";
+  }
+
+  attribute def MeterPerSecond :> Real {
+    unit = "m/s";
+  }
+
+  attribute def Degree :> Real {
+    unit = "deg";
+  }
+
+  attribute def Hertz :> Real {
+    unit = "Hz";
+  }
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Second :> Real {
+    unit = "s";
+  }
+
+  item def PowerDC {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def PWMCommand {
+    attribute channel : Integer;
+    attribute pulseWidthMicroseconds : Integer;
+    attribute updateRate : Hertz;
+  }
+
+  item def RCCommand {
+    attribute rollInput : Percent;
+    attribute pitchInput : Percent;
+    attribute yawInput : Percent;
+    attribute throttleInput : Percent;
+    attribute modeSwitch : Integer;
+    attribute signalQuality : Percent;
+  }
+
+  item def GNSSFix {
+    attribute latitude : Degree;
+    attribute longitude : Degree;
+    attribute altitudeMsl : Meter;
+    attribute groundSpeed : MeterPerSecond;
+    attribute fixQuality : Integer;
+    attribute horizontalAccuracy : Meter;
+  }
+
+  item def InertialSample {
+    attribute rollRate : Degree;
+    attribute pitchRate : Degree;
+    attribute yawRate : Degree;
+    attribute accelerationX : MeterPerSecond;
+    attribute accelerationY : MeterPerSecond;
+    attribute accelerationZ : MeterPerSecond;
+    attribute sampleRate : Hertz;
+  }
+
+  item def AirDataSample {
+    attribute barometricAltitude : Meter;
+    attribute verticalSpeed : MeterPerSecond;
+    attribute airspeed : MeterPerSecond;
+  }
+
+  item def TelemetryPacket {
+    attribute vehicleMode : String;
+    attribute armed : Boolean;
+    attribute batteryVoltage : Volt;
+    attribute batteryRemaining : Percent;
+    attribute latitude : Degree;
+    attribute longitude : Degree;
+    attribute altitude : Meter;
+    attribute groundspeed : MeterPerSecond;
+    attribute failsafeActive : Boolean;
+  }
+
+  item def MissionCommand {
+    attribute targetLatitude : Degree;
+    attribute targetLongitude : Degree;
+    attribute targetAltitude : Meter;
+    attribute commandedSpeed : MeterPerSecond;
+    attribute commandType : String;
+  }
+
+  port def PowerPort {
+    in item powerIn : PowerDC;
+    out item powerOut : PowerDC;
+  }
+
+  port def SensorDataPort {
+    out item gnss : GNSSFix;
+    out item inertial : InertialSample;
+    out item airData : AirDataSample;
+  }
+
+  port def ControlInputPort {
+    in item rc : RCCommand;
+    in item mission : MissionCommand;
+  }
+
+  port def ActuatorCommandPort {
+    out item pwm : PWMCommand;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryPacket;
+    in item missionUpload : MissionCommand;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : Volt = 14.8;
+    attribute capacityAh : Real = 5.2;
+    attribute maxContinuousCurrent : Ampere = 80.0;
+    port power : PowerPort;
+  }
+
+  part def PowerDistributionModule {
+    attribute regulatedAvionicsVoltage : Volt = 5.2;
+    attribute maxAvionicsCurrent : Ampere = 3.0;
+    port batteryInput : PowerPort;
+    port avionicsOutput : PowerPort;
+    port propulsionOutput : PowerPort;
+  }
+
+  part def ArduPilotFlightController {
+    attribute firmwareName : String = "ArduPilot";
+    attribute firmwareProfile : String = "Copter";
+    attribute controlLoopRate : Hertz = 400.0;
+    attribute navigationLoopRate : Hertz = 50.0;
+    attribute failsafeTimeout : Second = 1.0;
+
+    port avionicsPower : PowerPort;
+    port sensorBus : SensorDataPort;
+    port commandInput : ControlInputPort;
+    port motorOutput : ActuatorCommandPort;
+    port telemetryLink : TelemetryPort;
+
+    action estimateVehicleState {
+      in item gnss : GNSSFix;
+      in item inertial : InertialSample;
+      in item airData : AirDataSample;
+      out attribute estimatedLatitude : Degree;
+      out attribute estimatedLongitude : Degree;
+      out attribute estimatedAltitude : Meter;
+      out attribute estimatedGroundspeed : MeterPerSecond;
+      out attribute attitudeRoll : Degree;
+      out attribute attitudePitch : Degree;
+      out attribute attitudeYaw : Degree;
+    }
+
+    action computeGuidance {
+      in item mission : MissionCommand;
+      in attribute estimatedLatitude : Degree;
+      in attribute estimatedLongitude : Degree;
+      in attribute estimatedAltitude : Meter;
+      out attribute desiredRoll : Degree;
+      out attribute desiredPitch : Degree;
+      out attribute desiredYaw : Degree;
+      out attribute desiredThrottle : Percent;
+    }
+
+    action stabilizeAircraft {
+      in attribute desiredRoll : Degree;
+      in attribute desiredPitch : Degree;
+      in attribute desiredYaw : Degree;
+      in attribute desiredThrottle : Percent;
+      in item inertial : InertialSample;
+      out item motorPwm : PWMCommand;
+    }
+
+    state def FlightControllerStateMachine {
+      state initializing;
+      state standby;
+      state armedManual;
+      state autonomousMission;
+      state returnToLaunch;
+      state landing;
+      state failsafe;
+      state disarmed;
+
+      initial then initializing;
+
+      transition initializing_to_standby
+        first initializing
+        then standby;
+
+      transition standby_to_armedManual
+        first standby
+        then armedManual;
+
+      transition armedManual_to_autonomousMission
+        first armedManual
+        then autonomousMission;
+
+      transition autonomousMission_to_returnToLaunch
+        first autonomousMission
+        then returnToLaunch;
+
+      transition returnToLaunch_to_landing
+        first returnToLaunch
+        then landing;
+
+      transition landing_to_disarmed
+        first landing
+        then disarmed;
+
+      transition any_to_failsafe
+        first standby
+        then failsafe;
+
+      transition mission_to_failsafe
+        first autonomousMission
+        then failsafe;
+
+      transition failsafe_to_returnToLaunch
+        first failsafe
+        then returnToLaunch;
+    }
+
+    perform action estimateVehicleState;
+    perform action computeGuidance;
+    perform action stabilizeAircraft;
+  }
+
+  part def GNSSReceiver {
+    attribute updateRate : Hertz = 10.0;
+    attribute nominalAccuracy : Meter = 1.5;
+    port power : PowerPort;
+    port data : SensorDataPort;
+  }
+
+  part def InertialMeasurementUnit {
+    attribute gyroRange : Degree = 2000.0;
+    attribute accelerometerRangeG : Real = 16.0;
+    attribute sampleRate : Hertz = 1000.0;
+    port power : PowerPort;
+    port data : SensorDataPort;
+  }
+
+  part def BarometerAirspeedModule {
+    attribute pressureAltitudeAccuracy : Meter = 1.0;
+    attribute airspeedRange : MeterPerSecond = 55.0;
+    port power : PowerPort;
+    port data : SensorDataPort;
+  }
+
+  part def RadioControlReceiver {
+    attribute channelCount : Integer = 8;
+    attribute minimumSignalQuality : Percent = 35.0;
+    port power : PowerPort;
+    port rcOutput : ControlInputPort;
+  }
+
+  part def TelemetryRadio {
+    attribute frequencyMHz : Real = 915.0;
+    attribute dataRateKbps : Real = 57.6;
+    attribute nominalRange : Meter = 3000.0;
+    port power : PowerPort;
+    port telemetry : TelemetryPort;
+  }
+
+  part def ElectronicSpeedController {
+    attribute maxCurrent : Ampere = 30.0;
+    attribute pwmRefreshRate : Hertz = 400.0;
+    port powerInput : PowerPort;
+    port commandInput : ActuatorCommandPort;
+    port motorPower : PowerPort;
+  }
+
+  part def BrushlessMotor {
+    attribute kvRating : Real = 920.0;
+    attribute maxPower : Watt = 350.0;
+    port electricalInput : PowerPort;
+  }
+
+  part def Propeller {
+    attribute diameter : Meter = 0.254;
+    attribute pitch : Meter = 0.114;
+  }
+
+  part def PropulsionUnit {
+    part esc : ElectronicSpeedController;
+    part motor : BrushlessMotor;
+    part propeller : Propeller;
+
+    port power : PowerPort;
+    port command : ActuatorCommandPort;
+
+    connect power to esc.powerInput;
+    connect command to esc.commandInput;
+    connect esc.motorPower to motor.electricalInput;
+  }
+
+  part def Airframe {
+    attribute frameType : String = "quadrotor";
+    attribute diagonalMotorSpacing : Meter = 0.45;
+    attribute emptyMassKg : Real = 1.25;
+
+    part frontLeftPropulsion : PropulsionUnit;
+    part frontRightPropulsion : PropulsionUnit;
+    part rearLeftPropulsion : PropulsionUnit;
+    part rearRightPropulsion : PropulsionUnit;
+  }
+
+  part def GroundControlStation {
+    attribute operatorInterface : String = "Mission Planner compatible MAVLink station";
+    port telemetry : TelemetryPort;
+  }
+
+  part def ArduPilotAutonomousQuadrotor {
+    attribute primaryFunction : String =
+      "Use an ArduPilot flight controller to stabilize a quadrotor aircraft, follow uploaded mission waypoints, transmit vehicle status, and execute failsafe return or landing behavior when command, navigation, or power conditions become unsafe.";
+
+    part battery : BatteryPack;
+    part powerDistribution : PowerDistributionModule;
+    part flightController : ArduPilotFlightController;
+    part gnss : GNSSReceiver;
+    part imu : InertialMeasurementUnit;
+    part airData : BarometerAirspeedModule;
+    part rcReceiver : RadioControlReceiver;
+    part telemetryRadio : TelemetryRadio;
+    part airframe : Airframe;
+    part groundStation : GroundControlStation;
+
+    connect battery.power to powerDistribution.batteryInput;
+    connect powerDistribution.avionicsOutput to flightController.avionicsPower;
+    connect powerDistribution.avionicsOutput to gnss.power;
+    connect powerDistribution.avionicsOutput to imu.power;
+    connect powerDistribution.avionicsOutput to airData.power;
+    connect powerDistribution.avionicsOutput to rcReceiver.power;
+    connect powerDistribution.avionicsOutput to telemetryRadio.power;
+
+    connect gnss.data to flightController.sensorBus;
+    connect imu.data to flightController.sensorBus;
+    connect airData.data to flightController.sensorBus;
+
+    connect rcReceiver.rcOutput to flightController.commandInput;
+    connect telemetryRadio.telemetry to flightController.telemetryLink;
+    connect telemetryRadio.telemetry to groundStation.telemetry;
+
+    connect powerDistribution.propulsionOutput to airframe.frontLeftPropulsion.power;
+    connect powerDistribution.propulsionOutput to airframe.frontRightPropulsion.power;
+    connect powerDistribution.propulsionOutput to airframe.rearLeftPropulsion.power;
+    connect powerDistribution.propulsionOutput to airframe.rearRightPropulsion.power;
+
+    connect flightController.motorOutput to airframe.frontLeftPropulsion.command;
+    connect flightController.motorOutput to airframe.frontRightPropulsion.command;
+    connect flightController.motorOutput to airframe.rearLeftPropulsion.command;
+    connect flightController.motorOutput to airframe.rearRightPropulsion.command;
+  }
+
+  requirement def StabilizedFlightRequirement {
+    subject system : ArduPilotAutonomousQuadrotor;
+    doc /* The system shall maintain controlled attitude stabilization during powered flight using ArduPilot closed-loop control. */
+    require constraint {
+      system.flightController.controlLoopRate >= 400.0
+    }
+  }
+
+  requirement def AutonomousNavigationRequirement {
+    subject system : ArduPilotAutonomousQuadrotor;
+    doc /* The system shall navigate between mission waypoints using GNSS, inertial, and barometric sensor inputs. */
+    require constraint {
+      system.flightController.navigationLoopRate >= 50.0
+    }
+  }
+
+  requirement def TelemetryRequirement {
+    subject system : ArduPilotAutonomousQuadrotor;
+    doc /* The system shall transmit vehicle mode, arming state, battery state, position, speed, altitude, and failsafe state to the ground control station. */
+    require constraint {
+      system.telemetryRadio.nominalRange >= 3000.0
+    }
+  }
+
+  requirement def FailsafeRequirement {
+    subject system : ArduPilotAutonomousQuadrotor;
+    doc /* The system shall command return-to-launch or landing after loss of valid command or navigation data for more than the configured timeout. */
+    require constraint {
+      system.flightController.failsafeTimeout <= 1.0
+    }
+  }
+
+  requirement def PowerEnduranceRequirement {
+    subject system : ArduPilotAutonomousQuadrotor;
+    doc /* The system shall provide regulated avionics power and sufficient propulsion power for a nominal autonomous mission. */
+    require constraint {
+      system.battery.nominalVoltage >= 14.0 and
+      system.powerDistribution.regulatedAvionicsVoltage >= 5.0 and
+      system.powerDistribution.maxAvionicsCurrent >= 3.0
+    }
+  }
+
+  satisfy StabilizedFlightRequirement by ArduPilotAutonomousQuadrotor.flightController;
+  satisfy AutonomousNavigationRequirement by ArduPilotAutonomousQuadrotor.flightController;
+  satisfy TelemetryRequirement by ArduPilotAutonomousQuadrotor.telemetryRadio;
+  satisfy FailsafeRequirement by ArduPilotAutonomousQuadrotor.flightController;
+  satisfy PowerEnduranceRequirement by ArduPilotAutonomousQuadrotor.powerDistribution;
+
+}

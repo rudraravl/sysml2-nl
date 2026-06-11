@@ -1,0 +1,456 @@
+package AtelectotraumaProtectionSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> ScalarValues::Real;
+    unit = "cmH2O";
+  }
+
+  attribute def Volume {
+    :> ScalarValues::Real;
+    unit = "mL";
+  }
+
+  attribute def FlowRate {
+    :> ScalarValues::Real;
+    unit = "L/min";
+  }
+
+  attribute def Frequency {
+    :> ScalarValues::Real;
+    unit = "breaths/min";
+  }
+
+  attribute def Fraction {
+    :> ScalarValues::Real;
+    unit = "1";
+  }
+
+  attribute def TimeDuration {
+    :> ScalarValues::Real;
+    unit = "s";
+  }
+
+  item def GasMixture {
+    attribute oxygenFraction : Fraction;
+    attribute carbonDioxideFraction : Fraction;
+    attribute nitrogenFraction : Fraction;
+    attribute humidityFraction : Fraction;
+    attribute temperature : ScalarValues::Real;
+  }
+
+  item def AirwayPressureSignal {
+    attribute pressure : Pressure;
+    attribute samplePeriod : TimeDuration;
+  }
+
+  item def AirflowSignal {
+    attribute flow : FlowRate;
+    attribute samplePeriod : TimeDuration;
+  }
+
+  item def LungVolumeSignal {
+    attribute volume : Volume;
+    attribute samplePeriod : TimeDuration;
+  }
+
+  item def AlveolarStabilityIndex {
+    attribute value : Fraction;
+    attribute collapseRisk : Fraction;
+    attribute reopeningStress : Pressure;
+  }
+
+  item def VentilationCommand {
+    attribute targetTidalVolume : Volume;
+    attribute targetPEEP : Pressure;
+    attribute inspiratoryPressureLimit : Pressure;
+    attribute respiratoryRate : Frequency;
+    attribute inspiratoryTime : TimeDuration;
+  }
+
+  port def GasInPort {
+    in item gas : GasMixture;
+  }
+
+  port def GasOutPort {
+    out item gas : GasMixture;
+  }
+
+  port def PressureSensePort {
+    out item pressureSignal : AirwayPressureSignal;
+  }
+
+  port def FlowSensePort {
+    out item flowSignal : AirflowSignal;
+  }
+
+  port def VolumeSensePort {
+    out item volumeSignal : LungVolumeSignal;
+  }
+
+  port def CommandInPort {
+    in item command : VentilationCommand;
+  }
+
+  port def CommandOutPort {
+    out item command : VentilationCommand;
+  }
+
+  port def StabilityOutPort {
+    out item stability : AlveolarStabilityIndex;
+  }
+
+  port def StabilityInPort {
+    in item stability : AlveolarStabilityIndex;
+  }
+
+  part def AlveolarUnit {
+    attribute openingPressure : Pressure = 14.0;
+    attribute closingPressure : Pressure = 8.0;
+    attribute currentPressure : Pressure;
+    attribute currentVolume : Volume;
+    attribute compliance : ScalarValues::Real;
+    attribute isOpen : ScalarValues::Boolean;
+
+    port gasIn : GasInPort;
+    port gasOut : GasOutPort;
+    port pressureSensor : PressureSensePort;
+    port volumeSensor : VolumeSensePort;
+
+    state def AlveolarRecruitmentState {
+      state Collapsed;
+      state Opening;
+      state OpenStable;
+      state Overdistended;
+      state Closing;
+
+      transition first Collapsed;
+      transition Collapsed to Opening
+        if currentPressure >= openingPressure;
+      transition Opening to OpenStable
+        if currentVolume >= 80.0 and currentPressure < 28.0;
+      transition OpenStable to Overdistended
+        if currentPressure > 30.0;
+      transition Overdistended to OpenStable
+        if currentPressure <= 28.0;
+      transition OpenStable to Closing
+        if currentPressure <= closingPressure;
+      transition Closing to Collapsed
+        if currentVolume < 25.0;
+      transition Closing to OpenStable
+        if currentPressure > closingPressure;
+    }
+  }
+
+  part def LungRegion {
+    attribute meanCompliance : ScalarValues::Real;
+    attribute regionalPEEP : Pressure;
+    attribute totalRegionalVolume : Volume;
+    attribute collapseFraction : Fraction;
+    attribute cyclicOpeningFraction : Fraction;
+
+    part dependentAlveoli[500] : AlveolarUnit;
+
+    port gasIn : GasInPort;
+    port gasOut : GasOutPort;
+    port pressureSensor : PressureSensePort;
+    port volumeSensor : VolumeSensePort;
+    port stabilityOut : StabilityOutPort;
+  }
+
+  part def PatientRespiratorySystem {
+    attribute airwayResistance : ScalarValues::Real;
+    attribute functionalResidualCapacity : Volume = 2200.0;
+    attribute safePlateauPressure : Pressure = 30.0;
+    attribute minimumRecruitingPEEP : Pressure = 8.0;
+
+    part dorsalRegion : LungRegion {
+      attribute meanCompliance = 0.035;
+      attribute regionalPEEP = 7.0;
+    }
+
+    part ventralRegion : LungRegion {
+      attribute meanCompliance = 0.055;
+      attribute regionalPEEP = 9.0;
+    }
+
+    part centralAirway {
+      attribute airwayPressure : Pressure;
+      attribute inspiratoryFlow : FlowRate;
+      port gasIn : GasInPort;
+      port gasOut : GasOutPort;
+      port pressureSensor : PressureSensePort;
+      port flowSensor : FlowSensePort;
+    }
+
+    port airwayGasIn : GasInPort;
+    port exhaledGasOut : GasOutPort;
+    port airwayPressureOut : PressureSensePort;
+    port airwayFlowOut : FlowSensePort;
+    port lungVolumeOut : VolumeSensePort;
+    port stabilityOut : StabilityOutPort;
+
+    connect airwayGasIn to centralAirway.gasIn;
+    connect centralAirway.gasOut to dorsalRegion.gasIn;
+    connect centralAirway.gasOut to ventralRegion.gasIn;
+    connect dorsalRegion.gasOut to exhaledGasOut;
+    connect ventralRegion.gasOut to exhaledGasOut;
+    connect centralAirway.pressureSensor to airwayPressureOut;
+    connect centralAirway.flowSensor to airwayFlowOut;
+  }
+
+  part def PressureSensor {
+    attribute measurementRangeMin : Pressure = -5.0;
+    attribute measurementRangeMax : Pressure = 80.0;
+    attribute accuracy : Pressure = 0.5;
+    attribute samplePeriod : TimeDuration = 0.01;
+
+    port sensedPressure : PressureSensePort;
+  }
+
+  part def FlowSensor {
+    attribute measurementRangeMin : FlowRate = -120.0;
+    attribute measurementRangeMax : FlowRate = 120.0;
+    attribute accuracy : FlowRate = 0.2;
+    attribute samplePeriod : TimeDuration = 0.01;
+
+    port sensedFlow : FlowSensePort;
+  }
+
+  part def VolumeEstimator {
+    attribute estimatedTidalVolume : Volume;
+    attribute estimatedEndExpiratoryVolume : Volume;
+    attribute integrationWindow : TimeDuration = 10.0;
+
+    port flowIn : FlowSensePort;
+    port volumeOut : VolumeSensePort;
+  }
+
+  part def AtelectotraumaRiskAnalyzer {
+    attribute minimumAcceptableStability : Fraction = 0.85;
+    attribute maximumCollapseRisk : Fraction = 0.15;
+    attribute maximumReopeningStress : Pressure = 6.0;
+    attribute calculatedStability : Fraction;
+    attribute calculatedCollapseRisk : Fraction;
+    attribute calculatedReopeningStress : Pressure;
+
+    port pressureIn : PressureSensePort;
+    port flowIn : FlowSensePort;
+    port volumeIn : VolumeSensePort;
+    port stabilityOut : StabilityOutPort;
+
+    action def EstimateAlveolarInstability {
+      in item pressure : AirwayPressureSignal;
+      in item flow : AirflowSignal;
+      in item volume : LungVolumeSignal;
+      out item stability : AlveolarStabilityIndex;
+
+      attribute derecruitmentDetected : ScalarValues::Boolean;
+      attribute hysteresisArea : ScalarValues::Real;
+      attribute lowVolumeTime : TimeDuration;
+    }
+
+    state def RiskAssessmentState {
+      state StableVentilation;
+      state EmergingDerecruitment;
+      state HighAtelectotraumaRisk;
+      state RecoveryRecruitment;
+      state Alarm;
+
+      transition first StableVentilation;
+      transition StableVentilation to EmergingDerecruitment
+        if calculatedCollapseRisk > 0.15;
+      transition EmergingDerecruitment to HighAtelectotraumaRisk
+        if calculatedReopeningStress > 6.0;
+      transition HighAtelectotraumaRisk to RecoveryRecruitment
+        if calculatedStability >= 0.85;
+      transition RecoveryRecruitment to StableVentilation
+        if calculatedCollapseRisk <= 0.10;
+      transition HighAtelectotraumaRisk to Alarm
+        if calculatedCollapseRisk > 0.30;
+      transition Alarm to RecoveryRecruitment
+        if calculatedCollapseRisk <= 0.20;
+    }
+  }
+
+  part def VentilationController {
+    attribute targetTidalVolume : Volume = 420.0;
+    attribute targetPEEP : Pressure = 10.0;
+    attribute maximumPlateauPressure : Pressure = 30.0;
+    attribute respiratoryRate : Frequency = 18.0;
+    attribute inspiratoryTime : TimeDuration = 0.9;
+    attribute peepAdjustmentStep : Pressure = 1.0;
+
+    port stabilityIn : StabilityInPort;
+    port pressureIn : PressureSensePort;
+    port volumeIn : VolumeSensePort;
+    port commandOut : CommandOutPort;
+
+    action def AdjustVentilationToPreventAtelectotrauma {
+      in item stability : AlveolarStabilityIndex;
+      in item pressure : AirwayPressureSignal;
+      in item volume : LungVolumeSignal;
+      out item command : VentilationCommand;
+
+      attribute proposedPEEP : Pressure;
+      attribute proposedTidalVolume : Volume;
+      attribute pressureLimited : ScalarValues::Boolean;
+    }
+
+    state def ControlMode {
+      state BaselineProtectiveVentilation;
+      state IncreasePEEP;
+      state LimitInspiratoryPressure;
+      state RecruitmentHold;
+      state WeanPEEP;
+
+      transition first BaselineProtectiveVentilation;
+      transition BaselineProtectiveVentilation to IncreasePEEP
+        if stabilityIn.stability.collapseRisk > 0.15;
+      transition IncreasePEEP to RecruitmentHold
+        if stabilityIn.stability.value < 0.75;
+      transition RecruitmentHold to BaselineProtectiveVentilation
+        if stabilityIn.stability.value >= 0.85;
+      transition IncreasePEEP to LimitInspiratoryPressure
+        if pressureIn.pressureSignal.pressure >= maximumPlateauPressure;
+      transition BaselineProtectiveVentilation to WeanPEEP
+        if stabilityIn.stability.value > 0.95;
+      transition WeanPEEP to BaselineProtectiveVentilation
+        if stabilityIn.stability.collapseRisk >= 0.10;
+    }
+  }
+
+  part def VentilatorActuator {
+    attribute deliveredTidalVolume : Volume;
+    attribute deliveredPEEP : Pressure;
+    attribute deliveredInspiratoryPressure : Pressure;
+    attribute deliveredRespiratoryRate : Frequency;
+
+    port commandIn : CommandInPort;
+    port gasSupplyIn : GasInPort;
+    port patientGasOut : GasOutPort;
+    port patientGasReturn : GasInPort;
+
+    action def DeliverBreath {
+      in item command : VentilationCommand;
+      in item sourceGas : GasMixture;
+      out item deliveredGas : GasMixture;
+
+      attribute inspiratoryPressure : Pressure;
+      attribute expiratoryPressure : Pressure;
+      attribute breathDuration : TimeDuration;
+    }
+  }
+
+  part def AlarmManager {
+    attribute audibleAlarmActive : ScalarValues::Boolean;
+    attribute visualAlarmActive : ScalarValues::Boolean;
+    attribute alarmThresholdCollapseRisk : Fraction = 0.30;
+    attribute alarmThresholdPressure : Pressure = 32.0;
+
+    port stabilityIn : StabilityInPort;
+    port pressureIn : PressureSensePort;
+
+    state def AlarmState {
+      state Silent;
+      state Advisory;
+      state Warning;
+      state Critical;
+
+      transition first Silent;
+      transition Silent to Advisory
+        if stabilityIn.stability.collapseRisk > 0.15;
+      transition Advisory to Warning
+        if stabilityIn.stability.collapseRisk > 0.25;
+      transition Warning to Critical
+        if pressureIn.pressureSignal.pressure > 32.0;
+      transition Critical to Warning
+        if pressureIn.pressureSignal.pressure <= 30.0;
+      transition Warning to Advisory
+        if stabilityIn.stability.collapseRisk <= 0.20;
+      transition Advisory to Silent
+        if stabilityIn.stability.collapseRisk <= 0.10;
+    }
+  }
+
+  part def AtelectotraumaProtectionSystem {
+    doc /* Primary function: maintain alveolar recruitment while limiting cyclic collapse and reopening stress, thereby reducing atelectotrauma risk during mechanical ventilation. */
+
+    attribute systemResponseTime : TimeDuration = 0.25;
+    attribute minimumStabilityTarget : Fraction = 0.85;
+    attribute maxAllowedPlateauPressure : Pressure = 30.0;
+
+    part patient : PatientRespiratorySystem;
+    part pressureSensor : PressureSensor;
+    part flowSensor : FlowSensor;
+    part volumeEstimator : VolumeEstimator;
+    part riskAnalyzer : AtelectotraumaRiskAnalyzer;
+    part controller : VentilationController;
+    part actuator : VentilatorActuator;
+    part alarmManager : AlarmManager;
+
+    part oxygenAirBlend {
+      attribute oxygenFraction : Fraction = 0.40;
+      attribute humidityFraction : Fraction = 0.95;
+      port blendedGasOut : GasOutPort;
+    }
+
+    connect oxygenAirBlend.blendedGasOut to actuator.gasSupplyIn;
+    connect actuator.patientGasOut to patient.airwayGasIn;
+    connect patient.exhaledGasOut to actuator.patientGasReturn;
+
+    connect patient.airwayPressureOut to pressureSensor.sensedPressure;
+    connect patient.airwayFlowOut to flowSensor.sensedFlow;
+    connect flowSensor.sensedFlow to volumeEstimator.flowIn;
+
+    connect pressureSensor.sensedPressure to riskAnalyzer.pressureIn;
+    connect flowSensor.sensedFlow to riskAnalyzer.flowIn;
+    connect volumeEstimator.volumeOut to riskAnalyzer.volumeIn;
+
+    connect riskAnalyzer.stabilityOut to controller.stabilityIn;
+    connect pressureSensor.sensedPressure to controller.pressureIn;
+    connect volumeEstimator.volumeOut to controller.volumeIn;
+
+    connect controller.commandOut to actuator.commandIn;
+
+    connect riskAnalyzer.stabilityOut to alarmManager.stabilityIn;
+    connect pressureSensor.sensedPressure to alarmManager.pressureIn;
+  }
+
+  requirement def MaintainAlveolarRecruitment {
+    doc /* The system shall maintain an alveolar stability index of at least 0.85 during assisted ventilation unless limited by pressure safety constraints. */
+    attribute requiredMinimumStability : Fraction = 0.85;
+  }
+
+  requirement def LimitPlateauPressure {
+    doc /* The system shall prevent commanded inspiratory pressure from exceeding 30 cmH2O during normal operation. */
+    attribute maximumPlateauPressure : Pressure = 30.0;
+  }
+
+  requirement def DetectCyclicCollapse {
+    doc /* The system shall detect cyclic alveolar collapse and reopening using airway pressure, flow, and estimated volume signals. */
+    attribute maximumDetectionLatency : TimeDuration = 2.0;
+    attribute minimumDetectableCollapseRisk : Fraction = 0.15;
+  }
+
+  requirement def ReduceAtelectotraumaRisk {
+    doc /* The system shall reduce collapse risk by increasing end-expiratory pressure or modifying tidal delivery when repetitive alveolar closure is detected. */
+    attribute maximumPermittedCollapseRisk : Fraction = 0.15;
+    attribute maximumPermittedReopeningStress : Pressure = 6.0;
+  }
+
+  requirement def AlarmOnUnsafeVentilation {
+    doc /* The system shall generate a warning when collapse risk exceeds 0.30 or airway pressure exceeds 32 cmH2O. */
+    attribute collapseRiskAlarmThreshold : Fraction = 0.30;
+    attribute airwayPressureAlarmThreshold : Pressure = 32.0;
+  }
+
+  satisfy MaintainAlveolarRecruitment by AtelectotraumaProtectionSystem;
+  satisfy LimitPlateauPressure by VentilationController;
+  satisfy DetectCyclicCollapse by AtelectotraumaRiskAnalyzer;
+  satisfy ReduceAtelectotraumaRisk by VentilationController;
+  satisfy AlarmOnUnsafeVentilation by AlarmManager;
+}

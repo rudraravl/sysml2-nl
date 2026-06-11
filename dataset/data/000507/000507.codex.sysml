@@ -1,0 +1,595 @@
+package SurgiboxHighLevelModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> scalarValues::Real;
+    unit = "Pa";
+  }
+
+  attribute def FlowRate {
+    :> scalarValues::Real;
+    unit = "L/min";
+  }
+
+  attribute def Volume {
+    :> scalarValues::Real;
+    unit = "L";
+  }
+
+  attribute def Temperature {
+    :> scalarValues::Real;
+    unit = "degC";
+  }
+
+  attribute def RelativeHumidity {
+    :> scalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def TimeDuration {
+    :> scalarValues::Real;
+    unit = "min";
+  }
+
+  attribute def Power {
+    :> scalarValues::Real;
+    unit = "W";
+  }
+
+  attribute def Voltage {
+    :> scalarValues::Real;
+    unit = "V";
+  }
+
+  attribute def ParticleConcentration {
+    :> scalarValues::Real;
+    unit = "particles/m3";
+  }
+
+  attribute def SterilityLevel {
+    :> scalarValues::Real;
+    unit = "CFU/m3";
+  }
+
+  attribute def Illuminance {
+    :> scalarValues::Real;
+    unit = "lux";
+  }
+
+  item def AmbientAir;
+  item def FilteredSterileAir;
+  item def ExhaustAir;
+  item def ElectricalEnergy;
+  item def BatteryEnergy;
+  item def SurgicalInstrument;
+  item def SurgicalSupply;
+  item def PatientAnatomy;
+  item def ClinicalWaste;
+  item def ControlCommand;
+  item def AlarmSignal;
+  item def SensorReading;
+  item def OperatorHandMotion;
+  item def SurgicalProcedureOutput;
+
+  port def AirIntakePort {
+    in item air : AmbientAir;
+  }
+
+  port def SterileAirSupplyPort {
+    out item air : FilteredSterileAir;
+  }
+
+  port def ExhaustPort {
+    out item air : ExhaustAir;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalEnergy;
+  }
+
+  port def BatteryPort {
+    inout item energy : BatteryEnergy;
+  }
+
+  port def InstrumentTransferPort {
+    in item instrument : SurgicalInstrument;
+    in item supply : SurgicalSupply;
+    out item waste : ClinicalWaste;
+  }
+
+  port def GloveAccessPort {
+    in item handMotion : OperatorHandMotion;
+    out item tactileFeedback : SensorReading;
+  }
+
+  port def PatientAccessPort {
+    inout item anatomy : PatientAnatomy;
+    out item procedureResult : SurgicalProcedureOutput;
+  }
+
+  port def UserInterfacePort {
+    in item command : ControlCommand;
+    out item alarm : AlarmSignal;
+    out item status : SensorReading;
+  }
+
+  port def SensorPort {
+    out item reading : SensorReading;
+  }
+
+  port def LightOutputPort {
+    out attribute illuminance : Illuminance;
+  }
+
+  part def SurgiboxSystem {
+    attribute chamberVolume : Volume = 160.0;
+    attribute nominalPositivePressure : Pressure = 25.0;
+    attribute maximumParticleConcentration : ParticleConcentration = 3520.0;
+    attribute maximumBioburden : SterilityLevel = 1.0;
+    attribute setupTimeLimit : TimeDuration = 10.0;
+    attribute continuousRuntime : TimeDuration = 240.0;
+    attribute nominalPowerDraw : Power = 85.0;
+
+    port airIn : AirIntakePort;
+    port sterileAirOut : SterileAirSupplyPort;
+    port exhaustOut : ExhaustPort;
+    port powerIn : PowerInputPort;
+    port batteryInterface : BatteryPort;
+    port operatorInterface : UserInterfacePort;
+    port instrumentTransfer : InstrumentTransferPort;
+    port gloveAccess[2] : GloveAccessPort;
+    port patientInterface : PatientAccessPort;
+
+    part sterileChamber : SterileFieldChamber;
+    part frame : FoldableSupportFrame;
+    part filtration : AirFiltrationAndPressureUnit;
+    part barrier : TransparentBarrierEnvelope;
+    part gloveModule : GloveAccessModule;
+    part instrumentModule : SterileInstrumentTransferModule;
+    part patientPortModule : PatientInterfaceModule;
+    part sensing : EnvironmentalMonitoringModule;
+    part controls : ControlAndAlarmModule;
+    part lighting : IntegratedLightingModule;
+    part powerSubsystem : PortablePowerSubsystem;
+    part wasteModule : WasteContainmentModule;
+
+    connect airIn to filtration.ambientAirIn;
+    connect filtration.sterileAirOut to sterileChamber.cleanAirIn;
+    connect sterileChamber.chamberExhaust to filtration.recirculationIn;
+    connect filtration.exhaustOut to exhaustOut;
+
+    connect powerIn to powerSubsystem.externalPowerIn;
+    connect batteryInterface to powerSubsystem.batteryInterface;
+    connect powerSubsystem.conditionedPowerOut to filtration.powerPort;
+    connect powerSubsystem.conditionedPowerOut to controls.powerPort;
+    connect powerSubsystem.conditionedPowerOut to sensing.powerPort;
+    connect powerSubsystem.conditionedPowerOut to lighting.powerPort;
+
+    connect controls.fanCommandOut to filtration.controlIn;
+    connect sensing.pressureSensorOut to controls.sensorIn;
+    connect sensing.particleSensorOut to controls.sensorIn;
+    connect sensing.temperatureSensorOut to controls.sensorIn;
+    connect sensing.humiditySensorOut to controls.sensorIn;
+    connect controls.ui to operatorInterface;
+
+    connect lighting.lightOut to sterileChamber.lightIn;
+    connect barrier.chamberBoundary to sterileChamber.boundary;
+    connect gloveModule.operatorGlovePort[0] to gloveAccess[0];
+    connect gloveModule.operatorGlovePort[1] to gloveAccess[1];
+    connect gloveModule.internalManipulationPort to sterileChamber.manipulationPort;
+
+    connect instrumentTransfer to instrumentModule.externalTransferPort;
+    connect instrumentModule.internalTransferPort to sterileChamber.instrumentIn;
+    connect sterileChamber.wasteOut to wasteModule.wasteIn;
+    connect wasteModule.wasteOut to instrumentTransfer;
+
+    connect patientInterface to patientPortModule.externalPatientPort;
+    connect patientPortModule.internalPatientPort to sterileChamber.patientAccess;
+
+    perform action setupAndOperate : SurgiboxOperationalBehavior;
+  }
+
+  part def SterileFieldChamber {
+    attribute internalVolume : Volume = 160.0;
+    attribute targetPressure : Pressure = 25.0;
+    attribute allowableLeakRate : FlowRate = 3.0;
+    attribute targetBioburden : SterilityLevel = 1.0;
+
+    port cleanAirIn : SterileAirSupplyPort;
+    port chamberExhaust : ExhaustPort;
+    port boundary;
+    port lightIn : LightOutputPort;
+    port manipulationPort : GloveAccessPort;
+    port instrumentIn : InstrumentTransferPort;
+    port patientAccess : PatientAccessPort;
+    port wasteOut : InstrumentTransferPort;
+  }
+
+  part def FoldableSupportFrame {
+    attribute deployedHeight : LengthValue = 1.2 [m];
+    attribute deployedWidth : LengthValue = 0.9 [m];
+    attribute deployedDepth : LengthValue = 0.7 [m];
+    attribute setupTime : TimeDuration = 4.0;
+  }
+
+  part def TransparentBarrierEnvelope {
+    attribute opticalTransmission : Real = 0.88;
+    attribute punctureResistance : Pressure = 50000.0;
+    attribute sterileBarrierIntegrity : Boolean = true;
+    port chamberBoundary;
+  }
+
+  part def AirFiltrationAndPressureUnit {
+    attribute filterEfficiencyAt03Micron : Real = 0.9997;
+    attribute nominalFlowRate : FlowRate = 120.0;
+    attribute pressureSetpoint : Pressure = 25.0;
+    attribute maxPowerDraw : Power = 60.0;
+
+    port ambientAirIn : AirIntakePort;
+    port recirculationIn : AirIntakePort;
+    port sterileAirOut : SterileAirSupplyPort;
+    port exhaustOut : ExhaustPort;
+    port powerPort : PowerInputPort;
+    port controlIn : UserInterfacePort;
+
+    part preFilter : PreFilter;
+    part hepaFilter : HEPAFilter;
+    part blower : VariableSpeedBlower;
+    part pressureRegulator : PressureRegulator;
+
+    connect ambientAirIn to preFilter.airIn;
+    connect preFilter.airOut to hepaFilter.airIn;
+    connect hepaFilter.airOut to blower.airIn;
+    connect blower.airOut to pressureRegulator.airIn;
+    connect pressureRegulator.airOut to sterileAirOut;
+  }
+
+  part def PreFilter {
+    attribute removalEfficiency : Real = 0.85;
+    port airIn : AirIntakePort;
+    port airOut : SterileAirSupplyPort;
+  }
+
+  part def HEPAFilter {
+    attribute removalEfficiencyAt03Micron : Real = 0.9997;
+    attribute replacementInterval : TimeDuration = 1440.0;
+    port airIn : AirIntakePort;
+    port airOut : SterileAirSupplyPort;
+  }
+
+  part def VariableSpeedBlower {
+    attribute minimumFlow : FlowRate = 40.0;
+    attribute maximumFlow : FlowRate = 180.0;
+    attribute commandedFlow : FlowRate = 120.0;
+    port airIn : AirIntakePort;
+    port airOut : SterileAirSupplyPort;
+  }
+
+  part def PressureRegulator {
+    attribute setpoint : Pressure = 25.0;
+    attribute tolerance : Pressure = 5.0;
+    port airIn : AirIntakePort;
+    port airOut : SterileAirSupplyPort;
+  }
+
+  part def GloveAccessModule {
+    attribute gloveCount : Integer = 2;
+    attribute cuffSealIntegrity : Boolean = true;
+    port operatorGlovePort[2] : GloveAccessPort;
+    port internalManipulationPort : GloveAccessPort;
+  }
+
+  part def SterileInstrumentTransferModule {
+    attribute transferCycleTime : TimeDuration = 1.0;
+    attribute interlockClosed : Boolean = true;
+    attribute internalSterilityMaintained : Boolean = true;
+    port externalTransferPort : InstrumentTransferPort;
+    port internalTransferPort : InstrumentTransferPort;
+  }
+
+  part def PatientInterfaceModule {
+    attribute drapeSealIntegrity : Boolean = true;
+    attribute accessOpeningDiameter : LengthValue = 0.35 [m];
+    port externalPatientPort : PatientAccessPort;
+    port internalPatientPort : PatientAccessPort;
+  }
+
+  part def EnvironmentalMonitoringModule {
+    attribute measuredPressure : Pressure;
+    attribute measuredParticleConcentration : ParticleConcentration;
+    attribute measuredTemperature : Temperature;
+    attribute measuredHumidity : RelativeHumidity;
+
+    port powerPort : PowerInputPort;
+    port pressureSensorOut : SensorPort;
+    port particleSensorOut : SensorPort;
+    port temperatureSensorOut : SensorPort;
+    port humiditySensorOut : SensorPort;
+
+    part pressureSensor : PressureSensor;
+    part particleCounter : ParticleCounter;
+    part temperatureSensor : TemperatureSensor;
+    part humiditySensor : HumiditySensor;
+
+    connect pressureSensor.readingOut to pressureSensorOut;
+    connect particleCounter.readingOut to particleSensorOut;
+    connect temperatureSensor.readingOut to temperatureSensorOut;
+    connect humiditySensor.readingOut to humiditySensorOut;
+  }
+
+  part def PressureSensor {
+    attribute rangeLow : Pressure = -50.0;
+    attribute rangeHigh : Pressure = 100.0;
+    attribute accuracy : Pressure = 1.0;
+    port readingOut : SensorPort;
+  }
+
+  part def ParticleCounter {
+    attribute detectableParticleSize : LengthValue = 0.0000003 [m];
+    attribute alarmThreshold : ParticleConcentration = 3520.0;
+    port readingOut : SensorPort;
+  }
+
+  part def TemperatureSensor {
+    attribute accuracy : Temperature = 0.5;
+    port readingOut : SensorPort;
+  }
+
+  part def HumiditySensor {
+    attribute accuracy : RelativeHumidity = 3.0;
+    port readingOut : SensorPort;
+  }
+
+  part def ControlAndAlarmModule {
+    attribute sterileModeEnabled : Boolean = false;
+    attribute pressureAlarmActive : Boolean = false;
+    attribute contaminationAlarmActive : Boolean = false;
+    attribute powerAlarmActive : Boolean = false;
+
+    port powerPort : PowerInputPort;
+    port sensorIn : SensorPort;
+    port fanCommandOut : UserInterfacePort;
+    port ui : UserInterfacePort;
+
+    part controller : EmbeddedController;
+    part alarmIndicator : AudibleVisualAlarm;
+    part userPanel : UserPanel;
+
+    connect userPanel.uiPort to ui;
+    connect controller.alarmOut to alarmIndicator.alarmIn;
+  }
+
+  part def EmbeddedController {
+    attribute samplePeriod : TimeDuration = 0.017;
+    attribute pressureControlGain : Real = 1.5;
+    port alarmOut : UserInterfacePort;
+  }
+
+  part def AudibleVisualAlarm {
+    attribute soundLevel : Real = 75.0;
+    attribute visualIntensity : Illuminance = 300.0;
+    port alarmIn : UserInterfacePort;
+  }
+
+  part def UserPanel {
+    attribute displayBrightness : Illuminance = 500.0;
+    port uiPort : UserInterfacePort;
+  }
+
+  part def IntegratedLightingModule {
+    attribute nominalIlluminance : Illuminance = 35000.0;
+    attribute colorTemperature : Temperature = 4500.0;
+    attribute powerDraw : Power = 15.0;
+    port powerPort : PowerInputPort;
+    port lightOut : LightOutputPort;
+  }
+
+  part def PortablePowerSubsystem {
+    attribute externalVoltage : Voltage = 24.0;
+    attribute batteryRuntime : TimeDuration = 240.0;
+    attribute batteryCapacity : Real = 360.0;
+    attribute conditionedVoltage : Voltage = 24.0;
+
+    port externalPowerIn : PowerInputPort;
+    port batteryInterface : BatteryPort;
+    port conditionedPowerOut : PowerInputPort;
+
+    part batteryPack : RechargeableBatteryPack;
+    part powerConditioner : PowerConditioner;
+
+    connect externalPowerIn to powerConditioner.externalInput;
+    connect batteryInterface to batteryPack.batteryPort;
+    connect batteryPack.outputPort to powerConditioner.batteryInput;
+    connect powerConditioner.conditionedOutput to conditionedPowerOut;
+  }
+
+  part def RechargeableBatteryPack {
+    attribute nominalVoltage : Voltage = 24.0;
+    attribute capacityWh : Real = 360.0;
+    attribute stateOfCharge : Real = 1.0;
+    port batteryPort : BatteryPort;
+    port outputPort : PowerInputPort;
+  }
+
+  part def PowerConditioner {
+    attribute outputVoltage : Voltage = 24.0;
+    attribute efficiency : Real = 0.92;
+    port externalInput : PowerInputPort;
+    port batteryInput : PowerInputPort;
+    port conditionedOutput : PowerInputPort;
+  }
+
+  part def WasteContainmentModule {
+    attribute sealedCapacity : Volume = 5.0;
+    attribute closureIntegrity : Boolean = true;
+    port wasteIn : InstrumentTransferPort;
+    port wasteOut : InstrumentTransferPort;
+  }
+
+  action def SurgiboxOperationalBehavior {
+    in item command : ControlCommand;
+    out item result : SurgicalProcedureOutput;
+
+    first start;
+
+    state initialState;
+    state deployed;
+    state purging;
+    state sterileReady;
+    state procedureInProgress;
+    state alarmed;
+    state shutdown;
+
+    transition start first initialState;
+    transition deploy
+      first initialState
+      then deployed;
+
+    transition beginPurge
+      first deployed
+      then purging;
+
+    transition sterilityAchieved
+      first purging
+      then sterileReady
+      if chamberPressure >= 20.0 and particleConcentration <= 3520.0 and bioburden <= 1.0;
+
+    transition startProcedure
+      first sterileReady
+      then procedureInProgress;
+
+    transition contaminationDetected
+      first procedureInProgress
+      then alarmed
+      if chamberPressure < 15.0 or particleConcentration > 3520.0 or barrierIntegrity == false;
+
+    transition recoverSterility
+      first alarmed
+      then purging
+      if operatorAcknowledged == true and barrierIntegrity == true;
+
+    transition completeProcedure
+      first procedureInProgress
+      then shutdown;
+
+    transition powerDown
+      first sterileReady
+      then shutdown;
+
+    attribute chamberPressure : Pressure;
+    attribute particleConcentration : ParticleConcentration;
+    attribute bioburden : SterilityLevel;
+    attribute barrierIntegrity : Boolean;
+    attribute operatorAcknowledged : Boolean;
+  }
+
+  action def MaintainSterileField {
+    in item ambientAir : AmbientAir;
+    out item sterileAir : FilteredSterileAir;
+    attribute targetPressure : Pressure = 25.0;
+    attribute maxParticleConcentration : ParticleConcentration = 3520.0;
+    attribute maxBioburden : SterilityLevel = 1.0;
+  }
+
+  action def TransferInstrumentSterilely {
+    in item instrument : SurgicalInstrument;
+    out item sterileInstrument : SurgicalInstrument;
+    attribute transferDoorInterlocked : Boolean = true;
+    attribute transferCycleTime : TimeDuration = 1.0;
+  }
+
+  action def SupportSurgicalManipulation {
+    in item handMotion : OperatorHandMotion;
+    inout item anatomy : PatientAnatomy;
+    out item procedureOutput : SurgicalProcedureOutput;
+    attribute gloveSealIntegrity : Boolean = true;
+  }
+
+  action def MonitorAndAlarm {
+    in item reading : SensorReading;
+    out item alarm : AlarmSignal;
+    attribute pressureLowLimit : Pressure = 15.0;
+    attribute particleHighLimit : ParticleConcentration = 3520.0;
+    attribute batteryLowLimit : Real = 0.15;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Surgibox system shall provide a portable, transparent, positive-pressure sterile surgical field around a patient access site so clinicians can perform procedures while isolating the operative field from ambient contamination. */
+    subject system : SurgiboxSystem;
+    require constraint {
+      system.sterileChamber.targetPressure >= 20.0 and
+      system.sterileChamber.targetBioburden <= 1.0 and
+      system.filtration.filterEfficiencyAt03Micron >= 0.9997
+    }
+  }
+
+  requirement def PortabilityRequirement {
+    doc /* The system shall be deployable at point of care without fixed operating room infrastructure. */
+    subject system : SurgiboxSystem;
+    require constraint {
+      system.setupTimeLimit <= 10.0 and
+      system.powerSubsystem.batteryRuntime >= 240.0
+    }
+  }
+
+  requirement def SterileAirRequirement {
+    doc /* The air management subsystem shall supply HEPA-filtered air and maintain positive chamber pressure during normal operation. */
+    subject filtration : AirFiltrationAndPressureUnit;
+    require constraint {
+      filtration.filterEfficiencyAt03Micron >= 0.9997 and
+      filtration.nominalFlowRate >= 100.0 and
+      filtration.pressureSetpoint >= 20.0
+    }
+  }
+
+  requirement def BarrierRequirement {
+    doc /* The transparent envelope, glove ports, patient interface, and transfer module shall preserve sterile barrier integrity during setup, operation, and instrument exchange. */
+    subject system : SurgiboxSystem;
+    require constraint {
+      system.barrier.sterileBarrierIntegrity == true and
+      system.gloveModule.cuffSealIntegrity == true and
+      system.patientPortModule.drapeSealIntegrity == true and
+      system.instrumentModule.internalSterilityMaintained == true
+    }
+  }
+
+  requirement def MonitoringRequirement {
+    doc /* The system shall continuously monitor pressure, particle concentration, temperature, humidity, and power state and shall alert the operator when sterile conditions are not maintained. */
+    subject system : SurgiboxSystem;
+    require constraint {
+      system.sensing.pressureSensor.accuracy <= 1.0 and
+      system.sensing.particleCounter.alarmThreshold <= 3520.0
+    }
+  }
+
+  requirement def LightingRequirement {
+    doc /* The system shall provide sufficient internal illumination for surgical manipulation within the sterile field. */
+    subject lighting : IntegratedLightingModule;
+    require constraint {
+      lighting.nominalIlluminance >= 30000.0
+    }
+  }
+
+  requirement def WasteContainmentRequirement {
+    doc /* Waste generated inside the sterile chamber shall be isolated from the patient and operator environment until sealed removal. */
+    subject wasteModule : WasteContainmentModule;
+    require constraint {
+      wasteModule.sealedCapacity >= 5.0 and
+      wasteModule.closureIntegrity == true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by SurgiboxSystem;
+  satisfy PortabilityRequirement by PortablePowerSubsystem;
+  satisfy SterileAirRequirement by AirFiltrationAndPressureUnit;
+  satisfy BarrierRequirement by TransparentBarrierEnvelope;
+  satisfy MonitoringRequirement by EnvironmentalMonitoringModule;
+  satisfy LightingRequirement by IntegratedLightingModule;
+  satisfy WasteContainmentRequirement by WasteContainmentModule;
+
+  part surgibox : SurgiboxSystem;
+
+}

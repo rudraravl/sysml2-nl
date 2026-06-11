@@ -1,0 +1,644 @@
+package AspectMedicalSystemsBasedDesign {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        range = "0..100";
+    }
+
+    attribute def MicroVolt :> Real {
+        unit = "uV";
+    }
+
+    attribute def Hertz :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Ohm :> Real {
+        unit = "ohm";
+    }
+
+    attribute def Second :> Real {
+        unit = "s";
+    }
+
+    attribute def Minute :> Real {
+        unit = "min";
+    }
+
+    attribute def Milliampere :> Real {
+        unit = "mA";
+    }
+
+    attribute def VoltDC :> Real {
+        unit = "V";
+    }
+
+    attribute def Celsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def Decibel :> Real {
+        unit = "dB";
+    }
+
+    item def RawEEGSignal {
+        attribute channelCount : Integer;
+        attribute sampleRate : Hertz;
+        attribute amplitude : MicroVolt;
+        attribute bandwidthLow : Hertz;
+        attribute bandwidthHigh : Hertz;
+        attribute electrodeImpedance : Ohm;
+        attribute patientIsolationVerified : Boolean;
+    }
+
+    item def ProcessedEEGFeatures {
+        attribute betaRatio : Real;
+        attribute burstSuppressionRatio : Percent;
+        attribute spectralEdgeFrequency95 : Hertz;
+        attribute electromyographyLevel : Decibel;
+        attribute signalQualityIndex : Percent;
+        attribute artifactDetected : Boolean;
+    }
+
+    item def BISIndex {
+        attribute value : Percent;
+        attribute confidence : Percent;
+        attribute calculatedAt : Second;
+        attribute trendSlopePerMinute : Real;
+    }
+
+    item def AlarmEvent {
+        attribute priority : String;
+        attribute message : String;
+        attribute active : Boolean;
+        attribute acknowledged : Boolean;
+        attribute timestamp : Second;
+    }
+
+    item def PatientContext {
+        attribute patientIdentifier : String;
+        attribute ageYears : Integer;
+        attribute weightKg : Real;
+        attribute clinicalMode : String;
+        attribute procedureIdentifier : String;
+    }
+
+    item def ClinicianCommand {
+        attribute commandKind : String;
+        attribute requestedBy : String;
+        attribute requestedAt : Second;
+        attribute parameterName : String;
+        attribute parameterValue : String;
+    }
+
+    item def TrendRecord {
+        attribute bisValue : Percent;
+        attribute signalQuality : Percent;
+        attribute burstSuppressionRatio : Percent;
+        attribute timeFromCaseStart : Second;
+    }
+
+    port def SensorSkinInterface {
+        inout eeg : RawEEGSignal;
+    }
+
+    port def IsolatedAnalogPort {
+        in eegIn : RawEEGSignal;
+        out conditionedEEG : RawEEGSignal;
+    }
+
+    port def DigitalSignalPort {
+        in rawFrame : RawEEGSignal;
+        out features : ProcessedEEGFeatures;
+    }
+
+    port def IndexPort {
+        in features : ProcessedEEGFeatures;
+        out index : BISIndex;
+    }
+
+    port def AlarmPort {
+        in index : BISIndex;
+        in features : ProcessedEEGFeatures;
+        out alarm : AlarmEvent;
+    }
+
+    port def DisplayPort {
+        in index : BISIndex;
+        in alarm : AlarmEvent;
+        in trend : TrendRecord;
+        in context : PatientContext;
+    }
+
+    port def UserControlPort {
+        in command : ClinicianCommand;
+        out context : PatientContext;
+    }
+
+    port def NetworkPort {
+        out trend : TrendRecord;
+        out index : BISIndex;
+        out alarm : AlarmEvent;
+        in command : ClinicianCommand;
+    }
+
+    port def PowerPort {
+        in supplyVoltage : VoltDC;
+        out loadCurrent : Milliampere;
+    }
+
+    part def DisposableEEGSensor {
+        attribute electrodeCount : Integer = 4;
+        attribute shelfLifeMonths : Integer = 18;
+        attribute maxSkinContactHours : Real = 24.0;
+        attribute nominalImpedance : Ohm = 5000.0;
+        attribute sterilePackagingIntact : Boolean;
+
+        port skin : SensorSkinInterface;
+    }
+
+    part def PatientIsolationBarrier {
+        attribute isolationVoltageVrms : Real = 4000.0;
+        attribute leakageCurrentLimit : Milliampere = 0.01;
+        attribute barrierIntegrityOk : Boolean;
+
+        port patientSide : IsolatedAnalogPort;
+        port systemSide : IsolatedAnalogPort;
+    }
+
+    part def AnalogFrontEnd {
+        attribute inputNoise : MicroVolt = 0.5;
+        attribute commonModeRejection : Decibel = 100.0;
+        attribute gain : Real = 1000.0;
+        attribute lowPassCutoff : Hertz = 70.0;
+        attribute highPassCutoff : Hertz = 0.25;
+        attribute notchFrequency : Hertz = 60.0;
+
+        port analog : IsolatedAnalogPort;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 24;
+        attribute sampleRate : Hertz = 256.0;
+        attribute referenceVoltage : VoltDC = 2.5;
+
+        port digital : DigitalSignalPort;
+    }
+
+    part def EEGSignalProcessor {
+        attribute artifactRejectionEnabled : Boolean = true;
+        attribute minimumSignalQuality : Percent = 50.0;
+        attribute analysisWindow : Second = 15.0;
+        attribute updatePeriod : Second = 1.0;
+
+        port signal : DigitalSignalPort;
+        port indexOut : IndexPort;
+
+        action extractFeatures {
+            in raw : RawEEGSignal;
+            out features : ProcessedEEGFeatures;
+
+            first start;
+            then validateSampling;
+            then removeLineNoise;
+            then rejectMotionArtifact;
+            then computePowerSpectrum;
+            then computeBurstSuppression;
+            then estimateSignalQuality;
+            then done;
+
+            action validateSampling;
+            action removeLineNoise;
+            action rejectMotionArtifact;
+            action computePowerSpectrum;
+            action computeBurstSuppression;
+            action estimateSignalQuality;
+        }
+
+        action calculateBIS {
+            in features : ProcessedEEGFeatures;
+            out bis : BISIndex;
+
+            first start;
+            then combineSpectralFeatures;
+            then applySuppressionAdjustment;
+            then boundIndexToClinicalScale;
+            then estimateConfidence;
+            then done;
+
+            action combineSpectralFeatures;
+            action applySuppressionAdjustment;
+            action boundIndexToClinicalScale;
+            action estimateConfidence;
+        }
+    }
+
+    part def ClinicalAlarmManager {
+        attribute lowBISLimit : Percent = 40.0;
+        attribute highBISLimit : Percent = 60.0;
+        attribute lowSignalQualityLimit : Percent = 50.0;
+        attribute highImpedanceLimit : Ohm = 7500.0;
+        attribute alarmSilenceDuration : Second = 120.0;
+
+        port alarming : AlarmPort;
+
+        state def AlarmStateMachine {
+            entry action initializeAlarmOutputs;
+
+            state Normal;
+            state Advisory;
+            state Warning;
+            state Silenced;
+            state Fault;
+
+            transition first Normal;
+
+            transition Normal_to_Advisory
+                first Normal
+                accept when signalQualityBelowLimit or artifactDetected
+                then Advisory;
+
+            transition Advisory_to_Normal
+                first Advisory
+                accept when signalQualityRecovered and not artifactDetected
+                then Normal;
+
+            transition Normal_to_Warning
+                first Normal
+                accept when bisOutsideTargetRange
+                then Warning;
+
+            transition Warning_to_Normal
+                first Warning
+                accept when bisInsideTargetRange
+                then Normal;
+
+            transition Warning_to_Silenced
+                first Warning
+                accept ClinicianCommand
+                if commandKind == "silenceAlarm"
+                then Silenced;
+
+            transition Silenced_to_Warning
+                first Silenced
+                accept after alarmSilenceDuration
+                then Warning;
+
+            transition Any_to_Fault
+                first Normal
+                accept when isolationFailureDetected or processorSelfTestFailed
+                then Fault;
+        }
+    }
+
+    part def ClinicianDisplay {
+        attribute screenDiagonalInches : Real = 7.0;
+        attribute brightnessPercent : Percent = 75.0;
+        attribute refreshPeriod : Second = 1.0;
+        attribute showsBISTrend : Boolean = true;
+        attribute showsSignalQuality : Boolean = true;
+        attribute showsBurstSuppression : Boolean = true;
+
+        port display : DisplayPort;
+    }
+
+    part def UserInterfaceControls {
+        attribute touchEnabled : Boolean = true;
+        attribute rotaryEncoderPresent : Boolean = true;
+        attribute alarmAcknowledgeButtonPresent : Boolean = true;
+
+        port controls : UserControlPort;
+    }
+
+    part def CaseMemory {
+        attribute capacityHours : Real = 72.0;
+        attribute encryptedStorage : Boolean = true;
+        attribute retainedRecordCount : Integer;
+
+        port trendIn : DisplayPort;
+
+        action storeTrendRecord {
+            in record : TrendRecord;
+            first start;
+            then validateRecord;
+            then appendToCaseFile;
+            then updateRetentionIndex;
+            then done;
+
+            action validateRecord;
+            action appendToCaseFile;
+            action updateRetentionIndex;
+        }
+    }
+
+    part def HospitalDataGateway {
+        attribute protocol : String = "HL7-over-TCP";
+        attribute networkIsolationEnabled : Boolean = true;
+        attribute exportPeriod : Second = 5.0;
+
+        port network : NetworkPort;
+    }
+
+    part def InternalPowerSubsystem {
+        attribute nominalInputVoltage : VoltDC = 24.0;
+        attribute maximumLoadCurrent : Milliampere = 1500.0;
+        attribute batteryBackupMinutes : Minute = 30.0;
+        attribute protectiveEarthPresent : Boolean;
+        attribute batteryStateOfCharge : Percent;
+
+        port power : PowerPort;
+
+        state def PowerStateMachine {
+            state Off;
+            state Starting;
+            state MainsPowered;
+            state BatteryPowered;
+            state ControlledShutdown;
+            state PowerFault;
+
+            transition first Off;
+
+            transition Off_to_Starting
+                first Off
+                accept ClinicianCommand
+                if commandKind == "powerOn"
+                then Starting;
+
+            transition Starting_to_MainsPowered
+                first Starting
+                accept when selfTestPassed and supplyVoltage >= 20.0
+                then MainsPowered;
+
+            transition MainsPowered_to_BatteryPowered
+                first MainsPowered
+                accept when supplyVoltage < 20.0
+                then BatteryPowered;
+
+            transition BatteryPowered_to_MainsPowered
+                first BatteryPowered
+                accept when supplyVoltage >= 20.0
+                then MainsPowered;
+
+            transition BatteryPowered_to_ControlledShutdown
+                first BatteryPowered
+                accept when batteryStateOfCharge < 10.0
+                then ControlledShutdown;
+
+            transition Any_to_PowerFault
+                first MainsPowered
+                accept when overCurrentDetected or batteryFaultDetected
+                then PowerFault;
+        }
+    }
+
+    part def BISMonitorSystem {
+        attribute manufacturerBasis : String = "Aspect Medical Systems bispectral-index monitoring concept";
+        attribute primaryFunction : String =
+            "Acquire frontal EEG signals from an anesthetized patient, transform them into a validated bispectral index, and present trend and alarm information that supports clinician assessment of hypnotic state during sedation or anesthesia.";
+        attribute targetBISLowerBound : Percent = 40.0;
+        attribute targetBISUpperBound : Percent = 60.0;
+        attribute operatingTemperatureMin : Celsius = 10.0;
+        attribute operatingTemperatureMax : Celsius = 40.0;
+        attribute caseRunning : Boolean;
+
+        part sensor : DisposableEEGSensor;
+        part isolation : PatientIsolationBarrier;
+        part frontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part processor : EEGSignalProcessor;
+        part alarms : ClinicalAlarmManager;
+        part display : ClinicianDisplay;
+        part controls : UserInterfaceControls;
+        part memory : CaseMemory;
+        part gateway : HospitalDataGateway;
+        part power : InternalPowerSubsystem;
+
+        port patientSensor : SensorSkinInterface;
+        port mainsPower : PowerPort;
+        port hospitalNetwork : NetworkPort;
+        port clinicianCommands : UserControlPort;
+        port clinicalDisplay : DisplayPort;
+
+        connect patientSensor to sensor.skin;
+        connect sensor.skin.eeg to isolation.patientSide.eegIn;
+        connect isolation.systemSide.conditionedEEG to frontEnd.analog.eegIn;
+        connect frontEnd.analog.conditionedEEG to adc.digital.rawFrame;
+        connect adc.digital.features to processor.signal.features;
+        connect processor.indexOut.index to alarms.alarming.index;
+        connect processor.signal.features to alarms.alarming.features;
+        connect alarms.alarming.alarm to display.display.alarm;
+        connect processor.indexOut.index to display.display.index;
+        connect controls.controls.context to display.display.context;
+        connect display.display to memory.trendIn;
+        connect processor.indexOut.index to gateway.network.index;
+        connect alarms.alarming.alarm to gateway.network.alarm;
+        connect gateway.network.command to controls.controls.command;
+        connect mainsPower to power.power;
+        connect hospitalNetwork to gateway.network;
+        connect clinicianCommands to controls.controls;
+        connect clinicalDisplay to display.display;
+
+        action runMonitoringCase {
+            in context : PatientContext;
+            out latestIndex : BISIndex;
+            out activeAlarm : AlarmEvent;
+
+            first start;
+            then performPowerSelfTest;
+            then verifySensorConnection;
+            then measureElectrodeImpedance;
+            then acquireEEGContinuously;
+            then computeClinicalIndex;
+            then updateDisplayAndTrend;
+            then evaluateAlarmLimits;
+            then exportCaseData;
+            then done;
+
+            action performPowerSelfTest;
+            action verifySensorConnection;
+            action measureElectrodeImpedance;
+            action acquireEEGContinuously;
+            action computeClinicalIndex;
+            action updateDisplayAndTrend;
+            action evaluateAlarmLimits;
+            action exportCaseData;
+        }
+
+        state def MonitoringStateMachine {
+            state Off;
+            state SelfTest;
+            state WaitingForSensor;
+            state ImpedanceCheck;
+            state Monitoring;
+            state ArtifactHold;
+            state AlarmActive;
+            state CasePaused;
+            state Shutdown;
+
+            transition first Off;
+
+            transition Off_to_SelfTest
+                first Off
+                accept ClinicianCommand
+                if commandKind == "startSystem"
+                then SelfTest;
+
+            transition SelfTest_to_WaitingForSensor
+                first SelfTest
+                accept when selfTestPassed
+                then WaitingForSensor;
+
+            transition WaitingForSensor_to_ImpedanceCheck
+                first WaitingForSensor
+                accept when electrodeSetDetected
+                then ImpedanceCheck;
+
+            transition ImpedanceCheck_to_Monitoring
+                first ImpedanceCheck
+                accept when electrodeImpedance <= 7500.0 and signalQualityIndex >= 50.0
+                then Monitoring;
+
+            transition ImpedanceCheck_to_WaitingForSensor
+                first ImpedanceCheck
+                accept when electrodeImpedance > 7500.0
+                then WaitingForSensor;
+
+            transition Monitoring_to_ArtifactHold
+                first Monitoring
+                accept when artifactDetected or signalQualityIndex < 50.0
+                then ArtifactHold;
+
+            transition ArtifactHold_to_Monitoring
+                first ArtifactHold
+                accept when not artifactDetected and signalQualityIndex >= 50.0
+                then Monitoring;
+
+            transition Monitoring_to_AlarmActive
+                first Monitoring
+                accept when latestBISValue < targetBISLowerBound or latestBISValue > targetBISUpperBound
+                then AlarmActive;
+
+            transition AlarmActive_to_Monitoring
+                first AlarmActive
+                accept when latestBISValue >= targetBISLowerBound and latestBISValue <= targetBISUpperBound
+                then Monitoring;
+
+            transition Monitoring_to_CasePaused
+                first Monitoring
+                accept ClinicianCommand
+                if commandKind == "pauseCase"
+                then CasePaused;
+
+            transition CasePaused_to_Monitoring
+                first CasePaused
+                accept ClinicianCommand
+                if commandKind == "resumeCase"
+                then Monitoring;
+
+            transition Any_to_Shutdown
+                first Monitoring
+                accept ClinicianCommand
+                if commandKind == "shutdown"
+                then Shutdown;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall provide a high-level clinical monitoring function based on the Aspect Medical Systems bispectral-index concept by acquiring frontal EEG data, processing it into a dimensionless hypnotic-state index, displaying the index and trend, and issuing alarms when data quality or index values require clinician attention. */
+
+        subject monitoredSystem : BISMonitorSystem;
+
+        require constraint {
+            monitoredSystem.targetBISLowerBound == 40.0 and
+            monitoredSystem.targetBISUpperBound == 60.0
+        }
+    }
+
+    requirement def EEGAcquisitionRequirement {
+        doc
+        /* The system shall acquire at least two channels of frontal EEG with patient isolation, impedance checking, and sampling adequate for bispectral analysis. */
+
+        subject monitoredSystem : BISMonitorSystem;
+
+        require constraint {
+            monitoredSystem.adc.resolutionBits >= 16 and
+            monitoredSystem.adc.sampleRate >= 128.0 and
+            monitoredSystem.isolation.leakageCurrentLimit <= 0.01
+        }
+    }
+
+    requirement def BISComputationRequirement {
+        doc
+        /* The system shall update the bispectral index at least once every second when signal quality is acceptable. */
+
+        subject monitoredSystem : BISMonitorSystem;
+
+        require constraint {
+            monitoredSystem.processor.updatePeriod <= 1.0 and
+            monitoredSystem.processor.minimumSignalQuality >= 50.0
+        }
+    }
+
+    requirement def ClinicalDisplayRequirement {
+        doc
+        /* The system shall display the current BIS value, signal quality, burst suppression ratio, alarms, and trend data during an active case. */
+
+        subject monitoredSystem : BISMonitorSystem;
+
+        require constraint {
+            monitoredSystem.display.showsBISTrend == true and
+            monitoredSystem.display.showsSignalQuality == true and
+            monitoredSystem.display.showsBurstSuppression == true
+        }
+    }
+
+    requirement def AlarmRequirement {
+        doc
+        /* The system shall generate clinical alarm events for out-of-range BIS values, low signal quality, excessive electrode impedance, or internal system faults. */
+
+        subject monitoredSystem : BISMonitorSystem;
+
+        require constraint {
+            monitoredSystem.alarms.lowBISLimit == monitoredSystem.targetBISLowerBound and
+            monitoredSystem.alarms.highBISLimit == monitoredSystem.targetBISUpperBound and
+            monitoredSystem.alarms.lowSignalQualityLimit >= 50.0
+        }
+    }
+
+    requirement def DataExportRequirement {
+        doc
+        /* The system shall retain case trend data locally and export index, alarm, and trend records to the hospital data environment using an isolated network interface. */
+
+        subject monitoredSystem : BISMonitorSystem;
+
+        require constraint {
+            monitoredSystem.memory.capacityHours >= 24.0 and
+            monitoredSystem.gateway.networkIsolationEnabled == true
+        }
+    }
+
+    requirement def PowerContinuityRequirement {
+        doc
+        /* The system shall provide battery-backed operation for short mains interruptions and perform controlled shutdown before battery depletion. */
+
+        subject monitoredSystem : BISMonitorSystem;
+
+        require constraint {
+            monitoredSystem.power.batteryBackupMinutes >= 30.0 and
+            monitoredSystem.power.batteryStateOfCharge >= 0.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by BISMonitorSystem;
+    satisfy EEGAcquisitionRequirement by BISMonitorSystem;
+    satisfy BISComputationRequirement by EEGSignalProcessor;
+    satisfy ClinicalDisplayRequirement by ClinicianDisplay;
+    satisfy AlarmRequirement by ClinicalAlarmManager;
+    satisfy DataExportRequirement by HospitalDataGateway;
+    satisfy PowerContinuityRequirement by InternalPowerSubsystem;
+}

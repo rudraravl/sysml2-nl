@@ -1,0 +1,1207 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p_ryn6gi
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb426-bf39-7f93-acfe-1f4e69508003
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Stadiometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package StadiometerSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def MassValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def ForceValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def TimeValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def TemperatureValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def PercentageValue {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    enum def MeasurementMode {
+        enum manual;
+        enum assisted;
+        enum calibration;
+        enum diagnostic;
+    }
+
+    enum def DeviceState {
+        enum poweredOff;
+        enum initializing;
+        enum ready;
+        enum positioningHeadpiece;
+        enum measuring;
+        enum validating;
+        enum displayingResult;
+        enum error;
+        enum cleaning;
+    }
+
+    enum def ErrorCode {
+        enum none;
+        enum headpieceObstructed;
+        enum subjectMoved;
+        enum outOfRange;
+        enum sensorFailure;
+        enum calibrationExpired;
+        enum lowBattery;
+        enum displayFailure;
+    }
+
+    item def HumanSubject {
+        attribute standingHeight : LengthValue;
+        attribute postureStable : Boolean;
+        attribute heelsAgainstBase : Boolean;
+        attribute headInFrankfortPlane : Boolean;
+    }
+
+    item def HeightMeasurement {
+        attribute measuredHeight : LengthValue;
+        attribute measurementTime : TimeValue;
+        attribute confidence : PercentageValue;
+        attribute valid : Boolean;
+        attribute mode : MeasurementMode;
+    }
+
+    item def MeasurementCommand {
+        attribute requestedMode : MeasurementMode;
+        attribute operatorId : String;
+    }
+
+    item def StatusMessage {
+        attribute state : DeviceState;
+        attribute error : ErrorCode;
+        attribute messageText : String;
+    }
+
+    item def CalibrationRecord {
+        attribute referenceHeight : LengthValue;
+        attribute measuredReferenceHeight : LengthValue;
+        attribute error : LengthValue;
+        attribute calibrationTimestamp : TimeValue;
+        attribute passed : Boolean;
+    }
+
+    port def SubjectInterfacePort {
+        in item subject : HumanSubject;
+    }
+
+    port def OperatorControlPort {
+        in item command : MeasurementCommand;
+        out item status : StatusMessage;
+        out item result : HeightMeasurement;
+    }
+
+    port def DataOutputPort {
+        out item result : HeightMeasurement;
+        out item calibrationRecord : CalibrationRecord;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Real;
+        in attribute availablePower : Real;
+    }
+
+    part def BasePlatform {
+        attribute width : LengthValue = (value = 0.45, unit = "m");
+        attribute depth : LengthValue = (value = 0.45, unit = "m");
+        attribute flatnessTolerance : LengthValue = (value = 0.001, unit = "m");
+        attribute maximumSubjectMass : MassValue = (value = 250.0, unit = "kg");
+
+        port subjectInterface : SubjectInterfacePort;
+    }
+
+    part def VerticalColumn {
+        attribute heightRangeMinimum : LengthValue = (value = 0.60, unit = "m");
+        attribute heightRangeMaximum : LengthValue = (value = 2.20, unit = "m");
+        attribute graduationResolution : LengthValue = (value = 0.001, unit = "m");
+        attribute columnStraightnessTolerance : LengthValue = (value = 0.0008, unit = "m");
+    }
+
+    part def SlidingHeadpiece {
+        attribute contactForceMinimum : ForceValue = (value = 1.0, unit = "N");
+        attribute contactForceMaximum : ForceValue = (value = 5.0, unit = "N");
+        attribute currentPosition : LengthValue;
+        attribute locked : Boolean;
+        attribute contactDetected : Boolean;
+    }
+
+    part def PositionSensor {
+        attribute resolution : LengthValue = (value = 0.0005, unit = "m");
+        attribute accuracy : LengthValue = (value = 0.001, unit = "m");
+        attribute measuredPosition : LengthValue;
+        attribute healthy : Boolean;
+    }
+
+    part def ContactSensor {
+        attribute forceResolution : ForceValue = (value = 0.1, unit = "N");
+        attribute measuredContactForce : ForceValue;
+        attribute contactConfirmed : Boolean;
+        attribute healthy : Boolean;
+    }
+
+    part def UserDisplay {
+        attribute visibleHeightValue : LengthValue;
+        attribute visibleState : DeviceState;
+        attribute visibleError : ErrorCode;
+        attribute healthy : Boolean;
+    }
+
+    part def ControlPanel {
+        port operatorPort : OperatorControlPort;
+        attribute selectedMode : MeasurementMode;
+        attribute startPressed : Boolean;
+        attribute tarePressed : Boolean;
+        attribute calibrationPressed : Boolean;
+    }
+
+    part def MeasurementProcessor {
+        attribute activeState : DeviceState;
+        attribute currentError : ErrorCode;
+        attribute lastMeasurement : HeightMeasurement;
+        attribute calibrationOffset : LengthValue = (value = 0.0, unit = "m");
+        attribute calibrationValid : Boolean;
+        attribute ambientTemperature : TemperatureValue;
+    }
+
+    part def PowerSubsystem {
+        port powerIn : PowerPort;
+        attribute nominalVoltage : Real = 12.0;
+        attribute minimumOperatingVoltage : Real = 10.5;
+        attribute batteryCharge : PercentageValue;
+        attribute powerHealthy : Boolean;
+    }
+
+    part def DataInterface {
+        port dataOut : DataOutputPort;
+        attribute storesMeasurements : Boolean = true;
+        attribute wirelessEnabled : Boolean = true;
+        attribute localStorageCapacity : Integer = 10000;
+    }
+
+    action def InitializeDevice {
+        inout processor : MeasurementProcessor;
+        out status : StatusMessage;
+
+        first start;
+        then checkPower;
+        then checkSensors;
+        then loadCalibration;
+        then setReady;
+        then done;
+
+        action checkPower;
+        action checkSensors;
+        action loadCalibration;
+        action setReady {
+            processor.activeState = DeviceState::ready;
+            processor.currentError = ErrorCode::none;
+            status.state = DeviceState::ready;
+            status.error = ErrorCode::none;
+            status.messageText = "Ready for height measurement";
+        }
+    }
+
+    action def PositionHeadpieceAction {
+        in subject : HumanSubject;
+        inout headpiece : SlidingHeadpiece;
+        in contactSensor : ContactSensor;
+        out positioned : Boolean;
+
+        first releaseLock;
+        then lowerHeadpiece;
+        then confirmContact;
+        then lockHeadpiece;
+        then done;
+
+        action releaseLock {
+            headpiece.locked = false;
+        }
+
+        action lowerHeadpiece;
+        action confirmContact {
+            positioned =
+                subject.postureStable and
+                subject.heelsAgainstBase and
+                subject.headInFrankfortPlane and
+                contactSensor.contactConfirmed;
+            headpiece.contactDetected = positioned;
+        }
+
+        action lockHeadpiece {
+            headpiece.locked = positioned;
+        }
+    }
+
+    action def MeasureStandingHeight {
+        in subject : HumanSubject;
+        in sensor : PositionSensor;
+        in processor : MeasurementProcessor;
+        out measurement : HeightMeasurement;
+
+        first acquirePosition;
+        then applyCalibration;
+        then calculateConfidence;
+        then validateRange;
+        then publishMeasurement;
+        then done;
+
+        action acquirePosition;
+        action applyCalibration;
+        action calculateConfidence;
+        action validateRange;
+        action publishMeasurement {
+            measurement.measuredHeight.value =
+                sensor.measuredPosition.value + processor.calibrationOffset.value;
+            measurement.measuredHeight.unit = "m";
+            measurement.measurementTime.unit = "s";
+            measurement.mode = MeasurementMode::assisted;
+            measurement.valid =
+                sensor.healthy and
+                subject.postureStable and
+                measurement.measuredHeight.value >= 0.60 and
+                measurement.measuredHeight.value <= 2.20;
+            measurement.confidence.value = if measurement.valid then 98.0 else 0.0;
+        }
+    }
+
+    action def CalibrateStadiometer {
+        in referenceRecord : CalibrationRecord;
+        inout processor : MeasurementProcessor;
+        out completedRecord : CalibrationRecord;
+
+        first placeReferenceRod;
+        then readSensor;
+        then computeOffset;
+        then verifyTolerance;
+        then storeCalibration;
+        then done;
+
+        action placeReferenceRod;
+        action readSensor;
+        action computeOffset {
+            completedRecord.referenceHeight = referenceRecord.referenceHeight;
+            completedRecord.measuredReferenceHeight = referenceRecord.measuredReferenceHeight;
+            completedRecord.error.value =
+                referenceRecord.referenceHeight.value -
+                referenceRecord.measuredReferenceHeight.value;
+            completedRecord.error.unit = "m";
+        }
+
+        action verifyTolerance {
+            completedRecord.passed = abs(completedRecord.error.value) <= 0.002;
+        }
+
+        action storeCalibration {
+            processor.calibrationOffset = completedRecord.error;
+            processor.calibrationValid = completedRecord.passed;
+        }
+    }
+
+    state def StadiometerOperationalStateMachine {
+        inout processor : MeasurementProcessor;
+        in subject : HumanSubject;
+        in command : MeasurementCommand;
+        in sensor : PositionSensor;
+        in contactSensor : ContactSensor;
+        in power : PowerSubsystem;
+
+        state poweredOff;
+        state initializing;
+        state ready;
+        state positioningHeadpiece;
+        state measuring;
+        state validating;
+        state displayingResult;
+        state calibration;
+        state diagnostic;
+        state cleaning;
+        state error;
+
+        initial then poweredOff;
+
+        transition powerOn
+            first poweredOff
+            accept command
+            if power.powerHealthy
+            then initializing;
+
+        transition initialized
+            first initializing
+            if sensor.healthy and contactSensor.healthy and processor.calibrationValid
+            then ready;
+
+        transition initializationFailed
+            first initializing
+            if not sensor.healthy or not contactSensor.healthy or not processor.calibrationValid
+            then error;
+
+        transition startMeasurement
+            first ready
+            accept command
+            if command.requestedMode == MeasurementMode::assisted
+            then positioningHeadpiece;
+
+        transition headpiecePositioned
+            first positioningHeadpiece
+            if contactSensor.contactConfirmed and subject.postureStable
+            then measuring;
+
+        transition subjectMoved
+            first positioningHeadpiece
+            if not subject.postureStable
+            then error;
+
+        transition measurementAcquired
+            first measuring
+            if sensor.healthy
+            then validating;
+
+        transition measurementValid
+            first validating
+            if processor.lastMeasurement.valid
+            then displayingResult;
+
+        transition measurementInvalid
+            first validating
+            if not processor.lastMeasurement.valid
+            then error;
+
+        transition resultAcknowledged
+            first displayingResult
+            accept command
+            then ready;
+
+        transition requestCalibration
+            first ready
+            accept command
+            if command.requestedMode == MeasurementMode::calibration
+            then calibration;
+
+        transition calibrationComplete
+            first calibration
+            if processor.calibrationValid
+            then ready;
+
+        transition requestDiagnostic
+            first ready
+            accept command
+            if command.requestedMode == MeasurementMode::diagnostic
+            then diagnostic;
+
+        transition diagnosticComplete
+            first diagnostic
+            then ready;
+
+        transition requestCleaning
+            first ready
+            then cleaning;
+
+        transition cleaningComplete
+            first cleaning
+            then ready;
+
+        transition recover
+            first error
+            accept command
+            if power.powerHealthy and sensor.healthy and contactSensor.healthy
+            then ready;
+
+        transition powerLoss
+            first ready
+            if not power.powerHealthy
+            then poweredOff;
+    }
+
+    part def DigitalStadiometer {
+        attribute primaryFunction : String =
+            "Measure a standing human subject's vertical height from the base platform to the top of the head and provide a validated height result to an operator or connected health record system.";
+
+        part base : BasePlatform;
+        part column : VerticalColumn;
+        part headpiece : SlidingHeadpiece;
+        part positionSensor : PositionSensor;
+        part contactSensor : ContactSensor;
+        part display : UserDisplay;
+        part panel : ControlPanel;
+        part processor : MeasurementProcessor;
+        part power : PowerSubsystem;
+        part dataInterface : DataInterface;
+
+        port subjectPort : SubjectInterfacePort;
+        port operatorPort : OperatorControlPort;
+        port dataPort : DataOutputPort;
+        port powerPort : PowerPort;
+
+        connect subjectPort to base.subjectInterface;
+        connect operatorPort to panel.operatorPort;
+        connect dataPort to dataInterface.dataOut;
+        connect powerPort to power.powerIn;
+
+        perform action initialize : InitializeDevice {
+            inout processor = processor;
+        }
+
+        perform action positionHeadpiece : PositionHeadpieceAction {
+            in subject = subjectPort.subject;
+            inout headpiece = headpiece;
+            in contactSensor = contactSensor;
+        }
+
+        perform action measureHeight : MeasureStandingHeight {
+            in subject = subjectPort.subject;
+            in sensor = positionSensor;
+            in processor = processor;
+            out measurement = processor.lastMeasurement;
+        }
+
+        exhibit state operationalBehavior : StadiometerOperationalStateMachine {
+            inout processor = processor;
+            in subject = subjectPort.subject;
+            in command = operatorPort.command;
+            in sensor = positionSensor;
+            in contactSensor = contactSensor;
+            in power = power;
+        }
+    }
+
+    requirement def MeasureStandingHeightRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.lastMeasurement.valid implies
+            stadiometer.processor.lastMeasurement.measuredHeight.value >= 0.60 and
+            stadiometer.processor.lastMeasurement.measuredHeight.value <= 2.20
+        }
+
+        doc /* The stadiometer shall measure standing human height over the supported clinical range. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.positionSensor.accuracy.value <= 0.001
+        }
+
+        doc /* The stadiometer shall provide height measurement accuracy within plus or minus 1 mm under calibrated operating conditions. */
+    }
+
+    requirement def ResolutionRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.positionSensor.resolution.value <= 0.0005 and
+            stadiometer.column.graduationResolution.value <= 0.001
+        }
+
+        doc /* The stadiometer shall resolve height changes of 1 mm or better. */
+    }
+
+    requirement def ContactForceRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.headpiece.contactForceMinimum.value >= 1.0 and
+            stadiometer.headpiece.contactForceMaximum.value <= 5.0
+        }
+
+        doc /* The headpiece shall contact the subject with enough force to confirm contact without excessive compression or discomfort. */
+    }
+
+    requirement def PostureValidationRequirement {
+        subject subject : HumanSubject;
+
+        require constraint {
+            subject.postureStable and
+            subject.heelsAgainstBase and
+            subject.headInFrankfortPlane
+        }
+
+        doc /* A valid height measurement shall require stable posture, heel placement on the base platform, and head alignment in the Frankfort plane. */
+    }
+
+    requirement def CalibrationRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.calibrationValid
+        }
+
+        doc /* The stadiometer shall use a valid calibration record before reporting clinical height measurements. */
+    }
+
+    requirement def ResultOutputRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.lastMeasurement.valid implies
+            stadiometer.processor.lastMeasurement.confidence.value >= 95.0
+        }
+
+        doc /* The stadiometer shall display and export a validated height result with measurement confidence. */
+    }
+
+    requirement def SafetyRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.base.maximumSubjectMass.value >= 250.0 and
+            stadiometer.power.minimumOperatingVoltage <= stadiometer.power.nominalVoltage
+        }
+
+        doc /* The stadiometer shall support expected subject loading and enter a safe state if power is insufficient. */
+    }
+
+    requirement def ErrorHandlingRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.currentError != ErrorCode::none implies
+            stadiometer.processor.activeState == DeviceState::error
+        }
+
+        doc /* The stadiometer shall report an error state when measurement, sensor, calibration, or power faults are detected. */
+    }
+
+    satisfy MeasureStandingHeightRequirement by DigitalStadiometer;
+    satisfy AccuracyRequirement by DigitalStadiometer;
+    satisfy ResolutionRequirement by DigitalStadiometer;
+    satisfy ContactForceRequirement by DigitalStadiometer;
+    satisfy CalibrationRequirement by DigitalStadiometer;
+    satisfy ResultOutputRequirement by DigitalStadiometer;
+    satisfy SafetyRequirement by DigitalStadiometer;
+    satisfy ErrorHandlingRequirement by DigitalStadiometer;
+
+    part stadiometerSystem : DigitalStadiometer {
+        attribute primaryFunction =
+            "High-level primary function: determine and communicate a person's standing height using a stable base, vertical reference column, movable headpiece, position sensing, validation logic, display, and data output.";
+    }
+}
+tokens used
+5,062
+package StadiometerSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def MassValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def ForceValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def TimeValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def TemperatureValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def PercentageValue {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    enum def MeasurementMode {
+        enum manual;
+        enum assisted;
+        enum calibration;
+        enum diagnostic;
+    }
+
+    enum def DeviceState {
+        enum poweredOff;
+        enum initializing;
+        enum ready;
+        enum positioningHeadpiece;
+        enum measuring;
+        enum validating;
+        enum displayingResult;
+        enum error;
+        enum cleaning;
+    }
+
+    enum def ErrorCode {
+        enum none;
+        enum headpieceObstructed;
+        enum subjectMoved;
+        enum outOfRange;
+        enum sensorFailure;
+        enum calibrationExpired;
+        enum lowBattery;
+        enum displayFailure;
+    }
+
+    item def HumanSubject {
+        attribute standingHeight : LengthValue;
+        attribute postureStable : Boolean;
+        attribute heelsAgainstBase : Boolean;
+        attribute headInFrankfortPlane : Boolean;
+    }
+
+    item def HeightMeasurement {
+        attribute measuredHeight : LengthValue;
+        attribute measurementTime : TimeValue;
+        attribute confidence : PercentageValue;
+        attribute valid : Boolean;
+        attribute mode : MeasurementMode;
+    }
+
+    item def MeasurementCommand {
+        attribute requestedMode : MeasurementMode;
+        attribute operatorId : String;
+    }
+
+    item def StatusMessage {
+        attribute state : DeviceState;
+        attribute error : ErrorCode;
+        attribute messageText : String;
+    }
+
+    item def CalibrationRecord {
+        attribute referenceHeight : LengthValue;
+        attribute measuredReferenceHeight : LengthValue;
+        attribute error : LengthValue;
+        attribute calibrationTimestamp : TimeValue;
+        attribute passed : Boolean;
+    }
+
+    port def SubjectInterfacePort {
+        in item subject : HumanSubject;
+    }
+
+    port def OperatorControlPort {
+        in item command : MeasurementCommand;
+        out item status : StatusMessage;
+        out item result : HeightMeasurement;
+    }
+
+    port def DataOutputPort {
+        out item result : HeightMeasurement;
+        out item calibrationRecord : CalibrationRecord;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Real;
+        in attribute availablePower : Real;
+    }
+
+    part def BasePlatform {
+        attribute width : LengthValue = (value = 0.45, unit = "m");
+        attribute depth : LengthValue = (value = 0.45, unit = "m");
+        attribute flatnessTolerance : LengthValue = (value = 0.001, unit = "m");
+        attribute maximumSubjectMass : MassValue = (value = 250.0, unit = "kg");
+
+        port subjectInterface : SubjectInterfacePort;
+    }
+
+    part def VerticalColumn {
+        attribute heightRangeMinimum : LengthValue = (value = 0.60, unit = "m");
+        attribute heightRangeMaximum : LengthValue = (value = 2.20, unit = "m");
+        attribute graduationResolution : LengthValue = (value = 0.001, unit = "m");
+        attribute columnStraightnessTolerance : LengthValue = (value = 0.0008, unit = "m");
+    }
+
+    part def SlidingHeadpiece {
+        attribute contactForceMinimum : ForceValue = (value = 1.0, unit = "N");
+        attribute contactForceMaximum : ForceValue = (value = 5.0, unit = "N");
+        attribute currentPosition : LengthValue;
+        attribute locked : Boolean;
+        attribute contactDetected : Boolean;
+    }
+
+    part def PositionSensor {
+        attribute resolution : LengthValue = (value = 0.0005, unit = "m");
+        attribute accuracy : LengthValue = (value = 0.001, unit = "m");
+        attribute measuredPosition : LengthValue;
+        attribute healthy : Boolean;
+    }
+
+    part def ContactSensor {
+        attribute forceResolution : ForceValue = (value = 0.1, unit = "N");
+        attribute measuredContactForce : ForceValue;
+        attribute contactConfirmed : Boolean;
+        attribute healthy : Boolean;
+    }
+
+    part def UserDisplay {
+        attribute visibleHeightValue : LengthValue;
+        attribute visibleState : DeviceState;
+        attribute visibleError : ErrorCode;
+        attribute healthy : Boolean;
+    }
+
+    part def ControlPanel {
+        port operatorPort : OperatorControlPort;
+        attribute selectedMode : MeasurementMode;
+        attribute startPressed : Boolean;
+        attribute tarePressed : Boolean;
+        attribute calibrationPressed : Boolean;
+    }
+
+    part def MeasurementProcessor {
+        attribute activeState : DeviceState;
+        attribute currentError : ErrorCode;
+        attribute lastMeasurement : HeightMeasurement;
+        attribute calibrationOffset : LengthValue = (value = 0.0, unit = "m");
+        attribute calibrationValid : Boolean;
+        attribute ambientTemperature : TemperatureValue;
+    }
+
+    part def PowerSubsystem {
+        port powerIn : PowerPort;
+        attribute nominalVoltage : Real = 12.0;
+        attribute minimumOperatingVoltage : Real = 10.5;
+        attribute batteryCharge : PercentageValue;
+        attribute powerHealthy : Boolean;
+    }
+
+    part def DataInterface {
+        port dataOut : DataOutputPort;
+        attribute storesMeasurements : Boolean = true;
+        attribute wirelessEnabled : Boolean = true;
+        attribute localStorageCapacity : Integer = 10000;
+    }
+
+    action def InitializeDevice {
+        inout processor : MeasurementProcessor;
+        out status : StatusMessage;
+
+        first start;
+        then checkPower;
+        then checkSensors;
+        then loadCalibration;
+        then setReady;
+        then done;
+
+        action checkPower;
+        action checkSensors;
+        action loadCalibration;
+        action setReady {
+            processor.activeState = DeviceState::ready;
+            processor.currentError = ErrorCode::none;
+            status.state = DeviceState::ready;
+            status.error = ErrorCode::none;
+            status.messageText = "Ready for height measurement";
+        }
+    }
+
+    action def PositionHeadpieceAction {
+        in subject : HumanSubject;
+        inout headpiece : SlidingHeadpiece;
+        in contactSensor : ContactSensor;
+        out positioned : Boolean;
+
+        first releaseLock;
+        then lowerHeadpiece;
+        then confirmContact;
+        then lockHeadpiece;
+        then done;
+
+        action releaseLock {
+            headpiece.locked = false;
+        }
+
+        action lowerHeadpiece;
+        action confirmContact {
+            positioned =
+                subject.postureStable and
+                subject.heelsAgainstBase and
+                subject.headInFrankfortPlane and
+                contactSensor.contactConfirmed;
+            headpiece.contactDetected = positioned;
+        }
+
+        action lockHeadpiece {
+            headpiece.locked = positioned;
+        }
+    }
+
+    action def MeasureStandingHeight {
+        in subject : HumanSubject;
+        in sensor : PositionSensor;
+        in processor : MeasurementProcessor;
+        out measurement : HeightMeasurement;
+
+        first acquirePosition;
+        then applyCalibration;
+        then calculateConfidence;
+        then validateRange;
+        then publishMeasurement;
+        then done;
+
+        action acquirePosition;
+        action applyCalibration;
+        action calculateConfidence;
+        action validateRange;
+        action publishMeasurement {
+            measurement.measuredHeight.value =
+                sensor.measuredPosition.value + processor.calibrationOffset.value;
+            measurement.measuredHeight.unit = "m";
+            measurement.measurementTime.unit = "s";
+            measurement.mode = MeasurementMode::assisted;
+            measurement.valid =
+                sensor.healthy and
+                subject.postureStable and
+                measurement.measuredHeight.value >= 0.60 and
+                measurement.measuredHeight.value <= 2.20;
+            measurement.confidence.value = if measurement.valid then 98.0 else 0.0;
+        }
+    }
+
+    action def CalibrateStadiometer {
+        in referenceRecord : CalibrationRecord;
+        inout processor : MeasurementProcessor;
+        out completedRecord : CalibrationRecord;
+
+        first placeReferenceRod;
+        then readSensor;
+        then computeOffset;
+        then verifyTolerance;
+        then storeCalibration;
+        then done;
+
+        action placeReferenceRod;
+        action readSensor;
+        action computeOffset {
+            completedRecord.referenceHeight = referenceRecord.referenceHeight;
+            completedRecord.measuredReferenceHeight = referenceRecord.measuredReferenceHeight;
+            completedRecord.error.value =
+                referenceRecord.referenceHeight.value -
+                referenceRecord.measuredReferenceHeight.value;
+            completedRecord.error.unit = "m";
+        }
+
+        action verifyTolerance {
+            completedRecord.passed = abs(completedRecord.error.value) <= 0.002;
+        }
+
+        action storeCalibration {
+            processor.calibrationOffset = completedRecord.error;
+            processor.calibrationValid = completedRecord.passed;
+        }
+    }
+
+    state def StadiometerOperationalStateMachine {
+        inout processor : MeasurementProcessor;
+        in subject : HumanSubject;
+        in command : MeasurementCommand;
+        in sensor : PositionSensor;
+        in contactSensor : ContactSensor;
+        in power : PowerSubsystem;
+
+        state poweredOff;
+        state initializing;
+        state ready;
+        state positioningHeadpiece;
+        state measuring;
+        state validating;
+        state displayingResult;
+        state calibration;
+        state diagnostic;
+        state cleaning;
+        state error;
+
+        initial then poweredOff;
+
+        transition powerOn
+            first poweredOff
+            accept command
+            if power.powerHealthy
+            then initializing;
+
+        transition initialized
+            first initializing
+            if sensor.healthy and contactSensor.healthy and processor.calibrationValid
+            then ready;
+
+        transition initializationFailed
+            first initializing
+            if not sensor.healthy or not contactSensor.healthy or not processor.calibrationValid
+            then error;
+
+        transition startMeasurement
+            first ready
+            accept command
+            if command.requestedMode == MeasurementMode::assisted
+            then positioningHeadpiece;
+
+        transition headpiecePositioned
+            first positioningHeadpiece
+            if contactSensor.contactConfirmed and subject.postureStable
+            then measuring;
+
+        transition subjectMoved
+            first positioningHeadpiece
+            if not subject.postureStable
+            then error;
+
+        transition measurementAcquired
+            first measuring
+            if sensor.healthy
+            then validating;
+
+        transition measurementValid
+            first validating
+            if processor.lastMeasurement.valid
+            then displayingResult;
+
+        transition measurementInvalid
+            first validating
+            if not processor.lastMeasurement.valid
+            then error;
+
+        transition resultAcknowledged
+            first displayingResult
+            accept command
+            then ready;
+
+        transition requestCalibration
+            first ready
+            accept command
+            if command.requestedMode == MeasurementMode::calibration
+            then calibration;
+
+        transition calibrationComplete
+            first calibration
+            if processor.calibrationValid
+            then ready;
+
+        transition requestDiagnostic
+            first ready
+            accept command
+            if command.requestedMode == MeasurementMode::diagnostic
+            then diagnostic;
+
+        transition diagnosticComplete
+            first diagnostic
+            then ready;
+
+        transition requestCleaning
+            first ready
+            then cleaning;
+
+        transition cleaningComplete
+            first cleaning
+            then ready;
+
+        transition recover
+            first error
+            accept command
+            if power.powerHealthy and sensor.healthy and contactSensor.healthy
+            then ready;
+
+        transition powerLoss
+            first ready
+            if not power.powerHealthy
+            then poweredOff;
+    }
+
+    part def DigitalStadiometer {
+        attribute primaryFunction : String =
+            "Measure a standing human subject's vertical height from the base platform to the top of the head and provide a validated height result to an operator or connected health record system.";
+
+        part base : BasePlatform;
+        part column : VerticalColumn;
+        part headpiece : SlidingHeadpiece;
+        part positionSensor : PositionSensor;
+        part contactSensor : ContactSensor;
+        part display : UserDisplay;
+        part panel : ControlPanel;
+        part processor : MeasurementProcessor;
+        part power : PowerSubsystem;
+        part dataInterface : DataInterface;
+
+        port subjectPort : SubjectInterfacePort;
+        port operatorPort : OperatorControlPort;
+        port dataPort : DataOutputPort;
+        port powerPort : PowerPort;
+
+        connect subjectPort to base.subjectInterface;
+        connect operatorPort to panel.operatorPort;
+        connect dataPort to dataInterface.dataOut;
+        connect powerPort to power.powerIn;
+
+        perform action initialize : InitializeDevice {
+            inout processor = processor;
+        }
+
+        perform action positionHeadpiece : PositionHeadpieceAction {
+            in subject = subjectPort.subject;
+            inout headpiece = headpiece;
+            in contactSensor = contactSensor;
+        }
+
+        perform action measureHeight : MeasureStandingHeight {
+            in subject = subjectPort.subject;
+            in sensor = positionSensor;
+            in processor = processor;
+            out measurement = processor.lastMeasurement;
+        }
+
+        exhibit state operationalBehavior : StadiometerOperationalStateMachine {
+            inout processor = processor;
+            in subject = subjectPort.subject;
+            in command = operatorPort.command;
+            in sensor = positionSensor;
+            in contactSensor = contactSensor;
+            in power = power;
+        }
+    }
+
+    requirement def MeasureStandingHeightRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.lastMeasurement.valid implies
+            stadiometer.processor.lastMeasurement.measuredHeight.value >= 0.60 and
+            stadiometer.processor.lastMeasurement.measuredHeight.value <= 2.20
+        }
+
+        doc /* The stadiometer shall measure standing human height over the supported clinical range. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.positionSensor.accuracy.value <= 0.001
+        }
+
+        doc /* The stadiometer shall provide height measurement accuracy within plus or minus 1 mm under calibrated operating conditions. */
+    }
+
+    requirement def ResolutionRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.positionSensor.resolution.value <= 0.0005 and
+            stadiometer.column.graduationResolution.value <= 0.001
+        }
+
+        doc /* The stadiometer shall resolve height changes of 1 mm or better. */
+    }
+
+    requirement def ContactForceRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.headpiece.contactForceMinimum.value >= 1.0 and
+            stadiometer.headpiece.contactForceMaximum.value <= 5.0
+        }
+
+        doc /* The headpiece shall contact the subject with enough force to confirm contact without excessive compression or discomfort. */
+    }
+
+    requirement def PostureValidationRequirement {
+        subject subject : HumanSubject;
+
+        require constraint {
+            subject.postureStable and
+            subject.heelsAgainstBase and
+            subject.headInFrankfortPlane
+        }
+
+        doc /* A valid height measurement shall require stable posture, heel placement on the base platform, and head alignment in the Frankfort plane. */
+    }
+
+    requirement def CalibrationRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.calibrationValid
+        }
+
+        doc /* The stadiometer shall use a valid calibration record before reporting clinical height measurements. */
+    }
+
+    requirement def ResultOutputRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.lastMeasurement.valid implies
+            stadiometer.processor.lastMeasurement.confidence.value >= 95.0
+        }
+
+        doc /* The stadiometer shall display and export a validated height result with measurement confidence. */
+    }
+
+    requirement def SafetyRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.base.maximumSubjectMass.value >= 250.0 and
+            stadiometer.power.minimumOperatingVoltage <= stadiometer.power.nominalVoltage
+        }
+
+        doc /* The stadiometer shall support expected subject loading and enter a safe state if power is insufficient. */
+    }
+
+    requirement def ErrorHandlingRequirement {
+        subject stadiometer : DigitalStadiometer;
+
+        require constraint {
+            stadiometer.processor.currentError != ErrorCode::none implies
+            stadiometer.processor.activeState == DeviceState::error
+        }
+
+        doc /* The stadiometer shall report an error state when measurement, sensor, calibration, or power faults are detected. */
+    }
+
+    satisfy MeasureStandingHeightRequirement by DigitalStadiometer;
+    satisfy AccuracyRequirement by DigitalStadiometer;
+    satisfy ResolutionRequirement by DigitalStadiometer;
+    satisfy ContactForceRequirement by DigitalStadiometer;
+    satisfy CalibrationRequirement by DigitalStadiometer;
+    satisfy ResultOutputRequirement by DigitalStadiometer;
+    satisfy SafetyRequirement by DigitalStadiometer;
+    satisfy ErrorHandlingRequirement by DigitalStadiometer;
+
+    part stadiometerSystem : DigitalStadiometer {
+        attribute primaryFunction =
+            "High-level primary function: determine and communicate a person's standing height using a stable base, vertical reference column, movable headpiece, position sensing, validation logic, display, and data output.";
+    }
+}

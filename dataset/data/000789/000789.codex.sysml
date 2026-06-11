@@ -1,0 +1,396 @@
+package SyringeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Milliliter;
+    attribute def Millimeter;
+    attribute def Newton;
+    attribute def Kilopascal;
+    attribute def MilliliterPerSecond;
+
+    attribute def Volume {
+        attribute value : Real;
+        attribute unit : String = "mL";
+    }
+
+    attribute def Length {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def Force {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    attribute def Pressure {
+        attribute value : Real;
+        attribute unit : String = "kPa";
+    }
+
+    attribute def FlowRate {
+        attribute value : Real;
+        attribute unit : String = "mL/s";
+    }
+
+    attribute def DoseAccuracy {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    enum def SyringeOperatingMode {
+        enum idle;
+        enum filling;
+        enum priming;
+        enum delivering;
+        enum complete;
+        enum fault;
+    }
+
+    item def MedicationFluid {
+        attribute medicationName : String;
+        attribute containedVolume : Volume;
+        attribute viscosity : Real;
+        attribute sterilityMaintained : Boolean;
+    }
+
+    item def AirBubble {
+        attribute bubbleVolume : Volume;
+    }
+
+    item def DeliveredDose {
+        attribute deliveredVolume : Volume;
+        attribute deliveryRate : FlowRate;
+        attribute doseComplete : Boolean;
+    }
+
+    item def UserForce {
+        attribute appliedForce : Force;
+    }
+
+    port def FluidPort {
+        inout fluid : MedicationFluid;
+    }
+
+    port def DoseOutputPort {
+        out dose : DeliveredDose;
+    }
+
+    port def ForceInputPort {
+        in force : UserForce;
+    }
+
+    port def AirVentPort {
+        out expelledAir : AirBubble;
+    }
+
+    part def SyringeSystem {
+        attribute nominalCapacity : Volume = (value = 10.0; unit = "mL");
+        attribute maximumSafePressure : Pressure = (value = 250.0; unit = "kPa");
+        attribute minimumReadableDoseIncrement : Volume = (value = 0.1; unit = "mL");
+        attribute doseAccuracy : DoseAccuracy = (value = 5.0; unit = "%");
+        attribute operatingMode : SyringeOperatingMode = SyringeOperatingMode::idle;
+
+        port userForceInput : ForceInputPort;
+        port medicationInput : FluidPort;
+        port medicationOutput : DoseOutputPort;
+        port airVent : AirVentPort;
+
+        part barrel : GraduatedBarrel;
+        part plungerAssembly : PlungerAssembly;
+        part needleHub : NeedleHub;
+        part needle : Needle;
+        part fingerFlange : FingerFlange;
+        part tipCap : ProtectiveTipCap;
+
+        connect medicationInput.fluid to barrel.fillPort.fluid;
+        connect barrel.exitPort.fluid to needleHub.inlet.fluid;
+        connect needleHub.outlet.fluid to needle.inlet.fluid;
+        connect needle.outlet.dose to medicationOutput.dose;
+        connect userForceInput.force to plungerAssembly.forcePort.force;
+        connect plungerAssembly.sealInterface.force to barrel.plungerInterface.force;
+        connect barrel.airExpelPort.expelledAir to airVent.expelledAir;
+
+        action primaryFunction : DeliverControlledMedicationDose {
+            in commandedDose : Volume;
+            in userForce : UserForce;
+            out deliveredDose : DeliveredDose;
+        }
+
+        state def SyringeLifecycle {
+            entry action initialize {
+                operatingMode = SyringeOperatingMode::idle;
+            }
+
+            state idle;
+            state filling;
+            state priming;
+            state readyToDeliver;
+            state delivering;
+            state doseComplete;
+            state occlusionFault;
+
+            transition idle_to_filling
+                first idle
+                then filling
+                accept FillCommand;
+
+            transition filling_to_priming
+                first filling
+                then priming
+                accept BarrelFilled;
+
+            transition priming_to_ready
+                first priming
+                then readyToDeliver
+                accept AirRemoved;
+
+            transition ready_to_delivering
+                first readyToDeliver
+                then delivering
+                accept InjectionStarted;
+
+            transition delivering_to_complete
+                first delivering
+                then doseComplete
+                accept CommandedDoseDelivered;
+
+            transition delivering_to_fault
+                first delivering
+                then occlusionFault
+                accept ExcessPressureDetected;
+
+            transition fault_to_idle
+                first occlusionFault
+                then idle
+                accept FaultCleared;
+        }
+    }
+
+    part def GraduatedBarrel {
+        attribute internalCapacity : Volume = (value = 10.0; unit = "mL");
+        attribute currentFluidVolume : Volume = (value = 0.0; unit = "mL");
+        attribute boreDiameter : Length = (value = 14.5; unit = "mm");
+        attribute graduationInterval : Volume = (value = 0.1; unit = "mL");
+        attribute internalPressure : Pressure = (value = 101.3; unit = "kPa");
+
+        port fillPort : FluidPort;
+        port exitPort : FluidPort;
+        port plungerInterface : ForceInputPort;
+        port airExpelPort : AirVentPort;
+
+        constraint volumeWithinCapacity {
+            currentFluidVolume.value >= 0.0 and
+            currentFluidVolume.value <= internalCapacity.value
+        }
+
+        constraint pressureWithinSafeLimit {
+            internalPressure.value <= 250.0
+        }
+    }
+
+    part def PlungerAssembly {
+        attribute plungerTravel : Length = (value = 0.0; unit = "mm");
+        attribute maximumTravel : Length = (value = 60.0; unit = "mm");
+        attribute sealCompressionForce : Force = (value = 1.5; unit = "N");
+
+        port forcePort : ForceInputPort;
+        port sealInterface : ForceInputPort;
+
+        part plungerRod : PlungerRod;
+        part thumbPad : ThumbPad;
+        part elastomerSeal : ElastomerSeal;
+
+        connect forcePort.force to thumbPad.appliedForce.force;
+        connect thumbPad.transmittedForce.force to plungerRod.inputForce.force;
+        connect plungerRod.outputForce.force to elastomerSeal.compressionForce.force;
+        connect elastomerSeal.barrelForce.force to sealInterface.force;
+    }
+
+    part def PlungerRod {
+        attribute length : Length = (value = 72.0; unit = "mm");
+        attribute bucklingForceLimit : Force = (value = 80.0; unit = "N");
+
+        port inputForce : ForceInputPort;
+        port outputForce : ForceInputPort;
+    }
+
+    part def ThumbPad {
+        attribute padDiameter : Length = (value = 18.0; unit = "mm");
+
+        port appliedForce : ForceInputPort;
+        port transmittedForce : ForceInputPort;
+    }
+
+    part def ElastomerSeal {
+        attribute sealDiameter : Length = (value = 14.6; unit = "mm");
+        attribute leakageAllowed : Boolean = false;
+
+        port compressionForce : ForceInputPort;
+        port barrelForce : ForceInputPort;
+    }
+
+    part def NeedleHub {
+        attribute luerLockEngaged : Boolean = true;
+        attribute deadSpaceVolume : Volume = (value = 0.05; unit = "mL");
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+    }
+
+    part def Needle {
+        attribute gauge : Integer = 22;
+        attribute needleLength : Length = (value = 25.0; unit = "mm");
+        attribute internalVolume : Volume = (value = 0.02; unit = "mL");
+        attribute maximumRecommendedFlow : FlowRate = (value = 1.0; unit = "mL/s");
+
+        port inlet : FluidPort;
+        port outlet : DoseOutputPort;
+    }
+
+    part def FingerFlange {
+        attribute width : Length = (value = 38.0; unit = "mm");
+        attribute gripStable : Boolean = true;
+    }
+
+    part def ProtectiveTipCap {
+        attribute installedBeforeUse : Boolean = true;
+        attribute maintainsSterileBarrier : Boolean = true;
+    }
+
+    action def FillSyringe {
+        in sourceFluid : MedicationFluid;
+        in targetVolume : Volume;
+        out loadedFluid : MedicationFluid;
+
+        precondition targetVolume.value > 0.0;
+        precondition targetVolume.value <= 10.0;
+
+        postcondition loadedFluid.containedVolume.value == targetVolume.value;
+        postcondition loadedFluid.sterilityMaintained == true;
+    }
+
+    action def PrimeSyringe {
+        in loadedFluid : MedicationFluid;
+        out expelledAir : AirBubble;
+        out primedFluid : MedicationFluid;
+
+        precondition loadedFluid.containedVolume.value > 0.0;
+
+        postcondition expelledAir.bubbleVolume.value >= 0.0;
+        postcondition primedFluid.sterilityMaintained == true;
+    }
+
+    action def DeliverControlledMedicationDose {
+        in commandedDose : Volume;
+        in userForce : UserForce;
+        out deliveredDose : DeliveredDose;
+
+        precondition commandedDose.value > 0.0;
+        precondition commandedDose.value <= 10.0;
+        precondition userForce.appliedForce.value > 0.0;
+        precondition userForce.appliedForce.value <= 80.0;
+
+        postcondition deliveredDose.deliveredVolume.value >= commandedDose.value * 0.95;
+        postcondition deliveredDose.deliveredVolume.value <= commandedDose.value * 1.05;
+        postcondition deliveredDose.doseComplete == true;
+    }
+
+    action def StopDeliveryOnOcclusion {
+        in measuredPressure : Pressure;
+        out deliveryStopped : Boolean;
+
+        precondition measuredPressure.value > 250.0;
+        postcondition deliveryStopped == true;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The syringe system shall manually draw, contain, prime, and deliver a controlled volume of medication fluid through a needle when the user applies force to the plunger."
+
+        subject syringe : SyringeSystem;
+
+        require constraint {
+            syringe.nominalCapacity.value == 10.0
+        }
+
+        require constraint {
+            syringe.doseAccuracy.value <= 5.0
+        }
+    }
+
+    requirement def CapacityRequirement {
+        doc "The syringe barrel shall contain up to 10 mL of medication fluid without leakage."
+
+        subject barrel : GraduatedBarrel;
+
+        require constraint {
+            barrel.internalCapacity.value >= 10.0
+        }
+    }
+
+    requirement def GraduationRequirement {
+        doc "The syringe barrel shall provide visible graduations at increments no greater than 0.1 mL."
+
+        subject barrel : GraduatedBarrel;
+
+        require constraint {
+            barrel.graduationInterval.value <= 0.1
+        }
+    }
+
+    requirement def SterilityRequirement {
+        doc "The syringe fluid path shall maintain a sterile barrier before use and preserve medication sterility during normal filling, priming, and delivery."
+
+        subject cap : ProtectiveTipCap;
+
+        require constraint {
+            cap.maintainsSterileBarrier == true
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc "The syringe shall enter a fault condition or stop delivery if internal pressure exceeds the maximum safe pressure."
+
+        subject syringe : SyringeSystem;
+
+        require constraint {
+            syringe.maximumSafePressure.value <= 250.0
+        }
+    }
+
+    requirement def LeakageRequirement {
+        doc "The plunger seal shall prevent medication leakage during normal delivery."
+
+        subject seal : ElastomerSeal;
+
+        require constraint {
+            seal.leakageAllowed == false
+        }
+    }
+
+    requirement def NeedleFlowRequirement {
+        doc "The needle shall support controlled delivery at rates up to 1.0 mL per second."
+
+        subject needle : Needle;
+
+        require constraint {
+            needle.maximumRecommendedFlow.value >= 1.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SyringeSystem::primaryFunction;
+    satisfy CapacityRequirement by SyringeSystem::barrel;
+    satisfy GraduationRequirement by SyringeSystem::barrel;
+    satisfy SterilityRequirement by SyringeSystem::tipCap;
+    satisfy PressureSafetyRequirement by SyringeSystem;
+    satisfy LeakageRequirement by SyringeSystem::plungerAssembly::elastomerSeal;
+    satisfy NeedleFlowRequirement by SyringeSystem::needle;
+
+    part syringeProduct : SyringeSystem {
+        attribute nominalCapacity = (value = 10.0; unit = "mL");
+        attribute minimumReadableDoseIncrement = (value = 0.1; unit = "mL");
+        attribute maximumSafePressure = (value = 250.0; unit = "kPa");
+    }
+}

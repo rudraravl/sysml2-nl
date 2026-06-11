@@ -1,0 +1,392 @@
+package ImplantableCardioverterDefibrillatorModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def millivolt :> Real;
+  attribute def volt :> Real;
+  attribute def joule :> Real;
+  attribute def millisecond :> Real;
+  attribute def beatPerMinute :> Real;
+  attribute def ohm :> Real;
+  attribute def percent :> Real;
+
+  item def IntracardiacElectrogram {
+    attribute amplitude : millivolt;
+    attribute samplePeriod : millisecond;
+    attribute sensedRate : beatPerMinute;
+  }
+
+  item def BradyPaceCommand {
+    attribute pulseAmplitude : volt;
+    attribute pulseWidth : millisecond;
+    attribute lowerRateLimit : beatPerMinute;
+  }
+
+  item def CardioversionShockCommand {
+    attribute energy : joule;
+    attribute synchronized : Boolean;
+    attribute chargeTimeout : millisecond;
+  }
+
+  item def DefibrillationShockCommand {
+    attribute energy : joule;
+    attribute synchronized : Boolean = false;
+    attribute chargeTimeout : millisecond;
+  }
+
+  item def TherapyPulse {
+    attribute amplitude : volt;
+    attribute duration : millisecond;
+    attribute deliveredEnergy : joule;
+  }
+
+  item def BatteryStatus {
+    attribute voltage : volt;
+    attribute stateOfCharge : percent;
+    attribute electiveReplacementIndicated : Boolean;
+  }
+
+  item def DeviceTelemetry {
+    attribute detectedHeartRate : beatPerMinute;
+    attribute lastTherapyEnergy : joule;
+    attribute batteryCharge : percent;
+    attribute leadImpedance : ohm;
+    attribute activeState : ICDOperatingStateKind;
+  }
+
+  item def ProgrammingCommand {
+    attribute bradyLowerRateLimit : beatPerMinute;
+    attribute vtDetectionRate : beatPerMinute;
+    attribute vfDetectionRate : beatPerMinute;
+    attribute maxShockEnergy : joule;
+    attribute therapyEnabled : Boolean;
+  }
+
+  enum def ICDOperatingStateKind {
+    enum idle;
+    enum monitoring;
+    enum bradyPacing;
+    enum vtDetected;
+    enum vfDetected;
+    enum charging;
+    enum cardioversion;
+    enum defibrillation;
+    enum postTherapyAssessment;
+    enum safeMode;
+  }
+
+  port def CardiacLeadPort {
+    in item sensedSignal : IntracardiacElectrogram;
+    out item deliveredPulse : TherapyPulse;
+  }
+
+  port def TherapyCommandPort {
+    out item bradyCommand : BradyPaceCommand;
+    out item cardioversionCommand : CardioversionShockCommand;
+    out item defibrillationCommand : DefibrillationShockCommand;
+  }
+
+  port def TelemetryPort {
+    out item status : DeviceTelemetry;
+    in item programming : ProgrammingCommand;
+  }
+
+  port def PowerPort {
+    out item status : BatteryStatus;
+  }
+
+  part def EndocardialLead {
+    attribute conductorImpedance : ohm;
+    attribute sensingThreshold : millivolt;
+    port generatorPort : CardiacLeadPort;
+  }
+
+  part def Battery {
+    attribute nominalVoltage : volt = 3.2;
+    attribute remainingCapacity : percent;
+    port powerStatus : PowerPort;
+  }
+
+  part def SensingAmplifier {
+    attribute gain : Real;
+    attribute noiseFloor : millivolt;
+    port atrialInput : CardiacLeadPort;
+    port ventricularInput : CardiacLeadPort;
+  }
+
+  part def ArrhythmiaDetector {
+    attribute bradyThreshold : beatPerMinute = 40.0;
+    attribute vtThreshold : beatPerMinute = 160.0;
+    attribute vfThreshold : beatPerMinute = 220.0;
+    attribute confirmationWindow : millisecond = 2500.0;
+
+    in item atrialSignal : IntracardiacElectrogram;
+    in item ventricularSignal : IntracardiacElectrogram;
+
+    out attribute bradyDetected : Boolean;
+    out attribute ventricularTachycardiaDetected : Boolean;
+    out attribute ventricularFibrillationDetected : Boolean;
+    out attribute detectedRate : beatPerMinute;
+  }
+
+  part def TherapyController {
+    attribute bradyLowerRateLimit : beatPerMinute = 50.0;
+    attribute vtDetectionRate : beatPerMinute = 160.0;
+    attribute vfDetectionRate : beatPerMinute = 220.0;
+    attribute maxShockEnergy : joule = 35.0;
+    attribute therapyEnabled : Boolean = true;
+    attribute operatingState : ICDOperatingStateKind;
+
+    port therapyCommands : TherapyCommandPort;
+  }
+
+  part def PulseGenerator {
+    attribute paceAmplitude : volt = 2.5;
+    attribute paceWidth : millisecond = 0.5;
+    attribute cardioversionEnergy : joule = 15.0;
+    attribute defibrillationEnergy : joule = 35.0;
+    attribute capacitorChargeTime : millisecond = 8000.0;
+
+    port rightAtrialOutput : CardiacLeadPort;
+    port rightVentricularOutput : CardiacLeadPort;
+    port shockOutput : CardiacLeadPort;
+    port commandInput : TherapyCommandPort;
+  }
+
+  part def TelemetryModule {
+    attribute communicationRange : Real;
+    port externalTelemetry : TelemetryPort;
+  }
+
+  part def ImplantableCardioverterDefibrillator {
+    attribute deviceMass : Real;
+    attribute canVolume : Real;
+    attribute activeState : ICDOperatingStateKind;
+
+    part battery : Battery;
+    part sensingAmplifier : SensingAmplifier;
+    part detector : ArrhythmiaDetector;
+    part controller : TherapyController;
+    part pulseGenerator : PulseGenerator;
+    part telemetry : TelemetryModule;
+    part rightAtrialLead : EndocardialLead;
+    part rightVentricularLead : EndocardialLead;
+    part shockCoilLead : EndocardialLead;
+
+    port atrialInterface : CardiacLeadPort;
+    port ventricularInterface : CardiacLeadPort;
+    port shockInterface : CardiacLeadPort;
+    port clinicianInterface : TelemetryPort;
+
+    connect rightAtrialLead.generatorPort to sensingAmplifier.atrialInput;
+    connect rightVentricularLead.generatorPort to sensingAmplifier.ventricularInput;
+    connect controller.therapyCommands to pulseGenerator.commandInput;
+    connect pulseGenerator.rightAtrialOutput to rightAtrialLead.generatorPort;
+    connect pulseGenerator.rightVentricularOutput to rightVentricularLead.generatorPort;
+    connect pulseGenerator.shockOutput to shockCoilLead.generatorPort;
+    connect telemetry.externalTelemetry to clinicianInterface;
+    connect battery.powerStatus to telemetry.externalTelemetry;
+  }
+
+  action def SenseCardiacRhythm {
+    in item atrialElectrogram : IntracardiacElectrogram;
+    in item ventricularElectrogram : IntracardiacElectrogram;
+    out attribute sensedRate : beatPerMinute;
+    out attribute rhythmStable : Boolean;
+  }
+
+  action def ClassifyRhythm {
+    in attribute sensedRate : beatPerMinute;
+    in attribute bradyThreshold : beatPerMinute;
+    in attribute vtThreshold : beatPerMinute;
+    in attribute vfThreshold : beatPerMinute;
+    out attribute brady : Boolean;
+    out attribute ventricularTachycardia : Boolean;
+    out attribute ventricularFibrillation : Boolean;
+  }
+
+  action def DeliverBradyPacing {
+    in item command : BradyPaceCommand;
+    out item pulse : TherapyPulse;
+  }
+
+  action def ChargeCapacitor {
+    in attribute requestedEnergy : joule;
+    in attribute chargeTimeout : millisecond;
+    out attribute charged : Boolean;
+  }
+
+  action def DeliverSynchronizedCardioversion {
+    in item command : CardioversionShockCommand;
+    out item pulse : TherapyPulse;
+  }
+
+  action def DeliverDefibrillationShock {
+    in item command : DefibrillationShockCommand;
+    out item pulse : TherapyPulse;
+  }
+
+  action def AssessPostTherapyRhythm {
+    in item ventricularElectrogram : IntracardiacElectrogram;
+    out attribute therapySuccessful : Boolean;
+    out attribute residualRate : beatPerMinute;
+  }
+
+  state def ICDTherapyStateMachine {
+    attribute currentRate : beatPerMinute;
+    attribute therapyEnabled : Boolean;
+    attribute batteryAdequate : Boolean;
+    attribute vtDetected : Boolean;
+    attribute vfDetected : Boolean;
+    attribute bradyDetected : Boolean;
+
+    state idle;
+    state monitoring;
+    state bradyPacing;
+    state vtConfirmed;
+    state vfConfirmed;
+    state chargingForCardioversion;
+    state chargingForDefibrillation;
+    state deliveringCardioversion;
+    state deliveringDefibrillation;
+    state postTherapyAssessment;
+    state safeMode;
+
+    transition initial then monitoring;
+
+    transition monitoring then bradyPacing
+      if bradyDetected and therapyEnabled and batteryAdequate;
+
+    transition monitoring then vtConfirmed
+      if vtDetected and therapyEnabled and batteryAdequate;
+
+    transition monitoring then vfConfirmed
+      if vfDetected and therapyEnabled and batteryAdequate;
+
+    transition monitoring then safeMode
+      if not batteryAdequate;
+
+    transition bradyPacing then monitoring
+      if currentRate >= 50.0;
+
+    transition vtConfirmed then chargingForCardioversion;
+    transition vfConfirmed then chargingForDefibrillation;
+    transition chargingForCardioversion then deliveringCardioversion;
+    transition chargingForDefibrillation then deliveringDefibrillation;
+    transition deliveringCardioversion then postTherapyAssessment;
+    transition deliveringDefibrillation then postTherapyAssessment;
+    transition postTherapyAssessment then monitoring;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject icd : ImplantableCardioverterDefibrillator;
+
+    doc
+    /* The implantable cardioverter-defibrillator shall continuously monitor intracardiac rhythm, detect life-threatening ventricular tachyarrhythmias, and automatically deliver pacing, synchronized cardioversion, or defibrillation therapy to restore an effective cardiac rhythm. */
+  }
+
+  requirement def ContinuousMonitoringRequirement {
+    subject detector : ArrhythmiaDetector;
+
+    require constraint {
+      detector.confirmationWindow <= 3000.0
+    }
+  }
+
+  requirement def VentricularFibrillationTherapyRequirement {
+    subject controller : TherapyController;
+
+    require constraint {
+      controller.vfDetectionRate >= 200.0 and
+      controller.maxShockEnergy >= 30.0
+    }
+  }
+
+  requirement def BradycardiaPacingRequirement {
+    subject controller : TherapyController;
+
+    require constraint {
+      controller.bradyLowerRateLimit >= 40.0 and
+      controller.bradyLowerRateLimit <= 60.0
+    }
+  }
+
+  requirement def BatterySafetyRequirement {
+    subject battery : Battery;
+
+    require constraint {
+      battery.nominalVoltage >= 2.8 and
+      battery.remainingCapacity >= 0.0
+    }
+  }
+
+  requirement def LeadIntegrityRequirement {
+    subject lead : EndocardialLead;
+
+    require constraint {
+      lead.conductorImpedance >= 200.0 and
+      lead.conductorImpedance <= 2000.0
+    }
+  }
+
+  requirement def TherapyInhibitionRequirement {
+    subject controller : TherapyController;
+
+    require constraint {
+      controller.therapyEnabled == true implies
+      controller.maxShockEnergy <= 40.0
+    }
+  }
+
+  part implantableCardioverterDefibrillator : ImplantableCardioverterDefibrillator {
+    attribute deviceMass = 72.0;
+    attribute canVolume = 33.0;
+    attribute activeState = ICDOperatingStateKind::monitoring;
+
+    part battery {
+      attribute nominalVoltage = 3.2;
+      attribute remainingCapacity = 92.0;
+    }
+
+    part detector {
+      attribute bradyThreshold = 40.0;
+      attribute vtThreshold = 160.0;
+      attribute vfThreshold = 220.0;
+      attribute confirmationWindow = 2500.0;
+    }
+
+    part controller {
+      attribute bradyLowerRateLimit = 50.0;
+      attribute vtDetectionRate = 160.0;
+      attribute vfDetectionRate = 220.0;
+      attribute maxShockEnergy = 35.0;
+      attribute therapyEnabled = true;
+      attribute operatingState = ICDOperatingStateKind::monitoring;
+    }
+
+    part pulseGenerator {
+      attribute paceAmplitude = 2.5;
+      attribute paceWidth = 0.5;
+      attribute cardioversionEnergy = 15.0;
+      attribute defibrillationEnergy = 35.0;
+      attribute capacitorChargeTime = 8000.0;
+    }
+
+    part rightAtrialLead {
+      attribute conductorImpedance = 510.0;
+      attribute sensingThreshold = 0.7;
+    }
+
+    part rightVentricularLead {
+      attribute conductorImpedance = 620.0;
+      attribute sensingThreshold = 0.8;
+    }
+
+    part shockCoilLead {
+      attribute conductorImpedance = 78.0;
+      attribute sensingThreshold = 1.0;
+    }
+  }
+
+}

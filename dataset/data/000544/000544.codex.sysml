@@ -1,0 +1,626 @@
+package BaranyChairSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def AngularVelocity :> scalar;
+    attribute def AngularAcceleration :> scalar;
+    attribute def Angle :> scalar;
+    attribute def TimeDuration :> scalar;
+    attribute def Torque :> scalar;
+    attribute def Mass :> scalar;
+    attribute def Force :> scalar;
+    attribute def ElectricCurrent :> scalar;
+    attribute def Voltage :> scalar;
+
+    item def RotationCommand {
+        attribute targetSpeed : AngularVelocity;
+        attribute accelerationLimit : AngularAcceleration;
+        attribute duration : TimeDuration;
+        attribute direction : RotationDirection;
+    }
+
+    item def RotationStatus {
+        attribute actualSpeed : AngularVelocity;
+        attribute actualAngle : Angle;
+        attribute elapsedTime : TimeDuration;
+        attribute state : ChairOperatingState;
+    }
+
+    item def PatientPhysiologicalObservation {
+        attribute nystagmusPresent : Boolean;
+        attribute patientReportedDizziness : Boolean;
+        attribute observationTime : TimeDuration;
+    }
+
+    enum def RotationDirection {
+        enum clockwise;
+        enum counterClockwise;
+    }
+
+    enum def ChairOperatingState {
+        enum idle;
+        enum ready;
+        enum accelerating;
+        enum constantRotation;
+        enum decelerating;
+        enum stopped;
+        enum emergencyStopped;
+        enum faulted;
+    }
+
+    enum def RestraintState {
+        enum open;
+        enum secured;
+        enum released;
+    }
+
+    enum def PowerState {
+        enum unavailable;
+        enum available;
+        enum enabled;
+        enum isolated;
+    }
+
+    port def CommandPort {
+        in item command : RotationCommand;
+        out item status : RotationStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : ElectricCurrent;
+        out attribute powerAvailable : Boolean;
+    }
+
+    port def MechanicalRotationPort {
+        out attribute angularVelocity : AngularVelocity;
+        out attribute angularAcceleration : AngularAcceleration;
+        out attribute shaftTorque : Torque;
+    }
+
+    port def PatientInterfacePort {
+        out attribute seatMotionSpeed : AngularVelocity;
+        out attribute seatMotionAngle : Angle;
+        in item observation : PatientPhysiologicalObservation;
+    }
+
+    port def SafetySignalPort {
+        in attribute emergencyStopPressed : Boolean;
+        in attribute restraintSecured : Boolean;
+        out attribute motionPermission : Boolean;
+    }
+
+    port def BrakePort {
+        in attribute brakingCommanded : Boolean;
+        out attribute brakingTorque : Torque;
+    }
+
+    action def GenerateVestibularStimulus {
+        in item command : RotationCommand;
+        out item status : RotationStatus;
+        first start;
+        then validateCommand;
+        then securePatient;
+        then accelerateChair;
+        then maintainRotation;
+        then decelerateChair;
+        then stopChair;
+        then done;
+
+        action validateCommand {
+            in item command : RotationCommand;
+            out attribute accepted : Boolean;
+        }
+
+        action securePatient {
+            out attribute restraintConfirmed : Boolean;
+        }
+
+        action accelerateChair {
+            in attribute targetSpeed : AngularVelocity;
+            in attribute accelerationLimit : AngularAcceleration;
+            out attribute achievedSpeed : AngularVelocity;
+        }
+
+        action maintainRotation {
+            in attribute targetSpeed : AngularVelocity;
+            in attribute duration : TimeDuration;
+            out attribute elapsedTime : TimeDuration;
+        }
+
+        action decelerateChair {
+            in attribute currentSpeed : AngularVelocity;
+            out attribute stopped : Boolean;
+        }
+
+        action stopChair {
+            out item status : RotationStatus;
+        }
+    }
+
+    action def ApplyEmergencyStop {
+        in attribute emergencyStopPressed : Boolean;
+        out attribute motorDisabled : Boolean;
+        out attribute brakeApplied : Boolean;
+    }
+
+    state def ChairControlStateMachine {
+        entry action initializeSystem;
+
+        state idle;
+        state ready;
+        state accelerating;
+        state constantRotation;
+        state decelerating;
+        state stopped;
+        state emergencyStopped;
+        state faulted;
+
+        transition first idle;
+
+        transition idle_to_ready
+            first idle
+            then ready
+            if powerAvailable and restraintSecured;
+
+        transition ready_to_accelerating
+            first ready
+            then accelerating
+            if validRotationCommand and not emergencyStopPressed;
+
+        transition accelerating_to_constantRotation
+            first accelerating
+            then constantRotation
+            if actualSpeedReachedTarget;
+
+        transition constantRotation_to_decelerating
+            first constantRotation
+            then decelerating
+            if commandedDurationElapsed;
+
+        transition decelerating_to_stopped
+            first decelerating
+            then stopped
+            if actualSpeedIsZero;
+
+        transition stopped_to_ready
+            first stopped
+            then ready
+            if nextCommandAvailable and restraintSecured;
+
+        transition any_to_emergencyStopped
+            first idle
+            then emergencyStopped
+            if emergencyStopPressed;
+
+        transition any_motion_to_emergencyStopped
+            first accelerating
+            then emergencyStopped
+            if emergencyStopPressed;
+
+        transition constant_to_emergencyStopped
+            first constantRotation
+            then emergencyStopped
+            if emergencyStopPressed;
+
+        transition decel_to_emergencyStopped
+            first decelerating
+            then emergencyStopped
+            if emergencyStopPressed;
+
+        transition emergencyStopped_to_idle
+            first emergencyStopped
+            then idle
+            if emergencyStopReset and actualSpeedIsZero;
+
+        transition ready_to_faulted
+            first ready
+            then faulted
+            if sensorFaultDetected;
+
+        transition motion_to_faulted
+            first accelerating
+            then faulted
+            if overspeedDetected;
+
+        transition faulted_to_idle
+            first faulted
+            then idle
+            if faultCleared;
+
+        attribute powerAvailable : Boolean;
+        attribute restraintSecured : Boolean;
+        attribute validRotationCommand : Boolean;
+        attribute emergencyStopPressed : Boolean;
+        attribute actualSpeedReachedTarget : Boolean;
+        attribute commandedDurationElapsed : Boolean;
+        attribute actualSpeedIsZero : Boolean;
+        attribute nextCommandAvailable : Boolean;
+        attribute emergencyStopReset : Boolean;
+        attribute sensorFaultDetected : Boolean;
+        attribute overspeedDetected : Boolean;
+        attribute faultCleared : Boolean;
+    }
+
+    part def BaranyChair {
+        attribute maxPatientMass : Mass = 150 [kg];
+        attribute nominalSeatHeight : Length = 0.55 [m];
+        attribute maximumRotationSpeed : AngularVelocity = 180 ['deg/s'];
+        attribute maximumAcceleration : AngularAcceleration = 60 ['deg/s^2'];
+        attribute maximumCommandedDuration : TimeDuration = 180 [s];
+        attribute minimumCommandedDuration : TimeDuration = 5 [s];
+        attribute operatingVoltage : Voltage = 120 [V];
+
+        port commandPort : CommandPort;
+        port powerPort : PowerPort;
+        port patientPort : PatientInterfacePort;
+        port safetyPort : SafetySignalPort;
+
+        part seatAssembly : SeatAssembly;
+        part rotaryBase : RotaryBase;
+        part driveSystem : DriveSystem;
+        part brakeSystem : BrakeSystem;
+        part controlConsole : ControlConsole;
+        part restraintSystem : RestraintSystem;
+        part safetySystem : SafetySystem;
+        part observationSupport : ObservationSupport;
+
+        perform action vestibularStimulation : GenerateVestibularStimulus;
+        exhibit state controlState : ChairControlStateMachine;
+
+        connect powerPort to driveSystem.powerInput;
+        connect controlConsole.commandOutput to commandPort;
+        connect commandPort to driveSystem.commandInput;
+        connect driveSystem.rotationOutput to rotaryBase.rotationInput;
+        connect rotaryBase.seatRotationOutput to seatAssembly.rotationInput;
+        connect seatAssembly.patientInterface to patientPort;
+        connect restraintSystem.safetyOutput to safetySystem.restraintInput;
+        connect safetySystem.motionPermissionOutput to driveSystem.safetyInput;
+        connect safetySystem.brakeCommandOutput to brakeSystem.brakeInput;
+        connect brakeSystem.brakeOutput to rotaryBase.brakeInput;
+        connect observationSupport.patientObservationPort to patientPort;
+    }
+
+    part def SeatAssembly {
+        attribute supportedPatientMass : Mass = 150 [kg];
+        attribute seatBackAngle : Angle = 100 ['deg'];
+        attribute footrestAdjustable : Boolean = true;
+
+        port rotationInput : MechanicalRotationPort;
+        port patientInterface : PatientInterfacePort;
+
+        part seatPan : SeatPan;
+        part backRest : BackRest;
+        part headSupport : HeadSupport;
+        part armSupports : ArmSupports;
+        part footRest : FootRest;
+
+        connect rotationInput to patientInterface;
+    }
+
+    part def SeatPan {
+        attribute cushionThickness : Length = 0.06 [m];
+        attribute width : Length = 0.48 [m];
+        attribute depth : Length = 0.45 [m];
+    }
+
+    part def BackRest {
+        attribute height : Length = 0.65 [m];
+        attribute width : Length = 0.46 [m];
+    }
+
+    part def HeadSupport {
+        attribute adjustableHeightRange : Length = 0.18 [m];
+        attribute lateralSupportProvided : Boolean = true;
+    }
+
+    part def ArmSupports {
+        attribute leftArmSupportPresent : Boolean = true;
+        attribute rightArmSupportPresent : Boolean = true;
+    }
+
+    part def FootRest {
+        attribute adjustableLengthRange : Length = 0.22 [m];
+        attribute slipResistantSurface : Boolean = true;
+    }
+
+    part def RotaryBase {
+        attribute turntableDiameter : Length = 0.75 [m];
+        attribute rotationalInertiaLimit : scalar = 18.0;
+        attribute bearingRatedLoad : Force = 2000 [N];
+
+        port rotationInput : MechanicalRotationPort;
+        port seatRotationOutput : MechanicalRotationPort;
+        port brakeInput : BrakePort;
+
+        part bearing : RotaryBearing;
+        part turntable : Turntable;
+        part shaftCoupler : ShaftCoupler;
+
+        connect rotationInput to shaftCoupler.motorSide;
+        connect shaftCoupler.chairSide to turntable.rotationPort;
+        connect turntable.rotationPort to seatRotationOutput;
+        connect brakeInput to turntable.brakePort;
+    }
+
+    part def RotaryBearing {
+        attribute radialLoadCapacity : Force = 2500 [N];
+        attribute axialLoadCapacity : Force = 3500 [N];
+        attribute lowFrictionSealed : Boolean = true;
+    }
+
+    part def Turntable {
+        attribute diameter : Length = 0.75 [m];
+        attribute angularPosition : Angle;
+        attribute angularSpeed : AngularVelocity;
+
+        port rotationPort : MechanicalRotationPort;
+        port brakePort : BrakePort;
+    }
+
+    part def ShaftCoupler {
+        attribute torqueRating : Torque = 80 ['N*m'];
+
+        port motorSide : MechanicalRotationPort;
+        port chairSide : MechanicalRotationPort;
+
+        connect motorSide to chairSide;
+    }
+
+    part def DriveSystem {
+        attribute ratedTorque : Torque = 45 ['N*m'];
+        attribute peakTorque : Torque = 75 ['N*m'];
+        attribute closedLoopSpeedControl : Boolean = true;
+
+        port powerInput : PowerPort;
+        port commandInput : CommandPort;
+        port safetyInput : SafetySignalPort;
+        port rotationOutput : MechanicalRotationPort;
+
+        part electricMotor : ElectricMotor;
+        part motorController : MotorController;
+        part speedSensor : SpeedSensor;
+        part positionSensor : PositionSensor;
+
+        connect powerInput to motorController.powerPort;
+        connect commandInput to motorController.commandPort;
+        connect safetyInput to motorController.safetyPort;
+        connect motorController.motorDrivePort to electricMotor.powerDrivePort;
+        connect electricMotor.rotationPort to rotationOutput;
+        connect speedSensor.speedFeedbackPort to motorController.speedFeedbackPort;
+        connect positionSensor.positionFeedbackPort to motorController.positionFeedbackPort;
+    }
+
+    part def ElectricMotor {
+        attribute nominalVoltage : Voltage = 120 [V];
+        attribute continuousTorque : Torque = 45 ['N*m'];
+        attribute maximumSpeed : AngularVelocity = 240 ['deg/s'];
+
+        port powerDrivePort : PowerPort;
+        port rotationPort : MechanicalRotationPort;
+    }
+
+    part def MotorController {
+        attribute speedResolution : AngularVelocity = 1 ['deg/s'];
+        attribute controlLoopPeriod : TimeDuration = 0.01 [s];
+        attribute overspeedTripThreshold : AngularVelocity = 200 ['deg/s'];
+
+        port powerPort : PowerPort;
+        port commandPort : CommandPort;
+        port safetyPort : SafetySignalPort;
+        port motorDrivePort : PowerPort;
+        port speedFeedbackPort : MechanicalRotationPort;
+        port positionFeedbackPort : MechanicalRotationPort;
+    }
+
+    part def SpeedSensor {
+        attribute measurementRange : AngularVelocity = 240 ['deg/s'];
+        attribute accuracy : AngularVelocity = 2 ['deg/s'];
+
+        port speedFeedbackPort : MechanicalRotationPort;
+    }
+
+    part def PositionSensor {
+        attribute angularResolution : Angle = 0.5 ['deg'];
+
+        port positionFeedbackPort : MechanicalRotationPort;
+    }
+
+    part def BrakeSystem {
+        attribute failSafeBrake : Boolean = true;
+        attribute stoppingTorque : Torque = 90 ['N*m'];
+        attribute maximumEmergencyStoppingTime : TimeDuration = 3 [s];
+
+        port brakeInput : SafetySignalPort;
+        port brakeOutput : BrakePort;
+
+        perform action emergencyStopAction : ApplyEmergencyStop;
+    }
+
+    part def ControlConsole {
+        attribute operatorPresent : Boolean;
+        attribute selectedTargetSpeed : AngularVelocity;
+        attribute selectedDuration : TimeDuration;
+        attribute selectedDirection : RotationDirection;
+
+        port commandOutput : CommandPort;
+        port statusInput : CommandPort;
+        port emergencyStopOutput : SafetySignalPort;
+
+        part speedSelector : SpeedSelector;
+        part durationSelector : DurationSelector;
+        part directionSelector : DirectionSelector;
+        part startStopControls : StartStopControls;
+        part statusDisplay : StatusDisplay;
+    }
+
+    part def SpeedSelector {
+        attribute minimumSelectableSpeed : AngularVelocity = 10 ['deg/s'];
+        attribute maximumSelectableSpeed : AngularVelocity = 180 ['deg/s'];
+        attribute increment : AngularVelocity = 5 ['deg/s'];
+    }
+
+    part def DurationSelector {
+        attribute minimumSelectableDuration : TimeDuration = 5 [s];
+        attribute maximumSelectableDuration : TimeDuration = 180 [s];
+        attribute increment : TimeDuration = 5 [s];
+    }
+
+    part def DirectionSelector {
+        attribute clockwiseEnabled : Boolean = true;
+        attribute counterClockwiseEnabled : Boolean = true;
+    }
+
+    part def StartStopControls {
+        attribute startButtonAvailable : Boolean = true;
+        attribute normalStopButtonAvailable : Boolean = true;
+        attribute emergencyStopButtonAvailable : Boolean = true;
+    }
+
+    part def StatusDisplay {
+        attribute displayedSpeed : AngularVelocity;
+        attribute displayedElapsedTime : TimeDuration;
+        attribute displayedState : ChairOperatingState;
+    }
+
+    part def RestraintSystem {
+        attribute restraintState : RestraintState;
+        attribute lapBeltMinimumStrength : Force = 4500 [N];
+        attribute shoulderHarnessMinimumStrength : Force = 4500 [N];
+
+        port patientInterface : PatientInterfacePort;
+        port safetyOutput : SafetySignalPort;
+
+        part lapBelt : LapBelt;
+        part shoulderHarness : ShoulderHarness;
+        part restraintLatchSensor : RestraintLatchSensor;
+    }
+
+    part def LapBelt {
+        attribute ratedLoad : Force = 4500 [N];
+        attribute adjustableLength : Length = 0.8 [m];
+    }
+
+    part def ShoulderHarness {
+        attribute ratedLoad : Force = 4500 [N];
+        attribute adjustableLength : Length = 1.2 [m];
+    }
+
+    part def RestraintLatchSensor {
+        attribute detectsSecuredState : Boolean = true;
+        port safetyOutput : SafetySignalPort;
+    }
+
+    part def SafetySystem {
+        attribute emergencyStopActive : Boolean;
+        attribute motionPermitted : Boolean;
+        attribute maximumAllowedSpeed : AngularVelocity = 180 ['deg/s'];
+
+        port restraintInput : SafetySignalPort;
+        port emergencyStopInput : SafetySignalPort;
+        port motionPermissionOutput : SafetySignalPort;
+        port brakeCommandOutput : SafetySignalPort;
+
+        part emergencyStopCircuit : EmergencyStopCircuit;
+        part interlockController : InterlockController;
+        part overspeedMonitor : OverspeedMonitor;
+
+        connect restraintInput to interlockController.restraintSignalPort;
+        connect emergencyStopInput to emergencyStopCircuit.stopSignalPort;
+        connect emergencyStopCircuit.brakeCommandPort to brakeCommandOutput;
+        connect interlockController.permissionPort to motionPermissionOutput;
+    }
+
+    part def EmergencyStopCircuit {
+        attribute normallyClosedCircuit : Boolean = true;
+        attribute responseTime : TimeDuration = 0.1 [s];
+
+        port stopSignalPort : SafetySignalPort;
+        port brakeCommandPort : SafetySignalPort;
+    }
+
+    part def InterlockController {
+        attribute requiresRestraintSecured : Boolean = true;
+        attribute requiresPowerAvailable : Boolean = true;
+
+        port restraintSignalPort : SafetySignalPort;
+        port permissionPort : SafetySignalPort;
+    }
+
+    part def OverspeedMonitor {
+        attribute tripSpeed : AngularVelocity = 200 ['deg/s'];
+        attribute sensorAgreementTolerance : AngularVelocity = 5 ['deg/s'];
+    }
+
+    part def ObservationSupport {
+        attribute supportsClinicalObservation : Boolean = true;
+
+        port patientObservationPort : PatientInterfacePort;
+
+        part timer : ObservationTimer;
+        part nystagmusObservationRecord : NystagmusObservationRecord;
+    }
+
+    part def ObservationTimer {
+        attribute resolution : TimeDuration = 1 [s];
+        attribute maximumObservationWindow : TimeDuration = 300 [s];
+    }
+
+    part def NystagmusObservationRecord {
+        attribute observationCaptured : Boolean;
+        attribute observationTime : TimeDuration;
+        attribute nystagmusPresent : Boolean;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Barany chair system shall rotate a seated and restrained patient about a vertical axis under operator control to stimulate the vestibular system for clinical observation and assessment. */
+    }
+
+    requirement def ControlledRotationRequirement {
+        attribute requiredMaximumSpeed : AngularVelocity = 180 ['deg/s'];
+        attribute requiredSpeedAccuracy : AngularVelocity = 5 ['deg/s'];
+        doc /* The system shall provide controlled clockwise and counter-clockwise rotation up to the required maximum speed while maintaining speed within the required accuracy during the commanded rotation interval. */
+    }
+
+    requirement def SmoothAccelerationRequirement {
+        attribute maximumAccelerationLimit : AngularAcceleration = 60 ['deg/s^2'];
+        doc /* The system shall limit rotational acceleration and deceleration to reduce abrupt motion during vestibular stimulation. */
+    }
+
+    requirement def PatientRestraintRequirement {
+        attribute minimumRestraintLoad : Force = 4500 [N];
+        doc /* The system shall prevent commanded rotation unless the patient restraint system is secured and verified by the safety interlock. */
+    }
+
+    requirement def EmergencyStopRequirement {
+        attribute maximumStopTime : TimeDuration = 3 [s];
+        doc /* The system shall disable motor torque and apply fail-safe braking when emergency stop is activated, stopping the chair within the maximum stop time. */
+    }
+
+    requirement def OverspeedProtectionRequirement {
+        attribute overspeedThreshold : AngularVelocity = 200 ['deg/s'];
+        doc /* The system shall detect overspeed and transition to a faulted or emergency stopped state before the rotational speed exceeds the overspeed threshold. */
+    }
+
+    requirement def ObservationSupportRequirement {
+        doc /* The system shall provide status and timing information that supports clinician observation of vestibular response after rotation. */
+    }
+
+    requirement def PatientLoadRequirement {
+        attribute maximumPatientMassRequired : Mass = 150 [kg];
+        doc /* The seat, rotary base, and restraint system shall support a seated patient up to the maximum required patient mass. */
+    }
+
+    satisfy PrimaryFunctionRequirement by BaranyChair;
+    satisfy ControlledRotationRequirement by DriveSystem;
+    satisfy SmoothAccelerationRequirement by MotorController;
+    satisfy PatientRestraintRequirement by RestraintSystem;
+    satisfy EmergencyStopRequirement by BrakeSystem;
+    satisfy OverspeedProtectionRequirement by SafetySystem;
+    satisfy ObservationSupportRequirement by ObservationSupport;
+    satisfy PatientLoadRequirement by SeatAssembly;
+    satisfy PatientLoadRequirement by RotaryBase;
+
+    exhibit BaranyChair::controlState;
+}

@@ -1,0 +1,534 @@
+package NeurostimulationSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def ElectricPotential {
+        :>> scalar : Real;
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent {
+        :>> scalar : Real;
+        unit = "mA";
+    }
+
+    attribute def ElectricCharge {
+        :>> scalar : Real;
+        unit = "uC";
+    }
+
+    attribute def Frequency {
+        :>> scalar : Real;
+        unit = "Hz";
+    }
+
+    attribute def PulseWidth {
+        :>> scalar : Real;
+        unit = "us";
+    }
+
+    attribute def TimeDuration {
+        :>> scalar : Real;
+        unit = "s";
+    }
+
+    attribute def Temperature {
+        :>> scalar : Real;
+        unit = "degC";
+    }
+
+    attribute def Impedance {
+        :>> scalar : Real;
+        unit = "ohm";
+    }
+
+    attribute def BatteryCapacity {
+        :>> scalar : Real;
+        unit = "mAh";
+    }
+
+    enum def TherapyMode {
+        enum off;
+        enum tonic;
+        enum burst;
+        enum adaptive;
+        enum diagnostics;
+    }
+
+    enum def LeadLocation {
+        enum spinalCord;
+        enum peripheralNerve;
+        enum deepBrain;
+        enum vagusNerve;
+    }
+
+    enum def AlarmSeverity {
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    item def NeuralResponse {
+        attribute sensedVoltage : ElectricPotential;
+        attribute responseLatency : TimeDuration;
+        attribute signalQuality : Real;
+    }
+
+    item def StimulationPulse {
+        attribute amplitude : ElectricCurrent;
+        attribute pulseWidth : PulseWidth;
+        attribute frequency : Frequency;
+        attribute phaseBalanceError : ElectricCharge;
+    }
+
+    item def TherapyProgram {
+        attribute mode : TherapyMode;
+        attribute targetAmplitude : ElectricCurrent;
+        attribute targetPulseWidth : PulseWidth;
+        attribute targetFrequency : Frequency;
+        attribute rampDuration : TimeDuration;
+        attribute maxSessionDuration : TimeDuration;
+    }
+
+    item def ClinicianCommand {
+        attribute requestedMode : TherapyMode;
+        attribute requestedAmplitude : ElectricCurrent;
+        attribute requestedPulseWidth : PulseWidth;
+        attribute requestedFrequency : Frequency;
+        attribute authenticated : Boolean;
+    }
+
+    item def PatientCommand {
+        attribute therapyEnableRequested : Boolean;
+        attribute amplitudeStepRequest : Integer;
+    }
+
+    item def DeviceStatus {
+        attribute activeMode : TherapyMode;
+        attribute batteryRemaining : Real;
+        attribute leadImpedance : Impedance;
+        attribute caseTemperature : Temperature;
+        attribute therapyEnabled : Boolean;
+    }
+
+    item def Alarm {
+        attribute severity : AlarmSeverity;
+        attribute code : String;
+        attribute latched : Boolean;
+    }
+
+    port def PulseOutputPort {
+        out item pulse : StimulationPulse;
+    }
+
+    port def SenseInputPort {
+        in item neuralResponse : NeuralResponse;
+    }
+
+    port def CommandInputPort {
+        in item clinicianCommand : ClinicianCommand;
+        in item patientCommand : PatientCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : DeviceStatus;
+        out item alarm : Alarm;
+    }
+
+    port def PowerPort {
+        out item supplyVoltage : ElectricPotential;
+    }
+
+    part def ImplantablePulseGenerator {
+        attribute nominalBatteryCapacity : BatteryCapacity = 1200.0;
+        attribute batteryRemaining : Real;
+        attribute caseTemperature : Temperature;
+        attribute activeMode : TherapyMode;
+        attribute therapyEnabled : Boolean;
+
+        port commandIn : CommandInputPort;
+        port statusOut : StatusOutputPort;
+        port pulseOut : PulseOutputPort;
+        port senseIn : SenseInputPort;
+
+        part powerManagement : PowerManagementUnit;
+        part therapyController : TherapyController;
+        part stimulationOutputStage : StimulationOutputStage;
+        part sensingFrontEnd : NeuralSensingFrontEnd;
+        part safetySupervisor : SafetySupervisor;
+        part telemetryModule : TelemetryModule;
+
+        connection powerBus connect powerManagement.powerOut to stimulationOutputStage.powerIn;
+        connection controllerToOutput connect therapyController.pulseCommandOut to stimulationOutputStage.pulseCommandIn;
+        connection sensingToController connect sensingFrontEnd.responseOut to therapyController.responseIn;
+        connection safetyToController connect safetySupervisor.inhibitOut to therapyController.inhibitIn;
+        connection outputToLead connect stimulationOutputStage.pulseOut to pulseOut;
+        connection leadToSense connect senseIn to sensingFrontEnd.senseIn;
+        connection externalCommands connect commandIn to telemetryModule.commandIn;
+        connection telemetryToController connect telemetryModule.validatedCommandOut to therapyController.commandIn;
+        connection statusAggregation connect therapyController.statusOut to statusOut;
+    }
+
+    part def PowerManagementUnit {
+        attribute cellVoltage : ElectricPotential;
+        attribute remainingCapacity : BatteryCapacity;
+        attribute minimumTherapyVoltage : ElectricPotential = 2.8;
+
+        port powerOut : PowerPort;
+    }
+
+    part def TherapyController {
+        attribute activeProgram : TherapyProgram;
+        attribute deliveredPulseCount : Integer;
+        attribute closedLoopGain : Real = 0.35;
+        attribute maxAmplitude : ElectricCurrent = 10.0;
+        attribute maxPulseWidth : PulseWidth = 1000.0;
+        attribute maxFrequency : Frequency = 130.0;
+
+        port commandIn : CommandInputPort;
+        port responseIn : SenseInputPort;
+        port inhibitIn : InhibitPort;
+        port pulseCommandOut : PulseOutputPort;
+        port statusOut : StatusOutputPort;
+
+        action perform validateCommand {
+            in item command : ClinicianCommand;
+            out item acceptedProgram : TherapyProgram;
+        }
+
+        action perform computePulse {
+            in item program : TherapyProgram;
+            in item response : NeuralResponse;
+            out item pulse : StimulationPulse;
+        }
+
+        action perform rampTherapy {
+            in item targetProgram : TherapyProgram;
+            out item rampedPulse : StimulationPulse;
+        }
+
+        state therapyControlState {
+            entry action initializeController;
+
+            state Disabled;
+            state Standby;
+            state Programming;
+            state DeliveringTherapy;
+            state AdaptiveAdjustment;
+            state FaultInhibited;
+
+            transition initial then Disabled;
+
+            transition Disabled_to_Standby
+                first Disabled
+                accept PatientCommand
+                if therapyEnableRequested == false
+                then Standby;
+
+            transition Standby_to_Programming
+                first Standby
+                accept ClinicianCommand
+                if authenticated == true
+                then Programming;
+
+            transition Programming_to_Delivering
+                first Programming
+                do validateCommand
+                then DeliveringTherapy;
+
+            transition Delivering_to_Adaptive
+                first DeliveringTherapy
+                accept NeuralResponse
+                if activeProgram.mode == TherapyMode::adaptive
+                then AdaptiveAdjustment;
+
+            transition Adaptive_to_Delivering
+                first AdaptiveAdjustment
+                do computePulse
+                then DeliveringTherapy;
+
+            transition Any_to_FaultInhibited
+                first Standby, Programming, DeliveringTherapy, AdaptiveAdjustment
+                accept Alarm
+                if severity == AlarmSeverity::critical
+                then FaultInhibited;
+
+            transition Fault_to_Standby
+                first FaultInhibited
+                accept ClinicianCommand
+                if authenticated == true and requestedMode == TherapyMode::off
+                then Standby;
+        }
+    }
+
+    port def InhibitPort {
+        out item inhibited : Boolean;
+    }
+
+    part def StimulationOutputStage {
+        attribute outputComplianceVoltage : ElectricPotential = 12.0;
+        attribute measuredLeadImpedance : Impedance;
+        attribute chargeBalanceLimit : ElectricCharge = 0.10;
+
+        port powerIn : PowerPort;
+        port pulseCommandIn : PulseOutputPort;
+        port pulseOut : PulseOutputPort;
+
+        action perform deliverChargeBalancedPulse {
+            in item pulseCommand : StimulationPulse;
+            out item deliveredPulse : StimulationPulse;
+        }
+
+        action perform measureLeadImpedance {
+            out attribute impedance : Impedance;
+        }
+    }
+
+    part def NeuralSensingFrontEnd {
+        attribute inputNoise : ElectricPotential;
+        attribute blankingTimeAfterPulse : TimeDuration = 0.003;
+        attribute signalQualityThreshold : Real = 0.70;
+
+        port senseIn : SenseInputPort;
+        port responseOut : SenseInputPort;
+
+        action perform acquireNeuralSignal {
+            out item response : NeuralResponse;
+        }
+
+        action perform rejectStimulationArtifact {
+            in item rawResponse : NeuralResponse;
+            out item filteredResponse : NeuralResponse;
+        }
+    }
+
+    part def SafetySupervisor {
+        attribute maximumCaseTemperature : Temperature = 41.0;
+        attribute minimumAllowedImpedance : Impedance = 200.0;
+        attribute maximumAllowedImpedance : Impedance = 5000.0;
+        attribute maximumContinuousTherapyTime : TimeDuration = 14400.0;
+
+        port inhibitOut : InhibitPort;
+        port statusIn : StatusOutputPort;
+        port alarmOut : StatusOutputPort;
+
+        action perform evaluateSafetyLimits {
+            in item status : DeviceStatus;
+            out item alarm : Alarm;
+            out item inhibited : Boolean;
+        }
+
+        state safetyState {
+            state Nominal;
+            state AdvisoryLimit;
+            state WarningLimit;
+            state CriticalInhibit;
+
+            transition initial then Nominal;
+
+            transition Nominal_to_Advisory
+                first Nominal
+                accept DeviceStatus
+                if batteryRemaining < 25.0
+                then AdvisoryLimit;
+
+            transition Advisory_to_Warning
+                first AdvisoryLimit
+                accept DeviceStatus
+                if caseTemperature > 39.5
+                then WarningLimit;
+
+            transition Warning_to_Critical
+                first WarningLimit
+                accept DeviceStatus
+                if caseTemperature >= maximumCaseTemperature
+                then CriticalInhibit;
+
+            transition Any_to_Critical_Impedance
+                first Nominal, AdvisoryLimit, WarningLimit
+                accept DeviceStatus
+                if leadImpedance < minimumAllowedImpedance or leadImpedance > maximumAllowedImpedance
+                then CriticalInhibit;
+        }
+    }
+
+    part def TelemetryModule {
+        attribute encryptionEnabled : Boolean = true;
+        attribute lastAuthenticatedSessionAge : TimeDuration;
+
+        port commandIn : CommandInputPort;
+        port validatedCommandOut : CommandInputPort;
+        port statusOut : StatusOutputPort;
+
+        action perform authenticateSession {
+            in item command : ClinicianCommand;
+            out attribute authenticated : Boolean;
+        }
+
+        action perform forwardValidatedCommand {
+            in item command : ClinicianCommand;
+            out item validatedCommand : ClinicianCommand;
+        }
+    }
+
+    part def NeurostimulationLead {
+        attribute location : LeadLocation;
+        attribute electrodeCount : Integer = 8;
+        attribute nominalImpedance : Impedance = 750.0;
+
+        port proximalPulseIn : PulseOutputPort;
+        port proximalSenseOut : SenseInputPort;
+
+        part electrodeArray : ElectrodeArray;
+
+        connection leadPulsePath connect proximalPulseIn to electrodeArray.stimulationIn;
+        connection leadSensePath connect electrodeArray.senseOut to proximalSenseOut;
+    }
+
+    part def ElectrodeArray {
+        attribute activeCathodeIndex : Integer;
+        attribute activeAnodeIndex : Integer;
+        attribute tissueInterfaceImpedance : Impedance;
+
+        port stimulationIn : PulseOutputPort;
+        port senseOut : SenseInputPort;
+    }
+
+    part def ExternalProgrammer {
+        attribute clinicianAuthenticated : Boolean;
+        attribute selectedProgram : TherapyProgram;
+
+        port commandOut : CommandInputPort;
+        port statusIn : StatusOutputPort;
+
+        action perform createTherapyProgram {
+            out item program : TherapyProgram;
+        }
+
+        action perform requestProgrammingChange {
+            in item program : TherapyProgram;
+            out item command : ClinicianCommand;
+        }
+    }
+
+    part def PatientController {
+        attribute maxPatientAmplitudeSteps : Integer = 4;
+
+        port commandOut : CommandInputPort;
+        port statusIn : StatusOutputPort;
+
+        action perform requestTherapyOnOff {
+            out item command : PatientCommand;
+        }
+
+        action perform requestComfortAdjustment {
+            out item command : PatientCommand;
+        }
+    }
+
+    part def NeurostimulationSystem {
+        attribute primaryFunction : String =
+            "Deliver controlled electrical stimulation pulses to a selected neural target to modulate neural activity while monitoring response, lead integrity, power state, and safety limits.";
+
+        part implant : ImplantablePulseGenerator;
+        part lead : NeurostimulationLead;
+        part clinicianProgrammer : ExternalProgrammer;
+        part patientController : PatientController;
+
+        connection implantToLeadPulse connect implant.pulseOut to lead.proximalPulseIn;
+        connection leadSenseToImplant connect lead.proximalSenseOut to implant.senseIn;
+        connection programmerCommands connect clinicianProgrammer.commandOut to implant.commandIn;
+        connection programmerStatus connect implant.statusOut to clinicianProgrammer.statusIn;
+        connection patientCommands connect patientController.commandOut to implant.commandIn;
+        connection patientStatus connect implant.statusOut to patientController.statusIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : NeurostimulationSystem;
+
+        require constraint {
+            system.primaryFunction ==
+            "Deliver controlled electrical stimulation pulses to a selected neural target to modulate neural activity while monitoring response, lead integrity, power state, and safety limits."
+        }
+    }
+
+    requirement def ChargeBalancedPulseRequirement {
+        subject pulse : StimulationPulse;
+
+        require constraint {
+            abs(pulse.phaseBalanceError) <= 0.10
+        }
+    }
+
+    requirement def TherapyParameterLimitRequirement {
+        subject controller : TherapyController;
+
+        require constraint {
+            controller.maxAmplitude <= 10.0 and
+            controller.maxPulseWidth <= 1000.0 and
+            controller.maxFrequency <= 130.0
+        }
+    }
+
+    requirement def LeadImpedanceSafetyRequirement {
+        subject supervisor : SafetySupervisor;
+
+        require constraint {
+            supervisor.minimumAllowedImpedance >= 200.0 and
+            supervisor.maximumAllowedImpedance <= 5000.0
+        }
+    }
+
+    requirement def TemperatureSafetyRequirement {
+        subject supervisor : SafetySupervisor;
+
+        require constraint {
+            supervisor.maximumCaseTemperature <= 41.0
+        }
+    }
+
+    requirement def AuthenticatedProgrammingRequirement {
+        subject programmer : ExternalProgrammer;
+
+        require constraint {
+            programmer.clinicianAuthenticated == true
+        }
+    }
+
+    requirement def AdaptiveTherapyRequirement {
+        subject controller : TherapyController;
+
+        require constraint {
+            controller.closedLoopGain > 0.0 and controller.closedLoopGain <= 1.0
+        }
+    }
+
+    satisfy PrimaryFunctionSatisfaction
+        by NeurostimulationSystem
+        of PrimaryFunctionRequirement;
+
+    satisfy ChargeBalanceSatisfaction
+        by StimulationOutputStage::deliverChargeBalancedPulse
+        of ChargeBalancedPulseRequirement;
+
+    satisfy ParameterLimitSatisfaction
+        by TherapyController
+        of TherapyParameterLimitRequirement;
+
+    satisfy ImpedanceSafetySatisfaction
+        by SafetySupervisor::evaluateSafetyLimits
+        of LeadImpedanceSafetyRequirement;
+
+    satisfy TemperatureSafetySatisfaction
+        by SafetySupervisor::evaluateSafetyLimits
+        of TemperatureSafetyRequirement;
+
+    satisfy AuthenticatedProgrammingSatisfaction
+        by TelemetryModule::authenticateSession
+        of AuthenticatedProgrammingRequirement;
+
+    satisfy AdaptiveTherapySatisfaction
+        by TherapyController::computePulse
+        of AdaptiveTherapyRequirement;
+}

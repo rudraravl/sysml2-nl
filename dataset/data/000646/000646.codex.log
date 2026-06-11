@@ -1,0 +1,1213 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-osdd9008
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3ac-ea4a-76d2-9eb3-dc8138c7a0f8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Instruments used in gastroenterology and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package GastroenterologyInstrumentModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def LengthValue :> ISQ::length;
+    attribute def DiameterValue :> ISQ::length;
+    attribute def PressureValue :> ISQ::pressure;
+    attribute def FlowRateValue;
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature;
+    attribute def PowerValue :> ISQ::power;
+    attribute def VoltageValue :> ISQ::electricPotential;
+    attribute def CurrentValue :> ISQ::electricCurrent;
+    attribute def ImageFrameRateValue;
+    attribute def ResolutionValue;
+    attribute def IlluminationValue;
+
+    item def OpticalImage {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : ImageFrameRateValue;
+        attribute colorDepthBits : Integer;
+    }
+
+    item def IlluminationEnergy {
+        attribute opticalPower : PowerValue;
+        attribute wavelengthMinimum : LengthValue;
+        attribute wavelengthMaximum : LengthValue;
+    }
+
+    item def InsufflationGas {
+        attribute gasType : String;
+        attribute flowRate : FlowRateValue;
+        attribute pressure : PressureValue;
+    }
+
+    item def IrrigationFluid {
+        attribute fluidType : String;
+        attribute flowRate : FlowRateValue;
+        attribute temperature : TemperatureValue;
+    }
+
+    item def SuctionMaterial {
+        attribute materialType : String;
+        attribute flowRate : FlowRateValue;
+    }
+
+    item def BiopsySample {
+        attribute sampleDiameter : DiameterValue;
+        attribute sampleLength : LengthValue;
+        attribute anatomicalSite : String;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def OperatorCommand {
+        attribute commandName : String;
+        attribute requestedMode : String;
+    }
+
+    item def PatientTissue {
+        attribute anatomicalRegion : String;
+        attribute contactForceLimit : ForceValue;
+    }
+
+    port def ImageOutputPort {
+        out item image : OpticalImage;
+    }
+
+    port def LightOutputPort {
+        out item light : IlluminationEnergy;
+    }
+
+    port def GasPort {
+        out item gas : InsufflationGas;
+    }
+
+    port def FluidPort {
+        out item fluid : IrrigationFluid;
+    }
+
+    port def SuctionPort {
+        in item aspirate : SuctionMaterial;
+    }
+
+    port def WorkingChannelPort {
+        out item instrument;
+        in item sample : BiopsySample;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : OperatorCommand;
+    }
+
+    port def PatientInterfacePort {
+        out item light : IlluminationEnergy;
+        out item gas : InsufflationGas;
+        out item fluid : IrrigationFluid;
+        in item tissue : PatientTissue;
+        in item aspirate : SuctionMaterial;
+        in item sample : BiopsySample;
+    }
+
+    part def VideoProcessor {
+        attribute supportedResolution : ResolutionValue;
+        attribute maximumFrameRate : ImageFrameRateValue;
+        attribute latency : TimeValue;
+        port imageIn : ImageOutputPort;
+        port commandIn : CommandInputPort;
+        port displayOut : ImageOutputPort;
+
+        action processImage {
+            in item rawImage : OpticalImage;
+            out item enhancedImage : OpticalImage;
+            first start;
+            then validateFrame;
+            then applyColorCorrection;
+            then reduceNoise;
+            then deliverFrame;
+        }
+    }
+
+    part def MedicalDisplay {
+        attribute diagonalSize : LengthValue;
+        attribute brightness : IlluminationValue;
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        port imageIn : ImageOutputPort;
+    }
+
+    part def LightSource {
+        attribute maximumOpticalPower : PowerValue;
+        attribute minimumWavelength : LengthValue;
+        attribute maximumWavelength : LengthValue;
+        attribute operatingTemperature : TemperatureValue;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port lightOut : LightOutputPort;
+
+        state def LightSourceState {
+            state off;
+            state standby;
+            state illuminating;
+            state fault;
+
+            entry action initializeLamp;
+            transition first off;
+            transition off_to_standby
+                first off
+                then standby
+                accept OperatorCommand
+                if command.commandName == "PowerOn";
+            transition standby_to_illuminating
+                first standby
+                then illuminating
+                accept OperatorCommand
+                if command.commandName == "EnableLight";
+            transition illuminating_to_standby
+                first illuminating
+                then standby
+                accept OperatorCommand
+                if command.commandName == "DisableLight";
+            transition any_to_fault
+                first illuminating
+                then fault
+                accept OperatorCommand
+                if command.commandName == "FaultDetected";
+        }
+    }
+
+    part def AirWaterPump {
+        attribute maximumGasPressure : PressureValue;
+        attribute maximumFluidFlow : FlowRateValue;
+        attribute maximumGasFlow : FlowRateValue;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port gasOut : GasPort;
+        port fluidOut : FluidPort;
+
+        action regulateInsufflation {
+            in item command : OperatorCommand;
+            out item gas : InsufflationGas;
+            first start;
+            then measurePressure;
+            then adjustPumpSpeed;
+            then deliverGas;
+        }
+
+        action deliverIrrigation {
+            in item command : OperatorCommand;
+            out item fluid : IrrigationFluid;
+            first start;
+            then openFluidValve;
+            then regulateFlow;
+            then deliverFluid;
+        }
+    }
+
+    part def SuctionController {
+        attribute maximumVacuumPressure : PressureValue;
+        attribute maximumAspirateFlow : FlowRateValue;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port suctionIn : SuctionPort;
+
+        action removeFluidAndDebris {
+            in item aspirate : SuctionMaterial;
+            first start;
+            then applyVacuum;
+            then collectAspirate;
+            then stopVacuum;
+        }
+    }
+
+    part def InsertionTube {
+        attribute workingLength : LengthValue;
+        attribute outerDiameter : DiameterValue;
+        attribute bendingSectionLength : LengthValue;
+        attribute minimumBendRadius : LengthValue;
+        port lightIn : LightOutputPort;
+        port gasIn : GasPort;
+        port fluidIn : FluidPort;
+        port suctionOut : SuctionPort;
+        port imageOut : ImageOutputPort;
+        port distalInterface : PatientInterfacePort;
+        port toolChannel : WorkingChannelPort;
+    }
+
+    part def DistalTip {
+        attribute tipOuterDiameter : DiameterValue;
+        attribute fieldOfView : AngleValue;
+        attribute depthOfFieldNear : LengthValue;
+        attribute depthOfFieldFar : LengthValue;
+        port lightIn : LightOutputPort;
+        port gasOut : GasPort;
+        port fluidOut : FluidPort;
+        port imageOut : ImageOutputPort;
+        port tissueInterface : PatientInterfacePort;
+    }
+
+    part def ImagingSensor {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : ImageFrameRateValue;
+        attribute sensorTemperature : TemperatureValue;
+        port powerIn : PowerInputPort;
+        port imageOut : ImageOutputPort;
+
+        action captureMucosalImage {
+            in item tissue : PatientTissue;
+            out item image : OpticalImage;
+            first start;
+            then exposeSensor;
+            then digitizeSignal;
+            then outputFrame;
+        }
+    }
+
+    part def BiopsyForceps {
+        attribute cupDiameter : DiameterValue;
+        attribute usableLength : LengthValue;
+        attribute jawOpenWidth : LengthValue;
+        port channelInterface : WorkingChannelPort;
+
+        action collectBiopsy {
+            in item tissue : PatientTissue;
+            out item sample : BiopsySample;
+            first start;
+            then advanceThroughChannel;
+            then openJaws;
+            then closeJawsOnTissue;
+            then retrieveSample;
+        }
+    }
+
+    part def HandControl {
+        attribute upDownAngulationRange : AngleValue;
+        attribute leftRightAngulationRange : AngleValue;
+        port commandOut : CommandInputPort;
+        port toolPort : WorkingChannelPort;
+
+        action steerDistalTip {
+            in item command : OperatorCommand;
+            first start;
+            then translateKnobMotion;
+            then tensionControlWires;
+            then holdBendPosition;
+        }
+    }
+
+    part def EndoscopyCartPowerSupply {
+        attribute nominalVoltage : VoltageValue;
+        attribute maximumPower : PowerValue;
+        port powerOut : PowerInputPort;
+    }
+
+    part def GastroenterologyVideoEndoscopeSystem {
+        attribute systemName : String = "Flexible Video Endoscope System";
+        attribute primaryFunction : String = "Provide direct visualization, insufflation, irrigation, suction, and biopsy access for diagnostic and therapeutic examination of the gastrointestinal tract.";
+
+        port operatorCommandIn : CommandInputPort;
+        port patientInterface : PatientInterfacePort;
+
+        part powerSupply : EndoscopyCartPowerSupply {
+            attribute nominalVoltage = 120 [V];
+            attribute maximumPower = 900 [W];
+        }
+
+        part processor : VideoProcessor {
+            attribute maximumFrameRate = 60;
+            attribute latency = 80 [ms];
+        }
+
+        part display : MedicalDisplay {
+            attribute diagonalSize = 686 [mm];
+            attribute brightness = 700;
+            attribute widthPixels = 1920;
+            attribute heightPixels = 1080;
+        }
+
+        part lightSource : LightSource {
+            attribute maximumOpticalPower = 120 [W];
+            attribute minimumWavelength = 400 [nm];
+            attribute maximumWavelength = 700 [nm];
+            attribute operatingTemperature = 315 [K];
+        }
+
+        part pump : AirWaterPump {
+            attribute maximumGasPressure = 6 [kPa];
+            attribute maximumFluidFlow = 120 [ml/s];
+            attribute maximumGasFlow = 45 [ml/s];
+        }
+
+        part suctionController : SuctionController {
+            attribute maximumVacuumPressure = 60 [kPa];
+            attribute maximumAspirateFlow = 800 [ml/min];
+        }
+
+        part handControl : HandControl {
+            attribute upDownAngulationRange = 210 [deg];
+            attribute leftRightAngulationRange = 160 [deg];
+        }
+
+        part insertionTube : InsertionTube {
+            attribute workingLength = 1350 [mm];
+            attribute outerDiameter = 9.8 [mm];
+            attribute bendingSectionLength = 90 [mm];
+            attribute minimumBendRadius = 35 [mm];
+        }
+
+        part distalTip : DistalTip {
+            attribute tipOuterDiameter = 9.8 [mm];
+            attribute fieldOfView = 140 [deg];
+            attribute depthOfFieldNear = 3 [mm];
+            attribute depthOfFieldFar = 100 [mm];
+        }
+
+        part imagingSensor : ImagingSensor {
+            attribute widthPixels = 1920;
+            attribute heightPixels = 1080;
+            attribute frameRate = 60;
+            attribute sensorTemperature = 310 [K];
+        }
+
+        part biopsyForceps : BiopsyForceps {
+            attribute cupDiameter = 2.3 [mm];
+            attribute usableLength = 1600 [mm];
+            attribute jawOpenWidth = 7 [mm];
+        }
+
+        connection power_to_light
+            connect powerSupply.powerOut to lightSource.powerIn;
+
+        connection power_to_pump
+            connect powerSupply.powerOut to pump.powerIn;
+
+        connection power_to_suction
+            connect powerSupply.powerOut to suctionController.powerIn;
+
+        connection power_to_sensor
+            connect powerSupply.powerOut to imagingSensor.powerIn;
+
+        connection operator_to_processor
+            connect operatorCommandIn to processor.commandIn;
+
+        connection operator_to_light
+            connect operatorCommandIn to lightSource.commandIn;
+
+        connection operator_to_pump
+            connect operatorCommandIn to pump.commandIn;
+
+        connection operator_to_suction
+            connect operatorCommandIn to suctionController.commandIn;
+
+        connection operator_to_hand_control
+            connect operatorCommandIn to handControl.commandOut;
+
+        connection light_to_tube
+            connect lightSource.lightOut to insertionTube.lightIn;
+
+        connection gas_to_tube
+            connect pump.gasOut to insertionTube.gasIn;
+
+        connection fluid_to_tube
+            connect pump.fluidOut to insertionTube.fluidIn;
+
+        connection tube_to_distal_light
+            connect insertionTube.lightIn to distalTip.lightIn;
+
+        connection tube_to_distal_gas
+            connect insertionTube.gasIn to distalTip.gasOut;
+
+        connection tube_to_distal_fluid
+            connect insertionTube.fluidIn to distalTip.fluidOut;
+
+        connection distal_to_patient
+            connect distalTip.tissueInterface to patientInterface;
+
+        connection sensor_to_tube_image
+            connect imagingSensor.imageOut to insertionTube.imageOut;
+
+        connection tube_image_to_processor
+            connect insertionTube.imageOut to processor.imageIn;
+
+        connection processor_to_display
+            connect processor.displayOut to display.imageIn;
+
+        connection suction_from_tube
+            connect insertionTube.suctionOut to suctionController.suctionIn;
+
+        connection biopsy_to_hand_control
+            connect biopsyForceps.channelInterface to handControl.toolPort;
+
+        connection hand_control_to_tube_channel
+            connect handControl.toolPort to insertionTube.toolChannel;
+
+        action performEndoscopicExamination {
+            in item command : OperatorCommand;
+            in item tissue : PatientTissue;
+            out item image : OpticalImage;
+            out item sample : BiopsySample;
+
+            first prepareSystem;
+            then verifyPowerAndSelfTest;
+            then enableIllumination;
+            then insertAndSteerScope;
+            then insufflateLumen;
+            then irrigateAsNeeded;
+            then captureAndDisplayImage;
+            then aspirateFluidAndDebris;
+            then collectBiopsyIfCommanded;
+            then withdrawScope;
+            then shutdownSystem;
+        }
+
+        state def EndoscopyProcedureState {
+            state poweredOff;
+            state selfTest;
+            state ready;
+            state insertion;
+            state visualization;
+            state therapy;
+            state withdrawal;
+            state cleaningRequired;
+            state fault;
+
+            transition first poweredOff;
+
+            transition power_on
+                first poweredOff
+                then selfTest
+                accept OperatorCommand
+                if command.commandName == "PowerOn";
+
+            transition self_test_passed
+                first selfTest
+                then ready
+                accept OperatorCommand
+                if command.commandName == "SelfTestPassed";
+
+            transition begin_insertion
+                first ready
+                then insertion
+                accept OperatorCommand
+                if command.commandName == "BeginProcedure";
+
+            transition image_available
+                first insertion
+                then visualization
+                accept OpticalImage;
+
+            transition therapeutic_access
+                first visualization
+                then therapy
+                accept OperatorCommand
+                if command.commandName == "UseWorkingChannel";
+
+            transition therapy_complete
+                first therapy
+                then visualization
+                accept OperatorCommand
+                if command.commandName == "TherapyComplete";
+
+            transition begin_withdrawal
+                first visualization
+                then withdrawal
+                accept OperatorCommand
+                if command.commandName == "Withdraw";
+
+            transition procedure_complete
+                first withdrawal
+                then cleaningRequired
+                accept OperatorCommand
+                if command.commandName == "ProcedureComplete";
+
+            transition fault_detected
+                first visualization
+                then fault
+                accept OperatorCommand
+                if command.commandName == "FaultDetected";
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : GastroenterologyVideoEndoscopeSystem;
+        require constraint {
+            system.primaryFunction == "Provide direct visualization, insufflation, irrigation, suction, and biopsy access for diagnostic and therapeutic examination of the gastrointestinal tract."
+        }
+    }
+
+    requirement def VisualizationRequirement {
+        subject sensor : ImagingSensor;
+        require constraint {
+            sensor.widthPixels >= 1280 and sensor.heightPixels >= 720 and sensor.frameRate >= 30
+        }
+    }
+
+    requirement def InsertionTubeRequirement {
+        subject tube : InsertionTube;
+        require constraint {
+            tube.outerDiameter <= 12 [mm] and tube.workingLength >= 1000 [mm]
+        }
+    }
+
+    requirement def IlluminationRequirement {
+        subject source : LightSource;
+        require constraint {
+            source.minimumWavelength <= 420 [nm] and source.maximumWavelength >= 650 [nm]
+        }
+    }
+
+    requirement def InsufflationSafetyRequirement {
+        subject pump : AirWaterPump;
+        require constraint {
+            pump.maximumGasPressure <= 8 [kPa]
+        }
+    }
+
+    requirement def SuctionCapabilityRequirement {
+        subject suction : SuctionController;
+        require constraint {
+            suction.maximumAspirateFlow >= 500 [ml/min]
+        }
+    }
+
+    requirement def BiopsyAccessRequirement {
+        subject forceps : BiopsyForceps;
+        require constraint {
+            forceps.cupDiameter <= 2.8 [mm] and forceps.usableLength >= 1400 [mm]
+        }
+    }
+
+    requirement def PatientInterfaceRequirement {
+        subject system : GastroenterologyVideoEndoscopeSystem;
+        require constraint {
+            system.insertionTube.outerDiameter == system.distalTip.tipOuterDiameter
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by GastroenterologyVideoEndoscopeSystem;
+    satisfy VisualizationRequirement by ImagingSensor;
+    satisfy InsertionTubeRequirement by InsertionTube;
+    satisfy IlluminationRequirement by LightSource;
+    satisfy InsufflationSafetyRequirement by AirWaterPump;
+    satisfy SuctionCapabilityRequirement by SuctionController;
+    satisfy BiopsyAccessRequirement by BiopsyForceps;
+    satisfy PatientInterfaceRequirement by GastroenterologyVideoEndoscopeSystem;
+}
+tokens used
+4,197
+package GastroenterologyInstrumentModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def LengthValue :> ISQ::length;
+    attribute def DiameterValue :> ISQ::length;
+    attribute def PressureValue :> ISQ::pressure;
+    attribute def FlowRateValue;
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature;
+    attribute def PowerValue :> ISQ::power;
+    attribute def VoltageValue :> ISQ::electricPotential;
+    attribute def CurrentValue :> ISQ::electricCurrent;
+    attribute def ImageFrameRateValue;
+    attribute def ResolutionValue;
+    attribute def IlluminationValue;
+
+    item def OpticalImage {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : ImageFrameRateValue;
+        attribute colorDepthBits : Integer;
+    }
+
+    item def IlluminationEnergy {
+        attribute opticalPower : PowerValue;
+        attribute wavelengthMinimum : LengthValue;
+        attribute wavelengthMaximum : LengthValue;
+    }
+
+    item def InsufflationGas {
+        attribute gasType : String;
+        attribute flowRate : FlowRateValue;
+        attribute pressure : PressureValue;
+    }
+
+    item def IrrigationFluid {
+        attribute fluidType : String;
+        attribute flowRate : FlowRateValue;
+        attribute temperature : TemperatureValue;
+    }
+
+    item def SuctionMaterial {
+        attribute materialType : String;
+        attribute flowRate : FlowRateValue;
+    }
+
+    item def BiopsySample {
+        attribute sampleDiameter : DiameterValue;
+        attribute sampleLength : LengthValue;
+        attribute anatomicalSite : String;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def OperatorCommand {
+        attribute commandName : String;
+        attribute requestedMode : String;
+    }
+
+    item def PatientTissue {
+        attribute anatomicalRegion : String;
+        attribute contactForceLimit : ForceValue;
+    }
+
+    port def ImageOutputPort {
+        out item image : OpticalImage;
+    }
+
+    port def LightOutputPort {
+        out item light : IlluminationEnergy;
+    }
+
+    port def GasPort {
+        out item gas : InsufflationGas;
+    }
+
+    port def FluidPort {
+        out item fluid : IrrigationFluid;
+    }
+
+    port def SuctionPort {
+        in item aspirate : SuctionMaterial;
+    }
+
+    port def WorkingChannelPort {
+        out item instrument;
+        in item sample : BiopsySample;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : OperatorCommand;
+    }
+
+    port def PatientInterfacePort {
+        out item light : IlluminationEnergy;
+        out item gas : InsufflationGas;
+        out item fluid : IrrigationFluid;
+        in item tissue : PatientTissue;
+        in item aspirate : SuctionMaterial;
+        in item sample : BiopsySample;
+    }
+
+    part def VideoProcessor {
+        attribute supportedResolution : ResolutionValue;
+        attribute maximumFrameRate : ImageFrameRateValue;
+        attribute latency : TimeValue;
+        port imageIn : ImageOutputPort;
+        port commandIn : CommandInputPort;
+        port displayOut : ImageOutputPort;
+
+        action processImage {
+            in item rawImage : OpticalImage;
+            out item enhancedImage : OpticalImage;
+            first start;
+            then validateFrame;
+            then applyColorCorrection;
+            then reduceNoise;
+            then deliverFrame;
+        }
+    }
+
+    part def MedicalDisplay {
+        attribute diagonalSize : LengthValue;
+        attribute brightness : IlluminationValue;
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        port imageIn : ImageOutputPort;
+    }
+
+    part def LightSource {
+        attribute maximumOpticalPower : PowerValue;
+        attribute minimumWavelength : LengthValue;
+        attribute maximumWavelength : LengthValue;
+        attribute operatingTemperature : TemperatureValue;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port lightOut : LightOutputPort;
+
+        state def LightSourceState {
+            state off;
+            state standby;
+            state illuminating;
+            state fault;
+
+            entry action initializeLamp;
+            transition first off;
+            transition off_to_standby
+                first off
+                then standby
+                accept OperatorCommand
+                if command.commandName == "PowerOn";
+            transition standby_to_illuminating
+                first standby
+                then illuminating
+                accept OperatorCommand
+                if command.commandName == "EnableLight";
+            transition illuminating_to_standby
+                first illuminating
+                then standby
+                accept OperatorCommand
+                if command.commandName == "DisableLight";
+            transition any_to_fault
+                first illuminating
+                then fault
+                accept OperatorCommand
+                if command.commandName == "FaultDetected";
+        }
+    }
+
+    part def AirWaterPump {
+        attribute maximumGasPressure : PressureValue;
+        attribute maximumFluidFlow : FlowRateValue;
+        attribute maximumGasFlow : FlowRateValue;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port gasOut : GasPort;
+        port fluidOut : FluidPort;
+
+        action regulateInsufflation {
+            in item command : OperatorCommand;
+            out item gas : InsufflationGas;
+            first start;
+            then measurePressure;
+            then adjustPumpSpeed;
+            then deliverGas;
+        }
+
+        action deliverIrrigation {
+            in item command : OperatorCommand;
+            out item fluid : IrrigationFluid;
+            first start;
+            then openFluidValve;
+            then regulateFlow;
+            then deliverFluid;
+        }
+    }
+
+    part def SuctionController {
+        attribute maximumVacuumPressure : PressureValue;
+        attribute maximumAspirateFlow : FlowRateValue;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port suctionIn : SuctionPort;
+
+        action removeFluidAndDebris {
+            in item aspirate : SuctionMaterial;
+            first start;
+            then applyVacuum;
+            then collectAspirate;
+            then stopVacuum;
+        }
+    }
+
+    part def InsertionTube {
+        attribute workingLength : LengthValue;
+        attribute outerDiameter : DiameterValue;
+        attribute bendingSectionLength : LengthValue;
+        attribute minimumBendRadius : LengthValue;
+        port lightIn : LightOutputPort;
+        port gasIn : GasPort;
+        port fluidIn : FluidPort;
+        port suctionOut : SuctionPort;
+        port imageOut : ImageOutputPort;
+        port distalInterface : PatientInterfacePort;
+        port toolChannel : WorkingChannelPort;
+    }
+
+    part def DistalTip {
+        attribute tipOuterDiameter : DiameterValue;
+        attribute fieldOfView : AngleValue;
+        attribute depthOfFieldNear : LengthValue;
+        attribute depthOfFieldFar : LengthValue;
+        port lightIn : LightOutputPort;
+        port gasOut : GasPort;
+        port fluidOut : FluidPort;
+        port imageOut : ImageOutputPort;
+        port tissueInterface : PatientInterfacePort;
+    }
+
+    part def ImagingSensor {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : ImageFrameRateValue;
+        attribute sensorTemperature : TemperatureValue;
+        port powerIn : PowerInputPort;
+        port imageOut : ImageOutputPort;
+
+        action captureMucosalImage {
+            in item tissue : PatientTissue;
+            out item image : OpticalImage;
+            first start;
+            then exposeSensor;
+            then digitizeSignal;
+            then outputFrame;
+        }
+    }
+
+    part def BiopsyForceps {
+        attribute cupDiameter : DiameterValue;
+        attribute usableLength : LengthValue;
+        attribute jawOpenWidth : LengthValue;
+        port channelInterface : WorkingChannelPort;
+
+        action collectBiopsy {
+            in item tissue : PatientTissue;
+            out item sample : BiopsySample;
+            first start;
+            then advanceThroughChannel;
+            then openJaws;
+            then closeJawsOnTissue;
+            then retrieveSample;
+        }
+    }
+
+    part def HandControl {
+        attribute upDownAngulationRange : AngleValue;
+        attribute leftRightAngulationRange : AngleValue;
+        port commandOut : CommandInputPort;
+        port toolPort : WorkingChannelPort;
+
+        action steerDistalTip {
+            in item command : OperatorCommand;
+            first start;
+            then translateKnobMotion;
+            then tensionControlWires;
+            then holdBendPosition;
+        }
+    }
+
+    part def EndoscopyCartPowerSupply {
+        attribute nominalVoltage : VoltageValue;
+        attribute maximumPower : PowerValue;
+        port powerOut : PowerInputPort;
+    }
+
+    part def GastroenterologyVideoEndoscopeSystem {
+        attribute systemName : String = "Flexible Video Endoscope System";
+        attribute primaryFunction : String = "Provide direct visualization, insufflation, irrigation, suction, and biopsy access for diagnostic and therapeutic examination of the gastrointestinal tract.";
+
+        port operatorCommandIn : CommandInputPort;
+        port patientInterface : PatientInterfacePort;
+
+        part powerSupply : EndoscopyCartPowerSupply {
+            attribute nominalVoltage = 120 [V];
+            attribute maximumPower = 900 [W];
+        }
+
+        part processor : VideoProcessor {
+            attribute maximumFrameRate = 60;
+            attribute latency = 80 [ms];
+        }
+
+        part display : MedicalDisplay {
+            attribute diagonalSize = 686 [mm];
+            attribute brightness = 700;
+            attribute widthPixels = 1920;
+            attribute heightPixels = 1080;
+        }
+
+        part lightSource : LightSource {
+            attribute maximumOpticalPower = 120 [W];
+            attribute minimumWavelength = 400 [nm];
+            attribute maximumWavelength = 700 [nm];
+            attribute operatingTemperature = 315 [K];
+        }
+
+        part pump : AirWaterPump {
+            attribute maximumGasPressure = 6 [kPa];
+            attribute maximumFluidFlow = 120 [ml/s];
+            attribute maximumGasFlow = 45 [ml/s];
+        }
+
+        part suctionController : SuctionController {
+            attribute maximumVacuumPressure = 60 [kPa];
+            attribute maximumAspirateFlow = 800 [ml/min];
+        }
+
+        part handControl : HandControl {
+            attribute upDownAngulationRange = 210 [deg];
+            attribute leftRightAngulationRange = 160 [deg];
+        }
+
+        part insertionTube : InsertionTube {
+            attribute workingLength = 1350 [mm];
+            attribute outerDiameter = 9.8 [mm];
+            attribute bendingSectionLength = 90 [mm];
+            attribute minimumBendRadius = 35 [mm];
+        }
+
+        part distalTip : DistalTip {
+            attribute tipOuterDiameter = 9.8 [mm];
+            attribute fieldOfView = 140 [deg];
+            attribute depthOfFieldNear = 3 [mm];
+            attribute depthOfFieldFar = 100 [mm];
+        }
+
+        part imagingSensor : ImagingSensor {
+            attribute widthPixels = 1920;
+            attribute heightPixels = 1080;
+            attribute frameRate = 60;
+            attribute sensorTemperature = 310 [K];
+        }
+
+        part biopsyForceps : BiopsyForceps {
+            attribute cupDiameter = 2.3 [mm];
+            attribute usableLength = 1600 [mm];
+            attribute jawOpenWidth = 7 [mm];
+        }
+
+        connection power_to_light
+            connect powerSupply.powerOut to lightSource.powerIn;
+
+        connection power_to_pump
+            connect powerSupply.powerOut to pump.powerIn;
+
+        connection power_to_suction
+            connect powerSupply.powerOut to suctionController.powerIn;
+
+        connection power_to_sensor
+            connect powerSupply.powerOut to imagingSensor.powerIn;
+
+        connection operator_to_processor
+            connect operatorCommandIn to processor.commandIn;
+
+        connection operator_to_light
+            connect operatorCommandIn to lightSource.commandIn;
+
+        connection operator_to_pump
+            connect operatorCommandIn to pump.commandIn;
+
+        connection operator_to_suction
+            connect operatorCommandIn to suctionController.commandIn;
+
+        connection operator_to_hand_control
+            connect operatorCommandIn to handControl.commandOut;
+
+        connection light_to_tube
+            connect lightSource.lightOut to insertionTube.lightIn;
+
+        connection gas_to_tube
+            connect pump.gasOut to insertionTube.gasIn;
+
+        connection fluid_to_tube
+            connect pump.fluidOut to insertionTube.fluidIn;
+
+        connection tube_to_distal_light
+            connect insertionTube.lightIn to distalTip.lightIn;
+
+        connection tube_to_distal_gas
+            connect insertionTube.gasIn to distalTip.gasOut;
+
+        connection tube_to_distal_fluid
+            connect insertionTube.fluidIn to distalTip.fluidOut;
+
+        connection distal_to_patient
+            connect distalTip.tissueInterface to patientInterface;
+
+        connection sensor_to_tube_image
+            connect imagingSensor.imageOut to insertionTube.imageOut;
+
+        connection tube_image_to_processor
+            connect insertionTube.imageOut to processor.imageIn;
+
+        connection processor_to_display
+            connect processor.displayOut to display.imageIn;
+
+        connection suction_from_tube
+            connect insertionTube.suctionOut to suctionController.suctionIn;
+
+        connection biopsy_to_hand_control
+            connect biopsyForceps.channelInterface to handControl.toolPort;
+
+        connection hand_control_to_tube_channel
+            connect handControl.toolPort to insertionTube.toolChannel;
+
+        action performEndoscopicExamination {
+            in item command : OperatorCommand;
+            in item tissue : PatientTissue;
+            out item image : OpticalImage;
+            out item sample : BiopsySample;
+
+            first prepareSystem;
+            then verifyPowerAndSelfTest;
+            then enableIllumination;
+            then insertAndSteerScope;
+            then insufflateLumen;
+            then irrigateAsNeeded;
+            then captureAndDisplayImage;
+            then aspirateFluidAndDebris;
+            then collectBiopsyIfCommanded;
+            then withdrawScope;
+            then shutdownSystem;
+        }
+
+        state def EndoscopyProcedureState {
+            state poweredOff;
+            state selfTest;
+            state ready;
+            state insertion;
+            state visualization;
+            state therapy;
+            state withdrawal;
+            state cleaningRequired;
+            state fault;
+
+            transition first poweredOff;
+
+            transition power_on
+                first poweredOff
+                then selfTest
+                accept OperatorCommand
+                if command.commandName == "PowerOn";
+
+            transition self_test_passed
+                first selfTest
+                then ready
+                accept OperatorCommand
+                if command.commandName == "SelfTestPassed";
+
+            transition begin_insertion
+                first ready
+                then insertion
+                accept OperatorCommand
+                if command.commandName == "BeginProcedure";
+
+            transition image_available
+                first insertion
+                then visualization
+                accept OpticalImage;
+
+            transition therapeutic_access
+                first visualization
+                then therapy
+                accept OperatorCommand
+                if command.commandName == "UseWorkingChannel";
+
+            transition therapy_complete
+                first therapy
+                then visualization
+                accept OperatorCommand
+                if command.commandName == "TherapyComplete";
+
+            transition begin_withdrawal
+                first visualization
+                then withdrawal
+                accept OperatorCommand
+                if command.commandName == "Withdraw";
+
+            transition procedure_complete
+                first withdrawal
+                then cleaningRequired
+                accept OperatorCommand
+                if command.commandName == "ProcedureComplete";
+
+            transition fault_detected
+                first visualization
+                then fault
+                accept OperatorCommand
+                if command.commandName == "FaultDetected";
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : GastroenterologyVideoEndoscopeSystem;
+        require constraint {
+            system.primaryFunction == "Provide direct visualization, insufflation, irrigation, suction, and biopsy access for diagnostic and therapeutic examination of the gastrointestinal tract."
+        }
+    }
+
+    requirement def VisualizationRequirement {
+        subject sensor : ImagingSensor;
+        require constraint {
+            sensor.widthPixels >= 1280 and sensor.heightPixels >= 720 and sensor.frameRate >= 30
+        }
+    }
+
+    requirement def InsertionTubeRequirement {
+        subject tube : InsertionTube;
+        require constraint {
+            tube.outerDiameter <= 12 [mm] and tube.workingLength >= 1000 [mm]
+        }
+    }
+
+    requirement def IlluminationRequirement {
+        subject source : LightSource;
+        require constraint {
+            source.minimumWavelength <= 420 [nm] and source.maximumWavelength >= 650 [nm]
+        }
+    }
+
+    requirement def InsufflationSafetyRequirement {
+        subject pump : AirWaterPump;
+        require constraint {
+            pump.maximumGasPressure <= 8 [kPa]
+        }
+    }
+
+    requirement def SuctionCapabilityRequirement {
+        subject suction : SuctionController;
+        require constraint {
+            suction.maximumAspirateFlow >= 500 [ml/min]
+        }
+    }
+
+    requirement def BiopsyAccessRequirement {
+        subject forceps : BiopsyForceps;
+        require constraint {
+            forceps.cupDiameter <= 2.8 [mm] and forceps.usableLength >= 1400 [mm]
+        }
+    }
+
+    requirement def PatientInterfaceRequirement {
+        subject system : GastroenterologyVideoEndoscopeSystem;
+        require constraint {
+            system.insertionTube.outerDiameter == system.distalTip.tipOuterDiameter
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by GastroenterologyVideoEndoscopeSystem;
+    satisfy VisualizationRequirement by ImagingSensor;
+    satisfy InsertionTubeRequirement by InsertionTube;
+    satisfy IlluminationRequirement by LightSource;
+    satisfy InsufflationSafetyRequirement by AirWaterPump;
+    satisfy SuctionCapabilityRequirement by SuctionController;
+    satisfy BiopsyAccessRequirement by BiopsyForceps;
+    satisfy PatientInterfaceRequirement by GastroenterologyVideoEndoscopeSystem;
+}

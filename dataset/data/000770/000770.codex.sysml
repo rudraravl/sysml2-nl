@@ -1,0 +1,421 @@
+package SphygmographSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Pressure {
+        :> scalar;
+        unit = "mmHg";
+    }
+
+    attribute def Force {
+        :> scalar;
+        unit = "N";
+    }
+
+    attribute def Length {
+        :> scalar;
+        unit = "mm";
+    }
+
+    attribute def Time {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def Frequency {
+        :> scalar;
+        unit = "Hz";
+    }
+
+    attribute def Velocity {
+        :> scalar;
+        unit = "mm/s";
+    }
+
+    attribute def Voltage {
+        :> scalar;
+        unit = "V";
+    }
+
+    attribute def PulseRate {
+        :> scalar;
+        unit = "beats/min";
+    }
+
+    item def RadialArteryPulse {
+        attribute systolicPressure : Pressure;
+        attribute diastolicPressure : Pressure;
+        attribute pulseAmplitude : Pressure;
+        attribute pulsePeriod : Time;
+        attribute pulseRate : PulseRate;
+    }
+
+    item def MechanicalDisplacementSignal {
+        attribute displacement : Length;
+        attribute force : Force;
+        attribute timestamp : Time;
+    }
+
+    item def RecordedPulseTrace {
+        attribute traceLength : Length;
+        attribute paperSpeed : Velocity;
+        attribute samplingDuration : Time;
+        attribute dominantPulseRate : PulseRate;
+        attribute maximumDeflection : Length;
+    }
+
+    item def PatientIdentifier {
+        attribute patientId : String;
+        attribute ageYears : Integer;
+    }
+
+    item def ClinicalPulseObservation {
+        attribute pulseRate : PulseRate;
+        attribute rhythmRegular : Boolean;
+        attribute waveformReadable : Boolean;
+        attribute observationDuration : Time;
+    }
+
+    port def PulseContactPort {
+        in item pulse : RadialArteryPulse;
+        out item displacement : MechanicalDisplacementSignal;
+    }
+
+    port def MechanicalSignalPort {
+        in item displacement : MechanicalDisplacementSignal;
+        out item amplifiedDisplacement : MechanicalDisplacementSignal;
+    }
+
+    port def TraceWritingPort {
+        in item amplifiedDisplacement : MechanicalDisplacementSignal;
+        out item trace : RecordedPulseTrace;
+    }
+
+    port def PatientInterfacePort {
+        in item patient : PatientIdentifier;
+        out item observation : ClinicalPulseObservation;
+    }
+
+    port def OperatorControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        in attribute zeroCommand : Boolean;
+        out attribute readyIndication : Boolean;
+        out attribute recordingIndication : Boolean;
+    }
+
+    part def PatientWrist {
+        attribute radialArteryDepth : Length = 3 [mm];
+        attribute nominalPulsePressure : Pressure = 40 [mmHg];
+
+        port pulseOutput : PulseContactPort;
+    }
+
+    part def ContactButton {
+        attribute contactAreaDiameter : Length = 5 [mm];
+        attribute preloadForce : Force = 0.8 [N];
+        attribute maximumAllowedForce : Force = 2.5 [N];
+
+        port arteryInterface : PulseContactPort;
+        port mechanicalOutput : MechanicalSignalPort;
+    }
+
+    part def LeverAmplifier {
+        attribute leverRatio : Real = 12.0;
+        attribute pivotFrictionForce : Force = 0.02 [N];
+        attribute naturalFrequency : Frequency = 18 [Hz];
+
+        port inputMotion : MechanicalSignalPort;
+        port outputMotion : MechanicalSignalPort;
+    }
+
+    part def StylusAssembly {
+        attribute stylusTipWidth : Length = 0.2 [mm];
+        attribute stylusMass : Real = 0.6;
+        attribute maximumDeflection : Length = 20 [mm];
+
+        port inputMotion : MechanicalSignalPort;
+        port writingOutput : TraceWritingPort;
+    }
+
+    part def RecordingPaperTransport {
+        attribute paperSpeed : Velocity = 25 [mm/s];
+        attribute paperWidth : Length = 50 [mm];
+        attribute availablePaperLength : Length = 3000 [mm];
+
+        port traceInput : TraceWritingPort;
+    }
+
+    part def TimeReference {
+        attribute tickPeriod : Time = 0.2 [s];
+        attribute calibrationMarkHeight : Length = 2 [mm];
+
+        port timingOutput : TraceWritingPort;
+    }
+
+    part def OperatorPanel {
+        attribute startPressed : Boolean;
+        attribute stopPressed : Boolean;
+        attribute zeroPressed : Boolean;
+        attribute readyLamp : Boolean;
+        attribute recordingLamp : Boolean;
+
+        port controls : OperatorControlPort;
+    }
+
+    part def Sphygmograph {
+        attribute intendedMeasurementSite : String = "radial artery at wrist";
+        attribute nominalRecordingDuration : Time = 15 [s];
+        attribute allowableContactForce : Force = 2.5 [N];
+        attribute minimumReadableDeflection : Length = 1 [mm];
+
+        port patientInterface : PatientInterfacePort;
+        port controls : OperatorControlPort;
+
+        part patientWrist : PatientWrist;
+        part contactButton : ContactButton;
+        part leverAmplifier : LeverAmplifier;
+        part stylusAssembly : StylusAssembly;
+        part paperTransport : RecordingPaperTransport;
+        part timeReference : TimeReference;
+        part operatorPanel : OperatorPanel;
+
+        connect patientWrist.pulseOutput to contactButton.arteryInterface;
+        connect contactButton.mechanicalOutput to leverAmplifier.inputMotion;
+        connect leverAmplifier.outputMotion to stylusAssembly.inputMotion;
+        connect stylusAssembly.writingOutput to paperTransport.traceInput;
+        connect timeReference.timingOutput to paperTransport.traceInput;
+        connect controls to operatorPanel.controls;
+
+        perform action recordPulseWaveform;
+        exhibit state sphygmographOperatingState;
+    }
+
+    action def ApplyControlledContact {
+        in item pulse : RadialArteryPulse;
+        in attribute preload : Force;
+        out item displacement : MechanicalDisplacementSignal;
+
+        assert constraint {
+            preload <= 2.5 [N]
+        }
+    }
+
+    action def AmplifyPulseMotion {
+        in item displacement : MechanicalDisplacementSignal;
+        in attribute leverRatio : Real;
+        out item amplifiedDisplacement : MechanicalDisplacementSignal;
+
+        assert constraint {
+            leverRatio >= 8.0 and leverRatio <= 20.0
+        }
+    }
+
+    action def InscribePulseTrace {
+        in item amplifiedDisplacement : MechanicalDisplacementSignal;
+        in attribute paperSpeed : Velocity;
+        in attribute duration : Time;
+        out item trace : RecordedPulseTrace;
+
+        assert constraint {
+            paperSpeed == 25 [mm/s] and duration >= 10 [s]
+        }
+    }
+
+    action def InterpretPulseTrace {
+        in item trace : RecordedPulseTrace;
+        out item observation : ClinicalPulseObservation;
+
+        assert constraint {
+            trace.maximumDeflection >= 1 [mm]
+        }
+    }
+
+    action def RecordPulseWaveform {
+        in item patient : PatientIdentifier;
+        in item arterialPulse : RadialArteryPulse;
+        out item pulseTrace : RecordedPulseTrace;
+        out item observation : ClinicalPulseObservation;
+
+        first start;
+
+        then applyContact : ApplyControlledContact {
+            in pulse = arterialPulse;
+            in preload = 0.8 [N];
+        }
+
+        then amplifyMotion : AmplifyPulseMotion {
+            in displacement = applyContact.displacement;
+            in leverRatio = 12.0;
+        }
+
+        then inscribeTrace : InscribePulseTrace {
+            in amplifiedDisplacement = amplifyMotion.amplifiedDisplacement;
+            in paperSpeed = 25 [mm/s];
+            in duration = 15 [s];
+        }
+
+        then interpretTrace : InterpretPulseTrace {
+            in trace = inscribeTrace.trace;
+        }
+
+        then done;
+
+        bind pulseTrace = inscribeTrace.trace;
+        bind observation = interpretTrace.observation;
+    }
+
+    state def SphygmographOperatingState {
+        entry action initialize {
+            out attribute ready : Boolean = true;
+        }
+
+        state Idle;
+        state Positioned;
+        state Zeroed;
+        state Recording;
+        state TraceComplete;
+        state Fault;
+
+        transition initial then Idle;
+
+        transition Idle_to_Positioned
+            first Idle
+            accept event patientWristPlaced
+            then Positioned;
+
+        transition Positioned_to_Zeroed
+            first Positioned
+            accept event zeroCommandReceived
+            then Zeroed;
+
+        transition Zeroed_to_Recording
+            first Zeroed
+            accept event startCommandReceived
+            then Recording;
+
+        transition Recording_to_TraceComplete
+            first Recording
+            accept event recordingDurationElapsed
+            then TraceComplete;
+
+        transition Recording_to_Fault
+            first Recording
+            accept event excessiveContactForceDetected
+            then Fault;
+
+        transition TraceComplete_to_Idle
+            first TraceComplete
+            accept event traceRemoved
+            then Idle;
+
+        transition Fault_to_Idle
+            first Fault
+            accept event operatorReset
+            then Idle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The sphygmograph shall mechanically sense arterial pulse motion at the patient's wrist, amplify the motion, and produce a time-based pulse waveform trace suitable for high-level clinical observation of pulse rate, rhythm, and waveform character. */
+
+        subject sphygmograph : Sphygmograph;
+
+        require constraint {
+            sphygmograph.nominalRecordingDuration >= 10 [s]
+        }
+    }
+
+    requirement def ContactSafetyRequirement {
+        doc /* The device shall limit contact force applied to the radial artery so that pulse motion is sensed without occluding the artery or causing excessive discomfort. */
+
+        subject sphygmograph : Sphygmograph;
+
+        require constraint {
+            sphygmograph.allowableContactForce <= 2.5 [N]
+        }
+    }
+
+    requirement def TraceReadabilityRequirement {
+        doc /* The recorded pulse trace shall have sufficient visible deflection to allow pulse peaks and rhythm intervals to be distinguished. */
+
+        subject trace : RecordedPulseTrace;
+
+        require constraint {
+            trace.maximumDeflection >= 1 [mm]
+        }
+    }
+
+    requirement def TimeBaseRequirement {
+        doc /* The recording medium shall move at a controlled speed so pulse intervals can be related to elapsed time. */
+
+        subject transport : RecordingPaperTransport;
+
+        require constraint {
+            transport.paperSpeed == 25 [mm/s]
+        }
+    }
+
+    requirement def HighLevelObservationRequirement {
+        doc /* The sphygmograph shall provide an observation containing pulse rate, rhythm regularity, waveform readability, and observation duration after recording is complete. */
+
+        subject observation : ClinicalPulseObservation;
+
+        require constraint {
+            observation.waveformReadable == true and observation.observationDuration >= 10 [s]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Sphygmograph::recordPulseWaveform;
+    satisfy ContactSafetyRequirement by ContactButton;
+    satisfy TraceReadabilityRequirement by StylusAssembly;
+    satisfy TimeBaseRequirement by RecordingPaperTransport;
+    satisfy HighLevelObservationRequirement by InterpretPulseTrace;
+
+    analysis def PulseRateAnalysis {
+        in item trace : RecordedPulseTrace;
+        out attribute estimatedPulseRate : PulseRate;
+
+        objective {
+            estimatedPulseRate == trace.dominantPulseRate
+        }
+    }
+
+    package ExampleConfiguration {
+        part configuredSphygmograph : Sphygmograph {
+            attribute nominalRecordingDuration = 15 [s];
+
+            part contactButton {
+                attribute preloadForce = 0.8 [N];
+                attribute maximumAllowedForce = 2.5 [N];
+            }
+
+            part leverAmplifier {
+                attribute leverRatio = 12.0;
+                attribute naturalFrequency = 18 [Hz];
+            }
+
+            part paperTransport {
+                attribute paperSpeed = 25 [mm/s];
+                attribute paperWidth = 50 [mm];
+            }
+        }
+
+        item examplePulse : RadialArteryPulse {
+            attribute systolicPressure = 118 [mmHg];
+            attribute diastolicPressure = 76 [mmHg];
+            attribute pulseAmplitude = 42 [mmHg];
+            attribute pulsePeriod = 0.83 [s];
+            attribute pulseRate = 72 [beats/min];
+        }
+
+        item expectedTrace : RecordedPulseTrace {
+            attribute traceLength = 375 [mm];
+            attribute paperSpeed = 25 [mm/s];
+            attribute samplingDuration = 15 [s];
+            attribute dominantPulseRate = 72 [beats/min];
+            attribute maximumDeflection = 8 [mm];
+        }
+    }
+}

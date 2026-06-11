@@ -1,0 +1,985 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-n60ea52i
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3a8-4968-7283-bc8a-652945fe4b86
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Incubator and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IncubatorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Temperature {
+        unit = "degC";
+    }
+
+    value def RelativeHumidity {
+        unit = "%";
+    }
+
+    value def TimeDuration {
+        unit = "s";
+    }
+
+    value def AirFlowRate {
+        unit = "L/min";
+    }
+
+    value def ElectricalPower {
+        unit = "W";
+    }
+
+    value def SoundPressureLevel {
+        unit = "dB";
+    }
+
+    value def LightIntensity {
+        unit = "lux";
+    }
+
+    item def Air {
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute flowRate : AirFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : ElectricalPower;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : String;
+        attribute requestedValue : Real;
+    }
+
+    item def SensorReading {
+        attribute measuredValue : Real;
+        attribute valid : Boolean;
+        attribute age : TimeDuration;
+    }
+
+    item def AlarmEvent {
+        attribute alarmCode : String;
+        attribute severity : String;
+        attribute active : Boolean;
+    }
+
+    port def AirPort {
+        inout item air : Air;
+    }
+
+    port def PowerPort {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : SensorReading;
+    }
+
+    port def SensorPort {
+        out item reading : SensorReading;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmEvent;
+    }
+
+    part def NeonatalIncubator {
+        attribute targetTemperature : Temperature = 37.0;
+        attribute allowedTemperatureDeviation : Temperature = 0.5;
+        attribute targetHumidity : RelativeHumidity = 55.0;
+        attribute allowedHumidityDeviation : RelativeHumidity = 10.0;
+        attribute maximumNoiseLevel : SoundPressureLevel = 45.0;
+        attribute observationLightLevel : LightIntensity = 300.0;
+        attribute operational : Boolean;
+
+        port powerIn : PowerPort;
+        port operatorInterface : ControlPort;
+        port ambientAirIn : AirPort;
+        port conditionedAirOut : AirPort;
+        port alarmOut : AlarmPort;
+
+        part enclosure : ThermalEnclosure;
+        part heater : HeatingSubsystem;
+        part humidifier : HumidificationSubsystem;
+        part fan : AirCirculationSubsystem;
+        part sensors : MonitoringSubsystem;
+        part controller : IncubatorController;
+        part alarmUnit : AlarmSubsystem;
+        part accessPanel : InfantAccessPanel;
+        part mattressTray : InfantSupportTray;
+        part lighting : ObservationLighting;
+
+        connect powerIn to controller.powerIn;
+        connect powerIn to heater.powerIn;
+        connect powerIn to humidifier.powerIn;
+        connect powerIn to fan.powerIn;
+        connect powerIn to alarmUnit.powerIn;
+        connect powerIn to lighting.powerIn;
+
+        connect ambientAirIn to fan.airIn;
+        connect fan.airOut to heater.airIn;
+        connect heater.airOut to humidifier.airIn;
+        connect humidifier.airOut to enclosure.conditionedAirIn;
+        connect enclosure.airOut to conditionedAirOut;
+
+        connect sensors.temperatureSensor to controller.temperatureInput;
+        connect sensors.humiditySensor to controller.humidityInput;
+        connect sensors.doorSensor to controller.accessPanelInput;
+        connect sensors.airflowSensor to controller.airflowInput;
+
+        connect controller.heaterCommand to heater.control;
+        connect controller.humidifierCommand to humidifier.control;
+        connect controller.fanCommand to fan.control;
+        connect controller.alarmCommand to alarmUnit.control;
+        connect controller.lightCommand to lighting.control;
+
+        connect operatorInterface to controller.operatorInterface;
+        connect alarmUnit.alarmOut to alarmOut;
+
+        action maintainControlledMicroclimate {
+            in item infantCompartmentAir : Air;
+            out item conditionedAir : Air;
+
+            first startMonitoring;
+            then regulateTemperature;
+            then regulateHumidity;
+            then circulateAir;
+            then reportStatus;
+
+            action startMonitoring {
+                out item temperatureReading : SensorReading;
+                out item humidityReading : SensorReading;
+            }
+
+            action regulateTemperature {
+                in item temperatureReading : SensorReading;
+                out item heaterCommand : ControlSignal;
+            }
+
+            action regulateHumidity {
+                in item humidityReading : SensorReading;
+                out item humidifierCommand : ControlSignal;
+            }
+
+            action circulateAir {
+                out item fanCommand : ControlSignal;
+            }
+
+            action reportStatus {
+                out item statusReading : SensorReading;
+            }
+        }
+
+        state incubatorOperatingState {
+            entry action initializeController;
+
+            state Off;
+            state SelfTest;
+            state WarmingUp;
+            state StableControl;
+            state AccessOpenCompensation;
+            state AlarmCondition;
+            state Shutdown;
+
+            transition first Off;
+
+            transition powerApplied
+                first Off
+                then SelfTest;
+
+            transition selfTestPassed
+                first SelfTest
+                then WarmingUp;
+
+            transition targetTemperatureReached
+                first WarmingUp
+                then StableControl;
+
+            transition accessPanelOpened
+                first StableControl
+                then AccessOpenCompensation;
+
+            transition accessPanelClosed
+                first AccessOpenCompensation
+                then StableControl;
+
+            transition faultDetected
+                first WarmingUp
+                then AlarmCondition;
+
+            transition faultDetectedDuringStableControl
+                first StableControl
+                then AlarmCondition;
+
+            transition faultCleared
+                first AlarmCondition
+                then StableControl;
+
+            transition operatorShutdown
+                first StableControl
+                then Shutdown;
+
+            transition powerRemoved
+                first Shutdown
+                then Off;
+        }
+    }
+
+    part def ThermalEnclosure {
+        attribute internalVolume : Real = 0.18;
+        attribute heatLossCoefficient : Real = 1.8;
+        attribute transparentWall : Boolean = true;
+
+        port conditionedAirIn : AirPort;
+        port airOut : AirPort;
+
+        part canopy : TransparentCanopy;
+        part base : InsulatedBase;
+        part seal : PerimeterSeal;
+    }
+
+    part def TransparentCanopy {
+        attribute opticalTransparency : Real = 0.88;
+        attribute thermalResistance : Real = 0.42;
+    }
+
+    part def InsulatedBase {
+        attribute thermalResistance : Real = 0.65;
+        attribute washableSurface : Boolean = true;
+    }
+
+    part def PerimeterSeal {
+        attribute leakageRate : AirFlowRate = 0.5;
+    }
+
+    part def HeatingSubsystem {
+        attribute maximumHeatingPower : ElectricalPower = 450.0;
+        attribute minimumHeatingPower : ElectricalPower = 0.0;
+        attribute commandedPower : ElectricalPower;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port airIn : AirPort;
+        port airOut : AirPort;
+
+        action convertElectricalEnergyToHeat {
+            in item supply : ElectricalEnergy;
+            in item command : ControlSignal;
+            out item warmedAir : Air;
+        }
+    }
+
+    part def HumidificationSubsystem {
+        attribute waterReservoirCapacity : Real = 1.2;
+        attribute maximumHumidityOutput : RelativeHumidity = 90.0;
+        attribute commandedHumidity : RelativeHumidity;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port airIn : AirPort;
+        port airOut : AirPort;
+
+        action addMoistureToAir {
+            in item dryAir : Air;
+            in item command : ControlSignal;
+            out item humidifiedAir : Air;
+        }
+    }
+
+    part def AirCirculationSubsystem {
+        attribute nominalFlowRate : AirFlowRate = 12.0;
+        attribute minimumFlowRate : AirFlowRate = 4.0;
+        attribute maximumFlowRate : AirFlowRate = 20.0;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port airIn : AirPort;
+        port airOut : AirPort;
+
+        action moveAirThroughIncubator {
+            in item inletAir : Air;
+            out item circulatingAir : Air;
+        }
+    }
+
+    part def MonitoringSubsystem {
+        port temperatureSensor : SensorPort;
+        port humiditySensor : SensorPort;
+        port airflowSensor : SensorPort;
+        port doorSensor : SensorPort;
+
+        part airTemperatureProbe : TemperatureProbe;
+        part skinTemperatureProbe : TemperatureProbe;
+        part humidityProbe : HumidityProbe;
+        part airflowProbe : AirflowProbe;
+        part accessSwitch : AccessPanelSwitch;
+
+        connect airTemperatureProbe.measurement to temperatureSensor;
+        connect humidityProbe.measurement to humiditySensor;
+        connect airflowProbe.measurement to airflowSensor;
+        connect accessSwitch.measurement to doorSensor;
+    }
+
+    part def TemperatureProbe {
+        attribute accuracy : Temperature = 0.1;
+        attribute samplePeriod : TimeDuration = 1.0;
+        port measurement : SensorPort;
+    }
+
+    part def HumidityProbe {
+        attribute accuracy : RelativeHumidity = 3.0;
+        attribute samplePeriod : TimeDuration = 2.0;
+        port measurement : SensorPort;
+    }
+
+    part def AirflowProbe {
+        attribute accuracy : AirFlowRate = 0.5;
+        attribute samplePeriod : TimeDuration = 2.0;
+        port measurement : SensorPort;
+    }
+
+    part def AccessPanelSwitch {
+        attribute openDetected : Boolean;
+        port measurement : SensorPort;
+    }
+
+    part def IncubatorController {
+        attribute controlLoopPeriod : TimeDuration = 1.0;
+        attribute temperatureSetpoint : Temperature = 37.0;
+        attribute humiditySetpoint : RelativeHumidity = 55.0;
+        attribute highTemperatureAlarmLimit : Temperature = 38.0;
+        attribute lowTemperatureAlarmLimit : Temperature = 36.0;
+        attribute highHumidityAlarmLimit : RelativeHumidity = 75.0;
+        attribute lowHumidityAlarmLimit : RelativeHumidity = 35.0;
+
+        port powerIn : PowerPort;
+        port operatorInterface : ControlPort;
+        port temperatureInput : SensorPort;
+        port humidityInput : SensorPort;
+        port airflowInput : SensorPort;
+        port accessPanelInput : SensorPort;
+        port heaterCommand : ControlPort;
+        port humidifierCommand : ControlPort;
+        port fanCommand : ControlPort;
+        port alarmCommand : ControlPort;
+        port lightCommand : ControlPort;
+
+        action computeControlCommands {
+            in item temperatureReading : SensorReading;
+            in item humidityReading : SensorReading;
+            in item airflowReading : SensorReading;
+            out item heaterCommand : ControlSignal;
+            out item humidifierCommand : ControlSignal;
+            out item fanCommand : ControlSignal;
+            out item alarmCommand : ControlSignal;
+        }
+
+        state controlMode {
+            state Startup;
+            state ClosedLoopTemperatureControl;
+            state ClosedLoopHumidityControl;
+            state AccessCompensation;
+            state FaultResponse;
+
+            transition first Startup;
+            transition startupComplete first Startup then ClosedLoopTemperatureControl;
+            transition humidityEnabled first ClosedLoopTemperatureControl then ClosedLoopHumidityControl;
+            transition panelOpen first ClosedLoopHumidityControl then AccessCompensation;
+            transition panelClosed first AccessCompensation then ClosedLoopHumidityControl;
+            transition alarmLimitExceeded first ClosedLoopTemperatureControl then FaultResponse;
+            transition alarmLimitExceededWithHumidity first ClosedLoopHumidityControl then FaultResponse;
+            transition resetAfterFault first FaultResponse then ClosedLoopTemperatureControl;
+        }
+    }
+
+    part def AlarmSubsystem {
+        attribute audibleLevel : SoundPressureLevel = 60.0;
+        attribute visualIndicatorActive : Boolean;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port alarmOut : AlarmPort;
+
+        action generateAlarm {
+            in item alarmCommand : ControlSignal;
+            out item alarmEvent : AlarmEvent;
+        }
+    }
+
+    part def InfantAccessPanel {
+        attribute open : Boolean;
+        attribute maximumOpenTimeWithoutAlarm : TimeDuration = 60.0;
+        attribute sealIntegrity : Real = 0.95;
+    }
+
+    part def InfantSupportTray {
+        attribute mattressSurfaceTemperature : Temperature = 36.8;
+        attribute maximumInfantMass : Real = 8.0;
+        attribute removableForCleaning : Boolean = true;
+    }
+
+    part def ObservationLighting {
+        attribute maximumIlluminance : LightIntensity = 600.0;
+        attribute commandedIlluminance : LightIntensity = 300.0;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+
+        action illuminateInfantCompartment {
+            in item command : ControlSignal;
+        }
+    }
+
+    requirement def MaintainThermalEnvironment {
+        subject incubator : NeonatalIncubator;
+        require constraint {
+            incubator.targetTemperature >= 36.0 and incubator.targetTemperature <= 38.0
+        }
+    }
+
+    requirement def MaintainHumidityEnvironment {
+        subject incubator : NeonatalIncubator;
+        require constraint {
+            incubator.targetHumidity >= 40.0 and incubator.targetHumidity <= 70.0
+        }
+    }
+
+    requirement def ProvidePrimaryFunction {
+        subject incubator : NeonatalIncubator;
+        doc /* The incubator shall provide a controlled, monitored microclimate that supports neonatal thermal stability by regulating temperature, humidity, and airflow within an enclosed infant compartment. */
+    }
+
+    requirement def AlarmOnUnsafeTemperature {
+        subject controller : IncubatorController;
+        require constraint {
+            controller.highTemperatureAlarmLimit > controller.temperatureSetpoint and
+            controller.lowTemperatureAlarmLimit < controller.temperatureSetpoint
+        }
+    }
+
+    requirement def LimitOperationalNoise {
+        subject incubator : NeonatalIncubator;
+        require constraint {
+            incubator.maximumNoiseLevel <= 45.0
+        }
+    }
+
+    requirement def SupportClinicalAccess {
+        subject panel : InfantAccessPanel;
+        require constraint {
+            panel.maximumOpenTimeWithoutAlarm <= 60.0
+        }
+    }
+
+    part incubatorSystem : NeonatalIncubator {
+        attribute targetTemperature = 37.0;
+        attribute targetHumidity = 55.0;
+        attribute operational = true;
+    }
+
+    satisfy ProvidePrimaryFunction by incubatorSystem;
+    satisfy MaintainThermalEnvironment by incubatorSystem;
+    satisfy MaintainHumidityEnvironment by incubatorSystem;
+    satisfy LimitOperationalNoise by incubatorSystem;
+}
+tokens used
+4,457
+package IncubatorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Temperature {
+        unit = "degC";
+    }
+
+    value def RelativeHumidity {
+        unit = "%";
+    }
+
+    value def TimeDuration {
+        unit = "s";
+    }
+
+    value def AirFlowRate {
+        unit = "L/min";
+    }
+
+    value def ElectricalPower {
+        unit = "W";
+    }
+
+    value def SoundPressureLevel {
+        unit = "dB";
+    }
+
+    value def LightIntensity {
+        unit = "lux";
+    }
+
+    item def Air {
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute flowRate : AirFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : ElectricalPower;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : String;
+        attribute requestedValue : Real;
+    }
+
+    item def SensorReading {
+        attribute measuredValue : Real;
+        attribute valid : Boolean;
+        attribute age : TimeDuration;
+    }
+
+    item def AlarmEvent {
+        attribute alarmCode : String;
+        attribute severity : String;
+        attribute active : Boolean;
+    }
+
+    port def AirPort {
+        inout item air : Air;
+    }
+
+    port def PowerPort {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : SensorReading;
+    }
+
+    port def SensorPort {
+        out item reading : SensorReading;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmEvent;
+    }
+
+    part def NeonatalIncubator {
+        attribute targetTemperature : Temperature = 37.0;
+        attribute allowedTemperatureDeviation : Temperature = 0.5;
+        attribute targetHumidity : RelativeHumidity = 55.0;
+        attribute allowedHumidityDeviation : RelativeHumidity = 10.0;
+        attribute maximumNoiseLevel : SoundPressureLevel = 45.0;
+        attribute observationLightLevel : LightIntensity = 300.0;
+        attribute operational : Boolean;
+
+        port powerIn : PowerPort;
+        port operatorInterface : ControlPort;
+        port ambientAirIn : AirPort;
+        port conditionedAirOut : AirPort;
+        port alarmOut : AlarmPort;
+
+        part enclosure : ThermalEnclosure;
+        part heater : HeatingSubsystem;
+        part humidifier : HumidificationSubsystem;
+        part fan : AirCirculationSubsystem;
+        part sensors : MonitoringSubsystem;
+        part controller : IncubatorController;
+        part alarmUnit : AlarmSubsystem;
+        part accessPanel : InfantAccessPanel;
+        part mattressTray : InfantSupportTray;
+        part lighting : ObservationLighting;
+
+        connect powerIn to controller.powerIn;
+        connect powerIn to heater.powerIn;
+        connect powerIn to humidifier.powerIn;
+        connect powerIn to fan.powerIn;
+        connect powerIn to alarmUnit.powerIn;
+        connect powerIn to lighting.powerIn;
+
+        connect ambientAirIn to fan.airIn;
+        connect fan.airOut to heater.airIn;
+        connect heater.airOut to humidifier.airIn;
+        connect humidifier.airOut to enclosure.conditionedAirIn;
+        connect enclosure.airOut to conditionedAirOut;
+
+        connect sensors.temperatureSensor to controller.temperatureInput;
+        connect sensors.humiditySensor to controller.humidityInput;
+        connect sensors.doorSensor to controller.accessPanelInput;
+        connect sensors.airflowSensor to controller.airflowInput;
+
+        connect controller.heaterCommand to heater.control;
+        connect controller.humidifierCommand to humidifier.control;
+        connect controller.fanCommand to fan.control;
+        connect controller.alarmCommand to alarmUnit.control;
+        connect controller.lightCommand to lighting.control;
+
+        connect operatorInterface to controller.operatorInterface;
+        connect alarmUnit.alarmOut to alarmOut;
+
+        action maintainControlledMicroclimate {
+            in item infantCompartmentAir : Air;
+            out item conditionedAir : Air;
+
+            first startMonitoring;
+            then regulateTemperature;
+            then regulateHumidity;
+            then circulateAir;
+            then reportStatus;
+
+            action startMonitoring {
+                out item temperatureReading : SensorReading;
+                out item humidityReading : SensorReading;
+            }
+
+            action regulateTemperature {
+                in item temperatureReading : SensorReading;
+                out item heaterCommand : ControlSignal;
+            }
+
+            action regulateHumidity {
+                in item humidityReading : SensorReading;
+                out item humidifierCommand : ControlSignal;
+            }
+
+            action circulateAir {
+                out item fanCommand : ControlSignal;
+            }
+
+            action reportStatus {
+                out item statusReading : SensorReading;
+            }
+        }
+
+        state incubatorOperatingState {
+            entry action initializeController;
+
+            state Off;
+            state SelfTest;
+            state WarmingUp;
+            state StableControl;
+            state AccessOpenCompensation;
+            state AlarmCondition;
+            state Shutdown;
+
+            transition first Off;
+
+            transition powerApplied
+                first Off
+                then SelfTest;
+
+            transition selfTestPassed
+                first SelfTest
+                then WarmingUp;
+
+            transition targetTemperatureReached
+                first WarmingUp
+                then StableControl;
+
+            transition accessPanelOpened
+                first StableControl
+                then AccessOpenCompensation;
+
+            transition accessPanelClosed
+                first AccessOpenCompensation
+                then StableControl;
+
+            transition faultDetected
+                first WarmingUp
+                then AlarmCondition;
+
+            transition faultDetectedDuringStableControl
+                first StableControl
+                then AlarmCondition;
+
+            transition faultCleared
+                first AlarmCondition
+                then StableControl;
+
+            transition operatorShutdown
+                first StableControl
+                then Shutdown;
+
+            transition powerRemoved
+                first Shutdown
+                then Off;
+        }
+    }
+
+    part def ThermalEnclosure {
+        attribute internalVolume : Real = 0.18;
+        attribute heatLossCoefficient : Real = 1.8;
+        attribute transparentWall : Boolean = true;
+
+        port conditionedAirIn : AirPort;
+        port airOut : AirPort;
+
+        part canopy : TransparentCanopy;
+        part base : InsulatedBase;
+        part seal : PerimeterSeal;
+    }
+
+    part def TransparentCanopy {
+        attribute opticalTransparency : Real = 0.88;
+        attribute thermalResistance : Real = 0.42;
+    }
+
+    part def InsulatedBase {
+        attribute thermalResistance : Real = 0.65;
+        attribute washableSurface : Boolean = true;
+    }
+
+    part def PerimeterSeal {
+        attribute leakageRate : AirFlowRate = 0.5;
+    }
+
+    part def HeatingSubsystem {
+        attribute maximumHeatingPower : ElectricalPower = 450.0;
+        attribute minimumHeatingPower : ElectricalPower = 0.0;
+        attribute commandedPower : ElectricalPower;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port airIn : AirPort;
+        port airOut : AirPort;
+
+        action convertElectricalEnergyToHeat {
+            in item supply : ElectricalEnergy;
+            in item command : ControlSignal;
+            out item warmedAir : Air;
+        }
+    }
+
+    part def HumidificationSubsystem {
+        attribute waterReservoirCapacity : Real = 1.2;
+        attribute maximumHumidityOutput : RelativeHumidity = 90.0;
+        attribute commandedHumidity : RelativeHumidity;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port airIn : AirPort;
+        port airOut : AirPort;
+
+        action addMoistureToAir {
+            in item dryAir : Air;
+            in item command : ControlSignal;
+            out item humidifiedAir : Air;
+        }
+    }
+
+    part def AirCirculationSubsystem {
+        attribute nominalFlowRate : AirFlowRate = 12.0;
+        attribute minimumFlowRate : AirFlowRate = 4.0;
+        attribute maximumFlowRate : AirFlowRate = 20.0;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port airIn : AirPort;
+        port airOut : AirPort;
+
+        action moveAirThroughIncubator {
+            in item inletAir : Air;
+            out item circulatingAir : Air;
+        }
+    }
+
+    part def MonitoringSubsystem {
+        port temperatureSensor : SensorPort;
+        port humiditySensor : SensorPort;
+        port airflowSensor : SensorPort;
+        port doorSensor : SensorPort;
+
+        part airTemperatureProbe : TemperatureProbe;
+        part skinTemperatureProbe : TemperatureProbe;
+        part humidityProbe : HumidityProbe;
+        part airflowProbe : AirflowProbe;
+        part accessSwitch : AccessPanelSwitch;
+
+        connect airTemperatureProbe.measurement to temperatureSensor;
+        connect humidityProbe.measurement to humiditySensor;
+        connect airflowProbe.measurement to airflowSensor;
+        connect accessSwitch.measurement to doorSensor;
+    }
+
+    part def TemperatureProbe {
+        attribute accuracy : Temperature = 0.1;
+        attribute samplePeriod : TimeDuration = 1.0;
+        port measurement : SensorPort;
+    }
+
+    part def HumidityProbe {
+        attribute accuracy : RelativeHumidity = 3.0;
+        attribute samplePeriod : TimeDuration = 2.0;
+        port measurement : SensorPort;
+    }
+
+    part def AirflowProbe {
+        attribute accuracy : AirFlowRate = 0.5;
+        attribute samplePeriod : TimeDuration = 2.0;
+        port measurement : SensorPort;
+    }
+
+    part def AccessPanelSwitch {
+        attribute openDetected : Boolean;
+        port measurement : SensorPort;
+    }
+
+    part def IncubatorController {
+        attribute controlLoopPeriod : TimeDuration = 1.0;
+        attribute temperatureSetpoint : Temperature = 37.0;
+        attribute humiditySetpoint : RelativeHumidity = 55.0;
+        attribute highTemperatureAlarmLimit : Temperature = 38.0;
+        attribute lowTemperatureAlarmLimit : Temperature = 36.0;
+        attribute highHumidityAlarmLimit : RelativeHumidity = 75.0;
+        attribute lowHumidityAlarmLimit : RelativeHumidity = 35.0;
+
+        port powerIn : PowerPort;
+        port operatorInterface : ControlPort;
+        port temperatureInput : SensorPort;
+        port humidityInput : SensorPort;
+        port airflowInput : SensorPort;
+        port accessPanelInput : SensorPort;
+        port heaterCommand : ControlPort;
+        port humidifierCommand : ControlPort;
+        port fanCommand : ControlPort;
+        port alarmCommand : ControlPort;
+        port lightCommand : ControlPort;
+
+        action computeControlCommands {
+            in item temperatureReading : SensorReading;
+            in item humidityReading : SensorReading;
+            in item airflowReading : SensorReading;
+            out item heaterCommand : ControlSignal;
+            out item humidifierCommand : ControlSignal;
+            out item fanCommand : ControlSignal;
+            out item alarmCommand : ControlSignal;
+        }
+
+        state controlMode {
+            state Startup;
+            state ClosedLoopTemperatureControl;
+            state ClosedLoopHumidityControl;
+            state AccessCompensation;
+            state FaultResponse;
+
+            transition first Startup;
+            transition startupComplete first Startup then ClosedLoopTemperatureControl;
+            transition humidityEnabled first ClosedLoopTemperatureControl then ClosedLoopHumidityControl;
+            transition panelOpen first ClosedLoopHumidityControl then AccessCompensation;
+            transition panelClosed first AccessCompensation then ClosedLoopHumidityControl;
+            transition alarmLimitExceeded first ClosedLoopTemperatureControl then FaultResponse;
+            transition alarmLimitExceededWithHumidity first ClosedLoopHumidityControl then FaultResponse;
+            transition resetAfterFault first FaultResponse then ClosedLoopTemperatureControl;
+        }
+    }
+
+    part def AlarmSubsystem {
+        attribute audibleLevel : SoundPressureLevel = 60.0;
+        attribute visualIndicatorActive : Boolean;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+        port alarmOut : AlarmPort;
+
+        action generateAlarm {
+            in item alarmCommand : ControlSignal;
+            out item alarmEvent : AlarmEvent;
+        }
+    }
+
+    part def InfantAccessPanel {
+        attribute open : Boolean;
+        attribute maximumOpenTimeWithoutAlarm : TimeDuration = 60.0;
+        attribute sealIntegrity : Real = 0.95;
+    }
+
+    part def InfantSupportTray {
+        attribute mattressSurfaceTemperature : Temperature = 36.8;
+        attribute maximumInfantMass : Real = 8.0;
+        attribute removableForCleaning : Boolean = true;
+    }
+
+    part def ObservationLighting {
+        attribute maximumIlluminance : LightIntensity = 600.0;
+        attribute commandedIlluminance : LightIntensity = 300.0;
+
+        port powerIn : PowerPort;
+        port control : ControlPort;
+
+        action illuminateInfantCompartment {
+            in item command : ControlSignal;
+        }
+    }
+
+    requirement def MaintainThermalEnvironment {
+        subject incubator : NeonatalIncubator;
+        require constraint {
+            incubator.targetTemperature >= 36.0 and incubator.targetTemperature <= 38.0
+        }
+    }
+
+    requirement def MaintainHumidityEnvironment {
+        subject incubator : NeonatalIncubator;
+        require constraint {
+            incubator.targetHumidity >= 40.0 and incubator.targetHumidity <= 70.0
+        }
+    }
+
+    requirement def ProvidePrimaryFunction {
+        subject incubator : NeonatalIncubator;
+        doc /* The incubator shall provide a controlled, monitored microclimate that supports neonatal thermal stability by regulating temperature, humidity, and airflow within an enclosed infant compartment. */
+    }
+
+    requirement def AlarmOnUnsafeTemperature {
+        subject controller : IncubatorController;
+        require constraint {
+            controller.highTemperatureAlarmLimit > controller.temperatureSetpoint and
+            controller.lowTemperatureAlarmLimit < controller.temperatureSetpoint
+        }
+    }
+
+    requirement def LimitOperationalNoise {
+        subject incubator : NeonatalIncubator;
+        require constraint {
+            incubator.maximumNoiseLevel <= 45.0
+        }
+    }
+
+    requirement def SupportClinicalAccess {
+        subject panel : InfantAccessPanel;
+        require constraint {
+            panel.maximumOpenTimeWithoutAlarm <= 60.0
+        }
+    }
+
+    part incubatorSystem : NeonatalIncubator {
+        attribute targetTemperature = 37.0;
+        attribute targetHumidity = 55.0;
+        attribute operational = true;
+    }
+
+    satisfy ProvidePrimaryFunction by incubatorSystem;
+    satisfy MaintainThermalEnvironment by incubatorSystem;
+    satisfy MaintainHumidityEnvironment by incubatorSystem;
+    satisfy LimitOperationalNoise by incubatorSystem;
+}

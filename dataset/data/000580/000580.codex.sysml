@@ -1,0 +1,389 @@
+package CuttingBalloonSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real;
+    attribute def Length :> Real;
+    attribute def Diameter :> Real;
+    attribute def Volume :> Real;
+    attribute def Force :> Real;
+    attribute def Time :> Real;
+    attribute def Angle :> Real;
+
+    enum def BalloonState {
+        deflated;
+        positioned;
+        armed;
+        inflated;
+        scoredPlaque;
+        deflatedForWithdrawal;
+        withdrawn;
+        fault;
+    }
+
+    enum def LesionType {
+        fibrotic;
+        calcified;
+        restenotic;
+        mixed;
+    }
+
+    item def InflationMedium {
+        attribute contrastFraction : Real;
+        attribute salineFraction : Real;
+        attribute temperature : Real;
+    }
+
+    item def Blood {
+        attribute flowRate : Real;
+        attribute temperature : Real;
+    }
+
+    item def Plaque {
+        attribute lesionType : LesionType;
+        attribute thickness : Length;
+        attribute stiffness : Real;
+    }
+
+    item def Guidewire {
+        attribute outerDiameter : Diameter;
+        attribute length : Length;
+    }
+
+    item def VesselWall {
+        attribute lumenDiameterBefore : Diameter;
+        attribute lumenDiameterAfter : Diameter;
+        attribute maxAllowedStrain : Real;
+    }
+
+    port def InflationPort {
+        in item mediumIn : InflationMedium;
+        out item mediumOut : InflationMedium;
+        in attribute commandedPressure : Pressure;
+        out attribute measuredPressure : Pressure;
+    }
+
+    port def GuidewirePort {
+        inout item wire : Guidewire;
+    }
+
+    port def TreatmentPort {
+        in item lesion : Plaque;
+        inout item vesselWall : VesselWall;
+        out attribute radialForce : Force;
+        out attribute scoringDepth : Length;
+    }
+
+    port def HemodynamicPort {
+        inout item blood : Blood;
+    }
+
+    port def OperatorCommandPort {
+        in attribute inflateCommand : Boolean;
+        in attribute deflateCommand : Boolean;
+        in attribute withdrawCommand : Boolean;
+        in attribute targetPressure : Pressure;
+        out attribute readinessIndication : Boolean;
+        out attribute faultIndication : Boolean;
+    }
+
+    part def CuttingElement {
+        attribute bladeLength : Length = 10.0;
+        attribute bladeHeight : Length = 0.20;
+        attribute bladeTipAngle : Angle = 35.0;
+        attribute circumferentialPosition : Angle;
+        attribute scoringForce : Force;
+
+        perform action scorePlaque {
+            in item lesion : Plaque;
+            in attribute appliedRadialForce : Force;
+            out attribute incisionDepth : Length;
+
+            first start;
+            then determineDepth;
+            then finish;
+
+            action determineDepth {
+                in item lesion : Plaque;
+                in attribute appliedRadialForce : Force;
+                out attribute incisionDepth : Length;
+            }
+        }
+    }
+
+    part def BalloonMembrane {
+        attribute nominalDiameter : Diameter = 3.00;
+        attribute nominalLength : Length = 15.0;
+        attribute ratedBurstPressure : Pressure = 1215900.0;
+        attribute workingPressure : Pressure = 810600.0;
+        attribute currentDiameter : Diameter;
+        attribute currentPressure : Pressure;
+        attribute complianceSlope : Real = 0.025;
+
+        port inflationInterface : InflationPort;
+        port treatmentInterface : TreatmentPort;
+
+        perform action expand {
+            in item medium : InflationMedium;
+            in attribute pressure : Pressure;
+            out attribute achievedDiameter : Diameter;
+            out attribute radialForce : Force;
+        }
+
+        perform action collapse {
+            out attribute residualProfileDiameter : Diameter;
+        }
+    }
+
+    part def CatheterShaft {
+        attribute usableLength : Length = 1450.0;
+        attribute outerDiameter : Diameter = 1.10;
+        attribute guidewireLumenDiameter : Diameter = 0.36;
+        attribute inflationLumenVolume : Volume = 0.35;
+        attribute pushabilityIndex : Real = 0.82;
+        attribute kinkResistance : Real = 0.90;
+
+        port proximalInflationPort : InflationPort;
+        port distalInflationPort : InflationPort;
+        port guidewireEntry : GuidewirePort;
+        port guidewireExit : GuidewirePort;
+    }
+
+    part def RadiopaqueMarker {
+        attribute markerLength : Length = 1.0;
+        attribute markerDiameter : Diameter = 0.45;
+        attribute visibilityIndex : Real = 0.95;
+    }
+
+    part def CuttingBalloon {
+        attribute primaryFunction : String =
+            "Dilate a narrowed vascular lesion while controlled longitudinal scoring elements create shallow plaque incisions to reduce uncontrolled vessel trauma and improve lumen gain.";
+        attribute nominalBalloonDiameter : Diameter = 3.00;
+        attribute nominalBalloonLength : Length = 15.0;
+        attribute maxRecommendedPressure : Pressure = 1013250.0;
+        attribute ratedBurstPressure : Pressure = 1215900.0;
+        attribute crossingProfile : Diameter = 1.25;
+
+        port operatorPort : OperatorCommandPort;
+        port inflationPort : InflationPort;
+        port guidewirePort : GuidewirePort;
+        port bloodInterface : HemodynamicPort;
+        port lesionInterface : TreatmentPort;
+
+        part shaft : CatheterShaft;
+        part membrane : BalloonMembrane;
+        part proximalMarker : RadiopaqueMarker;
+        part distalMarker : RadiopaqueMarker;
+        part bladeA : CuttingElement {
+            attribute circumferentialPosition = 0.0;
+        }
+        part bladeB : CuttingElement {
+            attribute circumferentialPosition = 120.0;
+        }
+        part bladeC : CuttingElement {
+            attribute circumferentialPosition = 240.0;
+        }
+
+        connect inflationPort to shaft.proximalInflationPort;
+        connect shaft.distalInflationPort to membrane.inflationInterface;
+        connect guidewirePort to shaft.guidewireEntry;
+        connect shaft.guidewireExit to guidewirePort;
+        connect membrane.treatmentInterface to lesionInterface;
+
+        perform action prepareDevice {
+            out attribute ready : Boolean;
+            first removeAir;
+            then verifyBladeAttachment;
+            then setReady;
+
+            action removeAir {
+                out attribute lumenPrimed : Boolean;
+            }
+
+            action verifyBladeAttachment {
+                out attribute bladesSecure : Boolean;
+            }
+
+            action setReady {
+                in attribute lumenPrimed : Boolean;
+                in attribute bladesSecure : Boolean;
+                out attribute ready : Boolean;
+            }
+        }
+
+        perform action positionAcrossLesion {
+            in item wire : Guidewire;
+            in item lesion : Plaque;
+            out attribute aligned : Boolean;
+
+            first advanceOverGuidewire;
+            then alignMarkersWithLesion;
+            then confirmPosition;
+
+            action advanceOverGuidewire {
+                in item wire : Guidewire;
+            }
+
+            action alignMarkersWithLesion {
+                in item lesion : Plaque;
+            }
+
+            action confirmPosition {
+                out attribute aligned : Boolean;
+            }
+        }
+
+        perform action treatLesion {
+            in item medium : InflationMedium;
+            in item lesion : Plaque;
+            inout item vesselWall : VesselWall;
+            in attribute targetPressure : Pressure;
+            out attribute lumenGain : Diameter;
+            out attribute finalScoringDepth : Length;
+
+            first inflateToTarget;
+            then createControlledScores;
+            then holdDilation;
+            then deflateBalloon;
+            then evaluateLumenGain;
+
+            action inflateToTarget {
+                in item medium : InflationMedium;
+                in attribute targetPressure : Pressure;
+                out attribute radialForce : Force;
+            }
+
+            action createControlledScores {
+                in item lesion : Plaque;
+                in attribute radialForce : Force;
+                out attribute scoringDepthA : Length;
+                out attribute scoringDepthB : Length;
+                out attribute scoringDepthC : Length;
+            }
+
+            action holdDilation {
+                in attribute duration : Time = 30.0;
+            }
+
+            action deflateBalloon {
+                out attribute residualProfileDiameter : Diameter;
+            }
+
+            action evaluateLumenGain {
+                inout item vesselWall : VesselWall;
+                out attribute lumenGain : Diameter;
+                out attribute finalScoringDepth : Length;
+            }
+        }
+
+        state def OperatingStateMachine {
+            entry action initialize {
+                out attribute currentState : BalloonState = BalloonState::deflated;
+            }
+
+            state def Deflated;
+            state def Positioned;
+            state def Armed;
+            state def Inflated;
+            state def ScoredPlaque;
+            state def DeflatedForWithdrawal;
+            state def Withdrawn;
+            state def Fault;
+
+            transition first Deflated;
+            transition Deflated_to_Positioned
+                first Deflated
+                then Positioned
+                accept alignedSignal;
+
+            transition Positioned_to_Armed
+                first Positioned
+                then Armed
+                accept readySignal;
+
+            transition Armed_to_Inflated
+                first Armed
+                then Inflated
+                accept inflateCommand;
+
+            transition Inflated_to_ScoredPlaque
+                first Inflated
+                then ScoredPlaque
+                accept scoringComplete;
+
+            transition ScoredPlaque_to_DeflatedForWithdrawal
+                first ScoredPlaque
+                then DeflatedForWithdrawal
+                accept deflateCommand;
+
+            transition DeflatedForWithdrawal_to_Withdrawn
+                first DeflatedForWithdrawal
+                then Withdrawn
+                accept withdrawCommand;
+
+            transition Any_to_Fault
+                first Deflated
+                then Fault
+                accept overPressureDetected;
+
+            transition Inflated_to_Fault
+                first Inflated
+                then Fault
+                accept pressureLossDetected;
+        }
+    }
+
+    part cuttingBalloonSystem : CuttingBalloon;
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The cutting balloon shall dilate a stenotic vascular lesion while producing controlled plaque scores with longitudinal cutting elements. */
+        subject device : CuttingBalloon;
+        require constraint {
+            device.nominalBalloonDiameter > 0.0 and
+            device.nominalBalloonLength > 0.0
+        }
+    }
+
+    requirement def PressureLimitRequirement {
+        doc /* Inflation pressure shall remain below the rated burst pressure and within the maximum recommended treatment pressure during normal operation. */
+        subject device : CuttingBalloon;
+        require constraint {
+            device.maxRecommendedPressure < device.ratedBurstPressure
+        }
+    }
+
+    requirement def ScoringControlRequirement {
+        doc /* Cutting elements shall create shallow, longitudinal plaque scores without full vessel-wall perforation. */
+        subject vessel : VesselWall;
+        subject device : CuttingBalloon;
+        require constraint {
+            vessel.lumenDiameterAfter > vessel.lumenDiameterBefore
+        }
+    }
+
+    requirement def GuidewireCompatibilityRequirement {
+        doc /* The catheter shall track over a standard intravascular guidewire through the integrated guidewire lumen. */
+        subject shaft : CatheterShaft;
+        require constraint {
+            shaft.guidewireLumenDiameter >= 0.36
+        }
+    }
+
+    requirement def RadiographicPositioningRequirement {
+        doc /* Radiopaque markers shall support operator positioning of the balloon working length across the target lesion. */
+        subject proximalMarker : RadiopaqueMarker;
+        subject distalMarker : RadiopaqueMarker;
+        require constraint {
+            proximalMarker.visibilityIndex >= 0.90 and
+            distalMarker.visibilityIndex >= 0.90
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by cuttingBalloonSystem;
+    satisfy PressureLimitRequirement by cuttingBalloonSystem;
+    satisfy GuidewireCompatibilityRequirement by cuttingBalloonSystem.shaft;
+    satisfy RadiographicPositioningRequirement by cuttingBalloonSystem.proximalMarker;
+    satisfy RadiographicPositioningRequirement by cuttingBalloonSystem.distalMarker;
+}

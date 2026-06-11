@@ -1,0 +1,459 @@
+package PumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> scalarValues::Real;
+    attribute def FlowRate :> scalarValues::Real;
+    attribute def RotationalSpeed :> scalarValues::Real;
+    attribute def Temperature :> scalarValues::Real;
+    attribute def Power :> scalarValues::Real;
+    attribute def Torque :> scalarValues::Real;
+    attribute def Volume :> scalarValues::Real;
+    attribute def Efficiency :> scalarValues::Real;
+    attribute def Duration :> scalarValues::Real;
+
+    enum def FluidKind {
+        water;
+        hydraulicOil;
+        coolant;
+        processFluid;
+    }
+
+    enum def PumpOperatingMode {
+        off;
+        priming;
+        running;
+        regulating;
+        shutdown;
+        faulted;
+    }
+
+    enum def FaultKind {
+        noFault;
+        lowInletPressure;
+        highDischargePressure;
+        motorOverload;
+        highTemperature;
+        sealLeakage;
+        dryRun;
+    }
+
+    item def Fluid {
+        attribute kind : FluidKind;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute volumetricFlow : FlowRate;
+        attribute density : Real;
+        attribute viscosity : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+        attribute activePower : Power;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute shaftTorque : Torque;
+        attribute transmittedPower : Power;
+    }
+
+    item def ControlSignal {
+        attribute commandMode : PumpOperatingMode;
+        attribute requestedFlow : FlowRate;
+        attribute requestedPressure : Pressure;
+        attribute enable : Boolean;
+    }
+
+    item def StatusSignal {
+        attribute actualMode : PumpOperatingMode;
+        attribute actualFlow : FlowRate;
+        attribute inletPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute motorPower : Power;
+        attribute activeFault : FaultKind;
+        attribute available : Boolean;
+    }
+
+    port def FluidInletPort {
+        in item incomingFluid : Fluid;
+    }
+
+    port def FluidOutletPort {
+        out item outgoingFluid : Fluid;
+    }
+
+    port def ElectricalPowerPort {
+        in item suppliedPower : ElectricalPower;
+    }
+
+    port def MechanicalDrivePort {
+        out item drivePower : MechanicalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item status : StatusSignal;
+    }
+
+    port def DrainPort {
+        out item drainedFluid : Fluid;
+    }
+
+    action def CompressAndDisplaceFluid {
+        in item inletFluid : Fluid;
+        in attribute shaftSpeed : RotationalSpeed;
+        in attribute displacementPerRev : Volume;
+        in attribute volumetricEfficiency : Efficiency;
+        out item outletFluid : Fluid;
+
+        attribute theoreticalFlow : FlowRate;
+        attribute deliveredFlow : FlowRate;
+        attribute pressureRise : Pressure;
+
+        assert deliveredFlow == theoreticalFlow * volumetricEfficiency;
+        assert outletFluid.volumetricFlow == deliveredFlow;
+        assert outletFluid.pressure > inletFluid.pressure;
+        assert outletFluid.temperature >= inletFluid.temperature;
+    }
+
+    action def RegulatePumpOutput {
+        in item command : ControlSignal;
+        in item measuredStatus : StatusSignal;
+        out attribute targetSpeed : RotationalSpeed;
+
+        attribute pressureError : Pressure;
+        attribute flowError : FlowRate;
+
+        assert pressureError == command.requestedPressure - measuredStatus.dischargePressure;
+        assert flowError == command.requestedFlow - measuredStatus.actualFlow;
+    }
+
+    action def DetectPumpFaults {
+        in item status : StatusSignal;
+        in attribute minimumInletPressure : Pressure;
+        in attribute maximumDischargePressure : Pressure;
+        in attribute maximumMotorPower : Power;
+        out attribute detectedFault : FaultKind;
+    }
+
+    state def PumpControllerStateMachine {
+        in item command : ControlSignal;
+        in item status : StatusSignal;
+        out attribute mode : PumpOperatingMode;
+
+        state off;
+        state priming;
+        state running;
+        state regulating;
+        state shutdown;
+        state faulted;
+
+        initial then off;
+
+        transition off_to_priming
+            first off
+            accept command.enable and command.commandMode == PumpOperatingMode::priming
+            then priming;
+
+        transition priming_to_running
+            first priming
+            accept status.inletPressure > 100000.0 and status.activeFault == FaultKind::noFault
+            then running;
+
+        transition running_to_regulating
+            first running
+            accept command.commandMode == PumpOperatingMode::regulating
+            then regulating;
+
+        transition regulating_to_running
+            first regulating
+            accept command.commandMode == PumpOperatingMode::running
+            then running;
+
+        transition running_to_shutdown
+            first running
+            accept not command.enable
+            then shutdown;
+
+        transition regulating_to_shutdown
+            first regulating
+            accept not command.enable
+            then shutdown;
+
+        transition shutdown_to_off
+            first shutdown
+            accept status.actualFlow <= 0.001
+            then off;
+
+        transition any_to_faulted
+            first off, priming, running, regulating, shutdown
+            accept status.activeFault != FaultKind::noFault
+            then faulted;
+
+        transition faulted_to_off
+            first faulted
+            accept not command.enable and status.activeFault == FaultKind::noFault
+            then off;
+    }
+
+    part def RotaryCompressionPump {
+        attribute displacementPerRevolution : Volume = 0.00008;
+        attribute ratedSpeed : RotationalSpeed = 1800.0;
+        attribute minimumSpeed : RotationalSpeed = 300.0;
+        attribute maximumSpeed : RotationalSpeed = 2400.0;
+        attribute ratedFlow : FlowRate = 0.0024;
+        attribute ratedPressureRise : Pressure = 800000.0;
+        attribute volumetricEfficiency : Efficiency = 0.88;
+        attribute mechanicalEfficiency : Efficiency = 0.82;
+        attribute maximumCaseTemperature : Temperature = 363.15;
+        attribute maximumDischargePressure : Pressure = 1200000.0;
+        attribute minimumInletPressure : Pressure = 80000.0;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port shaftInput : MechanicalDrivePort;
+        port caseDrain : DrainPort;
+
+        perform action compression : CompressAndDisplaceFluid {
+            in inletFluid = inlet.incomingFluid;
+            in shaftSpeed = shaftInput.drivePower.shaftSpeed;
+            in displacementPerRev = displacementPerRevolution;
+            in volumetricEfficiency = volumetricEfficiency;
+            out outletFluid = outlet.outgoingFluid;
+        }
+
+        assert maximumSpeed >= shaftInput.drivePower.shaftSpeed;
+        assert shaftInput.drivePower.shaftSpeed >= minimumSpeed;
+        assert outlet.outgoingFluid.pressure - inlet.incomingFluid.pressure <= maximumDischargePressure;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : Power = 3500.0;
+        attribute ratedSpeed : RotationalSpeed = 1800.0;
+        attribute ratedTorque : Torque = 18.5;
+        attribute efficiency : Efficiency = 0.91;
+        attribute maximumWindingTemperature : Temperature = 393.15;
+
+        port electricalInput : ElectricalPowerPort;
+        port mechanicalOutput : MechanicalDrivePort;
+
+        assert mechanicalOutput.drivePower.transmittedPower <= ratedPower;
+        assert mechanicalOutput.drivePower.shaftSpeed <= ratedSpeed * 1.15;
+    }
+
+    part def VariableFrequencyDrive {
+        attribute minimumOutputFrequency : Real = 10.0;
+        attribute maximumOutputFrequency : Real = 80.0;
+        attribute ratedOutputPower : Power = 4000.0;
+
+        port powerInput : ElectricalPowerPort;
+        port controlInput : ControlInputPort;
+        port motorOutput : ElectricalPowerPort;
+        port statusOutput : StatusOutputPort;
+    }
+
+    part def InletFilter {
+        attribute filtrationRatingMicrometer : Real = 50.0;
+        attribute cleanPressureDrop : Pressure = 5000.0;
+        attribute maximumPressureDrop : Pressure = 30000.0;
+
+        port unfilteredInlet : FluidInletPort;
+        port filteredOutlet : FluidOutletPort;
+
+        assert filteredOutlet.outgoingFluid.pressure < unfilteredInlet.incomingFluid.pressure;
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 20000.0;
+        attribute maximumReverseLeakage : FlowRate = 0.000001;
+
+        port upstream : FluidInletPort;
+        port downstream : FluidOutletPort;
+    }
+
+    part def PressureReliefValve {
+        attribute setPressure : Pressure = 1100000.0;
+        attribute reseatPressure : Pressure = 950000.0;
+        attribute reliefCapacity : FlowRate = 0.003;
+
+        port protectedLine : FluidInletPort;
+        port returnLine : FluidOutletPort;
+    }
+
+    part def Reservoir {
+        attribute usableVolume : Volume = 0.05;
+        attribute normalFluidTemperature : Temperature = 298.15;
+        attribute minimumLevelVolume : Volume = 0.01;
+
+        port supplyOutlet : FluidOutletPort;
+        port returnInlet : FluidInletPort;
+        port drainInlet : FluidInletPort;
+    }
+
+    part def SensorSet {
+        attribute flowMeasurementRange : FlowRate = 0.004;
+        attribute pressureMeasurementRange : Pressure = 1500000.0;
+        attribute temperatureMeasurementRange : Temperature = 423.15;
+
+        port sensedInlet : FluidInletPort;
+        port sensedDischarge : FluidInletPort;
+        port statusOutput : StatusOutputPort;
+    }
+
+    part def PumpController {
+        attribute commandedMode : PumpOperatingMode;
+        attribute targetFlow : FlowRate = 0.002;
+        attribute targetPressure : Pressure = 700000.0;
+        attribute selectedSpeed : RotationalSpeed;
+        attribute activeFault : FaultKind = FaultKind::noFault;
+
+        port commandInput : ControlInputPort;
+        port statusInput : StatusOutputPort;
+        port driveCommand : ControlInputPort;
+        port statusOutput : StatusOutputPort;
+
+        perform action regulate : RegulatePumpOutput {
+            in command = commandInput.command;
+            in measuredStatus = statusInput.status;
+            out targetSpeed = selectedSpeed;
+        }
+
+        perform action faultDetection : DetectPumpFaults {
+            in status = statusInput.status;
+            in minimumInletPressure = 80000.0;
+            in maximumDischargePressure = 1200000.0;
+            in maximumMotorPower = 4000.0;
+            out detectedFault = activeFault;
+        }
+
+        exhibit state controllerStates : PumpControllerStateMachine {
+            in command = commandInput.command;
+            in status = statusInput.status;
+            out mode = commandedMode;
+        }
+    }
+
+    part def PumpingSubsystem {
+        attribute designFlow : FlowRate = 0.0024;
+        attribute designDischargePressure : Pressure = 800000.0;
+        attribute designInletPressure : Pressure = 100000.0;
+        attribute maximumStartupTime : Duration = 5.0;
+        attribute continuousDutyPowerLimit : Power = 4000.0;
+
+        port fluidSupply : FluidInletPort;
+        port fluidDischarge : FluidOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommand : ControlInputPort;
+        port subsystemStatus : StatusOutputPort;
+
+        part reservoir : Reservoir;
+        part inletFilter : InletFilter;
+        part pump : RotaryCompressionPump;
+        part motor : ElectricMotor;
+        part drive : VariableFrequencyDrive;
+        part checkValve : CheckValve;
+        part reliefValve : PressureReliefValve;
+        part sensors : SensorSet;
+        part controller : PumpController;
+
+        connect fluidSupply to reservoir.returnInlet;
+        connect reservoir.supplyOutlet to inletFilter.unfilteredInlet;
+        connect inletFilter.filteredOutlet to pump.inlet;
+        connect pump.outlet to checkValve.upstream;
+        connect checkValve.downstream to fluidDischarge;
+        connect pump.caseDrain to reservoir.drainInlet;
+        connect reliefValve.returnLine to reservoir.returnInlet;
+        connect electricalSupply to drive.powerInput;
+        connect drive.motorOutput to motor.electricalInput;
+        connect motor.mechanicalOutput to pump.shaftInput;
+        connect operatorCommand to controller.commandInput;
+        connect sensors.statusOutput to controller.statusInput;
+        connect controller.driveCommand to drive.controlInput;
+        connect controller.statusOutput to subsystemStatus;
+        connect pump.inlet to sensors.sensedInlet;
+        connect pump.outlet to sensors.sensedDischarge;
+        connect pump.outlet to reliefValve.protectedLine;
+
+        assert pump.ratedFlow >= designFlow;
+        assert pump.ratedPressureRise >= designDischargePressure - designInletPressure;
+        assert motor.ratedPower <= continuousDutyPowerLimit;
+        assert reliefValve.setPressure < pump.maximumDischargePressure;
+        assert inletFilter.maximumPressureDrop < designInletPressure;
+    }
+
+    requirement def FlowDeliveryRequirement {
+        doc /* The pumping subsystem shall deliver the commanded fluid flow during normal running operation. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.fluidDischarge.outgoingFluid.volumetricFlow >= 0.95 * subsystem.designFlow
+        }
+    }
+
+    requirement def PressureBoostRequirement {
+        doc /* The rotary compression pump shall increase fluid pressure from inlet to discharge under rated operation. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.fluidDischarge.outgoingFluid.pressure - subsystem.fluidSupply.incomingFluid.pressure >= 700000.0
+        }
+    }
+
+    requirement def ReverseFlowPreventionRequirement {
+        doc /* The subsystem shall prevent reverse flow from the discharge line into the pump outlet. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.checkValve.maximumReverseLeakage <= 0.000001
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        doc /* The subsystem shall relieve discharge pressure before the pump exceeds its maximum allowable discharge pressure. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.reliefValve.setPressure < subsystem.pump.maximumDischargePressure
+        }
+    }
+
+    requirement def DryRunProtectionRequirement {
+        doc /* The controller shall place the subsystem in a faulted state when inlet pressure is below the minimum safe value. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.controller.activeFault == FaultKind::lowInletPressure implies
+            subsystem.sensors.statusOutput.status.actualMode == PumpOperatingMode::faulted
+        }
+    }
+
+    requirement def ContinuousDutyRequirement {
+        doc /* The motor and drive shall support continuous operation at the subsystem design flow and pressure. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.motor.ratedPower >=
+            subsystem.designFlow * (subsystem.designDischargePressure - subsystem.designInletPressure)
+        }
+    }
+
+    requirement def StartupRequirement {
+        doc /* The subsystem shall transition from enabled priming to running within the maximum startup time when inlet fluid is available and no faults are active. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.maximumStartupTime <= 5.0
+        }
+    }
+
+    part pumpingSubsystem : PumpingSubsystem;
+
+    satisfy FlowDeliveryRequirement by pumpingSubsystem;
+    satisfy PressureBoostRequirement by pumpingSubsystem;
+    satisfy ReverseFlowPreventionRequirement by pumpingSubsystem;
+    satisfy OverPressureProtectionRequirement by pumpingSubsystem;
+    satisfy DryRunProtectionRequirement by pumpingSubsystem;
+    satisfy ContinuousDutyRequirement by pumpingSubsystem;
+    satisfy StartupRequirement by pumpingSubsystem;
+}

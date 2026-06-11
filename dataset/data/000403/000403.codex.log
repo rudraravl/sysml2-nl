@@ -1,0 +1,1211 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ks8dqzuy
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2c0-3f5c-7623-be4c-bc281a801563
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Articulated soft robotics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ArticulatedSoftRoboticsSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> scalar;
+    unit = "kPa";
+  }
+
+  attribute def FlowRate {
+    :> scalar;
+    unit = "L/min";
+  }
+
+  attribute def BendAngle {
+    :> scalar;
+    unit = "deg";
+  }
+
+  attribute def Force {
+    :> scalar;
+    unit = "N";
+  }
+
+  attribute def Length {
+    :> scalar;
+    unit = "mm";
+  }
+
+  attribute def Voltage {
+    :> scalar;
+    unit = "V";
+  }
+
+  attribute def Temperature {
+    :> scalar;
+    unit = "degC";
+  }
+
+  attribute def Stiffness {
+    :> scalar;
+    unit = "N/mm";
+  }
+
+  item def PneumaticEnergy {
+    attribute supplyPressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : Voltage;
+    attribute current : Real;
+  }
+
+  item def ControlSignal {
+    attribute targetAngle : BendAngle;
+    attribute targetPressure : Pressure;
+    attribute targetStiffness : Stiffness;
+    attribute commandPriority : Integer;
+  }
+
+  item def SensorData {
+    attribute measuredAngle : BendAngle;
+    attribute measuredPressure : Pressure;
+    attribute contactForce : Force;
+    attribute actuatorTemperature : Temperature;
+  }
+
+  item def GraspedObject {
+    attribute estimatedMass : Real;
+    attribute contactCompliance : Stiffness;
+    attribute maximumAllowedForce : Force;
+  }
+
+  port def PneumaticPort {
+    in item pneumaticIn : PneumaticEnergy;
+    out item pneumaticReturn : PneumaticEnergy;
+  }
+
+  port def ElectricalPort {
+    in item electricalIn : ElectricalEnergy;
+  }
+
+  port def ControlPort {
+    in item command : ControlSignal;
+    out item telemetry : SensorData;
+  }
+
+  port def ObjectInteractionPort {
+    inout item object : GraspedObject;
+    out item appliedForce : Force;
+  }
+
+  part def SoftActuatorChamber {
+    attribute chamberLength : Length;
+    attribute maxPressure : Pressure;
+    attribute currentPressure : Pressure;
+    attribute bendAngle : BendAngle;
+    attribute elastomerTemperature : Temperature;
+
+    port pneumaticPort : PneumaticPort;
+    port sensingPort : ControlPort;
+
+    action inflate {
+      in item energy : PneumaticEnergy;
+      out item angle : BendAngle;
+    }
+
+    action vent {
+      out item exhaustedEnergy : PneumaticEnergy;
+    }
+  }
+
+  part def VariableStiffnessLayer {
+    attribute stiffnessCommand : Stiffness;
+    attribute currentStiffness : Stiffness;
+    attribute minimumStiffness : Stiffness;
+    attribute maximumStiffness : Stiffness;
+
+    port electricalPort : ElectricalPort;
+    port controlPort : ControlPort;
+
+    action tuneStiffness {
+      in item command : ControlSignal;
+      out attribute achievedStiffness : Stiffness;
+    }
+  }
+
+  part def FlexureJoint {
+    attribute jointIndex : Integer;
+    attribute neutralAngle : BendAngle;
+    attribute currentAngle : BendAngle;
+    attribute maximumAngle : BendAngle;
+    attribute jointTorqueLimit : Real;
+
+    part agonistChamber : SoftActuatorChamber;
+    part antagonistChamber : SoftActuatorChamber;
+    part stiffnessLayer : VariableStiffnessLayer;
+
+    port pneumaticSupply : PneumaticPort;
+    port electricalSupply : ElectricalPort;
+    port controlInterface : ControlPort;
+
+    connection agonistPneumaticLink
+      connect pneumaticSupply to agonistChamber.pneumaticPort;
+
+    connection antagonistPneumaticLink
+      connect pneumaticSupply to antagonistChamber.pneumaticPort;
+
+    connection stiffnessPowerLink
+      connect electricalSupply to stiffnessLayer.electricalPort;
+
+    connection chamberControlLink
+      connect controlInterface to agonistChamber.sensingPort;
+
+    connection stiffnessControlLink
+      connect controlInterface to stiffnessLayer.controlPort;
+  }
+
+  part def SoftRoboticFinger {
+    attribute fingerLength : Length;
+    attribute fingertipForce : Force;
+    attribute commandedCurlAngle : BendAngle;
+
+    part proximalJoint : FlexureJoint {
+      attribute jointIndex = 1;
+      attribute maximumAngle = 55;
+    }
+
+    part medialJoint : FlexureJoint {
+      attribute jointIndex = 2;
+      attribute maximumAngle = 70;
+    }
+
+    part distalJoint : FlexureJoint {
+      attribute jointIndex = 3;
+      attribute maximumAngle = 45;
+    }
+
+    port pneumaticPort : PneumaticPort;
+    port electricalPort : ElectricalPort;
+    port controlPort : ControlPort;
+    port objectPort : ObjectInteractionPort;
+
+    connection proximalPneumatic
+      connect pneumaticPort to proximalJoint.pneumaticSupply;
+
+    connection medialPneumatic
+      connect pneumaticPort to medialJoint.pneumaticSupply;
+
+    connection distalPneumatic
+      connect pneumaticPort to distalJoint.pneumaticSupply;
+
+    connection proximalElectrical
+      connect electricalPort to proximalJoint.electricalSupply;
+
+    connection medialElectrical
+      connect electricalPort to medialJoint.electricalSupply;
+
+    connection distalElectrical
+      connect electricalPort to distalJoint.electricalSupply;
+
+    connection proximalControl
+      connect controlPort to proximalJoint.controlInterface;
+
+    connection medialControl
+      connect controlPort to medialJoint.controlInterface;
+
+    connection distalControl
+      connect controlPort to distalJoint.controlInterface;
+
+    action conformToObject {
+      in item object : GraspedObject;
+      out attribute fingertipForce : Force;
+    }
+  }
+
+  part def PneumaticManifold {
+    attribute reservoirPressure : Pressure;
+    attribute regulatedPressure : Pressure;
+    attribute maximumFlowRate : FlowRate;
+
+    port inlet : PneumaticPort;
+    port thumbOutlet : PneumaticPort;
+    port indexOutlet : PneumaticPort;
+    port middleOutlet : PneumaticPort;
+    port ringOutlet : PneumaticPort;
+
+    action regulatePressure {
+      in attribute desiredPressure : Pressure;
+      out attribute regulatedPressure : Pressure;
+    }
+  }
+
+  part def MicroPump {
+    attribute nominalVoltage : Voltage;
+    attribute maximumPressure : Pressure;
+    attribute maximumFlowRate : FlowRate;
+
+    port electricalPort : ElectricalPort;
+    port pneumaticPort : PneumaticPort;
+
+    action generatePressure {
+      in item electricalEnergy : ElectricalEnergy;
+      out item pneumaticEnergy : PneumaticEnergy;
+    }
+  }
+
+  part def ValveArray {
+    attribute valveCount : Integer;
+    attribute responseTimeMs : Real;
+
+    port pneumaticInput : PneumaticPort;
+    port pneumaticOutput : PneumaticPort;
+    port controlPort : ControlPort;
+
+    action meterFlow {
+      in item command : ControlSignal;
+      in item supply : PneumaticEnergy;
+      out item meteredFlow : PneumaticEnergy;
+    }
+  }
+
+  part def SensorSuite {
+    attribute pressureSensorRange : Pressure;
+    attribute bendSensorRange : BendAngle;
+    attribute forceSensorRange : Force;
+
+    port controlPort : ControlPort;
+
+    action acquireData {
+      out item data : SensorData;
+    }
+
+    action detectContact {
+      in item data : SensorData;
+      out attribute contactDetected : Boolean;
+    }
+  }
+
+  part def EmbeddedController {
+    attribute controlLoopRateHz : Real;
+    attribute pressureTolerance : Pressure;
+    attribute forceLimit : Force;
+
+    port operatorCommandPort : ControlPort;
+    port sensorPort : ControlPort;
+    port valveCommandPort : ControlPort;
+    port stiffnessCommandPort : ControlPort;
+
+    action computeMotionCommand {
+      in item desiredObject : GraspedObject;
+      in item sensorData : SensorData;
+      out item command : ControlSignal;
+    }
+
+    action limitContactForce {
+      in item sensorData : SensorData;
+      in item object : GraspedObject;
+      out item safeCommand : ControlSignal;
+    }
+
+    state def GraspControllerState {
+      entry action initializeController;
+
+      state Idle;
+      state Approach;
+      state Conform;
+      state SecureGrip;
+      state Manipulate;
+      state Release;
+      state Fault;
+
+      transition initial then Idle;
+
+      transition Idle_to_Approach
+        first Idle
+        accept item command : ControlSignal
+        if command.commandPriority > 0
+        then Approach;
+
+      transition Approach_to_Conform
+        first Approach
+        accept item data : SensorData
+        if data.contactForce > 0.2
+        then Conform;
+
+      transition Conform_to_SecureGrip
+        first Conform
+        accept item data : SensorData
+        if data.measuredPressure > 35
+        then SecureGrip;
+
+      transition SecureGrip_to_Manipulate
+        first SecureGrip
+        accept item command : ControlSignal
+        if command.targetAngle > 15
+        then Manipulate;
+
+      transition Manipulate_to_Release
+        first Manipulate
+        accept item command : ControlSignal
+        if command.targetPressure < 5
+        then Release;
+
+      transition Release_to_Idle
+        first Release
+        then Idle;
+
+      transition Any_to_Fault
+        first Idle
+        accept item data : SensorData
+        if data.actuatorTemperature > 60
+        then Fault;
+    }
+  }
+
+  part def PowerModule {
+    attribute batteryVoltage : Voltage;
+    attribute stateOfChargePercent : Real;
+
+    port electricalOutput : ElectricalPort;
+
+    action providePower {
+      out item energy : ElectricalEnergy;
+    }
+  }
+
+  part def ArticulatedSoftRoboticGripper {
+    doc
+    /* Primary function: safely grasp, conform around, and manipulate irregular or delicate objects using pneumatically actuated soft articulated fingers with closed-loop pressure, bend, force, and stiffness control. */
+
+    attribute maximumGripForce : Force;
+    attribute maximumPayloadMassKg : Real;
+    attribute nominalSupplyPressure : Pressure;
+    attribute operatingTemperature : Temperature;
+
+    part powerModule : PowerModule {
+      attribute batteryVoltage = 24;
+    }
+
+    part pump : MicroPump {
+      attribute nominalVoltage = 24;
+      attribute maximumPressure = 120;
+      attribute maximumFlowRate = 8;
+    }
+
+    part valveArray : ValveArray {
+      attribute valveCount = 16;
+      attribute responseTimeMs = 12;
+    }
+
+    part manifold : PneumaticManifold {
+      attribute regulatedPressure = 65;
+      attribute maximumFlowRate = 6;
+    }
+
+    part controller : EmbeddedController {
+      attribute controlLoopRateHz = 200;
+      attribute pressureTolerance = 2;
+      attribute forceLimit = 18;
+    }
+
+    part sensors : SensorSuite {
+      attribute pressureSensorRange = 150;
+      attribute bendSensorRange = 120;
+      attribute forceSensorRange = 30;
+    }
+
+    part thumb : SoftRoboticFinger {
+      attribute fingerLength = 95;
+    }
+
+    part indexFinger : SoftRoboticFinger {
+      attribute fingerLength = 120;
+    }
+
+    part middleFinger : SoftRoboticFinger {
+      attribute fingerLength = 125;
+    }
+
+    part ringFinger : SoftRoboticFinger {
+      attribute fingerLength = 115;
+    }
+
+    port operatorInterface : ControlPort;
+    port objectInterface : ObjectInteractionPort;
+
+    connection powerToPump
+      connect powerModule.electricalOutput to pump.electricalPort;
+
+    connection pumpToValveArray
+      connect pump.pneumaticPort to valveArray.pneumaticInput;
+
+    connection valveArrayToManifold
+      connect valveArray.pneumaticOutput to manifold.inlet;
+
+    connection manifoldToThumb
+      connect manifold.thumbOutlet to thumb.pneumaticPort;
+
+    connection manifoldToIndex
+      connect manifold.indexOutlet to indexFinger.pneumaticPort;
+
+    connection manifoldToMiddle
+      connect manifold.middleOutlet to middleFinger.pneumaticPort;
+
+    connection manifoldToRing
+      connect manifold.ringOutlet to ringFinger.pneumaticPort;
+
+    connection controllerToValveArray
+      connect controller.valveCommandPort to valveArray.controlPort;
+
+    connection controllerToSensors
+      connect controller.sensorPort to sensors.controlPort;
+
+    connection operatorToController
+      connect operatorInterface to controller.operatorCommandPort;
+
+    connection thumbControl
+      connect controller.stiffnessCommandPort to thumb.controlPort;
+
+    connection indexControl
+      connect controller.stiffnessCommandPort to indexFinger.controlPort;
+
+    connection middleControl
+      connect controller.stiffnessCommandPort to middleFinger.controlPort;
+
+    connection ringControl
+      connect controller.stiffnessCommandPort to ringFinger.controlPort;
+
+    connection thumbObjectContact
+      connect thumb.objectPort to objectInterface;
+
+    connection indexObjectContact
+      connect indexFinger.objectPort to objectInterface;
+
+    connection middleObjectContact
+      connect middleFinger.objectPort to objectInterface;
+
+    connection ringObjectContact
+      connect ringFinger.objectPort to objectInterface;
+
+    action performAdaptiveGrasp {
+      in item targetObject : GraspedObject;
+      out attribute stableGrip : Boolean;
+
+      first start;
+      then senseObject;
+      then computeFingerCommands;
+      then pressurizeActuators;
+      then conformFingers;
+      then regulateGripForce;
+      then confirmStability;
+      then done;
+
+      action senseObject {
+        out item sensedData : SensorData;
+      }
+
+      action computeFingerCommands {
+        in item sensedData : SensorData;
+        out item command : ControlSignal;
+      }
+
+      action pressurizeActuators {
+        in item command : ControlSignal;
+        out item pneumaticEnergy : PneumaticEnergy;
+      }
+
+      action conformFingers {
+        in item targetObject : GraspedObject;
+        in item pneumaticEnergy : PneumaticEnergy;
+        out attribute contactForce : Force;
+      }
+
+      action regulateGripForce {
+        in attribute contactForce : Force;
+        out item safeCommand : ControlSignal;
+      }
+
+      action confirmStability {
+        in item safeCommand : ControlSignal;
+        out attribute stableGrip : Boolean;
+      }
+    }
+  }
+
+  requirement def SoftRoboticSystemRequirement {
+    subject gripper : ArticulatedSoftRoboticGripper;
+  }
+
+  requirement primaryFunctionRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The system shall grasp and manipulate irregular or delicate objects by conforming articulated soft fingers around the object while limiting contact force. */
+  }
+
+  requirement pressureControlRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The controller shall regulate actuator pressure within 2 kPa of the commanded pressure during closed-loop grasping. */
+  }
+
+  requirement forceSafetyRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The gripper shall limit total contact force to no more than the target object's maximum allowed force. */
+  }
+
+  requirement articulationRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* Each finger shall provide at least three independently controllable flexure joints for adaptive curling around irregular geometry. */
+  }
+
+  requirement stiffnessRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* Each joint shall provide variable stiffness control to support both compliant approach and stable load-bearing manipulation. */
+  }
+
+  requirement sensingRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The system shall measure pressure, bend angle, force, and actuator temperature during operation. */
+  }
+
+  requirement releaseRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The system shall vent actuator chambers and return fingers to a low-pressure open configuration when commanded to release. */
+  }
+
+  satisfy primaryFunctionSatisfaction
+    by ArticulatedSoftRoboticGripper
+    satisfy primaryFunctionRequirement;
+
+  satisfy pressureControlSatisfaction
+    by EmbeddedController
+    satisfy pressureControlRequirement;
+
+  satisfy forceSafetySatisfaction
+    by EmbeddedController
+    satisfy forceSafetyRequirement;
+
+  satisfy articulationSatisfaction
+    by SoftRoboticFinger
+    satisfy articulationRequirement;
+
+  satisfy stiffnessSatisfaction
+    by VariableStiffnessLayer
+    satisfy stiffnessRequirement;
+
+  satisfy sensingSatisfaction
+    by SensorSuite
+    satisfy sensingRequirement;
+
+  satisfy releaseSatisfaction
+    by ValveArray
+    satisfy releaseRequirement;
+}
+tokens used
+4,975
+package ArticulatedSoftRoboticsSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> scalar;
+    unit = "kPa";
+  }
+
+  attribute def FlowRate {
+    :> scalar;
+    unit = "L/min";
+  }
+
+  attribute def BendAngle {
+    :> scalar;
+    unit = "deg";
+  }
+
+  attribute def Force {
+    :> scalar;
+    unit = "N";
+  }
+
+  attribute def Length {
+    :> scalar;
+    unit = "mm";
+  }
+
+  attribute def Voltage {
+    :> scalar;
+    unit = "V";
+  }
+
+  attribute def Temperature {
+    :> scalar;
+    unit = "degC";
+  }
+
+  attribute def Stiffness {
+    :> scalar;
+    unit = "N/mm";
+  }
+
+  item def PneumaticEnergy {
+    attribute supplyPressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : Voltage;
+    attribute current : Real;
+  }
+
+  item def ControlSignal {
+    attribute targetAngle : BendAngle;
+    attribute targetPressure : Pressure;
+    attribute targetStiffness : Stiffness;
+    attribute commandPriority : Integer;
+  }
+
+  item def SensorData {
+    attribute measuredAngle : BendAngle;
+    attribute measuredPressure : Pressure;
+    attribute contactForce : Force;
+    attribute actuatorTemperature : Temperature;
+  }
+
+  item def GraspedObject {
+    attribute estimatedMass : Real;
+    attribute contactCompliance : Stiffness;
+    attribute maximumAllowedForce : Force;
+  }
+
+  port def PneumaticPort {
+    in item pneumaticIn : PneumaticEnergy;
+    out item pneumaticReturn : PneumaticEnergy;
+  }
+
+  port def ElectricalPort {
+    in item electricalIn : ElectricalEnergy;
+  }
+
+  port def ControlPort {
+    in item command : ControlSignal;
+    out item telemetry : SensorData;
+  }
+
+  port def ObjectInteractionPort {
+    inout item object : GraspedObject;
+    out item appliedForce : Force;
+  }
+
+  part def SoftActuatorChamber {
+    attribute chamberLength : Length;
+    attribute maxPressure : Pressure;
+    attribute currentPressure : Pressure;
+    attribute bendAngle : BendAngle;
+    attribute elastomerTemperature : Temperature;
+
+    port pneumaticPort : PneumaticPort;
+    port sensingPort : ControlPort;
+
+    action inflate {
+      in item energy : PneumaticEnergy;
+      out item angle : BendAngle;
+    }
+
+    action vent {
+      out item exhaustedEnergy : PneumaticEnergy;
+    }
+  }
+
+  part def VariableStiffnessLayer {
+    attribute stiffnessCommand : Stiffness;
+    attribute currentStiffness : Stiffness;
+    attribute minimumStiffness : Stiffness;
+    attribute maximumStiffness : Stiffness;
+
+    port electricalPort : ElectricalPort;
+    port controlPort : ControlPort;
+
+    action tuneStiffness {
+      in item command : ControlSignal;
+      out attribute achievedStiffness : Stiffness;
+    }
+  }
+
+  part def FlexureJoint {
+    attribute jointIndex : Integer;
+    attribute neutralAngle : BendAngle;
+    attribute currentAngle : BendAngle;
+    attribute maximumAngle : BendAngle;
+    attribute jointTorqueLimit : Real;
+
+    part agonistChamber : SoftActuatorChamber;
+    part antagonistChamber : SoftActuatorChamber;
+    part stiffnessLayer : VariableStiffnessLayer;
+
+    port pneumaticSupply : PneumaticPort;
+    port electricalSupply : ElectricalPort;
+    port controlInterface : ControlPort;
+
+    connection agonistPneumaticLink
+      connect pneumaticSupply to agonistChamber.pneumaticPort;
+
+    connection antagonistPneumaticLink
+      connect pneumaticSupply to antagonistChamber.pneumaticPort;
+
+    connection stiffnessPowerLink
+      connect electricalSupply to stiffnessLayer.electricalPort;
+
+    connection chamberControlLink
+      connect controlInterface to agonistChamber.sensingPort;
+
+    connection stiffnessControlLink
+      connect controlInterface to stiffnessLayer.controlPort;
+  }
+
+  part def SoftRoboticFinger {
+    attribute fingerLength : Length;
+    attribute fingertipForce : Force;
+    attribute commandedCurlAngle : BendAngle;
+
+    part proximalJoint : FlexureJoint {
+      attribute jointIndex = 1;
+      attribute maximumAngle = 55;
+    }
+
+    part medialJoint : FlexureJoint {
+      attribute jointIndex = 2;
+      attribute maximumAngle = 70;
+    }
+
+    part distalJoint : FlexureJoint {
+      attribute jointIndex = 3;
+      attribute maximumAngle = 45;
+    }
+
+    port pneumaticPort : PneumaticPort;
+    port electricalPort : ElectricalPort;
+    port controlPort : ControlPort;
+    port objectPort : ObjectInteractionPort;
+
+    connection proximalPneumatic
+      connect pneumaticPort to proximalJoint.pneumaticSupply;
+
+    connection medialPneumatic
+      connect pneumaticPort to medialJoint.pneumaticSupply;
+
+    connection distalPneumatic
+      connect pneumaticPort to distalJoint.pneumaticSupply;
+
+    connection proximalElectrical
+      connect electricalPort to proximalJoint.electricalSupply;
+
+    connection medialElectrical
+      connect electricalPort to medialJoint.electricalSupply;
+
+    connection distalElectrical
+      connect electricalPort to distalJoint.electricalSupply;
+
+    connection proximalControl
+      connect controlPort to proximalJoint.controlInterface;
+
+    connection medialControl
+      connect controlPort to medialJoint.controlInterface;
+
+    connection distalControl
+      connect controlPort to distalJoint.controlInterface;
+
+    action conformToObject {
+      in item object : GraspedObject;
+      out attribute fingertipForce : Force;
+    }
+  }
+
+  part def PneumaticManifold {
+    attribute reservoirPressure : Pressure;
+    attribute regulatedPressure : Pressure;
+    attribute maximumFlowRate : FlowRate;
+
+    port inlet : PneumaticPort;
+    port thumbOutlet : PneumaticPort;
+    port indexOutlet : PneumaticPort;
+    port middleOutlet : PneumaticPort;
+    port ringOutlet : PneumaticPort;
+
+    action regulatePressure {
+      in attribute desiredPressure : Pressure;
+      out attribute regulatedPressure : Pressure;
+    }
+  }
+
+  part def MicroPump {
+    attribute nominalVoltage : Voltage;
+    attribute maximumPressure : Pressure;
+    attribute maximumFlowRate : FlowRate;
+
+    port electricalPort : ElectricalPort;
+    port pneumaticPort : PneumaticPort;
+
+    action generatePressure {
+      in item electricalEnergy : ElectricalEnergy;
+      out item pneumaticEnergy : PneumaticEnergy;
+    }
+  }
+
+  part def ValveArray {
+    attribute valveCount : Integer;
+    attribute responseTimeMs : Real;
+
+    port pneumaticInput : PneumaticPort;
+    port pneumaticOutput : PneumaticPort;
+    port controlPort : ControlPort;
+
+    action meterFlow {
+      in item command : ControlSignal;
+      in item supply : PneumaticEnergy;
+      out item meteredFlow : PneumaticEnergy;
+    }
+  }
+
+  part def SensorSuite {
+    attribute pressureSensorRange : Pressure;
+    attribute bendSensorRange : BendAngle;
+    attribute forceSensorRange : Force;
+
+    port controlPort : ControlPort;
+
+    action acquireData {
+      out item data : SensorData;
+    }
+
+    action detectContact {
+      in item data : SensorData;
+      out attribute contactDetected : Boolean;
+    }
+  }
+
+  part def EmbeddedController {
+    attribute controlLoopRateHz : Real;
+    attribute pressureTolerance : Pressure;
+    attribute forceLimit : Force;
+
+    port operatorCommandPort : ControlPort;
+    port sensorPort : ControlPort;
+    port valveCommandPort : ControlPort;
+    port stiffnessCommandPort : ControlPort;
+
+    action computeMotionCommand {
+      in item desiredObject : GraspedObject;
+      in item sensorData : SensorData;
+      out item command : ControlSignal;
+    }
+
+    action limitContactForce {
+      in item sensorData : SensorData;
+      in item object : GraspedObject;
+      out item safeCommand : ControlSignal;
+    }
+
+    state def GraspControllerState {
+      entry action initializeController;
+
+      state Idle;
+      state Approach;
+      state Conform;
+      state SecureGrip;
+      state Manipulate;
+      state Release;
+      state Fault;
+
+      transition initial then Idle;
+
+      transition Idle_to_Approach
+        first Idle
+        accept item command : ControlSignal
+        if command.commandPriority > 0
+        then Approach;
+
+      transition Approach_to_Conform
+        first Approach
+        accept item data : SensorData
+        if data.contactForce > 0.2
+        then Conform;
+
+      transition Conform_to_SecureGrip
+        first Conform
+        accept item data : SensorData
+        if data.measuredPressure > 35
+        then SecureGrip;
+
+      transition SecureGrip_to_Manipulate
+        first SecureGrip
+        accept item command : ControlSignal
+        if command.targetAngle > 15
+        then Manipulate;
+
+      transition Manipulate_to_Release
+        first Manipulate
+        accept item command : ControlSignal
+        if command.targetPressure < 5
+        then Release;
+
+      transition Release_to_Idle
+        first Release
+        then Idle;
+
+      transition Any_to_Fault
+        first Idle
+        accept item data : SensorData
+        if data.actuatorTemperature > 60
+        then Fault;
+    }
+  }
+
+  part def PowerModule {
+    attribute batteryVoltage : Voltage;
+    attribute stateOfChargePercent : Real;
+
+    port electricalOutput : ElectricalPort;
+
+    action providePower {
+      out item energy : ElectricalEnergy;
+    }
+  }
+
+  part def ArticulatedSoftRoboticGripper {
+    doc
+    /* Primary function: safely grasp, conform around, and manipulate irregular or delicate objects using pneumatically actuated soft articulated fingers with closed-loop pressure, bend, force, and stiffness control. */
+
+    attribute maximumGripForce : Force;
+    attribute maximumPayloadMassKg : Real;
+    attribute nominalSupplyPressure : Pressure;
+    attribute operatingTemperature : Temperature;
+
+    part powerModule : PowerModule {
+      attribute batteryVoltage = 24;
+    }
+
+    part pump : MicroPump {
+      attribute nominalVoltage = 24;
+      attribute maximumPressure = 120;
+      attribute maximumFlowRate = 8;
+    }
+
+    part valveArray : ValveArray {
+      attribute valveCount = 16;
+      attribute responseTimeMs = 12;
+    }
+
+    part manifold : PneumaticManifold {
+      attribute regulatedPressure = 65;
+      attribute maximumFlowRate = 6;
+    }
+
+    part controller : EmbeddedController {
+      attribute controlLoopRateHz = 200;
+      attribute pressureTolerance = 2;
+      attribute forceLimit = 18;
+    }
+
+    part sensors : SensorSuite {
+      attribute pressureSensorRange = 150;
+      attribute bendSensorRange = 120;
+      attribute forceSensorRange = 30;
+    }
+
+    part thumb : SoftRoboticFinger {
+      attribute fingerLength = 95;
+    }
+
+    part indexFinger : SoftRoboticFinger {
+      attribute fingerLength = 120;
+    }
+
+    part middleFinger : SoftRoboticFinger {
+      attribute fingerLength = 125;
+    }
+
+    part ringFinger : SoftRoboticFinger {
+      attribute fingerLength = 115;
+    }
+
+    port operatorInterface : ControlPort;
+    port objectInterface : ObjectInteractionPort;
+
+    connection powerToPump
+      connect powerModule.electricalOutput to pump.electricalPort;
+
+    connection pumpToValveArray
+      connect pump.pneumaticPort to valveArray.pneumaticInput;
+
+    connection valveArrayToManifold
+      connect valveArray.pneumaticOutput to manifold.inlet;
+
+    connection manifoldToThumb
+      connect manifold.thumbOutlet to thumb.pneumaticPort;
+
+    connection manifoldToIndex
+      connect manifold.indexOutlet to indexFinger.pneumaticPort;
+
+    connection manifoldToMiddle
+      connect manifold.middleOutlet to middleFinger.pneumaticPort;
+
+    connection manifoldToRing
+      connect manifold.ringOutlet to ringFinger.pneumaticPort;
+
+    connection controllerToValveArray
+      connect controller.valveCommandPort to valveArray.controlPort;
+
+    connection controllerToSensors
+      connect controller.sensorPort to sensors.controlPort;
+
+    connection operatorToController
+      connect operatorInterface to controller.operatorCommandPort;
+
+    connection thumbControl
+      connect controller.stiffnessCommandPort to thumb.controlPort;
+
+    connection indexControl
+      connect controller.stiffnessCommandPort to indexFinger.controlPort;
+
+    connection middleControl
+      connect controller.stiffnessCommandPort to middleFinger.controlPort;
+
+    connection ringControl
+      connect controller.stiffnessCommandPort to ringFinger.controlPort;
+
+    connection thumbObjectContact
+      connect thumb.objectPort to objectInterface;
+
+    connection indexObjectContact
+      connect indexFinger.objectPort to objectInterface;
+
+    connection middleObjectContact
+      connect middleFinger.objectPort to objectInterface;
+
+    connection ringObjectContact
+      connect ringFinger.objectPort to objectInterface;
+
+    action performAdaptiveGrasp {
+      in item targetObject : GraspedObject;
+      out attribute stableGrip : Boolean;
+
+      first start;
+      then senseObject;
+      then computeFingerCommands;
+      then pressurizeActuators;
+      then conformFingers;
+      then regulateGripForce;
+      then confirmStability;
+      then done;
+
+      action senseObject {
+        out item sensedData : SensorData;
+      }
+
+      action computeFingerCommands {
+        in item sensedData : SensorData;
+        out item command : ControlSignal;
+      }
+
+      action pressurizeActuators {
+        in item command : ControlSignal;
+        out item pneumaticEnergy : PneumaticEnergy;
+      }
+
+      action conformFingers {
+        in item targetObject : GraspedObject;
+        in item pneumaticEnergy : PneumaticEnergy;
+        out attribute contactForce : Force;
+      }
+
+      action regulateGripForce {
+        in attribute contactForce : Force;
+        out item safeCommand : ControlSignal;
+      }
+
+      action confirmStability {
+        in item safeCommand : ControlSignal;
+        out attribute stableGrip : Boolean;
+      }
+    }
+  }
+
+  requirement def SoftRoboticSystemRequirement {
+    subject gripper : ArticulatedSoftRoboticGripper;
+  }
+
+  requirement primaryFunctionRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The system shall grasp and manipulate irregular or delicate objects by conforming articulated soft fingers around the object while limiting contact force. */
+  }
+
+  requirement pressureControlRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The controller shall regulate actuator pressure within 2 kPa of the commanded pressure during closed-loop grasping. */
+  }
+
+  requirement forceSafetyRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The gripper shall limit total contact force to no more than the target object's maximum allowed force. */
+  }
+
+  requirement articulationRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* Each finger shall provide at least three independently controllable flexure joints for adaptive curling around irregular geometry. */
+  }
+
+  requirement stiffnessRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* Each joint shall provide variable stiffness control to support both compliant approach and stable load-bearing manipulation. */
+  }
+
+  requirement sensingRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The system shall measure pressure, bend angle, force, and actuator temperature during operation. */
+  }
+
+  requirement releaseRequirement : SoftRoboticSystemRequirement {
+    doc
+    /* The system shall vent actuator chambers and return fingers to a low-pressure open configuration when commanded to release. */
+  }
+
+  satisfy primaryFunctionSatisfaction
+    by ArticulatedSoftRoboticGripper
+    satisfy primaryFunctionRequirement;
+
+  satisfy pressureControlSatisfaction
+    by EmbeddedController
+    satisfy pressureControlRequirement;
+
+  satisfy forceSafetySatisfaction
+    by EmbeddedController
+    satisfy forceSafetyRequirement;
+
+  satisfy articulationSatisfaction
+    by SoftRoboticFinger
+    satisfy articulationRequirement;
+
+  satisfy stiffnessSatisfaction
+    by VariableStiffnessLayer
+    satisfy stiffnessRequirement;
+
+  satisfy sensingSatisfaction
+    by SensorSuite
+    satisfy sensingRequirement;
+
+  satisfy releaseSatisfaction
+    by ValveArray
+    satisfy releaseRequirement;
+}

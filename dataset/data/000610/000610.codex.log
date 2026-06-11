@@ -1,0 +1,1061 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-oudg9eil
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb388-a215-7981-a788-b1bfdaba5739
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Flow injection analysis and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FlowInjectionAnalysisSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Volume_uL :> ISQ::volume {
+    unit = SI::micro * SI::litre;
+  }
+
+  attribute def FlowRate_mL_per_min :> ISQ::volumeFlowRate {
+    unit = SI::milli * SI::litre / SI::minute;
+  }
+
+  attribute def Concentration_mg_per_L :> ISQ::massConcentration {
+    unit = SI::milli * SI::gram / SI::litre;
+  }
+
+  attribute def Time_s :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def Temperature_C :> ISQ::thermodynamicTemperature {
+    unit = SI::degreeCelsius;
+  }
+
+  attribute def Absorbance_AU {
+    value : Real;
+  }
+
+  attribute def Pressure_kPa :> ISQ::pressure {
+    unit = SI::kilo * SI::pascal;
+  }
+
+  attribute def Wavelength_nm :> ISQ::length {
+    unit = SI::nano * SI::metre;
+  }
+
+  item def CarrierSolution {
+    attribute composition : String;
+    attribute pH : Real;
+    attribute flowRate : FlowRate_mL_per_min;
+  }
+
+  item def ReagentSolution {
+    attribute name : String;
+    attribute concentration : Concentration_mg_per_L;
+    attribute flowRate : FlowRate_mL_per_min;
+  }
+
+  item def LiquidSample {
+    attribute sampleId : String;
+    attribute nominalVolume : Volume_uL;
+    attribute expectedAnalyte : String;
+  }
+
+  item def SamplePlug {
+    attribute sampleId : String;
+    attribute injectedVolume : Volume_uL;
+    attribute dispersionRatio : Real;
+  }
+
+  item def ReactionMixture {
+    attribute sampleId : String;
+    attribute carrierFraction : Real;
+    attribute reagentFraction : Real;
+    attribute residenceTime : Time_s;
+    attribute temperature : Temperature_C;
+  }
+
+  item def OpticalSignal {
+    attribute sampleId : String;
+    attribute wavelength : Wavelength_nm;
+    attribute absorbance : Absorbance_AU;
+    attribute measurementTime : Time_s;
+  }
+
+  item def AnalysisResult {
+    attribute sampleId : String;
+    attribute analyteName : String;
+    attribute concentration : Concentration_mg_per_L;
+    attribute peakHeight : Absorbance_AU;
+    attribute valid : Boolean;
+  }
+
+  item def WasteStream {
+    attribute totalFlowRate : FlowRate_mL_per_min;
+    attribute containsSampleResidue : Boolean;
+    attribute containsReagentResidue : Boolean;
+  }
+
+  item def ControlCommand {
+    attribute commandName : String;
+    attribute setPoint : Real;
+  }
+
+  item def StatusMessage {
+    attribute statusName : String;
+    attribute faultCode : String;
+    attribute measuredPressure : Pressure_kPa;
+  }
+
+  port def LiquidInPort {
+    in item fluid;
+  }
+
+  port def LiquidOutPort {
+    out item fluid;
+  }
+
+  port def SampleInPort {
+    in item sample : LiquidSample;
+  }
+
+  port def SamplePlugOutPort {
+    out item plug : SamplePlug;
+  }
+
+  port def ReactionMixturePort {
+    inout item mixture : ReactionMixture;
+  }
+
+  port def OpticalSignalPort {
+    out item signal : OpticalSignal;
+  }
+
+  port def ResultPort {
+    out item result : AnalysisResult;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def StatusPort {
+    out item status : StatusMessage;
+  }
+
+  part def Reservoir {
+    attribute capacity : Volume_uL;
+    port outlet : LiquidOutPort;
+  }
+
+  part def PrecisionPump {
+    attribute commandedFlowRate : FlowRate_mL_per_min;
+    attribute pressureLimit : Pressure_kPa;
+    port inlet : LiquidInPort;
+    port outlet : LiquidOutPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def InjectionValve {
+    attribute loopVolume : Volume_uL;
+    attribute valvePosition : String;
+    port carrierIn : LiquidInPort;
+    port sampleIn : SampleInPort;
+    port plugOut : SamplePlugOutPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def ConfluenceMixer {
+    attribute internalVolume : Volume_uL;
+    port carrierPlugIn : LiquidInPort;
+    port reagentIn : LiquidInPort;
+    port mixtureOut : ReactionMixturePort;
+  }
+
+  part def ReactionCoil {
+    attribute coilVolume : Volume_uL;
+    attribute residenceTime : Time_s;
+    attribute controlledTemperature : Temperature_C;
+    port mixtureIn : ReactionMixturePort;
+    port mixtureOut : ReactionMixturePort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def OpticalFlowCellDetector {
+    attribute pathLength : ISQ::length;
+    attribute wavelength : Wavelength_nm;
+    attribute baselineAbsorbance : Absorbance_AU;
+    port mixtureIn : ReactionMixturePort;
+    port mixtureOut : LiquidOutPort;
+    port signalOut : OpticalSignalPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def WasteContainer {
+    attribute capacity : Volume_uL;
+    port inlet : LiquidInPort;
+  }
+
+  part def Controller {
+    attribute sampleCycleTime : Time_s;
+    attribute targetCarrierFlow : FlowRate_mL_per_min;
+    attribute targetReagentFlow : FlowRate_mL_per_min;
+    port pumpCommandOut : CommandPort;
+    port valveCommandOut : CommandPort;
+    port reactorCommandOut : CommandPort;
+    port detectorCommandOut : CommandPort;
+    port statusIn : StatusPort;
+  }
+
+  part def DataProcessor {
+    attribute calibrationSlope : Real;
+    attribute calibrationIntercept : Real;
+    attribute peakDetectionThreshold : Absorbance_AU;
+    port signalIn : OpticalSignalPort;
+    port resultOut : ResultPort;
+  }
+
+  action def PrimeFlowPath {
+    out item status : StatusMessage;
+  }
+
+  action def LoadSampleLoop {
+    in item sample : LiquidSample;
+    out item loadedSample : LiquidSample;
+  }
+
+  action def InjectSampleIntoCarrier {
+    in item sample : LiquidSample;
+    out item plug : SamplePlug;
+  }
+
+  action def MixWithReagent {
+    in item plug : SamplePlug;
+    in item reagent : ReagentSolution;
+    out item mixture : ReactionMixture;
+  }
+
+  action def TransportAndReact {
+    in item mixtureIn : ReactionMixture;
+    out item reactedMixture : ReactionMixture;
+  }
+
+  action def MeasureOpticalResponse {
+    in item reactedMixture : ReactionMixture;
+    out item signal : OpticalSignal;
+  }
+
+  action def CalculateAnalyteConcentration {
+    in item signal : OpticalSignal;
+    out item result : AnalysisResult;
+  }
+
+  action def FlowInjectionAnalysisCycle {
+    in item sample : LiquidSample;
+    out item result : AnalysisResult;
+
+    action prime : PrimeFlowPath;
+    action load : LoadSampleLoop;
+    action inject : InjectSampleIntoCarrier;
+    action mix : MixWithReagent;
+    action react : TransportAndReact;
+    action measure : MeasureOpticalResponse;
+    action calculate : CalculateAnalyteConcentration;
+
+    flow sample to load.sample;
+    flow load.loadedSample to inject.sample;
+    flow inject.plug to mix.plug;
+    flow mix.mixture to react.mixtureIn;
+    flow react.reactedMixture to measure.reactedMixture;
+    flow measure.signal to calculate.signal;
+    flow calculate.result to result;
+
+    first start;
+    then prime;
+    then load;
+    then inject;
+    then mix;
+    then react;
+    then measure;
+    then calculate;
+    then done;
+  }
+
+  state def AnalyzerOperatingState {
+    state off;
+    state standby;
+    state priming;
+    state ready;
+    state loadingSample;
+    state injecting;
+    state reacting;
+    state measuring;
+    state processing;
+    state rinsing;
+    state fault;
+
+    transition first off;
+    transition off then standby accept ControlCommand;
+    transition standby then priming accept ControlCommand;
+    transition priming then ready;
+    transition ready then loadingSample accept LiquidSample;
+    transition loadingSample then injecting;
+    transition injecting then reacting;
+    transition reacting then measuring;
+    transition measuring then processing;
+    transition processing then rinsing;
+    transition rinsing then ready;
+    transition standby then fault accept StatusMessage;
+    transition priming then fault accept StatusMessage;
+    transition ready then fault accept StatusMessage;
+    transition injecting then fault accept StatusMessage;
+    transition reacting then fault accept StatusMessage;
+    transition measuring then fault accept StatusMessage;
+    transition processing then fault accept StatusMessage;
+    transition fault then standby accept ControlCommand;
+  }
+
+  part def FlowInjectionAnalyzer {
+    attribute primaryFunction : String =
+      "Inject a precise liquid sample plug into a continuous carrier stream, merge it with reagent, transport it through a controlled reaction path, measure the resulting transient detector signal, and calculate analyte concentration.";
+
+    attribute nominalSampleVolume : Volume_uL = 100;
+    attribute nominalCarrierFlow : FlowRate_mL_per_min = 1.20;
+    attribute nominalReagentFlow : FlowRate_mL_per_min = 0.40;
+    attribute nominalResidenceTime : Time_s = 45;
+    attribute detectorWavelength : Wavelength_nm = 540;
+    attribute reactorTemperature : Temperature_C = 37;
+
+    port sampleInput : SampleInPort;
+    port resultOutput : ResultPort;
+    port operatorCommand : CommandPort;
+    port analyzerStatus : StatusPort;
+
+    part carrierReservoir : Reservoir {
+      attribute capacity = 500000;
+    }
+
+    part reagentReservoir : Reservoir {
+      attribute capacity = 100000;
+    }
+
+    part carrierPump : PrecisionPump {
+      attribute commandedFlowRate = 1.20;
+      attribute pressureLimit = 250;
+    }
+
+    part reagentPump : PrecisionPump {
+      attribute commandedFlowRate = 0.40;
+      attribute pressureLimit = 250;
+    }
+
+    part injectionValve : InjectionValve {
+      attribute loopVolume = 100;
+      attribute valvePosition = "load";
+    }
+
+    part mixer : ConfluenceMixer {
+      attribute internalVolume = 35;
+    }
+
+    part reactor : ReactionCoil {
+      attribute coilVolume = 750;
+      attribute residenceTime = 45;
+      attribute controlledTemperature = 37;
+    }
+
+    part detector : OpticalFlowCellDetector {
+      attribute wavelength = 540;
+      attribute baselineAbsorbance = 0.000;
+    }
+
+    part waste : WasteContainer {
+      attribute capacity = 1000000;
+    }
+
+    part controller : Controller {
+      attribute sampleCycleTime = 90;
+      attribute targetCarrierFlow = 1.20;
+      attribute targetReagentFlow = 0.40;
+    }
+
+    part processor : DataProcessor {
+      attribute calibrationSlope = 0.082;
+      attribute calibrationIntercept = 0.004;
+      attribute peakDetectionThreshold = 0.015;
+    }
+
+    perform behavior : FlowInjectionAnalysisCycle;
+    exhibit stateMachine : AnalyzerOperatingState;
+
+    connection carrierSupply connect carrierReservoir.outlet to carrierPump.inlet;
+    connection carrierToValve connect carrierPump.outlet to injectionValve.carrierIn;
+    connection sampleToValve connect sampleInput to injectionValve.sampleIn;
+    connection valveToMixer connect injectionValve.plugOut to mixer.carrierPlugIn;
+    connection reagentSupply connect reagentReservoir.outlet to reagentPump.inlet;
+    connection reagentToMixer connect reagentPump.outlet to mixer.reagentIn;
+    connection mixerToReactor connect mixer.mixtureOut to reactor.mixtureIn;
+    connection reactorToDetector connect reactor.mixtureOut to detector.mixtureIn;
+    connection detectorToWaste connect detector.mixtureOut to waste.inlet;
+    connection detectorSignalToProcessor connect detector.signalOut to processor.signalIn;
+    connection processorToOutput connect processor.resultOut to resultOutput;
+
+    connection operatorToController connect operatorCommand to controller.pumpCommandOut;
+    connection controllerToCarrierPump connect controller.pumpCommandOut to carrierPump.commandIn;
+    connection controllerToReagentPump connect controller.pumpCommandOut to reagentPump.commandIn;
+    connection controllerToValve connect controller.valveCommandOut to injectionValve.commandIn;
+    connection controllerToReactor connect controller.reactorCommandOut to reactor.commandIn;
+    connection controllerToDetector connect controller.detectorCommandOut to detector.commandIn;
+
+    connection carrierPumpStatus connect carrierPump.statusOut to analyzerStatus;
+    connection reagentPumpStatus connect reagentPump.statusOut to analyzerStatus;
+    connection valveStatus connect injectionValve.statusOut to analyzerStatus;
+    connection reactorStatus connect reactor.statusOut to analyzerStatus;
+    connection detectorStatus connect detector.statusOut to analyzerStatus;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.primaryFunction ==
+      "Inject a precise liquid sample plug into a continuous carrier stream, merge it with reagent, transport it through a controlled reaction path, measure the resulting transient detector signal, and calculate analyte concentration."
+    }
+  }
+
+  requirement def SampleVolumeAccuracyRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalSampleVolume >= 95 and analyzer.nominalSampleVolume <= 105
+    }
+  }
+
+  requirement def ContinuousCarrierFlowRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalCarrierFlow >= 1.0 and analyzer.nominalCarrierFlow <= 1.4
+    }
+  }
+
+  requirement def ReagentFlowRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalReagentFlow >= 0.30 and analyzer.nominalReagentFlow <= 0.50
+    }
+  }
+
+  requirement def ReactionResidenceTimeRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalResidenceTime >= 30 and analyzer.nominalResidenceTime <= 60
+    }
+  }
+
+  requirement def OpticalMeasurementRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.detectorWavelength >= 530 and analyzer.detectorWavelength <= 550
+    }
+  }
+
+  requirement def ThermalControlRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.reactorTemperature >= 35 and analyzer.reactorTemperature <= 39
+    }
+  }
+
+  requirement def WasteContainmentRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.waste.capacity >= 1000000
+    }
+  }
+
+  part fiaSystem : FlowInjectionAnalyzer;
+
+  requirement primaryFunction : PrimaryFunctionRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement sampleVolumeAccuracy : SampleVolumeAccuracyRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement continuousCarrierFlow : ContinuousCarrierFlowRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement reagentFlow : ReagentFlowRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement reactionResidenceTime : ReactionResidenceTimeRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement opticalMeasurement : OpticalMeasurementRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement thermalControl : ThermalControlRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement wasteContainment : WasteContainmentRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  satisfy primaryFunction by fiaSystem;
+  satisfy sampleVolumeAccuracy by fiaSystem.injectionValve;
+  satisfy continuousCarrierFlow by fiaSystem.carrierPump;
+  satisfy reagentFlow by fiaSystem.reagentPump;
+  satisfy reactionResidenceTime by fiaSystem.reactor;
+  satisfy opticalMeasurement by fiaSystem.detector;
+  satisfy thermalControl by fiaSystem.reactor;
+  satisfy wasteContainment by fiaSystem.waste;
+}
+tokens used
+5,286
+package FlowInjectionAnalysisSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Volume_uL :> ISQ::volume {
+    unit = SI::micro * SI::litre;
+  }
+
+  attribute def FlowRate_mL_per_min :> ISQ::volumeFlowRate {
+    unit = SI::milli * SI::litre / SI::minute;
+  }
+
+  attribute def Concentration_mg_per_L :> ISQ::massConcentration {
+    unit = SI::milli * SI::gram / SI::litre;
+  }
+
+  attribute def Time_s :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def Temperature_C :> ISQ::thermodynamicTemperature {
+    unit = SI::degreeCelsius;
+  }
+
+  attribute def Absorbance_AU {
+    value : Real;
+  }
+
+  attribute def Pressure_kPa :> ISQ::pressure {
+    unit = SI::kilo * SI::pascal;
+  }
+
+  attribute def Wavelength_nm :> ISQ::length {
+    unit = SI::nano * SI::metre;
+  }
+
+  item def CarrierSolution {
+    attribute composition : String;
+    attribute pH : Real;
+    attribute flowRate : FlowRate_mL_per_min;
+  }
+
+  item def ReagentSolution {
+    attribute name : String;
+    attribute concentration : Concentration_mg_per_L;
+    attribute flowRate : FlowRate_mL_per_min;
+  }
+
+  item def LiquidSample {
+    attribute sampleId : String;
+    attribute nominalVolume : Volume_uL;
+    attribute expectedAnalyte : String;
+  }
+
+  item def SamplePlug {
+    attribute sampleId : String;
+    attribute injectedVolume : Volume_uL;
+    attribute dispersionRatio : Real;
+  }
+
+  item def ReactionMixture {
+    attribute sampleId : String;
+    attribute carrierFraction : Real;
+    attribute reagentFraction : Real;
+    attribute residenceTime : Time_s;
+    attribute temperature : Temperature_C;
+  }
+
+  item def OpticalSignal {
+    attribute sampleId : String;
+    attribute wavelength : Wavelength_nm;
+    attribute absorbance : Absorbance_AU;
+    attribute measurementTime : Time_s;
+  }
+
+  item def AnalysisResult {
+    attribute sampleId : String;
+    attribute analyteName : String;
+    attribute concentration : Concentration_mg_per_L;
+    attribute peakHeight : Absorbance_AU;
+    attribute valid : Boolean;
+  }
+
+  item def WasteStream {
+    attribute totalFlowRate : FlowRate_mL_per_min;
+    attribute containsSampleResidue : Boolean;
+    attribute containsReagentResidue : Boolean;
+  }
+
+  item def ControlCommand {
+    attribute commandName : String;
+    attribute setPoint : Real;
+  }
+
+  item def StatusMessage {
+    attribute statusName : String;
+    attribute faultCode : String;
+    attribute measuredPressure : Pressure_kPa;
+  }
+
+  port def LiquidInPort {
+    in item fluid;
+  }
+
+  port def LiquidOutPort {
+    out item fluid;
+  }
+
+  port def SampleInPort {
+    in item sample : LiquidSample;
+  }
+
+  port def SamplePlugOutPort {
+    out item plug : SamplePlug;
+  }
+
+  port def ReactionMixturePort {
+    inout item mixture : ReactionMixture;
+  }
+
+  port def OpticalSignalPort {
+    out item signal : OpticalSignal;
+  }
+
+  port def ResultPort {
+    out item result : AnalysisResult;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def StatusPort {
+    out item status : StatusMessage;
+  }
+
+  part def Reservoir {
+    attribute capacity : Volume_uL;
+    port outlet : LiquidOutPort;
+  }
+
+  part def PrecisionPump {
+    attribute commandedFlowRate : FlowRate_mL_per_min;
+    attribute pressureLimit : Pressure_kPa;
+    port inlet : LiquidInPort;
+    port outlet : LiquidOutPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def InjectionValve {
+    attribute loopVolume : Volume_uL;
+    attribute valvePosition : String;
+    port carrierIn : LiquidInPort;
+    port sampleIn : SampleInPort;
+    port plugOut : SamplePlugOutPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def ConfluenceMixer {
+    attribute internalVolume : Volume_uL;
+    port carrierPlugIn : LiquidInPort;
+    port reagentIn : LiquidInPort;
+    port mixtureOut : ReactionMixturePort;
+  }
+
+  part def ReactionCoil {
+    attribute coilVolume : Volume_uL;
+    attribute residenceTime : Time_s;
+    attribute controlledTemperature : Temperature_C;
+    port mixtureIn : ReactionMixturePort;
+    port mixtureOut : ReactionMixturePort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def OpticalFlowCellDetector {
+    attribute pathLength : ISQ::length;
+    attribute wavelength : Wavelength_nm;
+    attribute baselineAbsorbance : Absorbance_AU;
+    port mixtureIn : ReactionMixturePort;
+    port mixtureOut : LiquidOutPort;
+    port signalOut : OpticalSignalPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def WasteContainer {
+    attribute capacity : Volume_uL;
+    port inlet : LiquidInPort;
+  }
+
+  part def Controller {
+    attribute sampleCycleTime : Time_s;
+    attribute targetCarrierFlow : FlowRate_mL_per_min;
+    attribute targetReagentFlow : FlowRate_mL_per_min;
+    port pumpCommandOut : CommandPort;
+    port valveCommandOut : CommandPort;
+    port reactorCommandOut : CommandPort;
+    port detectorCommandOut : CommandPort;
+    port statusIn : StatusPort;
+  }
+
+  part def DataProcessor {
+    attribute calibrationSlope : Real;
+    attribute calibrationIntercept : Real;
+    attribute peakDetectionThreshold : Absorbance_AU;
+    port signalIn : OpticalSignalPort;
+    port resultOut : ResultPort;
+  }
+
+  action def PrimeFlowPath {
+    out item status : StatusMessage;
+  }
+
+  action def LoadSampleLoop {
+    in item sample : LiquidSample;
+    out item loadedSample : LiquidSample;
+  }
+
+  action def InjectSampleIntoCarrier {
+    in item sample : LiquidSample;
+    out item plug : SamplePlug;
+  }
+
+  action def MixWithReagent {
+    in item plug : SamplePlug;
+    in item reagent : ReagentSolution;
+    out item mixture : ReactionMixture;
+  }
+
+  action def TransportAndReact {
+    in item mixtureIn : ReactionMixture;
+    out item reactedMixture : ReactionMixture;
+  }
+
+  action def MeasureOpticalResponse {
+    in item reactedMixture : ReactionMixture;
+    out item signal : OpticalSignal;
+  }
+
+  action def CalculateAnalyteConcentration {
+    in item signal : OpticalSignal;
+    out item result : AnalysisResult;
+  }
+
+  action def FlowInjectionAnalysisCycle {
+    in item sample : LiquidSample;
+    out item result : AnalysisResult;
+
+    action prime : PrimeFlowPath;
+    action load : LoadSampleLoop;
+    action inject : InjectSampleIntoCarrier;
+    action mix : MixWithReagent;
+    action react : TransportAndReact;
+    action measure : MeasureOpticalResponse;
+    action calculate : CalculateAnalyteConcentration;
+
+    flow sample to load.sample;
+    flow load.loadedSample to inject.sample;
+    flow inject.plug to mix.plug;
+    flow mix.mixture to react.mixtureIn;
+    flow react.reactedMixture to measure.reactedMixture;
+    flow measure.signal to calculate.signal;
+    flow calculate.result to result;
+
+    first start;
+    then prime;
+    then load;
+    then inject;
+    then mix;
+    then react;
+    then measure;
+    then calculate;
+    then done;
+  }
+
+  state def AnalyzerOperatingState {
+    state off;
+    state standby;
+    state priming;
+    state ready;
+    state loadingSample;
+    state injecting;
+    state reacting;
+    state measuring;
+    state processing;
+    state rinsing;
+    state fault;
+
+    transition first off;
+    transition off then standby accept ControlCommand;
+    transition standby then priming accept ControlCommand;
+    transition priming then ready;
+    transition ready then loadingSample accept LiquidSample;
+    transition loadingSample then injecting;
+    transition injecting then reacting;
+    transition reacting then measuring;
+    transition measuring then processing;
+    transition processing then rinsing;
+    transition rinsing then ready;
+    transition standby then fault accept StatusMessage;
+    transition priming then fault accept StatusMessage;
+    transition ready then fault accept StatusMessage;
+    transition injecting then fault accept StatusMessage;
+    transition reacting then fault accept StatusMessage;
+    transition measuring then fault accept StatusMessage;
+    transition processing then fault accept StatusMessage;
+    transition fault then standby accept ControlCommand;
+  }
+
+  part def FlowInjectionAnalyzer {
+    attribute primaryFunction : String =
+      "Inject a precise liquid sample plug into a continuous carrier stream, merge it with reagent, transport it through a controlled reaction path, measure the resulting transient detector signal, and calculate analyte concentration.";
+
+    attribute nominalSampleVolume : Volume_uL = 100;
+    attribute nominalCarrierFlow : FlowRate_mL_per_min = 1.20;
+    attribute nominalReagentFlow : FlowRate_mL_per_min = 0.40;
+    attribute nominalResidenceTime : Time_s = 45;
+    attribute detectorWavelength : Wavelength_nm = 540;
+    attribute reactorTemperature : Temperature_C = 37;
+
+    port sampleInput : SampleInPort;
+    port resultOutput : ResultPort;
+    port operatorCommand : CommandPort;
+    port analyzerStatus : StatusPort;
+
+    part carrierReservoir : Reservoir {
+      attribute capacity = 500000;
+    }
+
+    part reagentReservoir : Reservoir {
+      attribute capacity = 100000;
+    }
+
+    part carrierPump : PrecisionPump {
+      attribute commandedFlowRate = 1.20;
+      attribute pressureLimit = 250;
+    }
+
+    part reagentPump : PrecisionPump {
+      attribute commandedFlowRate = 0.40;
+      attribute pressureLimit = 250;
+    }
+
+    part injectionValve : InjectionValve {
+      attribute loopVolume = 100;
+      attribute valvePosition = "load";
+    }
+
+    part mixer : ConfluenceMixer {
+      attribute internalVolume = 35;
+    }
+
+    part reactor : ReactionCoil {
+      attribute coilVolume = 750;
+      attribute residenceTime = 45;
+      attribute controlledTemperature = 37;
+    }
+
+    part detector : OpticalFlowCellDetector {
+      attribute wavelength = 540;
+      attribute baselineAbsorbance = 0.000;
+    }
+
+    part waste : WasteContainer {
+      attribute capacity = 1000000;
+    }
+
+    part controller : Controller {
+      attribute sampleCycleTime = 90;
+      attribute targetCarrierFlow = 1.20;
+      attribute targetReagentFlow = 0.40;
+    }
+
+    part processor : DataProcessor {
+      attribute calibrationSlope = 0.082;
+      attribute calibrationIntercept = 0.004;
+      attribute peakDetectionThreshold = 0.015;
+    }
+
+    perform behavior : FlowInjectionAnalysisCycle;
+    exhibit stateMachine : AnalyzerOperatingState;
+
+    connection carrierSupply connect carrierReservoir.outlet to carrierPump.inlet;
+    connection carrierToValve connect carrierPump.outlet to injectionValve.carrierIn;
+    connection sampleToValve connect sampleInput to injectionValve.sampleIn;
+    connection valveToMixer connect injectionValve.plugOut to mixer.carrierPlugIn;
+    connection reagentSupply connect reagentReservoir.outlet to reagentPump.inlet;
+    connection reagentToMixer connect reagentPump.outlet to mixer.reagentIn;
+    connection mixerToReactor connect mixer.mixtureOut to reactor.mixtureIn;
+    connection reactorToDetector connect reactor.mixtureOut to detector.mixtureIn;
+    connection detectorToWaste connect detector.mixtureOut to waste.inlet;
+    connection detectorSignalToProcessor connect detector.signalOut to processor.signalIn;
+    connection processorToOutput connect processor.resultOut to resultOutput;
+
+    connection operatorToController connect operatorCommand to controller.pumpCommandOut;
+    connection controllerToCarrierPump connect controller.pumpCommandOut to carrierPump.commandIn;
+    connection controllerToReagentPump connect controller.pumpCommandOut to reagentPump.commandIn;
+    connection controllerToValve connect controller.valveCommandOut to injectionValve.commandIn;
+    connection controllerToReactor connect controller.reactorCommandOut to reactor.commandIn;
+    connection controllerToDetector connect controller.detectorCommandOut to detector.commandIn;
+
+    connection carrierPumpStatus connect carrierPump.statusOut to analyzerStatus;
+    connection reagentPumpStatus connect reagentPump.statusOut to analyzerStatus;
+    connection valveStatus connect injectionValve.statusOut to analyzerStatus;
+    connection reactorStatus connect reactor.statusOut to analyzerStatus;
+    connection detectorStatus connect detector.statusOut to analyzerStatus;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.primaryFunction ==
+      "Inject a precise liquid sample plug into a continuous carrier stream, merge it with reagent, transport it through a controlled reaction path, measure the resulting transient detector signal, and calculate analyte concentration."
+    }
+  }
+
+  requirement def SampleVolumeAccuracyRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalSampleVolume >= 95 and analyzer.nominalSampleVolume <= 105
+    }
+  }
+
+  requirement def ContinuousCarrierFlowRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalCarrierFlow >= 1.0 and analyzer.nominalCarrierFlow <= 1.4
+    }
+  }
+
+  requirement def ReagentFlowRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalReagentFlow >= 0.30 and analyzer.nominalReagentFlow <= 0.50
+    }
+  }
+
+  requirement def ReactionResidenceTimeRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.nominalResidenceTime >= 30 and analyzer.nominalResidenceTime <= 60
+    }
+  }
+
+  requirement def OpticalMeasurementRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.detectorWavelength >= 530 and analyzer.detectorWavelength <= 550
+    }
+  }
+
+  requirement def ThermalControlRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.reactorTemperature >= 35 and analyzer.reactorTemperature <= 39
+    }
+  }
+
+  requirement def WasteContainmentRequirement {
+    subject analyzer : FlowInjectionAnalyzer;
+
+    require constraint {
+      analyzer.waste.capacity >= 1000000
+    }
+  }
+
+  part fiaSystem : FlowInjectionAnalyzer;
+
+  requirement primaryFunction : PrimaryFunctionRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement sampleVolumeAccuracy : SampleVolumeAccuracyRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement continuousCarrierFlow : ContinuousCarrierFlowRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement reagentFlow : ReagentFlowRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement reactionResidenceTime : ReactionResidenceTimeRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement opticalMeasurement : OpticalMeasurementRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement thermalControl : ThermalControlRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  requirement wasteContainment : WasteContainmentRequirement {
+    subject analyzer = fiaSystem;
+  }
+
+  satisfy primaryFunction by fiaSystem;
+  satisfy sampleVolumeAccuracy by fiaSystem.injectionValve;
+  satisfy continuousCarrierFlow by fiaSystem.carrierPump;
+  satisfy reagentFlow by fiaSystem.reagentPump;
+  satisfy reactionResidenceTime by fiaSystem.reactor;
+  satisfy opticalMeasurement by fiaSystem.detector;
+  satisfy thermalControl by fiaSystem.reactor;
+  satisfy wasteContainment by fiaSystem.waste;
+}

@@ -1,0 +1,1035 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-f7klvydg
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb331-989d-78b1-b1e0-6f0330877787
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Visual prosthesis and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VisualProsthesisSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def PixelCount :> ScalarValues::Integer;
+    attribute def FrameRate {
+        :>> unit = "Hz";
+        :>> quantityKind = "frequency";
+    }
+    attribute def Latency {
+        :>> unit = "ms";
+        :>> quantityKind = "time";
+    }
+    attribute def ElectricPotential {
+        :>> unit = "V";
+        :>> quantityKind = "electric potential";
+    }
+    attribute def ElectricCurrent {
+        :>> unit = "uA";
+        :>> quantityKind = "electric current";
+    }
+    attribute def PulseWidth {
+        :>> unit = "us";
+        :>> quantityKind = "time";
+    }
+    attribute def ChargeDensity {
+        :>> unit = "uC_per_cm2";
+        :>> quantityKind = "electric charge density";
+    }
+    attribute def Power {
+        :>> unit = "mW";
+        :>> quantityKind = "power";
+    }
+    attribute def Temperature {
+        :>> unit = "degC";
+        :>> quantityKind = "thermodynamic temperature";
+    }
+    attribute def Distance {
+        :>> unit = "mm";
+        :>> quantityKind = "length";
+    }
+
+    enum def ProsthesisMode {
+        enum idle;
+        enum acquiring;
+        enum processing;
+        enum stimulating;
+        enum fault;
+        enum charging;
+        enum shutdown;
+    }
+
+    enum def FaultCode {
+        enum none;
+        enum lowBattery;
+        enum wirelessLinkLost;
+        enum excessiveTemperature;
+        enum unsafeStimulus;
+        enum cameraFailure;
+        enum processorFailure;
+        enum implantTelemetryFailure;
+    }
+
+    item def LightInput {
+        attribute wavelength : Real;
+        attribute intensity : Real;
+    }
+
+    item def RawImageFrame {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute frameRate : FrameRate;
+        attribute exposureTime : Latency;
+        attribute timestampMs : Latency;
+    }
+
+    item def ProcessedVisualPattern {
+        attribute electrodeColumns : PixelCount;
+        attribute electrodeRows : PixelCount;
+        attribute contrastLevel : Real;
+        attribute edgeEnhancementGain : Real;
+        attribute timestampMs : Latency;
+    }
+
+    item def StimulationCommand {
+        attribute electrodeId : Integer;
+        attribute currentAmplitude : ElectricCurrent;
+        attribute pulseWidth : PulseWidth;
+        attribute pulseFrequency : FrameRate;
+        attribute chargeDensity : ChargeDensity;
+        attribute isEnabled : Boolean;
+    }
+
+    item def TelemetryPacket {
+        attribute implantTemperature : Temperature;
+        attribute implantBatteryPower : Power;
+        attribute linkQuality : Real;
+        attribute fault : FaultCode;
+    }
+
+    item def UserCommand {
+        attribute requestedMode : ProsthesisMode;
+        attribute brightnessGain : Real;
+        attribute contrastGain : Real;
+        attribute stimulationEnabled : Boolean;
+    }
+
+    port def OpticalInputPort {
+        in item light : LightInput;
+    }
+
+    port def ImageFramePort {
+        out item frame : RawImageFrame;
+    }
+
+    port def VisualPatternPort {
+        out item pattern : ProcessedVisualPattern;
+    }
+
+    port def StimulationCommandPort {
+        out item command : StimulationCommand;
+    }
+
+    port def TelemetryPort {
+        inout item telemetry : TelemetryPacket;
+    }
+
+    port def UserControlPort {
+        in item command : UserCommand;
+    }
+
+    port def NeuralInterfacePort {
+        out item stimulation : StimulationCommand;
+    }
+
+    port def PowerPort {
+        out attribute suppliedPower : Power;
+        in attribute requestedPower : Power;
+    }
+
+    part def ExternalCamera {
+        port opticalInput : OpticalInputPort;
+        port imageOutput : ImageFramePort;
+
+        attribute horizontalResolution : PixelCount = 1280;
+        attribute verticalResolution : PixelCount = 720;
+        attribute nominalFrameRate : FrameRate = 30;
+        attribute exposureLatency : Latency = 8;
+        attribute operationalPower : Power = 140;
+
+        action captureScene {
+            in item ambientLight : LightInput;
+            out item rawFrame : RawImageFrame;
+        }
+    }
+
+    part def ImageProcessingUnit {
+        port imageInput : ImageFramePort;
+        port patternOutput : VisualPatternPort;
+        port userInput : UserControlPort;
+        port powerInput : PowerPort;
+
+        attribute processingLatency : Latency = 25;
+        attribute targetFrameRate : FrameRate = 30;
+        attribute edgeEnhancementGain : Real = 1.8;
+        attribute contrastGain : Real = 1.4;
+        attribute operationalPower : Power = 620;
+
+        action preprocessFrame {
+            in item rawFrame : RawImageFrame;
+            out item normalizedFrame : RawImageFrame;
+        }
+
+        action extractVisualFeatures {
+            in item normalizedFrame : RawImageFrame;
+            out item visualPattern : ProcessedVisualPattern;
+        }
+
+        action mapSceneToElectrodePattern {
+            in item visualPattern : ProcessedVisualPattern;
+            out item mappedPattern : ProcessedVisualPattern;
+        }
+    }
+
+    part def WirelessTelemetryLink {
+        port patternInput : VisualPatternPort;
+        port commandOutput : StimulationCommandPort;
+        port telemetry : TelemetryPort;
+        port powerInput : PowerPort;
+
+        attribute carrierFrequencyMHz : Real = 2400.0;
+        attribute dataRateMbps : Real = 6.0;
+        attribute linkLatency : Latency = 4;
+        attribute minimumLinkQuality : Real = 0.85;
+        attribute operationalPower : Power = 180;
+
+        action encodePattern {
+            in item pattern : ProcessedVisualPattern;
+            out item command : StimulationCommand;
+        }
+
+        action exchangeTelemetry {
+            inout item implantTelemetry : TelemetryPacket;
+        }
+    }
+
+    part def ExternalBatteryPack {
+        port cameraPower : PowerPort;
+        port processorPower : PowerPort;
+        port wirelessPower : PowerPort;
+
+        attribute capacityWh : Real = 12.0;
+        attribute nominalVoltage : ElectricPotential = 7.4;
+        attribute maximumPowerOutput : Power = 2500;
+        attribute remainingPower : Power = 1800;
+
+        action regulatePower {
+            in attribute requestedPower : Power;
+            out attribute suppliedPower : Power;
+        }
+    }
+
+    part def ImplantedReceiver {
+        port wirelessInput : StimulationCommandPort;
+        port telemetry : TelemetryPort;
+        port stimulatorOutput : StimulationCommandPort;
+
+        attribute receiverLatency : Latency = 3;
+        attribute nominalPower : Power = 95;
+        attribute implantTemperature : Temperature = 37.0;
+        attribute maximumSafeTemperature : Temperature = 39.0;
+
+        action decodeCommand {
+            in item encodedCommand : StimulationCommand;
+            out item decodedCommand : StimulationCommand;
+        }
+
+        action reportImplantStatus {
+            out item telemetryPacket : TelemetryPacket;
+        }
+    }
+
+    part def StimulationController {
+        port commandInput : StimulationCommandPort;
+        port electrodeOutput : NeuralInterfacePort;
+        port telemetry : TelemetryPort;
+
+        attribute maximumCurrentAmplitude : ElectricCurrent = 500;
+        attribute minimumCurrentAmplitude : ElectricCurrent = 5;
+        attribute maximumPulseWidth : PulseWidth = 1000;
+        attribute maximumChargeDensity : ChargeDensity = 30;
+        attribute stimulationLatency : Latency = 2;
+
+        action validateStimulusSafety {
+            in item requestedStimulus : StimulationCommand;
+            out item boundedStimulus : StimulationCommand;
+            out attribute safe : Boolean;
+        }
+
+        action generateBiphasicPulseTrain {
+            in item boundedStimulus : StimulationCommand;
+            out item neuralStimulus : StimulationCommand;
+        }
+    }
+
+    part def RetinalElectrodeArray {
+        port stimulationInput : NeuralInterfacePort;
+
+        attribute electrodeCount : PixelCount = 256;
+        attribute electrodeRows : PixelCount = 16;
+        attribute electrodeColumns : PixelCount = 16;
+        attribute electrodePitch : Distance = 525;
+        attribute maximumChargeDensity : ChargeDensity = 30;
+
+        action stimulateRetinalGanglionCells {
+            in item neuralStimulus : StimulationCommand;
+        }
+    }
+
+    part def PatientVisualPathway {
+        port retinalInput : NeuralInterfacePort;
+
+        attribute phospheneResolutionEstimate : PixelCount = 256;
+        attribute perceptualLatency : Latency = 35;
+
+        action evokePhosphenePerception {
+            in item retinalStimulus : StimulationCommand;
+            out item perceivedVisualCue : ProcessedVisualPattern;
+        }
+    }
+
+    part def VisualProsthesis {
+        port environmentLight : OpticalInputPort;
+        port wearerControl : UserControlPort;
+        port perceivedOutput : NeuralInterfacePort;
+
+        part camera : ExternalCamera;
+        part processor : ImageProcessingUnit;
+        part wirelessLink : WirelessTelemetryLink;
+        part battery : ExternalBatteryPack;
+        part implantReceiver : ImplantedReceiver;
+        part stimController : StimulationController;
+        part electrodeArray : RetinalElectrodeArray;
+        part visualPathway : PatientVisualPathway;
+
+        attribute mode : ProsthesisMode = ProsthesisMode::idle;
+        attribute activeFault : FaultCode = FaultCode::none;
+        attribute totalEndToEndLatency : Latency = 69;
+        attribute maximumAllowedLatency : Latency = 100;
+        attribute primaryFunction : String = "Acquire visual scene information, transform it into safe spatial-temporal electrical stimulation patterns, and deliver those patterns to retinal neural tissue to support high-level light, edge, motion, and obstacle perception for the wearer.";
+
+        connect environmentLight.light to camera.opticalInput.light;
+        connect camera.imageOutput.frame to processor.imageInput.frame;
+        connect processor.patternOutput.pattern to wirelessLink.patternInput.pattern;
+        connect wirelessLink.commandOutput.command to implantReceiver.wirelessInput.command;
+        connect implantReceiver.stimulatorOutput.command to stimController.commandInput.command;
+        connect stimController.electrodeOutput.stimulation to electrodeArray.stimulationInput.stimulation;
+        connect stimController.electrodeOutput.stimulation to visualPathway.retinalInput.stimulation;
+        connect stimController.electrodeOutput.stimulation to perceivedOutput.stimulation;
+        connect wearerControl.command to processor.userInput.command;
+        connect battery.cameraPower.suppliedPower to camera.imageOutput.frameRate;
+        connect battery.processorPower.suppliedPower to processor.powerInput.suppliedPower;
+        connect battery.wirelessPower.suppliedPower to wirelessLink.powerInput.suppliedPower;
+        connect wirelessLink.telemetry.telemetry to implantReceiver.telemetry.telemetry;
+        connect stimController.telemetry.telemetry to implantReceiver.telemetry.telemetry;
+
+        action performPrimaryVisualRestorationFunction {
+            in item incomingLight : LightInput;
+            in item wearerCommand : UserCommand;
+            out item deliveredStimulus : StimulationCommand;
+
+            first start;
+            then capture by camera.captureScene;
+            then process by processor.preprocessFrame;
+            then featureExtraction by processor.extractVisualFeatures;
+            then mapping by processor.mapSceneToElectrodePattern;
+            then transmit by wirelessLink.encodePattern;
+            then decode by implantReceiver.decodeCommand;
+            then safetyCheck by stimController.validateStimulusSafety;
+            then stimulate by stimController.generateBiphasicPulseTrain;
+            then finish;
+
+            flow incomingLight to capture.ambientLight;
+            flow wearerCommand to processor.userInput.command;
+            flow stimulate.neuralStimulus to deliveredStimulus;
+        }
+
+        state def OperatingStateMachine {
+            state initial Idle;
+            state Acquiring;
+            state Processing;
+            state Transmitting;
+            state Stimulating;
+            state Charging;
+            state FaultHandling;
+            state Shutdown;
+
+            transition first Idle;
+            transition Idle to Acquiring
+                accept UserCommand
+                if wearerControl.command.stimulationEnabled == true
+                do mode = ProsthesisMode::acquiring;
+
+            transition Acquiring to Processing
+                accept RawImageFrame
+                do mode = ProsthesisMode::processing;
+
+            transition Processing to Transmitting
+                accept ProcessedVisualPattern;
+
+            transition Transmitting to Stimulating
+                accept StimulationCommand
+                if activeFault == FaultCode::none
+                do mode = ProsthesisMode::stimulating;
+
+            transition Stimulating to Acquiring
+                accept TelemetryPacket
+                if implantReceiver.implantTemperature < implantReceiver.maximumSafeTemperature
+                do mode = ProsthesisMode::acquiring;
+
+            transition Stimulating to FaultHandling
+                accept TelemetryPacket
+                if implantReceiver.implantTemperature >= implantReceiver.maximumSafeTemperature
+                do {
+                    mode = ProsthesisMode::fault;
+                    activeFault = FaultCode::excessiveTemperature;
+                }
+
+            transition Transmitting to FaultHandling
+                accept TelemetryPacket
+                if wirelessLink.telemetry.telemetry.linkQuality < wirelessLink.minimumLinkQuality
+                do {
+                    mode = ProsthesisMode::fault;
+                    activeFault = FaultCode::wirelessLinkLost;
+                }
+
+            transition Processing to FaultHandling
+                accept TelemetryPacket
+                if totalEndToEndLatency > maximumAllowedLatency
+                do {
+                    mode = ProsthesisMode::fault;
+                    activeFault = FaultCode::processorFailure;
+                }
+
+            transition Idle to Charging
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::charging
+                do mode = ProsthesisMode::charging;
+
+            transition Charging to Idle
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::idle
+                do mode = ProsthesisMode::idle;
+
+            transition FaultHandling to Idle
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::idle
+                do {
+                    mode = ProsthesisMode::idle;
+                    activeFault = FaultCode::none;
+                }
+
+            transition Idle to Shutdown
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::shutdown
+                do mode = ProsthesisMode::shutdown;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The visual prosthesis shall acquire visual information from the wearer's environment and convert it into safe retinal electrical stimulation that supports high-level perception of light, contrast, edges, motion, and obstacles. */
+        subject prosthesis : VisualProsthesis;
+
+        require constraint {
+            prosthesis.totalEndToEndLatency <= prosthesis.maximumAllowedLatency
+        }
+    }
+
+    requirement def SafeStimulationRequirement {
+        doc /* The stimulation controller shall prevent delivery of electrical pulses exceeding configured current, pulse width, or charge density limits. */
+        subject controller : StimulationController;
+
+        require constraint {
+            controller.maximumCurrentAmplitude <= 500 and
+            controller.maximumPulseWidth <= 1000 and
+            controller.maximumChargeDensity <= 30
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc /* The implanted receiver shall enter fault handling before implant temperature exceeds the maximum safe operating temperature. */
+        subject implant : ImplantedReceiver;
+
+        require constraint {
+            implant.implantTemperature <= implant.maximumSafeTemperature
+        }
+    }
+
+    requirement def WirelessReliabilityRequirement {
+        doc /* The wireless telemetry link shall maintain sufficient link quality to transmit stimulation commands and receive implant safety telemetry. */
+        subject link : WirelessTelemetryLink;
+
+        require constraint {
+            link.telemetry.telemetry.linkQuality >= link.minimumLinkQuality
+        }
+    }
+
+    requirement def SpatialMappingRequirement {
+        doc /* The image processing unit shall map visual scene features to the retinal electrode grid dimensions used by the implanted electrode array. */
+        subject processor : ImageProcessingUnit;
+        subject array : RetinalElectrodeArray;
+
+        require constraint {
+            array.electrodeRows * array.electrodeColumns == array.electrodeCount
+        }
+    }
+
+    requirement primaryFunctionRequirement : PrimaryFunctionRequirement {
+        subject prosthesis = visualProsthesisSystem;
+    }
+
+    requirement safeStimulationRequirement : SafeStimulationRequirement {
+        subject controller = visualProsthesisSystem.stimController;
+    }
+
+    requirement thermalSafetyRequirement : ThermalSafetyRequirement {
+        subject implant = visualProsthesisSystem.implantReceiver;
+    }
+
+    requirement wirelessReliabilityRequirement : WirelessReliabilityRequirement {
+        subject link = visualProsthesisSystem.wirelessLink;
+    }
+
+    requirement spatialMappingRequirement : SpatialMappingRequirement {
+        subject processor = visualProsthesisSystem.processor;
+        subject array = visualProsthesisSystem.electrodeArray;
+    }
+
+    part visualProsthesisSystem : VisualProsthesis;
+
+    satisfy primaryFunctionRequirement by visualProsthesisSystem;
+    satisfy safeStimulationRequirement by visualProsthesisSystem.stimController;
+    satisfy thermalSafetyRequirement by visualProsthesisSystem.implantReceiver;
+    satisfy wirelessReliabilityRequirement by visualProsthesisSystem.wirelessLink;
+    satisfy spatialMappingRequirement by visualProsthesisSystem.processor;
+
+}
+tokens used
+5,164
+package VisualProsthesisSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def PixelCount :> ScalarValues::Integer;
+    attribute def FrameRate {
+        :>> unit = "Hz";
+        :>> quantityKind = "frequency";
+    }
+    attribute def Latency {
+        :>> unit = "ms";
+        :>> quantityKind = "time";
+    }
+    attribute def ElectricPotential {
+        :>> unit = "V";
+        :>> quantityKind = "electric potential";
+    }
+    attribute def ElectricCurrent {
+        :>> unit = "uA";
+        :>> quantityKind = "electric current";
+    }
+    attribute def PulseWidth {
+        :>> unit = "us";
+        :>> quantityKind = "time";
+    }
+    attribute def ChargeDensity {
+        :>> unit = "uC_per_cm2";
+        :>> quantityKind = "electric charge density";
+    }
+    attribute def Power {
+        :>> unit = "mW";
+        :>> quantityKind = "power";
+    }
+    attribute def Temperature {
+        :>> unit = "degC";
+        :>> quantityKind = "thermodynamic temperature";
+    }
+    attribute def Distance {
+        :>> unit = "mm";
+        :>> quantityKind = "length";
+    }
+
+    enum def ProsthesisMode {
+        enum idle;
+        enum acquiring;
+        enum processing;
+        enum stimulating;
+        enum fault;
+        enum charging;
+        enum shutdown;
+    }
+
+    enum def FaultCode {
+        enum none;
+        enum lowBattery;
+        enum wirelessLinkLost;
+        enum excessiveTemperature;
+        enum unsafeStimulus;
+        enum cameraFailure;
+        enum processorFailure;
+        enum implantTelemetryFailure;
+    }
+
+    item def LightInput {
+        attribute wavelength : Real;
+        attribute intensity : Real;
+    }
+
+    item def RawImageFrame {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute frameRate : FrameRate;
+        attribute exposureTime : Latency;
+        attribute timestampMs : Latency;
+    }
+
+    item def ProcessedVisualPattern {
+        attribute electrodeColumns : PixelCount;
+        attribute electrodeRows : PixelCount;
+        attribute contrastLevel : Real;
+        attribute edgeEnhancementGain : Real;
+        attribute timestampMs : Latency;
+    }
+
+    item def StimulationCommand {
+        attribute electrodeId : Integer;
+        attribute currentAmplitude : ElectricCurrent;
+        attribute pulseWidth : PulseWidth;
+        attribute pulseFrequency : FrameRate;
+        attribute chargeDensity : ChargeDensity;
+        attribute isEnabled : Boolean;
+    }
+
+    item def TelemetryPacket {
+        attribute implantTemperature : Temperature;
+        attribute implantBatteryPower : Power;
+        attribute linkQuality : Real;
+        attribute fault : FaultCode;
+    }
+
+    item def UserCommand {
+        attribute requestedMode : ProsthesisMode;
+        attribute brightnessGain : Real;
+        attribute contrastGain : Real;
+        attribute stimulationEnabled : Boolean;
+    }
+
+    port def OpticalInputPort {
+        in item light : LightInput;
+    }
+
+    port def ImageFramePort {
+        out item frame : RawImageFrame;
+    }
+
+    port def VisualPatternPort {
+        out item pattern : ProcessedVisualPattern;
+    }
+
+    port def StimulationCommandPort {
+        out item command : StimulationCommand;
+    }
+
+    port def TelemetryPort {
+        inout item telemetry : TelemetryPacket;
+    }
+
+    port def UserControlPort {
+        in item command : UserCommand;
+    }
+
+    port def NeuralInterfacePort {
+        out item stimulation : StimulationCommand;
+    }
+
+    port def PowerPort {
+        out attribute suppliedPower : Power;
+        in attribute requestedPower : Power;
+    }
+
+    part def ExternalCamera {
+        port opticalInput : OpticalInputPort;
+        port imageOutput : ImageFramePort;
+
+        attribute horizontalResolution : PixelCount = 1280;
+        attribute verticalResolution : PixelCount = 720;
+        attribute nominalFrameRate : FrameRate = 30;
+        attribute exposureLatency : Latency = 8;
+        attribute operationalPower : Power = 140;
+
+        action captureScene {
+            in item ambientLight : LightInput;
+            out item rawFrame : RawImageFrame;
+        }
+    }
+
+    part def ImageProcessingUnit {
+        port imageInput : ImageFramePort;
+        port patternOutput : VisualPatternPort;
+        port userInput : UserControlPort;
+        port powerInput : PowerPort;
+
+        attribute processingLatency : Latency = 25;
+        attribute targetFrameRate : FrameRate = 30;
+        attribute edgeEnhancementGain : Real = 1.8;
+        attribute contrastGain : Real = 1.4;
+        attribute operationalPower : Power = 620;
+
+        action preprocessFrame {
+            in item rawFrame : RawImageFrame;
+            out item normalizedFrame : RawImageFrame;
+        }
+
+        action extractVisualFeatures {
+            in item normalizedFrame : RawImageFrame;
+            out item visualPattern : ProcessedVisualPattern;
+        }
+
+        action mapSceneToElectrodePattern {
+            in item visualPattern : ProcessedVisualPattern;
+            out item mappedPattern : ProcessedVisualPattern;
+        }
+    }
+
+    part def WirelessTelemetryLink {
+        port patternInput : VisualPatternPort;
+        port commandOutput : StimulationCommandPort;
+        port telemetry : TelemetryPort;
+        port powerInput : PowerPort;
+
+        attribute carrierFrequencyMHz : Real = 2400.0;
+        attribute dataRateMbps : Real = 6.0;
+        attribute linkLatency : Latency = 4;
+        attribute minimumLinkQuality : Real = 0.85;
+        attribute operationalPower : Power = 180;
+
+        action encodePattern {
+            in item pattern : ProcessedVisualPattern;
+            out item command : StimulationCommand;
+        }
+
+        action exchangeTelemetry {
+            inout item implantTelemetry : TelemetryPacket;
+        }
+    }
+
+    part def ExternalBatteryPack {
+        port cameraPower : PowerPort;
+        port processorPower : PowerPort;
+        port wirelessPower : PowerPort;
+
+        attribute capacityWh : Real = 12.0;
+        attribute nominalVoltage : ElectricPotential = 7.4;
+        attribute maximumPowerOutput : Power = 2500;
+        attribute remainingPower : Power = 1800;
+
+        action regulatePower {
+            in attribute requestedPower : Power;
+            out attribute suppliedPower : Power;
+        }
+    }
+
+    part def ImplantedReceiver {
+        port wirelessInput : StimulationCommandPort;
+        port telemetry : TelemetryPort;
+        port stimulatorOutput : StimulationCommandPort;
+
+        attribute receiverLatency : Latency = 3;
+        attribute nominalPower : Power = 95;
+        attribute implantTemperature : Temperature = 37.0;
+        attribute maximumSafeTemperature : Temperature = 39.0;
+
+        action decodeCommand {
+            in item encodedCommand : StimulationCommand;
+            out item decodedCommand : StimulationCommand;
+        }
+
+        action reportImplantStatus {
+            out item telemetryPacket : TelemetryPacket;
+        }
+    }
+
+    part def StimulationController {
+        port commandInput : StimulationCommandPort;
+        port electrodeOutput : NeuralInterfacePort;
+        port telemetry : TelemetryPort;
+
+        attribute maximumCurrentAmplitude : ElectricCurrent = 500;
+        attribute minimumCurrentAmplitude : ElectricCurrent = 5;
+        attribute maximumPulseWidth : PulseWidth = 1000;
+        attribute maximumChargeDensity : ChargeDensity = 30;
+        attribute stimulationLatency : Latency = 2;
+
+        action validateStimulusSafety {
+            in item requestedStimulus : StimulationCommand;
+            out item boundedStimulus : StimulationCommand;
+            out attribute safe : Boolean;
+        }
+
+        action generateBiphasicPulseTrain {
+            in item boundedStimulus : StimulationCommand;
+            out item neuralStimulus : StimulationCommand;
+        }
+    }
+
+    part def RetinalElectrodeArray {
+        port stimulationInput : NeuralInterfacePort;
+
+        attribute electrodeCount : PixelCount = 256;
+        attribute electrodeRows : PixelCount = 16;
+        attribute electrodeColumns : PixelCount = 16;
+        attribute electrodePitch : Distance = 525;
+        attribute maximumChargeDensity : ChargeDensity = 30;
+
+        action stimulateRetinalGanglionCells {
+            in item neuralStimulus : StimulationCommand;
+        }
+    }
+
+    part def PatientVisualPathway {
+        port retinalInput : NeuralInterfacePort;
+
+        attribute phospheneResolutionEstimate : PixelCount = 256;
+        attribute perceptualLatency : Latency = 35;
+
+        action evokePhosphenePerception {
+            in item retinalStimulus : StimulationCommand;
+            out item perceivedVisualCue : ProcessedVisualPattern;
+        }
+    }
+
+    part def VisualProsthesis {
+        port environmentLight : OpticalInputPort;
+        port wearerControl : UserControlPort;
+        port perceivedOutput : NeuralInterfacePort;
+
+        part camera : ExternalCamera;
+        part processor : ImageProcessingUnit;
+        part wirelessLink : WirelessTelemetryLink;
+        part battery : ExternalBatteryPack;
+        part implantReceiver : ImplantedReceiver;
+        part stimController : StimulationController;
+        part electrodeArray : RetinalElectrodeArray;
+        part visualPathway : PatientVisualPathway;
+
+        attribute mode : ProsthesisMode = ProsthesisMode::idle;
+        attribute activeFault : FaultCode = FaultCode::none;
+        attribute totalEndToEndLatency : Latency = 69;
+        attribute maximumAllowedLatency : Latency = 100;
+        attribute primaryFunction : String = "Acquire visual scene information, transform it into safe spatial-temporal electrical stimulation patterns, and deliver those patterns to retinal neural tissue to support high-level light, edge, motion, and obstacle perception for the wearer.";
+
+        connect environmentLight.light to camera.opticalInput.light;
+        connect camera.imageOutput.frame to processor.imageInput.frame;
+        connect processor.patternOutput.pattern to wirelessLink.patternInput.pattern;
+        connect wirelessLink.commandOutput.command to implantReceiver.wirelessInput.command;
+        connect implantReceiver.stimulatorOutput.command to stimController.commandInput.command;
+        connect stimController.electrodeOutput.stimulation to electrodeArray.stimulationInput.stimulation;
+        connect stimController.electrodeOutput.stimulation to visualPathway.retinalInput.stimulation;
+        connect stimController.electrodeOutput.stimulation to perceivedOutput.stimulation;
+        connect wearerControl.command to processor.userInput.command;
+        connect battery.cameraPower.suppliedPower to camera.imageOutput.frameRate;
+        connect battery.processorPower.suppliedPower to processor.powerInput.suppliedPower;
+        connect battery.wirelessPower.suppliedPower to wirelessLink.powerInput.suppliedPower;
+        connect wirelessLink.telemetry.telemetry to implantReceiver.telemetry.telemetry;
+        connect stimController.telemetry.telemetry to implantReceiver.telemetry.telemetry;
+
+        action performPrimaryVisualRestorationFunction {
+            in item incomingLight : LightInput;
+            in item wearerCommand : UserCommand;
+            out item deliveredStimulus : StimulationCommand;
+
+            first start;
+            then capture by camera.captureScene;
+            then process by processor.preprocessFrame;
+            then featureExtraction by processor.extractVisualFeatures;
+            then mapping by processor.mapSceneToElectrodePattern;
+            then transmit by wirelessLink.encodePattern;
+            then decode by implantReceiver.decodeCommand;
+            then safetyCheck by stimController.validateStimulusSafety;
+            then stimulate by stimController.generateBiphasicPulseTrain;
+            then finish;
+
+            flow incomingLight to capture.ambientLight;
+            flow wearerCommand to processor.userInput.command;
+            flow stimulate.neuralStimulus to deliveredStimulus;
+        }
+
+        state def OperatingStateMachine {
+            state initial Idle;
+            state Acquiring;
+            state Processing;
+            state Transmitting;
+            state Stimulating;
+            state Charging;
+            state FaultHandling;
+            state Shutdown;
+
+            transition first Idle;
+            transition Idle to Acquiring
+                accept UserCommand
+                if wearerControl.command.stimulationEnabled == true
+                do mode = ProsthesisMode::acquiring;
+
+            transition Acquiring to Processing
+                accept RawImageFrame
+                do mode = ProsthesisMode::processing;
+
+            transition Processing to Transmitting
+                accept ProcessedVisualPattern;
+
+            transition Transmitting to Stimulating
+                accept StimulationCommand
+                if activeFault == FaultCode::none
+                do mode = ProsthesisMode::stimulating;
+
+            transition Stimulating to Acquiring
+                accept TelemetryPacket
+                if implantReceiver.implantTemperature < implantReceiver.maximumSafeTemperature
+                do mode = ProsthesisMode::acquiring;
+
+            transition Stimulating to FaultHandling
+                accept TelemetryPacket
+                if implantReceiver.implantTemperature >= implantReceiver.maximumSafeTemperature
+                do {
+                    mode = ProsthesisMode::fault;
+                    activeFault = FaultCode::excessiveTemperature;
+                }
+
+            transition Transmitting to FaultHandling
+                accept TelemetryPacket
+                if wirelessLink.telemetry.telemetry.linkQuality < wirelessLink.minimumLinkQuality
+                do {
+                    mode = ProsthesisMode::fault;
+                    activeFault = FaultCode::wirelessLinkLost;
+                }
+
+            transition Processing to FaultHandling
+                accept TelemetryPacket
+                if totalEndToEndLatency > maximumAllowedLatency
+                do {
+                    mode = ProsthesisMode::fault;
+                    activeFault = FaultCode::processorFailure;
+                }
+
+            transition Idle to Charging
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::charging
+                do mode = ProsthesisMode::charging;
+
+            transition Charging to Idle
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::idle
+                do mode = ProsthesisMode::idle;
+
+            transition FaultHandling to Idle
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::idle
+                do {
+                    mode = ProsthesisMode::idle;
+                    activeFault = FaultCode::none;
+                }
+
+            transition Idle to Shutdown
+                accept UserCommand
+                if wearerControl.command.requestedMode == ProsthesisMode::shutdown
+                do mode = ProsthesisMode::shutdown;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The visual prosthesis shall acquire visual information from the wearer's environment and convert it into safe retinal electrical stimulation that supports high-level perception of light, contrast, edges, motion, and obstacles. */
+        subject prosthesis : VisualProsthesis;
+
+        require constraint {
+            prosthesis.totalEndToEndLatency <= prosthesis.maximumAllowedLatency
+        }
+    }
+
+    requirement def SafeStimulationRequirement {
+        doc /* The stimulation controller shall prevent delivery of electrical pulses exceeding configured current, pulse width, or charge density limits. */
+        subject controller : StimulationController;
+
+        require constraint {
+            controller.maximumCurrentAmplitude <= 500 and
+            controller.maximumPulseWidth <= 1000 and
+            controller.maximumChargeDensity <= 30
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc /* The implanted receiver shall enter fault handling before implant temperature exceeds the maximum safe operating temperature. */
+        subject implant : ImplantedReceiver;
+
+        require constraint {
+            implant.implantTemperature <= implant.maximumSafeTemperature
+        }
+    }
+
+    requirement def WirelessReliabilityRequirement {
+        doc /* The wireless telemetry link shall maintain sufficient link quality to transmit stimulation commands and receive implant safety telemetry. */
+        subject link : WirelessTelemetryLink;
+
+        require constraint {
+            link.telemetry.telemetry.linkQuality >= link.minimumLinkQuality
+        }
+    }
+
+    requirement def SpatialMappingRequirement {
+        doc /* The image processing unit shall map visual scene features to the retinal electrode grid dimensions used by the implanted electrode array. */
+        subject processor : ImageProcessingUnit;
+        subject array : RetinalElectrodeArray;
+
+        require constraint {
+            array.electrodeRows * array.electrodeColumns == array.electrodeCount
+        }
+    }
+
+    requirement primaryFunctionRequirement : PrimaryFunctionRequirement {
+        subject prosthesis = visualProsthesisSystem;
+    }
+
+    requirement safeStimulationRequirement : SafeStimulationRequirement {
+        subject controller = visualProsthesisSystem.stimController;
+    }
+
+    requirement thermalSafetyRequirement : ThermalSafetyRequirement {
+        subject implant = visualProsthesisSystem.implantReceiver;
+    }
+
+    requirement wirelessReliabilityRequirement : WirelessReliabilityRequirement {
+        subject link = visualProsthesisSystem.wirelessLink;
+    }
+
+    requirement spatialMappingRequirement : SpatialMappingRequirement {
+        subject processor = visualProsthesisSystem.processor;
+        subject array = visualProsthesisSystem.electrodeArray;
+    }
+
+    part visualProsthesisSystem : VisualProsthesis;
+
+    satisfy primaryFunctionRequirement by visualProsthesisSystem;
+    satisfy safeStimulationRequirement by visualProsthesisSystem.stimController;
+    satisfy thermalSafetyRequirement by visualProsthesisSystem.implantReceiver;
+    satisfy wirelessReliabilityRequirement by visualProsthesisSystem.wirelessLink;
+    satisfy spatialMappingRequirement by visualProsthesisSystem.processor;
+
+}

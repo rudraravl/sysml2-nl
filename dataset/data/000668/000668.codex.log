@@ -1,0 +1,921 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_6h3a14h
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3c3-0f70-7da0-ae4d-015364b0a490
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Liver support system and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LiverSupportSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value type VolumeRate :> Real { unit = "L/min"; }
+  value type Pressure :> Real { unit = "mmHg"; }
+  value type Temperature :> Real { unit = "degC"; }
+  value type Concentration :> Real { unit = "mmol/L"; }
+  value type MassConcentration :> Real { unit = "mg/dL"; }
+  value type Fraction :> Real { unit = "1"; }
+  value type TimeDuration :> Real { unit = "min"; }
+
+  enum def TherapyMode {
+    enum idle;
+    enum prime;
+    enum support;
+    enum flush;
+    enum alarm;
+    enum shutdown;
+  }
+
+  enum def AlarmSeverity {
+    enum advisory;
+    enum caution;
+    enum critical;
+  }
+
+  item def Blood {
+    attribute flowRate : VolumeRate;
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute bilirubin : MassConcentration;
+    attribute ammonia : Concentration;
+    attribute oxygenSaturation : Fraction;
+    attribute clottingRisk : Fraction;
+  }
+
+  item def Plasma {
+    attribute flowRate : VolumeRate;
+    attribute bilirubin : MassConcentration;
+    attribute albuminBoundToxinLoad : MassConcentration;
+  }
+
+  item def Dialysate {
+    attribute flowRate : VolumeRate;
+    attribute toxinLoad : MassConcentration;
+    attribute albuminConcentration : MassConcentration;
+    attribute temperature : Temperature;
+  }
+
+  item def Anticoagulant {
+    attribute infusionRate : VolumeRate;
+    attribute concentration : Concentration;
+  }
+
+  item def TherapyCommand {
+    attribute requestedMode : TherapyMode;
+    attribute targetBloodFlow : VolumeRate;
+    attribute targetDialysateFlow : VolumeRate;
+    attribute targetTemperature : Temperature;
+  }
+
+  item def TherapyStatus {
+    attribute activeMode : TherapyMode;
+    attribute deliveredBloodFlow : VolumeRate;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute dialysateToxinLoad : MassConcentration;
+    attribute estimatedToxinRemovalRate : MassConcentration;
+  }
+
+  item def AlarmSignal {
+    attribute severity : AlarmSeverity;
+    attribute code : String;
+    attribute message : String;
+  }
+
+  port def BloodInPort {
+    in item blood : Blood;
+  }
+
+  port def BloodOutPort {
+    out item blood : Blood;
+  }
+
+  port def DialysateInPort {
+    in item dialysate : Dialysate;
+  }
+
+  port def DialysateOutPort {
+    out item dialysate : Dialysate;
+  }
+
+  port def AnticoagulantOutPort {
+    out item anticoagulant : Anticoagulant;
+  }
+
+  port def CommandInPort {
+    in item command : TherapyCommand;
+  }
+
+  port def StatusOutPort {
+    out item status : TherapyStatus;
+    out item alarm : AlarmSignal;
+  }
+
+  interface def BloodTransfer {
+    end source : BloodOutPort;
+    end sink : BloodInPort;
+    flow source.blood to sink.blood;
+  }
+
+  interface def DialysateTransfer {
+    end source : DialysateOutPort;
+    end sink : DialysateInPort;
+    flow source.dialysate to sink.dialysate;
+  }
+
+  action def RegulateExtracorporealFlow {
+    in item command : TherapyCommand;
+    in item incomingBlood : Blood;
+    out item conditionedBlood : Blood;
+
+    attribute targetFlow : VolumeRate;
+    attribute pressureLimitHigh : Pressure = 250 [mmHg];
+    attribute pressureLimitLow : Pressure = -100 [mmHg];
+
+    objective {
+      conditionedBlood.flowRate == command.targetBloodFlow;
+      conditionedBlood.temperature >= 35.5 [degC];
+      conditionedBlood.temperature <= 37.5 [degC];
+    }
+  }
+
+  action def RemoveLiverToxins {
+    in item bloodBefore : Blood;
+    in item dialysateBefore : Dialysate;
+    out item bloodAfter : Blood;
+    out item dialysateAfter : Dialysate;
+
+    attribute minimumBilirubinReduction : Fraction = 0.20;
+    attribute minimumAmmoniaReduction : Fraction = 0.15;
+
+    objective {
+      bloodAfter.bilirubin <= bloodBefore.bilirubin * (1.0 - minimumBilirubinReduction);
+      bloodAfter.ammonia <= bloodBefore.ammonia * (1.0 - minimumAmmoniaReduction);
+      dialysateAfter.toxinLoad > dialysateBefore.toxinLoad;
+    }
+  }
+
+  action def MonitorTherapySafety {
+    in item blood : Blood;
+    in item status : TherapyStatus;
+    out item alarm : AlarmSignal;
+
+    attribute maxInletPressure : Pressure = 220 [mmHg];
+    attribute minInletPressure : Pressure = -80 [mmHg];
+    attribute maxTemperature : Temperature = 38.0 [degC];
+    attribute minTemperature : Temperature = 34.0 [degC];
+  }
+
+  state def LiverSupportOperatingState {
+    attribute mode : TherapyMode;
+
+    entry action initializeStatus;
+
+    state Idle;
+    state Priming;
+    state Supporting;
+    state Flushing;
+    state Alarmed;
+    state Shutdown;
+
+    transition first Idle;
+
+    transition Idle to Priming
+      accept TherapyCommand
+      if requestedMode == TherapyMode::prime;
+
+    transition Priming to Supporting
+      accept TherapyCommand
+      if requestedMode == TherapyMode::support;
+
+    transition Supporting to Flushing
+      accept TherapyCommand
+      if requestedMode == TherapyMode::flush;
+
+    transition Priming to Alarmed
+      accept AlarmSignal
+      if severity == AlarmSeverity::critical;
+
+    transition Supporting to Alarmed
+      accept AlarmSignal
+      if severity == AlarmSeverity::critical;
+
+    transition Flushing to Shutdown
+      accept TherapyCommand
+      if requestedMode == TherapyMode::shutdown;
+
+    transition Alarmed to Shutdown
+      accept TherapyCommand
+      if requestedMode == TherapyMode::shutdown;
+
+    transition Shutdown to Idle
+      accept TherapyCommand
+      if requestedMode == TherapyMode::idle;
+  }
+
+  part def PeristalticBloodPump {
+    port bloodIn : BloodInPort;
+    port bloodOut : BloodOutPort;
+
+    attribute commandedFlow : VolumeRate;
+    attribute measuredFlow : VolumeRate;
+    attribute maxFlow : VolumeRate = 0.50 [L/min];
+    attribute minFlow : VolumeRate = 0.05 [L/min];
+
+    perform action regulateFlow : RegulateExtracorporealFlow;
+  }
+
+  part def AnticoagulantPump {
+    port anticoagulantOut : AnticoagulantOutPort;
+
+    attribute commandedInfusionRate : VolumeRate;
+    attribute maxInfusionRate : VolumeRate = 0.020 [L/min];
+    attribute reservoirVolume : Real = 500.0;
+
+    constraint infusionWithinLimit {
+      commandedInfusionRate <= maxInfusionRate;
+    }
+  }
+
+  part def PlasmaSeparator {
+    port bloodIn : BloodInPort;
+    port bloodOut : BloodOutPort;
+
+    attribute transmembranePressure : Pressure;
+    attribute maxTransmembranePressure : Pressure = 180 [mmHg];
+    attribute plasmaSeparationFraction : Fraction = 0.30;
+
+    constraint membraneSafe {
+      transmembranePressure <= maxTransmembranePressure;
+    }
+  }
+
+  part def AlbuminDialyzer {
+    port bloodIn : BloodInPort;
+    port bloodOut : BloodOutPort;
+    port dialysateIn : DialysateInPort;
+    port dialysateOut : DialysateOutPort;
+
+    attribute membraneArea : Real = 2.1;
+    attribute bilirubinClearanceTarget : MassConcentration = 3.0 [mg/dL];
+    attribute ammoniaClearanceTarget : Concentration = 15.0 [mmol/L];
+
+    perform action toxinRemoval : RemoveLiverToxins;
+  }
+
+  part def AdsorbentCartridge {
+    port dialysateIn : DialysateInPort;
+    port dialysateOut : DialysateOutPort;
+
+    attribute charcoalCapacity : MassConcentration = 250.0 [mg/dL];
+    attribute resinCapacity : MassConcentration = 180.0 [mg/dL];
+    attribute remainingCapacity : Fraction;
+
+    constraint cartridgeAvailable {
+      remainingCapacity > 0.10;
+    }
+  }
+
+  part def DialysateCircuit {
+    port dialysateIn : DialysateInPort;
+    port dialysateOut : DialysateOutPort;
+
+    part dialysatePump {
+      attribute commandedFlow : VolumeRate;
+      attribute maxFlow : VolumeRate = 1.20 [L/min];
+    }
+
+    part heater {
+      attribute setPoint : Temperature = 37.0 [degC];
+      attribute measuredTemperature : Temperature;
+    }
+
+    part adsorber : AdsorbentCartridge;
+
+    connection dialysateToAdsorber : DialysateTransfer
+      connect dialysateOut to adsorber.dialysateIn;
+
+    constraint thermalRange {
+      heater.measuredTemperature >= 35.5 [degC];
+      heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  part def SensorSuite {
+    port bloodIn : BloodInPort;
+    port statusOut : StatusOutPort;
+
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute bloodFlow : VolumeRate;
+    attribute bloodTemperature : Temperature;
+    attribute dialysateToxinLoad : MassConcentration;
+    attribute oxygenSaturation : Fraction;
+
+    perform action monitorSafety : MonitorTherapySafety;
+  }
+
+  part def TherapyController {
+    port commandIn : CommandInPort;
+    port statusOut : StatusOutPort;
+
+    attribute activeMode : TherapyMode = TherapyMode::idle;
+    attribute targetBloodFlow : VolumeRate = 0.25 [L/min];
+    attribute targetDialysateFlow : VolumeRate = 0.70 [L/min];
+    attribute targetTemperature : Temperature = 37.0 [degC];
+
+    exhibit state operatingState : LiverSupportOperatingState;
+  }
+
+  part def UserInterface {
+    port commandOut : CommandInPort;
+    port statusIn : StatusOutPort;
+
+    attribute displayedMode : TherapyMode;
+    attribute displayedBloodFlow : VolumeRate;
+    attribute displayedPressure : Pressure;
+    attribute displayedToxinRemoval : MassConcentration;
+  }
+
+  part def LiverSupportSystem {
+    port patientBloodIn : BloodInPort;
+    port patientBloodOut : BloodOutPort;
+    port operatorCommand : CommandInPort;
+    port operatorStatus : StatusOutPort;
+
+    part controller : TherapyController;
+    part ui : UserInterface;
+    part bloodPump : PeristalticBloodPump;
+    part anticoagulantPump : AnticoagulantPump;
+    part separator : PlasmaSeparator;
+    part dialyzer : AlbuminDialyzer;
+    part dialysateCircuit : DialysateCircuit;
+    part sensors : SensorSuite;
+
+    connection patientToPump : BloodTransfer
+      connect patientBloodOut to bloodPump.bloodIn;
+
+    connection pumpToSeparator : BloodTransfer
+      connect bloodPump.bloodOut to separator.bloodIn;
+
+    connection separatorToDialyzer : BloodTransfer
+      connect separator.bloodOut to dialyzer.bloodIn;
+
+    connection dialyzerToPatient : BloodTransfer
+      connect dialyzer.bloodOut to patientBloodIn;
+
+    connection dialysateToDialyzer : DialysateTransfer
+      connect dialysateCircuit.dialysateOut to dialyzer.dialysateIn;
+
+    connection dialyzerToDialysateCircuit : DialysateTransfer
+      connect dialyzer.dialysateOut to dialysateCircuit.dialysateIn;
+
+    connection sensorSampling : BloodTransfer
+      connect dialyzer.bloodOut to sensors.bloodIn;
+
+    connection commandPath
+      connect operatorCommand to controller.commandIn;
+
+    connection statusPath
+      connect controller.statusOut to operatorStatus;
+
+    constraint extracorporealFlowSafe {
+      bloodPump.measuredFlow >= 0.05 [L/min];
+      bloodPump.measuredFlow <= 0.50 [L/min];
+    }
+
+    constraint therapyTemperatureSafe {
+      dialysateCircuit.heater.measuredTemperature >= 35.5 [degC];
+      dialysateCircuit.heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The liver support system shall provide temporary extracorporeal liver support by circulating patient blood through a controlled treatment circuit that removes albumin-bound and water-soluble toxins, regulates blood and dialysate flow, maintains thermal safety, and returns conditioned blood to the patient.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.bloodPump.measuredFlow >= 0.05 [L/min];
+      system.bloodPump.measuredFlow <= 0.50 [L/min];
+      system.dialysateCircuit.heater.measuredTemperature >= 35.5 [degC];
+      system.dialysateCircuit.heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  requirement def ToxinRemovalRequirement {
+    doc "During support mode, the system shall reduce circulating bilirubin and ammonia using albumin dialysis and adsorbent regeneration.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.controller.activeMode == TherapyMode::support;
+      system.dialyzer.bilirubinClearanceTarget >= 3.0 [mg/dL];
+      system.dialyzer.ammoniaClearanceTarget >= 15.0 [mmol/L];
+    }
+  }
+
+  requirement def PressureSafetyRequirement {
+    doc "The system shall detect unsafe extracorporeal blood pressure and transition to alarmed operation for critical pressure events.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.sensors.inletPressure <= 220 [mmHg];
+      system.sensors.inletPressure >= -80 [mmHg];
+      system.separator.transmembranePressure <= 180 [mmHg];
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    doc "The system shall maintain blood-contacting fluid temperature within a clinically acceptable range.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.dialysateCircuit.heater.measuredTemperature >= 35.5 [degC];
+      system.dialysateCircuit.heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  requirement def AlarmAndShutdownRequirement {
+    doc "The system shall provide visible status and alarms to the operator and shall support controlled shutdown after critical alarms.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.controller.activeMode != TherapyMode::support
+        or system.sensors.bloodTemperature <= 38.0 [degC];
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by LiverSupportSystem;
+  satisfy ToxinRemovalRequirement by AlbuminDialyzer;
+  satisfy PressureSafetyRequirement by SensorSuite;
+  satisfy ThermalSafetyRequirement by DialysateCircuit;
+  satisfy AlarmAndShutdownRequirement by TherapyController;
+}
+tokens used
+3,805
+package LiverSupportSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value type VolumeRate :> Real { unit = "L/min"; }
+  value type Pressure :> Real { unit = "mmHg"; }
+  value type Temperature :> Real { unit = "degC"; }
+  value type Concentration :> Real { unit = "mmol/L"; }
+  value type MassConcentration :> Real { unit = "mg/dL"; }
+  value type Fraction :> Real { unit = "1"; }
+  value type TimeDuration :> Real { unit = "min"; }
+
+  enum def TherapyMode {
+    enum idle;
+    enum prime;
+    enum support;
+    enum flush;
+    enum alarm;
+    enum shutdown;
+  }
+
+  enum def AlarmSeverity {
+    enum advisory;
+    enum caution;
+    enum critical;
+  }
+
+  item def Blood {
+    attribute flowRate : VolumeRate;
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute bilirubin : MassConcentration;
+    attribute ammonia : Concentration;
+    attribute oxygenSaturation : Fraction;
+    attribute clottingRisk : Fraction;
+  }
+
+  item def Plasma {
+    attribute flowRate : VolumeRate;
+    attribute bilirubin : MassConcentration;
+    attribute albuminBoundToxinLoad : MassConcentration;
+  }
+
+  item def Dialysate {
+    attribute flowRate : VolumeRate;
+    attribute toxinLoad : MassConcentration;
+    attribute albuminConcentration : MassConcentration;
+    attribute temperature : Temperature;
+  }
+
+  item def Anticoagulant {
+    attribute infusionRate : VolumeRate;
+    attribute concentration : Concentration;
+  }
+
+  item def TherapyCommand {
+    attribute requestedMode : TherapyMode;
+    attribute targetBloodFlow : VolumeRate;
+    attribute targetDialysateFlow : VolumeRate;
+    attribute targetTemperature : Temperature;
+  }
+
+  item def TherapyStatus {
+    attribute activeMode : TherapyMode;
+    attribute deliveredBloodFlow : VolumeRate;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute dialysateToxinLoad : MassConcentration;
+    attribute estimatedToxinRemovalRate : MassConcentration;
+  }
+
+  item def AlarmSignal {
+    attribute severity : AlarmSeverity;
+    attribute code : String;
+    attribute message : String;
+  }
+
+  port def BloodInPort {
+    in item blood : Blood;
+  }
+
+  port def BloodOutPort {
+    out item blood : Blood;
+  }
+
+  port def DialysateInPort {
+    in item dialysate : Dialysate;
+  }
+
+  port def DialysateOutPort {
+    out item dialysate : Dialysate;
+  }
+
+  port def AnticoagulantOutPort {
+    out item anticoagulant : Anticoagulant;
+  }
+
+  port def CommandInPort {
+    in item command : TherapyCommand;
+  }
+
+  port def StatusOutPort {
+    out item status : TherapyStatus;
+    out item alarm : AlarmSignal;
+  }
+
+  interface def BloodTransfer {
+    end source : BloodOutPort;
+    end sink : BloodInPort;
+    flow source.blood to sink.blood;
+  }
+
+  interface def DialysateTransfer {
+    end source : DialysateOutPort;
+    end sink : DialysateInPort;
+    flow source.dialysate to sink.dialysate;
+  }
+
+  action def RegulateExtracorporealFlow {
+    in item command : TherapyCommand;
+    in item incomingBlood : Blood;
+    out item conditionedBlood : Blood;
+
+    attribute targetFlow : VolumeRate;
+    attribute pressureLimitHigh : Pressure = 250 [mmHg];
+    attribute pressureLimitLow : Pressure = -100 [mmHg];
+
+    objective {
+      conditionedBlood.flowRate == command.targetBloodFlow;
+      conditionedBlood.temperature >= 35.5 [degC];
+      conditionedBlood.temperature <= 37.5 [degC];
+    }
+  }
+
+  action def RemoveLiverToxins {
+    in item bloodBefore : Blood;
+    in item dialysateBefore : Dialysate;
+    out item bloodAfter : Blood;
+    out item dialysateAfter : Dialysate;
+
+    attribute minimumBilirubinReduction : Fraction = 0.20;
+    attribute minimumAmmoniaReduction : Fraction = 0.15;
+
+    objective {
+      bloodAfter.bilirubin <= bloodBefore.bilirubin * (1.0 - minimumBilirubinReduction);
+      bloodAfter.ammonia <= bloodBefore.ammonia * (1.0 - minimumAmmoniaReduction);
+      dialysateAfter.toxinLoad > dialysateBefore.toxinLoad;
+    }
+  }
+
+  action def MonitorTherapySafety {
+    in item blood : Blood;
+    in item status : TherapyStatus;
+    out item alarm : AlarmSignal;
+
+    attribute maxInletPressure : Pressure = 220 [mmHg];
+    attribute minInletPressure : Pressure = -80 [mmHg];
+    attribute maxTemperature : Temperature = 38.0 [degC];
+    attribute minTemperature : Temperature = 34.0 [degC];
+  }
+
+  state def LiverSupportOperatingState {
+    attribute mode : TherapyMode;
+
+    entry action initializeStatus;
+
+    state Idle;
+    state Priming;
+    state Supporting;
+    state Flushing;
+    state Alarmed;
+    state Shutdown;
+
+    transition first Idle;
+
+    transition Idle to Priming
+      accept TherapyCommand
+      if requestedMode == TherapyMode::prime;
+
+    transition Priming to Supporting
+      accept TherapyCommand
+      if requestedMode == TherapyMode::support;
+
+    transition Supporting to Flushing
+      accept TherapyCommand
+      if requestedMode == TherapyMode::flush;
+
+    transition Priming to Alarmed
+      accept AlarmSignal
+      if severity == AlarmSeverity::critical;
+
+    transition Supporting to Alarmed
+      accept AlarmSignal
+      if severity == AlarmSeverity::critical;
+
+    transition Flushing to Shutdown
+      accept TherapyCommand
+      if requestedMode == TherapyMode::shutdown;
+
+    transition Alarmed to Shutdown
+      accept TherapyCommand
+      if requestedMode == TherapyMode::shutdown;
+
+    transition Shutdown to Idle
+      accept TherapyCommand
+      if requestedMode == TherapyMode::idle;
+  }
+
+  part def PeristalticBloodPump {
+    port bloodIn : BloodInPort;
+    port bloodOut : BloodOutPort;
+
+    attribute commandedFlow : VolumeRate;
+    attribute measuredFlow : VolumeRate;
+    attribute maxFlow : VolumeRate = 0.50 [L/min];
+    attribute minFlow : VolumeRate = 0.05 [L/min];
+
+    perform action regulateFlow : RegulateExtracorporealFlow;
+  }
+
+  part def AnticoagulantPump {
+    port anticoagulantOut : AnticoagulantOutPort;
+
+    attribute commandedInfusionRate : VolumeRate;
+    attribute maxInfusionRate : VolumeRate = 0.020 [L/min];
+    attribute reservoirVolume : Real = 500.0;
+
+    constraint infusionWithinLimit {
+      commandedInfusionRate <= maxInfusionRate;
+    }
+  }
+
+  part def PlasmaSeparator {
+    port bloodIn : BloodInPort;
+    port bloodOut : BloodOutPort;
+
+    attribute transmembranePressure : Pressure;
+    attribute maxTransmembranePressure : Pressure = 180 [mmHg];
+    attribute plasmaSeparationFraction : Fraction = 0.30;
+
+    constraint membraneSafe {
+      transmembranePressure <= maxTransmembranePressure;
+    }
+  }
+
+  part def AlbuminDialyzer {
+    port bloodIn : BloodInPort;
+    port bloodOut : BloodOutPort;
+    port dialysateIn : DialysateInPort;
+    port dialysateOut : DialysateOutPort;
+
+    attribute membraneArea : Real = 2.1;
+    attribute bilirubinClearanceTarget : MassConcentration = 3.0 [mg/dL];
+    attribute ammoniaClearanceTarget : Concentration = 15.0 [mmol/L];
+
+    perform action toxinRemoval : RemoveLiverToxins;
+  }
+
+  part def AdsorbentCartridge {
+    port dialysateIn : DialysateInPort;
+    port dialysateOut : DialysateOutPort;
+
+    attribute charcoalCapacity : MassConcentration = 250.0 [mg/dL];
+    attribute resinCapacity : MassConcentration = 180.0 [mg/dL];
+    attribute remainingCapacity : Fraction;
+
+    constraint cartridgeAvailable {
+      remainingCapacity > 0.10;
+    }
+  }
+
+  part def DialysateCircuit {
+    port dialysateIn : DialysateInPort;
+    port dialysateOut : DialysateOutPort;
+
+    part dialysatePump {
+      attribute commandedFlow : VolumeRate;
+      attribute maxFlow : VolumeRate = 1.20 [L/min];
+    }
+
+    part heater {
+      attribute setPoint : Temperature = 37.0 [degC];
+      attribute measuredTemperature : Temperature;
+    }
+
+    part adsorber : AdsorbentCartridge;
+
+    connection dialysateToAdsorber : DialysateTransfer
+      connect dialysateOut to adsorber.dialysateIn;
+
+    constraint thermalRange {
+      heater.measuredTemperature >= 35.5 [degC];
+      heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  part def SensorSuite {
+    port bloodIn : BloodInPort;
+    port statusOut : StatusOutPort;
+
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute bloodFlow : VolumeRate;
+    attribute bloodTemperature : Temperature;
+    attribute dialysateToxinLoad : MassConcentration;
+    attribute oxygenSaturation : Fraction;
+
+    perform action monitorSafety : MonitorTherapySafety;
+  }
+
+  part def TherapyController {
+    port commandIn : CommandInPort;
+    port statusOut : StatusOutPort;
+
+    attribute activeMode : TherapyMode = TherapyMode::idle;
+    attribute targetBloodFlow : VolumeRate = 0.25 [L/min];
+    attribute targetDialysateFlow : VolumeRate = 0.70 [L/min];
+    attribute targetTemperature : Temperature = 37.0 [degC];
+
+    exhibit state operatingState : LiverSupportOperatingState;
+  }
+
+  part def UserInterface {
+    port commandOut : CommandInPort;
+    port statusIn : StatusOutPort;
+
+    attribute displayedMode : TherapyMode;
+    attribute displayedBloodFlow : VolumeRate;
+    attribute displayedPressure : Pressure;
+    attribute displayedToxinRemoval : MassConcentration;
+  }
+
+  part def LiverSupportSystem {
+    port patientBloodIn : BloodInPort;
+    port patientBloodOut : BloodOutPort;
+    port operatorCommand : CommandInPort;
+    port operatorStatus : StatusOutPort;
+
+    part controller : TherapyController;
+    part ui : UserInterface;
+    part bloodPump : PeristalticBloodPump;
+    part anticoagulantPump : AnticoagulantPump;
+    part separator : PlasmaSeparator;
+    part dialyzer : AlbuminDialyzer;
+    part dialysateCircuit : DialysateCircuit;
+    part sensors : SensorSuite;
+
+    connection patientToPump : BloodTransfer
+      connect patientBloodOut to bloodPump.bloodIn;
+
+    connection pumpToSeparator : BloodTransfer
+      connect bloodPump.bloodOut to separator.bloodIn;
+
+    connection separatorToDialyzer : BloodTransfer
+      connect separator.bloodOut to dialyzer.bloodIn;
+
+    connection dialyzerToPatient : BloodTransfer
+      connect dialyzer.bloodOut to patientBloodIn;
+
+    connection dialysateToDialyzer : DialysateTransfer
+      connect dialysateCircuit.dialysateOut to dialyzer.dialysateIn;
+
+    connection dialyzerToDialysateCircuit : DialysateTransfer
+      connect dialyzer.dialysateOut to dialysateCircuit.dialysateIn;
+
+    connection sensorSampling : BloodTransfer
+      connect dialyzer.bloodOut to sensors.bloodIn;
+
+    connection commandPath
+      connect operatorCommand to controller.commandIn;
+
+    connection statusPath
+      connect controller.statusOut to operatorStatus;
+
+    constraint extracorporealFlowSafe {
+      bloodPump.measuredFlow >= 0.05 [L/min];
+      bloodPump.measuredFlow <= 0.50 [L/min];
+    }
+
+    constraint therapyTemperatureSafe {
+      dialysateCircuit.heater.measuredTemperature >= 35.5 [degC];
+      dialysateCircuit.heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The liver support system shall provide temporary extracorporeal liver support by circulating patient blood through a controlled treatment circuit that removes albumin-bound and water-soluble toxins, regulates blood and dialysate flow, maintains thermal safety, and returns conditioned blood to the patient.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.bloodPump.measuredFlow >= 0.05 [L/min];
+      system.bloodPump.measuredFlow <= 0.50 [L/min];
+      system.dialysateCircuit.heater.measuredTemperature >= 35.5 [degC];
+      system.dialysateCircuit.heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  requirement def ToxinRemovalRequirement {
+    doc "During support mode, the system shall reduce circulating bilirubin and ammonia using albumin dialysis and adsorbent regeneration.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.controller.activeMode == TherapyMode::support;
+      system.dialyzer.bilirubinClearanceTarget >= 3.0 [mg/dL];
+      system.dialyzer.ammoniaClearanceTarget >= 15.0 [mmol/L];
+    }
+  }
+
+  requirement def PressureSafetyRequirement {
+    doc "The system shall detect unsafe extracorporeal blood pressure and transition to alarmed operation for critical pressure events.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.sensors.inletPressure <= 220 [mmHg];
+      system.sensors.inletPressure >= -80 [mmHg];
+      system.separator.transmembranePressure <= 180 [mmHg];
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    doc "The system shall maintain blood-contacting fluid temperature within a clinically acceptable range.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.dialysateCircuit.heater.measuredTemperature >= 35.5 [degC];
+      system.dialysateCircuit.heater.measuredTemperature <= 37.5 [degC];
+    }
+  }
+
+  requirement def AlarmAndShutdownRequirement {
+    doc "The system shall provide visible status and alarms to the operator and shall support controlled shutdown after critical alarms.";
+
+    subject system : LiverSupportSystem;
+
+    require constraint {
+      system.controller.activeMode != TherapyMode::support
+        or system.sensors.bloodTemperature <= 38.0 [degC];
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by LiverSupportSystem;
+  satisfy ToxinRemovalRequirement by AlbuminDialyzer;
+  satisfy PressureSafetyRequirement by SensorSuite;
+  satisfy ThermalSafetyRequirement by DialysateCircuit;
+  satisfy AlarmAndShutdownRequirement by TherapyController;
+}

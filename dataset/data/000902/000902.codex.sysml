@@ -1,0 +1,412 @@
+package InductivePumpingSubsystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value type VolumeFlowRate :> ISQ::volumeFlowRate {
+    unit = "L/min";
+  }
+
+  value type Pressure :> ISQ::pressure {
+    unit = "kPa";
+  }
+
+  value type Temperature :> ISQ::thermodynamicTemperature {
+    unit = "degC";
+  }
+
+  value type ElectricCurrent :> ISQ::electricCurrent {
+    unit = "A";
+  }
+
+  value type ElectricVoltage :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  value type ElectricPower :> ISQ::power {
+    unit = "W";
+  }
+
+  value type MagneticFluxDensity :> ISQ::magneticFluxDensity {
+    unit = "mT";
+  }
+
+  value type Frequency :> ISQ::frequency {
+    unit = "Hz";
+  }
+
+  value type Conductivity :> ISQ::conductivity {
+    unit = "S/m";
+  }
+
+  value type TimeDuration :> ISQ::time {
+    unit = "s";
+  }
+
+  value type Efficiency {
+    unit = "percent";
+  }
+
+  item def ConductiveFluid {
+    attribute density : Real;
+    attribute electricalConductivity : Conductivity;
+    attribute temperature : Temperature;
+    attribute pressure : Pressure;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : ElectricVoltage;
+    attribute current : ElectricCurrent;
+    attribute frequency : Frequency;
+    attribute power : ElectricPower;
+  }
+
+  item def ControlCommand {
+    attribute enable : Boolean;
+    attribute requestedFlowRate : VolumeFlowRate;
+    attribute requestedPressureRise : Pressure;
+  }
+
+  item def PumpTelemetry {
+    attribute measuredFlowRate : VolumeFlowRate;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute coilTemperature : Temperature;
+    attribute driveCurrent : ElectricCurrent;
+    attribute magneticFieldStrength : MagneticFluxDensity;
+    attribute faultActive : Boolean;
+  }
+
+  port def FluidInletPort {
+    in item fluid : ConductiveFluid;
+  }
+
+  port def FluidOutletPort {
+    out item fluid : ConductiveFluid;
+  }
+
+  port def ElectricalInputPort {
+    in item supply : ElectricalEnergy;
+  }
+
+  port def CommandInputPort {
+    in item command : ControlCommand;
+  }
+
+  port def TelemetryOutputPort {
+    out item telemetry : PumpTelemetry;
+  }
+
+  port def CoolingPort {
+    in item coolantIn : ConductiveFluid;
+    out item coolantOut : ConductiveFluid;
+  }
+
+  part def PumpHousing {
+    attribute maximumWorkingPressure : Pressure = 600;
+    attribute internalDiameter : Real = 0.045;
+    attribute wettedMaterial : String = "316L stainless steel with ceramic liner";
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+  }
+
+  part def InductionCoilAssembly {
+    attribute phaseCount : Integer = 3;
+    attribute coilResistance : Real = 0.82;
+    attribute ratedCurrent : ElectricCurrent = 18;
+    attribute ratedVoltage : ElectricVoltage = 230;
+    attribute maximumTemperature : Temperature = 110;
+    attribute generatedField : MagneticFluxDensity;
+    port electricalInput : ElectricalInputPort;
+    port cooling : CoolingPort;
+  }
+
+  part def VariableFrequencyDrive {
+    attribute minimumFrequency : Frequency = 5;
+    attribute maximumFrequency : Frequency = 180;
+    attribute outputVoltage : ElectricVoltage;
+    attribute outputCurrent : ElectricCurrent;
+    attribute commandedFrequency : Frequency;
+    port powerInput : ElectricalInputPort;
+    port coilOutput : ElectricalInputPort;
+    port commandInput : CommandInputPort;
+    port telemetryOutput : TelemetryOutputPort;
+  }
+
+  part def MagneticCore {
+    attribute coreMaterial : String = "laminated silicon steel";
+    attribute saturationFluxDensity : MagneticFluxDensity = 1550;
+    attribute polePairs : Integer = 2;
+  }
+
+  part def FlowChannel {
+    attribute channelLength : Real = 0.62;
+    attribute hydraulicDiameter : Real = 0.032;
+    attribute minimumFluidConductivity : Conductivity = 5000;
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+  }
+
+  part def PressureSensor {
+    attribute measurementRange : Pressure = 1000;
+    attribute accuracyPercentFullScale : Real = 0.5;
+    port fluidTap : FluidInletPort;
+    port telemetryOutput : TelemetryOutputPort;
+  }
+
+  part def FlowSensor {
+    attribute measurementRange : VolumeFlowRate = 80;
+    attribute accuracyPercentReading : Real = 1.0;
+    port fluidTap : FluidOutletPort;
+    port telemetryOutput : TelemetryOutputPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRange : Temperature = 150;
+    attribute accuracy : Temperature = 1.5;
+    port telemetryOutput : TelemetryOutputPort;
+  }
+
+  part def IsolationValve {
+    attribute nominalDiameter : Real = 0.05;
+    attribute open : Boolean;
+    port upstream : FluidInletPort;
+    port downstream : FluidOutletPort;
+  }
+
+  part def CheckValve {
+    attribute crackingPressure : Pressure = 8;
+    port upstream : FluidInletPort;
+    port downstream : FluidOutletPort;
+  }
+
+  part def PumpController {
+    attribute enabled : Boolean;
+    attribute targetFlowRate : VolumeFlowRate;
+    attribute targetPressureRise : Pressure;
+    attribute calculatedFrequency : Frequency;
+    attribute shutdownDelay : TimeDuration = 2;
+    port commandInput : CommandInputPort;
+    port driveCommand : CommandInputPort;
+    port telemetryInput : TelemetryOutputPort;
+    port telemetryOutput : TelemetryOutputPort;
+  }
+
+  action def RegulateInductivePump {
+    in item command : ControlCommand;
+    in item feedback : PumpTelemetry;
+    out item driveCommand : ControlCommand;
+
+    attribute pressureRise : Pressure;
+    attribute flowError : VolumeFlowRate;
+    attribute overTemperature : Boolean;
+    attribute dryRunDetected : Boolean;
+
+    first readCommand;
+    then computeFlowError;
+    then evaluateProtection;
+    then setDriveCommand;
+
+    action readCommand;
+    action computeFlowError {
+      flowError = command.requestedFlowRate - feedback.measuredFlowRate;
+      pressureRise = feedback.outletPressure - feedback.inletPressure;
+    }
+    action evaluateProtection {
+      overTemperature = feedback.coilTemperature > 105;
+      dryRunDetected = feedback.measuredFlowRate < 1 and feedback.driveCurrent > 4;
+    }
+    action setDriveCommand {
+      driveCommand.enable = command.enable and not overTemperature and not dryRunDetected;
+      driveCommand.requestedFlowRate = command.requestedFlowRate;
+      driveCommand.requestedPressureRise = command.requestedPressureRise;
+    }
+  }
+
+  state def PumpOperationalStateMachine {
+    in item command : ControlCommand;
+    in item telemetry : PumpTelemetry;
+
+    state Off;
+    state Standby;
+    state Priming;
+    state Running;
+    state Faulted;
+    state ControlledShutdown;
+
+    transition initial then Off;
+
+    transition Off_to_Standby
+      first Off
+      accept command.enable == true
+      then Standby;
+
+    transition Standby_to_Priming
+      first Standby
+      accept command.requestedFlowRate > 0
+      then Priming;
+
+    transition Priming_to_Running
+      first Priming
+      accept telemetry.measuredFlowRate >= 2
+      then Running;
+
+    transition Running_to_ControlledShutdown
+      first Running
+      accept command.enable == false
+      then ControlledShutdown;
+
+    transition ControlledShutdown_to_Off
+      first ControlledShutdown
+      accept after 2 [s]
+      then Off;
+
+    transition Any_to_Faulted_OverTemperature
+      first Running
+      accept telemetry.coilTemperature > 110
+      then Faulted;
+
+    transition Any_to_Faulted_OverPressure
+      first Running
+      accept telemetry.outletPressure > 550
+      then Faulted;
+
+    transition Faulted_to_Off
+      first Faulted
+      accept command.enable == false
+      then Off;
+  }
+
+  part def InductivePumpSubsystem {
+    attribute ratedFlowRate : VolumeFlowRate = 45;
+    attribute minimumFlowRate : VolumeFlowRate = 5;
+    attribute maximumFlowRate : VolumeFlowRate = 60;
+    attribute ratedPressureRise : Pressure = 250;
+    attribute maximumOutletPressure : Pressure = 550;
+    attribute ratedElectricalPower : ElectricPower = 2200;
+    attribute nominalEfficiency : Efficiency = 68;
+    attribute nominalMagneticField : MagneticFluxDensity = 420;
+
+    port fluidIn : FluidInletPort;
+    port fluidOut : FluidOutletPort;
+    port electricalIn : ElectricalInputPort;
+    port commandIn : CommandInputPort;
+    port telemetryOut : TelemetryOutputPort;
+    port coolantLoop : CoolingPort;
+
+    part inletValve : IsolationValve;
+    part outletCheckValve : CheckValve;
+    part housing : PumpHousing;
+    part channel : FlowChannel;
+    part inductionCoils : InductionCoilAssembly;
+    part magneticCore : MagneticCore;
+    part drive : VariableFrequencyDrive;
+    part controller : PumpController;
+    part inletPressureSensor : PressureSensor;
+    part outletPressureSensor : PressureSensor;
+    part flowSensor : FlowSensor;
+    part coilTemperatureSensor : TemperatureSensor;
+
+    connection inletConnection connect fluidIn to inletValve.upstream;
+    connection valveToHousing connect inletValve.downstream to housing.inlet;
+    connection housingToChannel connect housing.outlet to channel.inlet;
+    connection channelToCheckValve connect channel.outlet to outletCheckValve.upstream;
+    connection outletConnection connect outletCheckValve.downstream to fluidOut;
+
+    connection electricalSupply connect electricalIn to drive.powerInput;
+    connection driveToCoils connect drive.coilOutput to inductionCoils.electricalInput;
+    connection commandToController connect commandIn to controller.commandInput;
+    connection controllerToDrive connect controller.driveCommand to drive.commandInput;
+    connection telemetryFromDrive connect drive.telemetryOutput to controller.telemetryInput;
+    connection telemetryToSystem connect controller.telemetryOutput to telemetryOut;
+    connection coolingConnection connect coolantLoop to inductionCoils.cooling;
+
+    connection inletPressureTap connect housing.inlet to inletPressureSensor.fluidTap;
+    connection outletPressureTap connect housing.outlet to outletPressureSensor.fluidTap;
+    connection flowTap connect fluidOut to flowSensor.fluidTap;
+
+    perform regulation : RegulateInductivePump;
+    exhibit states : PumpOperationalStateMachine;
+  }
+
+  requirement def FluidTransferRequirement {
+    subject pump : InductivePumpSubsystem;
+
+    require constraint {
+      pump.maximumFlowRate >= 60
+    }
+
+    require constraint {
+      pump.ratedPressureRise >= 250
+    }
+  }
+
+  requirement def ConductiveFluidRequirement {
+    subject pump : InductivePumpSubsystem;
+
+    require constraint {
+      pump.channel.minimumFluidConductivity >= 5000
+    }
+  }
+
+  requirement def InductivePumpRequirement {
+    subject pump : InductivePumpSubsystem;
+
+    require constraint {
+      pump.nominalMagneticField >= 350 and pump.nominalMagneticField <= 500
+    }
+
+    require constraint {
+      pump.inductionCoils.phaseCount == 3
+    }
+  }
+
+  requirement def ElectricalSafetyRequirement {
+    subject pump : InductivePumpSubsystem;
+
+    require constraint {
+      pump.ratedElectricalPower <= 2500
+    }
+
+    require constraint {
+      pump.inductionCoils.maximumTemperature <= 110
+    }
+  }
+
+  requirement def PressureContainmentRequirement {
+    subject pump : InductivePumpSubsystem;
+
+    require constraint {
+      pump.housing.maximumWorkingPressure >= pump.maximumOutletPressure
+    }
+  }
+
+  requirement def BackflowPreventionRequirement {
+    subject pump : InductivePumpSubsystem;
+
+    require constraint {
+      pump.outletCheckValve.crackingPressure >= 5
+    }
+  }
+
+  requirement def ControlAndProtectionRequirement {
+    subject pump : InductivePumpSubsystem;
+
+    require constraint {
+      pump.controller.shutdownDelay <= 2
+    }
+
+    require constraint {
+      pump.drive.maximumFrequency >= 180
+    }
+  }
+
+  satisfy FluidTransferRequirement by InductivePumpSubsystem;
+  satisfy ConductiveFluidRequirement by InductivePumpSubsystem;
+  satisfy InductivePumpRequirement by InductivePumpSubsystem;
+  satisfy ElectricalSafetyRequirement by InductivePumpSubsystem;
+  satisfy PressureContainmentRequirement by InductivePumpSubsystem;
+  satisfy BackflowPreventionRequirement by InductivePumpSubsystem;
+  satisfy ControlAndProtectionRequirement by InductivePumpSubsystem;
+}

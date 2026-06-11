@@ -1,0 +1,589 @@
+package HumphreyPumpSubsystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def FlowRate :> ISQ::volumeFlowRate {
+    unit = SI::cubicMetrePerSecond;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Volume :> ISQ::volume {
+    unit = SI::cubicMetre;
+  }
+
+  attribute def Length :> ISQ::length {
+    unit = SI::metre;
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Energy :> ISQ::energy {
+    unit = SI::joule;
+  }
+
+  attribute def Ratio :> ScalarValues::Real;
+
+  item def WorkingFluid {
+    attribute density : ScalarValues::Real;
+    attribute dynamicViscosity : ScalarValues::Real;
+    attribute temperature : Temperature;
+    attribute staticPressure : Pressure;
+  }
+
+  item def FuelAirMixture {
+    attribute equivalenceRatio : Ratio;
+    attribute chargePressure : Pressure;
+    attribute chargeTemperature : Temperature;
+    attribute lowerHeatingValue : Energy;
+  }
+
+  item def CombustionGas {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute residualOxygenFraction : Ratio;
+  }
+
+  item def MechanicalCommand {
+    attribute openCommand : ScalarValues::Boolean;
+    attribute commandTime : ISQ::time;
+  }
+
+  item def SensorSignal {
+    attribute value : ScalarValues::Real;
+    attribute valid : ScalarValues::Boolean;
+    attribute sampleTime : ISQ::time;
+  }
+
+  port def FluidPort {
+    inout fluid : WorkingFluid;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  port def GasPort {
+    inout gas : CombustionGas;
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+  }
+
+  port def MixturePort {
+    in mixture : FuelAirMixture;
+  }
+
+  port def CommandPort {
+    in command : MechanicalCommand;
+  }
+
+  port def SignalPort {
+    out signal : SensorSignal;
+  }
+
+  part def CheckValve {
+    port upstream : FluidPort;
+    port downstream : FluidPort;
+    port actuator : CommandPort;
+
+    attribute crackingPressure : Pressure = 5000 [SI::pascal];
+    attribute reverseLeakageLimit : FlowRate = 0.00001 [SI::cubicMetrePerSecond];
+    attribute openAreaRatio : Ratio;
+
+    state def ValveState {
+      state closed;
+      state opening;
+      state open;
+      state closing;
+
+      initial then closed;
+
+      transition closed_to_opening
+        first closed
+        accept MechanicalCommand
+        if actuator.command.openCommand
+        then opening;
+
+      transition opening_to_open
+        first opening
+        if downstream.pressure + crackingPressure < upstream.pressure
+        then open;
+
+      transition open_to_closing
+        first open
+        if downstream.pressure >= upstream.pressure
+        then closing;
+
+      transition closing_to_closed
+        first closing
+        then closed;
+    }
+
+    perform valveBehavior : ValveState;
+  }
+
+  part def Igniter {
+    port command : CommandPort;
+
+    attribute ignitionEnergy : Energy = 40 [SI::joule];
+    attribute sparkDuration : ISQ::time = 0.004 [SI::second];
+    attribute ready : ScalarValues::Boolean;
+
+    action def FireSpark {
+      in mixture : FuelAirMixture;
+      out ignitionSuccessful : ScalarValues::Boolean;
+
+      require constraint sufficientMixture {
+        mixture.equivalenceRatio >= 0.75 and mixture.equivalenceRatio <= 1.25
+      }
+
+      require constraint sufficientEnergy {
+        ignitionEnergy >= 25 [SI::joule]
+      }
+    }
+  }
+
+  part def CombustionChamber {
+    port mixtureIn : MixturePort;
+    port gasOut : GasPort;
+    port ignitionCommand : CommandPort;
+    port pressureSignal : SignalPort;
+
+    attribute chamberVolume : Volume = 0.12 [SI::cubicMetre];
+    attribute peakCombustionPressure : Pressure = 450000 [SI::pascal];
+    attribute purgePressure : Pressure = 105000 [SI::pascal];
+    attribute maximumGasTemperature : Temperature = 1850 [SI::kelvin];
+
+    action def AdmitCharge {
+      in mixture : FuelAirMixture;
+      out admittedCharge : FuelAirMixture;
+    }
+
+    action def Combust {
+      in admittedCharge : FuelAirMixture;
+      out expansionGas : CombustionGas;
+
+      require constraint combustibleCharge {
+        admittedCharge.equivalenceRatio >= 0.7 and admittedCharge.equivalenceRatio <= 1.3
+      }
+
+      ensure constraint gasPressureRaised {
+        expansionGas.pressure >= peakCombustionPressure
+      }
+    }
+
+    action def ExhaustAndPurge {
+      in residualGas : CombustionGas;
+      out purgedGas : CombustionGas;
+
+      ensure constraint chamberDepressurized {
+        purgedGas.pressure <= purgePressure
+      }
+    }
+
+    state def CombustionCycle {
+      state purged;
+      state charging;
+      state readyToIgnite;
+      state combusting;
+      state expanding;
+      state exhausting;
+
+      initial then purged;
+
+      transition beginCharge
+        first purged
+        accept FuelAirMixture
+        then charging;
+
+      transition chargeComplete
+        first charging
+        if mixtureIn.mixture.chargePressure >= 115000 [SI::pascal]
+        then readyToIgnite;
+
+      transition ignite
+        first readyToIgnite
+        accept MechanicalCommand
+        if ignitionCommand.command.openCommand
+        then combusting;
+
+      transition pressureRiseComplete
+        first combusting
+        then expanding;
+
+      transition expansionComplete
+        first expanding
+        if gasOut.pressure <= 130000 [SI::pascal]
+        then exhausting;
+
+      transition purgeComplete
+        first exhausting
+        then purged;
+    }
+
+    perform cycle : CombustionCycle;
+  }
+
+  part def LiquidColumn {
+    port inletEnd : FluidPort;
+    port outletEnd : FluidPort;
+    port gasInterface : GasPort;
+
+    attribute columnLength : Length = 4.5 [SI::metre];
+    attribute columnVolume : Volume = 0.32 [SI::cubicMetre];
+    attribute minimumInterfacePressure : Pressure = 95000 [SI::pascal];
+    attribute maximumInterfacePressure : Pressure = 430000 [SI::pascal];
+    attribute strokeVolume : Volume = 0.045 [SI::cubicMetre];
+
+    action def AccelerateColumn {
+      in gas : CombustionGas;
+      inout water : WorkingFluid;
+
+      require constraint gasDrivesColumn {
+        gas.pressure > outletEnd.pressure
+      }
+    }
+
+    action def DecelerateColumn {
+      inout water : WorkingFluid;
+      out recoveredHead : Pressure;
+    }
+
+    state def ColumnMotion {
+      state atRest;
+      state acceleratingTowardDischarge;
+      state discharging;
+      state returning;
+      state refilling;
+
+      initial then atRest;
+
+      transition combustionImpulse
+        first atRest
+        accept CombustionGas
+        if gasInterface.pressure >= 250000 [SI::pascal]
+        then acceleratingTowardDischarge;
+
+      transition outletValveOpened
+        first acceleratingTowardDischarge
+        if outletEnd.flowRate > 0.0 [SI::cubicMetrePerSecond]
+        then discharging;
+
+      transition gasPressureFalling
+        first discharging
+        if gasInterface.pressure < outletEnd.pressure
+        then returning;
+
+      transition inletValveOpened
+        first returning
+        if inletEnd.flowRate > 0.0 [SI::cubicMetrePerSecond]
+        then refilling;
+
+      transition columnReset
+        first refilling
+        then atRest;
+    }
+
+    perform motion : ColumnMotion;
+  }
+
+  part def FuelAirMixer {
+    port fuelCommand : CommandPort;
+    port mixtureOut : MixturePort;
+
+    attribute targetEquivalenceRatio : Ratio = 0.95;
+    attribute supplyPressure : Pressure = 125000 [SI::pascal];
+    attribute mixtureTemperature : Temperature = 300 [SI::kelvin];
+
+    action def MeterFuelAndAir {
+      out preparedMixture : FuelAirMixture;
+
+      ensure constraint mixtureNearTarget {
+        preparedMixture.equivalenceRatio >= 0.9 and preparedMixture.equivalenceRatio <= 1.05
+      }
+    }
+  }
+
+  part def ExhaustSilencer {
+    port gasIn : GasPort;
+    port vent : GasPort;
+
+    attribute allowableBackPressure : Pressure = 12000 [SI::pascal];
+    attribute maximumShellTemperature : Temperature = 520 [SI::kelvin];
+  }
+
+  part def Controller {
+    port chamberPressureIn : SignalPort;
+    port inletValveCommand : CommandPort;
+    port outletValveCommand : CommandPort;
+    port ignitionCommand : CommandPort;
+    port fuelCommand : CommandPort;
+
+    attribute targetCycleFrequency : Frequency = 1.2 [SI::hertz];
+    attribute lowPressureThreshold : Pressure = 110000 [SI::pascal];
+    attribute ignitionPressureThreshold : Pressure = 115000 [SI::pascal];
+    attribute overPressureTrip : Pressure = 500000 [SI::pascal];
+
+    action def CommandIntake {
+      out inletCommand : MechanicalCommand;
+      out fuelCommandOut : MechanicalCommand;
+    }
+
+    action def CommandIgnition {
+      out sparkCommand : MechanicalCommand;
+    }
+
+    action def CommandDischarge {
+      out outletCommand : MechanicalCommand;
+    }
+
+    state def ControlLogic {
+      state standby;
+      state fillAndCharge;
+      state ignite;
+      state powerStroke;
+      state exhaust;
+      state fault;
+
+      initial then standby;
+
+      transition startCycle
+        first standby
+        then fillAndCharge;
+
+      transition charged
+        first fillAndCharge
+        if chamberPressureIn.signal.value >= ignitionPressureThreshold
+        then ignite;
+
+      transition sparkIssued
+        first ignite
+        then powerStroke;
+
+      transition pressureDecayed
+        first powerStroke
+        if chamberPressureIn.signal.value <= lowPressureThreshold
+        then exhaust;
+
+      transition restart
+        first exhaust
+        then fillAndCharge;
+
+      transition overPressure
+        first standby, fillAndCharge, ignite, powerStroke, exhaust
+        if chamberPressureIn.signal.value >= overPressureTrip
+        then fault;
+    }
+
+    perform supervision : ControlLogic;
+  }
+
+  part def HumphreyPumpSubsystem {
+    port suction : FluidPort;
+    port discharge : FluidPort;
+    port exhaustVent : GasPort;
+
+    attribute ratedDischargeFlow : FlowRate = 0.055 [SI::cubicMetrePerSecond];
+    attribute ratedDischargePressure : Pressure = 260000 [SI::pascal];
+    attribute suctionPressureRangeMin : Pressure = 90000 [SI::pascal];
+    attribute suctionPressureRangeMax : Pressure = 140000 [SI::pascal];
+    attribute maximumCycleFrequency : Frequency = 1.8 [SI::hertz];
+
+    part inletValve : CheckValve {
+      crackingPressure = 3000 [SI::pascal];
+    }
+
+    part outletValve : CheckValve {
+      crackingPressure = 7000 [SI::pascal];
+    }
+
+    part liquidColumn : LiquidColumn;
+    part chamber : CombustionChamber;
+    part mixer : FuelAirMixer;
+    part igniter : Igniter;
+    part silencer : ExhaustSilencer;
+    part controller : Controller;
+
+    connect suction to inletValve.upstream;
+    connect inletValve.downstream to liquidColumn.inletEnd;
+    connect liquidColumn.outletEnd to outletValve.upstream;
+    connect outletValve.downstream to discharge;
+
+    connect chamber.gasOut to liquidColumn.gasInterface;
+    connect chamber.gasOut to silencer.gasIn;
+    connect silencer.vent to exhaustVent;
+
+    connect mixer.mixtureOut to chamber.mixtureIn;
+    connect controller.ignitionCommand to chamber.ignitionCommand;
+    connect controller.ignitionCommand to igniter.command;
+    connect controller.fuelCommand to mixer.fuelCommand;
+    connect controller.inletValveCommand to inletValve.actuator;
+    connect controller.outletValveCommand to outletValve.actuator;
+    connect chamber.pressureSignal to controller.chamberPressureIn;
+
+    action def PumpCycle {
+      in suctionFluid : WorkingFluid;
+      out dischargedFluid : WorkingFluid;
+
+      first start;
+      then admitFluid;
+      then prepareCharge;
+      then igniteCharge;
+      then driveLiquidColumn;
+      then dischargeFluid;
+      then exhaustGas;
+      then resetColumn;
+      then done;
+
+      action admitFluid {
+        inout water : WorkingFluid;
+      }
+
+      action prepareCharge {
+        out mixture : FuelAirMixture;
+      }
+
+      action igniteCharge {
+        in mixture : FuelAirMixture;
+        out gas : CombustionGas;
+      }
+
+      action driveLiquidColumn {
+        in gas : CombustionGas;
+        inout water : WorkingFluid;
+      }
+
+      action dischargeFluid {
+        inout water : WorkingFluid;
+        out pumpedWater : WorkingFluid;
+      }
+
+      action exhaustGas {
+        in gas : CombustionGas;
+      }
+
+      action resetColumn {
+        inout water : WorkingFluid;
+      }
+    }
+
+    state def SubsystemOperatingState {
+      state stopped;
+      state priming;
+      state cyclicOperation;
+      state controlledShutdown;
+      state emergencyShutdown;
+
+      initial then stopped;
+
+      transition commandStart
+        first stopped
+        then priming;
+
+      transition primeComplete
+        first priming
+        if suction.pressure >= suctionPressureRangeMin
+        then cyclicOperation;
+
+      transition commandStop
+        first cyclicOperation
+        then controlledShutdown;
+
+      transition stoppedAfterPurge
+        first controlledShutdown
+        then stopped;
+
+      transition abnormalPressure
+        first priming, cyclicOperation, controlledShutdown
+        if chamber.gasOut.pressure >= 500000 [SI::pascal]
+        then emergencyShutdown;
+    }
+
+    perform operatingMode : SubsystemOperatingState;
+    perform pumpCycle : PumpCycle;
+  }
+
+  requirement def PumpingCapacityRequirement {
+    doc /* The subsystem shall deliver the rated fluid flow at or above the rated discharge pressure during stable cyclic operation. */
+
+    subject pump : HumphreyPumpSubsystem;
+
+    require constraint capacity {
+      pump.discharge.flowRate >= pump.ratedDischargeFlow and
+      pump.discharge.pressure >= pump.ratedDischargePressure
+    }
+  }
+
+  requirement def SuctionCompatibilityRequirement {
+    doc /* The subsystem shall operate without cavitation within the specified suction pressure range. */
+
+    subject pump : HumphreyPumpSubsystem;
+
+    require constraint suctionRange {
+      pump.suction.pressure >= pump.suctionPressureRangeMin and
+      pump.suction.pressure <= pump.suctionPressureRangeMax
+    }
+  }
+
+  requirement def CombustionPressureLimitRequirement {
+    doc /* The Humphrey pump combustion chamber shall remain below the overpressure trip limit. */
+
+    subject pump : HumphreyPumpSubsystem;
+
+    require constraint pressureLimit {
+      pump.chamber.gasOut.pressure < pump.controller.overPressureTrip
+    }
+  }
+
+  requirement def ValveReverseFlowRequirement {
+    doc /* Check valves shall limit reverse leakage so the liquid column is not unloaded during pressure reversal. */
+
+    subject pump : HumphreyPumpSubsystem;
+
+    require constraint inletReverseLeakage {
+      pump.inletValve.reverseLeakageLimit <= 0.00001 [SI::cubicMetrePerSecond]
+    }
+
+    require constraint outletReverseLeakage {
+      pump.outletValve.reverseLeakageLimit <= 0.00001 [SI::cubicMetrePerSecond]
+    }
+  }
+
+  requirement def CycleFrequencyRequirement {
+    doc /* The controller shall maintain the Humphrey pump cycle frequency within the mechanical capability of the liquid column and valves. */
+
+    subject pump : HumphreyPumpSubsystem;
+
+    require constraint frequencyLimit {
+      pump.controller.targetCycleFrequency <= pump.maximumCycleFrequency
+    }
+  }
+
+  requirement def MixtureControlRequirement {
+    doc /* The fuel-air mixer shall provide a combustible mixture suitable for repeatable ignition. */
+
+    subject pump : HumphreyPumpSubsystem;
+
+    require constraint mixtureRange {
+      pump.mixer.targetEquivalenceRatio >= 0.85 and
+      pump.mixer.targetEquivalenceRatio <= 1.10
+    }
+  }
+
+  part humphreyPumpSubsystem : HumphreyPumpSubsystem;
+
+  satisfy PumpingCapacityRequirement by humphreyPumpSubsystem;
+  satisfy SuctionCompatibilityRequirement by humphreyPumpSubsystem;
+  satisfy CombustionPressureLimitRequirement by humphreyPumpSubsystem;
+  satisfy ValveReverseFlowRequirement by humphreyPumpSubsystem;
+  satisfy CycleFrequencyRequirement by humphreyPumpSubsystem;
+  satisfy MixtureControlRequirement by humphreyPumpSubsystem;
+}

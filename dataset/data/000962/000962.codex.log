@@ -1,0 +1,743 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-gcrb70ax
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4f1-6e49-7601-a73d-7695936f0baa
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Acoustic radiometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AcousticRadiometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SoundPressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def SoundIntensity :> ISQ::powerPerArea {
+        unit = SI::watt / SI::metre^2;
+    }
+
+    attribute def AcousticPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def SamplingRate :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def SignalToNoiseRatio {
+        :>> scalarValues = Real;
+        unit = "dB";
+    }
+
+    item def AcousticWave {
+        attribute pressure : SoundPressure;
+        attribute frequency : Frequency;
+        attribute incidenceAngle : Angle;
+        attribute mediumTemperature : Temperature;
+    }
+
+    item def ElectricalSignal {
+        attribute voltage : Voltage;
+        attribute frequency : Frequency;
+        attribute noiseRatio : SignalToNoiseRatio;
+    }
+
+    item def DigitizedSignal {
+        attribute sampleRate : SamplingRate;
+        attribute sampleCount : Integer;
+        attribute peakPressure : SoundPressure;
+        attribute dominantFrequency : Frequency;
+    }
+
+    item def RadiometricEstimate {
+        attribute soundIntensity : SoundIntensity;
+        attribute acousticPower : AcousticPower;
+        attribute confidence : Real;
+        attribute calibratedTemperature : Temperature;
+    }
+
+    port def AcousticInputPort {
+        in item incidentSound : AcousticWave;
+    }
+
+    port def ElectricalSignalPort {
+        out item signalOut : ElectricalSignal;
+        in item signalIn : ElectricalSignal;
+    }
+
+    port def DigitalSignalPort {
+        out item digitalOut : DigitizedSignal;
+        in item digitalIn : DigitizedSignal;
+    }
+
+    port def EstimatePort {
+        out item estimateOut : RadiometricEstimate;
+        in item estimateIn : RadiometricEstimate;
+    }
+
+    part def AcousticCollector {
+        attribute apertureDiameter : Length = 0.18 [SI::metre];
+        attribute fieldOfView : Angle = 12 [SI::degree];
+        attribute acousticGain : Real = 18.5;
+
+        port acousticAperture : AcousticInputPort;
+        port focusedOutput : AcousticInputPort;
+
+        perform action FocusIncidentSound {
+            in item rawWave : AcousticWave;
+            out item focusedWave : AcousticWave;
+        }
+    }
+
+    part def MicrophoneArray {
+        attribute elementCount : Integer = 16;
+        attribute elementSpacing : Length = 0.012 [SI::metre];
+        attribute sensitivity : Real = -38.0;
+        attribute minimumDetectablePressure : SoundPressure = 0.00002 [SI::pascal];
+
+        port acousticInput : AcousticInputPort;
+        port analogOutput : ElectricalSignalPort;
+
+        perform action ConvertPressureToVoltage {
+            in item acousticWave : AcousticWave;
+            out item analogSignal : ElectricalSignal;
+        }
+    }
+
+    part def LowNoiseAmplifier {
+        attribute gain : Real = 40.0;
+        attribute inputReferredNoise : Voltage = 0.000001 [SI::volt];
+        attribute bandwidthLow : Frequency = 20 [SI::hertz];
+        attribute bandwidthHigh : Frequency = 20000 [SI::hertz];
+
+        port analogInput : ElectricalSignalPort;
+        port amplifiedOutput : ElectricalSignalPort;
+
+        perform action AmplifySignal {
+            in item weakSignal : ElectricalSignal;
+            out item amplifiedSignal : ElectricalSignal;
+        }
+    }
+
+    part def AntiAliasFilter {
+        attribute cutoffFrequency : Frequency = 24000 [SI::hertz];
+        attribute stopBandAttenuation : Real = 80.0;
+
+        port filterInput : ElectricalSignalPort;
+        port filterOutput : ElectricalSignalPort;
+
+        perform action RemoveOutOfBandNoise {
+            in item amplifiedSignal : ElectricalSignal;
+            out item filteredSignal : ElectricalSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 24;
+        attribute samplingRate : SamplingRate = 96000 [SI::hertz];
+        attribute referenceVoltage : Voltage = 2.5 [SI::volt];
+
+        port analogInput : ElectricalSignalPort;
+        port digitalOutput : DigitalSignalPort;
+
+        perform action SampleSignal {
+            in item filteredSignal : ElectricalSignal;
+            out item digitizedSignal : DigitizedSignal;
+        }
+    }
+
+    part def CalibrationModule {
+        attribute referencePressure : SoundPressure = 1.0 [SI::pascal];
+        attribute referenceFrequency : Frequency = 1000 [SI::hertz];
+        attribute calibrationInterval : Time = 3600 [SI::second];
+        attribute lastCalibrationTemperature : Temperature = 293.15 [SI::kelvin];
+
+        port calibrationInput : DigitalSignalPort;
+        port calibratedOutput : DigitalSignalPort;
+
+        perform action ApplyCalibration {
+            in item rawDigitalSignal : DigitizedSignal;
+            out item calibratedSignal : DigitizedSignal;
+        }
+    }
+
+    part def RadiometricProcessor {
+        attribute integrationTime : Time = 1.0 [SI::second];
+        attribute assumedAcousticImpedance : Real = 413.0;
+        attribute minimumConfidence : Real = 0.95;
+
+        port measurementInput : DigitalSignalPort;
+        port estimateOutput : EstimatePort;
+
+        perform action EstimateAcousticRadiance {
+            in item calibratedSignal : DigitizedSignal;
+            out item estimate : RadiometricEstimate;
+        }
+
+        perform action ComputeSoundIntensity {
+            in attribute pressureRms : SoundPressure;
+            out attribute intensity : SoundIntensity;
+        }
+
+        perform action IntegrateOverAperture {
+            in attribute intensity : SoundIntensity;
+            in attribute apertureDiameter : Length;
+            out attribute acousticPower : AcousticPower;
+        }
+    }
+
+    part def DataInterface {
+        attribute updateRate : Frequency = 10 [SI::hertz];
+
+        port estimateInput : EstimatePort;
+        port reportOutput : EstimatePort;
+
+        perform action PublishRadiometricEstimate {
+            in item estimate : RadiometricEstimate;
+            out item reportedEstimate : RadiometricEstimate;
+        }
+    }
+
+    part def ThermalCompensator {
+        attribute operatingTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute temperatureCoefficient : Real = 0.002;
+
+        port compensatedInput : DigitalSignalPort;
+        port compensatedOutput : DigitalSignalPort;
+
+        perform action CorrectTemperatureDrift {
+            in item calibratedSignal : DigitizedSignal;
+            out item compensatedSignal : DigitizedSignal;
+        }
+    }
+
+    part def AcousticRadiometer {
+        attribute primaryFunction : String = "Receive incident acoustic energy, convert sound pressure into calibrated digital measurements, and estimate acoustic intensity and power for a viewed acoustic field.";
+        attribute operatingFrequencyLow : Frequency = 20 [SI::hertz];
+        attribute operatingFrequencyHigh : Frequency = 20000 [SI::hertz];
+        attribute dynamicRange : SignalToNoiseRatio = 110 ["dB"];
+        attribute nominalAmbientTemperature : Temperature = 293.15 [SI::kelvin];
+
+        port acousticInput : AcousticInputPort;
+        port radiometricOutput : EstimatePort;
+
+        part collector : AcousticCollector;
+        part microphones : MicrophoneArray;
+        part amplifier : LowNoiseAmplifier;
+        part filter : AntiAliasFilter;
+        part adc : AnalogToDigitalConverter;
+        part calibration : CalibrationModule;
+        part thermalCompensator : ThermalCompensator;
+        part processor : RadiometricProcessor;
+        part interface : DataInterface;
+
+        connect acousticInput to collector.acousticAperture;
+        connect collector.focusedOutput to microphones.acousticInput;
+        connect microphones.analogOutput to amplifier.analogInput;
+        connect amplifier.amplifiedOutput to filter.filterInput;
+        connect filter.filterOutput to adc.analogInput;
+        connect adc.digitalOutput to calibration.calibrationInput;
+        connect calibration.calibratedOutput to thermalCompensator.compensatedInput;
+        connect thermalCompensator.compensatedOutput to processor.measurementInput;
+        connect processor.estimateOutput to interface.estimateInput;
+        connect interface.reportOutput to radiometricOutput;
+
+        perform action MeasureAcousticRadiance {
+            in item incidentWave : AcousticWave;
+            out item reportedEstimate : RadiometricEstimate;
+
+            first start;
+            then focus;
+            then transduce;
+            then amplify;
+            then filterSignal;
+            then digitize;
+            then calibrate;
+            then compensate;
+            then estimate;
+            then publish;
+            then done;
+
+            action start;
+            action focus : collector.FocusIncidentSound;
+            action transduce : microphones.ConvertPressureToVoltage;
+            action amplify : amplifier.AmplifySignal;
+            action filterSignal : filter.RemoveOutOfBandNoise;
+            action digitize : adc.SampleSignal;
+            action calibrate : calibration.ApplyCalibration;
+            action compensate : thermalCompensator.CorrectTemperatureDrift;
+            action estimate : processor.EstimateAcousticRadiance;
+            action publish : interface.PublishRadiometricEstimate;
+            action done;
+        }
+
+        state def OperatingStateMachine {
+            state Off;
+            state SelfTest;
+            state Calibrating;
+            state Ready;
+            state Measuring;
+            state Reporting;
+            state Fault;
+
+            entry action initializeElectronics;
+            entry action checkSensorContinuity;
+            entry action verifyReferenceSignal;
+
+            transition initial then Off;
+            transition PowerApplied from Off to SelfTest;
+            transition SelfTestPassed from SelfTest to Calibrating;
+            transition SelfTestFailed from SelfTest to Fault;
+            transition CalibrationValid from Calibrating to Ready;
+            transition CalibrationFailed from Calibrating to Fault;
+            transition AcousticSignalDetected from Ready to Measuring;
+            transition EstimateComputed from Measuring to Reporting;
+            transition ReportPublished from Reporting to Ready;
+            transition OverloadDetected from Measuring to Fault;
+            transition ResetCommanded from Fault to SelfTest;
+            transition PowerRemoved from Ready to Off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The acoustic radiometer shall estimate acoustic intensity and acoustic power from incident sound pressure over its specified operating frequency range. */
+        subject radiometer : AcousticRadiometer;
+        require constraint {
+            radiometer.operatingFrequencyLow <= 20 [SI::hertz] and
+            radiometer.operatingFrequencyHigh >= 20000 [SI::hertz]
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        doc /* The acoustic radiometer shall detect acoustic pressures at or below the nominal threshold of human hearing at 1 kHz. */
+        subject array : MicrophoneArray;
+        require constraint {
+            array.minimumDetectablePressure <= 0.00002 [SI::pascal]
+        }
+    }
+
+    requirement def SamplingRequirement {
+        doc /* The analog-to-digital converter shall sample at a rate sufficient for the radiometer operating bandwidth. */
+        subject converter : AnalogToDigitalConverter;
+        require constraint {
+            converter.samplingRate >= 2.0 * 20000 [SI::hertz]
+        }
+    }
+
+    requirement def ConfidenceRequirement {
+        doc /* Each reported radiometric estimate shall meet the minimum confidence level during nominal operation. */
+        subject processor : RadiometricProcessor;
+        require constraint {
+            processor.minimumConfidence >= 0.95
+        }
+    }
+
+    requirement def FieldOfViewRequirement {
+        doc /* The acoustic collector shall constrain the viewed acoustic field to a narrow angular region for radiometric estimation. */
+        subject collector : AcousticCollector;
+        require constraint {
+            collector.fieldOfView <= 15 [SI::degree]
+        }
+    }
+
+    part acousticRadiometerSystem : AcousticRadiometer;
+
+    satisfy PrimaryFunctionRequirement by acousticRadiometerSystem;
+    satisfy SensitivityRequirement by acousticRadiometerSystem.microphones;
+    satisfy SamplingRequirement by acousticRadiometerSystem.adc;
+    satisfy ConfidenceRequirement by acousticRadiometerSystem.processor;
+    satisfy FieldOfViewRequirement by acousticRadiometerSystem.collector;
+}
+tokens used
+3,064
+package AcousticRadiometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SoundPressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def SoundIntensity :> ISQ::powerPerArea {
+        unit = SI::watt / SI::metre^2;
+    }
+
+    attribute def AcousticPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def SamplingRate :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def SignalToNoiseRatio {
+        :>> scalarValues = Real;
+        unit = "dB";
+    }
+
+    item def AcousticWave {
+        attribute pressure : SoundPressure;
+        attribute frequency : Frequency;
+        attribute incidenceAngle : Angle;
+        attribute mediumTemperature : Temperature;
+    }
+
+    item def ElectricalSignal {
+        attribute voltage : Voltage;
+        attribute frequency : Frequency;
+        attribute noiseRatio : SignalToNoiseRatio;
+    }
+
+    item def DigitizedSignal {
+        attribute sampleRate : SamplingRate;
+        attribute sampleCount : Integer;
+        attribute peakPressure : SoundPressure;
+        attribute dominantFrequency : Frequency;
+    }
+
+    item def RadiometricEstimate {
+        attribute soundIntensity : SoundIntensity;
+        attribute acousticPower : AcousticPower;
+        attribute confidence : Real;
+        attribute calibratedTemperature : Temperature;
+    }
+
+    port def AcousticInputPort {
+        in item incidentSound : AcousticWave;
+    }
+
+    port def ElectricalSignalPort {
+        out item signalOut : ElectricalSignal;
+        in item signalIn : ElectricalSignal;
+    }
+
+    port def DigitalSignalPort {
+        out item digitalOut : DigitizedSignal;
+        in item digitalIn : DigitizedSignal;
+    }
+
+    port def EstimatePort {
+        out item estimateOut : RadiometricEstimate;
+        in item estimateIn : RadiometricEstimate;
+    }
+
+    part def AcousticCollector {
+        attribute apertureDiameter : Length = 0.18 [SI::metre];
+        attribute fieldOfView : Angle = 12 [SI::degree];
+        attribute acousticGain : Real = 18.5;
+
+        port acousticAperture : AcousticInputPort;
+        port focusedOutput : AcousticInputPort;
+
+        perform action FocusIncidentSound {
+            in item rawWave : AcousticWave;
+            out item focusedWave : AcousticWave;
+        }
+    }
+
+    part def MicrophoneArray {
+        attribute elementCount : Integer = 16;
+        attribute elementSpacing : Length = 0.012 [SI::metre];
+        attribute sensitivity : Real = -38.0;
+        attribute minimumDetectablePressure : SoundPressure = 0.00002 [SI::pascal];
+
+        port acousticInput : AcousticInputPort;
+        port analogOutput : ElectricalSignalPort;
+
+        perform action ConvertPressureToVoltage {
+            in item acousticWave : AcousticWave;
+            out item analogSignal : ElectricalSignal;
+        }
+    }
+
+    part def LowNoiseAmplifier {
+        attribute gain : Real = 40.0;
+        attribute inputReferredNoise : Voltage = 0.000001 [SI::volt];
+        attribute bandwidthLow : Frequency = 20 [SI::hertz];
+        attribute bandwidthHigh : Frequency = 20000 [SI::hertz];
+
+        port analogInput : ElectricalSignalPort;
+        port amplifiedOutput : ElectricalSignalPort;
+
+        perform action AmplifySignal {
+            in item weakSignal : ElectricalSignal;
+            out item amplifiedSignal : ElectricalSignal;
+        }
+    }
+
+    part def AntiAliasFilter {
+        attribute cutoffFrequency : Frequency = 24000 [SI::hertz];
+        attribute stopBandAttenuation : Real = 80.0;
+
+        port filterInput : ElectricalSignalPort;
+        port filterOutput : ElectricalSignalPort;
+
+        perform action RemoveOutOfBandNoise {
+            in item amplifiedSignal : ElectricalSignal;
+            out item filteredSignal : ElectricalSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 24;
+        attribute samplingRate : SamplingRate = 96000 [SI::hertz];
+        attribute referenceVoltage : Voltage = 2.5 [SI::volt];
+
+        port analogInput : ElectricalSignalPort;
+        port digitalOutput : DigitalSignalPort;
+
+        perform action SampleSignal {
+            in item filteredSignal : ElectricalSignal;
+            out item digitizedSignal : DigitizedSignal;
+        }
+    }
+
+    part def CalibrationModule {
+        attribute referencePressure : SoundPressure = 1.0 [SI::pascal];
+        attribute referenceFrequency : Frequency = 1000 [SI::hertz];
+        attribute calibrationInterval : Time = 3600 [SI::second];
+        attribute lastCalibrationTemperature : Temperature = 293.15 [SI::kelvin];
+
+        port calibrationInput : DigitalSignalPort;
+        port calibratedOutput : DigitalSignalPort;
+
+        perform action ApplyCalibration {
+            in item rawDigitalSignal : DigitizedSignal;
+            out item calibratedSignal : DigitizedSignal;
+        }
+    }
+
+    part def RadiometricProcessor {
+        attribute integrationTime : Time = 1.0 [SI::second];
+        attribute assumedAcousticImpedance : Real = 413.0;
+        attribute minimumConfidence : Real = 0.95;
+
+        port measurementInput : DigitalSignalPort;
+        port estimateOutput : EstimatePort;
+
+        perform action EstimateAcousticRadiance {
+            in item calibratedSignal : DigitizedSignal;
+            out item estimate : RadiometricEstimate;
+        }
+
+        perform action ComputeSoundIntensity {
+            in attribute pressureRms : SoundPressure;
+            out attribute intensity : SoundIntensity;
+        }
+
+        perform action IntegrateOverAperture {
+            in attribute intensity : SoundIntensity;
+            in attribute apertureDiameter : Length;
+            out attribute acousticPower : AcousticPower;
+        }
+    }
+
+    part def DataInterface {
+        attribute updateRate : Frequency = 10 [SI::hertz];
+
+        port estimateInput : EstimatePort;
+        port reportOutput : EstimatePort;
+
+        perform action PublishRadiometricEstimate {
+            in item estimate : RadiometricEstimate;
+            out item reportedEstimate : RadiometricEstimate;
+        }
+    }
+
+    part def ThermalCompensator {
+        attribute operatingTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute temperatureCoefficient : Real = 0.002;
+
+        port compensatedInput : DigitalSignalPort;
+        port compensatedOutput : DigitalSignalPort;
+
+        perform action CorrectTemperatureDrift {
+            in item calibratedSignal : DigitizedSignal;
+            out item compensatedSignal : DigitizedSignal;
+        }
+    }
+
+    part def AcousticRadiometer {
+        attribute primaryFunction : String = "Receive incident acoustic energy, convert sound pressure into calibrated digital measurements, and estimate acoustic intensity and power for a viewed acoustic field.";
+        attribute operatingFrequencyLow : Frequency = 20 [SI::hertz];
+        attribute operatingFrequencyHigh : Frequency = 20000 [SI::hertz];
+        attribute dynamicRange : SignalToNoiseRatio = 110 ["dB"];
+        attribute nominalAmbientTemperature : Temperature = 293.15 [SI::kelvin];
+
+        port acousticInput : AcousticInputPort;
+        port radiometricOutput : EstimatePort;
+
+        part collector : AcousticCollector;
+        part microphones : MicrophoneArray;
+        part amplifier : LowNoiseAmplifier;
+        part filter : AntiAliasFilter;
+        part adc : AnalogToDigitalConverter;
+        part calibration : CalibrationModule;
+        part thermalCompensator : ThermalCompensator;
+        part processor : RadiometricProcessor;
+        part interface : DataInterface;
+
+        connect acousticInput to collector.acousticAperture;
+        connect collector.focusedOutput to microphones.acousticInput;
+        connect microphones.analogOutput to amplifier.analogInput;
+        connect amplifier.amplifiedOutput to filter.filterInput;
+        connect filter.filterOutput to adc.analogInput;
+        connect adc.digitalOutput to calibration.calibrationInput;
+        connect calibration.calibratedOutput to thermalCompensator.compensatedInput;
+        connect thermalCompensator.compensatedOutput to processor.measurementInput;
+        connect processor.estimateOutput to interface.estimateInput;
+        connect interface.reportOutput to radiometricOutput;
+
+        perform action MeasureAcousticRadiance {
+            in item incidentWave : AcousticWave;
+            out item reportedEstimate : RadiometricEstimate;
+
+            first start;
+            then focus;
+            then transduce;
+            then amplify;
+            then filterSignal;
+            then digitize;
+            then calibrate;
+            then compensate;
+            then estimate;
+            then publish;
+            then done;
+
+            action start;
+            action focus : collector.FocusIncidentSound;
+            action transduce : microphones.ConvertPressureToVoltage;
+            action amplify : amplifier.AmplifySignal;
+            action filterSignal : filter.RemoveOutOfBandNoise;
+            action digitize : adc.SampleSignal;
+            action calibrate : calibration.ApplyCalibration;
+            action compensate : thermalCompensator.CorrectTemperatureDrift;
+            action estimate : processor.EstimateAcousticRadiance;
+            action publish : interface.PublishRadiometricEstimate;
+            action done;
+        }
+
+        state def OperatingStateMachine {
+            state Off;
+            state SelfTest;
+            state Calibrating;
+            state Ready;
+            state Measuring;
+            state Reporting;
+            state Fault;
+
+            entry action initializeElectronics;
+            entry action checkSensorContinuity;
+            entry action verifyReferenceSignal;
+
+            transition initial then Off;
+            transition PowerApplied from Off to SelfTest;
+            transition SelfTestPassed from SelfTest to Calibrating;
+            transition SelfTestFailed from SelfTest to Fault;
+            transition CalibrationValid from Calibrating to Ready;
+            transition CalibrationFailed from Calibrating to Fault;
+            transition AcousticSignalDetected from Ready to Measuring;
+            transition EstimateComputed from Measuring to Reporting;
+            transition ReportPublished from Reporting to Ready;
+            transition OverloadDetected from Measuring to Fault;
+            transition ResetCommanded from Fault to SelfTest;
+            transition PowerRemoved from Ready to Off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The acoustic radiometer shall estimate acoustic intensity and acoustic power from incident sound pressure over its specified operating frequency range. */
+        subject radiometer : AcousticRadiometer;
+        require constraint {
+            radiometer.operatingFrequencyLow <= 20 [SI::hertz] and
+            radiometer.operatingFrequencyHigh >= 20000 [SI::hertz]
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        doc /* The acoustic radiometer shall detect acoustic pressures at or below the nominal threshold of human hearing at 1 kHz. */
+        subject array : MicrophoneArray;
+        require constraint {
+            array.minimumDetectablePressure <= 0.00002 [SI::pascal]
+        }
+    }
+
+    requirement def SamplingRequirement {
+        doc /* The analog-to-digital converter shall sample at a rate sufficient for the radiometer operating bandwidth. */
+        subject converter : AnalogToDigitalConverter;
+        require constraint {
+            converter.samplingRate >= 2.0 * 20000 [SI::hertz]
+        }
+    }
+
+    requirement def ConfidenceRequirement {
+        doc /* Each reported radiometric estimate shall meet the minimum confidence level during nominal operation. */
+        subject processor : RadiometricProcessor;
+        require constraint {
+            processor.minimumConfidence >= 0.95
+        }
+    }
+
+    requirement def FieldOfViewRequirement {
+        doc /* The acoustic collector shall constrain the viewed acoustic field to a narrow angular region for radiometric estimation. */
+        subject collector : AcousticCollector;
+        require constraint {
+            collector.fieldOfView <= 15 [SI::degree]
+        }
+    }
+
+    part acousticRadiometerSystem : AcousticRadiometer;
+
+    satisfy PrimaryFunctionRequirement by acousticRadiometerSystem;
+    satisfy SensitivityRequirement by acousticRadiometerSystem.microphones;
+    satisfy SamplingRequirement by acousticRadiometerSystem.adc;
+    satisfy ConfidenceRequirement by acousticRadiometerSystem.processor;
+    satisfy FieldOfViewRequirement by acousticRadiometerSystem.collector;
+}

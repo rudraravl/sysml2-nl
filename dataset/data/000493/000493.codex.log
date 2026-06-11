@@ -1,0 +1,841 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-9o7dwrw4
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb317-84cd-7d22-a260-e56ac89cb56d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a pumping subsystem that moves fluid using a Pump thrombosis.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PumpingSubsystemWithPumpThrombosis {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    item def WorkingFluid {
+        attribute density : MassDensity = 1060 [kg/m^3];
+        attribute dynamicViscosity : DynamicViscosity = 0.0035 [Pa*s];
+        attribute temperature : Temperature = 310.15 [K];
+        attribute thrombusVolumeFraction : Real;
+        attribute oxygenated : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute frequency : Frequency;
+    }
+
+    item def ControlCommand {
+        attribute targetFlowRate : VolumeFlowRate;
+        attribute targetPressureRise : Pressure;
+        attribute enablePump : Boolean;
+        attribute thrombosisClearanceEnabled : Boolean;
+    }
+
+    item def SensorSignal {
+        attribute value : Real;
+        attribute valid : Boolean;
+        attribute timestamp : Time;
+    }
+
+    value type ThrombosisIndex : Real {
+        doc
+        /* Dimensionless estimate of clot or thrombus formation risk in pump flow path. */
+    }
+
+    port def FluidInletPort {
+        in item fluid : WorkingFluid;
+        attribute staticPressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluid : WorkingFluid;
+        attribute staticPressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        out item flowSignal : SensorSignal;
+        out item pressureSignal : SensorSignal;
+        out item motorSpeedSignal : SensorSignal;
+        out item thrombosisSignal : SensorSignal;
+    }
+
+    part def PressureSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryPort;
+
+        attribute measuredPressure : Pressure;
+        attribute accuracy : Pressure = 133.322 [Pa];
+        attribute sampleRate : Frequency = 100 [Hz];
+    }
+
+    part def FlowSensor {
+        port sensedFluid : FluidOutletPort;
+        port telemetry : TelemetryPort;
+
+        attribute measuredFlowRate : VolumeFlowRate;
+        attribute minimumDetectableFlow : VolumeFlowRate = 1.0e-7 [m^3/s];
+        attribute sampleRate : Frequency = 100 [Hz];
+    }
+
+    part def MotorController {
+        port powerInput : PowerPort;
+        port commandInput : CommandPort;
+        port telemetry : TelemetryPort;
+
+        attribute commandedSpeed : Frequency;
+        attribute measuredSpeed : Frequency;
+        attribute phaseCurrent : ElectricCurrent;
+        attribute maxSpeed : Frequency = 250 [Hz];
+        attribute maxCurrent : ElectricCurrent = 12 [A];
+    }
+
+    part def ThrombosisMonitor {
+        port telemetry : TelemetryPort;
+
+        attribute thrombosisIndex : ThrombosisIndex;
+        attribute acousticSignatureLevel : Real;
+        attribute pressurePulsatility : Pressure;
+        attribute flowInstability : VolumeFlowRate;
+        attribute warningThreshold : ThrombosisIndex = 0.60;
+        attribute shutdownThreshold : ThrombosisIndex = 0.85;
+    }
+
+    part def PumpThrombosis {
+        doc
+        /* Pump element with integrated thrombus detection and clearance behavior. */
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port power : PowerPort;
+        port command : CommandPort;
+        port telemetry : TelemetryPort;
+
+        part motorController : MotorController;
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part thrombosisMonitor : ThrombosisMonitor;
+
+        attribute rotorSpeed : Frequency;
+        attribute impellerDiameter : Length = 0.035 [m];
+        attribute nominalFlowRate : VolumeFlowRate = 8.33e-5 [m^3/s];
+        attribute nominalPressureRise : Pressure = 80000 [Pa];
+        attribute hydraulicEfficiency : Real = 0.68;
+        attribute hemolysisIndex : Real;
+        attribute thrombosisIndex : ThrombosisIndex;
+        attribute primingVolume : Volume = 2.5e-5 [m^3];
+
+        connect power to motorController.powerInput;
+        connect command to motorController.commandInput;
+        connect inlet to inletPressureSensor.sensedFluid;
+        connect outlet to outletPressureSensor.sensedFluid;
+        connect outlet to flowSensor.sensedFluid;
+        connect telemetry to motorController.telemetry;
+        connect telemetry to inletPressureSensor.telemetry;
+        connect telemetry to outletPressureSensor.telemetry;
+        connect telemetry to flowSensor.telemetry;
+        connect telemetry to thrombosisMonitor.telemetry;
+    }
+
+    part def Reservoir {
+        port outlet : FluidOutletPort;
+
+        attribute containedVolume : Volume = 0.002 [m^3];
+        attribute minimumVolume : Volume = 0.0001 [m^3];
+        attribute fluidTemperature : Temperature = 310.15 [K];
+    }
+
+    part def DischargeManifold {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute internalVolume : Volume = 1.5e-5 [m^3];
+        attribute allowablePressure : Pressure = 200000 [Pa];
+    }
+
+    part def CheckValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute crackingPressure : Pressure = 2500 [Pa];
+        attribute reverseLeakageRate : VolumeFlowRate = 1.0e-8 [m^3/s];
+        attribute open : Boolean;
+    }
+
+    part def PumpingSubsystem {
+        port supplyPort : FluidInletPort;
+        port dischargePort : FluidOutletPort;
+        port powerPort : PowerPort;
+        port commandPort : CommandPort;
+        port telemetryPort : TelemetryPort;
+
+        part sourceReservoir : Reservoir;
+        part pump : PumpThrombosis;
+        part outletValve : CheckValve;
+        part dischargeManifold : DischargeManifold;
+
+        attribute deliveredFlowRate : VolumeFlowRate;
+        attribute dischargePressure : Pressure;
+        attribute pressureRise : Pressure;
+        attribute allowedFlowRateLow : VolumeFlowRate = 6.67e-5 [m^3/s];
+        attribute allowedFlowRateHigh : VolumeFlowRate = 1.00e-4 [m^3/s];
+        attribute maxDischargePressure : Pressure = 160000 [Pa];
+        attribute maxThrombosisIndex : ThrombosisIndex = 0.85;
+
+        connect supplyPort to sourceReservoir.outlet;
+        connect sourceReservoir.outlet to pump.inlet;
+        connect pump.outlet to outletValve.inlet;
+        connect outletValve.outlet to dischargeManifold.inlet;
+        connect dischargeManifold.outlet to dischargePort;
+
+        connect powerPort to pump.power;
+        connect commandPort to pump.command;
+        connect telemetryPort to pump.telemetry;
+
+        perform action MaintainPumping;
+    }
+
+    action def PrimePump {
+        in pump : PumpThrombosis;
+        in primingFlowRate : VolumeFlowRate;
+        out primed : Boolean;
+
+        constraint {
+            primingFlowRate > 1.0e-5 [m^3/s]
+        }
+    }
+
+    action def RegulateFlow {
+        in targetFlowRate : VolumeFlowRate;
+        in measuredFlowRate : VolumeFlowRate;
+        in measuredPressureRise : Pressure;
+        out rotorSpeedCommand : Frequency;
+
+        constraint {
+            rotorSpeedCommand >= 0 [Hz] and rotorSpeedCommand <= 250 [Hz]
+        }
+    }
+
+    action def EstimateThrombosis {
+        in measuredFlowRate : VolumeFlowRate;
+        in inletPressure : Pressure;
+        in outletPressure : Pressure;
+        in motorCurrent : ElectricCurrent;
+        out thrombosisIndex : ThrombosisIndex;
+
+        constraint {
+            thrombosisIndex >= 0 and thrombosisIndex <= 1
+        }
+    }
+
+    action def ClearThrombosis {
+        in pump : PumpThrombosis;
+        in initialIndex : ThrombosisIndex;
+        out finalIndex : ThrombosisIndex;
+
+        attribute pulseDuration : Time = 0.5 [s];
+        attribute reversePulseSpeed : Frequency = 40 [Hz];
+        attribute forwardFlushSpeed : Frequency = 180 [Hz];
+
+        constraint {
+            finalIndex < initialIndex
+        }
+    }
+
+    action def ShutDownPump {
+        in pump : PumpThrombosis;
+        out stopped : Boolean;
+
+        constraint {
+            stopped == true
+        }
+    }
+
+    action def MaintainPumping {
+        first start;
+
+        then prime : PrimePump {
+            primingFlowRate = 2.0e-5 [m^3/s];
+        }
+
+        then regulate : RegulateFlow {
+            targetFlowRate = 8.33e-5 [m^3/s];
+        }
+
+        then estimate : EstimateThrombosis;
+
+        if estimate.thrombosisIndex >= 0.60 and estimate.thrombosisIndex < 0.85 then clear : ClearThrombosis;
+
+        if estimate.thrombosisIndex >= 0.85 then shutdown : ShutDownPump;
+
+        then done;
+    }
+
+    state def PumpOperatingState {
+        entry;
+        state Off;
+        state Priming;
+        state Running;
+        state ThrombosisWarning;
+        state ThrombosisClearance;
+        state FaultShutdown;
+
+        transition initial then Off;
+
+        transition Off_to_Priming
+            first Off
+            accept ControlCommand
+            if command.enablePump == true
+            then Priming;
+
+        transition Priming_to_Running
+            first Priming
+            if pump.primingVolume >= 2.5e-5 [m^3]
+            then Running;
+
+        transition Running_to_Warning
+            first Running
+            if pump.thrombosisIndex >= 0.60 and pump.thrombosisIndex < 0.85
+            then ThrombosisWarning;
+
+        transition Warning_to_Clearance
+            first ThrombosisWarning
+            if command.thrombosisClearanceEnabled == true
+            then ThrombosisClearance;
+
+        transition Clearance_to_Running
+            first ThrombosisClearance
+            if pump.thrombosisIndex < 0.60
+            then Running;
+
+        transition Any_to_FaultShutdown
+            first Running
+            if pump.thrombosisIndex >= 0.85 or pump.outlet.staticPressure > 160000 [Pa]
+            then FaultShutdown;
+
+        transition FaultShutdown_to_Off
+            first FaultShutdown
+            accept ControlCommand
+            if command.enablePump == false
+            then Off;
+    }
+
+    requirement def FlowDeliveryRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.deliveredFlowRate >= subsystem.allowedFlowRateLow and
+            subsystem.deliveredFlowRate <= subsystem.allowedFlowRateHigh
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.dischargePressure <= subsystem.maxDischargePressure
+        }
+    }
+
+    requirement def ThrombosisDetectionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.thrombosisMonitor.sampleRate >= 50 [Hz] and
+            subsystem.pump.thrombosisIndex <= subsystem.maxThrombosisIndex
+        }
+    }
+
+    requirement def ThrombosisMitigationRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.thrombosisIndex >= 0.60 implies
+            subsystem.pump.command.thrombosisClearanceEnabled == true
+        }
+    }
+
+    requirement def ReverseFlowPreventionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.outletValve.reverseLeakageRate <= 1.0e-8 [m^3/s]
+        }
+    }
+
+    requirement def HemocompatibilityRequirement {
+        subject pump : PumpThrombosis;
+
+        require constraint {
+            pump.hemolysisIndex <= 0.02 and
+            pump.thrombosisIndex <= 0.85
+        }
+    }
+
+    part pumpingSubsystem : PumpingSubsystem;
+
+    requirement flowDelivery : FlowDeliveryRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement pressureSafety : PressureSafetyRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement thrombosisDetection : ThrombosisDetectionRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement thrombosisMitigation : ThrombosisMitigationRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement reverseFlowPrevention : ReverseFlowPreventionRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement hemocompatibility : HemocompatibilityRequirement {
+        subject pump = pumpingSubsystem.pump;
+    }
+
+    satisfy flowDelivery by pumpingSubsystem;
+    satisfy pressureSafety by pumpingSubsystem;
+    satisfy thrombosisDetection by pumpingSubsystem.pump.thrombosisMonitor;
+    satisfy thrombosisMitigation by pumpingSubsystem.pump;
+    satisfy reverseFlowPrevention by pumpingSubsystem.outletValve;
+    satisfy hemocompatibility by pumpingSubsystem.pump;
+}
+tokens used
+4,597
+package PumpingSubsystemWithPumpThrombosis {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    item def WorkingFluid {
+        attribute density : MassDensity = 1060 [kg/m^3];
+        attribute dynamicViscosity : DynamicViscosity = 0.0035 [Pa*s];
+        attribute temperature : Temperature = 310.15 [K];
+        attribute thrombusVolumeFraction : Real;
+        attribute oxygenated : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute frequency : Frequency;
+    }
+
+    item def ControlCommand {
+        attribute targetFlowRate : VolumeFlowRate;
+        attribute targetPressureRise : Pressure;
+        attribute enablePump : Boolean;
+        attribute thrombosisClearanceEnabled : Boolean;
+    }
+
+    item def SensorSignal {
+        attribute value : Real;
+        attribute valid : Boolean;
+        attribute timestamp : Time;
+    }
+
+    value type ThrombosisIndex : Real {
+        doc
+        /* Dimensionless estimate of clot or thrombus formation risk in pump flow path. */
+    }
+
+    port def FluidInletPort {
+        in item fluid : WorkingFluid;
+        attribute staticPressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluid : WorkingFluid;
+        attribute staticPressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        out item flowSignal : SensorSignal;
+        out item pressureSignal : SensorSignal;
+        out item motorSpeedSignal : SensorSignal;
+        out item thrombosisSignal : SensorSignal;
+    }
+
+    part def PressureSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryPort;
+
+        attribute measuredPressure : Pressure;
+        attribute accuracy : Pressure = 133.322 [Pa];
+        attribute sampleRate : Frequency = 100 [Hz];
+    }
+
+    part def FlowSensor {
+        port sensedFluid : FluidOutletPort;
+        port telemetry : TelemetryPort;
+
+        attribute measuredFlowRate : VolumeFlowRate;
+        attribute minimumDetectableFlow : VolumeFlowRate = 1.0e-7 [m^3/s];
+        attribute sampleRate : Frequency = 100 [Hz];
+    }
+
+    part def MotorController {
+        port powerInput : PowerPort;
+        port commandInput : CommandPort;
+        port telemetry : TelemetryPort;
+
+        attribute commandedSpeed : Frequency;
+        attribute measuredSpeed : Frequency;
+        attribute phaseCurrent : ElectricCurrent;
+        attribute maxSpeed : Frequency = 250 [Hz];
+        attribute maxCurrent : ElectricCurrent = 12 [A];
+    }
+
+    part def ThrombosisMonitor {
+        port telemetry : TelemetryPort;
+
+        attribute thrombosisIndex : ThrombosisIndex;
+        attribute acousticSignatureLevel : Real;
+        attribute pressurePulsatility : Pressure;
+        attribute flowInstability : VolumeFlowRate;
+        attribute warningThreshold : ThrombosisIndex = 0.60;
+        attribute shutdownThreshold : ThrombosisIndex = 0.85;
+    }
+
+    part def PumpThrombosis {
+        doc
+        /* Pump element with integrated thrombus detection and clearance behavior. */
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port power : PowerPort;
+        port command : CommandPort;
+        port telemetry : TelemetryPort;
+
+        part motorController : MotorController;
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part thrombosisMonitor : ThrombosisMonitor;
+
+        attribute rotorSpeed : Frequency;
+        attribute impellerDiameter : Length = 0.035 [m];
+        attribute nominalFlowRate : VolumeFlowRate = 8.33e-5 [m^3/s];
+        attribute nominalPressureRise : Pressure = 80000 [Pa];
+        attribute hydraulicEfficiency : Real = 0.68;
+        attribute hemolysisIndex : Real;
+        attribute thrombosisIndex : ThrombosisIndex;
+        attribute primingVolume : Volume = 2.5e-5 [m^3];
+
+        connect power to motorController.powerInput;
+        connect command to motorController.commandInput;
+        connect inlet to inletPressureSensor.sensedFluid;
+        connect outlet to outletPressureSensor.sensedFluid;
+        connect outlet to flowSensor.sensedFluid;
+        connect telemetry to motorController.telemetry;
+        connect telemetry to inletPressureSensor.telemetry;
+        connect telemetry to outletPressureSensor.telemetry;
+        connect telemetry to flowSensor.telemetry;
+        connect telemetry to thrombosisMonitor.telemetry;
+    }
+
+    part def Reservoir {
+        port outlet : FluidOutletPort;
+
+        attribute containedVolume : Volume = 0.002 [m^3];
+        attribute minimumVolume : Volume = 0.0001 [m^3];
+        attribute fluidTemperature : Temperature = 310.15 [K];
+    }
+
+    part def DischargeManifold {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute internalVolume : Volume = 1.5e-5 [m^3];
+        attribute allowablePressure : Pressure = 200000 [Pa];
+    }
+
+    part def CheckValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute crackingPressure : Pressure = 2500 [Pa];
+        attribute reverseLeakageRate : VolumeFlowRate = 1.0e-8 [m^3/s];
+        attribute open : Boolean;
+    }
+
+    part def PumpingSubsystem {
+        port supplyPort : FluidInletPort;
+        port dischargePort : FluidOutletPort;
+        port powerPort : PowerPort;
+        port commandPort : CommandPort;
+        port telemetryPort : TelemetryPort;
+
+        part sourceReservoir : Reservoir;
+        part pump : PumpThrombosis;
+        part outletValve : CheckValve;
+        part dischargeManifold : DischargeManifold;
+
+        attribute deliveredFlowRate : VolumeFlowRate;
+        attribute dischargePressure : Pressure;
+        attribute pressureRise : Pressure;
+        attribute allowedFlowRateLow : VolumeFlowRate = 6.67e-5 [m^3/s];
+        attribute allowedFlowRateHigh : VolumeFlowRate = 1.00e-4 [m^3/s];
+        attribute maxDischargePressure : Pressure = 160000 [Pa];
+        attribute maxThrombosisIndex : ThrombosisIndex = 0.85;
+
+        connect supplyPort to sourceReservoir.outlet;
+        connect sourceReservoir.outlet to pump.inlet;
+        connect pump.outlet to outletValve.inlet;
+        connect outletValve.outlet to dischargeManifold.inlet;
+        connect dischargeManifold.outlet to dischargePort;
+
+        connect powerPort to pump.power;
+        connect commandPort to pump.command;
+        connect telemetryPort to pump.telemetry;
+
+        perform action MaintainPumping;
+    }
+
+    action def PrimePump {
+        in pump : PumpThrombosis;
+        in primingFlowRate : VolumeFlowRate;
+        out primed : Boolean;
+
+        constraint {
+            primingFlowRate > 1.0e-5 [m^3/s]
+        }
+    }
+
+    action def RegulateFlow {
+        in targetFlowRate : VolumeFlowRate;
+        in measuredFlowRate : VolumeFlowRate;
+        in measuredPressureRise : Pressure;
+        out rotorSpeedCommand : Frequency;
+
+        constraint {
+            rotorSpeedCommand >= 0 [Hz] and rotorSpeedCommand <= 250 [Hz]
+        }
+    }
+
+    action def EstimateThrombosis {
+        in measuredFlowRate : VolumeFlowRate;
+        in inletPressure : Pressure;
+        in outletPressure : Pressure;
+        in motorCurrent : ElectricCurrent;
+        out thrombosisIndex : ThrombosisIndex;
+
+        constraint {
+            thrombosisIndex >= 0 and thrombosisIndex <= 1
+        }
+    }
+
+    action def ClearThrombosis {
+        in pump : PumpThrombosis;
+        in initialIndex : ThrombosisIndex;
+        out finalIndex : ThrombosisIndex;
+
+        attribute pulseDuration : Time = 0.5 [s];
+        attribute reversePulseSpeed : Frequency = 40 [Hz];
+        attribute forwardFlushSpeed : Frequency = 180 [Hz];
+
+        constraint {
+            finalIndex < initialIndex
+        }
+    }
+
+    action def ShutDownPump {
+        in pump : PumpThrombosis;
+        out stopped : Boolean;
+
+        constraint {
+            stopped == true
+        }
+    }
+
+    action def MaintainPumping {
+        first start;
+
+        then prime : PrimePump {
+            primingFlowRate = 2.0e-5 [m^3/s];
+        }
+
+        then regulate : RegulateFlow {
+            targetFlowRate = 8.33e-5 [m^3/s];
+        }
+
+        then estimate : EstimateThrombosis;
+
+        if estimate.thrombosisIndex >= 0.60 and estimate.thrombosisIndex < 0.85 then clear : ClearThrombosis;
+
+        if estimate.thrombosisIndex >= 0.85 then shutdown : ShutDownPump;
+
+        then done;
+    }
+
+    state def PumpOperatingState {
+        entry;
+        state Off;
+        state Priming;
+        state Running;
+        state ThrombosisWarning;
+        state ThrombosisClearance;
+        state FaultShutdown;
+
+        transition initial then Off;
+
+        transition Off_to_Priming
+            first Off
+            accept ControlCommand
+            if command.enablePump == true
+            then Priming;
+
+        transition Priming_to_Running
+            first Priming
+            if pump.primingVolume >= 2.5e-5 [m^3]
+            then Running;
+
+        transition Running_to_Warning
+            first Running
+            if pump.thrombosisIndex >= 0.60 and pump.thrombosisIndex < 0.85
+            then ThrombosisWarning;
+
+        transition Warning_to_Clearance
+            first ThrombosisWarning
+            if command.thrombosisClearanceEnabled == true
+            then ThrombosisClearance;
+
+        transition Clearance_to_Running
+            first ThrombosisClearance
+            if pump.thrombosisIndex < 0.60
+            then Running;
+
+        transition Any_to_FaultShutdown
+            first Running
+            if pump.thrombosisIndex >= 0.85 or pump.outlet.staticPressure > 160000 [Pa]
+            then FaultShutdown;
+
+        transition FaultShutdown_to_Off
+            first FaultShutdown
+            accept ControlCommand
+            if command.enablePump == false
+            then Off;
+    }
+
+    requirement def FlowDeliveryRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.deliveredFlowRate >= subsystem.allowedFlowRateLow and
+            subsystem.deliveredFlowRate <= subsystem.allowedFlowRateHigh
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.dischargePressure <= subsystem.maxDischargePressure
+        }
+    }
+
+    requirement def ThrombosisDetectionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.thrombosisMonitor.sampleRate >= 50 [Hz] and
+            subsystem.pump.thrombosisIndex <= subsystem.maxThrombosisIndex
+        }
+    }
+
+    requirement def ThrombosisMitigationRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.thrombosisIndex >= 0.60 implies
+            subsystem.pump.command.thrombosisClearanceEnabled == true
+        }
+    }
+
+    requirement def ReverseFlowPreventionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.outletValve.reverseLeakageRate <= 1.0e-8 [m^3/s]
+        }
+    }
+
+    requirement def HemocompatibilityRequirement {
+        subject pump : PumpThrombosis;
+
+        require constraint {
+            pump.hemolysisIndex <= 0.02 and
+            pump.thrombosisIndex <= 0.85
+        }
+    }
+
+    part pumpingSubsystem : PumpingSubsystem;
+
+    requirement flowDelivery : FlowDeliveryRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement pressureSafety : PressureSafetyRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement thrombosisDetection : ThrombosisDetectionRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement thrombosisMitigation : ThrombosisMitigationRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement reverseFlowPrevention : ReverseFlowPreventionRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement hemocompatibility : HemocompatibilityRequirement {
+        subject pump = pumpingSubsystem.pump;
+    }
+
+    satisfy flowDelivery by pumpingSubsystem;
+    satisfy pressureSafety by pumpingSubsystem;
+    satisfy thrombosisDetection by pumpingSubsystem.pump.thrombosisMonitor;
+    satisfy thrombosisMitigation by pumpingSubsystem.pump;
+    satisfy reverseFlowPrevention by pumpingSubsystem.outletValve;
+    satisfy hemocompatibility by pumpingSubsystem.pump;
+}

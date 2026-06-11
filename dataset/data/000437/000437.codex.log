@@ -1,0 +1,849 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ojoebbwi
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2e1-6461-7062-9704-97b5ac5b1402
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Custom-made medical device and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CustomMadeMedicalDeviceModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  unit mm;
+  unit deg;
+  unit N;
+  unit kPa;
+  unit degC;
+  unit mA;
+  unit V;
+  unit min;
+  unit percent;
+
+  value def LengthValue {
+    value : Real [mm];
+  }
+
+  value def AngleValue {
+    value : Real [deg];
+  }
+
+  value def ForceValue {
+    value : Real [N];
+  }
+
+  value def PressureValue {
+    value : Real [kPa];
+  }
+
+  value def TemperatureValue {
+    value : Real [degC];
+  }
+
+  value def CurrentValue {
+    value : Real [mA];
+  }
+
+  value def VoltageValue {
+    value : Real [V];
+  }
+
+  value def TimeValue {
+    value : Real [min];
+  }
+
+  item def LimbContactPressure {
+    attribute magnitude : PressureValue;
+    attribute locationId : String;
+  }
+
+  item def WristAngleReading {
+    attribute flexionExtension : AngleValue;
+    attribute radialUlnarDeviation : AngleValue;
+    attribute timestampMinutes : TimeValue;
+  }
+
+  item def SkinTemperatureReading {
+    attribute temperature : TemperatureValue;
+    attribute sensorId : String;
+  }
+
+  item def TherapyCommand {
+    attribute targetSupportForce : ForceValue;
+    attribute allowedFlexionRange : AngleValue;
+    attribute sessionDuration : TimeValue;
+  }
+
+  item def DeviceStatus {
+    attribute batteryCharge : percent;
+    attribute activeState : String;
+    attribute faultCode : String;
+  }
+
+  item def ClinicianAlert {
+    attribute severity : String;
+    attribute message : String;
+    attribute timestampMinutes : TimeValue;
+  }
+
+  port def MechanicalSupportPort {
+    out supportForce : ForceValue;
+    in limbMotion : WristAngleReading;
+  }
+
+  port def SkinInterfacePort {
+    out contactPressure : LimbContactPressure;
+    out contactTemperature : SkinTemperatureReading;
+  }
+
+  port def DataPort {
+    in therapyCommand : TherapyCommand;
+    out status : DeviceStatus;
+    out alert : ClinicianAlert;
+  }
+
+  port def PowerPort {
+    in supplyVoltage : VoltageValue;
+    out consumedCurrent : CurrentValue;
+  }
+
+  part def PatientSpecificWristOrthosis {
+    attribute patientIdentifier : String;
+    attribute intendedPrimaryFunction : String = "Provide patient-specific external wrist stabilization while monitoring pressure, motion, temperature, and therapy compliance.";
+    attribute customFitTolerance : LengthValue = 1.5 [mm];
+    attribute maximumSupportForce : ForceValue = 45.0 [N];
+    attribute maximumAllowedPressure : PressureValue = 8.0 [kPa];
+    attribute maximumSkinTemperature : TemperatureValue = 38.0 [degC];
+    attribute nominalSupplyVoltage : VoltageValue = 3.7 [V];
+
+    port mechanicalInterface : MechanicalSupportPort;
+    port skinInterface : SkinInterfacePort;
+    port clinicianInterface : DataPort;
+    port powerInterface : PowerPort;
+
+    part customShell : CustomMoldedShell;
+    part adjustableStrapSet : StrapSet;
+    part pressureSensorArray : PressureSensorArray;
+    part motionSensor : InertialMotionSensor;
+    part skinTemperatureSensor : TemperatureSensor;
+    part controller : TherapyController;
+    part battery : RechargeableBattery;
+    part wirelessModule : SecureWirelessModule;
+    part statusIndicator : UserIndicator;
+
+    connect battery.powerOutput to controller.powerInput;
+    connect battery.powerOutput to wirelessModule.powerInput;
+    connect battery.powerOutput to pressureSensorArray.powerInput;
+    connect battery.powerOutput to motionSensor.powerInput;
+    connect battery.powerOutput to skinTemperatureSensor.powerInput;
+    connect pressureSensorArray.pressureData to controller.pressureInput;
+    connect motionSensor.motionData to controller.motionInput;
+    connect skinTemperatureSensor.temperatureData to controller.temperatureInput;
+    connect controller.commandOutput to statusIndicator.indicatorCommand;
+    connect controller.statusOutput to wirelessModule.statusInput;
+    connect wirelessModule.commandOutput to controller.commandInput;
+    connect customShell.supportOutput to mechanicalInterface;
+    connect adjustableStrapSet.compressionOutput to skinInterface;
+    connect controller.alertOutput to clinicianInterface;
+    connect powerInterface to battery.chargeInput;
+
+    exhibit state DeviceOperationalStates;
+    exhibit action PerformTherapySession;
+  }
+
+  part def CustomMoldedShell {
+    attribute shellMaterial : String = "biocompatible nylon 12";
+    attribute innerSurfaceOffset : LengthValue = 0.8 [mm];
+    attribute ventHoleDiameter : LengthValue = 4.0 [mm];
+    attribute mass : Real;
+    port supportOutput : MechanicalSupportPort;
+  }
+
+  part def StrapSet {
+    attribute strapCount : Integer = 3;
+    attribute strapWidth : LengthValue = 22.0 [mm];
+    attribute maximumTension : ForceValue = 30.0 [N];
+    port compressionOutput : SkinInterfacePort;
+  }
+
+  part def PressureSensorArray {
+    attribute sensorCount : Integer = 12;
+    attribute measurementRange : PressureValue = 20.0 [kPa];
+    port powerInput : PowerPort;
+    port pressureData {
+      out pressureReading : LimbContactPressure;
+    }
+  }
+
+  part def InertialMotionSensor {
+    attribute angularResolution : AngleValue = 0.5 [deg];
+    attribute samplingPeriod : TimeValue = 0.02 [min];
+    port powerInput : PowerPort;
+    port motionData {
+      out angleReading : WristAngleReading;
+    }
+  }
+
+  part def TemperatureSensor {
+    attribute accuracy : TemperatureValue = 0.2 [degC];
+    port powerInput : PowerPort;
+    port temperatureData {
+      out skinTemperature : SkinTemperatureReading;
+    }
+  }
+
+  part def TherapyController {
+    attribute firmwareVersion : String = "2.1.0";
+    attribute pressureLimit : PressureValue = 8.0 [kPa];
+    attribute temperatureLimit : TemperatureValue = 38.0 [degC];
+    attribute defaultSessionDuration : TimeValue = 20.0 [min];
+
+    port powerInput : PowerPort;
+
+    port commandInput {
+      in command : TherapyCommand;
+    }
+
+    port pressureInput {
+      in pressureReading : LimbContactPressure;
+    }
+
+    port motionInput {
+      in angleReading : WristAngleReading;
+    }
+
+    port temperatureInput {
+      in skinTemperature : SkinTemperatureReading;
+    }
+
+    port commandOutput {
+      out indicatorMode : String;
+    }
+
+    port statusOutput {
+      out status : DeviceStatus;
+    }
+
+    port alertOutput {
+      out alert : ClinicianAlert;
+    }
+  }
+
+  part def RechargeableBattery {
+    attribute capacity : Real = 850.0;
+    attribute nominalVoltage : VoltageValue = 3.7 [V];
+    attribute lowChargeThreshold : percent = 15;
+    port chargeInput : PowerPort;
+    port powerOutput : PowerPort;
+  }
+
+  part def SecureWirelessModule {
+    attribute protocol : String = "Bluetooth Low Energy with authenticated pairing";
+    attribute updateInterval : TimeValue = 1.0 [min];
+    port powerInput : PowerPort;
+    port commandOutput {
+      out command : TherapyCommand;
+    }
+    port statusInput {
+      in status : DeviceStatus;
+    }
+  }
+
+  part def UserIndicator {
+    attribute visualModes : String = "ready, active, caution, fault, charging";
+    port indicatorCommand {
+      in indicatorMode : String;
+    }
+  }
+
+  action def PerformTherapySession {
+    in prescribedCommand : TherapyCommand;
+    in measuredPressure : LimbContactPressure;
+    in measuredMotion : WristAngleReading;
+    in measuredTemperature : SkinTemperatureReading;
+    out sessionStatus : DeviceStatus;
+    out safetyAlert : ClinicianAlert;
+
+    first startSession;
+    then monitorFit;
+    then regulateSupport;
+    then evaluateSafety;
+    then reportStatus;
+
+    action startSession {
+      out initialized : Boolean;
+    }
+
+    action monitorFit {
+      in pressure : LimbContactPressure = measuredPressure;
+      in temperature : SkinTemperatureReading = measuredTemperature;
+      out fitAcceptable : Boolean;
+    }
+
+    action regulateSupport {
+      in command : TherapyCommand = prescribedCommand;
+      in motion : WristAngleReading = measuredMotion;
+      out appliedSupport : ForceValue;
+    }
+
+    action evaluateSafety {
+      in pressure : LimbContactPressure = measuredPressure;
+      in temperature : SkinTemperatureReading = measuredTemperature;
+      out safeToContinue : Boolean;
+    }
+
+    action reportStatus {
+      in safeToContinue : Boolean;
+      out status : DeviceStatus = sessionStatus;
+      out alert : ClinicianAlert = safetyAlert;
+    }
+  }
+
+  state def DeviceOperationalStates {
+    entry action initializeElectronics;
+
+    state Off;
+    state SelfTest;
+    state Ready;
+    state TherapyActive;
+    state SafetyPause;
+    state Fault;
+    state Charging;
+
+    transition first Off;
+
+    transition Off_to_SelfTest
+      first Off
+      then SelfTest
+      accept powerButtonPressed;
+
+    transition SelfTest_to_Ready
+      first SelfTest
+      then Ready
+      if selfTestPassed;
+
+    transition SelfTest_to_Fault
+      first SelfTest
+      then Fault
+      if selfTestFailed;
+
+    transition Ready_to_TherapyActive
+      first Ready
+      then TherapyActive
+      accept validTherapyCommandReceived;
+
+    transition TherapyActive_to_SafetyPause
+      first TherapyActive
+      then SafetyPause
+      if contactPressureHigh or skinTemperatureHigh;
+
+    transition SafetyPause_to_TherapyActive
+      first SafetyPause
+      then TherapyActive
+      if pressureNormalized and temperatureNormalized;
+
+    transition SafetyPause_to_Fault
+      first SafetyPause
+      then Fault
+      if unsafeConditionPersists;
+
+    transition TherapyActive_to_Ready
+      first TherapyActive
+      then Ready
+      if prescribedSessionComplete;
+
+    transition Ready_to_Charging
+      first Ready
+      then Charging
+      accept chargerConnected;
+
+    transition Charging_to_Ready
+      first Charging
+      then Ready
+      if chargeComplete;
+
+    transition Fault_to_Off
+      first Fault
+      then Off
+      accept clinicianReset;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The custom-made medical device shall provide patient-specific external wrist stabilization during prescribed therapy while maintaining safe skin contact conditions and reporting device status to a clinician interface. */
+  }
+
+  requirement def CustomFitRequirement {
+    doc
+    /* The inner support geometry shall match the patient's prescribed wrist and forearm contour with a dimensional fit tolerance no greater than 1.5 mm. */
+    require constraint { customFitTolerance.value <= 1.5 }
+  }
+
+  requirement def PressureSafetyRequirement {
+    doc
+    /* The device shall detect excessive contact pressure and pause therapy when any monitored location exceeds 8.0 kPa. */
+    require constraint { maximumAllowedPressure.value <= 8.0 }
+  }
+
+  requirement def TemperatureSafetyRequirement {
+    doc
+    /* The device shall detect unsafe skin temperature and pause therapy when measured skin temperature exceeds 38.0 degC. */
+    require constraint { maximumSkinTemperature.value <= 38.0 }
+  }
+
+  requirement def SupportForceRequirement {
+    doc
+    /* The device shall limit externally applied support force to no more than 45 N. */
+    require constraint { maximumSupportForce.value <= 45.0 }
+  }
+
+  requirement def StatusReportingRequirement {
+    doc
+    /* The device shall report battery level, active operating state, and safety alerts to the clinician interface during each therapy session. */
+  }
+
+  requirement def BatteryRequirement {
+    doc
+    /* The device shall operate from an internal rechargeable battery with nominal supply voltage of 3.7 V. */
+    require constraint { nominalSupplyVoltage.value == 3.7 }
+  }
+
+  part patientSpecificOrthosis : PatientSpecificWristOrthosis {
+    attribute patientIdentifier = "custom-device-recipient";
+    satisfy PrimaryFunctionRequirement;
+    satisfy CustomFitRequirement;
+    satisfy PressureSafetyRequirement;
+    satisfy TemperatureSafetyRequirement;
+    satisfy SupportForceRequirement;
+    satisfy StatusReportingRequirement;
+    satisfy BatteryRequirement;
+  }
+
+}
+tokens used
+4,292
+package CustomMadeMedicalDeviceModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  unit mm;
+  unit deg;
+  unit N;
+  unit kPa;
+  unit degC;
+  unit mA;
+  unit V;
+  unit min;
+  unit percent;
+
+  value def LengthValue {
+    value : Real [mm];
+  }
+
+  value def AngleValue {
+    value : Real [deg];
+  }
+
+  value def ForceValue {
+    value : Real [N];
+  }
+
+  value def PressureValue {
+    value : Real [kPa];
+  }
+
+  value def TemperatureValue {
+    value : Real [degC];
+  }
+
+  value def CurrentValue {
+    value : Real [mA];
+  }
+
+  value def VoltageValue {
+    value : Real [V];
+  }
+
+  value def TimeValue {
+    value : Real [min];
+  }
+
+  item def LimbContactPressure {
+    attribute magnitude : PressureValue;
+    attribute locationId : String;
+  }
+
+  item def WristAngleReading {
+    attribute flexionExtension : AngleValue;
+    attribute radialUlnarDeviation : AngleValue;
+    attribute timestampMinutes : TimeValue;
+  }
+
+  item def SkinTemperatureReading {
+    attribute temperature : TemperatureValue;
+    attribute sensorId : String;
+  }
+
+  item def TherapyCommand {
+    attribute targetSupportForce : ForceValue;
+    attribute allowedFlexionRange : AngleValue;
+    attribute sessionDuration : TimeValue;
+  }
+
+  item def DeviceStatus {
+    attribute batteryCharge : percent;
+    attribute activeState : String;
+    attribute faultCode : String;
+  }
+
+  item def ClinicianAlert {
+    attribute severity : String;
+    attribute message : String;
+    attribute timestampMinutes : TimeValue;
+  }
+
+  port def MechanicalSupportPort {
+    out supportForce : ForceValue;
+    in limbMotion : WristAngleReading;
+  }
+
+  port def SkinInterfacePort {
+    out contactPressure : LimbContactPressure;
+    out contactTemperature : SkinTemperatureReading;
+  }
+
+  port def DataPort {
+    in therapyCommand : TherapyCommand;
+    out status : DeviceStatus;
+    out alert : ClinicianAlert;
+  }
+
+  port def PowerPort {
+    in supplyVoltage : VoltageValue;
+    out consumedCurrent : CurrentValue;
+  }
+
+  part def PatientSpecificWristOrthosis {
+    attribute patientIdentifier : String;
+    attribute intendedPrimaryFunction : String = "Provide patient-specific external wrist stabilization while monitoring pressure, motion, temperature, and therapy compliance.";
+    attribute customFitTolerance : LengthValue = 1.5 [mm];
+    attribute maximumSupportForce : ForceValue = 45.0 [N];
+    attribute maximumAllowedPressure : PressureValue = 8.0 [kPa];
+    attribute maximumSkinTemperature : TemperatureValue = 38.0 [degC];
+    attribute nominalSupplyVoltage : VoltageValue = 3.7 [V];
+
+    port mechanicalInterface : MechanicalSupportPort;
+    port skinInterface : SkinInterfacePort;
+    port clinicianInterface : DataPort;
+    port powerInterface : PowerPort;
+
+    part customShell : CustomMoldedShell;
+    part adjustableStrapSet : StrapSet;
+    part pressureSensorArray : PressureSensorArray;
+    part motionSensor : InertialMotionSensor;
+    part skinTemperatureSensor : TemperatureSensor;
+    part controller : TherapyController;
+    part battery : RechargeableBattery;
+    part wirelessModule : SecureWirelessModule;
+    part statusIndicator : UserIndicator;
+
+    connect battery.powerOutput to controller.powerInput;
+    connect battery.powerOutput to wirelessModule.powerInput;
+    connect battery.powerOutput to pressureSensorArray.powerInput;
+    connect battery.powerOutput to motionSensor.powerInput;
+    connect battery.powerOutput to skinTemperatureSensor.powerInput;
+    connect pressureSensorArray.pressureData to controller.pressureInput;
+    connect motionSensor.motionData to controller.motionInput;
+    connect skinTemperatureSensor.temperatureData to controller.temperatureInput;
+    connect controller.commandOutput to statusIndicator.indicatorCommand;
+    connect controller.statusOutput to wirelessModule.statusInput;
+    connect wirelessModule.commandOutput to controller.commandInput;
+    connect customShell.supportOutput to mechanicalInterface;
+    connect adjustableStrapSet.compressionOutput to skinInterface;
+    connect controller.alertOutput to clinicianInterface;
+    connect powerInterface to battery.chargeInput;
+
+    exhibit state DeviceOperationalStates;
+    exhibit action PerformTherapySession;
+  }
+
+  part def CustomMoldedShell {
+    attribute shellMaterial : String = "biocompatible nylon 12";
+    attribute innerSurfaceOffset : LengthValue = 0.8 [mm];
+    attribute ventHoleDiameter : LengthValue = 4.0 [mm];
+    attribute mass : Real;
+    port supportOutput : MechanicalSupportPort;
+  }
+
+  part def StrapSet {
+    attribute strapCount : Integer = 3;
+    attribute strapWidth : LengthValue = 22.0 [mm];
+    attribute maximumTension : ForceValue = 30.0 [N];
+    port compressionOutput : SkinInterfacePort;
+  }
+
+  part def PressureSensorArray {
+    attribute sensorCount : Integer = 12;
+    attribute measurementRange : PressureValue = 20.0 [kPa];
+    port powerInput : PowerPort;
+    port pressureData {
+      out pressureReading : LimbContactPressure;
+    }
+  }
+
+  part def InertialMotionSensor {
+    attribute angularResolution : AngleValue = 0.5 [deg];
+    attribute samplingPeriod : TimeValue = 0.02 [min];
+    port powerInput : PowerPort;
+    port motionData {
+      out angleReading : WristAngleReading;
+    }
+  }
+
+  part def TemperatureSensor {
+    attribute accuracy : TemperatureValue = 0.2 [degC];
+    port powerInput : PowerPort;
+    port temperatureData {
+      out skinTemperature : SkinTemperatureReading;
+    }
+  }
+
+  part def TherapyController {
+    attribute firmwareVersion : String = "2.1.0";
+    attribute pressureLimit : PressureValue = 8.0 [kPa];
+    attribute temperatureLimit : TemperatureValue = 38.0 [degC];
+    attribute defaultSessionDuration : TimeValue = 20.0 [min];
+
+    port powerInput : PowerPort;
+
+    port commandInput {
+      in command : TherapyCommand;
+    }
+
+    port pressureInput {
+      in pressureReading : LimbContactPressure;
+    }
+
+    port motionInput {
+      in angleReading : WristAngleReading;
+    }
+
+    port temperatureInput {
+      in skinTemperature : SkinTemperatureReading;
+    }
+
+    port commandOutput {
+      out indicatorMode : String;
+    }
+
+    port statusOutput {
+      out status : DeviceStatus;
+    }
+
+    port alertOutput {
+      out alert : ClinicianAlert;
+    }
+  }
+
+  part def RechargeableBattery {
+    attribute capacity : Real = 850.0;
+    attribute nominalVoltage : VoltageValue = 3.7 [V];
+    attribute lowChargeThreshold : percent = 15;
+    port chargeInput : PowerPort;
+    port powerOutput : PowerPort;
+  }
+
+  part def SecureWirelessModule {
+    attribute protocol : String = "Bluetooth Low Energy with authenticated pairing";
+    attribute updateInterval : TimeValue = 1.0 [min];
+    port powerInput : PowerPort;
+    port commandOutput {
+      out command : TherapyCommand;
+    }
+    port statusInput {
+      in status : DeviceStatus;
+    }
+  }
+
+  part def UserIndicator {
+    attribute visualModes : String = "ready, active, caution, fault, charging";
+    port indicatorCommand {
+      in indicatorMode : String;
+    }
+  }
+
+  action def PerformTherapySession {
+    in prescribedCommand : TherapyCommand;
+    in measuredPressure : LimbContactPressure;
+    in measuredMotion : WristAngleReading;
+    in measuredTemperature : SkinTemperatureReading;
+    out sessionStatus : DeviceStatus;
+    out safetyAlert : ClinicianAlert;
+
+    first startSession;
+    then monitorFit;
+    then regulateSupport;
+    then evaluateSafety;
+    then reportStatus;
+
+    action startSession {
+      out initialized : Boolean;
+    }
+
+    action monitorFit {
+      in pressure : LimbContactPressure = measuredPressure;
+      in temperature : SkinTemperatureReading = measuredTemperature;
+      out fitAcceptable : Boolean;
+    }
+
+    action regulateSupport {
+      in command : TherapyCommand = prescribedCommand;
+      in motion : WristAngleReading = measuredMotion;
+      out appliedSupport : ForceValue;
+    }
+
+    action evaluateSafety {
+      in pressure : LimbContactPressure = measuredPressure;
+      in temperature : SkinTemperatureReading = measuredTemperature;
+      out safeToContinue : Boolean;
+    }
+
+    action reportStatus {
+      in safeToContinue : Boolean;
+      out status : DeviceStatus = sessionStatus;
+      out alert : ClinicianAlert = safetyAlert;
+    }
+  }
+
+  state def DeviceOperationalStates {
+    entry action initializeElectronics;
+
+    state Off;
+    state SelfTest;
+    state Ready;
+    state TherapyActive;
+    state SafetyPause;
+    state Fault;
+    state Charging;
+
+    transition first Off;
+
+    transition Off_to_SelfTest
+      first Off
+      then SelfTest
+      accept powerButtonPressed;
+
+    transition SelfTest_to_Ready
+      first SelfTest
+      then Ready
+      if selfTestPassed;
+
+    transition SelfTest_to_Fault
+      first SelfTest
+      then Fault
+      if selfTestFailed;
+
+    transition Ready_to_TherapyActive
+      first Ready
+      then TherapyActive
+      accept validTherapyCommandReceived;
+
+    transition TherapyActive_to_SafetyPause
+      first TherapyActive
+      then SafetyPause
+      if contactPressureHigh or skinTemperatureHigh;
+
+    transition SafetyPause_to_TherapyActive
+      first SafetyPause
+      then TherapyActive
+      if pressureNormalized and temperatureNormalized;
+
+    transition SafetyPause_to_Fault
+      first SafetyPause
+      then Fault
+      if unsafeConditionPersists;
+
+    transition TherapyActive_to_Ready
+      first TherapyActive
+      then Ready
+      if prescribedSessionComplete;
+
+    transition Ready_to_Charging
+      first Ready
+      then Charging
+      accept chargerConnected;
+
+    transition Charging_to_Ready
+      first Charging
+      then Ready
+      if chargeComplete;
+
+    transition Fault_to_Off
+      first Fault
+      then Off
+      accept clinicianReset;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The custom-made medical device shall provide patient-specific external wrist stabilization during prescribed therapy while maintaining safe skin contact conditions and reporting device status to a clinician interface. */
+  }
+
+  requirement def CustomFitRequirement {
+    doc
+    /* The inner support geometry shall match the patient's prescribed wrist and forearm contour with a dimensional fit tolerance no greater than 1.5 mm. */
+    require constraint { customFitTolerance.value <= 1.5 }
+  }
+
+  requirement def PressureSafetyRequirement {
+    doc
+    /* The device shall detect excessive contact pressure and pause therapy when any monitored location exceeds 8.0 kPa. */
+    require constraint { maximumAllowedPressure.value <= 8.0 }
+  }
+
+  requirement def TemperatureSafetyRequirement {
+    doc
+    /* The device shall detect unsafe skin temperature and pause therapy when measured skin temperature exceeds 38.0 degC. */
+    require constraint { maximumSkinTemperature.value <= 38.0 }
+  }
+
+  requirement def SupportForceRequirement {
+    doc
+    /* The device shall limit externally applied support force to no more than 45 N. */
+    require constraint { maximumSupportForce.value <= 45.0 }
+  }
+
+  requirement def StatusReportingRequirement {
+    doc
+    /* The device shall report battery level, active operating state, and safety alerts to the clinician interface during each therapy session. */
+  }
+
+  requirement def BatteryRequirement {
+    doc
+    /* The device shall operate from an internal rechargeable battery with nominal supply voltage of 3.7 V. */
+    require constraint { nominalSupplyVoltage.value == 3.7 }
+  }
+
+  part patientSpecificOrthosis : PatientSpecificWristOrthosis {
+    attribute patientIdentifier = "custom-device-recipient";
+    satisfy PrimaryFunctionRequirement;
+    satisfy CustomFitRequirement;
+    satisfy PressureSafetyRequirement;
+    satisfy TemperatureSafetyRequirement;
+    satisfy SupportForceRequirement;
+    satisfy StatusReportingRequirement;
+    satisfy BatteryRequirement;
+  }
+
+}

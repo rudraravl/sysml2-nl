@@ -1,0 +1,765 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-x2ch43fq
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb462-0b93-7e30-9774-7ac1bca7d033
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Y-Set and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package YSetBasedSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent specializes Real;
+    value def RequestsPerSecond specializes Real;
+    value def Millisecond specializes Real;
+    value def Watt specializes Real;
+    value def Volt specializes Real;
+    value def Ampere specializes Real;
+    value def Celsius specializes Real;
+
+    item def RawInputItem {
+        attribute id : String;
+        attribute timestampMs : Millisecond;
+        attribute payloadSizeBytes : Integer;
+        attribute priority : Integer;
+    }
+
+    item def ClassifiedItem {
+        attribute id : String;
+        attribute branchKey : BranchKind;
+        attribute confidence : Percent;
+        attribute payloadSizeBytes : Integer;
+    }
+
+    item def ProcessedResult {
+        attribute id : String;
+        attribute branchKey : BranchKind;
+        attribute success : Boolean;
+        attribute processingLatencyMs : Millisecond;
+    }
+
+    item def HealthReport {
+        attribute source : String;
+        attribute healthy : Boolean;
+        attribute utilization : Percent;
+        attribute temperatureC : Celsius;
+    }
+
+    enum def BranchKind {
+        enum general;
+        enum specialized;
+        enum rejected;
+    }
+
+    port def InputPort {
+        in item input : RawInputItem;
+    }
+
+    port def ClassifiedOutputPort {
+        out item classified : ClassifiedItem;
+    }
+
+    port def ClassifiedInputPort {
+        in item classified : ClassifiedItem;
+    }
+
+    port def ResultPort {
+        out item result : ProcessedResult;
+    }
+
+    port def HealthPort {
+        in item healthIn : HealthReport;
+        out item healthOut : HealthReport;
+    }
+
+    port def PowerPort {
+        in item voltage : Volt;
+        in item current : Ampere;
+    }
+
+    part def YSetClassifier {
+        port input : InputPort;
+        port generalOut : ClassifiedOutputPort;
+        port specializedOut : ClassifiedOutputPort;
+        port rejectedOut : ClassifiedOutputPort;
+        port health : HealthPort;
+        port power : PowerPort;
+
+        attribute acceptedLoad : RequestsPerSecond;
+        attribute classificationAccuracy : Percent;
+        attribute maxLatencyMs : Millisecond;
+        attribute operatingPowerW : Watt;
+
+        action classifyItem {
+            in item raw : RawInputItem;
+            out item classified : ClassifiedItem;
+
+            first start;
+            then evaluateCompleteness;
+            then evaluateBranchMembership;
+
+            if raw.payloadSizeBytes <= 0 then rejectItem;
+            if raw.priority >= 7 then assignSpecialized;
+            if raw.priority < 7 then assignGeneral;
+
+            action assignGeneral {
+                out item generalItem : ClassifiedItem {
+                    attribute branchKey = BranchKind::general;
+                }
+            }
+
+            action assignSpecialized {
+                out item specializedItem : ClassifiedItem {
+                    attribute branchKey = BranchKind::specialized;
+                }
+            }
+
+            action rejectItem {
+                out item rejectedItem : ClassifiedItem {
+                    attribute branchKey = BranchKind::rejected;
+                }
+            }
+
+            then done;
+        }
+
+        state def ClassifierState {
+            state initializing;
+            then state ready;
+            then state classifying;
+            then state degraded;
+            then state offline;
+
+            transition initializing_to_ready first initializing then ready;
+            transition ready_to_classifying first ready then classifying;
+            transition classifying_to_ready first classifying then ready;
+            transition ready_to_degraded first ready then degraded;
+            transition degraded_to_ready first degraded then ready;
+            transition any_to_offline first ready then offline;
+        }
+    }
+
+    part def GeneralBranchProcessor {
+        port input : ClassifiedInputPort;
+        port result : ResultPort;
+        port health : HealthPort;
+        port power : PowerPort;
+
+        attribute nominalThroughput : RequestsPerSecond;
+        attribute averageLatencyMs : Millisecond;
+        attribute utilization : Percent;
+
+        action processGeneralItem {
+            in item classified : ClassifiedItem;
+            out item resultItem : ProcessedResult {
+                attribute branchKey = BranchKind::general;
+            }
+        }
+    }
+
+    part def SpecializedBranchProcessor {
+        port input : ClassifiedInputPort;
+        port result : ResultPort;
+        port health : HealthPort;
+        port power : PowerPort;
+
+        attribute nominalThroughput : RequestsPerSecond;
+        attribute averageLatencyMs : Millisecond;
+        attribute utilization : Percent;
+
+        action processSpecializedItem {
+            in item classified : ClassifiedItem;
+            out item resultItem : ProcessedResult {
+                attribute branchKey = BranchKind::specialized;
+            }
+        }
+    }
+
+    part def ResultAggregator {
+        port generalResult : ResultPort;
+        port specializedResult : ResultPort;
+        port rejectedResult : ResultPort;
+        port health : HealthPort;
+
+        attribute deliveredThroughput : RequestsPerSecond;
+        attribute endToEndLatencyMs : Millisecond;
+        attribute deliverySuccessRate : Percent;
+
+        action aggregateResults {
+            in item general : ProcessedResult;
+            in item specialized : ProcessedResult;
+            in item rejected : ProcessedResult;
+            out item systemResult : ProcessedResult;
+        }
+    }
+
+    part def YSetControlUnit {
+        port classifierHealth : HealthPort;
+        port generalHealth : HealthPort;
+        port specializedHealth : HealthPort;
+        port aggregatorHealth : HealthPort;
+
+        attribute systemAvailability : Percent;
+        attribute safeModeActive : Boolean;
+        attribute thermalLimitC : Celsius;
+
+        action monitorYSet {
+            in item classifierReport : HealthReport;
+            in item generalReport : HealthReport;
+            in item specializedReport : HealthReport;
+            in item aggregatorReport : HealthReport;
+            out item operatingMode : String;
+        }
+
+        state def ControlState {
+            state startup;
+            then state normalOperation;
+            then state loadBalancing;
+            then state safeMode;
+            then state shutdown;
+
+            transition startup_to_normal first startup then normalOperation;
+            transition normal_to_loadBalancing first normalOperation then loadBalancing;
+            transition loadBalancing_to_normal first loadBalancing then normalOperation;
+            transition normal_to_safeMode first normalOperation then safeMode;
+            transition safeMode_to_normal first safeMode then normalOperation;
+            transition safeMode_to_shutdown first safeMode then shutdown;
+        }
+    }
+
+    part def YSetPowerSubsystem {
+        port classifierPower : PowerPort;
+        port generalPower : PowerPort;
+        port specializedPower : PowerPort;
+
+        attribute supplyVoltage : Volt = 24.0;
+        attribute maxCurrent : Ampere = 15.0;
+        attribute maxPowerW : Watt = 360.0;
+    }
+
+    part def YSetBasedSystem {
+        port externalInput : InputPort;
+        port externalResult : ResultPort;
+        port externalHealth : HealthPort;
+
+        part classifier : YSetClassifier {
+            attribute acceptedLoad = 1200.0;
+            attribute classificationAccuracy = 99.2;
+            attribute maxLatencyMs = 8.0;
+            attribute operatingPowerW = 42.0;
+        }
+
+        part generalBranch : GeneralBranchProcessor {
+            attribute nominalThroughput = 900.0;
+            attribute averageLatencyMs = 18.0;
+            attribute utilization = 65.0;
+        }
+
+        part specializedBranch : SpecializedBranchProcessor {
+            attribute nominalThroughput = 450.0;
+            attribute averageLatencyMs = 32.0;
+            attribute utilization = 58.0;
+        }
+
+        part aggregator : ResultAggregator {
+            attribute deliveredThroughput = 1150.0;
+            attribute endToEndLatencyMs = 45.0;
+            attribute deliverySuccessRate = 99.5;
+        }
+
+        part controlUnit : YSetControlUnit {
+            attribute systemAvailability = 99.9;
+            attribute safeModeActive = false;
+            attribute thermalLimitC = 75.0;
+        }
+
+        part powerSubsystem : YSetPowerSubsystem;
+
+        connect externalInput to classifier.input;
+        connect classifier.generalOut to generalBranch.input;
+        connect classifier.specializedOut to specializedBranch.input;
+        connect generalBranch.result to aggregator.generalResult;
+        connect specializedBranch.result to aggregator.specializedResult;
+        connect aggregator.generalResult to externalResult;
+
+        connect classifier.health to controlUnit.classifierHealth;
+        connect generalBranch.health to controlUnit.generalHealth;
+        connect specializedBranch.health to controlUnit.specializedHealth;
+        connect aggregator.health to controlUnit.aggregatorHealth;
+        connect controlUnit.aggregatorHealth to externalHealth;
+
+        connect powerSubsystem.classifierPower to classifier.power;
+        connect powerSubsystem.generalPower to generalBranch.power;
+        connect powerSubsystem.specializedPower to specializedBranch.power;
+
+        action primaryFunction {
+            in item incoming : RawInputItem;
+            out item result : ProcessedResult;
+
+            first receiveInput;
+            then classifyAgainstYSet;
+            then routeToSelectedBranch;
+            then processBranchWork;
+            then aggregateAndReport;
+
+            action receiveInput {
+                in item raw : RawInputItem;
+            }
+
+            action classifyAgainstYSet {
+                in item raw : RawInputItem;
+                out item classified : ClassifiedItem;
+            }
+
+            action routeToSelectedBranch {
+                in item classified : ClassifiedItem;
+            }
+
+            action processBranchWork {
+                in item classified : ClassifiedItem;
+                out item processed : ProcessedResult;
+            }
+
+            action aggregateAndReport {
+                in item processed : ProcessedResult;
+                out item delivered : ProcessedResult;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : YSetBasedSystem;
+
+        doc /* The system shall use a Y-shaped set structure to accept input through one common stem, classify each input into a defined branch, process the selected branch, and return a unified result. */
+
+        require constraint {
+            system.aggregator.deliverySuccessRate >= 99.0
+        }
+    }
+
+    requirement def ThroughputRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.classifier.acceptedLoad >= 1000.0
+        }
+    }
+
+    requirement def LatencyRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.aggregator.endToEndLatencyMs <= 50.0
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.controlUnit.systemAvailability >= 99.5
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.powerSubsystem.maxPowerW <= 360.0
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.controlUnit.thermalLimitC <= 75.0
+        }
+    }
+}
+tokens used
+4,161
+package YSetBasedSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent specializes Real;
+    value def RequestsPerSecond specializes Real;
+    value def Millisecond specializes Real;
+    value def Watt specializes Real;
+    value def Volt specializes Real;
+    value def Ampere specializes Real;
+    value def Celsius specializes Real;
+
+    item def RawInputItem {
+        attribute id : String;
+        attribute timestampMs : Millisecond;
+        attribute payloadSizeBytes : Integer;
+        attribute priority : Integer;
+    }
+
+    item def ClassifiedItem {
+        attribute id : String;
+        attribute branchKey : BranchKind;
+        attribute confidence : Percent;
+        attribute payloadSizeBytes : Integer;
+    }
+
+    item def ProcessedResult {
+        attribute id : String;
+        attribute branchKey : BranchKind;
+        attribute success : Boolean;
+        attribute processingLatencyMs : Millisecond;
+    }
+
+    item def HealthReport {
+        attribute source : String;
+        attribute healthy : Boolean;
+        attribute utilization : Percent;
+        attribute temperatureC : Celsius;
+    }
+
+    enum def BranchKind {
+        enum general;
+        enum specialized;
+        enum rejected;
+    }
+
+    port def InputPort {
+        in item input : RawInputItem;
+    }
+
+    port def ClassifiedOutputPort {
+        out item classified : ClassifiedItem;
+    }
+
+    port def ClassifiedInputPort {
+        in item classified : ClassifiedItem;
+    }
+
+    port def ResultPort {
+        out item result : ProcessedResult;
+    }
+
+    port def HealthPort {
+        in item healthIn : HealthReport;
+        out item healthOut : HealthReport;
+    }
+
+    port def PowerPort {
+        in item voltage : Volt;
+        in item current : Ampere;
+    }
+
+    part def YSetClassifier {
+        port input : InputPort;
+        port generalOut : ClassifiedOutputPort;
+        port specializedOut : ClassifiedOutputPort;
+        port rejectedOut : ClassifiedOutputPort;
+        port health : HealthPort;
+        port power : PowerPort;
+
+        attribute acceptedLoad : RequestsPerSecond;
+        attribute classificationAccuracy : Percent;
+        attribute maxLatencyMs : Millisecond;
+        attribute operatingPowerW : Watt;
+
+        action classifyItem {
+            in item raw : RawInputItem;
+            out item classified : ClassifiedItem;
+
+            first start;
+            then evaluateCompleteness;
+            then evaluateBranchMembership;
+
+            if raw.payloadSizeBytes <= 0 then rejectItem;
+            if raw.priority >= 7 then assignSpecialized;
+            if raw.priority < 7 then assignGeneral;
+
+            action assignGeneral {
+                out item generalItem : ClassifiedItem {
+                    attribute branchKey = BranchKind::general;
+                }
+            }
+
+            action assignSpecialized {
+                out item specializedItem : ClassifiedItem {
+                    attribute branchKey = BranchKind::specialized;
+                }
+            }
+
+            action rejectItem {
+                out item rejectedItem : ClassifiedItem {
+                    attribute branchKey = BranchKind::rejected;
+                }
+            }
+
+            then done;
+        }
+
+        state def ClassifierState {
+            state initializing;
+            then state ready;
+            then state classifying;
+            then state degraded;
+            then state offline;
+
+            transition initializing_to_ready first initializing then ready;
+            transition ready_to_classifying first ready then classifying;
+            transition classifying_to_ready first classifying then ready;
+            transition ready_to_degraded first ready then degraded;
+            transition degraded_to_ready first degraded then ready;
+            transition any_to_offline first ready then offline;
+        }
+    }
+
+    part def GeneralBranchProcessor {
+        port input : ClassifiedInputPort;
+        port result : ResultPort;
+        port health : HealthPort;
+        port power : PowerPort;
+
+        attribute nominalThroughput : RequestsPerSecond;
+        attribute averageLatencyMs : Millisecond;
+        attribute utilization : Percent;
+
+        action processGeneralItem {
+            in item classified : ClassifiedItem;
+            out item resultItem : ProcessedResult {
+                attribute branchKey = BranchKind::general;
+            }
+        }
+    }
+
+    part def SpecializedBranchProcessor {
+        port input : ClassifiedInputPort;
+        port result : ResultPort;
+        port health : HealthPort;
+        port power : PowerPort;
+
+        attribute nominalThroughput : RequestsPerSecond;
+        attribute averageLatencyMs : Millisecond;
+        attribute utilization : Percent;
+
+        action processSpecializedItem {
+            in item classified : ClassifiedItem;
+            out item resultItem : ProcessedResult {
+                attribute branchKey = BranchKind::specialized;
+            }
+        }
+    }
+
+    part def ResultAggregator {
+        port generalResult : ResultPort;
+        port specializedResult : ResultPort;
+        port rejectedResult : ResultPort;
+        port health : HealthPort;
+
+        attribute deliveredThroughput : RequestsPerSecond;
+        attribute endToEndLatencyMs : Millisecond;
+        attribute deliverySuccessRate : Percent;
+
+        action aggregateResults {
+            in item general : ProcessedResult;
+            in item specialized : ProcessedResult;
+            in item rejected : ProcessedResult;
+            out item systemResult : ProcessedResult;
+        }
+    }
+
+    part def YSetControlUnit {
+        port classifierHealth : HealthPort;
+        port generalHealth : HealthPort;
+        port specializedHealth : HealthPort;
+        port aggregatorHealth : HealthPort;
+
+        attribute systemAvailability : Percent;
+        attribute safeModeActive : Boolean;
+        attribute thermalLimitC : Celsius;
+
+        action monitorYSet {
+            in item classifierReport : HealthReport;
+            in item generalReport : HealthReport;
+            in item specializedReport : HealthReport;
+            in item aggregatorReport : HealthReport;
+            out item operatingMode : String;
+        }
+
+        state def ControlState {
+            state startup;
+            then state normalOperation;
+            then state loadBalancing;
+            then state safeMode;
+            then state shutdown;
+
+            transition startup_to_normal first startup then normalOperation;
+            transition normal_to_loadBalancing first normalOperation then loadBalancing;
+            transition loadBalancing_to_normal first loadBalancing then normalOperation;
+            transition normal_to_safeMode first normalOperation then safeMode;
+            transition safeMode_to_normal first safeMode then normalOperation;
+            transition safeMode_to_shutdown first safeMode then shutdown;
+        }
+    }
+
+    part def YSetPowerSubsystem {
+        port classifierPower : PowerPort;
+        port generalPower : PowerPort;
+        port specializedPower : PowerPort;
+
+        attribute supplyVoltage : Volt = 24.0;
+        attribute maxCurrent : Ampere = 15.0;
+        attribute maxPowerW : Watt = 360.0;
+    }
+
+    part def YSetBasedSystem {
+        port externalInput : InputPort;
+        port externalResult : ResultPort;
+        port externalHealth : HealthPort;
+
+        part classifier : YSetClassifier {
+            attribute acceptedLoad = 1200.0;
+            attribute classificationAccuracy = 99.2;
+            attribute maxLatencyMs = 8.0;
+            attribute operatingPowerW = 42.0;
+        }
+
+        part generalBranch : GeneralBranchProcessor {
+            attribute nominalThroughput = 900.0;
+            attribute averageLatencyMs = 18.0;
+            attribute utilization = 65.0;
+        }
+
+        part specializedBranch : SpecializedBranchProcessor {
+            attribute nominalThroughput = 450.0;
+            attribute averageLatencyMs = 32.0;
+            attribute utilization = 58.0;
+        }
+
+        part aggregator : ResultAggregator {
+            attribute deliveredThroughput = 1150.0;
+            attribute endToEndLatencyMs = 45.0;
+            attribute deliverySuccessRate = 99.5;
+        }
+
+        part controlUnit : YSetControlUnit {
+            attribute systemAvailability = 99.9;
+            attribute safeModeActive = false;
+            attribute thermalLimitC = 75.0;
+        }
+
+        part powerSubsystem : YSetPowerSubsystem;
+
+        connect externalInput to classifier.input;
+        connect classifier.generalOut to generalBranch.input;
+        connect classifier.specializedOut to specializedBranch.input;
+        connect generalBranch.result to aggregator.generalResult;
+        connect specializedBranch.result to aggregator.specializedResult;
+        connect aggregator.generalResult to externalResult;
+
+        connect classifier.health to controlUnit.classifierHealth;
+        connect generalBranch.health to controlUnit.generalHealth;
+        connect specializedBranch.health to controlUnit.specializedHealth;
+        connect aggregator.health to controlUnit.aggregatorHealth;
+        connect controlUnit.aggregatorHealth to externalHealth;
+
+        connect powerSubsystem.classifierPower to classifier.power;
+        connect powerSubsystem.generalPower to generalBranch.power;
+        connect powerSubsystem.specializedPower to specializedBranch.power;
+
+        action primaryFunction {
+            in item incoming : RawInputItem;
+            out item result : ProcessedResult;
+
+            first receiveInput;
+            then classifyAgainstYSet;
+            then routeToSelectedBranch;
+            then processBranchWork;
+            then aggregateAndReport;
+
+            action receiveInput {
+                in item raw : RawInputItem;
+            }
+
+            action classifyAgainstYSet {
+                in item raw : RawInputItem;
+                out item classified : ClassifiedItem;
+            }
+
+            action routeToSelectedBranch {
+                in item classified : ClassifiedItem;
+            }
+
+            action processBranchWork {
+                in item classified : ClassifiedItem;
+                out item processed : ProcessedResult;
+            }
+
+            action aggregateAndReport {
+                in item processed : ProcessedResult;
+                out item delivered : ProcessedResult;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : YSetBasedSystem;
+
+        doc /* The system shall use a Y-shaped set structure to accept input through one common stem, classify each input into a defined branch, process the selected branch, and return a unified result. */
+
+        require constraint {
+            system.aggregator.deliverySuccessRate >= 99.0
+        }
+    }
+
+    requirement def ThroughputRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.classifier.acceptedLoad >= 1000.0
+        }
+    }
+
+    requirement def LatencyRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.aggregator.endToEndLatencyMs <= 50.0
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.controlUnit.systemAvailability >= 99.5
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.powerSubsystem.maxPowerW <= 360.0
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject system : YSetBasedSystem;
+
+        require constraint {
+            system.controlUnit.thermalLimitC <= 75.0
+        }
+    }
+}

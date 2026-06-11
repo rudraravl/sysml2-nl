@@ -1,0 +1,634 @@
+package AirIoniserSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def ElectricPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def AirFlowRate {
+        unit : Unit = m^3 / s;
+        quantityKind : QuantityKind;
+    }
+
+    attribute def IonConcentration {
+        unit : Unit = 1 / m^3;
+        quantityKind : QuantityKind;
+    }
+
+    attribute def ParticleConcentration {
+        unit : Unit = 1 / m^3;
+        quantityKind : QuantityKind;
+    }
+
+    attribute def OzoneConcentration {
+        unit : Unit = 1e-9;
+        quantityKind : QuantityKind;
+    }
+
+    attribute def AcousticNoiseLevel {
+        unit : Unit = dB;
+        quantityKind : QuantityKind;
+    }
+
+    attribute def OperatingTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    enum def IoniserMode {
+        enum off;
+        enum standby;
+        enum ionising;
+        enum fault;
+        enum service;
+    }
+
+    enum def Polarity {
+        enum negative;
+        enum positive;
+        enum bipolar;
+    }
+
+    enum def FaultCode {
+        enum none;
+        enum overVoltage;
+        enum overCurrent;
+        enum fanStalled;
+        enum ozoneLimitExceeded;
+        enum coverOpen;
+        enum emitterEndOfLife;
+        enum sensorFailure;
+    }
+
+    item def AmbientAir {
+        attribute temperature : OperatingTemperature;
+        attribute relativeHumidity : Real;
+        attribute particleConcentration : ParticleConcentration;
+        attribute ozoneConcentration : OzoneConcentration;
+    }
+
+    item def IonisedAir :> AmbientAir {
+        attribute negativeIonConcentration : IonConcentration;
+        attribute positiveIonConcentration : IonConcentration;
+        attribute residualParticleConcentration : ParticleConcentration;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : ElectricPower;
+    }
+
+    item def UserCommand {
+        attribute requestedMode : IoniserMode;
+        attribute targetFanSpeedPercent : Real;
+        attribute childLockEnabled : Boolean;
+    }
+
+    item def StatusMessage {
+        attribute currentMode : IoniserMode;
+        attribute activeFault : FaultCode;
+        attribute emitterLifeRemainingHours : Real;
+        attribute measuredIonConcentration : IonConcentration;
+        attribute measuredOzoneConcentration : OzoneConcentration;
+    }
+
+    port def AirInletPort {
+        in item airIn : AmbientAir;
+    }
+
+    port def AirOutletPort {
+        out item airOut : IonisedAir;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : ElectricalEnergy;
+    }
+
+    port def LowVoltagePowerPort {
+        out item regulatedPower : ElectricalEnergy;
+    }
+
+    port def HighVoltagePowerPort {
+        out item highVoltagePower : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in item command : UserCommand;
+        out item status : StatusMessage;
+    }
+
+    port def SensorDataPort {
+        out attribute particleLevel : ParticleConcentration;
+        out attribute ozoneLevel : OzoneConcentration;
+        out attribute airflowRate : AirFlowRate;
+        out attribute coverClosed : Boolean;
+    }
+
+    part def AirIoniserSystem {
+        attribute nominalInputVoltage : ElectricPotential = 120 [SI::volt];
+        attribute maximumInputPower : ElectricPower = 8 [SI::watt];
+        attribute operatingMode : IoniserMode = IoniserMode::off;
+        attribute selectedPolarity : Polarity = Polarity::negative;
+        attribute targetAirFlowRate : AirFlowRate = 0.018 [m^3 / s];
+        attribute targetNegativeIonConcentration : IonConcentration = 5000000 [1 / m^3];
+        attribute maximumOzoneConcentration : OzoneConcentration = 50 [1e-9];
+        attribute maximumNoiseLevel : AcousticNoiseLevel = 35 [dB];
+
+        port powerInput : PowerInputPort;
+        port userInterface : ControlPort;
+        port roomAirInlet : AirInletPort;
+        port treatedAirOutlet : AirOutletPort;
+
+        part enclosure : Enclosure;
+        part powerSupply : PowerSupply;
+        part controller : IoniserController;
+        part highVoltageGenerator : HighVoltageGenerator;
+        part emitterArray : IonEmitterArray;
+        part airflowModule : AirflowModule;
+        part sensorSuite : SensorSuite;
+        part safetyInterlock : SafetyInterlock;
+        part indicatorPanel : IndicatorPanel;
+
+        connect powerInput to powerSupply.acInput;
+        connect powerSupply.lowVoltageOutput to controller.powerInput;
+        connect powerSupply.lowVoltageOutput to sensorSuite.powerInput;
+        connect powerSupply.lowVoltageOutput to airflowModule.powerInput;
+        connect controller.highVoltageCommand to highVoltageGenerator.controlInput;
+        connect highVoltageGenerator.highVoltageOutput to emitterArray.highVoltageInput;
+        connect controller.fanCommand to airflowModule.controlInput;
+        connect sensorSuite.sensorData to controller.sensorInput;
+        connect safetyInterlock.interlockStatus to controller.interlockInput;
+        connect controller.panelStatus to indicatorPanel.statusInput;
+        connect userInterface to controller.externalControl;
+        connect roomAirInlet to airflowModule.airInput;
+        connect airflowModule.airOutput to emitterArray.airInput;
+        connect emitterArray.airOutput to treatedAirOutlet;
+
+        perform action ioniseAir : IoniseAirAction;
+        exhibit state ioniserOperationalStates : IoniserOperationalStateMachine;
+    }
+
+    part def Enclosure {
+        attribute materialFlammabilityRating : String = "UL94-V0";
+        attribute ingressProtectionRating : String = "IP20";
+        attribute coverClosed : Boolean = true;
+
+        port intakeOpening : AirInletPort;
+        port outletGrille : AirOutletPort;
+    }
+
+    part def PowerSupply {
+        attribute inputVoltage : ElectricPotential = 120 [SI::volt];
+        attribute lowVoltageOutputVoltage : ElectricPotential = 12 [SI::volt];
+        attribute maximumOutputPower : ElectricPower = 8 [SI::watt];
+        attribute efficiency : Real = 0.82;
+
+        port acInput : PowerInputPort;
+        port lowVoltageOutput : LowVoltagePowerPort;
+    }
+
+    part def IoniserController {
+        attribute mode : IoniserMode = IoniserMode::off;
+        attribute commandedFanSpeedPercent : Real = 0;
+        attribute highVoltageEnabled : Boolean = false;
+        attribute activeFault : FaultCode = FaultCode::none;
+        attribute ozoneShutdownThreshold : OzoneConcentration = 50 [1e-9];
+        attribute minimumAirflowForIonisation : AirFlowRate = 0.006 [m^3 / s];
+
+        port powerInput : PowerInputPort;
+        port externalControl : ControlPort;
+        port sensorInput : SensorDataPort;
+        port interlockInput {
+            in attribute coverClosed : Boolean;
+            in attribute serviceLatchClosed : Boolean;
+        }
+        port highVoltageCommand {
+            out attribute enableHighVoltage : Boolean;
+            out attribute targetVoltage : ElectricPotential;
+            out attribute targetPolarity : Polarity;
+        }
+        port fanCommand {
+            out attribute enableFan : Boolean;
+            out attribute speedPercent : Real;
+        }
+        port panelStatus : ControlPort;
+
+        perform action monitorSafety : MonitorSafetyAction;
+        perform action regulateIonOutput : RegulateIonOutputAction;
+    }
+
+    part def HighVoltageGenerator {
+        attribute inputVoltage : ElectricPotential = 12 [SI::volt];
+        attribute outputVoltage : ElectricPotential = -7000 [SI::volt];
+        attribute maximumOutputCurrent : ElectricCurrent = 0.00002 [SI::ampere];
+        attribute switchingFrequencyHz : Real = 38000;
+
+        port controlInput {
+            in attribute enableHighVoltage : Boolean;
+            in attribute targetVoltage : ElectricPotential;
+            in attribute targetPolarity : Polarity;
+        }
+        port highVoltageOutput : HighVoltagePowerPort;
+    }
+
+    part def IonEmitterArray {
+        attribute emitterMaterial : String = "carbon fiber brush";
+        attribute emitterCount : Integer = 12;
+        attribute nominalEmitterVoltage : ElectricPotential = -7000 [SI::volt];
+        attribute nominalCoronaCurrent : ElectricCurrent = 0.000012 [SI::ampere];
+        attribute generatedNegativeIonConcentration : IonConcentration = 5000000 [1 / m^3];
+        attribute ozoneGenerationRatePpm : OzoneConcentration = 8 [1e-9];
+
+        port highVoltageInput : HighVoltagePowerPort;
+        port airInput : AirInletPort;
+        port airOutput : AirOutletPort;
+
+        perform action createCoronaDischarge : CoronaDischargeAction;
+    }
+
+    part def AirflowModule {
+        attribute fanSpeedPercent : Real = 55;
+        attribute nominalAirFlowRate : AirFlowRate = 0.018 [m^3 / s];
+        attribute maximumNoiseLevel : AcousticNoiseLevel = 35 [dB];
+
+        port powerInput : PowerInputPort;
+        port controlInput {
+            in attribute enableFan : Boolean;
+            in attribute speedPercent : Real;
+        }
+        port airInput : AirInletPort;
+        port airOutput : AirOutletPort;
+    }
+
+    part def SensorSuite {
+        attribute particleMeasurementRange : ParticleConcentration = 100000000 [1 / m^3];
+        attribute ozoneMeasurementRange : OzoneConcentration = 200 [1e-9];
+        attribute airflowMeasurementRange : AirFlowRate = 0.04 [m^3 / s];
+
+        port powerInput : PowerInputPort;
+        port sensorData : SensorDataPort;
+
+        part particleSensor : ParticleSensor;
+        part ozoneSensor : OzoneSensor;
+        part airflowSensor : AirflowSensor;
+    }
+
+    part def ParticleSensor {
+        attribute measuredParticleConcentration : ParticleConcentration;
+        attribute accuracyPercent : Real = 15;
+    }
+
+    part def OzoneSensor {
+        attribute measuredOzoneConcentration : OzoneConcentration;
+        attribute alarmThreshold : OzoneConcentration = 50 [1e-9];
+    }
+
+    part def AirflowSensor {
+        attribute measuredAirflowRate : AirFlowRate;
+        attribute stallDetected : Boolean = false;
+    }
+
+    part def SafetyInterlock {
+        attribute coverClosed : Boolean = true;
+        attribute serviceLatchClosed : Boolean = true;
+        attribute highVoltagePermitted : Boolean = true;
+
+        port interlockStatus {
+            out attribute coverClosed : Boolean;
+            out attribute serviceLatchClosed : Boolean;
+        }
+    }
+
+    part def IndicatorPanel {
+        attribute displayedMode : IoniserMode;
+        attribute displayedFault : FaultCode;
+        attribute ionisationIndicatorOn : Boolean;
+        attribute serviceIndicatorOn : Boolean;
+
+        port statusInput : ControlPort;
+    }
+
+    action def IoniseAirAction {
+        in item untreatedAir : AmbientAir;
+        in attribute requestedAirflowRate : AirFlowRate;
+        in attribute requestedIonConcentration : IonConcentration;
+        out item treatedAir : IonisedAir;
+
+        first start;
+        then drawAir;
+        then energizeEmitter;
+        then chargeMolecules;
+        then mixIonCloud;
+        then dischargeTreatedAir;
+        then done;
+
+        action drawAir {
+            in item air : AmbientAir = untreatedAir;
+            out item movingAir : AmbientAir;
+        }
+
+        action energizeEmitter {
+            in attribute voltage : ElectricPotential = -7000 [SI::volt];
+            out attribute coronaEstablished : Boolean;
+        }
+
+        action chargeMolecules {
+            in item movingAir : AmbientAir;
+            in attribute coronaEstablished : Boolean;
+            out item chargedAir : IonisedAir;
+        }
+
+        action mixIonCloud {
+            in item chargedAir : IonisedAir;
+            out item conditionedAir : IonisedAir;
+        }
+
+        action dischargeTreatedAir {
+            in item conditionedAir : IonisedAir;
+            out item treatedAirOutput : IonisedAir = treatedAir;
+        }
+    }
+
+    action def CoronaDischargeAction {
+        in item incomingAir : AmbientAir;
+        in attribute highVoltage : ElectricPotential;
+        in attribute coronaCurrent : ElectricCurrent;
+        out item ionisedAir : IonisedAir;
+
+        first start;
+        then establishElectricField;
+        then releaseElectrons;
+        then formNegativeIons;
+        then limitOzoneByCurrentControl;
+        then done;
+
+        action establishElectricField {
+            in attribute emitterVoltage : ElectricPotential = highVoltage;
+            out attribute fieldReady : Boolean;
+        }
+
+        action releaseElectrons {
+            in attribute fieldReady : Boolean;
+            out attribute electronFlowStable : Boolean;
+        }
+
+        action formNegativeIons {
+            in item sourceAir : AmbientAir = incomingAir;
+            in attribute electronFlowStable : Boolean;
+            out item chargedAir : IonisedAir = ionisedAir;
+        }
+
+        action limitOzoneByCurrentControl {
+            in attribute coronaCurrentFeedback : ElectricCurrent = coronaCurrent;
+            out attribute currentLimited : Boolean;
+        }
+    }
+
+    action def MonitorSafetyAction {
+        in attribute measuredOzone : OzoneConcentration;
+        in attribute measuredAirflow : AirFlowRate;
+        in attribute coverClosed : Boolean;
+        out attribute highVoltageAllowed : Boolean;
+        out attribute reportedFault : FaultCode;
+
+        first start;
+        then evaluateCover;
+        then evaluateAirflow;
+        then evaluateOzone;
+        then setPermit;
+        then done;
+
+        action evaluateCover {
+            out attribute coverOk : Boolean = coverClosed;
+        }
+
+        action evaluateAirflow {
+            out attribute airflowOk : Boolean;
+        }
+
+        action evaluateOzone {
+            out attribute ozoneOk : Boolean;
+        }
+
+        action setPermit {
+            in attribute coverOk : Boolean;
+            in attribute airflowOk : Boolean;
+            in attribute ozoneOk : Boolean;
+            out attribute permit : Boolean = highVoltageAllowed;
+        }
+    }
+
+    action def RegulateIonOutputAction {
+        in attribute targetIonConcentration : IonConcentration;
+        in attribute measuredIonConcentration : IonConcentration;
+        in attribute measuredOzone : OzoneConcentration;
+        out attribute commandedVoltage : ElectricPotential;
+        out attribute commandedFanSpeedPercent : Real;
+
+        first start;
+        then compareIonLevel;
+        then adjustVoltage;
+        then adjustFanSpeed;
+        then done;
+
+        action compareIonLevel {
+            out attribute ionError : IonConcentration;
+        }
+
+        action adjustVoltage {
+            in attribute ionError : IonConcentration;
+            out attribute voltageCommand : ElectricPotential = commandedVoltage;
+        }
+
+        action adjustFanSpeed {
+            in attribute measuredOzoneLevel : OzoneConcentration = measuredOzone;
+            out attribute fanCommand : Real = commandedFanSpeedPercent;
+        }
+    }
+
+    state def IoniserOperationalStateMachine {
+        entry action initialize {
+            out attribute initialMode : IoniserMode = IoniserMode::standby;
+        }
+
+        state Off;
+        state Standby;
+        state Ionising;
+        state Fault;
+        state Service;
+
+        transition first Off;
+        transition Off_to_Standby
+            first Off
+            accept UserCommand
+            if requestedMode == IoniserMode::standby
+            then Standby;
+
+        transition Standby_to_Ionising
+            first Standby
+            accept UserCommand
+            if requestedMode == IoniserMode::ionising
+            then Ionising;
+
+        transition Ionising_to_Standby
+            first Ionising
+            accept UserCommand
+            if requestedMode == IoniserMode::standby
+            then Standby;
+
+        transition Any_to_Fault_from_Ozone
+            first Ionising
+            if activeFault == FaultCode::ozoneLimitExceeded
+            then Fault;
+
+        transition Any_to_Fault_from_Interlock
+            first Ionising
+            if activeFault == FaultCode::coverOpen
+            then Fault;
+
+        transition Fault_to_Standby
+            first Fault
+            accept UserCommand
+            if requestedMode == IoniserMode::standby and activeFault == FaultCode::none
+            then Standby;
+
+        transition Standby_to_Service
+            first Standby
+            accept UserCommand
+            if requestedMode == IoniserMode::service
+            then Service;
+
+        transition Service_to_Off
+            first Service
+            accept UserCommand
+            if requestedMode == IoniserMode::off
+            then Off;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The air ioniser shall draw room air through an internal airflow path, apply a controlled high-voltage corona discharge to generate airborne ions, and discharge ion-enriched air back into the occupied space to support particle charge and air conditioning at a high level. */
+
+        subject ioniser : AirIoniserSystem;
+
+        require constraint {
+            ioniser.targetNegativeIonConcentration >= 5000000 [1 / m^3]
+        }
+    }
+
+    requirement def ElectricalSafetyRequirement {
+        doc
+        /* The air ioniser shall disable high voltage whenever the enclosure cover is open, airflow is below the minimum safe value, or measured ozone exceeds the allowed threshold. */
+
+        subject ioniser : AirIoniserSystem;
+
+        require constraint {
+            ioniser.controller.highVoltageEnabled == false implies
+            ioniser.controller.activeFault != FaultCode::none
+        }
+    }
+
+    requirement def OzoneLimitRequirement {
+        doc
+        /* The air ioniser shall maintain emitted ozone concentration below 50 ppb during normal ionising operation. */
+
+        subject ioniser : AirIoniserSystem;
+
+        require constraint {
+            ioniser.sensorSuite.ozoneSensor.measuredOzoneConcentration <= ioniser.maximumOzoneConcentration
+        }
+    }
+
+    requirement def AirflowRequirement {
+        doc
+        /* The air ioniser shall maintain sufficient airflow through the emitter array to distribute generated ions and cool the high-voltage emitter region. */
+
+        subject ioniser : AirIoniserSystem;
+
+        require constraint {
+            ioniser.airflowModule.nominalAirFlowRate >= 0.018 [m^3 / s]
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc
+        /* The air ioniser shall operate from nominal household mains power while consuming no more than 8 W in normal ionising mode. */
+
+        subject ioniser : AirIoniserSystem;
+
+        require constraint {
+            ioniser.maximumInputPower <= 8 [SI::watt]
+        }
+    }
+
+    requirement def NoiseRequirement {
+        doc
+        /* The air ioniser shall not exceed 35 dB acoustic noise level during normal operation. */
+
+        subject ioniser : AirIoniserSystem;
+
+        require constraint {
+            ioniser.maximumNoiseLevel <= 35 [dB]
+        }
+    }
+
+    requirement def UserStatusRequirement {
+        doc
+        /* The air ioniser shall report operating mode, fault state, emitter life remaining, measured ion level, and measured ozone level to the user interface. */
+
+        subject ioniser : AirIoniserSystem;
+
+        require constraint {
+            ioniser.indicatorPanel.displayedMode == ioniser.controller.mode
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by AirIoniserSystem::ioniseAir;
+    satisfy ElectricalSafetyRequirement by AirIoniserSystem::controller::monitorSafety;
+    satisfy OzoneLimitRequirement by AirIoniserSystem::sensorSuite::ozoneSensor;
+    satisfy AirflowRequirement by AirIoniserSystem::airflowModule;
+    satisfy PowerRequirement by AirIoniserSystem::powerSupply;
+    satisfy NoiseRequirement by AirIoniserSystem::airflowModule;
+    satisfy UserStatusRequirement by AirIoniserSystem::indicatorPanel;
+
+    part airIoniser : AirIoniserSystem {
+        attribute nominalInputVoltage = 120 [SI::volt];
+        attribute maximumInputPower = 8 [SI::watt];
+        attribute selectedPolarity = Polarity::negative;
+        attribute targetAirFlowRate = 0.018 [m^3 / s];
+        attribute targetNegativeIonConcentration = 5000000 [1 / m^3];
+        attribute maximumOzoneConcentration = 50 [1e-9];
+
+        part powerSupply {
+            attribute inputVoltage = 120 [SI::volt];
+            attribute lowVoltageOutputVoltage = 12 [SI::volt];
+            attribute maximumOutputPower = 8 [SI::watt];
+        }
+
+        part highVoltageGenerator {
+            attribute outputVoltage = -7000 [SI::volt];
+            attribute maximumOutputCurrent = 0.00002 [SI::ampere];
+        }
+
+        part emitterArray {
+            attribute emitterCount = 12;
+            attribute nominalEmitterVoltage = -7000 [SI::volt];
+            attribute generatedNegativeIonConcentration = 5000000 [1 / m^3];
+        }
+
+        part airflowModule {
+            attribute fanSpeedPercent = 55;
+            attribute nominalAirFlowRate = 0.018 [m^3 / s];
+        }
+    }
+}

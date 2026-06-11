@@ -1,0 +1,1009 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-kz0jvl89
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb309-4e5d-7a00-a7b4-e66feaeee176
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Near-infrared vein finder and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NearInfraredVeinFinderModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Wavelength :> ISQ::length {
+        unit = SI::nanometre;
+    }
+
+    attribute def OpticalPower :> ISQ::power {
+        unit = SI::milliwatt;
+    }
+
+    attribute def Irradiance :> ISQ::power {
+        unit = SI::watt / SI::metre^2;
+    }
+
+    attribute def ExposureTime :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def FrameRate :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def BatteryCapacity :> ISQ::electricCharge {
+        unit = SI::ampereHour;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Distance :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Confidence :> ScalarValues::Real {
+        range = "0.0..1.0";
+    }
+
+    item def NIRPhotonFlux {
+        attribute wavelength : Wavelength;
+        attribute radiantPower : OpticalPower;
+        attribute exposureTime : ExposureTime;
+    }
+
+    item def ReflectedNIRImage {
+        attribute frameRate : FrameRate;
+        attribute wavelength : Wavelength;
+        attribute exposureTime : ExposureTime;
+        attribute contrastIndex : ScalarValues::Real;
+    }
+
+    item def ProcessedVeinMap {
+        attribute confidence : Confidence;
+        attribute vesselContrast : ScalarValues::Real;
+        attribute latency : ISQ::time;
+    }
+
+    item def VisibleProjectionImage {
+        attribute brightness : ScalarValues::Real;
+        attribute alignmentError : Distance;
+        attribute refreshRate : FrameRate;
+    }
+
+    item def ThermalStatus {
+        attribute sensorTemperature : Temperature;
+        attribute emitterTemperature : Temperature;
+        attribute projectorTemperature : Temperature;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def OperatorCommand {
+        attribute powerRequested : ScalarValues::Boolean;
+        attribute imagingRequested : ScalarValues::Boolean;
+        attribute brightnessSetting : ScalarValues::Real;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerFlow;
+    }
+
+    port def PowerOutputPort {
+        out item power : PowerFlow;
+    }
+
+    port def OpticalEmitPort {
+        out item photons : NIRPhotonFlux;
+    }
+
+    port def OpticalReceivePort {
+        in item reflectedImage : ReflectedNIRImage;
+    }
+
+    port def ImageOutputPort {
+        out item veinMap : ProcessedVeinMap;
+    }
+
+    port def ProjectionPort {
+        out item visibleImage : VisibleProjectionImage;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def StatusPort {
+        out item thermalStatus : ThermalStatus;
+        out item batteryRemaining : ScalarValues::Real;
+    }
+
+    action def IlluminateTissue {
+        in targetDistance : Distance;
+        in selectedWavelength : Wavelength;
+        out emittedFlux : NIRPhotonFlux;
+
+        first start;
+        then regulateEmitterPower;
+        then emitNearInfraredLight;
+        then done;
+
+        action regulateEmitterPower;
+        action emitNearInfraredLight;
+    }
+
+    action def CaptureReflectedImage {
+        in emittedFlux : NIRPhotonFlux;
+        out capturedFrame : ReflectedNIRImage;
+
+        first start;
+        then exposeSensor;
+        then digitizeFrame;
+        then done;
+
+        action exposeSensor;
+        action digitizeFrame;
+    }
+
+    action def EnhanceVeinContrast {
+        in capturedFrame : ReflectedNIRImage;
+        out veinMap : ProcessedVeinMap;
+
+        first start;
+        then normalizeIllumination;
+        then suppressSkinReflection;
+        then detectSubcutaneousVessels;
+        then estimateConfidence;
+        then done;
+
+        action normalizeIllumination;
+        action suppressSkinReflection;
+        action detectSubcutaneousVessels;
+        action estimateConfidence;
+    }
+
+    action def ProjectVeinOverlay {
+        in veinMap : ProcessedVeinMap;
+        in brightness : ScalarValues::Real;
+        out overlay : VisibleProjectionImage;
+
+        first start;
+        then geometricallyRegisterMap;
+        then renderVisibleOverlay;
+        then projectOverlayToSkin;
+        then done;
+
+        action geometricallyRegisterMap;
+        action renderVisibleOverlay;
+        action projectOverlayToSkin;
+    }
+
+    state def VeinFinderOperationalStates {
+        entry action initializeElectronics;
+
+        state Off;
+        state SelfTest;
+        state Standby;
+        state Imaging;
+        state Projection;
+        state ThermalLimit;
+        state Fault;
+
+        transition initial then Off;
+
+        transition powerOn
+            first Off
+            accept OperatorCommand
+            if command.powerRequested
+            then SelfTest;
+
+        transition selfTestPassed
+            first SelfTest
+            if diagnosticsPassed
+            then Standby;
+
+        transition selfTestFailed
+            first SelfTest
+            if not diagnosticsPassed
+            then Fault;
+
+        transition beginImaging
+            first Standby
+            accept OperatorCommand
+            if command.imagingRequested
+            then Imaging;
+
+        transition imageReady
+            first Imaging
+            if veinMap.confidence >= 0.75
+            then Projection;
+
+        transition lowConfidence
+            first Imaging
+            if veinMap.confidence < 0.75
+            then Imaging;
+
+        transition overTemperature
+            first Imaging
+            if thermalStatus.emitterTemperature > 42 [SI::degreeCelsius]
+            then ThermalLimit;
+
+        transition projectionOverTemperature
+            first Projection
+            if thermalStatus.projectorTemperature > 45 [SI::degreeCelsius]
+            then ThermalLimit;
+
+        transition resumeAfterCooling
+            first ThermalLimit
+            if thermalStatus.emitterTemperature < 38 [SI::degreeCelsius]
+            then Standby;
+
+        transition stopImaging
+            first Projection
+            accept OperatorCommand
+            if not command.imagingRequested
+            then Standby;
+
+        transition powerOff
+            first Standby
+            accept OperatorCommand
+            if not command.powerRequested
+            then Off;
+
+        transition faultDetected
+            first Standby
+            if criticalFault
+            then Fault;
+
+        transition faultShutdown
+            first Fault
+            then Off;
+
+        attribute diagnosticsPassed : ScalarValues::Boolean;
+        attribute criticalFault : ScalarValues::Boolean;
+        attribute veinMap : ProcessedVeinMap;
+        attribute thermalStatus : ThermalStatus;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 7.4 [SI::volt];
+        attribute capacity : BatteryCapacity = 3.2 [SI::ampereHour];
+        attribute remainingCharge : ScalarValues::Real;
+        port powerOut : PowerOutputPort;
+        port statusOut : StatusPort;
+    }
+
+    part def PowerManagementUnit {
+        attribute regulatedLogicVoltage : Voltage = 3.3 [SI::volt];
+        attribute regulatedEmitterVoltage : Voltage = 5.0 [SI::volt];
+        attribute maximumOutputCurrent : Current = 2.0 [SI::ampere];
+
+        port powerIn : PowerInputPort;
+        port logicPowerOut : PowerOutputPort;
+        port opticalPowerOut : PowerOutputPort;
+        port projectorPowerOut : PowerOutputPort;
+    }
+
+    part def NearInfraredEmitterArray {
+        attribute centerWavelength : Wavelength = 850 [SI::nanometre];
+        attribute wavelengthTolerance : Wavelength = 20 [SI::nanometre];
+        attribute maximumOpticalPower : OpticalPower = 80 [SI::milliwatt];
+        attribute maximumSkinIrradiance : Irradiance = 25 [SI::watt / SI::metre^2];
+
+        port powerIn : PowerInputPort;
+        port opticalOut : OpticalEmitPort;
+
+        perform action illuminate : IlluminateTissue;
+    }
+
+    part def OpticalFilter {
+        attribute passbandCenter : Wavelength = 850 [SI::nanometre];
+        attribute passbandWidth : Wavelength = 40 [SI::nanometre];
+        port opticalIn : OpticalReceivePort;
+        port opticalOut : OpticalReceivePort;
+    }
+
+    part def ImageSensor {
+        attribute frameRate : FrameRate = 30 [SI::hertz];
+        attribute exposureTime : ExposureTime = 0.01 [SI::second];
+        attribute sensorTemperature : Temperature;
+
+        port powerIn : PowerInputPort;
+        port opticalIn : OpticalReceivePort;
+        port imageOut : ImageOutputPort;
+
+        perform action capture : CaptureReflectedImage;
+    }
+
+    part def VeinImageProcessor {
+        attribute maximumProcessingLatency : ISQ::time = 0.08 [SI::second];
+        attribute minimumAcceptedConfidence : Confidence = 0.75;
+
+        port powerIn : PowerInputPort;
+        port imageIn : ImageOutputPort;
+        port mapOut : ImageOutputPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        perform action enhance : EnhanceVeinContrast;
+    }
+
+    part def VisibleProjectionModule {
+        attribute projectionRefreshRate : FrameRate = 30 [SI::hertz];
+        attribute maximumAlignmentError : Distance = 2.0 [SI::millimetre];
+        attribute nominalWorkingDistance : Distance = 300 [SI::millimetre];
+
+        port powerIn : PowerInputPort;
+        port mapIn : ImageOutputPort;
+        port projectionOut : ProjectionPort;
+
+        perform action project : ProjectVeinOverlay;
+    }
+
+    part def UserInterface {
+        port commandOut : CommandPort;
+        port statusIn : StatusPort;
+
+        attribute requestedBrightness : ScalarValues::Real = 0.7;
+        attribute imagingEnabled : ScalarValues::Boolean;
+        attribute powerEnabled : ScalarValues::Boolean;
+    }
+
+    part def ThermalMonitor {
+        attribute emitterShutdownTemperature : Temperature = 42 [SI::degreeCelsius];
+        attribute projectorShutdownTemperature : Temperature = 45 [SI::degreeCelsius];
+        attribute resumeTemperature : Temperature = 38 [SI::degreeCelsius];
+
+        port powerIn : PowerInputPort;
+        port statusOut : StatusPort;
+    }
+
+    part def PatientTissue {
+        attribute targetDepth : Distance = 5 [SI::millimetre];
+        attribute nominalWorkingDistance : Distance = 300 [SI::millimetre];
+
+        port illuminationIn : OpticalReceivePort;
+        port reflectedOut : OpticalReceivePort;
+        port overlayIn : ProjectionPort;
+    }
+
+    part def NearInfraredVeinFinder {
+        attribute primaryFunction : ScalarValues::String =
+            "Illuminate superficial tissue with near-infrared light, capture reflected contrast caused by hemoglobin absorption, process the image to locate subcutaneous veins, and project a visible vein map onto the skin to support peripheral venous access.";
+
+        part battery : BatteryPack;
+        part powerUnit : PowerManagementUnit;
+        part emitterArray : NearInfraredEmitterArray;
+        part filter : OpticalFilter;
+        part sensor : ImageSensor;
+        part processor : VeinImageProcessor;
+        part projector : VisibleProjectionModule;
+        part userInterface : UserInterface;
+        part thermalMonitor : ThermalMonitor;
+        part tissue : PatientTissue;
+
+        port operatorCommand : CommandPort;
+        port operatorStatus : StatusPort;
+        port skinProjection : ProjectionPort;
+
+        perform stateMachine : VeinFinderOperationalStates;
+
+        connect battery.powerOut to powerUnit.powerIn;
+        connect powerUnit.logicPowerOut to sensor.powerIn;
+        connect powerUnit.logicPowerOut to processor.powerIn;
+        connect powerUnit.logicPowerOut to thermalMonitor.powerIn;
+        connect powerUnit.opticalPowerOut to emitterArray.powerIn;
+        connect powerUnit.projectorPowerOut to projector.powerIn;
+
+        connect operatorCommand to userInterface.commandOut;
+        connect userInterface.commandOut to processor.commandIn;
+        connect battery.statusOut to userInterface.statusIn;
+        connect processor.statusOut to operatorStatus;
+        connect thermalMonitor.statusOut to operatorStatus;
+
+        connect emitterArray.opticalOut to tissue.illuminationIn;
+        connect tissue.reflectedOut to filter.opticalIn;
+        connect filter.opticalOut to sensor.opticalIn;
+        connect sensor.imageOut to processor.imageIn;
+        connect processor.mapOut to projector.mapIn;
+        connect projector.projectionOut to tissue.overlayIn;
+        connect projector.projectionOut to skinProjection;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall provide high-level, real-time visualization of superficial veins by using near-infrared illumination and visible image projection. */
+
+        subject finder : NearInfraredVeinFinder;
+
+        require constraint {
+            finder.processor.minimumAcceptedConfidence >= 0.75
+        }
+    }
+
+    requirement def NearInfraredIlluminationRequirement {
+        doc
+        /* The emitter shall illuminate tissue using near-infrared light within the hemoglobin contrast band while limiting skin irradiance. */
+
+        subject emitter : NearInfraredEmitterArray;
+
+        require constraint {
+            emitter.centerWavelength >= 760 [SI::nanometre] and
+            emitter.centerWavelength <= 940 [SI::nanometre] and
+            emitter.maximumSkinIrradiance <= 25 [SI::watt / SI::metre^2]
+        }
+    }
+
+    requirement def RealTimeImageProcessingRequirement {
+        doc
+        /* The image processing path shall produce a registered vein map with latency low enough for hand-held clinical positioning. */
+
+        subject processor : VeinImageProcessor;
+
+        require constraint {
+            processor.maximumProcessingLatency <= 0.1 [SI::second]
+        }
+    }
+
+    requirement def ProjectionAlignmentRequirement {
+        doc
+        /* The visible projection module shall align the displayed vein overlay with the corresponding vein location on skin. */
+
+        subject projector : VisibleProjectionModule;
+
+        require constraint {
+            projector.maximumAlignmentError <= 2.0 [SI::millimetre] and
+            projector.projectionRefreshRate >= 30 [SI::hertz]
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc
+        /* The system shall enter a thermal-limit state before emitter or projector surfaces exceed safe operating thresholds. */
+
+        subject monitor : ThermalMonitor;
+
+        require constraint {
+            monitor.emitterShutdownTemperature <= 42 [SI::degreeCelsius] and
+            monitor.projectorShutdownTemperature <= 45 [SI::degreeCelsius]
+        }
+    }
+
+    requirement def PortablePowerRequirement {
+        doc
+        /* The system shall operate from an internal rechargeable battery with regulated outputs for logic, illumination, and projection subsystems. */
+
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.nominalVoltage >= 7.0 [SI::volt] and
+            battery.capacity >= 3.0 [SI::ampereHour]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NearInfraredVeinFinder;
+    satisfy NearInfraredIlluminationRequirement by NearInfraredVeinFinder::emitterArray;
+    satisfy RealTimeImageProcessingRequirement by NearInfraredVeinFinder::processor;
+    satisfy ProjectionAlignmentRequirement by NearInfraredVeinFinder::projector;
+    satisfy ThermalSafetyRequirement by NearInfraredVeinFinder::thermalMonitor;
+    satisfy PortablePowerRequirement by NearInfraredVeinFinder::battery;
+}
+tokens used
+4,919
+package NearInfraredVeinFinderModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Wavelength :> ISQ::length {
+        unit = SI::nanometre;
+    }
+
+    attribute def OpticalPower :> ISQ::power {
+        unit = SI::milliwatt;
+    }
+
+    attribute def Irradiance :> ISQ::power {
+        unit = SI::watt / SI::metre^2;
+    }
+
+    attribute def ExposureTime :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def FrameRate :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def BatteryCapacity :> ISQ::electricCharge {
+        unit = SI::ampereHour;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Distance :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Confidence :> ScalarValues::Real {
+        range = "0.0..1.0";
+    }
+
+    item def NIRPhotonFlux {
+        attribute wavelength : Wavelength;
+        attribute radiantPower : OpticalPower;
+        attribute exposureTime : ExposureTime;
+    }
+
+    item def ReflectedNIRImage {
+        attribute frameRate : FrameRate;
+        attribute wavelength : Wavelength;
+        attribute exposureTime : ExposureTime;
+        attribute contrastIndex : ScalarValues::Real;
+    }
+
+    item def ProcessedVeinMap {
+        attribute confidence : Confidence;
+        attribute vesselContrast : ScalarValues::Real;
+        attribute latency : ISQ::time;
+    }
+
+    item def VisibleProjectionImage {
+        attribute brightness : ScalarValues::Real;
+        attribute alignmentError : Distance;
+        attribute refreshRate : FrameRate;
+    }
+
+    item def ThermalStatus {
+        attribute sensorTemperature : Temperature;
+        attribute emitterTemperature : Temperature;
+        attribute projectorTemperature : Temperature;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def OperatorCommand {
+        attribute powerRequested : ScalarValues::Boolean;
+        attribute imagingRequested : ScalarValues::Boolean;
+        attribute brightnessSetting : ScalarValues::Real;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerFlow;
+    }
+
+    port def PowerOutputPort {
+        out item power : PowerFlow;
+    }
+
+    port def OpticalEmitPort {
+        out item photons : NIRPhotonFlux;
+    }
+
+    port def OpticalReceivePort {
+        in item reflectedImage : ReflectedNIRImage;
+    }
+
+    port def ImageOutputPort {
+        out item veinMap : ProcessedVeinMap;
+    }
+
+    port def ProjectionPort {
+        out item visibleImage : VisibleProjectionImage;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def StatusPort {
+        out item thermalStatus : ThermalStatus;
+        out item batteryRemaining : ScalarValues::Real;
+    }
+
+    action def IlluminateTissue {
+        in targetDistance : Distance;
+        in selectedWavelength : Wavelength;
+        out emittedFlux : NIRPhotonFlux;
+
+        first start;
+        then regulateEmitterPower;
+        then emitNearInfraredLight;
+        then done;
+
+        action regulateEmitterPower;
+        action emitNearInfraredLight;
+    }
+
+    action def CaptureReflectedImage {
+        in emittedFlux : NIRPhotonFlux;
+        out capturedFrame : ReflectedNIRImage;
+
+        first start;
+        then exposeSensor;
+        then digitizeFrame;
+        then done;
+
+        action exposeSensor;
+        action digitizeFrame;
+    }
+
+    action def EnhanceVeinContrast {
+        in capturedFrame : ReflectedNIRImage;
+        out veinMap : ProcessedVeinMap;
+
+        first start;
+        then normalizeIllumination;
+        then suppressSkinReflection;
+        then detectSubcutaneousVessels;
+        then estimateConfidence;
+        then done;
+
+        action normalizeIllumination;
+        action suppressSkinReflection;
+        action detectSubcutaneousVessels;
+        action estimateConfidence;
+    }
+
+    action def ProjectVeinOverlay {
+        in veinMap : ProcessedVeinMap;
+        in brightness : ScalarValues::Real;
+        out overlay : VisibleProjectionImage;
+
+        first start;
+        then geometricallyRegisterMap;
+        then renderVisibleOverlay;
+        then projectOverlayToSkin;
+        then done;
+
+        action geometricallyRegisterMap;
+        action renderVisibleOverlay;
+        action projectOverlayToSkin;
+    }
+
+    state def VeinFinderOperationalStates {
+        entry action initializeElectronics;
+
+        state Off;
+        state SelfTest;
+        state Standby;
+        state Imaging;
+        state Projection;
+        state ThermalLimit;
+        state Fault;
+
+        transition initial then Off;
+
+        transition powerOn
+            first Off
+            accept OperatorCommand
+            if command.powerRequested
+            then SelfTest;
+
+        transition selfTestPassed
+            first SelfTest
+            if diagnosticsPassed
+            then Standby;
+
+        transition selfTestFailed
+            first SelfTest
+            if not diagnosticsPassed
+            then Fault;
+
+        transition beginImaging
+            first Standby
+            accept OperatorCommand
+            if command.imagingRequested
+            then Imaging;
+
+        transition imageReady
+            first Imaging
+            if veinMap.confidence >= 0.75
+            then Projection;
+
+        transition lowConfidence
+            first Imaging
+            if veinMap.confidence < 0.75
+            then Imaging;
+
+        transition overTemperature
+            first Imaging
+            if thermalStatus.emitterTemperature > 42 [SI::degreeCelsius]
+            then ThermalLimit;
+
+        transition projectionOverTemperature
+            first Projection
+            if thermalStatus.projectorTemperature > 45 [SI::degreeCelsius]
+            then ThermalLimit;
+
+        transition resumeAfterCooling
+            first ThermalLimit
+            if thermalStatus.emitterTemperature < 38 [SI::degreeCelsius]
+            then Standby;
+
+        transition stopImaging
+            first Projection
+            accept OperatorCommand
+            if not command.imagingRequested
+            then Standby;
+
+        transition powerOff
+            first Standby
+            accept OperatorCommand
+            if not command.powerRequested
+            then Off;
+
+        transition faultDetected
+            first Standby
+            if criticalFault
+            then Fault;
+
+        transition faultShutdown
+            first Fault
+            then Off;
+
+        attribute diagnosticsPassed : ScalarValues::Boolean;
+        attribute criticalFault : ScalarValues::Boolean;
+        attribute veinMap : ProcessedVeinMap;
+        attribute thermalStatus : ThermalStatus;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 7.4 [SI::volt];
+        attribute capacity : BatteryCapacity = 3.2 [SI::ampereHour];
+        attribute remainingCharge : ScalarValues::Real;
+        port powerOut : PowerOutputPort;
+        port statusOut : StatusPort;
+    }
+
+    part def PowerManagementUnit {
+        attribute regulatedLogicVoltage : Voltage = 3.3 [SI::volt];
+        attribute regulatedEmitterVoltage : Voltage = 5.0 [SI::volt];
+        attribute maximumOutputCurrent : Current = 2.0 [SI::ampere];
+
+        port powerIn : PowerInputPort;
+        port logicPowerOut : PowerOutputPort;
+        port opticalPowerOut : PowerOutputPort;
+        port projectorPowerOut : PowerOutputPort;
+    }
+
+    part def NearInfraredEmitterArray {
+        attribute centerWavelength : Wavelength = 850 [SI::nanometre];
+        attribute wavelengthTolerance : Wavelength = 20 [SI::nanometre];
+        attribute maximumOpticalPower : OpticalPower = 80 [SI::milliwatt];
+        attribute maximumSkinIrradiance : Irradiance = 25 [SI::watt / SI::metre^2];
+
+        port powerIn : PowerInputPort;
+        port opticalOut : OpticalEmitPort;
+
+        perform action illuminate : IlluminateTissue;
+    }
+
+    part def OpticalFilter {
+        attribute passbandCenter : Wavelength = 850 [SI::nanometre];
+        attribute passbandWidth : Wavelength = 40 [SI::nanometre];
+        port opticalIn : OpticalReceivePort;
+        port opticalOut : OpticalReceivePort;
+    }
+
+    part def ImageSensor {
+        attribute frameRate : FrameRate = 30 [SI::hertz];
+        attribute exposureTime : ExposureTime = 0.01 [SI::second];
+        attribute sensorTemperature : Temperature;
+
+        port powerIn : PowerInputPort;
+        port opticalIn : OpticalReceivePort;
+        port imageOut : ImageOutputPort;
+
+        perform action capture : CaptureReflectedImage;
+    }
+
+    part def VeinImageProcessor {
+        attribute maximumProcessingLatency : ISQ::time = 0.08 [SI::second];
+        attribute minimumAcceptedConfidence : Confidence = 0.75;
+
+        port powerIn : PowerInputPort;
+        port imageIn : ImageOutputPort;
+        port mapOut : ImageOutputPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        perform action enhance : EnhanceVeinContrast;
+    }
+
+    part def VisibleProjectionModule {
+        attribute projectionRefreshRate : FrameRate = 30 [SI::hertz];
+        attribute maximumAlignmentError : Distance = 2.0 [SI::millimetre];
+        attribute nominalWorkingDistance : Distance = 300 [SI::millimetre];
+
+        port powerIn : PowerInputPort;
+        port mapIn : ImageOutputPort;
+        port projectionOut : ProjectionPort;
+
+        perform action project : ProjectVeinOverlay;
+    }
+
+    part def UserInterface {
+        port commandOut : CommandPort;
+        port statusIn : StatusPort;
+
+        attribute requestedBrightness : ScalarValues::Real = 0.7;
+        attribute imagingEnabled : ScalarValues::Boolean;
+        attribute powerEnabled : ScalarValues::Boolean;
+    }
+
+    part def ThermalMonitor {
+        attribute emitterShutdownTemperature : Temperature = 42 [SI::degreeCelsius];
+        attribute projectorShutdownTemperature : Temperature = 45 [SI::degreeCelsius];
+        attribute resumeTemperature : Temperature = 38 [SI::degreeCelsius];
+
+        port powerIn : PowerInputPort;
+        port statusOut : StatusPort;
+    }
+
+    part def PatientTissue {
+        attribute targetDepth : Distance = 5 [SI::millimetre];
+        attribute nominalWorkingDistance : Distance = 300 [SI::millimetre];
+
+        port illuminationIn : OpticalReceivePort;
+        port reflectedOut : OpticalReceivePort;
+        port overlayIn : ProjectionPort;
+    }
+
+    part def NearInfraredVeinFinder {
+        attribute primaryFunction : ScalarValues::String =
+            "Illuminate superficial tissue with near-infrared light, capture reflected contrast caused by hemoglobin absorption, process the image to locate subcutaneous veins, and project a visible vein map onto the skin to support peripheral venous access.";
+
+        part battery : BatteryPack;
+        part powerUnit : PowerManagementUnit;
+        part emitterArray : NearInfraredEmitterArray;
+        part filter : OpticalFilter;
+        part sensor : ImageSensor;
+        part processor : VeinImageProcessor;
+        part projector : VisibleProjectionModule;
+        part userInterface : UserInterface;
+        part thermalMonitor : ThermalMonitor;
+        part tissue : PatientTissue;
+
+        port operatorCommand : CommandPort;
+        port operatorStatus : StatusPort;
+        port skinProjection : ProjectionPort;
+
+        perform stateMachine : VeinFinderOperationalStates;
+
+        connect battery.powerOut to powerUnit.powerIn;
+        connect powerUnit.logicPowerOut to sensor.powerIn;
+        connect powerUnit.logicPowerOut to processor.powerIn;
+        connect powerUnit.logicPowerOut to thermalMonitor.powerIn;
+        connect powerUnit.opticalPowerOut to emitterArray.powerIn;
+        connect powerUnit.projectorPowerOut to projector.powerIn;
+
+        connect operatorCommand to userInterface.commandOut;
+        connect userInterface.commandOut to processor.commandIn;
+        connect battery.statusOut to userInterface.statusIn;
+        connect processor.statusOut to operatorStatus;
+        connect thermalMonitor.statusOut to operatorStatus;
+
+        connect emitterArray.opticalOut to tissue.illuminationIn;
+        connect tissue.reflectedOut to filter.opticalIn;
+        connect filter.opticalOut to sensor.opticalIn;
+        connect sensor.imageOut to processor.imageIn;
+        connect processor.mapOut to projector.mapIn;
+        connect projector.projectionOut to tissue.overlayIn;
+        connect projector.projectionOut to skinProjection;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall provide high-level, real-time visualization of superficial veins by using near-infrared illumination and visible image projection. */
+
+        subject finder : NearInfraredVeinFinder;
+
+        require constraint {
+            finder.processor.minimumAcceptedConfidence >= 0.75
+        }
+    }
+
+    requirement def NearInfraredIlluminationRequirement {
+        doc
+        /* The emitter shall illuminate tissue using near-infrared light within the hemoglobin contrast band while limiting skin irradiance. */
+
+        subject emitter : NearInfraredEmitterArray;
+
+        require constraint {
+            emitter.centerWavelength >= 760 [SI::nanometre] and
+            emitter.centerWavelength <= 940 [SI::nanometre] and
+            emitter.maximumSkinIrradiance <= 25 [SI::watt / SI::metre^2]
+        }
+    }
+
+    requirement def RealTimeImageProcessingRequirement {
+        doc
+        /* The image processing path shall produce a registered vein map with latency low enough for hand-held clinical positioning. */
+
+        subject processor : VeinImageProcessor;
+
+        require constraint {
+            processor.maximumProcessingLatency <= 0.1 [SI::second]
+        }
+    }
+
+    requirement def ProjectionAlignmentRequirement {
+        doc
+        /* The visible projection module shall align the displayed vein overlay with the corresponding vein location on skin. */
+
+        subject projector : VisibleProjectionModule;
+
+        require constraint {
+            projector.maximumAlignmentError <= 2.0 [SI::millimetre] and
+            projector.projectionRefreshRate >= 30 [SI::hertz]
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc
+        /* The system shall enter a thermal-limit state before emitter or projector surfaces exceed safe operating thresholds. */
+
+        subject monitor : ThermalMonitor;
+
+        require constraint {
+            monitor.emitterShutdownTemperature <= 42 [SI::degreeCelsius] and
+            monitor.projectorShutdownTemperature <= 45 [SI::degreeCelsius]
+        }
+    }
+
+    requirement def PortablePowerRequirement {
+        doc
+        /* The system shall operate from an internal rechargeable battery with regulated outputs for logic, illumination, and projection subsystems. */
+
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.nominalVoltage >= 7.0 [SI::volt] and
+            battery.capacity >= 3.0 [SI::ampereHour]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NearInfraredVeinFinder;
+    satisfy NearInfraredIlluminationRequirement by NearInfraredVeinFinder::emitterArray;
+    satisfy RealTimeImageProcessingRequirement by NearInfraredVeinFinder::processor;
+    satisfy ProjectionAlignmentRequirement by NearInfraredVeinFinder::projector;
+    satisfy ThermalSafetyRequirement by NearInfraredVeinFinder::thermalMonitor;
+    satisfy PortablePowerRequirement by NearInfraredVeinFinder::battery;
+}

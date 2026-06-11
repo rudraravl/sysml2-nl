@@ -1,0 +1,451 @@
+package SomaneticsBasedCerebralOximetrySystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> ScalarValues::Real {
+        doc /* Ratio expressed as percent from 0 to 100. */
+    }
+
+    attribute def Wavelength :> ScalarValues::Real {
+        unit = "nm";
+    }
+
+    attribute def OpticalPower :> ScalarValues::Real {
+        unit = "mW";
+    }
+
+    attribute def SamplingRate :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def TimeDuration :> ScalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def ElectricPotential :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def TemperatureCelsius :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    attribute def Impedance :> ScalarValues::Real {
+        unit = "ohm";
+    }
+
+    attribute def PatientIdentifier :> ScalarValues::String;
+    attribute def AlarmPriority :> ScalarValues::String;
+    attribute def ClinicalMessage :> ScalarValues::String;
+
+    item def NearInfraredLight {
+        attribute wavelength : Wavelength;
+        attribute power : OpticalPower;
+        attribute modulationFrequency : SamplingRate;
+    }
+
+    item def ReflectedOpticalSignal {
+        attribute wavelength : Wavelength;
+        attribute intensity : OpticalPower;
+        attribute sourceDetectorSpacing : LengthValue;
+        attribute tissuePathValid : Boolean;
+    }
+
+    item def PhotoplethysmographicSample {
+        attribute redEquivalentAbsorbance : Real;
+        attribute infraredEquivalentAbsorbance : Real;
+        attribute sampleTime : TimeDuration;
+        attribute quality : Percent;
+    }
+
+    item def RegionalOxygenSaturationReading {
+        attribute rSO2 : Percent;
+        attribute confidence : Percent;
+        attribute sampleTime : TimeDuration;
+        attribute channelName : String;
+    }
+
+    item def PatientContext {
+        attribute patientId : PatientIdentifier;
+        attribute ageYears : Real;
+        attribute baselineLeftRso2 : Percent;
+        attribute baselineRightRso2 : Percent;
+    }
+
+    item def AlarmEvent {
+        attribute priority : AlarmPriority;
+        attribute message : ClinicalMessage;
+        attribute measuredRso2 : Percent;
+        attribute thresholdRso2 : Percent;
+        attribute activeTime : TimeDuration;
+    }
+
+    item def TrendRecord {
+        attribute leftRso2 : Percent;
+        attribute rightRso2 : Percent;
+        attribute meanRso2 : Percent;
+        attribute confidence : Percent;
+        attribute recordTime : TimeDuration;
+    }
+
+    port def OpticalEmitterPort {
+        out light : NearInfraredLight;
+    }
+
+    port def OpticalDetectorPort {
+        in reflectedSignal : ReflectedOpticalSignal;
+    }
+
+    port def SensorDataPort {
+        out sample : PhotoplethysmographicSample;
+    }
+
+    port def Rso2Port {
+        out reading : RegionalOxygenSaturationReading;
+    }
+
+    port def PatientContextPort {
+        in context : PatientContext;
+    }
+
+    port def AlarmPort {
+        out alarm : AlarmEvent;
+    }
+
+    port def TrendDataPort {
+        out trend : TrendRecord;
+    }
+
+    port def PowerInputPort {
+        in supplyVoltage : ElectricPotential;
+    }
+
+    part def NearInfraredEmitter {
+        attribute nominalRedWavelength : Wavelength = 730;
+        attribute nominalInfraredWavelength : Wavelength = 810;
+        attribute maximumOpticalPower : OpticalPower = 5.0;
+        attribute modulationRate : SamplingRate = 100;
+
+        port opticalOut : OpticalEmitterPort;
+
+        action emitAlternatingNearInfraredLight {
+            out emittedRed : NearInfraredLight;
+            out emittedInfrared : NearInfraredLight;
+
+            first startEmission;
+            then setRedPulse;
+            then setInfraredPulse;
+            then regulatePower;
+        }
+    }
+
+    part def PhotodetectorArray {
+        attribute nearDetectorSpacing : LengthValue = 30 [mm];
+        attribute farDetectorSpacing : LengthValue = 40 [mm];
+        attribute darkCurrentCompensationEnabled : Boolean = true;
+
+        port opticalIn : OpticalDetectorPort;
+        port sampleOut : SensorDataPort;
+
+        action convertReflectedLightToSamples {
+            in reflected : ReflectedOpticalSignal;
+            out sample : PhotoplethysmographicSample;
+
+            first rejectAmbientLight;
+            then subtractDarkCurrent;
+            then computeAbsorbance;
+            then estimateSignalQuality;
+        }
+    }
+
+    part def ForeheadSensorPad {
+        attribute adhesiveContactImpedance : Impedance;
+        attribute skinTemperature : TemperatureCelsius;
+        attribute contactQuality : Percent;
+        attribute attached : Boolean;
+
+        part emitter : NearInfraredEmitter;
+        part detector : PhotodetectorArray;
+
+        port sampleOut : SensorDataPort;
+
+        connect emitter.opticalOut to detector.opticalIn;
+        connect detector.sampleOut to sampleOut;
+    }
+
+    part def Rso2ComputationEngine {
+        attribute lowerPhysiologicLimit : Percent = 15;
+        attribute upperPhysiologicLimit : Percent = 95;
+        attribute minimumAcceptableQuality : Percent = 70;
+        attribute averagingWindow : TimeDuration = 6.0;
+
+        port sampleIn : SensorDataPort;
+        port rso2Out : Rso2Port;
+
+        action calculateRegionalOxygenSaturation {
+            in opticalSample : PhotoplethysmographicSample;
+            out rso2Reading : RegionalOxygenSaturationReading;
+
+            first validateSampleQuality;
+            then compensateForSuperficialTissue;
+            then calculateOxyDeoxyHemoglobinRatio;
+            then boundPhysiologicRange;
+            then publishRso2;
+        }
+    }
+
+    part def BaselineAndTrendManager {
+        attribute trendStorageDuration : TimeDuration = 28800;
+        attribute trendUpdatePeriod : TimeDuration = 1.0;
+
+        port leftInput : Rso2Port;
+        port rightInput : Rso2Port;
+        port patientContextIn : PatientContextPort;
+        port trendOut : TrendDataPort;
+
+        action updateTrendRecord {
+            in leftReading : RegionalOxygenSaturationReading;
+            in rightReading : RegionalOxygenSaturationReading;
+            out record : TrendRecord;
+
+            first alignSampleTimes;
+            then computeMeanRso2;
+            then compareAgainstBaseline;
+            then storeTrendRecord;
+            then publishTrend;
+        }
+    }
+
+    part def AlarmManager {
+        attribute absoluteLowThreshold : Percent = 50;
+        attribute relativeDropThreshold : Percent = 20;
+        attribute alarmDelay : TimeDuration = 10.0;
+        attribute silenceDuration : TimeDuration = 120.0;
+
+        port leftInput : Rso2Port;
+        port rightInput : Rso2Port;
+        port patientContextIn : PatientContextPort;
+        port alarmOut : AlarmPort;
+
+        state def AlarmStateMachine {
+            state normal;
+            state pendingLowRso2;
+            state activeAlarm;
+            state silencedAlarm;
+            state sensorFault;
+
+            transition normal_to_pending
+                first normal
+                accept when rSO2BelowThreshold
+                then pendingLowRso2;
+
+            transition pending_to_alarm
+                first pendingLowRso2
+                accept after 10 [s]
+                then activeAlarm;
+
+            transition pending_to_normal
+                first pendingLowRso2
+                accept when rSO2Recovered
+                then normal;
+
+            transition alarm_to_silenced
+                first activeAlarm
+                accept when silenceCommandReceived
+                then silencedAlarm;
+
+            transition silenced_to_alarm
+                first silencedAlarm
+                accept after 120 [s]
+                then activeAlarm;
+
+            transition alarm_to_normal
+                first activeAlarm
+                accept when rSO2Recovered
+                then normal;
+
+            transition any_to_fault
+                first normal
+                accept when sensorContactLost
+                then sensorFault;
+
+            transition fault_to_normal
+                first sensorFault
+                accept when sensorContactRestored
+                then normal;
+        }
+
+        action evaluateCerebralDesaturation {
+            in reading : RegionalOxygenSaturationReading;
+            in context : PatientContext;
+            out alarmEvent : AlarmEvent;
+
+            first compareAbsoluteThreshold;
+            then compareRelativeBaselineDrop;
+            then applyAlarmDelay;
+            then classifyPriority;
+            then issueClinicalAlarm;
+        }
+    }
+
+    part def UserDisplay {
+        attribute displayRefreshRate : SamplingRate = 2.0;
+        attribute brightness : Percent = 80;
+
+        port trendIn : TrendDataPort;
+        port alarmIn : AlarmPort;
+
+        action presentClinicalStatus {
+            in trend : TrendRecord;
+            in alarm : AlarmEvent;
+
+            first renderLeftAndRightRso2;
+            then renderTrendGraph;
+            then renderAlarmBanner;
+            then updateAudibleIndicator;
+        }
+    }
+
+    part def DataRecorder {
+        attribute recordingInterval : TimeDuration = 1.0;
+        attribute memoryCapacityHours : Real = 24;
+
+        port trendIn : TrendDataPort;
+        port alarmIn : AlarmPort;
+
+        action storeClinicalData {
+            in trend : TrendRecord;
+            in alarm : AlarmEvent;
+
+            first timestampInputs;
+            then writeTrendRecord;
+            then writeAlarmRecord;
+            then verifyRecordIntegrity;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalInputVoltage : ElectricPotential = 12.0;
+        attribute regulatedLogicVoltage : ElectricPotential = 5.0;
+        attribute batteryBackupDuration : TimeDuration = 1800;
+
+        port externalPower : PowerInputPort;
+    }
+
+    part def SomaneticsInspiredCerebralOximeter {
+        doc /* High-level function: noninvasively monitor regional cerebral oxygen saturation by emitting near-infrared light into forehead tissue, detecting returned optical energy, computing left and right rSO2 values, trending them against patient baseline, and alerting clinicians to cerebral desaturation or sensor faults. */
+
+        attribute systemName : String = "Somanetics-Inspired Regional Cerebral Oximetry Monitor";
+        attribute primaryMeasuredParameter : String = "Regional cerebral oxygen saturation";
+        attribute intendedUse : String = "Continuous adjunctive monitoring of cerebral oxygenation in patients at risk of reduced brain oxygen delivery.";
+
+        part leftForeheadSensor : ForeheadSensorPad {
+            attribute contactQuality = 95;
+            attribute attached = true;
+        }
+
+        part rightForeheadSensor : ForeheadSensorPad {
+            attribute contactQuality = 95;
+            attribute attached = true;
+        }
+
+        part leftComputationEngine : Rso2ComputationEngine;
+        part rightComputationEngine : Rso2ComputationEngine;
+        part trendManager : BaselineAndTrendManager;
+        part alarmManager : AlarmManager;
+        part display : UserDisplay;
+        part recorder : DataRecorder;
+        part power : PowerSubsystem;
+
+        port patientContextIn : PatientContextPort;
+        port clinicalTrendOut : TrendDataPort;
+        port clinicalAlarmOut : AlarmPort;
+
+        connect leftForeheadSensor.sampleOut to leftComputationEngine.sampleIn;
+        connect rightForeheadSensor.sampleOut to rightComputationEngine.sampleIn;
+
+        connect leftComputationEngine.rso2Out to trendManager.leftInput;
+        connect rightComputationEngine.rso2Out to trendManager.rightInput;
+
+        connect leftComputationEngine.rso2Out to alarmManager.leftInput;
+        connect rightComputationEngine.rso2Out to alarmManager.rightInput;
+
+        connect patientContextIn to trendManager.patientContextIn;
+        connect patientContextIn to alarmManager.patientContextIn;
+
+        connect trendManager.trendOut to display.trendIn;
+        connect trendManager.trendOut to recorder.trendIn;
+        connect trendManager.trendOut to clinicalTrendOut;
+
+        connect alarmManager.alarmOut to display.alarmIn;
+        connect alarmManager.alarmOut to recorder.alarmIn;
+        connect alarmManager.alarmOut to clinicalAlarmOut;
+
+        perform continuousMonitoring {
+            first acquireLeftOpticalSignal;
+            then acquireRightOpticalSignal;
+            then computeBilateralRso2;
+            then updateBaselineTrends;
+            then evaluateAlarms;
+            then displayAndRecordResults;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall continuously estimate and display bilateral regional cerebral oxygen saturation using noninvasive near-infrared spectroscopy. */
+        subject oximeter : SomaneticsInspiredCerebralOximeter;
+    }
+
+    requirement def BilateralMonitoringRequirement {
+        doc /* The system shall support independent left and right forehead sensors for bilateral cerebral oxygenation monitoring. */
+        subject oximeter : SomaneticsInspiredCerebralOximeter;
+        require constraint { oximeter.leftForeheadSensor.attached == true and oximeter.rightForeheadSensor.attached == true }
+    }
+
+    requirement def Rso2RangeRequirement {
+        doc /* The computed rSO2 value shall be constrained to the physiologic display range of 15 percent to 95 percent. */
+        subject engine : Rso2ComputationEngine;
+        require constraint {
+            engine.lowerPhysiologicLimit == 15 and engine.upperPhysiologicLimit == 95
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        doc /* The system shall suppress numeric rSO2 publication when optical signal quality is below 70 percent. */
+        subject engine : Rso2ComputationEngine;
+        require constraint { engine.minimumAcceptableQuality >= 70 }
+    }
+
+    requirement def DesaturationAlarmRequirement {
+        doc /* The system shall generate a clinical alarm when rSO2 is below 50 percent or drops more than 20 percent from patient baseline for at least 10 seconds. */
+        subject alarmManager : AlarmManager;
+        require constraint {
+            alarmManager.absoluteLowThreshold == 50 and
+            alarmManager.relativeDropThreshold == 20 and
+            alarmManager.alarmDelay == 10.0
+        }
+    }
+
+    requirement def TrendRecordingRequirement {
+        doc /* The system shall record rSO2 trend data and alarm events for post-event clinical review. */
+        subject recorder : DataRecorder;
+        require constraint { recorder.recordingInterval <= 1.0 and recorder.memoryCapacityHours >= 24 }
+    }
+
+    requirement def PatientSafetyPowerRequirement {
+        doc /* The system shall provide regulated low-voltage power with battery backup sufficient to preserve monitoring during short external power interruptions. */
+        subject power : PowerSubsystem;
+        require constraint { power.batteryBackupDuration >= 1800 }
+    }
+
+    satisfy PrimaryFunctionRequirement by SomaneticsInspiredCerebralOximeter;
+    satisfy BilateralMonitoringRequirement by SomaneticsInspiredCerebralOximeter;
+    satisfy Rso2RangeRequirement by Rso2ComputationEngine;
+    satisfy SignalQualityRequirement by Rso2ComputationEngine;
+    satisfy DesaturationAlarmRequirement by AlarmManager;
+    satisfy TrendRecordingRequirement by DataRecorder;
+    satisfy PatientSafetyPowerRequirement by PowerSubsystem;
+
+}

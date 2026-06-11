@@ -1,0 +1,795 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tohva3wu
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb362-e995-7d50-bf74-eae81f590cac
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Compression garment and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CompressionGarmentSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def PressureValue {
+        unit : PressureUnit;
+        quantity kind : Pressure;
+    }
+
+    value def CircumferenceValue {
+        unit : LengthUnit;
+        quantity kind : Length;
+    }
+
+    value def TemperatureValue {
+        unit : TemperatureUnit;
+        quantity kind : ThermodynamicTemperature;
+    }
+
+    value def TimeValue {
+        unit : TimeUnit;
+        quantity kind : Time;
+    }
+
+    value def MoistureFraction {
+        unit : Unit;
+        quantity kind : DimensionOne;
+    }
+
+    item def LimbTissue {
+        attribute limbSegment : String;
+        attribute circumference : CircumferenceValue;
+        attribute skinTemperature : TemperatureValue;
+        attribute edemaLevel : Real;
+    }
+
+    item def CompressionForce {
+        attribute distributedPressure : PressureValue;
+        attribute axialLocation : CircumferenceValue;
+        attribute duration : TimeValue;
+    }
+
+    item def WearerCommand {
+        attribute requestedMode : CompressionMode;
+        attribute requestedPressure : PressureValue;
+    }
+
+    enum def CompressionMode {
+        enum off;
+        enum donning;
+        enum therapeuticCompression;
+        enum reducedCompression;
+        enum doffing;
+        enum faultSafe;
+    }
+
+    enum def FitCondition {
+        enum loose;
+        enum acceptable;
+        enum excessive;
+        enum unsafe;
+    }
+
+    port def TissueInterfacePort {
+        in item tissue : LimbTissue;
+        out item force : CompressionForce;
+    }
+
+    port def CommandPort {
+        in item command : WearerCommand;
+    }
+
+    port def EnvironmentPort {
+        in attribute ambientTemperature : TemperatureValue;
+        in attribute ambientHumidity : MoistureFraction;
+        out attribute evaporatedMoisture : MoistureFraction;
+    }
+
+    part def CompressionGarment {
+        attribute nominalGradientProximalPressure : PressureValue = 18 [kPa];
+        attribute nominalGradientDistalPressure : PressureValue = 28 [kPa];
+        attribute maximumSafePressure : PressureValue = 34 [kPa];
+        attribute minimumTherapeuticPressure : PressureValue = 16 [kPa];
+        attribute currentMode : CompressionMode = CompressionMode::off;
+        attribute fitCondition : FitCondition = FitCondition::acceptable;
+
+        port tissueInterface : TissueInterfacePort;
+        port wearerInput : CommandPort;
+        port environment : EnvironmentPort;
+
+        part textileSleeve : ElasticTextileSleeve;
+        part distalCompressionZone : CompressionZone {
+            attribute zoneName = "distal calf or ankle";
+            attribute targetPressure = 28 [kPa];
+        }
+        part midCompressionZone : CompressionZone {
+            attribute zoneName = "mid limb";
+            attribute targetPressure = 23 [kPa];
+        }
+        part proximalCompressionZone : CompressionZone {
+            attribute zoneName = "proximal limb";
+            attribute targetPressure = 18 [kPa];
+        }
+        part seamSystem : SeamAndClosureSystem;
+        part moistureManagementLayer : MoistureManagementLayer;
+        part fitMonitoringFeature : FitMonitoringFeature;
+
+        connect distalCompressionZone.tissueInterface to tissueInterface;
+        connect midCompressionZone.tissueInterface to tissueInterface;
+        connect proximalCompressionZone.tissueInterface to tissueInterface;
+        connect textileSleeve.environment to environment;
+        connect moistureManagementLayer.environment to environment;
+        connect wearerInput to seamSystem.commandInput;
+
+        action applyGraduatedCompression {
+            in item limb : LimbTissue;
+            out item appliedForce : CompressionForce;
+
+            first start;
+            then evaluateFit;
+            then distributeElasticLoad;
+            then maintainPressureGradient;
+            then reportAppliedForce;
+            then done;
+
+            action evaluateFit {
+                in item limb : LimbTissue;
+                out fit : FitCondition;
+            }
+
+            action distributeElasticLoad {
+                in fit : FitCondition;
+                out distalPressure : PressureValue;
+                out midPressure : PressureValue;
+                out proximalPressure : PressureValue;
+            }
+
+            action maintainPressureGradient {
+                in distalPressure : PressureValue;
+                in midPressure : PressureValue;
+                in proximalPressure : PressureValue;
+                out item compressionForce : CompressionForce;
+            }
+
+            action reportAppliedForce {
+                in item compressionForce : CompressionForce;
+                out item appliedForce : CompressionForce;
+            }
+        }
+
+        state usageState {
+            entry action initializeGarment;
+
+            state Off;
+            state Donning;
+            state FitCheck;
+            state TherapeuticCompression;
+            state ReducedCompression;
+            state Doffing;
+            state FaultSafe;
+
+            initial then Off;
+
+            transition Off_to_Donning
+                first Off
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::donning
+                then Donning;
+
+            transition Donning_to_FitCheck
+                first Donning
+                accept LimbTissue
+                then FitCheck;
+
+            transition FitCheck_to_Therapeutic
+                first FitCheck
+                if fitCondition == FitCondition::acceptable
+                then TherapeuticCompression;
+
+            transition FitCheck_to_Reduced
+                first FitCheck
+                if fitCondition == FitCondition::excessive
+                then ReducedCompression;
+
+            transition FitCheck_to_FaultSafe
+                first FitCheck
+                if fitCondition == FitCondition::unsafe
+                then FaultSafe;
+
+            transition Therapeutic_to_Reduced
+                first TherapeuticCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::reducedCompression
+                then ReducedCompression;
+
+            transition Therapeutic_to_Doffing
+                first TherapeuticCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::doffing
+                then Doffing;
+
+            transition Reduced_to_Therapeutic
+                first ReducedCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::therapeuticCompression
+                then TherapeuticCompression;
+
+            transition Reduced_to_Doffing
+                first ReducedCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::doffing
+                then Doffing;
+
+            transition Doffing_to_Off
+                first Doffing
+                then Off;
+
+            transition FaultSafe_to_Doffing
+                first FaultSafe
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::doffing
+                then Doffing;
+        }
+    }
+
+    part def CompressionZone {
+        attribute zoneName : String;
+        attribute relaxedCircumference : CircumferenceValue;
+        attribute stretchedCircumference : CircumferenceValue;
+        attribute targetPressure : PressureValue;
+        attribute pressureTolerance : PressureValue = 3 [kPa];
+
+        port tissueInterface : TissueInterfacePort;
+
+        action generateZonePressure {
+            in item tissue : LimbTissue;
+            out item zoneForce : CompressionForce;
+        }
+    }
+
+    part def ElasticTextileSleeve {
+        attribute fiberBlendDescription : String = "nylon, elastane, and breathable spacer yarn";
+        attribute elasticRecoveryRatio : Real = 0.92;
+        attribute maximumElongation : Real = 1.65;
+        attribute serviceLifeCycles : Integer = 120;
+
+        port environment : EnvironmentPort;
+
+        part warpElasticFibers : ElasticFiberNetwork {
+            attribute orientation = "longitudinal";
+        }
+
+        part weftElasticFibers : ElasticFiberNetwork {
+            attribute orientation = "circumferential";
+        }
+
+        part skinContactSurface : SkinContactSurface;
+
+        connect skinContactSurface.environment to environment;
+    }
+
+    part def ElasticFiberNetwork {
+        attribute orientation : String;
+        attribute modulusIndex : Real = 1.0;
+        attribute recoveryTime : TimeValue = 4 [s];
+
+        action recoverShape {
+            in attribute stretchedRatio : Real;
+            out attribute recoveredRatio : Real;
+        }
+    }
+
+    part def SkinContactSurface {
+        attribute frictionCoefficient : Real = 0.42;
+        attribute hypoallergenic : Boolean = true;
+
+        port environment : EnvironmentPort;
+    }
+
+    part def SeamAndClosureSystem {
+        attribute closureType : String = "low-profile reinforced top band";
+        attribute donningAidCompatible : Boolean = true;
+        attribute rollingResistance : Real = 0.85;
+
+        port commandInput : CommandPort;
+
+        action assistDonning {
+            in item command : WearerCommand;
+            out attribute sleeveOpeningExpanded : Boolean;
+        }
+
+        action resistSlippage {
+            in item tissue : LimbTissue;
+            out attribute axialDisplacementLimited : Boolean;
+        }
+    }
+
+    part def MoistureManagementLayer {
+        attribute moistureWickingRate : MoistureFraction = 0.18 [one];
+        attribute dryingTime : TimeValue = 900 [s];
+        attribute breathable : Boolean = true;
+
+        port environment : EnvironmentPort;
+
+        action moveMoistureAwayFromSkin {
+            in attribute skinMoisture : MoistureFraction;
+            out attribute evaporatedMoisture : MoistureFraction;
+        }
+    }
+
+    part def FitMonitoringFeature {
+        attribute indicatorBandSpacingNominal : CircumferenceValue = 20 [mm];
+        attribute observedBandSpacing : CircumferenceValue;
+        attribute measuredPressureEstimate : PressureValue;
+        attribute fitCondition : FitCondition;
+
+        action estimateFit {
+            in item tissue : LimbTissue;
+            in attribute observedBandSpacing : CircumferenceValue;
+            out attribute fitCondition : FitCondition;
+        }
+    }
+
+    part compressionGarmentSystem : CompressionGarment {
+        attribute nominalGradientDistalPressure = 28 [kPa];
+        attribute nominalGradientProximalPressure = 18 [kPa];
+        attribute maximumSafePressure = 34 [kPa];
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The compression garment shall provide controlled, graduated external pressure to a wearer limb so that soft tissue is supported, venous return is encouraged, and swelling tendency is reduced during normal wear. */
+
+        require constraint {
+            garment.nominalGradientDistalPressure > garment.nominalGradientProximalPressure
+        }
+    }
+
+    requirement def TherapeuticPressureRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall maintain therapeutic compression between the minimum therapeutic pressure and maximum safe pressure when the fit condition is acceptable. */
+
+        require constraint {
+            garment.minimumTherapeuticPressure <= garment.nominalGradientProximalPressure and
+            garment.nominalGradientDistalPressure <= garment.maximumSafePressure
+        }
+    }
+
+    requirement def SafetyPressureRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall enter fault-safe behavior when the estimated interface pressure exceeds the maximum safe pressure. */
+
+        require constraint {
+            garment.maximumSafePressure == 34 [kPa]
+        }
+    }
+
+    requirement def WearabilityRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall provide breathable skin contact and moisture movement during therapeutic compression. */
+
+        require constraint {
+            garment.moistureManagementLayer.breathable == true
+        }
+    }
+
+    requirement def DonningRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall support donning and doffing without requiring permanent deformation of the elastic textile sleeve. */
+
+        require constraint {
+            garment.textileSleeve.elasticRecoveryRatio >= 0.90
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by compressionGarmentSystem;
+    satisfy TherapeuticPressureRequirement by compressionGarmentSystem;
+    satisfy SafetyPressureRequirement by compressionGarmentSystem;
+    satisfy WearabilityRequirement by compressionGarmentSystem;
+    satisfy DonningRequirement by compressionGarmentSystem;
+}
+tokens used
+3,916
+package CompressionGarmentSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def PressureValue {
+        unit : PressureUnit;
+        quantity kind : Pressure;
+    }
+
+    value def CircumferenceValue {
+        unit : LengthUnit;
+        quantity kind : Length;
+    }
+
+    value def TemperatureValue {
+        unit : TemperatureUnit;
+        quantity kind : ThermodynamicTemperature;
+    }
+
+    value def TimeValue {
+        unit : TimeUnit;
+        quantity kind : Time;
+    }
+
+    value def MoistureFraction {
+        unit : Unit;
+        quantity kind : DimensionOne;
+    }
+
+    item def LimbTissue {
+        attribute limbSegment : String;
+        attribute circumference : CircumferenceValue;
+        attribute skinTemperature : TemperatureValue;
+        attribute edemaLevel : Real;
+    }
+
+    item def CompressionForce {
+        attribute distributedPressure : PressureValue;
+        attribute axialLocation : CircumferenceValue;
+        attribute duration : TimeValue;
+    }
+
+    item def WearerCommand {
+        attribute requestedMode : CompressionMode;
+        attribute requestedPressure : PressureValue;
+    }
+
+    enum def CompressionMode {
+        enum off;
+        enum donning;
+        enum therapeuticCompression;
+        enum reducedCompression;
+        enum doffing;
+        enum faultSafe;
+    }
+
+    enum def FitCondition {
+        enum loose;
+        enum acceptable;
+        enum excessive;
+        enum unsafe;
+    }
+
+    port def TissueInterfacePort {
+        in item tissue : LimbTissue;
+        out item force : CompressionForce;
+    }
+
+    port def CommandPort {
+        in item command : WearerCommand;
+    }
+
+    port def EnvironmentPort {
+        in attribute ambientTemperature : TemperatureValue;
+        in attribute ambientHumidity : MoistureFraction;
+        out attribute evaporatedMoisture : MoistureFraction;
+    }
+
+    part def CompressionGarment {
+        attribute nominalGradientProximalPressure : PressureValue = 18 [kPa];
+        attribute nominalGradientDistalPressure : PressureValue = 28 [kPa];
+        attribute maximumSafePressure : PressureValue = 34 [kPa];
+        attribute minimumTherapeuticPressure : PressureValue = 16 [kPa];
+        attribute currentMode : CompressionMode = CompressionMode::off;
+        attribute fitCondition : FitCondition = FitCondition::acceptable;
+
+        port tissueInterface : TissueInterfacePort;
+        port wearerInput : CommandPort;
+        port environment : EnvironmentPort;
+
+        part textileSleeve : ElasticTextileSleeve;
+        part distalCompressionZone : CompressionZone {
+            attribute zoneName = "distal calf or ankle";
+            attribute targetPressure = 28 [kPa];
+        }
+        part midCompressionZone : CompressionZone {
+            attribute zoneName = "mid limb";
+            attribute targetPressure = 23 [kPa];
+        }
+        part proximalCompressionZone : CompressionZone {
+            attribute zoneName = "proximal limb";
+            attribute targetPressure = 18 [kPa];
+        }
+        part seamSystem : SeamAndClosureSystem;
+        part moistureManagementLayer : MoistureManagementLayer;
+        part fitMonitoringFeature : FitMonitoringFeature;
+
+        connect distalCompressionZone.tissueInterface to tissueInterface;
+        connect midCompressionZone.tissueInterface to tissueInterface;
+        connect proximalCompressionZone.tissueInterface to tissueInterface;
+        connect textileSleeve.environment to environment;
+        connect moistureManagementLayer.environment to environment;
+        connect wearerInput to seamSystem.commandInput;
+
+        action applyGraduatedCompression {
+            in item limb : LimbTissue;
+            out item appliedForce : CompressionForce;
+
+            first start;
+            then evaluateFit;
+            then distributeElasticLoad;
+            then maintainPressureGradient;
+            then reportAppliedForce;
+            then done;
+
+            action evaluateFit {
+                in item limb : LimbTissue;
+                out fit : FitCondition;
+            }
+
+            action distributeElasticLoad {
+                in fit : FitCondition;
+                out distalPressure : PressureValue;
+                out midPressure : PressureValue;
+                out proximalPressure : PressureValue;
+            }
+
+            action maintainPressureGradient {
+                in distalPressure : PressureValue;
+                in midPressure : PressureValue;
+                in proximalPressure : PressureValue;
+                out item compressionForce : CompressionForce;
+            }
+
+            action reportAppliedForce {
+                in item compressionForce : CompressionForce;
+                out item appliedForce : CompressionForce;
+            }
+        }
+
+        state usageState {
+            entry action initializeGarment;
+
+            state Off;
+            state Donning;
+            state FitCheck;
+            state TherapeuticCompression;
+            state ReducedCompression;
+            state Doffing;
+            state FaultSafe;
+
+            initial then Off;
+
+            transition Off_to_Donning
+                first Off
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::donning
+                then Donning;
+
+            transition Donning_to_FitCheck
+                first Donning
+                accept LimbTissue
+                then FitCheck;
+
+            transition FitCheck_to_Therapeutic
+                first FitCheck
+                if fitCondition == FitCondition::acceptable
+                then TherapeuticCompression;
+
+            transition FitCheck_to_Reduced
+                first FitCheck
+                if fitCondition == FitCondition::excessive
+                then ReducedCompression;
+
+            transition FitCheck_to_FaultSafe
+                first FitCheck
+                if fitCondition == FitCondition::unsafe
+                then FaultSafe;
+
+            transition Therapeutic_to_Reduced
+                first TherapeuticCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::reducedCompression
+                then ReducedCompression;
+
+            transition Therapeutic_to_Doffing
+                first TherapeuticCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::doffing
+                then Doffing;
+
+            transition Reduced_to_Therapeutic
+                first ReducedCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::therapeuticCompression
+                then TherapeuticCompression;
+
+            transition Reduced_to_Doffing
+                first ReducedCompression
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::doffing
+                then Doffing;
+
+            transition Doffing_to_Off
+                first Doffing
+                then Off;
+
+            transition FaultSafe_to_Doffing
+                first FaultSafe
+                accept WearerCommand
+                if command.requestedMode == CompressionMode::doffing
+                then Doffing;
+        }
+    }
+
+    part def CompressionZone {
+        attribute zoneName : String;
+        attribute relaxedCircumference : CircumferenceValue;
+        attribute stretchedCircumference : CircumferenceValue;
+        attribute targetPressure : PressureValue;
+        attribute pressureTolerance : PressureValue = 3 [kPa];
+
+        port tissueInterface : TissueInterfacePort;
+
+        action generateZonePressure {
+            in item tissue : LimbTissue;
+            out item zoneForce : CompressionForce;
+        }
+    }
+
+    part def ElasticTextileSleeve {
+        attribute fiberBlendDescription : String = "nylon, elastane, and breathable spacer yarn";
+        attribute elasticRecoveryRatio : Real = 0.92;
+        attribute maximumElongation : Real = 1.65;
+        attribute serviceLifeCycles : Integer = 120;
+
+        port environment : EnvironmentPort;
+
+        part warpElasticFibers : ElasticFiberNetwork {
+            attribute orientation = "longitudinal";
+        }
+
+        part weftElasticFibers : ElasticFiberNetwork {
+            attribute orientation = "circumferential";
+        }
+
+        part skinContactSurface : SkinContactSurface;
+
+        connect skinContactSurface.environment to environment;
+    }
+
+    part def ElasticFiberNetwork {
+        attribute orientation : String;
+        attribute modulusIndex : Real = 1.0;
+        attribute recoveryTime : TimeValue = 4 [s];
+
+        action recoverShape {
+            in attribute stretchedRatio : Real;
+            out attribute recoveredRatio : Real;
+        }
+    }
+
+    part def SkinContactSurface {
+        attribute frictionCoefficient : Real = 0.42;
+        attribute hypoallergenic : Boolean = true;
+
+        port environment : EnvironmentPort;
+    }
+
+    part def SeamAndClosureSystem {
+        attribute closureType : String = "low-profile reinforced top band";
+        attribute donningAidCompatible : Boolean = true;
+        attribute rollingResistance : Real = 0.85;
+
+        port commandInput : CommandPort;
+
+        action assistDonning {
+            in item command : WearerCommand;
+            out attribute sleeveOpeningExpanded : Boolean;
+        }
+
+        action resistSlippage {
+            in item tissue : LimbTissue;
+            out attribute axialDisplacementLimited : Boolean;
+        }
+    }
+
+    part def MoistureManagementLayer {
+        attribute moistureWickingRate : MoistureFraction = 0.18 [one];
+        attribute dryingTime : TimeValue = 900 [s];
+        attribute breathable : Boolean = true;
+
+        port environment : EnvironmentPort;
+
+        action moveMoistureAwayFromSkin {
+            in attribute skinMoisture : MoistureFraction;
+            out attribute evaporatedMoisture : MoistureFraction;
+        }
+    }
+
+    part def FitMonitoringFeature {
+        attribute indicatorBandSpacingNominal : CircumferenceValue = 20 [mm];
+        attribute observedBandSpacing : CircumferenceValue;
+        attribute measuredPressureEstimate : PressureValue;
+        attribute fitCondition : FitCondition;
+
+        action estimateFit {
+            in item tissue : LimbTissue;
+            in attribute observedBandSpacing : CircumferenceValue;
+            out attribute fitCondition : FitCondition;
+        }
+    }
+
+    part compressionGarmentSystem : CompressionGarment {
+        attribute nominalGradientDistalPressure = 28 [kPa];
+        attribute nominalGradientProximalPressure = 18 [kPa];
+        attribute maximumSafePressure = 34 [kPa];
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The compression garment shall provide controlled, graduated external pressure to a wearer limb so that soft tissue is supported, venous return is encouraged, and swelling tendency is reduced during normal wear. */
+
+        require constraint {
+            garment.nominalGradientDistalPressure > garment.nominalGradientProximalPressure
+        }
+    }
+
+    requirement def TherapeuticPressureRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall maintain therapeutic compression between the minimum therapeutic pressure and maximum safe pressure when the fit condition is acceptable. */
+
+        require constraint {
+            garment.minimumTherapeuticPressure <= garment.nominalGradientProximalPressure and
+            garment.nominalGradientDistalPressure <= garment.maximumSafePressure
+        }
+    }
+
+    requirement def SafetyPressureRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall enter fault-safe behavior when the estimated interface pressure exceeds the maximum safe pressure. */
+
+        require constraint {
+            garment.maximumSafePressure == 34 [kPa]
+        }
+    }
+
+    requirement def WearabilityRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall provide breathable skin contact and moisture movement during therapeutic compression. */
+
+        require constraint {
+            garment.moistureManagementLayer.breathable == true
+        }
+    }
+
+    requirement def DonningRequirement {
+        subject garment : CompressionGarment;
+
+        doc /* The garment shall support donning and doffing without requiring permanent deformation of the elastic textile sleeve. */
+
+        require constraint {
+            garment.textileSleeve.elasticRecoveryRatio >= 0.90
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by compressionGarmentSystem;
+    satisfy TherapeuticPressureRequirement by compressionGarmentSystem;
+    satisfy SafetyPressureRequirement by compressionGarmentSystem;
+    satisfy WearabilityRequirement by compressionGarmentSystem;
+    satisfy DonningRequirement by compressionGarmentSystem;
+}

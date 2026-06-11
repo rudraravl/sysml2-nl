@@ -1,0 +1,399 @@
+package ReflexHammerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def LengthValue {
+        unit = "mm";
+        quantityKind = "length";
+    }
+
+    value def MassValue {
+        unit = "g";
+        quantityKind = "mass";
+    }
+
+    value def ForceValue {
+        unit = "N";
+        quantityKind = "force";
+    }
+
+    value def AngleValue {
+        unit = "deg";
+        quantityKind = "plane angle";
+    }
+
+    value def TimeValue {
+        unit = "s";
+        quantityKind = "time";
+    }
+
+    value def EnergyValue {
+        unit = "mJ";
+        quantityKind = "energy";
+    }
+
+    value def StiffnessValue {
+        unit = "N/mm";
+        quantityKind = "linear stiffness";
+    }
+
+    value def HardnessValue {
+        unit = "Shore A";
+        quantityKind = "elastomer hardness";
+    }
+
+    enum def HammerUseMode {
+        enum rest;
+        enum inspectionGrip;
+        enum backswing;
+        enum forwardSwing;
+        enum tendonContact;
+        enum rebound;
+        enum complete;
+    }
+
+    enum def ContactSurfaceKind {
+        enum broadTriangularFace;
+        enum narrowTriangularEdge;
+        enum pointedHandleTip;
+    }
+
+    item def ClinicianGrip {
+        attribute gripForce : ForceValue;
+        attribute gripLocationFromHead : LengthValue;
+        attribute wristAngle : AngleValue;
+    }
+
+    item def HammerMotion {
+        attribute swingAngle : AngleValue;
+        attribute angularSpeed : Real;
+        attribute approachVelocity : Real;
+        attribute intendedContactSurface : ContactSurfaceKind;
+    }
+
+    item def TendonStrikeImpulse {
+        attribute peakForce : ForceValue;
+        attribute contactDuration : TimeValue;
+        attribute deliveredEnergy : EnergyValue;
+        attribute contactSurface : ContactSurfaceKind;
+    }
+
+    item def PatientReflexResponse {
+        attribute latency : TimeValue;
+        attribute observedMotionAmplitude : AngleValue;
+        attribute responseDetected : Boolean;
+    }
+
+    item def VisualInspectionData {
+        attribute headConditionAcceptable : Boolean;
+        attribute handleConditionAcceptable : Boolean;
+        attribute cleanlinessAcceptable : Boolean;
+        attribute suitableForUse : Boolean;
+    }
+
+    port def GripPort {
+        in item clinicianGrip : ClinicianGrip;
+        out item hammerMotion : HammerMotion;
+    }
+
+    port def ImpactPort {
+        in item hammerMotion : HammerMotion;
+        out item tendonStrikeImpulse : TendonStrikeImpulse;
+    }
+
+    port def ObservationPort {
+        in item patientReflexResponse : PatientReflexResponse;
+    }
+
+    port def InspectionPort {
+        out item visualInspectionData : VisualInspectionData;
+    }
+
+    part def ElastomerHead {
+        attribute totalWidth : LengthValue = 62;
+        attribute totalHeight : LengthValue = 38;
+        attribute thickness : LengthValue = 12;
+        attribute mass : MassValue = 72;
+        attribute broadFaceHardness : HardnessValue = 55;
+        attribute narrowEdgeHardness : HardnessValue = 55;
+        attribute broadFaceEffectiveStiffness : StiffnessValue = 3.2;
+        attribute narrowEdgeEffectiveStiffness : StiffnessValue = 5.8;
+        attribute broadFaceContactArea : Real = 320;
+        attribute narrowEdgeContactArea : Real = 85;
+
+        port broadImpactPort : ImpactPort;
+        port narrowImpactPort : ImpactPort;
+
+        action def ConvertMotionToImpulse {
+            in item motion : HammerMotion;
+            out item impulse : TendonStrikeImpulse;
+
+            objective {
+                impulse.contactSurface == motion.intendedContactSurface;
+                impulse.contactDuration >= 0.018;
+                impulse.contactDuration <= 0.060;
+                impulse.peakForce >= 8;
+                impulse.peakForce <= 45;
+                impulse.deliveredEnergy >= 25;
+                impulse.deliveredEnergy <= 450;
+            }
+        }
+    }
+
+    part def FlexibleHandle {
+        attribute length : LengthValue = 185;
+        attribute maximumWidth : LengthValue = 18;
+        attribute minimumWidth : LengthValue = 8;
+        attribute mass : MassValue = 36;
+        attribute bendingCompliance : Real = 0.42;
+        attribute gripTextureCoefficient : Real = 0.68;
+
+        port gripPort : GripPort;
+        port pointedTipImpactPort : ImpactPort;
+    }
+
+    part def HeadHandleJoint {
+        attribute insertionDepth : LengthValue = 22;
+        attribute retentionForce : ForceValue = 160;
+        attribute angularAlignmentTolerance : AngleValue = 2;
+
+        port handleSide : GripPort;
+        port headSide : GripPort;
+    }
+
+    part def ReflexHammer {
+        attribute overallLength : LengthValue = 205;
+        attribute totalMass : MassValue = 108;
+        attribute nominalSwingAngle : AngleValue = 35;
+        attribute safeMaximumSwingAngle : AngleValue = 75;
+        attribute nominalImpactEnergy : EnergyValue = 180;
+        attribute reusable : Boolean = true;
+
+        part head : ElastomerHead;
+        part handle : FlexibleHandle;
+        part joint : HeadHandleJoint;
+
+        port userGripPort : GripPort;
+        port broadTendonImpactPort : ImpactPort;
+        port narrowTendonImpactPort : ImpactPort;
+        port tipCutaneousImpactPort : ImpactPort;
+        port inspectionPort : InspectionPort;
+
+        connect userGripPort to handle.gripPort;
+        connect handle.gripPort to joint.handleSide;
+        connect joint.headSide to head.broadImpactPort;
+        connect joint.headSide to head.narrowImpactPort;
+        connect broadTendonImpactPort to head.broadImpactPort;
+        connect narrowTendonImpactPort to head.narrowImpactPort;
+        connect tipCutaneousImpactPort to handle.pointedTipImpactPort;
+
+        action def InspectHammer {
+            out item inspection : VisualInspectionData;
+
+            objective {
+                inspection.headConditionAcceptable == true;
+                inspection.handleConditionAcceptable == true;
+                inspection.cleanlinessAcceptable == true;
+                inspection.suitableForUse == true;
+            }
+        }
+
+        action def DeliverControlledTendonTap {
+            in item grip : ClinicianGrip;
+            in item motion : HammerMotion;
+            out item impulse : TendonStrikeImpulse;
+
+            objective {
+                grip.gripForce >= 4;
+                grip.gripForce <= 35;
+                motion.swingAngle > 5;
+                motion.swingAngle <= safeMaximumSwingAngle;
+                impulse.peakForce >= 8;
+                impulse.peakForce <= 45;
+                impulse.contactDuration >= 0.018;
+                impulse.contactDuration <= 0.060;
+            }
+        }
+
+        state def ReflexHammerUseStateMachine {
+            state initial Rest;
+            state Inspecting;
+            state Gripped;
+            state BackswingPrepared;
+            state SwingingForward;
+            state ContactingTendon;
+            state Rebounding;
+            state UseComplete;
+            state Faulted;
+
+            transition first Rest then Inspecting;
+            transition Inspecting then Gripped
+                accept VisualInspectionData
+                if visualInspectionData.suitableForUse == true;
+
+            transition Inspecting then Faulted
+                accept VisualInspectionData
+                if visualInspectionData.suitableForUse == false;
+
+            transition Gripped then BackswingPrepared
+                accept ClinicianGrip
+                if clinicianGrip.gripForce >= 4 and clinicianGrip.gripForce <= 35;
+
+            transition BackswingPrepared then SwingingForward
+                accept HammerMotion
+                if hammerMotion.swingAngle > 5 and hammerMotion.swingAngle <= 75;
+
+            transition SwingingForward then ContactingTendon
+                accept HammerMotion
+                if hammerMotion.approachVelocity > 0.15;
+
+            transition ContactingTendon then Rebounding
+                accept TendonStrikeImpulse
+                if tendonStrikeImpulse.contactDuration <= 0.060;
+
+            transition Rebounding then UseComplete;
+            transition UseComplete then Rest;
+        }
+    }
+
+    part def PatientTendon {
+        attribute tendonName : String = "patellar tendon";
+        attribute targetWidth : LengthValue = 18;
+        attribute allowablePeakForce : ForceValue = 50;
+        attribute reflexLatencyLowerBound : TimeValue = 0.020;
+        attribute reflexLatencyUpperBound : TimeValue = 0.060;
+
+        port tendonInputPort : ImpactPort;
+        port reflexObservationPort : ObservationPort;
+
+        action def GenerateReflexResponse {
+            in item impulse : TendonStrikeImpulse;
+            out item response : PatientReflexResponse;
+
+            objective {
+                response.responseDetected == true;
+                response.latency >= reflexLatencyLowerBound;
+                response.latency <= reflexLatencyUpperBound;
+                response.observedMotionAmplitude >= 3;
+            }
+        }
+    }
+
+    part def Clinician {
+        attribute preferredGripForce : ForceValue = 12;
+        attribute nominalGripLocationFromHead : LengthValue = 145;
+        attribute nominalWristAngle : AngleValue = 20;
+
+        port handPort : GripPort;
+        port observationPort : ObservationPort;
+
+        action def ElicitDeepTendonReflex {
+            out item grip : ClinicianGrip;
+            out item motion : HammerMotion;
+
+            objective {
+                grip.gripForce == preferredGripForce;
+                grip.gripLocationFromHead == nominalGripLocationFromHead;
+                grip.wristAngle <= 35;
+                motion.swingAngle <= 45;
+                motion.intendedContactSurface == ContactSurfaceKind::broadTriangularFace;
+            }
+        }
+    }
+
+    part def ReflexExamination {
+        part clinician : Clinician;
+        part hammer : ReflexHammer;
+        part tendon : PatientTendon;
+
+        port examinationObservationPort : ObservationPort;
+
+        connect clinician.handPort to hammer.userGripPort;
+        connect hammer.broadTendonImpactPort to tendon.tendonInputPort;
+        connect tendon.reflexObservationPort to clinician.observationPort;
+        connect tendon.reflexObservationPort to examinationObservationPort;
+
+        action def PerformPrimaryFunction {
+            out item response : PatientReflexResponse;
+
+            first start;
+            then inspectHammer : hammer.InspectHammer;
+            then prepareTap : clinician.ElicitDeepTendonReflex;
+            then deliverTap : hammer.DeliverControlledTendonTap;
+            then reflex : tendon.GenerateReflexResponse;
+            then done;
+
+            objective {
+                response.responseDetected == true;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The reflex hammer shall provide a simple handheld means to elicit a clinically observable deep tendon reflex by delivering a brief, controlled mechanical impulse to a selected tendon. */
+
+        subject hammer : ReflexHammer;
+
+        require constraint {
+            hammer.totalMass >= 80 and hammer.totalMass <= 140;
+            hammer.overallLength >= 170 and hammer.overallLength <= 230;
+            hammer.nominalImpactEnergy >= 25 and hammer.nominalImpactEnergy <= 450;
+        }
+    }
+
+    requirement def ControlledImpactRequirement {
+        doc /* During normal use, the hammer shall transfer impact energy through a resilient head so that the strike is brief enough to stimulate the tendon and limited enough to avoid excessive force. */
+
+        subject impulse : TendonStrikeImpulse;
+
+        require constraint {
+            impulse.peakForce >= 8 and impulse.peakForce <= 45;
+            impulse.contactDuration >= 0.018 and impulse.contactDuration <= 0.060;
+            impulse.deliveredEnergy >= 25 and impulse.deliveredEnergy <= 450;
+        }
+    }
+
+    requirement def HandheldErgonomicsRequirement {
+        doc /* The hammer shall be balanced and shaped for single-hand clinical use with a grip location that permits pendulum-like wrist motion. */
+
+        subject handle : FlexibleHandle;
+
+        require constraint {
+            handle.length >= 160 and handle.length <= 210;
+            handle.mass >= 20 and handle.mass <= 55;
+            handle.gripTextureCoefficient >= 0.50;
+        }
+    }
+
+    requirement def DualSurfaceRequirement {
+        doc /* The hammer shall provide a broad resilient face for larger tendons and a narrower resilient edge for localized tendon stimulation. */
+
+        subject head : ElastomerHead;
+
+        require constraint {
+            head.broadFaceContactArea > head.narrowEdgeContactArea;
+            head.broadFaceHardness >= 45 and head.broadFaceHardness <= 65;
+            head.narrowEdgeHardness >= 45 and head.narrowEdgeHardness <= 65;
+        }
+    }
+
+    requirement def CleanableReusableInstrumentRequirement {
+        doc /* The hammer shall support repeated clinical examinations by using cleanable exposed surfaces and a durable head-to-handle attachment. */
+
+        subject hammer : ReflexHammer;
+
+        require constraint {
+            hammer.reusable == true;
+            hammer.joint.retentionForce >= 120;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ReflexExamination::hammer;
+    satisfy ControlledImpactRequirement by ReflexExamination::hammer.head;
+    satisfy HandheldErgonomicsRequirement by ReflexExamination::hammer.handle;
+    satisfy DualSurfaceRequirement by ReflexExamination::hammer.head;
+    satisfy CleanableReusableInstrumentRequirement by ReflexExamination::hammer;
+
+}

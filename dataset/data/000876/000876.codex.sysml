@@ -1,0 +1,478 @@
+package FlexibleImpellerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def FlowRate {
+    :> ISQ::volumeFlowRate;
+    unit = L / min;
+  }
+
+  attribute def Pressure {
+    :> ISQ::pressure;
+    unit = kPa;
+  }
+
+  attribute def RotationalSpeed {
+    :> ISQ::angularVelocity;
+    unit = rpm;
+  }
+
+  attribute def Torque {
+    :> ISQ::torque;
+    unit = N * m;
+  }
+
+  attribute def Temperature {
+    :> ISQ::thermodynamicTemperature;
+    unit = K;
+  }
+
+  attribute def Power {
+    :> ISQ::power;
+    unit = W;
+  }
+
+  attribute def Volume {
+    :> ISQ::volume;
+    unit = L;
+  }
+
+  attribute def Length {
+    :> ISQ::length;
+    unit = mm;
+  }
+
+  attribute def Efficiency {
+    :> ScalarValues::Real;
+  }
+
+  attribute def Hardness {
+    :> ScalarValues::Real;
+  }
+
+  attribute def PressureDrop {
+    :> ISQ::pressure;
+    unit = kPa;
+  }
+
+  item def Liquid {
+    attribute density : ISQ::massDensity;
+    attribute dynamicViscosity : ISQ::dynamicViscosity;
+    attribute temperature : Temperature;
+    attribute vaporPressure : Pressure;
+  }
+
+  item def Seawater :> Liquid {
+    attribute salinity : ScalarValues::Real;
+  }
+
+  item def RotationalMechanicalPower {
+    attribute speed : RotationalSpeed;
+    attribute torque : Torque;
+    attribute power : Power;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ISQ::voltage;
+    attribute current : ISQ::electricCurrent;
+    attribute power : Power;
+  }
+
+  item def ControlCommand {
+    attribute requestedSpeed : RotationalSpeed;
+    attribute enable : Boolean;
+    attribute primeRequest : Boolean;
+  }
+
+  item def PumpStatus {
+    attribute measuredSpeed : RotationalSpeed;
+    attribute measuredFlow : FlowRate;
+    attribute dischargePressure : Pressure;
+    attribute inletPressure : Pressure;
+    attribute casingTemperature : Temperature;
+    attribute dryRunDetected : Boolean;
+    attribute faultActive : Boolean;
+  }
+
+  port def LiquidPort {
+    inout fluid : Liquid;
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+  }
+
+  port def MechanicalShaftPort {
+    inout mechanicalPower : RotationalMechanicalPower;
+  }
+
+  port def ElectricalPort {
+    in powerIn : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in command : ControlCommand;
+  }
+
+  port def StatusPort {
+    out status : PumpStatus;
+  }
+
+  part def FlexibleImpellerPump {
+    attribute nominalFlow : FlowRate = 45 [L/min];
+    attribute nominalDischargePressure : Pressure = 180 [kPa];
+    attribute maximumDischargePressure : Pressure = 280 [kPa];
+    attribute nominalSpeed : RotationalSpeed = 1750 [rpm];
+    attribute minimumSelfPrimingSpeed : RotationalSpeed = 500 [rpm];
+    attribute maximumDryRunDuration : ISQ::time = 30 [s];
+    attribute volumetricEfficiency : Efficiency = 0.82;
+
+    port inlet : LiquidPort;
+    port outlet : LiquidPort;
+    port shaft : MechanicalShaftPort;
+
+    part casing {
+      attribute internalVolume : Volume = 0.42 [L];
+      attribute allowablePressure : Pressure = 350 [kPa];
+      attribute maximumFluidTemperature : Temperature = 353 [K];
+      port suctionCavity : LiquidPort;
+      port dischargeCavity : LiquidPort;
+    }
+
+    part flexibleImpeller {
+      attribute bladeCount : Integer = 12;
+      attribute outsideDiameter : Length = 65 [mm];
+      attribute hubDiameter : Length = 22 [mm];
+      attribute bladeLength : Length = 18 [mm];
+      attribute elastomerHardness : Hardness = 60.0;
+      attribute allowableTipDeflection : Length = 8 [mm];
+      attribute rotationalSpeed : RotationalSpeed;
+      port drivenHub : MechanicalShaftPort;
+    }
+
+    part eccentricCam {
+      attribute camOffset : Length = 4.5 [mm];
+      attribute compressionZoneAngle : ScalarValues::Real = 110.0;
+    }
+
+    part coverPlate {
+      attribute axialClearance : Length = 0.15 [mm];
+      attribute wearLimit : Length = 0.50 [mm];
+    }
+
+    part mechanicalSeal {
+      attribute leakageLimit : FlowRate = 0.02 [L/min];
+      attribute maximumSealTemperature : Temperature = 363 [K];
+    }
+
+    part inletCheckValve {
+      attribute crackingPressure : Pressure = 3 [kPa];
+      port upstream : LiquidPort;
+      port downstream : LiquidPort;
+    }
+
+    part dischargeCheckValve {
+      attribute crackingPressure : Pressure = 5 [kPa];
+      port upstream : LiquidPort;
+      port downstream : LiquidPort;
+    }
+
+    connect inlet to inletCheckValve.upstream;
+    connect inletCheckValve.downstream to casing.suctionCavity;
+    connect casing.dischargeCavity to dischargeCheckValve.upstream;
+    connect dischargeCheckValve.downstream to outlet;
+    connect shaft to flexibleImpeller.drivenHub;
+
+    action def DrawFluidIntoExpandingCavities {
+      in inletFluid : Liquid;
+      in shaftSpeed : RotationalSpeed;
+      out trappedFluid : Liquid;
+      out inletFlow : FlowRate;
+    }
+
+    action def TransportFluidAroundCasing {
+      in trappedFluid : Liquid;
+      in shaftSpeed : RotationalSpeed;
+      out displacedFluid : Liquid;
+    }
+
+    action def CompressCavitiesAndDischarge {
+      in displacedFluid : Liquid;
+      in outletPressure : Pressure;
+      out dischargeFluid : Liquid;
+      out dischargeFlow : FlowRate;
+    }
+
+    action def DetectDryRun {
+      in measuredFlow : FlowRate;
+      in casingTemperature : Temperature;
+      out dryRun : Boolean;
+    }
+
+    action pumpCycle {
+      first start;
+      then draw : DrawFluidIntoExpandingCavities {
+        inletFluid = inlet.fluid;
+        shaftSpeed = shaft.mechanicalPower.speed;
+      }
+      then transport : TransportFluidAroundCasing {
+        trappedFluid = draw.trappedFluid;
+        shaftSpeed = shaft.mechanicalPower.speed;
+      }
+      then discharge : CompressCavitiesAndDischarge {
+        displacedFluid = transport.displacedFluid;
+        outletPressure = outlet.pressure;
+      }
+      then done;
+
+      bind draw.inletFlow = inlet.flow;
+      bind discharge.dischargeFlow = outlet.flow;
+    }
+
+    state def PumpOperatingState {
+      entry action initialize {
+        flexibleImpeller.rotationalSpeed = 0 [rpm];
+      }
+
+      state Off;
+      state Priming;
+      state Pumping;
+      state DryRunProtection;
+      state OverPressureRelief;
+      state Faulted;
+
+      initial then Off;
+
+      transition Off_to_Priming
+        first Off
+        accept ControlCommand
+        if command.enable and command.primeRequest
+        then Priming;
+
+      transition Off_to_Pumping
+        first Off
+        accept ControlCommand
+        if command.enable and not command.primeRequest
+        then Pumping;
+
+      transition Priming_to_Pumping
+        first Priming
+        if inlet.flow > 2 [L/min] and shaft.mechanicalPower.speed >= minimumSelfPrimingSpeed
+        then Pumping;
+
+      transition Priming_to_DryRunProtection
+        first Priming
+        if inlet.flow <= 0.5 [L/min]
+        then DryRunProtection;
+
+      transition Pumping_to_OverPressureRelief
+        first Pumping
+        if outlet.pressure > maximumDischargePressure
+        then OverPressureRelief;
+
+      transition Pumping_to_DryRunProtection
+        first Pumping
+        if inlet.flow <= 0.5 [L/min] and casing.maximumFluidTemperature > 353 [K]
+        then DryRunProtection;
+
+      transition OverPressureRelief_to_Pumping
+        first OverPressureRelief
+        if outlet.pressure <= nominalDischargePressure
+        then Pumping;
+
+      transition DryRunProtection_to_Off
+        first DryRunProtection
+        accept ControlCommand
+        if not command.enable
+        then Off;
+
+      transition Any_to_Faulted
+        first Pumping
+        if outlet.pressure > casing.allowablePressure
+        then Faulted;
+    }
+  }
+
+  part def ElectricMotorDrive {
+    attribute ratedPower : Power = 900 [W];
+    attribute ratedSpeed : RotationalSpeed = 1750 [rpm];
+    attribute ratedTorque : Torque = 4.9 [N*m];
+    attribute driveEfficiency : Efficiency = 0.88;
+
+    port electricalInput : ElectricalPort;
+    port shaftOutput : MechanicalShaftPort;
+    port commandInput : CommandPort;
+    port statusOutput : StatusPort;
+
+    part controller {
+      attribute speedSetpoint : RotationalSpeed = 1750 [rpm];
+      attribute currentLimit : ISQ::electricCurrent = 8 [A];
+      port commandInput : CommandPort;
+      port statusOutput : StatusPort;
+    }
+
+    part rotor {
+      attribute inertia : ISQ::momentOfInertia;
+      port shaft : MechanicalShaftPort;
+    }
+
+    connect shaftOutput to rotor.shaft;
+    connect commandInput to controller.commandInput;
+    connect statusOutput to controller.statusOutput;
+
+    action def ConvertElectricalToRotationalPower {
+      in electricalPower : ElectricalPower;
+      in requestedSpeed : RotationalSpeed;
+      out rotationalPower : RotationalMechanicalPower;
+    }
+
+    action motorControl {
+      in cmd : ControlCommand;
+      in supply : ElectricalPower;
+      out deliveredPower : RotationalMechanicalPower;
+
+      first start;
+      then convert : ConvertElectricalToRotationalPower {
+        electricalPower = supply;
+        requestedSpeed = cmd.requestedSpeed;
+      }
+      then finish;
+
+      bind deliveredPower = convert.rotationalPower;
+    }
+  }
+
+  part def FlexibleImpellerSystem {
+    attribute systemNominalFlow : FlowRate = 45 [L/min];
+    attribute systemNominalPressureRise : Pressure = 160 [kPa];
+    attribute systemPrimaryFunction : String = "Transfer liquid by rotating a flexible elastomer impeller whose blades deform against an eccentric casing, creating expanding inlet cavities that draw fluid in and contracting outlet cavities that discharge fluid at elevated pressure.";
+
+    port suctionPort : LiquidPort;
+    port dischargePort : LiquidPort;
+    port electricalSupply : ElectricalPort;
+    port commandPort : CommandPort;
+    port statusPort : StatusPort;
+
+    part motorDrive : ElectricMotorDrive;
+    part pumpHead : FlexibleImpellerPump;
+    part inletStrainer {
+      attribute meshOpening : Length = 1.0 [mm];
+      attribute cleanPressureDrop : PressureDrop = 4 [kPa];
+      port inlet : LiquidPort;
+      port outlet : LiquidPort;
+    }
+
+    part outletHose {
+      attribute insideDiameter : Length = 19 [mm];
+      attribute length : Length = 2500 [mm];
+      attribute allowablePressure : Pressure = 300 [kPa];
+      port inlet : LiquidPort;
+      port outlet : LiquidPort;
+    }
+
+    part pressureSensor {
+      attribute rangeMaximum : Pressure = 400 [kPa];
+      attribute accuracy : Pressure = 2 [kPa];
+      port sensedPort : LiquidPort;
+      port statusOut : StatusPort;
+    }
+
+    part flowSensor {
+      attribute rangeMaximum : FlowRate = 80 [L/min];
+      attribute minimumDetectableFlow : FlowRate = 0.3 [L/min];
+      port sensedPort : LiquidPort;
+      port statusOut : StatusPort;
+    }
+
+    part thermalSensor {
+      attribute tripTemperature : Temperature = 358 [K];
+      port statusOut : StatusPort;
+    }
+
+    connect suctionPort to inletStrainer.inlet;
+    connect inletStrainer.outlet to pumpHead.inlet;
+    connect pumpHead.outlet to outletHose.inlet;
+    connect outletHose.outlet to dischargePort;
+    connect electricalSupply to motorDrive.electricalInput;
+    connect commandPort to motorDrive.commandInput;
+    connect motorDrive.shaftOutput to pumpHead.shaft;
+    connect pumpHead.outlet to pressureSensor.sensedPort;
+    connect pumpHead.outlet to flowSensor.sensedPort;
+    connect motorDrive.statusOutput to statusPort;
+    connect pressureSensor.statusOut to statusPort;
+    connect flowSensor.statusOut to statusPort;
+    connect thermalSensor.statusOut to statusPort;
+
+    action def ProvideFlexibleImpellerPumping {
+      in supplyLiquid : Liquid;
+      in supplyPower : ElectricalPower;
+      in command : ControlCommand;
+      out deliveredLiquid : Liquid;
+      out reportedStatus : PumpStatus;
+    }
+
+    action primaryFunction : ProvideFlexibleImpellerPumping {
+      supplyLiquid = suctionPort.fluid;
+      supplyPower = electricalSupply.powerIn;
+      command = commandPort.command;
+      deliveredLiquid = dischargePort.fluid;
+      reportedStatus = statusPort.status;
+    }
+  }
+
+  requirement def TransferLiquidRequirement {
+    doc /* The system shall transfer liquid from the suction port to the discharge port using a flexible impeller as the primary pumping element. */
+    subject system : FlexibleImpellerSystem;
+    require constraint {
+      system.dischargePort.flow >= 35 [L/min]
+    }
+  }
+
+  requirement def PressureRiseRequirement {
+    doc /* The system shall provide useful discharge pressure for low-to-medium pressure liquid transfer service. */
+    subject system : FlexibleImpellerSystem;
+    require constraint {
+      system.dischargePort.pressure - system.suctionPort.pressure >= 120 [kPa]
+    }
+  }
+
+  requirement def SelfPrimingRequirement {
+    doc /* The flexible impeller pump shall self-prime at or above the minimum self-priming shaft speed when liquid is available at the suction port. */
+    subject pump : FlexibleImpellerPump;
+    require constraint {
+      pump.shaft.mechanicalPower.speed >= pump.minimumSelfPrimingSpeed
+    }
+  }
+
+  requirement def OverPressureProtectionRequirement {
+    doc /* The system shall prevent normal operation above the maximum allowable discharge pressure of the pump casing. */
+    subject pump : FlexibleImpellerPump;
+    require constraint {
+      pump.outlet.pressure <= pump.casing.allowablePressure
+    }
+  }
+
+  requirement def DryRunProtectionRequirement {
+    doc /* The system shall detect inadequate liquid flow and enter dry-run protection before the flexible impeller is damaged by heat or friction. */
+    subject pump : FlexibleImpellerPump;
+    require constraint {
+      pump.maximumDryRunDuration <= 30 [s]
+    }
+  }
+
+  requirement def FlexibleBladeFunctionRequirement {
+    doc /* The impeller blades shall elastically deform against the eccentric cam and casing to form variable-volume cavities for suction, transport, and discharge. */
+    subject pump : FlexibleImpellerPump;
+    require constraint {
+      pump.flexibleImpeller.allowableTipDeflection >= pump.eccentricCam.camOffset
+    }
+  }
+
+  satisfy TransferLiquidRequirement by FlexibleImpellerSystem;
+  satisfy PressureRiseRequirement by FlexibleImpellerSystem;
+  satisfy SelfPrimingRequirement by FlexibleImpellerPump;
+  satisfy OverPressureProtectionRequirement by FlexibleImpellerPump;
+  satisfy DryRunProtectionRequirement by FlexibleImpellerPump;
+  satisfy FlexibleBladeFunctionRequirement by FlexibleImpellerPump;
+
+}

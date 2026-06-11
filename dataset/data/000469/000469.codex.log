@@ -1,0 +1,1159 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-mn247rng
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb301-80a8-7071-86d2-8eccbda6ea0f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Medical device connectivity and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MedicalDeviceConnectivitySystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent {
+        unit = "%";
+        quantity = "ratio";
+    }
+
+    value def BeatsPerMinute {
+        unit = "1/min";
+        quantity = "heart rate";
+    }
+
+    value def MillimetersOfMercury {
+        unit = "mmHg";
+        quantity = "pressure";
+    }
+
+    value def BreathsPerMinute {
+        unit = "1/min";
+        quantity = "respiratory rate";
+    }
+
+    value def DegreesCelsius {
+        unit = "degC";
+        quantity = "temperature";
+    }
+
+    value def Millisecond {
+        unit = "ms";
+        quantity = "time";
+    }
+
+    value def MegabitPerSecond {
+        unit = "Mb/s";
+        quantity = "data rate";
+    }
+
+    value def Volt {
+        unit = "V";
+        quantity = "electric potential";
+    }
+
+    value def Watt {
+        unit = "W";
+        quantity = "power";
+    }
+
+    enum def DeviceConnectionState {
+        enum idle;
+        enum discovering;
+        enum pairing;
+        enum connected;
+        enum streaming;
+        enum degraded;
+        enum disconnected;
+        enum faulted;
+    }
+
+    enum def AlarmPriority {
+        enum low;
+        enum medium;
+        enum high;
+        enum lifeCritical;
+    }
+
+    enum def DataIntegrityStatus {
+        enum valid;
+        enum delayed;
+        enum estimated;
+        enum invalid;
+    }
+
+    enum def ConnectivityProtocol {
+        enum bluetoothLowEnergy;
+        enum wifi;
+        enum ethernet;
+        enum usb;
+        enum hl7FHIR;
+        enum ieee11073;
+    }
+
+    item def PhysiologicalMeasurement {
+        attribute patientIdentifier : String;
+        attribute deviceIdentifier : String;
+        attribute timestampUtc : String;
+        attribute integrity : DataIntegrityStatus;
+    }
+
+    item def HeartRateMeasurement specializes PhysiologicalMeasurement {
+        attribute heartRate : BeatsPerMinute;
+    }
+
+    item def BloodPressureMeasurement specializes PhysiologicalMeasurement {
+        attribute systolicPressure : MillimetersOfMercury;
+        attribute diastolicPressure : MillimetersOfMercury;
+        attribute meanArterialPressure : MillimetersOfMercury;
+    }
+
+    item def OxygenSaturationMeasurement specializes PhysiologicalMeasurement {
+        attribute oxygenSaturation : Percent;
+        attribute pulseRate : BeatsPerMinute;
+    }
+
+    item def RespirationMeasurement specializes PhysiologicalMeasurement {
+        attribute respirationRate : BreathsPerMinute;
+    }
+
+    item def TemperatureMeasurement specializes PhysiologicalMeasurement {
+        attribute bodyTemperature : DegreesCelsius;
+    }
+
+    item def DeviceStatusMessage {
+        attribute deviceIdentifier : String;
+        attribute connectionState : DeviceConnectionState;
+        attribute batteryLevel : Percent;
+        attribute signalStrength : Percent;
+        attribute lastSelfTestPassed : Boolean;
+        attribute timestampUtc : String;
+    }
+
+    item def ClinicalAlarm {
+        attribute patientIdentifier : String;
+        attribute sourceDeviceIdentifier : String;
+        attribute priority : AlarmPriority;
+        attribute alarmCode : String;
+        attribute alarmText : String;
+        attribute timestampUtc : String;
+        attribute acknowledged : Boolean;
+    }
+
+    item def DeviceCommand {
+        attribute targetDeviceIdentifier : String;
+        attribute commandCode : String;
+        attribute issuedBy : String;
+        attribute issuedAtUtc : String;
+    }
+
+    item def Acknowledgement {
+        attribute correlationIdentifier : String;
+        attribute accepted : Boolean;
+        attribute reason : String;
+        attribute timestampUtc : String;
+    }
+
+    port def MeasurementOutPort {
+        out item measurement : PhysiologicalMeasurement;
+    }
+
+    port def MeasurementInPort {
+        in item measurement : PhysiologicalMeasurement;
+    }
+
+    port def AlarmOutPort {
+        out item alarm : ClinicalAlarm;
+    }
+
+    port def AlarmInPort {
+        in item alarm : ClinicalAlarm;
+    }
+
+    port def StatusOutPort {
+        out item status : DeviceStatusMessage;
+    }
+
+    port def StatusInPort {
+        in item status : DeviceStatusMessage;
+    }
+
+    port def CommandOutPort {
+        out item command : DeviceCommand;
+        in item acknowledgement : Acknowledgement;
+    }
+
+    port def CommandInPort {
+        in item command : DeviceCommand;
+        out item acknowledgement : Acknowledgement;
+    }
+
+    port def NetworkPort {
+        inout item measurement : PhysiologicalMeasurement;
+        inout item alarm : ClinicalAlarm;
+        inout item status : DeviceStatusMessage;
+        inout item command : DeviceCommand;
+        inout item acknowledgement : Acknowledgement;
+    }
+
+    part def BedsideMedicalDevice {
+        attribute deviceIdentifier : String;
+        attribute protocol : ConnectivityProtocol;
+        attribute sampleLatency : Millisecond;
+        attribute batteryVoltage : Volt;
+        attribute nominalPower : Watt;
+
+        port measurements : MeasurementOutPort;
+        port alarms : AlarmOutPort;
+        port status : StatusOutPort;
+        port commands : CommandInPort;
+
+        action acquireVitalSigns {
+            out item acquiredMeasurement : PhysiologicalMeasurement;
+        }
+
+        action publishDeviceStatus {
+            out item statusMessage : DeviceStatusMessage;
+        }
+
+        action applyRemoteCommand {
+            in item command : DeviceCommand;
+            out item acknowledgement : Acknowledgement;
+        }
+
+        state deviceConnectivityState : DeviceConnectionState {
+            entry; then idle;
+
+            state idle;
+            state discovering;
+            state pairing;
+            state connected;
+            state streaming;
+            state degraded;
+            state disconnected;
+            state faulted;
+
+            transition idle_to_discovering first idle then discovering;
+            transition discovering_to_pairing first discovering then pairing;
+            transition pairing_to_connected first pairing then connected;
+            transition connected_to_streaming first connected then streaming;
+            transition streaming_to_degraded first streaming then degraded;
+            transition degraded_to_streaming first degraded then streaming;
+            transition streaming_to_disconnected first streaming then disconnected;
+            transition disconnected_to_discovering first disconnected then discovering;
+            transition connected_to_faulted first connected then faulted;
+            transition streaming_to_faulted first streaming then faulted;
+        }
+    }
+
+    part def ConnectivityGateway {
+        attribute gatewayIdentifier : String;
+        attribute supportedProtocols : ConnectivityProtocol[1..*];
+        attribute maxDeviceCount : Integer;
+        attribute networkThroughput : MegabitPerSecond;
+        attribute maximumEndToEndLatency : Millisecond;
+
+        port deviceMeasurementIn : MeasurementInPort;
+        port deviceAlarmIn : AlarmInPort;
+        port deviceStatusIn : StatusInPort;
+        port deviceCommandOut : CommandOutPort;
+        port hospitalNetwork : NetworkPort;
+
+        action discoverMedicalDevices {
+            out item statusMessage : DeviceStatusMessage;
+        }
+
+        action normalizeMeasurements {
+            in item rawMeasurement : PhysiologicalMeasurement;
+            out item normalizedMeasurement : PhysiologicalMeasurement;
+        }
+
+        action validateClinicalData {
+            in item measurement : PhysiologicalMeasurement;
+            out item validatedMeasurement : PhysiologicalMeasurement;
+        }
+
+        action routeAlarm {
+            in item alarm : ClinicalAlarm;
+            out item routedAlarm : ClinicalAlarm;
+        }
+
+        action forwardCommand {
+            in item command : DeviceCommand;
+            out item acknowledgement : Acknowledgement;
+        }
+
+        state gatewayState {
+            entry; then standby;
+
+            state standby;
+            state scanning;
+            state authenticatingDevice;
+            state operational;
+            state degradedNetwork;
+            state cybersecurityLockout;
+            state maintenance;
+
+            transition standby_to_scanning first standby then scanning;
+            transition scanning_to_authenticatingDevice first scanning then authenticatingDevice;
+            transition authenticatingDevice_to_operational first authenticatingDevice then operational;
+            transition operational_to_degradedNetwork first operational then degradedNetwork;
+            transition degradedNetwork_to_operational first degradedNetwork then operational;
+            transition operational_to_cybersecurityLockout first operational then cybersecurityLockout;
+            transition cybersecurityLockout_to_maintenance first cybersecurityLockout then maintenance;
+            transition maintenance_to_standby first maintenance then standby;
+        }
+    }
+
+    part def PatientMonitor specializes BedsideMedicalDevice {
+        attribute heartRateLowLimit : BeatsPerMinute;
+        attribute heartRateHighLimit : BeatsPerMinute;
+        attribute oxygenSaturationLowLimit : Percent;
+
+        action detectPatientAlarm {
+            in item measurement : PhysiologicalMeasurement;
+            out item alarm : ClinicalAlarm;
+        }
+    }
+
+    part def InfusionPump specializes BedsideMedicalDevice {
+        attribute programmedRateMilliliterPerHour : Real;
+        attribute occlusionPressureLimit : MillimetersOfMercury;
+
+        action reportTherapyStatus {
+            out item statusMessage : DeviceStatusMessage;
+        }
+    }
+
+    part def ElectronicHealthRecordAdapter {
+        attribute adapterIdentifier : String;
+        attribute fhirEndpointUri : String;
+        attribute acceptedLatency : Millisecond;
+
+        port clinicalDataIn : NetworkPort;
+
+        action transformToFHIRObservation {
+            in item measurement : PhysiologicalMeasurement;
+            out item transformedMeasurement : PhysiologicalMeasurement;
+        }
+
+        action persistClinicalObservation {
+            in item transformedMeasurement : PhysiologicalMeasurement;
+            out item acknowledgement : Acknowledgement;
+        }
+    }
+
+    part def ClinicalAlarmManager {
+        attribute alarmManagerIdentifier : String;
+        attribute highPriorityEscalationDelay : Millisecond;
+        attribute lifeCriticalEscalationDelay : Millisecond;
+
+        port alarmInput : AlarmInPort;
+        port alarmOutput : AlarmOutPort;
+
+        action classifyAlarm {
+            in item alarm : ClinicalAlarm;
+            out item classifiedAlarm : ClinicalAlarm;
+        }
+
+        action escalateUnacknowledgedAlarm {
+            in item alarm : ClinicalAlarm;
+            out item escalatedAlarm : ClinicalAlarm;
+        }
+
+        state alarmHandlingState {
+            entry; then monitoring;
+
+            state monitoring;
+            state alarmReceived;
+            state alarmNotified;
+            state acknowledged;
+            state escalated;
+            state resolved;
+
+            transition monitoring_to_alarmReceived first monitoring then alarmReceived;
+            transition alarmReceived_to_alarmNotified first alarmReceived then alarmNotified;
+            transition alarmNotified_to_acknowledged first alarmNotified then acknowledged;
+            transition alarmNotified_to_escalated first alarmNotified then escalated;
+            transition acknowledged_to_resolved first acknowledged then resolved;
+            transition escalated_to_resolved first escalated then resolved;
+            transition resolved_to_monitoring first resolved then monitoring;
+        }
+    }
+
+    part def ClinicianMobileConsole {
+        attribute consoleIdentifier : String;
+        attribute authenticatedUserIdentifier : String;
+        attribute sessionTimeout : Millisecond;
+
+        port alarmNotifications : AlarmInPort;
+        port commandInterface : CommandOutPort;
+
+        action acknowledgeAlarm {
+            in item alarm : ClinicalAlarm;
+            out item acknowledgement : Acknowledgement;
+        }
+
+        action issueDeviceCommand {
+            out item command : DeviceCommand;
+        }
+    }
+
+    part def MedicalDeviceConnectivityPlatform {
+        attribute systemIdentifier : String = "MDC-Platform-01";
+        attribute primaryFunction : String = "Securely collect, normalize, route, and record real-time medical device data and alarms so clinicians and hospital systems have timely, traceable patient information.";
+        attribute requiredAvailability : Percent = 99.9 [%];
+        attribute maximumClinicalDataLatency : Millisecond = 2000 [ms];
+        attribute minimumNetworkThroughput : MegabitPerSecond = 10 [Mb/s];
+
+        part bedsideMonitor : PatientMonitor {
+            attribute deviceIdentifier = "MON-BED-101";
+            attribute protocol = ConnectivityProtocol::ieee11073;
+            attribute sampleLatency = 250 [ms];
+            attribute batteryVoltage = 14.4 [V];
+            attribute nominalPower = 18 [W];
+            attribute heartRateLowLimit = 45 [1/min];
+            attribute heartRateHighLimit = 130 [1/min];
+            attribute oxygenSaturationLowLimit = 90 [%];
+        }
+
+        part infusionPump : InfusionPump {
+            attribute deviceIdentifier = "PUMP-BED-101";
+            attribute protocol = ConnectivityProtocol::wifi;
+            attribute sampleLatency = 1000 [ms];
+            attribute batteryVoltage = 12 [V];
+            attribute nominalPower = 22 [W];
+            attribute programmedRateMilliliterPerHour = 75.0;
+            attribute occlusionPressureLimit = 600 [mmHg];
+        }
+
+        part gateway : ConnectivityGateway {
+            attribute gatewayIdentifier = "GW-ICU-01";
+            attribute supportedProtocols = (ConnectivityProtocol::bluetoothLowEnergy, ConnectivityProtocol::wifi, ConnectivityProtocol::ethernet, ConnectivityProtocol::ieee11073);
+            attribute maxDeviceCount = 64;
+            attribute networkThroughput = 100 [Mb/s];
+            attribute maximumEndToEndLatency = 1000 [ms];
+        }
+
+        part ehrAdapter : ElectronicHealthRecordAdapter {
+            attribute adapterIdentifier = "FHIR-ADAPTER-01";
+            attribute fhirEndpointUri = "https://ehr.example.org/fhir";
+            attribute acceptedLatency = 2000 [ms];
+        }
+
+        part alarmManager : ClinicalAlarmManager {
+            attribute alarmManagerIdentifier = "ALARM-MGR-01";
+            attribute highPriorityEscalationDelay = 30000 [ms];
+            attribute lifeCriticalEscalationDelay = 5000 [ms];
+        }
+
+        part clinicianConsole : ClinicianMobileConsole {
+            attribute consoleIdentifier = "CLIN-CONSOLE-01";
+            attribute authenticatedUserIdentifier = "RN-2941";
+            attribute sessionTimeout = 900000 [ms];
+        }
+
+        connect bedsideMonitor.measurements to gateway.deviceMeasurementIn;
+        connect bedsideMonitor.alarms to gateway.deviceAlarmIn;
+        connect bedsideMonitor.status to gateway.deviceStatusIn;
+        connect gateway.deviceCommandOut to bedsideMonitor.commands;
+
+        connect infusionPump.measurements to gateway.deviceMeasurementIn;
+        connect infusionPump.alarms to gateway.deviceAlarmIn;
+        connect infusionPump.status to gateway.deviceStatusIn;
+        connect gateway.deviceCommandOut to infusionPump.commands;
+
+        connect gateway.hospitalNetwork to ehrAdapter.clinicalDataIn;
+        connect gateway.deviceAlarmIn to alarmManager.alarmInput;
+        connect alarmManager.alarmOutput to clinicianConsole.alarmNotifications;
+        connect clinicianConsole.commandInterface to gateway.deviceCommandOut;
+
+        action performPrimaryConnectivityFunction {
+            first start;
+            then collectMeasurements;
+            then normalizeAndValidate;
+            then routeClinicalAlarms;
+            then persistObservations;
+            then notifyClinician;
+            then done;
+
+            action collectMeasurements {
+                in item monitorMeasurement : PhysiologicalMeasurement;
+                in item pumpStatus : DeviceStatusMessage;
+                out item collectedMeasurement : PhysiologicalMeasurement;
+            }
+
+            action normalizeAndValidate {
+                in item collectedMeasurement : PhysiologicalMeasurement;
+                out item validMeasurement : PhysiologicalMeasurement;
+            }
+
+            action routeClinicalAlarms {
+                in item validMeasurement : PhysiologicalMeasurement;
+                out item alarm : ClinicalAlarm;
+            }
+
+            action persistObservations {
+                in item validMeasurement : PhysiologicalMeasurement;
+                out item ehrAcknowledgement : Acknowledgement;
+            }
+
+            action notifyClinician {
+                in item alarm : ClinicalAlarm;
+                out item notificationAcknowledgement : Acknowledgement;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The medical device connectivity system shall securely acquire patient measurements, device status, and clinical alarms from connected bedside devices, normalize the data, distribute alarms to clinicians, and record validated observations in the electronic health record. */
+    }
+
+    requirement def DataLatencyRequirement {
+        doc /* The system shall deliver validated physiological measurements from a connected medical device to the electronic health record adapter within 2000 ms during normal operation. */
+        attribute maximumAllowedLatency : Millisecond = 2000 [ms];
+    }
+
+    requirement def AlarmLatencyRequirement {
+        doc /* The system shall deliver life-critical alarms from a connected medical device to the clinician console within 5000 ms. */
+        attribute maximumAllowedLatency : Millisecond = 5000 [ms];
+    }
+
+    requirement def DeviceAuthenticationRequirement {
+        doc /* The connectivity gateway shall authenticate each medical device before accepting measurements, commands, alarms, or status messages from that device. */
+    }
+
+    requirement def DataIntegrityRequirement {
+        doc /* The system shall mark each physiological measurement with patient identifier, device identifier, timestamp, and data integrity status before distribution to downstream clinical systems. */
+    }
+
+    requirement def CommandAcknowledgementRequirement {
+        doc /* The system shall return an acknowledgement for every remote device command indicating whether the command was accepted or rejected and the reason for rejection when applicable. */
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The platform shall maintain at least 99.9 percent availability for medical device data ingestion and alarm routing during clinical operation. */
+        attribute requiredAvailability : Percent = 99.9 [%];
+    }
+
+    requirement def CybersecurityLockoutRequirement {
+        doc /* The gateway shall enter cybersecurity lockout when repeated authentication failures or malformed command messages exceed the configured safety threshold. */
+    }
+
+    satisfy PrimaryFunctionRequirement by MedicalDeviceConnectivityPlatform;
+    satisfy DataLatencyRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy AlarmLatencyRequirement by MedicalDeviceConnectivityPlatform::alarmManager;
+    satisfy DeviceAuthenticationRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy DataIntegrityRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy CommandAcknowledgementRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy AvailabilityRequirement by MedicalDeviceConnectivityPlatform;
+    satisfy CybersecurityLockoutRequirement by MedicalDeviceConnectivityPlatform::gateway;
+
+    constraint def LatencyBudgetConstraint {
+        in gatewayLatency : Millisecond;
+        in ehrAdapterLatency : Millisecond;
+        in maximumLatency : Millisecond;
+        gatewayLatency + ehrAdapterLatency <= maximumLatency;
+    }
+
+    constraint def AlarmEscalationConstraint {
+        in elapsedUnacknowledgedTime : Millisecond;
+        in escalationDelay : Millisecond;
+        elapsedUnacknowledgedTime >= escalationDelay;
+    }
+
+    constraint def VitalSignRangeConstraint {
+        in heartRate : BeatsPerMinute;
+        in oxygenSaturation : Percent;
+        heartRate >= 20 [1/min] and heartRate <= 240 [1/min] and oxygenSaturation >= 50 [%] and oxygenSaturation <= 100 [%];
+    }
+
+    allocation def MeasurementProcessingAllocation {
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::collectMeasurements to MedicalDeviceConnectivityPlatform::gateway;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::normalizeAndValidate to MedicalDeviceConnectivityPlatform::gateway;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::persistObservations to MedicalDeviceConnectivityPlatform::ehrAdapter;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::routeClinicalAlarms to MedicalDeviceConnectivityPlatform::alarmManager;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::notifyClinician to MedicalDeviceConnectivityPlatform::clinicianConsole;
+    }
+}
+tokens used
+5,490
+package MedicalDeviceConnectivitySystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent {
+        unit = "%";
+        quantity = "ratio";
+    }
+
+    value def BeatsPerMinute {
+        unit = "1/min";
+        quantity = "heart rate";
+    }
+
+    value def MillimetersOfMercury {
+        unit = "mmHg";
+        quantity = "pressure";
+    }
+
+    value def BreathsPerMinute {
+        unit = "1/min";
+        quantity = "respiratory rate";
+    }
+
+    value def DegreesCelsius {
+        unit = "degC";
+        quantity = "temperature";
+    }
+
+    value def Millisecond {
+        unit = "ms";
+        quantity = "time";
+    }
+
+    value def MegabitPerSecond {
+        unit = "Mb/s";
+        quantity = "data rate";
+    }
+
+    value def Volt {
+        unit = "V";
+        quantity = "electric potential";
+    }
+
+    value def Watt {
+        unit = "W";
+        quantity = "power";
+    }
+
+    enum def DeviceConnectionState {
+        enum idle;
+        enum discovering;
+        enum pairing;
+        enum connected;
+        enum streaming;
+        enum degraded;
+        enum disconnected;
+        enum faulted;
+    }
+
+    enum def AlarmPriority {
+        enum low;
+        enum medium;
+        enum high;
+        enum lifeCritical;
+    }
+
+    enum def DataIntegrityStatus {
+        enum valid;
+        enum delayed;
+        enum estimated;
+        enum invalid;
+    }
+
+    enum def ConnectivityProtocol {
+        enum bluetoothLowEnergy;
+        enum wifi;
+        enum ethernet;
+        enum usb;
+        enum hl7FHIR;
+        enum ieee11073;
+    }
+
+    item def PhysiologicalMeasurement {
+        attribute patientIdentifier : String;
+        attribute deviceIdentifier : String;
+        attribute timestampUtc : String;
+        attribute integrity : DataIntegrityStatus;
+    }
+
+    item def HeartRateMeasurement specializes PhysiologicalMeasurement {
+        attribute heartRate : BeatsPerMinute;
+    }
+
+    item def BloodPressureMeasurement specializes PhysiologicalMeasurement {
+        attribute systolicPressure : MillimetersOfMercury;
+        attribute diastolicPressure : MillimetersOfMercury;
+        attribute meanArterialPressure : MillimetersOfMercury;
+    }
+
+    item def OxygenSaturationMeasurement specializes PhysiologicalMeasurement {
+        attribute oxygenSaturation : Percent;
+        attribute pulseRate : BeatsPerMinute;
+    }
+
+    item def RespirationMeasurement specializes PhysiologicalMeasurement {
+        attribute respirationRate : BreathsPerMinute;
+    }
+
+    item def TemperatureMeasurement specializes PhysiologicalMeasurement {
+        attribute bodyTemperature : DegreesCelsius;
+    }
+
+    item def DeviceStatusMessage {
+        attribute deviceIdentifier : String;
+        attribute connectionState : DeviceConnectionState;
+        attribute batteryLevel : Percent;
+        attribute signalStrength : Percent;
+        attribute lastSelfTestPassed : Boolean;
+        attribute timestampUtc : String;
+    }
+
+    item def ClinicalAlarm {
+        attribute patientIdentifier : String;
+        attribute sourceDeviceIdentifier : String;
+        attribute priority : AlarmPriority;
+        attribute alarmCode : String;
+        attribute alarmText : String;
+        attribute timestampUtc : String;
+        attribute acknowledged : Boolean;
+    }
+
+    item def DeviceCommand {
+        attribute targetDeviceIdentifier : String;
+        attribute commandCode : String;
+        attribute issuedBy : String;
+        attribute issuedAtUtc : String;
+    }
+
+    item def Acknowledgement {
+        attribute correlationIdentifier : String;
+        attribute accepted : Boolean;
+        attribute reason : String;
+        attribute timestampUtc : String;
+    }
+
+    port def MeasurementOutPort {
+        out item measurement : PhysiologicalMeasurement;
+    }
+
+    port def MeasurementInPort {
+        in item measurement : PhysiologicalMeasurement;
+    }
+
+    port def AlarmOutPort {
+        out item alarm : ClinicalAlarm;
+    }
+
+    port def AlarmInPort {
+        in item alarm : ClinicalAlarm;
+    }
+
+    port def StatusOutPort {
+        out item status : DeviceStatusMessage;
+    }
+
+    port def StatusInPort {
+        in item status : DeviceStatusMessage;
+    }
+
+    port def CommandOutPort {
+        out item command : DeviceCommand;
+        in item acknowledgement : Acknowledgement;
+    }
+
+    port def CommandInPort {
+        in item command : DeviceCommand;
+        out item acknowledgement : Acknowledgement;
+    }
+
+    port def NetworkPort {
+        inout item measurement : PhysiologicalMeasurement;
+        inout item alarm : ClinicalAlarm;
+        inout item status : DeviceStatusMessage;
+        inout item command : DeviceCommand;
+        inout item acknowledgement : Acknowledgement;
+    }
+
+    part def BedsideMedicalDevice {
+        attribute deviceIdentifier : String;
+        attribute protocol : ConnectivityProtocol;
+        attribute sampleLatency : Millisecond;
+        attribute batteryVoltage : Volt;
+        attribute nominalPower : Watt;
+
+        port measurements : MeasurementOutPort;
+        port alarms : AlarmOutPort;
+        port status : StatusOutPort;
+        port commands : CommandInPort;
+
+        action acquireVitalSigns {
+            out item acquiredMeasurement : PhysiologicalMeasurement;
+        }
+
+        action publishDeviceStatus {
+            out item statusMessage : DeviceStatusMessage;
+        }
+
+        action applyRemoteCommand {
+            in item command : DeviceCommand;
+            out item acknowledgement : Acknowledgement;
+        }
+
+        state deviceConnectivityState : DeviceConnectionState {
+            entry; then idle;
+
+            state idle;
+            state discovering;
+            state pairing;
+            state connected;
+            state streaming;
+            state degraded;
+            state disconnected;
+            state faulted;
+
+            transition idle_to_discovering first idle then discovering;
+            transition discovering_to_pairing first discovering then pairing;
+            transition pairing_to_connected first pairing then connected;
+            transition connected_to_streaming first connected then streaming;
+            transition streaming_to_degraded first streaming then degraded;
+            transition degraded_to_streaming first degraded then streaming;
+            transition streaming_to_disconnected first streaming then disconnected;
+            transition disconnected_to_discovering first disconnected then discovering;
+            transition connected_to_faulted first connected then faulted;
+            transition streaming_to_faulted first streaming then faulted;
+        }
+    }
+
+    part def ConnectivityGateway {
+        attribute gatewayIdentifier : String;
+        attribute supportedProtocols : ConnectivityProtocol[1..*];
+        attribute maxDeviceCount : Integer;
+        attribute networkThroughput : MegabitPerSecond;
+        attribute maximumEndToEndLatency : Millisecond;
+
+        port deviceMeasurementIn : MeasurementInPort;
+        port deviceAlarmIn : AlarmInPort;
+        port deviceStatusIn : StatusInPort;
+        port deviceCommandOut : CommandOutPort;
+        port hospitalNetwork : NetworkPort;
+
+        action discoverMedicalDevices {
+            out item statusMessage : DeviceStatusMessage;
+        }
+
+        action normalizeMeasurements {
+            in item rawMeasurement : PhysiologicalMeasurement;
+            out item normalizedMeasurement : PhysiologicalMeasurement;
+        }
+
+        action validateClinicalData {
+            in item measurement : PhysiologicalMeasurement;
+            out item validatedMeasurement : PhysiologicalMeasurement;
+        }
+
+        action routeAlarm {
+            in item alarm : ClinicalAlarm;
+            out item routedAlarm : ClinicalAlarm;
+        }
+
+        action forwardCommand {
+            in item command : DeviceCommand;
+            out item acknowledgement : Acknowledgement;
+        }
+
+        state gatewayState {
+            entry; then standby;
+
+            state standby;
+            state scanning;
+            state authenticatingDevice;
+            state operational;
+            state degradedNetwork;
+            state cybersecurityLockout;
+            state maintenance;
+
+            transition standby_to_scanning first standby then scanning;
+            transition scanning_to_authenticatingDevice first scanning then authenticatingDevice;
+            transition authenticatingDevice_to_operational first authenticatingDevice then operational;
+            transition operational_to_degradedNetwork first operational then degradedNetwork;
+            transition degradedNetwork_to_operational first degradedNetwork then operational;
+            transition operational_to_cybersecurityLockout first operational then cybersecurityLockout;
+            transition cybersecurityLockout_to_maintenance first cybersecurityLockout then maintenance;
+            transition maintenance_to_standby first maintenance then standby;
+        }
+    }
+
+    part def PatientMonitor specializes BedsideMedicalDevice {
+        attribute heartRateLowLimit : BeatsPerMinute;
+        attribute heartRateHighLimit : BeatsPerMinute;
+        attribute oxygenSaturationLowLimit : Percent;
+
+        action detectPatientAlarm {
+            in item measurement : PhysiologicalMeasurement;
+            out item alarm : ClinicalAlarm;
+        }
+    }
+
+    part def InfusionPump specializes BedsideMedicalDevice {
+        attribute programmedRateMilliliterPerHour : Real;
+        attribute occlusionPressureLimit : MillimetersOfMercury;
+
+        action reportTherapyStatus {
+            out item statusMessage : DeviceStatusMessage;
+        }
+    }
+
+    part def ElectronicHealthRecordAdapter {
+        attribute adapterIdentifier : String;
+        attribute fhirEndpointUri : String;
+        attribute acceptedLatency : Millisecond;
+
+        port clinicalDataIn : NetworkPort;
+
+        action transformToFHIRObservation {
+            in item measurement : PhysiologicalMeasurement;
+            out item transformedMeasurement : PhysiologicalMeasurement;
+        }
+
+        action persistClinicalObservation {
+            in item transformedMeasurement : PhysiologicalMeasurement;
+            out item acknowledgement : Acknowledgement;
+        }
+    }
+
+    part def ClinicalAlarmManager {
+        attribute alarmManagerIdentifier : String;
+        attribute highPriorityEscalationDelay : Millisecond;
+        attribute lifeCriticalEscalationDelay : Millisecond;
+
+        port alarmInput : AlarmInPort;
+        port alarmOutput : AlarmOutPort;
+
+        action classifyAlarm {
+            in item alarm : ClinicalAlarm;
+            out item classifiedAlarm : ClinicalAlarm;
+        }
+
+        action escalateUnacknowledgedAlarm {
+            in item alarm : ClinicalAlarm;
+            out item escalatedAlarm : ClinicalAlarm;
+        }
+
+        state alarmHandlingState {
+            entry; then monitoring;
+
+            state monitoring;
+            state alarmReceived;
+            state alarmNotified;
+            state acknowledged;
+            state escalated;
+            state resolved;
+
+            transition monitoring_to_alarmReceived first monitoring then alarmReceived;
+            transition alarmReceived_to_alarmNotified first alarmReceived then alarmNotified;
+            transition alarmNotified_to_acknowledged first alarmNotified then acknowledged;
+            transition alarmNotified_to_escalated first alarmNotified then escalated;
+            transition acknowledged_to_resolved first acknowledged then resolved;
+            transition escalated_to_resolved first escalated then resolved;
+            transition resolved_to_monitoring first resolved then monitoring;
+        }
+    }
+
+    part def ClinicianMobileConsole {
+        attribute consoleIdentifier : String;
+        attribute authenticatedUserIdentifier : String;
+        attribute sessionTimeout : Millisecond;
+
+        port alarmNotifications : AlarmInPort;
+        port commandInterface : CommandOutPort;
+
+        action acknowledgeAlarm {
+            in item alarm : ClinicalAlarm;
+            out item acknowledgement : Acknowledgement;
+        }
+
+        action issueDeviceCommand {
+            out item command : DeviceCommand;
+        }
+    }
+
+    part def MedicalDeviceConnectivityPlatform {
+        attribute systemIdentifier : String = "MDC-Platform-01";
+        attribute primaryFunction : String = "Securely collect, normalize, route, and record real-time medical device data and alarms so clinicians and hospital systems have timely, traceable patient information.";
+        attribute requiredAvailability : Percent = 99.9 [%];
+        attribute maximumClinicalDataLatency : Millisecond = 2000 [ms];
+        attribute minimumNetworkThroughput : MegabitPerSecond = 10 [Mb/s];
+
+        part bedsideMonitor : PatientMonitor {
+            attribute deviceIdentifier = "MON-BED-101";
+            attribute protocol = ConnectivityProtocol::ieee11073;
+            attribute sampleLatency = 250 [ms];
+            attribute batteryVoltage = 14.4 [V];
+            attribute nominalPower = 18 [W];
+            attribute heartRateLowLimit = 45 [1/min];
+            attribute heartRateHighLimit = 130 [1/min];
+            attribute oxygenSaturationLowLimit = 90 [%];
+        }
+
+        part infusionPump : InfusionPump {
+            attribute deviceIdentifier = "PUMP-BED-101";
+            attribute protocol = ConnectivityProtocol::wifi;
+            attribute sampleLatency = 1000 [ms];
+            attribute batteryVoltage = 12 [V];
+            attribute nominalPower = 22 [W];
+            attribute programmedRateMilliliterPerHour = 75.0;
+            attribute occlusionPressureLimit = 600 [mmHg];
+        }
+
+        part gateway : ConnectivityGateway {
+            attribute gatewayIdentifier = "GW-ICU-01";
+            attribute supportedProtocols = (ConnectivityProtocol::bluetoothLowEnergy, ConnectivityProtocol::wifi, ConnectivityProtocol::ethernet, ConnectivityProtocol::ieee11073);
+            attribute maxDeviceCount = 64;
+            attribute networkThroughput = 100 [Mb/s];
+            attribute maximumEndToEndLatency = 1000 [ms];
+        }
+
+        part ehrAdapter : ElectronicHealthRecordAdapter {
+            attribute adapterIdentifier = "FHIR-ADAPTER-01";
+            attribute fhirEndpointUri = "https://ehr.example.org/fhir";
+            attribute acceptedLatency = 2000 [ms];
+        }
+
+        part alarmManager : ClinicalAlarmManager {
+            attribute alarmManagerIdentifier = "ALARM-MGR-01";
+            attribute highPriorityEscalationDelay = 30000 [ms];
+            attribute lifeCriticalEscalationDelay = 5000 [ms];
+        }
+
+        part clinicianConsole : ClinicianMobileConsole {
+            attribute consoleIdentifier = "CLIN-CONSOLE-01";
+            attribute authenticatedUserIdentifier = "RN-2941";
+            attribute sessionTimeout = 900000 [ms];
+        }
+
+        connect bedsideMonitor.measurements to gateway.deviceMeasurementIn;
+        connect bedsideMonitor.alarms to gateway.deviceAlarmIn;
+        connect bedsideMonitor.status to gateway.deviceStatusIn;
+        connect gateway.deviceCommandOut to bedsideMonitor.commands;
+
+        connect infusionPump.measurements to gateway.deviceMeasurementIn;
+        connect infusionPump.alarms to gateway.deviceAlarmIn;
+        connect infusionPump.status to gateway.deviceStatusIn;
+        connect gateway.deviceCommandOut to infusionPump.commands;
+
+        connect gateway.hospitalNetwork to ehrAdapter.clinicalDataIn;
+        connect gateway.deviceAlarmIn to alarmManager.alarmInput;
+        connect alarmManager.alarmOutput to clinicianConsole.alarmNotifications;
+        connect clinicianConsole.commandInterface to gateway.deviceCommandOut;
+
+        action performPrimaryConnectivityFunction {
+            first start;
+            then collectMeasurements;
+            then normalizeAndValidate;
+            then routeClinicalAlarms;
+            then persistObservations;
+            then notifyClinician;
+            then done;
+
+            action collectMeasurements {
+                in item monitorMeasurement : PhysiologicalMeasurement;
+                in item pumpStatus : DeviceStatusMessage;
+                out item collectedMeasurement : PhysiologicalMeasurement;
+            }
+
+            action normalizeAndValidate {
+                in item collectedMeasurement : PhysiologicalMeasurement;
+                out item validMeasurement : PhysiologicalMeasurement;
+            }
+
+            action routeClinicalAlarms {
+                in item validMeasurement : PhysiologicalMeasurement;
+                out item alarm : ClinicalAlarm;
+            }
+
+            action persistObservations {
+                in item validMeasurement : PhysiologicalMeasurement;
+                out item ehrAcknowledgement : Acknowledgement;
+            }
+
+            action notifyClinician {
+                in item alarm : ClinicalAlarm;
+                out item notificationAcknowledgement : Acknowledgement;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The medical device connectivity system shall securely acquire patient measurements, device status, and clinical alarms from connected bedside devices, normalize the data, distribute alarms to clinicians, and record validated observations in the electronic health record. */
+    }
+
+    requirement def DataLatencyRequirement {
+        doc /* The system shall deliver validated physiological measurements from a connected medical device to the electronic health record adapter within 2000 ms during normal operation. */
+        attribute maximumAllowedLatency : Millisecond = 2000 [ms];
+    }
+
+    requirement def AlarmLatencyRequirement {
+        doc /* The system shall deliver life-critical alarms from a connected medical device to the clinician console within 5000 ms. */
+        attribute maximumAllowedLatency : Millisecond = 5000 [ms];
+    }
+
+    requirement def DeviceAuthenticationRequirement {
+        doc /* The connectivity gateway shall authenticate each medical device before accepting measurements, commands, alarms, or status messages from that device. */
+    }
+
+    requirement def DataIntegrityRequirement {
+        doc /* The system shall mark each physiological measurement with patient identifier, device identifier, timestamp, and data integrity status before distribution to downstream clinical systems. */
+    }
+
+    requirement def CommandAcknowledgementRequirement {
+        doc /* The system shall return an acknowledgement for every remote device command indicating whether the command was accepted or rejected and the reason for rejection when applicable. */
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The platform shall maintain at least 99.9 percent availability for medical device data ingestion and alarm routing during clinical operation. */
+        attribute requiredAvailability : Percent = 99.9 [%];
+    }
+
+    requirement def CybersecurityLockoutRequirement {
+        doc /* The gateway shall enter cybersecurity lockout when repeated authentication failures or malformed command messages exceed the configured safety threshold. */
+    }
+
+    satisfy PrimaryFunctionRequirement by MedicalDeviceConnectivityPlatform;
+    satisfy DataLatencyRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy AlarmLatencyRequirement by MedicalDeviceConnectivityPlatform::alarmManager;
+    satisfy DeviceAuthenticationRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy DataIntegrityRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy CommandAcknowledgementRequirement by MedicalDeviceConnectivityPlatform::gateway;
+    satisfy AvailabilityRequirement by MedicalDeviceConnectivityPlatform;
+    satisfy CybersecurityLockoutRequirement by MedicalDeviceConnectivityPlatform::gateway;
+
+    constraint def LatencyBudgetConstraint {
+        in gatewayLatency : Millisecond;
+        in ehrAdapterLatency : Millisecond;
+        in maximumLatency : Millisecond;
+        gatewayLatency + ehrAdapterLatency <= maximumLatency;
+    }
+
+    constraint def AlarmEscalationConstraint {
+        in elapsedUnacknowledgedTime : Millisecond;
+        in escalationDelay : Millisecond;
+        elapsedUnacknowledgedTime >= escalationDelay;
+    }
+
+    constraint def VitalSignRangeConstraint {
+        in heartRate : BeatsPerMinute;
+        in oxygenSaturation : Percent;
+        heartRate >= 20 [1/min] and heartRate <= 240 [1/min] and oxygenSaturation >= 50 [%] and oxygenSaturation <= 100 [%];
+    }
+
+    allocation def MeasurementProcessingAllocation {
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::collectMeasurements to MedicalDeviceConnectivityPlatform::gateway;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::normalizeAndValidate to MedicalDeviceConnectivityPlatform::gateway;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::persistObservations to MedicalDeviceConnectivityPlatform::ehrAdapter;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::routeClinicalAlarms to MedicalDeviceConnectivityPlatform::alarmManager;
+        allocate MedicalDeviceConnectivityPlatform::performPrimaryConnectivityFunction::notifyClinician to MedicalDeviceConnectivityPlatform::clinicianConsole;
+    }
+}

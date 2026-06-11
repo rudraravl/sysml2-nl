@@ -1,0 +1,1059 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-0a7jkou3
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb475-5d7a-7c53-8f57-a7a2ae5ef291
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a pumping subsystem that moves fluid using a Boiler feedwater pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package BoilerFeedwaterPumpingSubsystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def MassFlowRate :> ISQ::massFlowRate {
+        unit = SI::kilogramPerSecond;
+    }
+
+    attribute def VolumetricFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def RotationalSpeed :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Efficiency :> ScalarValues::Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def ValvePosition :> ScalarValues::Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def VibrationVelocity :> ISQ::speed {
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def Level :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    item def Feedwater {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+        attribute conductivity : ScalarValues::Real;
+        attribute dissolvedOxygen : ScalarValues::Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ISQ::electricPotential;
+        attribute current : ISQ::electricCurrent;
+        attribute frequency : ISQ::frequency;
+        attribute realPower : Power;
+    }
+
+    item def ControlSignal {
+        attribute demand : ScalarValues::Real;
+        attribute valid : ScalarValues::Boolean;
+    }
+
+    item def StatusSignal {
+        attribute running : ScalarValues::Boolean;
+        attribute available : ScalarValues::Boolean;
+        attribute alarmActive : ScalarValues::Boolean;
+        attribute tripActive : ScalarValues::Boolean;
+    }
+
+    item def BearingLubeOil {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flow : VolumetricFlowRate;
+    }
+
+    port def FluidPort {
+        inout item water : Feedwater;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : StatusSignal;
+    }
+
+    port def LubeOilPort {
+        inout item oil : BearingLubeOil;
+    }
+
+    port def DrainPort {
+        out item leakage : Feedwater;
+    }
+
+    part def Motor {
+        port electricalIn : PowerPort;
+        port control : ControlPort;
+
+        attribute ratedPower : Power = 2500000 [SI::watt];
+        attribute ratedSpeed : RotationalSpeed = 60 [SI::hertz];
+        attribute windingTemperature : Temperature;
+        attribute bearingTemperature : Temperature;
+        attribute running : ScalarValues::Boolean;
+        attribute efficiency : Efficiency = 0.96;
+
+        state def MotorStateMachine {
+            state off;
+            state starting;
+            state running;
+            state stopping;
+            state tripped;
+
+            transition first off;
+            transition startCommand from off to starting;
+            transition speedEstablished from starting to running;
+            transition stopCommand from running to stopping;
+            transition stopped from stopping to off;
+            transition electricalFault from off to tripped;
+            transition electricalFault2 from starting to tripped;
+            transition electricalFault3 from running to tripped;
+            transition reset from tripped to off;
+        }
+
+        perform stateBehavior : MotorStateMachine;
+    }
+
+    part def VariableFrequencyDrive {
+        port powerIn : PowerPort;
+        port powerOut : PowerPort;
+        port control : ControlPort;
+
+        attribute outputFrequency : RotationalSpeed;
+        attribute outputPower : Power;
+        attribute heatLoss : Power;
+        attribute available : ScalarValues::Boolean;
+        attribute speedDemand : ScalarValues::Real;
+    }
+
+    part def CentrifugalPumpHydraulics {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port casingDrain : DrainPort;
+
+        attribute differentialPressure : Pressure;
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute flow : MassFlowRate;
+        attribute minimumContinuousStableFlow : MassFlowRate = 18 [SI::kilogramPerSecond];
+        attribute ratedFlow : MassFlowRate = 95 [SI::kilogramPerSecond];
+        attribute ratedDifferentialPressure : Pressure = 12500000 [SI::pascal];
+        attribute hydraulicEfficiency : Efficiency = 0.82;
+        attribute netPositiveSuctionHeadRequired : ISQ::length = 18 [SI::metre];
+        attribute impellerSpeed : RotationalSpeed;
+        attribute casingTemperature : Temperature;
+
+        action def PressurizeFeedwater {
+            in item inletWater : Feedwater;
+            out item outletWater : Feedwater;
+
+            first start;
+            then computeHead;
+            then transferEnergy;
+            then deliverDischarge;
+
+            action computeHead;
+            action transferEnergy;
+            action deliverDischarge;
+        }
+
+        perform pumpingAction : PressurizeFeedwater;
+    }
+
+    part def MechanicalCoupling {
+        attribute torqueTransmitted : ScalarValues::Real;
+        attribute guardInstalled : ScalarValues::Boolean = true;
+        attribute alignmentOffset : ISQ::length;
+        attribute vibration : VibrationVelocity;
+    }
+
+    part def CheckValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute open : ScalarValues::Boolean;
+        attribute crackingPressure : Pressure = 35000 [SI::pascal];
+        attribute reverseFlowDetected : ScalarValues::Boolean;
+    }
+
+    part def DischargeIsolationValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port control : ControlPort;
+
+        attribute position : ValvePosition;
+        attribute commandedPosition : ValvePosition;
+        attribute failPosition : ValvePosition = 0.0;
+        attribute strokeTime : ISQ::time = 15 [SI::second];
+    }
+
+    part def MinimumFlowRecirculationValve {
+        port pumpDischarge : FluidPort;
+        port recirculationOutlet : FluidPort;
+        port control : ControlPort;
+
+        attribute position : ValvePosition;
+        attribute openThresholdFlow : MassFlowRate = 25 [SI::kilogramPerSecond];
+        attribute closeThresholdFlow : MassFlowRate = 35 [SI::kilogramPerSecond];
+    }
+
+    part def SuctionStrainer {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute differentialPressure : Pressure;
+        attribute highDpAlarmSetpoint : Pressure = 80000 [SI::pascal];
+        attribute plugged : ScalarValues::Boolean;
+    }
+
+    part def LubeOilSkid {
+        port oilToPump : LubeOilPort;
+        port oilReturn : LubeOilPort;
+        port control : ControlPort;
+
+        attribute supplyPressure : Pressure;
+        attribute supplyTemperature : Temperature;
+        attribute reservoirLevel : Level;
+        attribute pumpRunning : ScalarValues::Boolean;
+        attribute lowPressureTripSetpoint : Pressure = 180000 [SI::pascal];
+    }
+
+    part def SealSystem {
+        port sealInjection : FluidPort;
+        port sealLeakoff : DrainPort;
+        port control : ControlPort;
+
+        attribute injectionPressure : Pressure;
+        attribute leakoffFlow : MassFlowRate;
+        attribute sealHealthy : ScalarValues::Boolean;
+    }
+
+    part def Instrumentation {
+        port control : ControlPort;
+
+        attribute suctionPressureMeasured : Pressure;
+        attribute dischargePressureMeasured : Pressure;
+        attribute flowMeasured : MassFlowRate;
+        attribute motorCurrentMeasured : ISQ::electricCurrent;
+        attribute pumpVibrationMeasured : VibrationVelocity;
+        attribute bearingTemperatureMeasured : Temperature;
+        attribute lubeOilPressureMeasured : Pressure;
+        attribute suctionLowPressureTrip : Pressure = 450000 [SI::pascal];
+        attribute dischargeHighPressureTrip : Pressure = 17800000 [SI::pascal];
+        attribute highVibrationTrip : VibrationVelocity = 0.011 [SI::metrePerSecond];
+        attribute highBearingTemperatureTrip : Temperature = 373.15 [SI::kelvin];
+    }
+
+    part def PumpController {
+        port operatorCommand : ControlPort;
+        port driveCommand : ControlPort;
+        port valveCommand : ControlPort;
+        port recircCommand : ControlPort;
+        port lubeOilCommand : ControlPort;
+        port instrumentation : ControlPort;
+
+        attribute startPermissive : ScalarValues::Boolean;
+        attribute tripRequired : ScalarValues::Boolean;
+        attribute speedDemand : ScalarValues::Real;
+        attribute targetDischargePressure : Pressure = 16200000 [SI::pascal];
+        attribute targetFlow : MassFlowRate = 90 [SI::kilogramPerSecond];
+
+        state def PumpControlStateMachine {
+            state unavailable;
+            state standby;
+            state prelubrication;
+            state starting;
+            state warming;
+            state normalRunning;
+            state minimumFlowProtection;
+            state controlledShutdown;
+            state emergencyTrip;
+
+            transition first unavailable;
+            transition permissivesHealthy from unavailable to standby;
+            transition startRequested from standby to prelubrication;
+            transition oilPressureEstablished from prelubrication to starting;
+            transition pumpAtMinimumSpeed from starting to warming;
+            transition dischargeValveOpen from warming to normalRunning;
+            transition lowFlowDetected from normalRunning to minimumFlowProtection;
+            transition flowRestored from minimumFlowProtection to normalRunning;
+            transition stopRequested from normalRunning to controlledShutdown;
+            transition stopped from controlledShutdown to standby;
+            transition protectiveTrip1 from prelubrication to emergencyTrip;
+            transition protectiveTrip2 from starting to emergencyTrip;
+            transition protectiveTrip3 from warming to emergencyTrip;
+            transition protectiveTrip4 from normalRunning to emergencyTrip;
+            transition protectiveTrip5 from minimumFlowProtection to emergencyTrip;
+            transition resetTrip from emergencyTrip to unavailable;
+        }
+
+        action def RegulateDischargePressure {
+            in measuredPressure : Pressure;
+            in measuredFlow : MassFlowRate;
+            out driveSpeedDemand : ScalarValues::Real;
+            out recirculationDemand : ValvePosition;
+
+            first comparePressure;
+            then computeSpeedCorrection;
+            then enforceMinimumFlow;
+            then issueCommands;
+
+            action comparePressure;
+            action computeSpeedCorrection;
+            action enforceMinimumFlow;
+            action issueCommands;
+        }
+
+        perform controlMode : PumpControlStateMachine;
+        perform pressureControl : RegulateDischargePressure;
+    }
+
+    part def BoilerFeedwaterPumpAssembly {
+        port suctionHeader : FluidPort;
+        port dischargeHeader : FluidPort;
+        port recirculationReturn : FluidPort;
+        port electricalSupply : PowerPort;
+        port operatorInterface : ControlPort;
+        port drainOutlet : DrainPort;
+
+        part strainer : SuctionStrainer;
+        part pump : CentrifugalPumpHydraulics;
+        part motor : Motor;
+        part coupling : MechanicalCoupling;
+        part drive : VariableFrequencyDrive;
+        part dischargeCheckValve : CheckValve;
+        part dischargeValve : DischargeIsolationValve;
+        part minimumFlowValve : MinimumFlowRecirculationValve;
+        part lubeOil : LubeOilSkid;
+        part seals : SealSystem;
+        part instruments : Instrumentation;
+        part controller : PumpController;
+
+        connect suctionHeader to strainer.inlet;
+        connect strainer.outlet to pump.suction;
+        connect pump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeValve.inlet;
+        connect dischargeValve.outlet to dischargeHeader;
+        connect pump.discharge to minimumFlowValve.pumpDischarge;
+        connect minimumFlowValve.recirculationOutlet to recirculationReturn;
+        connect electricalSupply to drive.powerIn;
+        connect drive.powerOut to motor.electricalIn;
+        connect operatorInterface to controller.operatorCommand;
+        connect controller.driveCommand to drive.control;
+        connect controller.driveCommand to motor.control;
+        connect controller.valveCommand to dischargeValve.control;
+        connect controller.recircCommand to minimumFlowValve.control;
+        connect controller.lubeOilCommand to lubeOil.control;
+        connect controller.instrumentation to instruments.control;
+        connect lubeOil.oilToPump to lubeOil.oilReturn;
+        connect seals.sealInjection to pump.discharge;
+        connect seals.sealLeakoff to drainOutlet;
+        connect pump.casingDrain to drainOutlet;
+
+        attribute assemblyAvailable : ScalarValues::Boolean;
+        attribute totalElectricalPower : Power;
+        attribute deliveredFlow : MassFlowRate;
+        attribute deliveredPressure : Pressure;
+    }
+
+    part def FeedwaterPumpingSubsystem {
+        port deaeratorOutlet : FluidPort;
+        port boilerEconomizerInlet : FluidPort;
+        port condensateStorageReturn : FluidPort;
+        port incomingElectricalPower : PowerPort;
+        port plantControlSystem : ControlPort;
+        port drainCollection : DrainPort;
+
+        part mainFeedPump : BoilerFeedwaterPumpAssembly;
+        part standbyFeedPump : BoilerFeedwaterPumpAssembly;
+
+        connect deaeratorOutlet to mainFeedPump.suctionHeader;
+        connect deaeratorOutlet to standbyFeedPump.suctionHeader;
+        connect mainFeedPump.dischargeHeader to boilerEconomizerInlet;
+        connect standbyFeedPump.dischargeHeader to boilerEconomizerInlet;
+        connect mainFeedPump.recirculationReturn to condensateStorageReturn;
+        connect standbyFeedPump.recirculationReturn to condensateStorageReturn;
+        connect incomingElectricalPower to mainFeedPump.electricalSupply;
+        connect incomingElectricalPower to standbyFeedPump.electricalSupply;
+        connect plantControlSystem to mainFeedPump.operatorInterface;
+        connect plantControlSystem to standbyFeedPump.operatorInterface;
+        connect mainFeedPump.drainOutlet to drainCollection;
+        connect standbyFeedPump.drainOutlet to drainCollection;
+
+        attribute requiredBoilerFlow : MassFlowRate = 90 [SI::kilogramPerSecond];
+        attribute normalDischargePressure : Pressure = 16200000 [SI::pascal];
+        attribute suctionTemperature : Temperature = 423.15 [SI::kelvin];
+        attribute activePumpCount : ScalarValues::Integer;
+        attribute standbyAvailable : ScalarValues::Boolean;
+
+        action def SupplyBoilerFeedwater {
+            in item sourceWater : Feedwater;
+            out item boilerFeedwater : Feedwater;
+
+            first validateSuctionConditions;
+            then selectAvailablePump;
+            then startOrMaintainPump;
+            then regulatePressureAndFlow;
+            then protectMinimumFlow;
+            then deliverToEconomizer;
+
+            action validateSuctionConditions;
+            action selectAvailablePump;
+            action startOrMaintainPump;
+            action regulatePressureAndFlow;
+            action protectMinimumFlow;
+            action deliverToEconomizer;
+        }
+
+        perform feedwaterSupply : SupplyBoilerFeedwater;
+    }
+
+    requirement def FeedwaterFlowRequirement {
+        subject subsystem : FeedwaterPumpingSubsystem;
+
+        require constraint {
+            subsystem.requiredBoilerFlow >= 90 [SI::kilogramPerSecond]
+        }
+
+        doc /* The pumping subsystem shall deliver not less than 90 kg/s of feedwater to the boiler economizer inlet during normal boiler load. */
+    }
+
+    requirement def DischargePressureRequirement {
+        subject subsystem : FeedwaterPumpingSubsystem;
+
+        require constraint {
+            subsystem.normalDischargePressure >= 16000000 [SI::pascal]
+        }
+
+        doc /* The pumping subsystem shall maintain feedwater discharge pressure sufficient to overcome boiler drum pressure, economizer losses, and control valve pressure drop. */
+    }
+
+    requirement def MinimumFlowProtectionRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.pump.flow >= pumpAssembly.pump.minimumContinuousStableFlow
+            or pumpAssembly.minimumFlowValve.position > 0.0
+        }
+
+        doc /* The boiler feedwater pump shall be protected from operation below minimum continuous stable flow by automatic recirculation. */
+    }
+
+    requirement def LowSuctionPressureTripRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.instruments.suctionPressureMeasured > pumpAssembly.instruments.suctionLowPressureTrip
+            or pumpAssembly.controller.tripRequired == true
+        }
+
+        doc /* The pump controller shall trip the pump when suction pressure falls below the configured protective limit. */
+    }
+
+    requirement def HighDischargePressureTripRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.instruments.dischargePressureMeasured < pumpAssembly.instruments.dischargeHighPressureTrip
+            or pumpAssembly.controller.tripRequired == true
+        }
+
+        doc /* The pump controller shall trip the pump when discharge pressure exceeds the configured protective limit. */
+    }
+
+    requirement def LubeOilProtectionRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.lubeOil.supplyPressure > pumpAssembly.lubeOil.lowPressureTripSetpoint
+            or pumpAssembly.controller.tripRequired == true
+        }
+
+        doc /* The pump shall not run without adequate bearing lubrication oil pressure. */
+    }
+
+    requirement def StandbyCapacityRequirement {
+        subject subsystem : FeedwaterPumpingSubsystem;
+
+        require constraint {
+            subsystem.standbyAvailable == true
+        }
+
+        doc /* The subsystem shall include a standby boiler feedwater pump assembly capable of supplying the required boiler feedwater flow if the main pump is unavailable. */
+    }
+
+    requirement def ReverseFlowPreventionRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.dischargeCheckValve.reverseFlowDetected == false
+        }
+
+        doc /* The discharge check valve shall prevent reverse flow from the boiler feedwater header through an idle pump. */
+    }
+
+    satisfy FeedwaterFlowRequirement by FeedwaterPumpingSubsystem::feedwaterSupply;
+    satisfy DischargePressureRequirement by FeedwaterPumpingSubsystem::mainFeedPump::controller::pressureControl;
+    satisfy MinimumFlowProtectionRequirement by BoilerFeedwaterPumpAssembly::minimumFlowValve;
+    satisfy LowSuctionPressureTripRequirement by BoilerFeedwaterPumpAssembly::controller;
+    satisfy HighDischargePressureTripRequirement by BoilerFeedwaterPumpAssembly::controller;
+    satisfy LubeOilProtectionRequirement by BoilerFeedwaterPumpAssembly::lubeOil;
+    satisfy StandbyCapacityRequirement by FeedwaterPumpingSubsystem::standbyFeedPump;
+    satisfy ReverseFlowPreventionRequirement by BoilerFeedwaterPumpAssembly::dischargeCheckValve;
+
+    part feedwaterPumpingSubsystem : FeedwaterPumpingSubsystem;
+}
+tokens used
+5,357
+package BoilerFeedwaterPumpingSubsystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def MassFlowRate :> ISQ::massFlowRate {
+        unit = SI::kilogramPerSecond;
+    }
+
+    attribute def VolumetricFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def RotationalSpeed :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Efficiency :> ScalarValues::Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def ValvePosition :> ScalarValues::Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def VibrationVelocity :> ISQ::speed {
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def Level :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    item def Feedwater {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+        attribute conductivity : ScalarValues::Real;
+        attribute dissolvedOxygen : ScalarValues::Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ISQ::electricPotential;
+        attribute current : ISQ::electricCurrent;
+        attribute frequency : ISQ::frequency;
+        attribute realPower : Power;
+    }
+
+    item def ControlSignal {
+        attribute demand : ScalarValues::Real;
+        attribute valid : ScalarValues::Boolean;
+    }
+
+    item def StatusSignal {
+        attribute running : ScalarValues::Boolean;
+        attribute available : ScalarValues::Boolean;
+        attribute alarmActive : ScalarValues::Boolean;
+        attribute tripActive : ScalarValues::Boolean;
+    }
+
+    item def BearingLubeOil {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flow : VolumetricFlowRate;
+    }
+
+    port def FluidPort {
+        inout item water : Feedwater;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : StatusSignal;
+    }
+
+    port def LubeOilPort {
+        inout item oil : BearingLubeOil;
+    }
+
+    port def DrainPort {
+        out item leakage : Feedwater;
+    }
+
+    part def Motor {
+        port electricalIn : PowerPort;
+        port control : ControlPort;
+
+        attribute ratedPower : Power = 2500000 [SI::watt];
+        attribute ratedSpeed : RotationalSpeed = 60 [SI::hertz];
+        attribute windingTemperature : Temperature;
+        attribute bearingTemperature : Temperature;
+        attribute running : ScalarValues::Boolean;
+        attribute efficiency : Efficiency = 0.96;
+
+        state def MotorStateMachine {
+            state off;
+            state starting;
+            state running;
+            state stopping;
+            state tripped;
+
+            transition first off;
+            transition startCommand from off to starting;
+            transition speedEstablished from starting to running;
+            transition stopCommand from running to stopping;
+            transition stopped from stopping to off;
+            transition electricalFault from off to tripped;
+            transition electricalFault2 from starting to tripped;
+            transition electricalFault3 from running to tripped;
+            transition reset from tripped to off;
+        }
+
+        perform stateBehavior : MotorStateMachine;
+    }
+
+    part def VariableFrequencyDrive {
+        port powerIn : PowerPort;
+        port powerOut : PowerPort;
+        port control : ControlPort;
+
+        attribute outputFrequency : RotationalSpeed;
+        attribute outputPower : Power;
+        attribute heatLoss : Power;
+        attribute available : ScalarValues::Boolean;
+        attribute speedDemand : ScalarValues::Real;
+    }
+
+    part def CentrifugalPumpHydraulics {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port casingDrain : DrainPort;
+
+        attribute differentialPressure : Pressure;
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute flow : MassFlowRate;
+        attribute minimumContinuousStableFlow : MassFlowRate = 18 [SI::kilogramPerSecond];
+        attribute ratedFlow : MassFlowRate = 95 [SI::kilogramPerSecond];
+        attribute ratedDifferentialPressure : Pressure = 12500000 [SI::pascal];
+        attribute hydraulicEfficiency : Efficiency = 0.82;
+        attribute netPositiveSuctionHeadRequired : ISQ::length = 18 [SI::metre];
+        attribute impellerSpeed : RotationalSpeed;
+        attribute casingTemperature : Temperature;
+
+        action def PressurizeFeedwater {
+            in item inletWater : Feedwater;
+            out item outletWater : Feedwater;
+
+            first start;
+            then computeHead;
+            then transferEnergy;
+            then deliverDischarge;
+
+            action computeHead;
+            action transferEnergy;
+            action deliverDischarge;
+        }
+
+        perform pumpingAction : PressurizeFeedwater;
+    }
+
+    part def MechanicalCoupling {
+        attribute torqueTransmitted : ScalarValues::Real;
+        attribute guardInstalled : ScalarValues::Boolean = true;
+        attribute alignmentOffset : ISQ::length;
+        attribute vibration : VibrationVelocity;
+    }
+
+    part def CheckValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute open : ScalarValues::Boolean;
+        attribute crackingPressure : Pressure = 35000 [SI::pascal];
+        attribute reverseFlowDetected : ScalarValues::Boolean;
+    }
+
+    part def DischargeIsolationValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port control : ControlPort;
+
+        attribute position : ValvePosition;
+        attribute commandedPosition : ValvePosition;
+        attribute failPosition : ValvePosition = 0.0;
+        attribute strokeTime : ISQ::time = 15 [SI::second];
+    }
+
+    part def MinimumFlowRecirculationValve {
+        port pumpDischarge : FluidPort;
+        port recirculationOutlet : FluidPort;
+        port control : ControlPort;
+
+        attribute position : ValvePosition;
+        attribute openThresholdFlow : MassFlowRate = 25 [SI::kilogramPerSecond];
+        attribute closeThresholdFlow : MassFlowRate = 35 [SI::kilogramPerSecond];
+    }
+
+    part def SuctionStrainer {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute differentialPressure : Pressure;
+        attribute highDpAlarmSetpoint : Pressure = 80000 [SI::pascal];
+        attribute plugged : ScalarValues::Boolean;
+    }
+
+    part def LubeOilSkid {
+        port oilToPump : LubeOilPort;
+        port oilReturn : LubeOilPort;
+        port control : ControlPort;
+
+        attribute supplyPressure : Pressure;
+        attribute supplyTemperature : Temperature;
+        attribute reservoirLevel : Level;
+        attribute pumpRunning : ScalarValues::Boolean;
+        attribute lowPressureTripSetpoint : Pressure = 180000 [SI::pascal];
+    }
+
+    part def SealSystem {
+        port sealInjection : FluidPort;
+        port sealLeakoff : DrainPort;
+        port control : ControlPort;
+
+        attribute injectionPressure : Pressure;
+        attribute leakoffFlow : MassFlowRate;
+        attribute sealHealthy : ScalarValues::Boolean;
+    }
+
+    part def Instrumentation {
+        port control : ControlPort;
+
+        attribute suctionPressureMeasured : Pressure;
+        attribute dischargePressureMeasured : Pressure;
+        attribute flowMeasured : MassFlowRate;
+        attribute motorCurrentMeasured : ISQ::electricCurrent;
+        attribute pumpVibrationMeasured : VibrationVelocity;
+        attribute bearingTemperatureMeasured : Temperature;
+        attribute lubeOilPressureMeasured : Pressure;
+        attribute suctionLowPressureTrip : Pressure = 450000 [SI::pascal];
+        attribute dischargeHighPressureTrip : Pressure = 17800000 [SI::pascal];
+        attribute highVibrationTrip : VibrationVelocity = 0.011 [SI::metrePerSecond];
+        attribute highBearingTemperatureTrip : Temperature = 373.15 [SI::kelvin];
+    }
+
+    part def PumpController {
+        port operatorCommand : ControlPort;
+        port driveCommand : ControlPort;
+        port valveCommand : ControlPort;
+        port recircCommand : ControlPort;
+        port lubeOilCommand : ControlPort;
+        port instrumentation : ControlPort;
+
+        attribute startPermissive : ScalarValues::Boolean;
+        attribute tripRequired : ScalarValues::Boolean;
+        attribute speedDemand : ScalarValues::Real;
+        attribute targetDischargePressure : Pressure = 16200000 [SI::pascal];
+        attribute targetFlow : MassFlowRate = 90 [SI::kilogramPerSecond];
+
+        state def PumpControlStateMachine {
+            state unavailable;
+            state standby;
+            state prelubrication;
+            state starting;
+            state warming;
+            state normalRunning;
+            state minimumFlowProtection;
+            state controlledShutdown;
+            state emergencyTrip;
+
+            transition first unavailable;
+            transition permissivesHealthy from unavailable to standby;
+            transition startRequested from standby to prelubrication;
+            transition oilPressureEstablished from prelubrication to starting;
+            transition pumpAtMinimumSpeed from starting to warming;
+            transition dischargeValveOpen from warming to normalRunning;
+            transition lowFlowDetected from normalRunning to minimumFlowProtection;
+            transition flowRestored from minimumFlowProtection to normalRunning;
+            transition stopRequested from normalRunning to controlledShutdown;
+            transition stopped from controlledShutdown to standby;
+            transition protectiveTrip1 from prelubrication to emergencyTrip;
+            transition protectiveTrip2 from starting to emergencyTrip;
+            transition protectiveTrip3 from warming to emergencyTrip;
+            transition protectiveTrip4 from normalRunning to emergencyTrip;
+            transition protectiveTrip5 from minimumFlowProtection to emergencyTrip;
+            transition resetTrip from emergencyTrip to unavailable;
+        }
+
+        action def RegulateDischargePressure {
+            in measuredPressure : Pressure;
+            in measuredFlow : MassFlowRate;
+            out driveSpeedDemand : ScalarValues::Real;
+            out recirculationDemand : ValvePosition;
+
+            first comparePressure;
+            then computeSpeedCorrection;
+            then enforceMinimumFlow;
+            then issueCommands;
+
+            action comparePressure;
+            action computeSpeedCorrection;
+            action enforceMinimumFlow;
+            action issueCommands;
+        }
+
+        perform controlMode : PumpControlStateMachine;
+        perform pressureControl : RegulateDischargePressure;
+    }
+
+    part def BoilerFeedwaterPumpAssembly {
+        port suctionHeader : FluidPort;
+        port dischargeHeader : FluidPort;
+        port recirculationReturn : FluidPort;
+        port electricalSupply : PowerPort;
+        port operatorInterface : ControlPort;
+        port drainOutlet : DrainPort;
+
+        part strainer : SuctionStrainer;
+        part pump : CentrifugalPumpHydraulics;
+        part motor : Motor;
+        part coupling : MechanicalCoupling;
+        part drive : VariableFrequencyDrive;
+        part dischargeCheckValve : CheckValve;
+        part dischargeValve : DischargeIsolationValve;
+        part minimumFlowValve : MinimumFlowRecirculationValve;
+        part lubeOil : LubeOilSkid;
+        part seals : SealSystem;
+        part instruments : Instrumentation;
+        part controller : PumpController;
+
+        connect suctionHeader to strainer.inlet;
+        connect strainer.outlet to pump.suction;
+        connect pump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeValve.inlet;
+        connect dischargeValve.outlet to dischargeHeader;
+        connect pump.discharge to minimumFlowValve.pumpDischarge;
+        connect minimumFlowValve.recirculationOutlet to recirculationReturn;
+        connect electricalSupply to drive.powerIn;
+        connect drive.powerOut to motor.electricalIn;
+        connect operatorInterface to controller.operatorCommand;
+        connect controller.driveCommand to drive.control;
+        connect controller.driveCommand to motor.control;
+        connect controller.valveCommand to dischargeValve.control;
+        connect controller.recircCommand to minimumFlowValve.control;
+        connect controller.lubeOilCommand to lubeOil.control;
+        connect controller.instrumentation to instruments.control;
+        connect lubeOil.oilToPump to lubeOil.oilReturn;
+        connect seals.sealInjection to pump.discharge;
+        connect seals.sealLeakoff to drainOutlet;
+        connect pump.casingDrain to drainOutlet;
+
+        attribute assemblyAvailable : ScalarValues::Boolean;
+        attribute totalElectricalPower : Power;
+        attribute deliveredFlow : MassFlowRate;
+        attribute deliveredPressure : Pressure;
+    }
+
+    part def FeedwaterPumpingSubsystem {
+        port deaeratorOutlet : FluidPort;
+        port boilerEconomizerInlet : FluidPort;
+        port condensateStorageReturn : FluidPort;
+        port incomingElectricalPower : PowerPort;
+        port plantControlSystem : ControlPort;
+        port drainCollection : DrainPort;
+
+        part mainFeedPump : BoilerFeedwaterPumpAssembly;
+        part standbyFeedPump : BoilerFeedwaterPumpAssembly;
+
+        connect deaeratorOutlet to mainFeedPump.suctionHeader;
+        connect deaeratorOutlet to standbyFeedPump.suctionHeader;
+        connect mainFeedPump.dischargeHeader to boilerEconomizerInlet;
+        connect standbyFeedPump.dischargeHeader to boilerEconomizerInlet;
+        connect mainFeedPump.recirculationReturn to condensateStorageReturn;
+        connect standbyFeedPump.recirculationReturn to condensateStorageReturn;
+        connect incomingElectricalPower to mainFeedPump.electricalSupply;
+        connect incomingElectricalPower to standbyFeedPump.electricalSupply;
+        connect plantControlSystem to mainFeedPump.operatorInterface;
+        connect plantControlSystem to standbyFeedPump.operatorInterface;
+        connect mainFeedPump.drainOutlet to drainCollection;
+        connect standbyFeedPump.drainOutlet to drainCollection;
+
+        attribute requiredBoilerFlow : MassFlowRate = 90 [SI::kilogramPerSecond];
+        attribute normalDischargePressure : Pressure = 16200000 [SI::pascal];
+        attribute suctionTemperature : Temperature = 423.15 [SI::kelvin];
+        attribute activePumpCount : ScalarValues::Integer;
+        attribute standbyAvailable : ScalarValues::Boolean;
+
+        action def SupplyBoilerFeedwater {
+            in item sourceWater : Feedwater;
+            out item boilerFeedwater : Feedwater;
+
+            first validateSuctionConditions;
+            then selectAvailablePump;
+            then startOrMaintainPump;
+            then regulatePressureAndFlow;
+            then protectMinimumFlow;
+            then deliverToEconomizer;
+
+            action validateSuctionConditions;
+            action selectAvailablePump;
+            action startOrMaintainPump;
+            action regulatePressureAndFlow;
+            action protectMinimumFlow;
+            action deliverToEconomizer;
+        }
+
+        perform feedwaterSupply : SupplyBoilerFeedwater;
+    }
+
+    requirement def FeedwaterFlowRequirement {
+        subject subsystem : FeedwaterPumpingSubsystem;
+
+        require constraint {
+            subsystem.requiredBoilerFlow >= 90 [SI::kilogramPerSecond]
+        }
+
+        doc /* The pumping subsystem shall deliver not less than 90 kg/s of feedwater to the boiler economizer inlet during normal boiler load. */
+    }
+
+    requirement def DischargePressureRequirement {
+        subject subsystem : FeedwaterPumpingSubsystem;
+
+        require constraint {
+            subsystem.normalDischargePressure >= 16000000 [SI::pascal]
+        }
+
+        doc /* The pumping subsystem shall maintain feedwater discharge pressure sufficient to overcome boiler drum pressure, economizer losses, and control valve pressure drop. */
+    }
+
+    requirement def MinimumFlowProtectionRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.pump.flow >= pumpAssembly.pump.minimumContinuousStableFlow
+            or pumpAssembly.minimumFlowValve.position > 0.0
+        }
+
+        doc /* The boiler feedwater pump shall be protected from operation below minimum continuous stable flow by automatic recirculation. */
+    }
+
+    requirement def LowSuctionPressureTripRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.instruments.suctionPressureMeasured > pumpAssembly.instruments.suctionLowPressureTrip
+            or pumpAssembly.controller.tripRequired == true
+        }
+
+        doc /* The pump controller shall trip the pump when suction pressure falls below the configured protective limit. */
+    }
+
+    requirement def HighDischargePressureTripRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.instruments.dischargePressureMeasured < pumpAssembly.instruments.dischargeHighPressureTrip
+            or pumpAssembly.controller.tripRequired == true
+        }
+
+        doc /* The pump controller shall trip the pump when discharge pressure exceeds the configured protective limit. */
+    }
+
+    requirement def LubeOilProtectionRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.lubeOil.supplyPressure > pumpAssembly.lubeOil.lowPressureTripSetpoint
+            or pumpAssembly.controller.tripRequired == true
+        }
+
+        doc /* The pump shall not run without adequate bearing lubrication oil pressure. */
+    }
+
+    requirement def StandbyCapacityRequirement {
+        subject subsystem : FeedwaterPumpingSubsystem;
+
+        require constraint {
+            subsystem.standbyAvailable == true
+        }
+
+        doc /* The subsystem shall include a standby boiler feedwater pump assembly capable of supplying the required boiler feedwater flow if the main pump is unavailable. */
+    }
+
+    requirement def ReverseFlowPreventionRequirement {
+        subject pumpAssembly : BoilerFeedwaterPumpAssembly;
+
+        require constraint {
+            pumpAssembly.dischargeCheckValve.reverseFlowDetected == false
+        }
+
+        doc /* The discharge check valve shall prevent reverse flow from the boiler feedwater header through an idle pump. */
+    }
+
+    satisfy FeedwaterFlowRequirement by FeedwaterPumpingSubsystem::feedwaterSupply;
+    satisfy DischargePressureRequirement by FeedwaterPumpingSubsystem::mainFeedPump::controller::pressureControl;
+    satisfy MinimumFlowProtectionRequirement by BoilerFeedwaterPumpAssembly::minimumFlowValve;
+    satisfy LowSuctionPressureTripRequirement by BoilerFeedwaterPumpAssembly::controller;
+    satisfy HighDischargePressureTripRequirement by BoilerFeedwaterPumpAssembly::controller;
+    satisfy LubeOilProtectionRequirement by BoilerFeedwaterPumpAssembly::lubeOil;
+    satisfy StandbyCapacityRequirement by FeedwaterPumpingSubsystem::standbyFeedPump;
+    satisfy ReverseFlowPreventionRequirement by BoilerFeedwaterPumpAssembly::dischargeCheckValve;
+
+    part feedwaterPumpingSubsystem : FeedwaterPumpingSubsystem;
+}

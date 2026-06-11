@@ -1,0 +1,696 @@
+package OrganCareSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Celsius :> Real;
+    value def MilliliterPerMinute :> Real;
+    value def MillimeterMercury :> Real;
+    value def MillimolePerLiter :> Real;
+    value def Percent :> Real;
+    value def Minute :> Real;
+    value def Hour :> Real;
+    value def Watt :> Real;
+    value def Volt :> Real;
+    value def Ampere :> Real;
+    value def Liter :> Real;
+    value def Milliliter :> Real;
+    value def Gram :> Real;
+    value def BeatPerMinute :> Real;
+
+    enum def OrganKind {
+        enum liver;
+        enum kidney;
+        enum heart;
+        enum lung;
+        enum pancreas;
+    }
+
+    enum def PreservationMode {
+        enum standby;
+        enum priming;
+        enum normothermicPerfusion;
+        enum hypothermicPerfusion;
+        enum transport;
+        enum alarm;
+        enum shutdown;
+    }
+
+    enum def AlarmSeverity {
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    item def Organ {
+        attribute kind : OrganKind;
+        attribute mass : Gram;
+        attribute targetPerfusionFlow : MilliliterPerMinute;
+        attribute targetPerfusionPressure : MillimeterMercury;
+        attribute targetTemperature : Celsius;
+        attribute maximumIschemicTime : Hour;
+    }
+
+    item def Perfusate {
+        attribute volume : Milliliter;
+        attribute temperature : Celsius;
+        attribute oxygenSaturation : Percent;
+        attribute glucose : MillimolePerLiter;
+        attribute lactate : MillimolePerLiter;
+        attribute pH : Real;
+        attribute hematocrit : Percent;
+    }
+
+    item def OxygenGas {
+        attribute flowRate : MilliliterPerMinute;
+        attribute fractionOxygen : Percent;
+        attribute supplyPressure : MillimeterMercury;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute availableEnergy : Watt;
+    }
+
+    item def ThermalEnergy {
+        attribute heatTransferRate : Watt;
+        attribute targetTemperature : Celsius;
+    }
+
+    item def ClinicalCommand {
+        attribute selectedMode : PreservationMode;
+        attribute flowSetpoint : MilliliterPerMinute;
+        attribute pressureSetpoint : MillimeterMercury;
+        attribute temperatureSetpoint : Celsius;
+    }
+
+    item def StatusReport {
+        attribute activeMode : PreservationMode;
+        attribute measuredFlow : MilliliterPerMinute;
+        attribute measuredPressure : MillimeterMercury;
+        attribute measuredTemperature : Celsius;
+        attribute measuredOxygenSaturation : Percent;
+        attribute remainingBatteryTime : Hour;
+        attribute activeAlarmSeverity : AlarmSeverity;
+    }
+
+    port def PerfusateInlet {
+        in item perfusate : Perfusate;
+    }
+
+    port def PerfusateOutlet {
+        out item perfusate : Perfusate;
+    }
+
+    port def GasInlet {
+        in item oxygen : OxygenGas;
+    }
+
+    port def PowerInlet {
+        in item power : ElectricalPower;
+    }
+
+    port def ThermalPort {
+        inout item thermalEnergy : ThermalEnergy;
+    }
+
+    port def OrganInterfacePort {
+        in item deliveredPerfusate : Perfusate;
+        out item returnedPerfusate : Perfusate;
+    }
+
+    port def CommandPort {
+        in item command : ClinicalCommand;
+    }
+
+    port def StatusPort {
+        out item status : StatusReport;
+    }
+
+    part def OrganCareSystem {
+        attribute primaryFunction : String = "Maintain an explanted donor organ in a viable, assessable condition by circulating temperature-controlled, oxygenated perfusate through the organ during evaluation and transport.";
+        attribute activeMode : PreservationMode;
+        attribute operatingDuration : Hour;
+        attribute transportReady : Boolean;
+
+        port commandPort : CommandPort;
+        port statusPort : StatusPort;
+        port powerPort : PowerInlet;
+        port gasPort : GasInlet;
+
+        part organChamber : SterileOrganChamber;
+        part perfusionSubsystem : PerfusionSubsystem;
+        part oxygenationSubsystem : OxygenationSubsystem;
+        part thermalSubsystem : ThermalControlSubsystem;
+        part sensorSubsystem : MonitoringSubsystem;
+        part controlSubsystem : ControlSubsystem;
+        part userInterface : ClinicalUserInterface;
+        part powerSubsystem : PowerSubsystem;
+        part transportEnclosure : TransportEnclosure;
+
+        connect powerPort to powerSubsystem.externalPowerPort;
+        connect gasPort to oxygenationSubsystem.gasSupplyPort;
+        connect commandPort to userInterface.commandPort;
+        connect userInterface.controllerCommandPort to controlSubsystem.commandPort;
+        connect controlSubsystem.actuatorCommandPort to perfusionSubsystem.controlPort;
+        connect controlSubsystem.thermalCommandPort to thermalSubsystem.controlPort;
+        connect controlSubsystem.statusPort to statusPort;
+        connect powerSubsystem.managedPowerPort to perfusionSubsystem.powerPort;
+        connect powerSubsystem.managedPowerPort to oxygenationSubsystem.powerPort;
+        connect powerSubsystem.managedPowerPort to thermalSubsystem.powerPort;
+        connect powerSubsystem.managedPowerPort to sensorSubsystem.powerPort;
+        connect powerSubsystem.managedPowerPort to controlSubsystem.powerPort;
+        connect perfusionSubsystem.outletPort to oxygenationSubsystem.perfusateInletPort;
+        connect oxygenationSubsystem.perfusateOutletPort to thermalSubsystem.perfusateInletPort;
+        connect thermalSubsystem.perfusateOutletPort to organChamber.organInterfacePort;
+        connect organChamber.returnPort to sensorSubsystem.sampleInletPort;
+        connect sensorSubsystem.sampleOutletPort to perfusionSubsystem.inletPort;
+        connect sensorSubsystem.measurementPort to controlSubsystem.measurementPort;
+        connect transportEnclosure.thermalPort to thermalSubsystem.environmentPort;
+    }
+
+    part def SterileOrganChamber {
+        attribute chamberVolume : Liter;
+        attribute sterilityMaintained : Boolean;
+        attribute leakDetected : Boolean;
+        attribute organLoaded : Boolean;
+
+        port organInterfacePort : OrganInterfacePort;
+        port returnPort : PerfusateOutlet;
+
+        part supportedOrgan : Organ;
+
+        requirement chamberSterility {
+            subject chamber : SterileOrganChamber;
+            require chamber.sterilityMaintained == true;
+        }
+    }
+
+    part def PerfusionSubsystem {
+        attribute commandedFlow : MilliliterPerMinute;
+        attribute measuredFlow : MilliliterPerMinute;
+        attribute commandedPressure : MillimeterMercury;
+        attribute measuredPressure : MillimeterMercury;
+        attribute pulsatileEnabled : Boolean;
+
+        port inletPort : PerfusateInlet;
+        port outletPort : PerfusateOutlet;
+        port controlPort : CommandPort;
+        port powerPort : PowerInlet;
+
+        part pump : PerfusionPump;
+        part reservoir : PerfusateReservoir;
+        part pressureRegulator : PressureRegulator;
+        part bubbleTrap : BubbleTrap;
+
+        connect inletPort to reservoir.returnInletPort;
+        connect reservoir.supplyOutletPort to pump.inletPort;
+        connect pump.outletPort to pressureRegulator.inletPort;
+        connect pressureRegulator.outletPort to bubbleTrap.inletPort;
+        connect bubbleTrap.outletPort to outletPort;
+    }
+
+    part def PerfusionPump {
+        attribute minimumFlow : MilliliterPerMinute = 50.0;
+        attribute maximumFlow : MilliliterPerMinute = 2500.0;
+        attribute commandedSpeed : Percent;
+        attribute deliveredFlow : MilliliterPerMinute;
+        port inletPort : PerfusateInlet;
+        port outletPort : PerfusateOutlet;
+    }
+
+    part def PerfusateReservoir {
+        attribute capacity : Milliliter = 2500.0;
+        attribute currentVolume : Milliliter;
+        attribute lowVolumeThreshold : Milliliter = 400.0;
+        port returnInletPort : PerfusateInlet;
+        port supplyOutletPort : PerfusateOutlet;
+    }
+
+    part def PressureRegulator {
+        attribute targetPressure : MillimeterMercury;
+        attribute reliefPressure : MillimeterMercury = 120.0;
+        port inletPort : PerfusateInlet;
+        port outletPort : PerfusateOutlet;
+    }
+
+    part def BubbleTrap {
+        attribute airDetected : Boolean;
+        attribute ventOpen : Boolean;
+        port inletPort : PerfusateInlet;
+        port outletPort : PerfusateOutlet;
+    }
+
+    part def OxygenationSubsystem {
+        attribute targetOxygenSaturation : Percent = 95.0;
+        attribute measuredOxygenSaturation : Percent;
+        attribute gasFlowCommand : MilliliterPerMinute;
+
+        port gasSupplyPort : GasInlet;
+        port perfusateInletPort : PerfusateInlet;
+        port perfusateOutletPort : PerfusateOutlet;
+        port powerPort : PowerInlet;
+
+        part oxygenator : MembraneOxygenator;
+        part gasMixer : GasMixer;
+
+        connect gasSupplyPort to gasMixer.gasInletPort;
+        connect gasMixer.gasOutletPort to oxygenator.gasInletPort;
+        connect perfusateInletPort to oxygenator.perfusateInletPort;
+        connect oxygenator.perfusateOutletPort to perfusateOutletPort;
+    }
+
+    part def MembraneOxygenator {
+        attribute transferEfficiency : Percent;
+        port gasInletPort : GasInlet;
+        port perfusateInletPort : PerfusateInlet;
+        port perfusateOutletPort : PerfusateOutlet;
+    }
+
+    part def GasMixer {
+        attribute commandedOxygenFraction : Percent;
+        attribute commandedGasFlow : MilliliterPerMinute;
+        port gasInletPort : GasInlet;
+        port gasOutletPort : GasInlet;
+    }
+
+    part def ThermalControlSubsystem {
+        attribute targetTemperature : Celsius;
+        attribute measuredTemperature : Celsius;
+        attribute heaterPower : Watt;
+        attribute coolerPower : Watt;
+
+        port perfusateInletPort : PerfusateInlet;
+        port perfusateOutletPort : PerfusateOutlet;
+        port controlPort : CommandPort;
+        port powerPort : PowerInlet;
+        port environmentPort : ThermalPort;
+
+        part heatExchanger : HeatExchanger;
+        part heater : ResistiveHeater;
+        part cooler : ThermoelectricCooler;
+
+        connect perfusateInletPort to heatExchanger.perfusateInletPort;
+        connect heatExchanger.perfusateOutletPort to perfusateOutletPort;
+        connect heater.thermalPort to heatExchanger.thermalPort;
+        connect cooler.thermalPort to heatExchanger.thermalPort;
+        connect environmentPort to heatExchanger.environmentPort;
+    }
+
+    part def HeatExchanger {
+        attribute exchangeCapacity : Watt;
+        port perfusateInletPort : PerfusateInlet;
+        port perfusateOutletPort : PerfusateOutlet;
+        port thermalPort : ThermalPort;
+        port environmentPort : ThermalPort;
+    }
+
+    part def ResistiveHeater {
+        attribute maximumPower : Watt = 250.0;
+        attribute commandedPower : Watt;
+        port thermalPort : ThermalPort;
+    }
+
+    part def ThermoelectricCooler {
+        attribute maximumCoolingPower : Watt = 180.0;
+        attribute commandedPower : Watt;
+        port thermalPort : ThermalPort;
+    }
+
+    part def MonitoringSubsystem {
+        attribute flow : MilliliterPerMinute;
+        attribute pressure : MillimeterMercury;
+        attribute temperature : Celsius;
+        attribute oxygenSaturation : Percent;
+        attribute lactate : MillimolePerLiter;
+        attribute pH : Real;
+        attribute airDetected : Boolean;
+
+        port sampleInletPort : PerfusateInlet;
+        port sampleOutletPort : PerfusateOutlet;
+        port measurementPort : StatusPort;
+        port powerPort : PowerInlet;
+
+        part flowSensor : FlowSensor;
+        part pressureSensor : PressureSensor;
+        part temperatureSensor : TemperatureSensor;
+        part oxygenSensor : OxygenSensor;
+        part chemistrySensor : ChemistrySensor;
+        part airDetector : AirDetector;
+    }
+
+    part def FlowSensor {
+        attribute measuredFlow : MilliliterPerMinute;
+        attribute accuracy : Percent = 3.0;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : MillimeterMercury;
+        attribute accuracy : Percent = 2.0;
+    }
+
+    part def TemperatureSensor {
+        attribute measuredTemperature : Celsius;
+        attribute accuracy : Celsius = 0.2;
+    }
+
+    part def OxygenSensor {
+        attribute measuredOxygenSaturation : Percent;
+        attribute accuracy : Percent = 2.0;
+    }
+
+    part def ChemistrySensor {
+        attribute measuredLactate : MillimolePerLiter;
+        attribute measuredGlucose : MillimolePerLiter;
+        attribute measuredPH : Real;
+    }
+
+    part def AirDetector {
+        attribute airDetected : Boolean;
+    }
+
+    part def ControlSubsystem {
+        attribute selectedMode : PreservationMode;
+        attribute flowSetpoint : MilliliterPerMinute;
+        attribute pressureSetpoint : MillimeterMercury;
+        attribute temperatureSetpoint : Celsius;
+        attribute oxygenSetpoint : Percent;
+        attribute alarmActive : Boolean;
+        attribute alarmSeverity : AlarmSeverity;
+
+        port commandPort : CommandPort;
+        port measurementPort : StatusPort;
+        port actuatorCommandPort : CommandPort;
+        port thermalCommandPort : CommandPort;
+        port statusPort : StatusPort;
+        port powerPort : PowerInlet;
+
+        action performControlCycle : ControlCycle;
+        state controllerState : OrganCareControllerStateMachine;
+    }
+
+    part def ClinicalUserInterface {
+        attribute displayedMode : PreservationMode;
+        attribute displayedTemperature : Celsius;
+        attribute displayedPressure : MillimeterMercury;
+        attribute displayedFlow : MilliliterPerMinute;
+        attribute displayedOxygenSaturation : Percent;
+        attribute alarmAcknowledged : Boolean;
+
+        port commandPort : CommandPort;
+        port controllerCommandPort : CommandPort;
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : Watt;
+        attribute remainingRuntime : Hour;
+        attribute externalPowerAvailable : Boolean;
+        attribute outputVoltage : Volt = 24.0;
+
+        port externalPowerPort : PowerInlet;
+        port managedPowerPort : PowerInlet;
+
+        part batteryPack : BatteryPack;
+        part powerManager : PowerManager;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Volt = 24.0;
+        attribute stateOfCharge : Percent;
+        attribute remainingRuntime : Hour;
+    }
+
+    part def PowerManager {
+        attribute loadPower : Watt;
+        attribute externalPowerSelected : Boolean;
+    }
+
+    part def TransportEnclosure {
+        attribute externalTemperature : Celsius;
+        attribute shockLevel : Real;
+        attribute lidClosed : Boolean;
+        attribute latchSecured : Boolean;
+        port thermalPort : ThermalPort;
+    }
+
+    action def PrimeCircuit {
+        in perfusateVolume : Milliliter;
+        out circuitPrimed : Boolean;
+
+        first startPrime;
+        then fillReservoir;
+        then runPumpAtLowFlow;
+        then purgeAir;
+        then verifyNoAir;
+        then completePrime;
+
+        action startPrime;
+        action fillReservoir;
+        action runPumpAtLowFlow;
+        action purgeAir;
+        action verifyNoAir;
+        action completePrime;
+    }
+
+    action def MaintainOrganPerfusion {
+        in organ : Organ;
+        in perfusate : Perfusate;
+        in flowSetpoint : MilliliterPerMinute;
+        in pressureSetpoint : MillimeterMercury;
+        in temperatureSetpoint : Celsius;
+        out viablePreservationMaintained : Boolean;
+
+        first acquireMeasurements;
+        then regulatePumpFlow;
+        then regulatePressure;
+        then regulateTemperature;
+        then regulateOxygenation;
+        then assessPerfusateChemistry;
+        then publishStatus;
+
+        action acquireMeasurements;
+        action regulatePumpFlow;
+        action regulatePressure;
+        action regulateTemperature;
+        action regulateOxygenation;
+        action assessPerfusateChemistry;
+        action publishStatus;
+    }
+
+    action def ControlCycle {
+        in command : ClinicalCommand;
+        in status : StatusReport;
+        out pumpCommand : ClinicalCommand;
+        out thermalCommand : ClinicalCommand;
+        out alarmSeverity : AlarmSeverity;
+
+        first readCommand;
+        then compareMeasuredValuesToSetpoints;
+        then computeActuatorCommands;
+        then evaluateAlarmLimits;
+        then emitCommandsAndStatus;
+
+        action readCommand;
+        action compareMeasuredValuesToSetpoints;
+        action computeActuatorCommands;
+        action evaluateAlarmLimits;
+        action emitCommandsAndStatus;
+    }
+
+    action def TransportPreservedOrgan {
+        in organ : Organ;
+        in maximumTransportTime : Hour;
+        out transportCompleted : Boolean;
+
+        first secureChamber;
+        then switchToTransportPower;
+        then maintainClosedLoopPerfusion;
+        then recordTrendData;
+        then notifyClinicalTeamOnArrival;
+
+        action secureChamber;
+        action switchToTransportPower;
+        action maintainClosedLoopPerfusion;
+        action recordTrendData;
+        action notifyClinicalTeamOnArrival;
+    }
+
+    state def OrganCareControllerStateMachine {
+        entry action initializeController;
+
+        state off;
+        state standby;
+        state priming;
+        state preserving;
+        state transporting;
+        state alarmHandling;
+        state shutdown;
+
+        transition initial then off;
+        transition off_to_standby
+            first off
+            accept powerAvailable
+            then standby;
+
+        transition standby_to_priming
+            first standby
+            accept primeRequested
+            then priming;
+
+        transition priming_to_preserving
+            first priming
+            accept circuitPrimed
+            then preserving;
+
+        transition preserving_to_transporting
+            first preserving
+            accept transportModeRequested
+            then transporting;
+
+        transition preserving_to_alarm
+            first preserving
+            accept criticalLimitExceeded
+            then alarmHandling;
+
+        transition transporting_to_alarm
+            first transporting
+            accept criticalLimitExceeded
+            then alarmHandling;
+
+        transition alarm_to_preserving
+            first alarmHandling
+            accept alarmCleared
+            then preserving;
+
+        transition standby_to_shutdown
+            first standby
+            accept shutdownRequested
+            then shutdown;
+
+        transition preserving_to_shutdown
+            first preserving
+            accept shutdownRequested
+            then shutdown;
+
+        transition transporting_to_shutdown
+            first transporting
+            accept shutdownRequested
+            then shutdown;
+    }
+
+    requirement def PreserveOrganViabilityRequirement {
+        subject system : OrganCareSystem;
+        doc /* The Organ Care System shall maintain the loaded donor organ in a viable preservation environment by providing controlled perfusion, oxygenation, temperature regulation, and monitoring. */
+        require system.activeMode == PreservationMode::normothermicPerfusion or system.activeMode == PreservationMode::hypothermicPerfusion or system.activeMode == PreservationMode::transport;
+    }
+
+    requirement def PerfusionFlowRequirement {
+        subject perfusion : PerfusionSubsystem;
+        doc /* The system shall regulate perfusate flow within clinical setpoint tolerance during active preservation. */
+        require perfusion.measuredFlow >= 50.0 and perfusion.measuredFlow <= 2500.0;
+    }
+
+    requirement def PerfusionPressureRequirement {
+        subject perfusion : PerfusionSubsystem;
+        doc /* The system shall prevent excessive vascular pressure at the organ interface. */
+        require perfusion.measuredPressure <= 120.0;
+    }
+
+    requirement def TemperatureControlRequirement {
+        subject thermal : ThermalControlSubsystem;
+        doc /* The system shall maintain perfusate temperature near the selected preservation target. */
+        require thermal.measuredTemperature >= 2.0 and thermal.measuredTemperature <= 39.0;
+    }
+
+    requirement def OxygenationRequirement {
+        subject oxygenation : OxygenationSubsystem;
+        doc /* The system shall oxygenate circulating perfusate to support aerobic metabolism during normothermic preservation. */
+        require oxygenation.measuredOxygenSaturation >= 90.0;
+    }
+
+    requirement def AirSafetyRequirement {
+        subject trap : BubbleTrap;
+        doc /* The system shall detect and remove air before perfusate reaches the organ. */
+        require trap.airDetected == false;
+    }
+
+    requirement def BatteryTransportRequirement {
+        subject power : PowerSubsystem;
+        doc /* The system shall provide sufficient battery runtime for organ transport when external power is unavailable. */
+        require power.remainingRuntime >= 4.0;
+    }
+
+    requirement def ClinicalStatusRequirement {
+        subject system : OrganCareSystem;
+        doc /* The system shall report preservation mode, flow, pressure, temperature, oxygenation, battery time, and alarm severity to the clinical user. */
+        require system.statusPort.status.activeMode == system.activeMode;
+    }
+
+    satisfy PreserveOrganViabilityRequirement by OrganCareSystem;
+    satisfy PerfusionFlowRequirement by PerfusionSubsystem;
+    satisfy PerfusionPressureRequirement by PerfusionSubsystem;
+    satisfy TemperatureControlRequirement by ThermalControlSubsystem;
+    satisfy OxygenationRequirement by OxygenationSubsystem;
+    satisfy AirSafetyRequirement by BubbleTrap;
+    satisfy BatteryTransportRequirement by PowerSubsystem;
+    satisfy ClinicalStatusRequirement by OrganCareSystem;
+
+    part organCareSystem : OrganCareSystem {
+        attribute activeMode = PreservationMode::standby;
+        attribute operatingDuration = 0.0;
+        attribute transportReady = false;
+
+        part organChamber {
+            attribute chamberVolume = 8.0;
+            attribute sterilityMaintained = true;
+            attribute leakDetected = false;
+            attribute organLoaded = true;
+
+            part supportedOrgan {
+                attribute kind = OrganKind::heart;
+                attribute mass = 320.0;
+                attribute targetPerfusionFlow = 800.0;
+                attribute targetPerfusionPressure = 75.0;
+                attribute targetTemperature = 34.0;
+                attribute maximumIschemicTime = 6.0;
+            }
+        }
+
+        part perfusionSubsystem {
+            attribute commandedFlow = 800.0;
+            attribute measuredFlow = 798.0;
+            attribute commandedPressure = 75.0;
+            attribute measuredPressure = 74.0;
+            attribute pulsatileEnabled = true;
+        }
+
+        part oxygenationSubsystem {
+            attribute targetOxygenSaturation = 95.0;
+            attribute measuredOxygenSaturation = 97.0;
+            attribute gasFlowCommand = 500.0;
+        }
+
+        part thermalSubsystem {
+            attribute targetTemperature = 34.0;
+            attribute measuredTemperature = 34.1;
+            attribute heaterPower = 35.0;
+            attribute coolerPower = 0.0;
+        }
+
+        part powerSubsystem {
+            attribute batteryCapacity = 420.0;
+            attribute remainingRuntime = 5.5;
+            attribute externalPowerAvailable = true;
+            attribute outputVoltage = 24.0;
+        }
+
+        part transportEnclosure {
+            attribute externalTemperature = 22.0;
+            attribute shockLevel = 0.1;
+            attribute lidClosed = true;
+            attribute latchSecured = true;
+        }
+    }
+}

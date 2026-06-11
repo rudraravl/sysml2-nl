@@ -1,0 +1,827 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-k0paq61v
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb340-988c-7f21-8c5d-809c19290e95
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a ATNAA and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ATNAA_System_Model {
+    import ScalarValues::*;
+
+    item def NodeCertificate {
+        attribute subjectName : String;
+        attribute issuerName : String;
+        attribute serialNumber : String;
+        attribute notBeforeEpochSeconds : Real;
+        attribute notAfterEpochSeconds : Real;
+        attribute publicKeyAlgorithm : String;
+        attribute certificateFingerprintSha256 : String;
+    }
+
+    item def ClinicalExchangeRequest {
+        attribute requestId : String;
+        attribute patientIdentifier : String;
+        attribute requestingUserId : String;
+        attribute purposeOfUse : String;
+        attribute payloadSizeBytes : Real;
+        attribute containsProtectedHealthInformation : Boolean;
+    }
+
+    item def ClinicalExchangeResponse {
+        attribute requestId : String;
+        attribute statusCode : Integer;
+        attribute payloadSizeBytes : Real;
+        attribute integrityVerified : Boolean;
+    }
+
+    item def AuditEvent {
+        attribute eventId : String;
+        attribute eventType : String;
+        attribute eventActionCode : String;
+        attribute eventTimestampEpochSeconds : Real;
+        attribute sourceNodeId : String;
+        attribute destinationNodeId : String;
+        attribute userId : String;
+        attribute patientIdentifier : String;
+        attribute outcomeCode : String;
+        attribute messageHashSha256 : String;
+    }
+
+    item def AuthenticationResult {
+        attribute authenticated : Boolean;
+        attribute nodeIdentity : String;
+        attribute failureReason : String;
+        attribute negotiatedCipherSuite : String;
+    }
+
+    item def TimeSyncMessage {
+        attribute sourceClockId : String;
+        attribute epochSeconds : Real;
+        attribute uncertaintyMilliseconds : Real;
+    }
+
+    item def SecurityAlert {
+        attribute alertId : String;
+        attribute severity : String;
+        attribute reason : String;
+        attribute affectedNodeId : String;
+        attribute epochSeconds : Real;
+    }
+
+    attribute def Milliseconds {
+        attribute value : Real;
+        attribute unit : String = "ms";
+    }
+
+    attribute def Bytes {
+        attribute value : Real;
+        attribute unit : String = "B";
+    }
+
+    attribute def EventsPerSecond {
+        attribute value : Real;
+        attribute unit : String = "events/s";
+    }
+
+    attribute def Percent {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    port def SecureClinicalExchangePort {
+        in item request : ClinicalExchangeRequest;
+        in item peerCertificate : NodeCertificate;
+        out item response : ClinicalExchangeResponse;
+        out item authenticationResult : AuthenticationResult;
+    }
+
+    port def AuditSourcePort {
+        out item auditEvent : AuditEvent;
+        out item securityAlert : SecurityAlert;
+    }
+
+    port def AuditRepositoryPort {
+        in item auditEvent : AuditEvent;
+        out item repositoryAlert : SecurityAlert;
+    }
+
+    port def CertificateValidationPort {
+        in item certificateToValidate : NodeCertificate;
+        out item validationResult : AuthenticationResult;
+    }
+
+    port def TimeSynchronizationPort {
+        inout item timeSync : TimeSyncMessage;
+    }
+
+    part def ATNAA_Node {
+        attribute nodeId : String;
+        attribute organizationId : String;
+        attribute maximumClockDrift : Milliseconds;
+        attribute authenticationTimeout : Milliseconds;
+        attribute localAuditBufferCapacity : Bytes;
+
+        port secureExchange : SecureClinicalExchangePort;
+        port auditSource : AuditSourcePort;
+        port certificateValidation : CertificateValidationPort;
+        port timeSynchronization : TimeSynchronizationPort;
+
+        part certificateStore : CertificateStore;
+        part tlsEndpoint : MutualTLSEndpoint;
+        part localAuditAgent : AuditAgent;
+        part clock : TrustedClock;
+    }
+
+    part def ClinicalApplicationNode :> ATNAA_Node {
+        attribute supportedProfiles : String;
+        attribute maximumRequestPayload : Bytes;
+    }
+
+    part def SecurityGatewayNode :> ATNAA_Node {
+        attribute policyVersion : String;
+        attribute maximumConcurrentSessions : Integer;
+        attribute sessionEstablishmentLatencyTarget : Milliseconds;
+    }
+
+    part def AuditRepository {
+        attribute repositoryId : String;
+        attribute retentionPeriodDays : Integer;
+        attribute ingestRateCapacity : EventsPerSecond;
+        attribute storageCapacity : Bytes;
+        attribute availabilityTarget : Percent;
+
+        port auditIngest : AuditRepositoryPort;
+        port timeSynchronization : TimeSynchronizationPort;
+
+        part immutableLogStore : ImmutableAuditLogStore;
+        part auditIndexer : AuditIndexer;
+        part repositoryClock : TrustedClock;
+    }
+
+    part def CertificateAuthority {
+        attribute authorityId : String;
+        attribute certificatePolicyId : String;
+        attribute certificateValidityDays : Integer;
+
+        port validationService : CertificateValidationPort;
+
+        part revocationList : RevocationRegistry;
+    }
+
+    part def CertificateStore {
+        attribute trustedRootCount : Integer;
+        attribute cachedCertificateCount : Integer;
+        attribute lastRefreshEpochSeconds : Real;
+    }
+
+    part def MutualTLSEndpoint {
+        attribute tlsVersion : String = "TLS 1.3";
+        attribute minimumKeyLengthBits : Integer = 2048;
+        attribute mutualAuthenticationRequired : Boolean = true;
+        attribute sessionResumptionAllowed : Boolean = false;
+    }
+
+    part def AuditAgent {
+        attribute eventQueueDepth : Integer;
+        attribute auditLossAllowed : Boolean = false;
+        attribute signingAlgorithm : String = "SHA256withRSA";
+    }
+
+    part def TrustedClock {
+        attribute currentEpochSeconds : Real;
+        attribute maximumDriftMilliseconds : Real;
+        attribute synchronized : Boolean;
+    }
+
+    part def ImmutableAuditLogStore {
+        attribute encryptedAtRest : Boolean = true;
+        attribute tamperEvidenceEnabled : Boolean = true;
+        attribute storedEventCount : Integer;
+    }
+
+    part def AuditIndexer {
+        attribute indexedFields : String;
+        attribute averageQueryLatency : Milliseconds;
+    }
+
+    part def RevocationRegistry {
+        attribute revokedCertificateCount : Integer;
+        attribute refreshIntervalSeconds : Real;
+    }
+
+    action def ValidateNodeCertificate {
+        in item certificate : NodeCertificate;
+        in item trustedRoots : CertificateStore;
+        out item result : AuthenticationResult;
+
+        action checkValidityPeriod;
+        action verifyIssuerTrust;
+        action checkRevocationStatus;
+        action bindIdentityToNode;
+
+        first start;
+        then checkValidityPeriod;
+        then verifyIssuerTrust;
+        then checkRevocationStatus;
+        then bindIdentityToNode;
+        then done;
+    }
+
+    action def EstablishSecureSession {
+        in item localCertificate : NodeCertificate;
+        in item peerCertificate : NodeCertificate;
+        out item authenticationResult : AuthenticationResult;
+
+        action negotiateTls13CipherSuite;
+        action validatePeerCertificate : ValidateNodeCertificate;
+        action provePrivateKeyPossession;
+        action createAuthenticatedEncryptedChannel;
+
+        first start;
+        then negotiateTls13CipherSuite;
+        then validatePeerCertificate;
+        then provePrivateKeyPossession;
+        then createAuthenticatedEncryptedChannel;
+        then done;
+    }
+
+    action def RecordAuditEvent {
+        in item request : ClinicalExchangeRequest;
+        in item response : ClinicalExchangeResponse;
+        in item authenticationResult : AuthenticationResult;
+        out item event : AuditEvent;
+
+        action captureActors;
+        action capturePatientContext;
+        action hashMessageMetadata;
+        action signAuditRecord;
+        action submitToRepository;
+
+        first start;
+        then captureActors;
+        then capturePatientContext;
+        then hashMessageMetadata;
+        then signAuditRecord;
+        then submitToRepository;
+        then done;
+    }
+
+    action def ProcessClinicalExchange {
+        in item inboundRequest : ClinicalExchangeRequest;
+        in item peerCertificate : NodeCertificate;
+        out item outboundResponse : ClinicalExchangeResponse;
+        out item auditEvent : AuditEvent;
+
+        action authenticatePeer : EstablishSecureSession;
+        action authorizePurposeOfUse;
+        action exchangeProtectedClinicalData;
+        action createAuditTrail : RecordAuditEvent;
+
+        first start;
+        then authenticatePeer;
+        then authorizePurposeOfUse;
+        then exchangeProtectedClinicalData;
+        then createAuditTrail;
+        then done;
+    }
+
+    state def NodeSecurityStateMachine {
+        state Uninitialized;
+        state TimeSynchronized;
+        state CertificateLoaded;
+        state ReadyForSecureExchange;
+        state AuthenticatingPeer;
+        state SecureSessionActive;
+        state AuditSubmitting;
+        state SecurityFault;
+
+        transition initialize first Uninitialized then TimeSynchronized;
+        transition loadCertificate first TimeSynchronized then CertificateLoaded;
+        transition ready first CertificateLoaded then ReadyForSecureExchange;
+        transition receiveConnection first ReadyForSecureExchange then AuthenticatingPeer;
+        transition authenticationSucceeded first AuthenticatingPeer then SecureSessionActive;
+        transition authenticationFailed first AuthenticatingPeer then SecurityFault;
+        transition exchangeCompleted first SecureSessionActive then AuditSubmitting;
+        transition auditSubmitted first AuditSubmitting then ReadyForSecureExchange;
+        transition auditFailure first AuditSubmitting then SecurityFault;
+        transition recover first SecurityFault then TimeSynchronized;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The ATNAA-based system shall provide authenticated, encrypted communication between trusted network nodes and shall create a tamper-evident audit trail for every protected clinical information exchange. */
+    }
+
+    requirement def MutualNodeAuthenticationRequirement {
+        doc /* Every participating node shall authenticate peer nodes using certificate-based mutual TLS before protected information is exchanged. */
+    }
+
+    requirement def AuditCompletenessRequirement {
+        doc /* The system shall record user identity, node identity, patient context, event type, timestamp, outcome, and message integrity metadata for each security-relevant transaction. */
+    }
+
+    requirement def TimeSynchronizationRequirement {
+        doc /* All nodes shall maintain synchronized time with maximum drift no greater than 1000 ms to support reliable audit event ordering. */
+    }
+
+    requirement def AuditRetentionRequirement {
+        doc /* The audit repository shall retain audit events for no less than 2190 days and protect stored events from unauthorized modification or deletion. */
+    }
+
+    requirement def SecureTransportRequirement {
+        doc /* All clinical exchange traffic shall use encrypted transport with TLS 1.3 or a stronger approved protocol and shall reject unauthenticated peers. */
+    }
+
+    part def ATNAA_SecureClinicalExchangeSystem {
+        attribute systemName : String = "Audit Trail and Node Authentication Architecture";
+        attribute primaryFunction : String = "Authenticate trusted nodes, protect clinical data in transit, and maintain a complete audit trail of protected information exchanges.";
+
+        part clinicalClient : ClinicalApplicationNode {
+            attribute nodeId = "ClinicalClientNode";
+            attribute organizationId = "Hospital-A";
+        }
+
+        part clinicalServer : ClinicalApplicationNode {
+            attribute nodeId = "ClinicalServerNode";
+            attribute organizationId = "Hospital-B";
+        }
+
+        part securityGateway : SecurityGatewayNode {
+            attribute nodeId = "ATNAA-Security-Gateway";
+            attribute policyVersion = "2026.06";
+            attribute maximumConcurrentSessions = 5000;
+        }
+
+        part auditRepository : AuditRepository {
+            attribute repositoryId = "Enterprise-Audit-Repository";
+            attribute retentionPeriodDays = 2190;
+            attribute availabilityTarget.value = 99.95;
+        }
+
+        part certificateAuthority : CertificateAuthority {
+            attribute authorityId = "Healthcare-Trust-Anchor-CA";
+            attribute certificateValidityDays = 397;
+        }
+
+        connection clientToGateway
+            connect clinicalClient.secureExchange to securityGateway.secureExchange;
+
+        connection gatewayToServer
+            connect securityGateway.secureExchange to clinicalServer.secureExchange;
+
+        connection clientAuditToRepository
+            connect clinicalClient.auditSource to auditRepository.auditIngest;
+
+        connection serverAuditToRepository
+            connect clinicalServer.auditSource to auditRepository.auditIngest;
+
+        connection gatewayAuditToRepository
+            connect securityGateway.auditSource to auditRepository.auditIngest;
+
+        connection clientCertificateValidation
+            connect clinicalClient.certificateValidation to certificateAuthority.validationService;
+
+        connection serverCertificateValidation
+            connect clinicalServer.certificateValidation to certificateAuthority.validationService;
+
+        connection gatewayCertificateValidation
+            connect securityGateway.certificateValidation to certificateAuthority.validationService;
+
+        connection clientTimeSync
+            connect clinicalClient.timeSynchronization to auditRepository.timeSynchronization;
+
+        connection serverTimeSync
+            connect clinicalServer.timeSynchronization to auditRepository.timeSynchronization;
+
+        connection gatewayTimeSync
+            connect securityGateway.timeSynchronization to auditRepository.timeSynchronization;
+
+        perform action secureExchangeBehavior : ProcessClinicalExchange;
+
+        satisfy PrimaryFunctionRequirement by ATNAA_SecureClinicalExchangeSystem;
+        satisfy MutualNodeAuthenticationRequirement by securityGateway;
+        satisfy MutualNodeAuthenticationRequirement by clinicalClient;
+        satisfy MutualNodeAuthenticationRequirement by clinicalServer;
+        satisfy AuditCompletenessRequirement by auditRepository;
+        satisfy TimeSynchronizationRequirement by clinicalClient.clock;
+        satisfy TimeSynchronizationRequirement by clinicalServer.clock;
+        satisfy TimeSynchronizationRequirement by securityGateway.clock;
+        satisfy AuditRetentionRequirement by auditRepository.immutableLogStore;
+        satisfy SecureTransportRequirement by securityGateway.tlsEndpoint;
+    }
+}
+tokens used
+3,703
+package ATNAA_System_Model {
+    import ScalarValues::*;
+
+    item def NodeCertificate {
+        attribute subjectName : String;
+        attribute issuerName : String;
+        attribute serialNumber : String;
+        attribute notBeforeEpochSeconds : Real;
+        attribute notAfterEpochSeconds : Real;
+        attribute publicKeyAlgorithm : String;
+        attribute certificateFingerprintSha256 : String;
+    }
+
+    item def ClinicalExchangeRequest {
+        attribute requestId : String;
+        attribute patientIdentifier : String;
+        attribute requestingUserId : String;
+        attribute purposeOfUse : String;
+        attribute payloadSizeBytes : Real;
+        attribute containsProtectedHealthInformation : Boolean;
+    }
+
+    item def ClinicalExchangeResponse {
+        attribute requestId : String;
+        attribute statusCode : Integer;
+        attribute payloadSizeBytes : Real;
+        attribute integrityVerified : Boolean;
+    }
+
+    item def AuditEvent {
+        attribute eventId : String;
+        attribute eventType : String;
+        attribute eventActionCode : String;
+        attribute eventTimestampEpochSeconds : Real;
+        attribute sourceNodeId : String;
+        attribute destinationNodeId : String;
+        attribute userId : String;
+        attribute patientIdentifier : String;
+        attribute outcomeCode : String;
+        attribute messageHashSha256 : String;
+    }
+
+    item def AuthenticationResult {
+        attribute authenticated : Boolean;
+        attribute nodeIdentity : String;
+        attribute failureReason : String;
+        attribute negotiatedCipherSuite : String;
+    }
+
+    item def TimeSyncMessage {
+        attribute sourceClockId : String;
+        attribute epochSeconds : Real;
+        attribute uncertaintyMilliseconds : Real;
+    }
+
+    item def SecurityAlert {
+        attribute alertId : String;
+        attribute severity : String;
+        attribute reason : String;
+        attribute affectedNodeId : String;
+        attribute epochSeconds : Real;
+    }
+
+    attribute def Milliseconds {
+        attribute value : Real;
+        attribute unit : String = "ms";
+    }
+
+    attribute def Bytes {
+        attribute value : Real;
+        attribute unit : String = "B";
+    }
+
+    attribute def EventsPerSecond {
+        attribute value : Real;
+        attribute unit : String = "events/s";
+    }
+
+    attribute def Percent {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    port def SecureClinicalExchangePort {
+        in item request : ClinicalExchangeRequest;
+        in item peerCertificate : NodeCertificate;
+        out item response : ClinicalExchangeResponse;
+        out item authenticationResult : AuthenticationResult;
+    }
+
+    port def AuditSourcePort {
+        out item auditEvent : AuditEvent;
+        out item securityAlert : SecurityAlert;
+    }
+
+    port def AuditRepositoryPort {
+        in item auditEvent : AuditEvent;
+        out item repositoryAlert : SecurityAlert;
+    }
+
+    port def CertificateValidationPort {
+        in item certificateToValidate : NodeCertificate;
+        out item validationResult : AuthenticationResult;
+    }
+
+    port def TimeSynchronizationPort {
+        inout item timeSync : TimeSyncMessage;
+    }
+
+    part def ATNAA_Node {
+        attribute nodeId : String;
+        attribute organizationId : String;
+        attribute maximumClockDrift : Milliseconds;
+        attribute authenticationTimeout : Milliseconds;
+        attribute localAuditBufferCapacity : Bytes;
+
+        port secureExchange : SecureClinicalExchangePort;
+        port auditSource : AuditSourcePort;
+        port certificateValidation : CertificateValidationPort;
+        port timeSynchronization : TimeSynchronizationPort;
+
+        part certificateStore : CertificateStore;
+        part tlsEndpoint : MutualTLSEndpoint;
+        part localAuditAgent : AuditAgent;
+        part clock : TrustedClock;
+    }
+
+    part def ClinicalApplicationNode :> ATNAA_Node {
+        attribute supportedProfiles : String;
+        attribute maximumRequestPayload : Bytes;
+    }
+
+    part def SecurityGatewayNode :> ATNAA_Node {
+        attribute policyVersion : String;
+        attribute maximumConcurrentSessions : Integer;
+        attribute sessionEstablishmentLatencyTarget : Milliseconds;
+    }
+
+    part def AuditRepository {
+        attribute repositoryId : String;
+        attribute retentionPeriodDays : Integer;
+        attribute ingestRateCapacity : EventsPerSecond;
+        attribute storageCapacity : Bytes;
+        attribute availabilityTarget : Percent;
+
+        port auditIngest : AuditRepositoryPort;
+        port timeSynchronization : TimeSynchronizationPort;
+
+        part immutableLogStore : ImmutableAuditLogStore;
+        part auditIndexer : AuditIndexer;
+        part repositoryClock : TrustedClock;
+    }
+
+    part def CertificateAuthority {
+        attribute authorityId : String;
+        attribute certificatePolicyId : String;
+        attribute certificateValidityDays : Integer;
+
+        port validationService : CertificateValidationPort;
+
+        part revocationList : RevocationRegistry;
+    }
+
+    part def CertificateStore {
+        attribute trustedRootCount : Integer;
+        attribute cachedCertificateCount : Integer;
+        attribute lastRefreshEpochSeconds : Real;
+    }
+
+    part def MutualTLSEndpoint {
+        attribute tlsVersion : String = "TLS 1.3";
+        attribute minimumKeyLengthBits : Integer = 2048;
+        attribute mutualAuthenticationRequired : Boolean = true;
+        attribute sessionResumptionAllowed : Boolean = false;
+    }
+
+    part def AuditAgent {
+        attribute eventQueueDepth : Integer;
+        attribute auditLossAllowed : Boolean = false;
+        attribute signingAlgorithm : String = "SHA256withRSA";
+    }
+
+    part def TrustedClock {
+        attribute currentEpochSeconds : Real;
+        attribute maximumDriftMilliseconds : Real;
+        attribute synchronized : Boolean;
+    }
+
+    part def ImmutableAuditLogStore {
+        attribute encryptedAtRest : Boolean = true;
+        attribute tamperEvidenceEnabled : Boolean = true;
+        attribute storedEventCount : Integer;
+    }
+
+    part def AuditIndexer {
+        attribute indexedFields : String;
+        attribute averageQueryLatency : Milliseconds;
+    }
+
+    part def RevocationRegistry {
+        attribute revokedCertificateCount : Integer;
+        attribute refreshIntervalSeconds : Real;
+    }
+
+    action def ValidateNodeCertificate {
+        in item certificate : NodeCertificate;
+        in item trustedRoots : CertificateStore;
+        out item result : AuthenticationResult;
+
+        action checkValidityPeriod;
+        action verifyIssuerTrust;
+        action checkRevocationStatus;
+        action bindIdentityToNode;
+
+        first start;
+        then checkValidityPeriod;
+        then verifyIssuerTrust;
+        then checkRevocationStatus;
+        then bindIdentityToNode;
+        then done;
+    }
+
+    action def EstablishSecureSession {
+        in item localCertificate : NodeCertificate;
+        in item peerCertificate : NodeCertificate;
+        out item authenticationResult : AuthenticationResult;
+
+        action negotiateTls13CipherSuite;
+        action validatePeerCertificate : ValidateNodeCertificate;
+        action provePrivateKeyPossession;
+        action createAuthenticatedEncryptedChannel;
+
+        first start;
+        then negotiateTls13CipherSuite;
+        then validatePeerCertificate;
+        then provePrivateKeyPossession;
+        then createAuthenticatedEncryptedChannel;
+        then done;
+    }
+
+    action def RecordAuditEvent {
+        in item request : ClinicalExchangeRequest;
+        in item response : ClinicalExchangeResponse;
+        in item authenticationResult : AuthenticationResult;
+        out item event : AuditEvent;
+
+        action captureActors;
+        action capturePatientContext;
+        action hashMessageMetadata;
+        action signAuditRecord;
+        action submitToRepository;
+
+        first start;
+        then captureActors;
+        then capturePatientContext;
+        then hashMessageMetadata;
+        then signAuditRecord;
+        then submitToRepository;
+        then done;
+    }
+
+    action def ProcessClinicalExchange {
+        in item inboundRequest : ClinicalExchangeRequest;
+        in item peerCertificate : NodeCertificate;
+        out item outboundResponse : ClinicalExchangeResponse;
+        out item auditEvent : AuditEvent;
+
+        action authenticatePeer : EstablishSecureSession;
+        action authorizePurposeOfUse;
+        action exchangeProtectedClinicalData;
+        action createAuditTrail : RecordAuditEvent;
+
+        first start;
+        then authenticatePeer;
+        then authorizePurposeOfUse;
+        then exchangeProtectedClinicalData;
+        then createAuditTrail;
+        then done;
+    }
+
+    state def NodeSecurityStateMachine {
+        state Uninitialized;
+        state TimeSynchronized;
+        state CertificateLoaded;
+        state ReadyForSecureExchange;
+        state AuthenticatingPeer;
+        state SecureSessionActive;
+        state AuditSubmitting;
+        state SecurityFault;
+
+        transition initialize first Uninitialized then TimeSynchronized;
+        transition loadCertificate first TimeSynchronized then CertificateLoaded;
+        transition ready first CertificateLoaded then ReadyForSecureExchange;
+        transition receiveConnection first ReadyForSecureExchange then AuthenticatingPeer;
+        transition authenticationSucceeded first AuthenticatingPeer then SecureSessionActive;
+        transition authenticationFailed first AuthenticatingPeer then SecurityFault;
+        transition exchangeCompleted first SecureSessionActive then AuditSubmitting;
+        transition auditSubmitted first AuditSubmitting then ReadyForSecureExchange;
+        transition auditFailure first AuditSubmitting then SecurityFault;
+        transition recover first SecurityFault then TimeSynchronized;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The ATNAA-based system shall provide authenticated, encrypted communication between trusted network nodes and shall create a tamper-evident audit trail for every protected clinical information exchange. */
+    }
+
+    requirement def MutualNodeAuthenticationRequirement {
+        doc /* Every participating node shall authenticate peer nodes using certificate-based mutual TLS before protected information is exchanged. */
+    }
+
+    requirement def AuditCompletenessRequirement {
+        doc /* The system shall record user identity, node identity, patient context, event type, timestamp, outcome, and message integrity metadata for each security-relevant transaction. */
+    }
+
+    requirement def TimeSynchronizationRequirement {
+        doc /* All nodes shall maintain synchronized time with maximum drift no greater than 1000 ms to support reliable audit event ordering. */
+    }
+
+    requirement def AuditRetentionRequirement {
+        doc /* The audit repository shall retain audit events for no less than 2190 days and protect stored events from unauthorized modification or deletion. */
+    }
+
+    requirement def SecureTransportRequirement {
+        doc /* All clinical exchange traffic shall use encrypted transport with TLS 1.3 or a stronger approved protocol and shall reject unauthenticated peers. */
+    }
+
+    part def ATNAA_SecureClinicalExchangeSystem {
+        attribute systemName : String = "Audit Trail and Node Authentication Architecture";
+        attribute primaryFunction : String = "Authenticate trusted nodes, protect clinical data in transit, and maintain a complete audit trail of protected information exchanges.";
+
+        part clinicalClient : ClinicalApplicationNode {
+            attribute nodeId = "ClinicalClientNode";
+            attribute organizationId = "Hospital-A";
+        }
+
+        part clinicalServer : ClinicalApplicationNode {
+            attribute nodeId = "ClinicalServerNode";
+            attribute organizationId = "Hospital-B";
+        }
+
+        part securityGateway : SecurityGatewayNode {
+            attribute nodeId = "ATNAA-Security-Gateway";
+            attribute policyVersion = "2026.06";
+            attribute maximumConcurrentSessions = 5000;
+        }
+
+        part auditRepository : AuditRepository {
+            attribute repositoryId = "Enterprise-Audit-Repository";
+            attribute retentionPeriodDays = 2190;
+            attribute availabilityTarget.value = 99.95;
+        }
+
+        part certificateAuthority : CertificateAuthority {
+            attribute authorityId = "Healthcare-Trust-Anchor-CA";
+            attribute certificateValidityDays = 397;
+        }
+
+        connection clientToGateway
+            connect clinicalClient.secureExchange to securityGateway.secureExchange;
+
+        connection gatewayToServer
+            connect securityGateway.secureExchange to clinicalServer.secureExchange;
+
+        connection clientAuditToRepository
+            connect clinicalClient.auditSource to auditRepository.auditIngest;
+
+        connection serverAuditToRepository
+            connect clinicalServer.auditSource to auditRepository.auditIngest;
+
+        connection gatewayAuditToRepository
+            connect securityGateway.auditSource to auditRepository.auditIngest;
+
+        connection clientCertificateValidation
+            connect clinicalClient.certificateValidation to certificateAuthority.validationService;
+
+        connection serverCertificateValidation
+            connect clinicalServer.certificateValidation to certificateAuthority.validationService;
+
+        connection gatewayCertificateValidation
+            connect securityGateway.certificateValidation to certificateAuthority.validationService;
+
+        connection clientTimeSync
+            connect clinicalClient.timeSynchronization to auditRepository.timeSynchronization;
+
+        connection serverTimeSync
+            connect clinicalServer.timeSynchronization to auditRepository.timeSynchronization;
+
+        connection gatewayTimeSync
+            connect securityGateway.timeSynchronization to auditRepository.timeSynchronization;
+
+        perform action secureExchangeBehavior : ProcessClinicalExchange;
+
+        satisfy PrimaryFunctionRequirement by ATNAA_SecureClinicalExchangeSystem;
+        satisfy MutualNodeAuthenticationRequirement by securityGateway;
+        satisfy MutualNodeAuthenticationRequirement by clinicalClient;
+        satisfy MutualNodeAuthenticationRequirement by clinicalServer;
+        satisfy AuditCompletenessRequirement by auditRepository;
+        satisfy TimeSynchronizationRequirement by clinicalClient.clock;
+        satisfy TimeSynchronizationRequirement by clinicalServer.clock;
+        satisfy TimeSynchronizationRequirement by securityGateway.clock;
+        satisfy AuditRetentionRequirement by auditRepository.immutableLogStore;
+        satisfy SecureTransportRequirement by securityGateway.tlsEndpoint;
+    }
+}

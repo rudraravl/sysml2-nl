@@ -1,0 +1,879 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-1rt_xihj
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3da-39a6-7082-97ca-810922024b9b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Microneedle drug delivery and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MicroneedleDrugDeliverySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Microliter :> Real;
+    attribute def Micrometer :> Real;
+    attribute def Milligram :> Real;
+    attribute def MilligramPerMilliliter :> Real;
+    attribute def MicroliterPerMinute :> Real;
+    attribute def Kilopascal :> Real;
+    attribute def DegreeCelsius :> Real;
+    attribute def Percent :> Real;
+    attribute def Second :> Real;
+
+    item def DrugSolution {
+        attribute drugName : String;
+        attribute concentration : MilligramPerMilliliter;
+        attribute volume : Microliter;
+        attribute viscosity : Real;
+        attribute temperature : DegreeCelsius;
+    }
+
+    item def InterstitialFluid {
+        attribute localPressure : Kilopascal;
+        attribute hydrationLevel : Percent;
+    }
+
+    item def SkinContactForce {
+        attribute magnitude : Real;
+    }
+
+    item def DeliveryCommand {
+        attribute targetDose : Milligram;
+        attribute targetFlowRate : MicroliterPerMinute;
+        attribute deliveryDuration : Second;
+    }
+
+    item def DeliveryStatus {
+        attribute deliveredDose : Milligram;
+        attribute deliveredVolume : Microliter;
+        attribute remainingVolume : Microliter;
+        attribute stateName : String;
+        attribute faultCode : String;
+    }
+
+    item def NeedleInsertionSignal {
+        attribute insertionDepth : Micrometer;
+        attribute insertionConfirmed : Boolean;
+    }
+
+    port def DrugOutletPort {
+        out item drug : DrugSolution;
+    }
+
+    port def DrugInletPort {
+        in item drug : DrugSolution;
+    }
+
+    port def CommandPort {
+        in item command : DeliveryCommand;
+    }
+
+    port def StatusPort {
+        out item status : DeliveryStatus;
+    }
+
+    port def SkinInterfacePort {
+        in item skinForce : SkinContactForce;
+        out item drug : DrugSolution;
+        in item fluid : InterstitialFluid;
+    }
+
+    port def SensorSignalPort {
+        out item insertion : NeedleInsertionSignal;
+    }
+
+    part def DrugReservoir {
+        attribute capacity : Microliter = 500.0;
+        attribute storedVolume : Microliter = 500.0;
+        attribute drugConcentration : MilligramPerMilliliter = 10.0;
+        attribute storageTemperature : DegreeCelsius = 22.0;
+
+        port outlet : DrugOutletPort;
+
+        action dispense {
+            in item requestedVolume : Microliter;
+            out item dispensedDrug : DrugSolution;
+
+            first start;
+            then validateVolume;
+            then reduceStoredVolume;
+            then emitDrug;
+            then done;
+
+            action validateVolume;
+            action reduceStoredVolume;
+            action emitDrug;
+        }
+    }
+
+    part def MicroPump {
+        attribute minimumFlowRate : MicroliterPerMinute = 0.5;
+        attribute maximumFlowRate : MicroliterPerMinute = 25.0;
+        attribute commandedFlowRate : MicroliterPerMinute = 5.0;
+        attribute outletPressure : Kilopascal = 30.0;
+
+        port inlet : DrugInletPort;
+        port outlet : DrugOutletPort;
+        port commandInput : CommandPort;
+
+        action meterDrugFlow {
+            in item command : DeliveryCommand;
+            in item incomingDrug : DrugSolution;
+            out item meteredDrug : DrugSolution;
+
+            first receiveCommand;
+            then computePumpDutyCycle;
+            then pressurizeDrug;
+            then regulateFlow;
+            then outputMeteredDrug;
+            then done;
+
+            action receiveCommand;
+            action computePumpDutyCycle;
+            action pressurizeDrug;
+            action regulateFlow;
+            action outputMeteredDrug;
+        }
+    }
+
+    part def MicroneedleArray {
+        attribute needleCount : Integer = 121;
+        attribute needleLength : Micrometer = 650.0;
+        attribute needleBaseWidth : Micrometer = 250.0;
+        attribute needleTipRadius : Micrometer = 12.0;
+        attribute insertionDepth : Micrometer = 500.0;
+        attribute dissolvableCoatingMass : Milligram = 0.0;
+
+        port inlet : DrugInletPort;
+        port skinInterface : SkinInterfacePort;
+
+        action pierceStratumCorneum {
+            in item appliedForce : SkinContactForce;
+            out item insertionSignal : NeedleInsertionSignal;
+
+            first alignArray;
+            then applyNormalForce;
+            then penetrateOuterSkin;
+            then verifyDepth;
+            then done;
+
+            action alignArray;
+            action applyNormalForce;
+            action penetrateOuterSkin;
+            action verifyDepth;
+        }
+
+        action deliverAcrossSkin {
+            in item meteredDrug : DrugSolution;
+            out item deliveredDrug : DrugSolution;
+
+            first receiveMeteredDrug;
+            then distributeToNeedles;
+            then transferToInterstitialSpace;
+            then done;
+
+            action receiveMeteredDrug;
+            action distributeToNeedles;
+            action transferToInterstitialSpace;
+        }
+    }
+
+    part def SkinContactSensor {
+        attribute minimumContactForce : Real = 1.5;
+        attribute measuredContactForce : Real;
+        attribute measuredInsertionDepth : Micrometer;
+
+        port skinInterface : SkinInterfacePort;
+        port signalOutput : SensorSignalPort;
+
+        action detectInsertion {
+            in item force : SkinContactForce;
+            out item signal : NeedleInsertionSignal;
+
+            first sampleForce;
+            then estimateDepth;
+            then compareWithThreshold;
+            then reportInsertion;
+            then done;
+
+            action sampleForce;
+            action estimateDepth;
+            action compareWithThreshold;
+            action reportInsertion;
+        }
+    }
+
+    part def DoseController {
+        attribute prescribedDose : Milligram = 2.5;
+        attribute deliveredDose : Milligram = 0.0;
+        attribute allowedDoseError : Percent = 5.0;
+        attribute nominalFlowRate : MicroliterPerMinute = 5.0;
+        attribute maximumDeliveryTime : Second = 1800.0;
+
+        port commandOutput : CommandPort;
+        port statusOutput : StatusPort;
+        port insertionInput : SensorSignalPort;
+
+        action calculateDeliveryCommand {
+            in item insertion : NeedleInsertionSignal;
+            out item command : DeliveryCommand;
+
+            first checkInsertionConfirmed;
+            then computeTargetVolume;
+            then computeDeliveryDuration;
+            then issueCommand;
+            then done;
+
+            action checkInsertionConfirmed;
+            action computeTargetVolume;
+            action computeDeliveryDuration;
+            action issueCommand;
+        }
+
+        action updateDeliveryStatus {
+            in item deliveredDrug : DrugSolution;
+            out item status : DeliveryStatus;
+
+            first integrateDeliveredVolume;
+            then computeDeliveredDose;
+            then compareDoseToPrescription;
+            then reportStatus;
+            then done;
+
+            action integrateDeliveredVolume;
+            action computeDeliveredDose;
+            action compareDoseToPrescription;
+            action reportStatus;
+        }
+
+        state def DeliveryControlStates {
+            entry action initializeStatus;
+
+            state Idle;
+            state Armed;
+            state Inserting;
+            state Delivering;
+            state Complete;
+            state Fault;
+
+            transition first Idle;
+            transition Idle_to_Armed
+                first Idle
+                accept DeliveryCommand
+                then Armed;
+
+            transition Armed_to_Inserting
+                first Armed
+                accept SkinContactForce
+                then Inserting;
+
+            transition Inserting_to_Delivering
+                first Inserting
+                if insertionInput.insertion.insertionConfirmed
+                then Delivering;
+
+            transition Delivering_to_Complete
+                first Delivering
+                if deliveredDose >= prescribedDose
+                then Complete;
+
+            transition Delivering_to_Fault
+                first Delivering
+                if deliveredDose > prescribedDose * 1.05
+                then Fault;
+
+            transition Inserting_to_Fault
+                first Inserting
+                if insertionInput.insertion.insertionDepth < 350.0
+                then Fault;
+        }
+    }
+
+    part def AdhesivePatch {
+        attribute contactArea : Real = 12.0;
+        attribute wearDurationLimit : Second = 14400.0;
+        attribute peelForce : Real = 2.0;
+
+        port skinInterface : SkinInterfacePort;
+    }
+
+    part def MicroneedleDrugDeliverySystem {
+        attribute systemName : String = "Controlled microneedle transdermal drug delivery patch";
+        attribute primaryFunction : String = "Deliver a prescribed liquid drug dose through the outer skin barrier into interstitial tissue using a controlled pump and microneedle array.";
+        attribute totalDrugCapacity : Microliter = 500.0;
+        attribute nominalDose : Milligram = 2.5;
+        attribute nominalDeliveryRate : MicroliterPerMinute = 5.0;
+
+        part reservoir : DrugReservoir;
+        part pump : MicroPump;
+        part needleArray : MicroneedleArray;
+        part contactSensor : SkinContactSensor;
+        part controller : DoseController;
+        part adhesivePatch : AdhesivePatch;
+
+        port userCommand : CommandPort;
+        port systemStatus : StatusPort;
+        port skinInterface : SkinInterfacePort;
+
+        connect userCommand to controller.commandOutput;
+        connect controller.commandOutput to pump.commandInput;
+        connect reservoir.outlet to pump.inlet;
+        connect pump.outlet to needleArray.inlet;
+        connect needleArray.skinInterface to skinInterface;
+        connect adhesivePatch.skinInterface to skinInterface;
+        connect contactSensor.skinInterface to skinInterface;
+        connect contactSensor.signalOutput to controller.insertionInput;
+        connect controller.statusOutput to systemStatus;
+
+        action performDrugDelivery {
+            in item command : DeliveryCommand;
+            in item contactForce : SkinContactForce;
+            out item status : DeliveryStatus;
+
+            first receiveUserCommand;
+            then attachPatchToSkin;
+            then confirmMicroneedleInsertion;
+            then calculateDosePlan;
+            then pumpMeteredDrug;
+            then deliverDrugThroughMicroneedles;
+            then verifyDoseCompletion;
+            then reportFinalStatus;
+            then done;
+
+            action receiveUserCommand;
+            action attachPatchToSkin;
+            action confirmMicroneedleInsertion;
+            action calculateDosePlan;
+            action pumpMeteredDrug;
+            action deliverDrugThroughMicroneedles;
+            action verifyDoseCompletion;
+            action reportFinalStatus;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : MicroneedleDrugDeliverySystem;
+
+        doc
+        /* The system shall deliver a prescribed liquid drug dose through a microneedle array across the stratum corneum and into interstitial tissue while maintaining controlled flow and reporting delivery status. */
+
+        require constraint {
+            system.nominalDose > 0.0 and
+            system.nominalDeliveryRate > 0.0 and
+            system.totalDrugCapacity >= 100.0
+        }
+    }
+
+    requirement def DoseAccuracyRequirement {
+        subject controller : DoseController;
+
+        doc
+        /* The delivered dose shall remain within five percent of the prescribed dose during normal operation. */
+
+        require constraint {
+            controller.deliveredDose >= controller.prescribedDose * 0.95 and
+            controller.deliveredDose <= controller.prescribedDose * 1.05
+        }
+    }
+
+    requirement def NeedleGeometryRequirement {
+        subject array : MicroneedleArray;
+
+        doc
+        /* The microneedles shall be long enough to cross the stratum corneum while limiting penetration depth to reduce pain and tissue damage. */
+
+        require constraint {
+            array.needleLength >= 400.0 and
+            array.needleLength <= 900.0 and
+            array.needleTipRadius <= 20.0
+        }
+    }
+
+    requirement def ReservoirCapacityRequirement {
+        subject reservoir : DrugReservoir;
+
+        doc
+        /* The drug reservoir shall contain sufficient volume for at least one complete prescribed delivery cycle. */
+
+        require constraint {
+            reservoir.capacity >= 250.0 and
+            reservoir.storedVolume <= reservoir.capacity
+        }
+    }
+
+    requirement def FlowControlRequirement {
+        subject pump : MicroPump;
+
+        doc
+        /* The pump shall regulate liquid drug flow within the operating range needed for controlled transdermal delivery. */
+
+        require constraint {
+            pump.commandedFlowRate >= pump.minimumFlowRate and
+            pump.commandedFlowRate <= pump.maximumFlowRate and
+            pump.outletPressure >= 10.0
+        }
+    }
+
+    requirement def InsertionConfirmationRequirement {
+        subject sensor : SkinContactSensor;
+
+        doc
+        /* The system shall confirm sufficient skin contact and microneedle insertion before initiating active drug pumping. */
+
+        require constraint {
+            sensor.measuredContactForce >= sensor.minimumContactForce and
+            sensor.measuredInsertionDepth >= 350.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MicroneedleDrugDeliverySystem;
+    satisfy DoseAccuracyRequirement by DoseController;
+    satisfy NeedleGeometryRequirement by MicroneedleArray;
+    satisfy ReservoirCapacityRequirement by DrugReservoir;
+    satisfy FlowControlRequirement by MicroPump;
+    satisfy InsertionConfirmationRequirement by SkinContactSensor;
+
+}
+tokens used
+3,177
+package MicroneedleDrugDeliverySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Microliter :> Real;
+    attribute def Micrometer :> Real;
+    attribute def Milligram :> Real;
+    attribute def MilligramPerMilliliter :> Real;
+    attribute def MicroliterPerMinute :> Real;
+    attribute def Kilopascal :> Real;
+    attribute def DegreeCelsius :> Real;
+    attribute def Percent :> Real;
+    attribute def Second :> Real;
+
+    item def DrugSolution {
+        attribute drugName : String;
+        attribute concentration : MilligramPerMilliliter;
+        attribute volume : Microliter;
+        attribute viscosity : Real;
+        attribute temperature : DegreeCelsius;
+    }
+
+    item def InterstitialFluid {
+        attribute localPressure : Kilopascal;
+        attribute hydrationLevel : Percent;
+    }
+
+    item def SkinContactForce {
+        attribute magnitude : Real;
+    }
+
+    item def DeliveryCommand {
+        attribute targetDose : Milligram;
+        attribute targetFlowRate : MicroliterPerMinute;
+        attribute deliveryDuration : Second;
+    }
+
+    item def DeliveryStatus {
+        attribute deliveredDose : Milligram;
+        attribute deliveredVolume : Microliter;
+        attribute remainingVolume : Microliter;
+        attribute stateName : String;
+        attribute faultCode : String;
+    }
+
+    item def NeedleInsertionSignal {
+        attribute insertionDepth : Micrometer;
+        attribute insertionConfirmed : Boolean;
+    }
+
+    port def DrugOutletPort {
+        out item drug : DrugSolution;
+    }
+
+    port def DrugInletPort {
+        in item drug : DrugSolution;
+    }
+
+    port def CommandPort {
+        in item command : DeliveryCommand;
+    }
+
+    port def StatusPort {
+        out item status : DeliveryStatus;
+    }
+
+    port def SkinInterfacePort {
+        in item skinForce : SkinContactForce;
+        out item drug : DrugSolution;
+        in item fluid : InterstitialFluid;
+    }
+
+    port def SensorSignalPort {
+        out item insertion : NeedleInsertionSignal;
+    }
+
+    part def DrugReservoir {
+        attribute capacity : Microliter = 500.0;
+        attribute storedVolume : Microliter = 500.0;
+        attribute drugConcentration : MilligramPerMilliliter = 10.0;
+        attribute storageTemperature : DegreeCelsius = 22.0;
+
+        port outlet : DrugOutletPort;
+
+        action dispense {
+            in item requestedVolume : Microliter;
+            out item dispensedDrug : DrugSolution;
+
+            first start;
+            then validateVolume;
+            then reduceStoredVolume;
+            then emitDrug;
+            then done;
+
+            action validateVolume;
+            action reduceStoredVolume;
+            action emitDrug;
+        }
+    }
+
+    part def MicroPump {
+        attribute minimumFlowRate : MicroliterPerMinute = 0.5;
+        attribute maximumFlowRate : MicroliterPerMinute = 25.0;
+        attribute commandedFlowRate : MicroliterPerMinute = 5.0;
+        attribute outletPressure : Kilopascal = 30.0;
+
+        port inlet : DrugInletPort;
+        port outlet : DrugOutletPort;
+        port commandInput : CommandPort;
+
+        action meterDrugFlow {
+            in item command : DeliveryCommand;
+            in item incomingDrug : DrugSolution;
+            out item meteredDrug : DrugSolution;
+
+            first receiveCommand;
+            then computePumpDutyCycle;
+            then pressurizeDrug;
+            then regulateFlow;
+            then outputMeteredDrug;
+            then done;
+
+            action receiveCommand;
+            action computePumpDutyCycle;
+            action pressurizeDrug;
+            action regulateFlow;
+            action outputMeteredDrug;
+        }
+    }
+
+    part def MicroneedleArray {
+        attribute needleCount : Integer = 121;
+        attribute needleLength : Micrometer = 650.0;
+        attribute needleBaseWidth : Micrometer = 250.0;
+        attribute needleTipRadius : Micrometer = 12.0;
+        attribute insertionDepth : Micrometer = 500.0;
+        attribute dissolvableCoatingMass : Milligram = 0.0;
+
+        port inlet : DrugInletPort;
+        port skinInterface : SkinInterfacePort;
+
+        action pierceStratumCorneum {
+            in item appliedForce : SkinContactForce;
+            out item insertionSignal : NeedleInsertionSignal;
+
+            first alignArray;
+            then applyNormalForce;
+            then penetrateOuterSkin;
+            then verifyDepth;
+            then done;
+
+            action alignArray;
+            action applyNormalForce;
+            action penetrateOuterSkin;
+            action verifyDepth;
+        }
+
+        action deliverAcrossSkin {
+            in item meteredDrug : DrugSolution;
+            out item deliveredDrug : DrugSolution;
+
+            first receiveMeteredDrug;
+            then distributeToNeedles;
+            then transferToInterstitialSpace;
+            then done;
+
+            action receiveMeteredDrug;
+            action distributeToNeedles;
+            action transferToInterstitialSpace;
+        }
+    }
+
+    part def SkinContactSensor {
+        attribute minimumContactForce : Real = 1.5;
+        attribute measuredContactForce : Real;
+        attribute measuredInsertionDepth : Micrometer;
+
+        port skinInterface : SkinInterfacePort;
+        port signalOutput : SensorSignalPort;
+
+        action detectInsertion {
+            in item force : SkinContactForce;
+            out item signal : NeedleInsertionSignal;
+
+            first sampleForce;
+            then estimateDepth;
+            then compareWithThreshold;
+            then reportInsertion;
+            then done;
+
+            action sampleForce;
+            action estimateDepth;
+            action compareWithThreshold;
+            action reportInsertion;
+        }
+    }
+
+    part def DoseController {
+        attribute prescribedDose : Milligram = 2.5;
+        attribute deliveredDose : Milligram = 0.0;
+        attribute allowedDoseError : Percent = 5.0;
+        attribute nominalFlowRate : MicroliterPerMinute = 5.0;
+        attribute maximumDeliveryTime : Second = 1800.0;
+
+        port commandOutput : CommandPort;
+        port statusOutput : StatusPort;
+        port insertionInput : SensorSignalPort;
+
+        action calculateDeliveryCommand {
+            in item insertion : NeedleInsertionSignal;
+            out item command : DeliveryCommand;
+
+            first checkInsertionConfirmed;
+            then computeTargetVolume;
+            then computeDeliveryDuration;
+            then issueCommand;
+            then done;
+
+            action checkInsertionConfirmed;
+            action computeTargetVolume;
+            action computeDeliveryDuration;
+            action issueCommand;
+        }
+
+        action updateDeliveryStatus {
+            in item deliveredDrug : DrugSolution;
+            out item status : DeliveryStatus;
+
+            first integrateDeliveredVolume;
+            then computeDeliveredDose;
+            then compareDoseToPrescription;
+            then reportStatus;
+            then done;
+
+            action integrateDeliveredVolume;
+            action computeDeliveredDose;
+            action compareDoseToPrescription;
+            action reportStatus;
+        }
+
+        state def DeliveryControlStates {
+            entry action initializeStatus;
+
+            state Idle;
+            state Armed;
+            state Inserting;
+            state Delivering;
+            state Complete;
+            state Fault;
+
+            transition first Idle;
+            transition Idle_to_Armed
+                first Idle
+                accept DeliveryCommand
+                then Armed;
+
+            transition Armed_to_Inserting
+                first Armed
+                accept SkinContactForce
+                then Inserting;
+
+            transition Inserting_to_Delivering
+                first Inserting
+                if insertionInput.insertion.insertionConfirmed
+                then Delivering;
+
+            transition Delivering_to_Complete
+                first Delivering
+                if deliveredDose >= prescribedDose
+                then Complete;
+
+            transition Delivering_to_Fault
+                first Delivering
+                if deliveredDose > prescribedDose * 1.05
+                then Fault;
+
+            transition Inserting_to_Fault
+                first Inserting
+                if insertionInput.insertion.insertionDepth < 350.0
+                then Fault;
+        }
+    }
+
+    part def AdhesivePatch {
+        attribute contactArea : Real = 12.0;
+        attribute wearDurationLimit : Second = 14400.0;
+        attribute peelForce : Real = 2.0;
+
+        port skinInterface : SkinInterfacePort;
+    }
+
+    part def MicroneedleDrugDeliverySystem {
+        attribute systemName : String = "Controlled microneedle transdermal drug delivery patch";
+        attribute primaryFunction : String = "Deliver a prescribed liquid drug dose through the outer skin barrier into interstitial tissue using a controlled pump and microneedle array.";
+        attribute totalDrugCapacity : Microliter = 500.0;
+        attribute nominalDose : Milligram = 2.5;
+        attribute nominalDeliveryRate : MicroliterPerMinute = 5.0;
+
+        part reservoir : DrugReservoir;
+        part pump : MicroPump;
+        part needleArray : MicroneedleArray;
+        part contactSensor : SkinContactSensor;
+        part controller : DoseController;
+        part adhesivePatch : AdhesivePatch;
+
+        port userCommand : CommandPort;
+        port systemStatus : StatusPort;
+        port skinInterface : SkinInterfacePort;
+
+        connect userCommand to controller.commandOutput;
+        connect controller.commandOutput to pump.commandInput;
+        connect reservoir.outlet to pump.inlet;
+        connect pump.outlet to needleArray.inlet;
+        connect needleArray.skinInterface to skinInterface;
+        connect adhesivePatch.skinInterface to skinInterface;
+        connect contactSensor.skinInterface to skinInterface;
+        connect contactSensor.signalOutput to controller.insertionInput;
+        connect controller.statusOutput to systemStatus;
+
+        action performDrugDelivery {
+            in item command : DeliveryCommand;
+            in item contactForce : SkinContactForce;
+            out item status : DeliveryStatus;
+
+            first receiveUserCommand;
+            then attachPatchToSkin;
+            then confirmMicroneedleInsertion;
+            then calculateDosePlan;
+            then pumpMeteredDrug;
+            then deliverDrugThroughMicroneedles;
+            then verifyDoseCompletion;
+            then reportFinalStatus;
+            then done;
+
+            action receiveUserCommand;
+            action attachPatchToSkin;
+            action confirmMicroneedleInsertion;
+            action calculateDosePlan;
+            action pumpMeteredDrug;
+            action deliverDrugThroughMicroneedles;
+            action verifyDoseCompletion;
+            action reportFinalStatus;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : MicroneedleDrugDeliverySystem;
+
+        doc
+        /* The system shall deliver a prescribed liquid drug dose through a microneedle array across the stratum corneum and into interstitial tissue while maintaining controlled flow and reporting delivery status. */
+
+        require constraint {
+            system.nominalDose > 0.0 and
+            system.nominalDeliveryRate > 0.0 and
+            system.totalDrugCapacity >= 100.0
+        }
+    }
+
+    requirement def DoseAccuracyRequirement {
+        subject controller : DoseController;
+
+        doc
+        /* The delivered dose shall remain within five percent of the prescribed dose during normal operation. */
+
+        require constraint {
+            controller.deliveredDose >= controller.prescribedDose * 0.95 and
+            controller.deliveredDose <= controller.prescribedDose * 1.05
+        }
+    }
+
+    requirement def NeedleGeometryRequirement {
+        subject array : MicroneedleArray;
+
+        doc
+        /* The microneedles shall be long enough to cross the stratum corneum while limiting penetration depth to reduce pain and tissue damage. */
+
+        require constraint {
+            array.needleLength >= 400.0 and
+            array.needleLength <= 900.0 and
+            array.needleTipRadius <= 20.0
+        }
+    }
+
+    requirement def ReservoirCapacityRequirement {
+        subject reservoir : DrugReservoir;
+
+        doc
+        /* The drug reservoir shall contain sufficient volume for at least one complete prescribed delivery cycle. */
+
+        require constraint {
+            reservoir.capacity >= 250.0 and
+            reservoir.storedVolume <= reservoir.capacity
+        }
+    }
+
+    requirement def FlowControlRequirement {
+        subject pump : MicroPump;
+
+        doc
+        /* The pump shall regulate liquid drug flow within the operating range needed for controlled transdermal delivery. */
+
+        require constraint {
+            pump.commandedFlowRate >= pump.minimumFlowRate and
+            pump.commandedFlowRate <= pump.maximumFlowRate and
+            pump.outletPressure >= 10.0
+        }
+    }
+
+    requirement def InsertionConfirmationRequirement {
+        subject sensor : SkinContactSensor;
+
+        doc
+        /* The system shall confirm sufficient skin contact and microneedle insertion before initiating active drug pumping. */
+
+        require constraint {
+            sensor.measuredContactForce >= sensor.minimumContactForce and
+            sensor.measuredInsertionDepth >= 350.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MicroneedleDrugDeliverySystem;
+    satisfy DoseAccuracyRequirement by DoseController;
+    satisfy NeedleGeometryRequirement by MicroneedleArray;
+    satisfy ReservoirCapacityRequirement by DrugReservoir;
+    satisfy FlowControlRequirement by MicroPump;
+    satisfy InsertionConfirmationRequirement by SkinContactSensor;
+
+}

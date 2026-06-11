@@ -1,0 +1,430 @@
+package MaddoxWingSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def millimeter :> LengthUnit;
+  attribute def degree :> PlaneAngleUnit;
+  attribute def diopter;
+  attribute def prismDiopter;
+  attribute def lux;
+  attribute def second :> TimeUnit;
+
+  value type Distance {
+    unit = millimeter;
+  }
+
+  value type Angle {
+    unit = degree;
+  }
+
+  value type OpticalPower {
+    unit = diopter;
+  }
+
+  value type PrismDeviation {
+    unit = prismDiopter;
+  }
+
+  value type Illuminance {
+    unit = lux;
+  }
+
+  value type Duration {
+    unit = second;
+  }
+
+  item def LightRay {
+    attribute wavelength : Real;
+    attribute intensity : Real;
+    attribute polarizationState : String;
+  }
+
+  item def VisualStimulus {
+    attribute symbolKind : String;
+    attribute apparentPositionHorizontal : Angle;
+    attribute apparentPositionVertical : Angle;
+    attribute apparentRotation : Angle;
+    attribute luminance : Illuminance;
+  }
+
+  item def PatientResponse {
+    attribute selectedHorizontalScaleValue : PrismDeviation;
+    attribute selectedVerticalScaleValue : PrismDeviation;
+    attribute selectedTorsionScaleValue : Angle;
+    attribute confidence : Real;
+  }
+
+  item def MeasurementRecord {
+    attribute nearWorkingDistance : Distance;
+    attribute horizontalPhoria : PrismDeviation;
+    attribute verticalPhoria : PrismDeviation;
+    attribute cyclophoria : Angle;
+    attribute measurementDuration : Duration;
+    attribute examinerId : String;
+    attribute patientId : String;
+  }
+
+  port def EyeOpticalPort {
+    in item incidentStimulus : VisualStimulus;
+    out item perceivedAlignment : PatientResponse;
+  }
+
+  port def IlluminationPort {
+    in item ambientLight : LightRay;
+    out item transmittedLight : LightRay;
+  }
+
+  port def ExaminerInterfacePort {
+    in item spokenInstruction : String;
+    out item measurementRecord : MeasurementRecord;
+  }
+
+  part def MaddoxWing {
+    attribute workingDistance : Distance = 330 [millimeter];
+    attribute horizontalScaleRange : PrismDeviation = 30 [prismDiopter];
+    attribute verticalScaleRange : PrismDeviation = 15 [prismDiopter];
+    attribute torsionScaleRange : Angle = 20 [degree];
+    attribute minimumReadableIncrement : PrismDeviation = 1 [prismDiopter];
+
+    port leftEyePort : EyeOpticalPort;
+    port rightEyePort : EyeOpticalPort;
+    port illuminationPort : IlluminationPort;
+    port examinerPort : ExaminerInterfacePort;
+
+    part housing : ViewingHousing;
+    part eyepieceAssembly : BinocularEyepieceAssembly;
+    part septum : DissociationSeptum;
+    part stimulusPlate : ScaleAndPointerPlate;
+    part maddoxLensSet : MaddoxCylindricalLensSet;
+    part illuminationWindow : IlluminationWindow;
+    part responseCapture : ManualResponseCapture;
+    part measurementProcessor : PhoriaMeasurementProcessor;
+
+    connect illuminationWindow.outputLight to stimulusPlate.inputLight;
+    connect stimulusPlate.leftStimulusOutput to eyepieceAssembly.leftChannelInput;
+    connect stimulusPlate.rightStimulusOutput to maddoxLensSet.inputStimulus;
+    connect maddoxLensSet.outputStimulus to eyepieceAssembly.rightChannelInput;
+    connect eyepieceAssembly.leftEyeOutput to leftEyePort.incidentStimulus;
+    connect eyepieceAssembly.rightEyeOutput to rightEyePort.incidentStimulus;
+    connect leftEyePort.perceivedAlignment to responseCapture.leftEyeResponseInput;
+    connect rightEyePort.perceivedAlignment to responseCapture.rightEyeResponseInput;
+    connect responseCapture.rawResponseOutput to measurementProcessor.responseInput;
+    connect measurementProcessor.recordOutput to examinerPort.measurementRecord;
+  }
+
+  part def ViewingHousing {
+    attribute interpupillarySupportRangeMin : Distance = 52 [millimeter];
+    attribute interpupillarySupportRangeMax : Distance = 76 [millimeter];
+    attribute internalGlareLimit : Real = 0.05;
+    attribute mass : Real;
+  }
+
+  part def BinocularEyepieceAssembly {
+    attribute leftOpticalAxisOffset : Distance = 0 [millimeter];
+    attribute rightOpticalAxisOffset : Distance = 0 [millimeter];
+    attribute magnification : Real = 1.0;
+
+    port leftChannelInput : EyeOpticalPort;
+    port rightChannelInput : EyeOpticalPort;
+    port leftEyeOutput : EyeOpticalPort;
+    port rightEyeOutput : EyeOpticalPort;
+  }
+
+  part def DissociationSeptum {
+    attribute opacity : Real = 1.0;
+    attribute edgePositionTolerance : Distance = 0.5 [millimeter];
+  }
+
+  part def ScaleAndPointerPlate {
+    attribute plateDistanceFromEyes : Distance = 330 [millimeter];
+    attribute horizontalScaleIncrement : PrismDeviation = 1 [prismDiopter];
+    attribute verticalScaleIncrement : PrismDeviation = 1 [prismDiopter];
+    attribute torsionScaleIncrement : Angle = 1 [degree];
+
+    port inputLight : IlluminationPort;
+    port leftStimulusOutput : EyeOpticalPort;
+    port rightStimulusOutput : EyeOpticalPort;
+
+    part horizontalPhoriaScale : GraduatedScale {
+      attribute axisName = "horizontal";
+      attribute minimumValue = -30 [prismDiopter];
+      attribute maximumValue = 30 [prismDiopter];
+      attribute increment = 1 [prismDiopter];
+    }
+
+    part verticalPhoriaScale : GraduatedScale {
+      attribute axisName = "vertical";
+      attribute minimumValue = -15 [prismDiopter];
+      attribute maximumValue = 15 [prismDiopter];
+      attribute increment = 1 [prismDiopter];
+    }
+
+    part torsionScale : AngularScale {
+      attribute axisName = "torsional";
+      attribute minimumAngle = -20 [degree];
+      attribute maximumAngle = 20 [degree];
+      attribute incrementAngle = 1 [degree];
+    }
+
+    part pointerSet : PointerStimulus {
+      attribute pointerColor = "red";
+      attribute lineWidth = 0.35 [millimeter];
+    }
+  }
+
+  part def GraduatedScale {
+    attribute axisName : String;
+    attribute minimumValue : PrismDeviation;
+    attribute maximumValue : PrismDeviation;
+    attribute increment : PrismDeviation;
+  }
+
+  part def AngularScale {
+    attribute axisName : String;
+    attribute minimumAngle : Angle;
+    attribute maximumAngle : Angle;
+    attribute incrementAngle : Angle;
+  }
+
+  part def PointerStimulus {
+    attribute pointerColor : String;
+    attribute lineWidth : Distance;
+  }
+
+  part def MaddoxCylindricalLensSet {
+    attribute cylinderAxisAngle : Angle = 90 [degree];
+    attribute equivalentDissociationPower : OpticalPower = 10 [diopter];
+    attribute lineImageOrientation : Angle = 0 [degree];
+
+    port inputStimulus : EyeOpticalPort;
+    port outputStimulus : EyeOpticalPort;
+
+    action transformPointStimulusToLineImage {
+      in item pointStimulus : VisualStimulus;
+      out item lineStimulus : VisualStimulus;
+
+      first start;
+      then computeLineOrientation;
+      then computeApparentDisplacement;
+      then emitLineStimulus;
+    }
+  }
+
+  part def IlluminationWindow {
+    attribute minimumAmbientIlluminance : Illuminance = 200 [lux];
+    attribute maximumAmbientIlluminance : Illuminance = 1200 [lux];
+    attribute transmissionRatio : Real = 0.75;
+
+    port ambientInput : IlluminationPort;
+    port outputLight : IlluminationPort;
+  }
+
+  part def ManualResponseCapture {
+    port leftEyeResponseInput : EyeOpticalPort;
+    port rightEyeResponseInput : EyeOpticalPort;
+    out item rawResponseOutput : PatientResponse;
+
+    action captureSpokenScaleReading {
+      in item spokenReading : String;
+      out item response : PatientResponse;
+
+      first receiveReading;
+      then parseHorizontalValue;
+      then parseVerticalValue;
+      then parseTorsionalValue;
+      then assignConfidence;
+      then publishResponse;
+    }
+  }
+
+  part def PhoriaMeasurementProcessor {
+    in item responseInput : PatientResponse;
+    out item recordOutput : MeasurementRecord;
+
+    attribute assumedWorkingDistance : Distance = 330 [millimeter];
+    attribute signConvention = "exo negative, eso positive, left hyper positive, right hyper negative";
+
+    action computeNearPhoria {
+      in item response : PatientResponse;
+      out item record : MeasurementRecord;
+
+      first validateScaleRanges;
+      then applySignConvention;
+      then calculateHorizontalPhoria;
+      then calculateVerticalPhoria;
+      then calculateCyclophoria;
+      then createMeasurementRecord;
+    }
+  }
+
+  part def Patient {
+    port leftEye : EyeOpticalPort;
+    port rightEye : EyeOpticalPort;
+
+    attribute accommodationState : OpticalPower;
+    attribute naturalHorizontalPhoria : PrismDeviation;
+    attribute naturalVerticalPhoria : PrismDeviation;
+    attribute naturalCyclophoria : Angle;
+  }
+
+  part def Examiner {
+    port interface : ExaminerInterfacePort;
+
+    action instructPatient {
+      out item spokenInstruction : String;
+
+      first positionInstrument;
+      then askPatientToLookThroughEyepieces;
+      then askPatientToReportPointerAlignment;
+    }
+
+    action recordMeasurement {
+      in item record : MeasurementRecord;
+
+      first reviewRecord;
+      then storeRecord;
+    }
+  }
+
+  part def MaddoxWingTestSession {
+    part instrument : MaddoxWing;
+    part patient : Patient;
+    part examiner : Examiner;
+
+    connect instrument.leftEyePort to patient.leftEye;
+    connect instrument.rightEyePort to patient.rightEye;
+    connect instrument.examinerPort to examiner.interface;
+
+    state def TestStateMachine {
+      state idle;
+      state positioned;
+      state dissociatingVision;
+      state awaitingResponse;
+      state computingResult;
+      state completed;
+      state invalid;
+
+      transition idle_to_positioned
+        first idle
+        accept PositionInstrument
+        then positioned;
+
+      transition positioned_to_dissociating
+        first positioned
+        accept PatientLookingThroughEyepieces
+        then dissociatingVision;
+
+      transition dissociating_to_awaiting
+        first dissociatingVision
+        accept SeparateMonocularStimuli
+        then awaitingResponse;
+
+      transition awaiting_to_computing
+        first awaitingResponse
+        accept ResponseReceived
+        then computingResult;
+
+      transition computing_to_completed
+        first computingResult
+        accept MeasurementValid
+        then completed;
+
+      transition computing_to_invalid
+        first computingResult
+        accept MeasurementOutOfRange
+        then invalid;
+
+      transition invalid_to_positioned
+        first invalid
+        accept RepeatMeasurement
+        then positioned;
+    }
+
+    action performNearPhoriaAssessment {
+      first prepareInstrument;
+      then alignPatientEyesToEyepieces;
+      then presentDissociatedMaddoxWingStimuli;
+      then capturePatientScaleReadings;
+      then computeHorizontalVerticalAndTorsionalPhoria;
+      then provideMeasurementRecord;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject instrument : MaddoxWing;
+    doc
+      /* The Maddox wing system shall provide a near-vision optometric assessment by dissociating the patient's binocular view so that one eye observes scale references while the other eye observes displaced pointer or line stimuli, enabling high-level measurement of latent ocular deviation. */
+
+    require constraint {
+      instrument.workingDistance == 330 [millimeter]
+    }
+  }
+
+  requirement def BinocularDissociationRequirement {
+    subject septum : DissociationSeptum;
+    doc
+      /* The system shall prevent direct fusion of left-eye and right-eye visual fields during the test. */
+
+    require constraint {
+      septum.opacity >= 0.98
+    }
+  }
+
+  requirement def HorizontalPhoriaRangeRequirement {
+    subject instrument : MaddoxWing;
+    doc
+      /* The system shall support horizontal near-phoria readings over a clinically useful range for exophoria and esophoria. */
+
+    require constraint {
+      instrument.horizontalScaleRange >= 30 [prismDiopter]
+    }
+  }
+
+  requirement def VerticalPhoriaRangeRequirement {
+    subject instrument : MaddoxWing;
+    doc
+      /* The system shall support vertical near-phoria readings for hyperphoria assessment. */
+
+    require constraint {
+      instrument.verticalScaleRange >= 15 [prismDiopter]
+    }
+  }
+
+  requirement def TorsionMeasurementRequirement {
+    subject instrument : MaddoxWing;
+    doc
+      /* The system shall support estimation of cyclophoria using an angular scale. */
+
+    require constraint {
+      instrument.torsionScaleRange >= 20 [degree]
+    }
+  }
+
+  requirement def ReadabilityRequirement {
+    subject plate : ScaleAndPointerPlate;
+    doc
+      /* Scale markings and pointers shall be readable under normal examination-room illumination. */
+
+    require constraint {
+      plate.horizontalScaleIncrement <= 1 [prismDiopter] and
+      plate.verticalScaleIncrement <= 1 [prismDiopter] and
+      plate.torsionScaleIncrement <= 1 [degree]
+    }
+  }
+
+  requirement def MeasurementRecordRequirement {
+    subject processor : PhoriaMeasurementProcessor;
+    doc
+      /* The system shall produce a measurement record containing horizontal phoria, vertical phoria, torsional deviation, working distance, patient identifier, examiner identifier, and measurement duration. */
+  }
+
+  satisfy PrimaryFunctionRequirement by MaddoxWing;
+  satisfy BinocularDissociationRequirement by DissociationSeptum;
+  satisfy HorizontalPhoriaRangeRequirement by MaddoxWing;
+  satisfy VerticalPhoriaRangeRequirement by MaddoxWing;
+  satisfy TorsionMeasurementRequirement by MaddoxWing;
+  satisfy ReadabilityRequirement by ScaleAndPointerPlate;
+  satisfy MeasurementRecordRequirement by PhoriaMeasurementProcessor;
+
+}

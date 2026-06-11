@@ -1,0 +1,1011 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-4134m2sp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2cc-ceb5-7b63-a8e5-52fa5a18da7e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Xenobot and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package XenobotSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Micrometer :> ISQ::length;
+    attribute def MicrometerPerSecond :> ISQ::speed;
+    attribute def Millinewton :> ISQ::force;
+    attribute def Joule :> ISQ::energy;
+    attribute def Percent :> ScalarValues::Real;
+
+    item def NutrientMedium {
+        attribute glucoseConcentration : Real;
+        attribute dissolvedOxygen : Percent;
+        attribute temperature : ISQ::temperature;
+    }
+
+    item def DebrisParticle {
+        attribute diameter : Micrometer;
+        attribute mass : ISQ::mass;
+        attribute biodegradable : Boolean;
+    }
+
+    item def ChemicalCue {
+        attribute concentration : Real;
+        attribute gradientVector : DirectionVector;
+    }
+
+    item def DirectionVector {
+        attribute x : Real;
+        attribute y : Real;
+        attribute z : Real;
+    }
+
+    item def MechanicalImpulse {
+        attribute magnitude : Millinewton;
+        attribute duration : ISQ::time;
+    }
+
+    item def CargoCluster {
+        attribute particleCount : Integer;
+        attribute totalMass : ISQ::mass;
+    }
+
+    item def MissionReport {
+        attribute distanceTraveled : Micrometer;
+        attribute debrisCollected : Integer;
+        attribute missionDuration : ISQ::time;
+        attribute viabilityRemaining : Percent;
+    }
+
+    port def MediumExchangePort {
+        in item mediumIn : NutrientMedium;
+        out item metabolicWaste : NutrientMedium;
+    }
+
+    port def CueReceptionPort {
+        in item cue : ChemicalCue;
+    }
+
+    port def CargoInteractionPort {
+        in item looseParticle : DebrisParticle;
+        out item collectedCargo : CargoCluster;
+    }
+
+    port def MechanicalContactPort {
+        in item substrateReaction : MechanicalImpulse;
+        out item locomotionImpulse : MechanicalImpulse;
+    }
+
+    port def StatusPort {
+        out item report : MissionReport;
+    }
+
+    part def Xenobot {
+        attribute bodyLength : Micrometer = 650;
+        attribute bodyWidth : Micrometer = 420;
+        attribute bodyHeight : Micrometer = 300;
+        attribute maxSpeed : MicrometerPerSecond = 45;
+        attribute operationalLifetime : ISQ::time = 604800;
+        attribute viability : Percent = 100;
+        attribute cargoCapacity : Integer = 75;
+        attribute primaryFunction : String = "Autonomously move through an aqueous microenvironment to gather dispersed particles into a localized cluster using living cellular motion.";
+
+        port mediumPort : MediumExchangePort;
+        port cuePort : CueReceptionPort;
+        port cargoPort : CargoInteractionPort;
+        port contactPort : MechanicalContactPort;
+        port statusPort : StatusPort;
+
+        part epithelialHull : CellularEnvelope;
+        part contractileActuator : CiliatedMotilityLayer;
+        part sensorySurface : ChemicalGradientSensor;
+        part cargoPocket : ParticleAggregationPocket;
+        part metabolicCore : LivingCellMetabolism;
+        part behaviorController : MorphologicalController;
+
+        connect mediumPort to metabolicCore.mediumPort;
+        connect cuePort to sensorySurface.cuePort;
+        connect sensorySurface.signalPort to behaviorController.cueSignalPort;
+        connect behaviorController.motorCommandPort to contractileActuator.commandPort;
+        connect contractileActuator.contactPort to contactPort;
+        connect cargoPort to cargoPocket.cargoPort;
+        connect cargoPocket.loadSignalPort to behaviorController.loadSignalPort;
+        connect metabolicCore.energyPort to contractileActuator.energyPort;
+        connect metabolicCore.energyPort to behaviorController.energyPort;
+        connect behaviorController.statusPort to statusPort;
+
+        perform action PrimaryMission;
+        exhibit state XenobotLifeCycle;
+    }
+
+    part def CellularEnvelope {
+        attribute cellType : String = "Xenopus laevis embryonic epithelial cell";
+        attribute permeability : Real = 0.35;
+        attribute elasticity : Real = 0.72;
+        attribute protectsInternalCells : Boolean = true;
+
+        port mediumPort : MediumExchangePort;
+    }
+
+    part def CiliatedMotilityLayer {
+        attribute ciliaBeatFrequency : Real = 18.0;
+        attribute nominalThrust : Millinewton = 0.002;
+        attribute steeringBias : DirectionVector;
+
+        port commandPort {
+            in attribute desiredHeading : DirectionVector;
+            in attribute desiredSpeed : MicrometerPerSecond;
+        }
+
+        port energyPort {
+            in attribute availableEnergy : Joule;
+        }
+
+        port contactPort : MechanicalContactPort;
+
+        action GenerateLocomotion {
+            in attribute desiredHeading : DirectionVector;
+            in attribute desiredSpeed : MicrometerPerSecond;
+            in attribute availableEnergy : Joule;
+            out item impulse : MechanicalImpulse;
+
+            first start;
+            then computeBeatPattern;
+            then emitImpulse;
+            then done;
+
+            action computeBeatPattern;
+            action emitImpulse;
+        }
+    }
+
+    part def ChemicalGradientSensor {
+        attribute minimumDetectableGradient : Real = 0.01;
+        attribute responseLatency : ISQ::time = 2.0;
+
+        port cuePort : CueReceptionPort;
+
+        port signalPort {
+            out attribute preferredDirection : DirectionVector;
+            out attribute cueStrength : Real;
+        }
+
+        action DetectGradient {
+            in item cue : ChemicalCue;
+            out attribute preferredDirection : DirectionVector;
+            out attribute cueStrength : Real;
+
+            first start;
+            then sampleSurfaceConcentration;
+            then compareSpatialDifference;
+            then publishDirection;
+            then done;
+
+            action sampleSurfaceConcentration;
+            action compareSpatialDifference;
+            action publishDirection;
+        }
+    }
+
+    part def ParticleAggregationPocket {
+        attribute retainedParticleCount : Integer = 0;
+        attribute retentionEfficiency : Percent = 82;
+        attribute releaseThreshold : Integer = 75;
+
+        port cargoPort : CargoInteractionPort;
+
+        port loadSignalPort {
+            out attribute loadFraction : Percent;
+            out attribute pocketFull : Boolean;
+        }
+
+        action CaptureParticle {
+            in item looseParticle : DebrisParticle;
+            out item collectedCargo : CargoCluster;
+
+            first start;
+            then contactParticle;
+            then trapByBodyGeometry;
+            then updateLoad;
+            then done;
+
+            action contactParticle;
+            action trapByBodyGeometry;
+            action updateLoad;
+        }
+
+        action ReleaseCluster {
+            out item collectedCargo : CargoCluster;
+
+            first start;
+            then stopForwardMotion;
+            then reverseCiliaryBias;
+            then depositCargo;
+            then done;
+
+            action stopForwardMotion;
+            action reverseCiliaryBias;
+            action depositCargo;
+        }
+    }
+
+    part def LivingCellMetabolism {
+        attribute storedEnergy : Joule = 0.045;
+        attribute basalEnergyUse : Real = 0.000001;
+        attribute minimumViabilityEnergy : Joule = 0.006;
+
+        port mediumPort : MediumExchangePort;
+
+        port energyPort {
+            out attribute availableEnergy : Joule;
+        }
+
+        action ConvertMediumToEnergy {
+            in item mediumIn : NutrientMedium;
+            out attribute availableEnergy : Joule;
+
+            first start;
+            then absorbNutrients;
+            then performCellularRespiration;
+            then distributeEnergy;
+            then done;
+
+            action absorbNutrients;
+            action performCellularRespiration;
+            action distributeEnergy;
+        }
+    }
+
+    part def MorphologicalController {
+        attribute searchSpeed : MicrometerPerSecond = 25;
+        attribute directedSpeed : MicrometerPerSecond = 40;
+        attribute restingSpeed : MicrometerPerSecond = 0;
+
+        port cueSignalPort {
+            in attribute preferredDirection : DirectionVector;
+            in attribute cueStrength : Real;
+        }
+
+        port loadSignalPort {
+            in attribute loadFraction : Percent;
+            in attribute pocketFull : Boolean;
+        }
+
+        port energyPort {
+            in attribute availableEnergy : Joule;
+        }
+
+        port motorCommandPort {
+            out attribute desiredHeading : DirectionVector;
+            out attribute desiredSpeed : MicrometerPerSecond;
+        }
+
+        port statusPort : StatusPort;
+
+        action SelectMovementMode {
+            in attribute preferredDirection : DirectionVector;
+            in attribute cueStrength : Real;
+            in attribute loadFraction : Percent;
+            in attribute availableEnergy : Joule;
+            out attribute desiredHeading : DirectionVector;
+            out attribute desiredSpeed : MicrometerPerSecond;
+
+            first start;
+            then assessEnergy;
+            then assessCargoLoad;
+            then assessChemicalCue;
+            then commandMovement;
+            then done;
+
+            action assessEnergy;
+            action assessCargoLoad;
+            action assessChemicalCue;
+            action commandMovement;
+        }
+    }
+
+    action def PrimaryMission {
+        in item medium : NutrientMedium;
+        in item cue : ChemicalCue;
+        in item particle : DebrisParticle;
+        out item report : MissionReport;
+
+        first initialize;
+        then maintainViability;
+        then senseCue;
+        then navigateMicroenvironment;
+        then collectParticles;
+        then aggregateCargo;
+        then reportOutcome;
+        then done;
+
+        action initialize;
+        action maintainViability;
+        action senseCue;
+        action navigateMicroenvironment;
+        action collectParticles;
+        action aggregateCargo;
+        action reportOutcome;
+    }
+
+    state def XenobotLifeCycle {
+        entry action InitializeBody;
+
+        state Dormant;
+        state ActiveSearch;
+        state DirectedNavigation;
+        state CargoCollection;
+        state CargoRelease;
+        state EnergyConservation;
+        state MissionComplete;
+        state NonViable;
+
+        transition initial then Dormant;
+
+        transition Dormant_to_ActiveSearch
+            first Dormant
+            accept ActivateMission
+            then ActiveSearch;
+
+        transition ActiveSearch_to_DirectedNavigation
+            first ActiveSearch
+            if cueStrength > 0.15
+            then DirectedNavigation;
+
+        transition DirectedNavigation_to_CargoCollection
+            first DirectedNavigation
+            if particleContactDetected
+            then CargoCollection;
+
+        transition CargoCollection_to_CargoRelease
+            first CargoCollection
+            if retainedParticleCount >= cargoCapacity
+            then CargoRelease;
+
+        transition CargoRelease_to_ActiveSearch
+            first CargoRelease
+            if retainedParticleCount == 0 and viability > 20
+            then ActiveSearch;
+
+        transition ActiveSearch_to_EnergyConservation
+            first ActiveSearch
+            if availableEnergy < 0.010
+            then EnergyConservation;
+
+        transition DirectedNavigation_to_EnergyConservation
+            first DirectedNavigation
+            if availableEnergy < 0.010
+            then EnergyConservation;
+
+        transition EnergyConservation_to_ActiveSearch
+            first EnergyConservation
+            if availableEnergy >= 0.020 and viability > 20
+            then ActiveSearch;
+
+        transition ActiveSearch_to_MissionComplete
+            first ActiveSearch
+            if missionDuration >= operationalLifetime
+            then MissionComplete;
+
+        transition MissionComplete_to_NonViable
+            first MissionComplete
+            if viability <= 0
+            then NonViable;
+
+        transition Any_to_NonViable
+            first ActiveSearch
+            if availableEnergy < minimumViabilityEnergy
+            then NonViable;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The xenobot system shall use living cellular motility to autonomously move through an aqueous microenvironment and aggregate dispersed particles into a localized cargo cluster. */
+
+        subject xenobot : Xenobot;
+
+        require constraint {
+            xenobot.maxSpeed >= 20 [MicrometerPerSecond]
+        }
+
+        require constraint {
+            xenobot.cargoCapacity >= 25
+        }
+    }
+
+    requirement def ViabilityRequirement {
+        doc /* The xenobot shall maintain cellular viability during the mission without external electronics, batteries, or synthetic onboard computation. */
+
+        subject xenobot : Xenobot;
+
+        require constraint {
+            xenobot.viability >= 20 [Percent]
+        }
+    }
+
+    requirement def BiocompatibilityRequirement {
+        doc /* The xenobot shall be composed of living biological cell assemblies and shall avoid persistent non-biodegradable structural components. */
+
+        subject xenobot : Xenobot;
+
+        require constraint {
+            xenobot.epithelialHull.protectsInternalCells == true
+        }
+    }
+
+    requirement def ParticleAggregationRequirement {
+        doc /* The xenobot shall collect encountered debris particles and retain them until a cargo cluster reaches the configured release threshold. */
+
+        subject pocket : ParticleAggregationPocket;
+
+        require constraint {
+            pocket.retentionEfficiency >= 70 [Percent]
+        }
+
+        require constraint {
+            pocket.releaseThreshold >= 25
+        }
+    }
+
+    requirement def EnergyRequirement {
+        doc /* The xenobot shall derive operational energy from living-cell metabolism of nutrients in the surrounding medium. */
+
+        subject metabolism : LivingCellMetabolism;
+
+        require constraint {
+            metabolism.storedEnergy > metabolism.minimumViabilityEnergy
+        }
+    }
+
+    part xenobotMissionSystem {
+        part operatingMedium {
+            attribute volume : ISQ::volume = 0.000001;
+            attribute temperature : ISQ::temperature = 295.15;
+            attribute viscosity : Real = 0.001;
+        }
+
+        part xenobot : Xenobot;
+
+        item nutrientMedium : NutrientMedium {
+            attribute glucoseConcentration = 5.0;
+            attribute dissolvedOxygen = 92;
+            attribute temperature = 295.15;
+        }
+
+        item targetCue : ChemicalCue {
+            attribute concentration = 0.45;
+            attribute gradientVector : DirectionVector {
+                attribute x = 1.0;
+                attribute y = 0.2;
+                attribute z = 0.0;
+            }
+        }
+
+        item microDebris : DebrisParticle {
+            attribute diameter = 80;
+            attribute mass = 0.000000001;
+            attribute biodegradable = true;
+        }
+
+        item finalReport : MissionReport;
+
+        satisfy PrimaryFunctionRequirement by xenobot;
+        satisfy ViabilityRequirement by xenobot;
+        satisfy BiocompatibilityRequirement by xenobot;
+        satisfy ParticleAggregationRequirement by xenobot.cargoPocket;
+        satisfy EnergyRequirement by xenobot.metabolicCore;
+
+        perform xenobot.PrimaryMission {
+            in medium = nutrientMedium;
+            in cue = targetCue;
+            in particle = microDebris;
+            out report = finalReport;
+        }
+    }
+}
+tokens used
+4,570
+package XenobotSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Micrometer :> ISQ::length;
+    attribute def MicrometerPerSecond :> ISQ::speed;
+    attribute def Millinewton :> ISQ::force;
+    attribute def Joule :> ISQ::energy;
+    attribute def Percent :> ScalarValues::Real;
+
+    item def NutrientMedium {
+        attribute glucoseConcentration : Real;
+        attribute dissolvedOxygen : Percent;
+        attribute temperature : ISQ::temperature;
+    }
+
+    item def DebrisParticle {
+        attribute diameter : Micrometer;
+        attribute mass : ISQ::mass;
+        attribute biodegradable : Boolean;
+    }
+
+    item def ChemicalCue {
+        attribute concentration : Real;
+        attribute gradientVector : DirectionVector;
+    }
+
+    item def DirectionVector {
+        attribute x : Real;
+        attribute y : Real;
+        attribute z : Real;
+    }
+
+    item def MechanicalImpulse {
+        attribute magnitude : Millinewton;
+        attribute duration : ISQ::time;
+    }
+
+    item def CargoCluster {
+        attribute particleCount : Integer;
+        attribute totalMass : ISQ::mass;
+    }
+
+    item def MissionReport {
+        attribute distanceTraveled : Micrometer;
+        attribute debrisCollected : Integer;
+        attribute missionDuration : ISQ::time;
+        attribute viabilityRemaining : Percent;
+    }
+
+    port def MediumExchangePort {
+        in item mediumIn : NutrientMedium;
+        out item metabolicWaste : NutrientMedium;
+    }
+
+    port def CueReceptionPort {
+        in item cue : ChemicalCue;
+    }
+
+    port def CargoInteractionPort {
+        in item looseParticle : DebrisParticle;
+        out item collectedCargo : CargoCluster;
+    }
+
+    port def MechanicalContactPort {
+        in item substrateReaction : MechanicalImpulse;
+        out item locomotionImpulse : MechanicalImpulse;
+    }
+
+    port def StatusPort {
+        out item report : MissionReport;
+    }
+
+    part def Xenobot {
+        attribute bodyLength : Micrometer = 650;
+        attribute bodyWidth : Micrometer = 420;
+        attribute bodyHeight : Micrometer = 300;
+        attribute maxSpeed : MicrometerPerSecond = 45;
+        attribute operationalLifetime : ISQ::time = 604800;
+        attribute viability : Percent = 100;
+        attribute cargoCapacity : Integer = 75;
+        attribute primaryFunction : String = "Autonomously move through an aqueous microenvironment to gather dispersed particles into a localized cluster using living cellular motion.";
+
+        port mediumPort : MediumExchangePort;
+        port cuePort : CueReceptionPort;
+        port cargoPort : CargoInteractionPort;
+        port contactPort : MechanicalContactPort;
+        port statusPort : StatusPort;
+
+        part epithelialHull : CellularEnvelope;
+        part contractileActuator : CiliatedMotilityLayer;
+        part sensorySurface : ChemicalGradientSensor;
+        part cargoPocket : ParticleAggregationPocket;
+        part metabolicCore : LivingCellMetabolism;
+        part behaviorController : MorphologicalController;
+
+        connect mediumPort to metabolicCore.mediumPort;
+        connect cuePort to sensorySurface.cuePort;
+        connect sensorySurface.signalPort to behaviorController.cueSignalPort;
+        connect behaviorController.motorCommandPort to contractileActuator.commandPort;
+        connect contractileActuator.contactPort to contactPort;
+        connect cargoPort to cargoPocket.cargoPort;
+        connect cargoPocket.loadSignalPort to behaviorController.loadSignalPort;
+        connect metabolicCore.energyPort to contractileActuator.energyPort;
+        connect metabolicCore.energyPort to behaviorController.energyPort;
+        connect behaviorController.statusPort to statusPort;
+
+        perform action PrimaryMission;
+        exhibit state XenobotLifeCycle;
+    }
+
+    part def CellularEnvelope {
+        attribute cellType : String = "Xenopus laevis embryonic epithelial cell";
+        attribute permeability : Real = 0.35;
+        attribute elasticity : Real = 0.72;
+        attribute protectsInternalCells : Boolean = true;
+
+        port mediumPort : MediumExchangePort;
+    }
+
+    part def CiliatedMotilityLayer {
+        attribute ciliaBeatFrequency : Real = 18.0;
+        attribute nominalThrust : Millinewton = 0.002;
+        attribute steeringBias : DirectionVector;
+
+        port commandPort {
+            in attribute desiredHeading : DirectionVector;
+            in attribute desiredSpeed : MicrometerPerSecond;
+        }
+
+        port energyPort {
+            in attribute availableEnergy : Joule;
+        }
+
+        port contactPort : MechanicalContactPort;
+
+        action GenerateLocomotion {
+            in attribute desiredHeading : DirectionVector;
+            in attribute desiredSpeed : MicrometerPerSecond;
+            in attribute availableEnergy : Joule;
+            out item impulse : MechanicalImpulse;
+
+            first start;
+            then computeBeatPattern;
+            then emitImpulse;
+            then done;
+
+            action computeBeatPattern;
+            action emitImpulse;
+        }
+    }
+
+    part def ChemicalGradientSensor {
+        attribute minimumDetectableGradient : Real = 0.01;
+        attribute responseLatency : ISQ::time = 2.0;
+
+        port cuePort : CueReceptionPort;
+
+        port signalPort {
+            out attribute preferredDirection : DirectionVector;
+            out attribute cueStrength : Real;
+        }
+
+        action DetectGradient {
+            in item cue : ChemicalCue;
+            out attribute preferredDirection : DirectionVector;
+            out attribute cueStrength : Real;
+
+            first start;
+            then sampleSurfaceConcentration;
+            then compareSpatialDifference;
+            then publishDirection;
+            then done;
+
+            action sampleSurfaceConcentration;
+            action compareSpatialDifference;
+            action publishDirection;
+        }
+    }
+
+    part def ParticleAggregationPocket {
+        attribute retainedParticleCount : Integer = 0;
+        attribute retentionEfficiency : Percent = 82;
+        attribute releaseThreshold : Integer = 75;
+
+        port cargoPort : CargoInteractionPort;
+
+        port loadSignalPort {
+            out attribute loadFraction : Percent;
+            out attribute pocketFull : Boolean;
+        }
+
+        action CaptureParticle {
+            in item looseParticle : DebrisParticle;
+            out item collectedCargo : CargoCluster;
+
+            first start;
+            then contactParticle;
+            then trapByBodyGeometry;
+            then updateLoad;
+            then done;
+
+            action contactParticle;
+            action trapByBodyGeometry;
+            action updateLoad;
+        }
+
+        action ReleaseCluster {
+            out item collectedCargo : CargoCluster;
+
+            first start;
+            then stopForwardMotion;
+            then reverseCiliaryBias;
+            then depositCargo;
+            then done;
+
+            action stopForwardMotion;
+            action reverseCiliaryBias;
+            action depositCargo;
+        }
+    }
+
+    part def LivingCellMetabolism {
+        attribute storedEnergy : Joule = 0.045;
+        attribute basalEnergyUse : Real = 0.000001;
+        attribute minimumViabilityEnergy : Joule = 0.006;
+
+        port mediumPort : MediumExchangePort;
+
+        port energyPort {
+            out attribute availableEnergy : Joule;
+        }
+
+        action ConvertMediumToEnergy {
+            in item mediumIn : NutrientMedium;
+            out attribute availableEnergy : Joule;
+
+            first start;
+            then absorbNutrients;
+            then performCellularRespiration;
+            then distributeEnergy;
+            then done;
+
+            action absorbNutrients;
+            action performCellularRespiration;
+            action distributeEnergy;
+        }
+    }
+
+    part def MorphologicalController {
+        attribute searchSpeed : MicrometerPerSecond = 25;
+        attribute directedSpeed : MicrometerPerSecond = 40;
+        attribute restingSpeed : MicrometerPerSecond = 0;
+
+        port cueSignalPort {
+            in attribute preferredDirection : DirectionVector;
+            in attribute cueStrength : Real;
+        }
+
+        port loadSignalPort {
+            in attribute loadFraction : Percent;
+            in attribute pocketFull : Boolean;
+        }
+
+        port energyPort {
+            in attribute availableEnergy : Joule;
+        }
+
+        port motorCommandPort {
+            out attribute desiredHeading : DirectionVector;
+            out attribute desiredSpeed : MicrometerPerSecond;
+        }
+
+        port statusPort : StatusPort;
+
+        action SelectMovementMode {
+            in attribute preferredDirection : DirectionVector;
+            in attribute cueStrength : Real;
+            in attribute loadFraction : Percent;
+            in attribute availableEnergy : Joule;
+            out attribute desiredHeading : DirectionVector;
+            out attribute desiredSpeed : MicrometerPerSecond;
+
+            first start;
+            then assessEnergy;
+            then assessCargoLoad;
+            then assessChemicalCue;
+            then commandMovement;
+            then done;
+
+            action assessEnergy;
+            action assessCargoLoad;
+            action assessChemicalCue;
+            action commandMovement;
+        }
+    }
+
+    action def PrimaryMission {
+        in item medium : NutrientMedium;
+        in item cue : ChemicalCue;
+        in item particle : DebrisParticle;
+        out item report : MissionReport;
+
+        first initialize;
+        then maintainViability;
+        then senseCue;
+        then navigateMicroenvironment;
+        then collectParticles;
+        then aggregateCargo;
+        then reportOutcome;
+        then done;
+
+        action initialize;
+        action maintainViability;
+        action senseCue;
+        action navigateMicroenvironment;
+        action collectParticles;
+        action aggregateCargo;
+        action reportOutcome;
+    }
+
+    state def XenobotLifeCycle {
+        entry action InitializeBody;
+
+        state Dormant;
+        state ActiveSearch;
+        state DirectedNavigation;
+        state CargoCollection;
+        state CargoRelease;
+        state EnergyConservation;
+        state MissionComplete;
+        state NonViable;
+
+        transition initial then Dormant;
+
+        transition Dormant_to_ActiveSearch
+            first Dormant
+            accept ActivateMission
+            then ActiveSearch;
+
+        transition ActiveSearch_to_DirectedNavigation
+            first ActiveSearch
+            if cueStrength > 0.15
+            then DirectedNavigation;
+
+        transition DirectedNavigation_to_CargoCollection
+            first DirectedNavigation
+            if particleContactDetected
+            then CargoCollection;
+
+        transition CargoCollection_to_CargoRelease
+            first CargoCollection
+            if retainedParticleCount >= cargoCapacity
+            then CargoRelease;
+
+        transition CargoRelease_to_ActiveSearch
+            first CargoRelease
+            if retainedParticleCount == 0 and viability > 20
+            then ActiveSearch;
+
+        transition ActiveSearch_to_EnergyConservation
+            first ActiveSearch
+            if availableEnergy < 0.010
+            then EnergyConservation;
+
+        transition DirectedNavigation_to_EnergyConservation
+            first DirectedNavigation
+            if availableEnergy < 0.010
+            then EnergyConservation;
+
+        transition EnergyConservation_to_ActiveSearch
+            first EnergyConservation
+            if availableEnergy >= 0.020 and viability > 20
+            then ActiveSearch;
+
+        transition ActiveSearch_to_MissionComplete
+            first ActiveSearch
+            if missionDuration >= operationalLifetime
+            then MissionComplete;
+
+        transition MissionComplete_to_NonViable
+            first MissionComplete
+            if viability <= 0
+            then NonViable;
+
+        transition Any_to_NonViable
+            first ActiveSearch
+            if availableEnergy < minimumViabilityEnergy
+            then NonViable;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The xenobot system shall use living cellular motility to autonomously move through an aqueous microenvironment and aggregate dispersed particles into a localized cargo cluster. */
+
+        subject xenobot : Xenobot;
+
+        require constraint {
+            xenobot.maxSpeed >= 20 [MicrometerPerSecond]
+        }
+
+        require constraint {
+            xenobot.cargoCapacity >= 25
+        }
+    }
+
+    requirement def ViabilityRequirement {
+        doc /* The xenobot shall maintain cellular viability during the mission without external electronics, batteries, or synthetic onboard computation. */
+
+        subject xenobot : Xenobot;
+
+        require constraint {
+            xenobot.viability >= 20 [Percent]
+        }
+    }
+
+    requirement def BiocompatibilityRequirement {
+        doc /* The xenobot shall be composed of living biological cell assemblies and shall avoid persistent non-biodegradable structural components. */
+
+        subject xenobot : Xenobot;
+
+        require constraint {
+            xenobot.epithelialHull.protectsInternalCells == true
+        }
+    }
+
+    requirement def ParticleAggregationRequirement {
+        doc /* The xenobot shall collect encountered debris particles and retain them until a cargo cluster reaches the configured release threshold. */
+
+        subject pocket : ParticleAggregationPocket;
+
+        require constraint {
+            pocket.retentionEfficiency >= 70 [Percent]
+        }
+
+        require constraint {
+            pocket.releaseThreshold >= 25
+        }
+    }
+
+    requirement def EnergyRequirement {
+        doc /* The xenobot shall derive operational energy from living-cell metabolism of nutrients in the surrounding medium. */
+
+        subject metabolism : LivingCellMetabolism;
+
+        require constraint {
+            metabolism.storedEnergy > metabolism.minimumViabilityEnergy
+        }
+    }
+
+    part xenobotMissionSystem {
+        part operatingMedium {
+            attribute volume : ISQ::volume = 0.000001;
+            attribute temperature : ISQ::temperature = 295.15;
+            attribute viscosity : Real = 0.001;
+        }
+
+        part xenobot : Xenobot;
+
+        item nutrientMedium : NutrientMedium {
+            attribute glucoseConcentration = 5.0;
+            attribute dissolvedOxygen = 92;
+            attribute temperature = 295.15;
+        }
+
+        item targetCue : ChemicalCue {
+            attribute concentration = 0.45;
+            attribute gradientVector : DirectionVector {
+                attribute x = 1.0;
+                attribute y = 0.2;
+                attribute z = 0.0;
+            }
+        }
+
+        item microDebris : DebrisParticle {
+            attribute diameter = 80;
+            attribute mass = 0.000000001;
+            attribute biodegradable = true;
+        }
+
+        item finalReport : MissionReport;
+
+        satisfy PrimaryFunctionRequirement by xenobot;
+        satisfy ViabilityRequirement by xenobot;
+        satisfy BiocompatibilityRequirement by xenobot;
+        satisfy ParticleAggregationRequirement by xenobot.cargoPocket;
+        satisfy EnergyRequirement by xenobot.metabolicCore;
+
+        perform xenobot.PrimaryMission {
+            in medium = nutrientMedium;
+            in cue = targetCue;
+            in particle = microDebris;
+            out report = finalReport;
+        }
+    }
+}

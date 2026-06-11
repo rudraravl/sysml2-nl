@@ -1,0 +1,759 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-3tfka9p0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb38b-bb6f-7aa0-a678-8148489bce11
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Obstetrical forceps and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ObstetricalForcepsSystem {
+
+    import ScalarValues::*;
+    import Quantities::*;
+
+    value def Force_N {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    value def Length_mm {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    value def Angle_deg {
+        attribute value : Real;
+        attribute unit : String = "deg";
+    }
+
+    value def Mass_g {
+        attribute value : Real;
+        attribute unit : String = "g";
+    }
+
+    item def TractionLoad {
+        attribute magnitude : Force_N;
+        attribute directionAngle : Angle_deg;
+    }
+
+    item def ContactPressure {
+        attribute distributedForce : Force_N;
+        attribute contactArea : Length_mm;
+    }
+
+    item def ClinicalGripInput {
+        attribute squeezeForce : Force_N;
+        attribute tractionRequest : Force_N;
+        attribute rotationRequest : Angle_deg;
+    }
+
+    item def DeliveryGuidanceOutput {
+        attribute appliedTraction : Force_N;
+        attribute alignmentCorrection : Angle_deg;
+        attribute contactPressure : ContactPressure;
+    }
+
+    port def HandGripPort {
+        in item gripInput : ClinicalGripInput;
+    }
+
+    port def BladeContactPort {
+        out item guidanceOutput : DeliveryGuidanceOutput;
+    }
+
+    port def MechanicalLoadPort {
+        inout item load : TractionLoad;
+    }
+
+    port def FeedbackPort {
+        out item indicatedLoad : TractionLoad;
+    }
+
+    enum def ForcepsStateKind {
+        enum idle;
+        enum sterileReady;
+        enum positioned;
+        enum locked;
+        enum assistingDelivery;
+        enum released;
+        enum cleaning;
+        enum fault;
+    }
+
+    part def ForcepsBlade {
+        attribute bladeLength : Length_mm = 210;
+        attribute fenestrationLength : Length_mm = 95;
+        attribute cephalicCurveRadius : Length_mm = 115;
+        attribute pelvicCurveAngle : Angle_deg = 32;
+        attribute edgeRadius : Length_mm = 3.5;
+        attribute surfaceFinishRa : Length_mm = 0.0004;
+        attribute maximumLocalPressure : ContactPressure;
+
+        port fetalHeadContact : BladeContactPort;
+        port maternalTissueContact : BladeContactPort;
+        port shankLoad : MechanicalLoadPort;
+    }
+
+    part def Handle {
+        attribute handleLength : Length_mm = 135;
+        attribute gripWidth : Length_mm = 26;
+        attribute gripTextureDepth : Length_mm = 0.45;
+        attribute maximumGripForce : Force_N = 180;
+
+        port practitionerGrip : HandGripPort;
+        port transmittedLoad : MechanicalLoadPort;
+    }
+
+    part def Shank {
+        attribute shankLength : Length_mm = 120;
+        attribute sectionThickness : Length_mm = 8;
+        attribute elasticDeflectionLimit : Length_mm = 1.2;
+
+        port bladeEnd : MechanicalLoadPort;
+        port handleEnd : MechanicalLoadPort;
+        port lockEnd : MechanicalLoadPort;
+    }
+
+    part def ArticulatingLock {
+        attribute engagementClearance : Length_mm = 0.25;
+        attribute maximumSeparationLoad : Force_N = 320;
+        attribute locked : Boolean;
+
+        port leftInterface : MechanicalLoadPort;
+        port rightInterface : MechanicalLoadPort;
+    }
+
+    part def TractionLimiter {
+        attribute recommendedTractionLimit : Force_N = 200;
+        attribute warningThreshold : Force_N = 160;
+        attribute overloadThreshold : Force_N = 220;
+
+        port loadInput : MechanicalLoadPort;
+        port feedbackOutput : FeedbackPort;
+    }
+
+    part def OrientationIndicator {
+        attribute sagittalAlignmentAngle : Angle_deg;
+        attribute rotationAlignmentAngle : Angle_deg;
+        attribute acceptableAlignmentTolerance : Angle_deg = 10;
+
+        port loadReference : MechanicalLoadPort;
+        port feedbackOutput : FeedbackPort;
+    }
+
+    part def SterilizableSurfaceSystem {
+        attribute corrosionResistant : Boolean = true;
+        attribute maximumCreviceDepth : Length_mm = 0.2;
+        attribute cleaningAccessGap : Length_mm = 2.0;
+        attribute validatedSteamSterilizationTemperature : Real = 134;
+        attribute sterilizationTemperatureUnit : String = "degC";
+    }
+
+    part def ObstetricalForceps {
+        attribute totalMass : Mass_g = 720;
+        attribute overallLength : Length_mm = 410;
+        attribute currentState : ForcepsStateKind = ForcepsStateKind::idle;
+        attribute primaryFunction : String =
+            "Provide controlled grasping, alignment, and traction guidance to assist delivery of the fetal head during an indicated assisted vaginal birth while distributing contact forces across atraumatic blades.";
+
+        part leftBlade : ForcepsBlade;
+        part rightBlade : ForcepsBlade;
+        part leftShank : Shank;
+        part rightShank : Shank;
+        part leftHandle : Handle;
+        part rightHandle : Handle;
+        part lock : ArticulatingLock;
+        part tractionLimiter : TractionLimiter;
+        part orientationIndicator : OrientationIndicator;
+        part sterilizableSurfaces : SterilizableSurfaceSystem;
+
+        port leftGripPort : HandGripPort;
+        port rightGripPort : HandGripPort;
+        port fetalInterfacePort : BladeContactPort;
+        port maternalInterfacePort : BladeContactPort;
+        port practitionerFeedbackPort : FeedbackPort;
+
+        connect leftGripPort to leftHandle.practitionerGrip;
+        connect rightGripPort to rightHandle.practitionerGrip;
+
+        connect leftHandle.transmittedLoad to leftShank.handleEnd;
+        connect rightHandle.transmittedLoad to rightShank.handleEnd;
+
+        connect leftShank.bladeEnd to leftBlade.shankLoad;
+        connect rightShank.bladeEnd to rightBlade.shankLoad;
+
+        connect leftShank.lockEnd to lock.leftInterface;
+        connect rightShank.lockEnd to lock.rightInterface;
+
+        connect lock.leftInterface to tractionLimiter.loadInput;
+        connect tractionLimiter.feedbackOutput to practitionerFeedbackPort;
+        connect orientationIndicator.feedbackOutput to practitionerFeedbackPort;
+
+        connect leftBlade.fetalHeadContact to fetalInterfacePort;
+        connect rightBlade.fetalHeadContact to fetalInterfacePort;
+        connect leftBlade.maternalTissueContact to maternalInterfacePort;
+        connect rightBlade.maternalTissueContact to maternalInterfacePort;
+    }
+
+    action def PrepareForceps {
+        inout forceps : ObstetricalForceps;
+        action verifyCleanSurface;
+        action verifyLockMovement;
+        action verifyBladeIntegrity;
+        action setSterileReady;
+    }
+
+    action def PositionBlades {
+        inout forceps : ObstetricalForceps;
+        in maternalClearance : Length_mm;
+        in fetalHeadAlignment : Angle_deg;
+        out positioned : Boolean;
+
+        action alignLeftBlade;
+        action alignRightBlade;
+        action confirmSymmetricContact;
+    }
+
+    action def EngageLock {
+        inout forceps : ObstetricalForceps;
+        out lockEngaged : Boolean;
+
+        action bringShanksTogether;
+        action seatLock;
+        action verifyNoExcessivePlay;
+    }
+
+    action def ApplyControlledTraction {
+        inout forceps : ObstetricalForceps;
+        in requestedLoad : TractionLoad;
+        out deliveredGuidance : DeliveryGuidanceOutput;
+
+        action readGripInput;
+        action limitTractionToRecommendedRange;
+        action distributeLoadAcrossBlades;
+        action indicateLoadToPractitioner;
+    }
+
+    action def ReleaseForceps {
+        inout forceps : ObstetricalForceps;
+        action stopTraction;
+        action disengageLock;
+        action removeBladeContact;
+    }
+
+    state def ForcepsOperationalState {
+        inout forceps : ObstetricalForceps;
+
+        state idle;
+        state sterileReady;
+        state positioned;
+        state locked;
+        state assistingDelivery;
+        state released;
+        state cleaning;
+        state fault;
+
+        transition idle_to_sterileReady
+            first idle
+            then sterileReady
+            accept prepareComplete;
+
+        transition sterileReady_to_positioned
+            first sterileReady
+            then positioned
+            accept bladesPositioned;
+
+        transition positioned_to_locked
+            first positioned
+            then locked
+            accept lockEngaged;
+
+        transition locked_to_assistingDelivery
+            first locked
+            then assistingDelivery
+            accept tractionRequested;
+
+        transition assistingDelivery_to_released
+            first assistingDelivery
+            then released
+            accept deliveryAssistanceComplete;
+
+        transition released_to_cleaning
+            first released
+            then cleaning
+            accept useComplete;
+
+        transition cleaning_to_idle
+            first cleaning
+            then idle
+            accept reprocessed;
+
+        transition any_to_fault_from_overload
+            first assistingDelivery
+            then fault
+            accept overloadDetected;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The device shall provide controlled bilateral blade contact and operator-applied traction guidance for assisted delivery of the fetal head at a high system level.";
+
+        require constraint {
+            forceps.tractionLimiter.recommendedTractionLimit.value <= 200.0
+        }
+    }
+
+    requirement def AtraumaticContactRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "Blade geometry shall distribute contact over broad smooth surfaces to reduce localized fetal and maternal tissue loading.";
+
+        require constraint {
+            forceps.leftBlade.edgeRadius.value >= 3.0 and
+            forceps.rightBlade.edgeRadius.value >= 3.0 and
+            forceps.leftBlade.fenestrationLength.value >= 80.0 and
+            forceps.rightBlade.fenestrationLength.value >= 80.0
+        }
+    }
+
+    requirement def LockSecurityRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The lock shall maintain blade relationship during controlled traction and shall resist separation above expected clinical hand-applied loads.";
+
+        require constraint {
+            forceps.lock.maximumSeparationLoad.value >= 300.0 and
+            forceps.lock.engagementClearance.value <= 0.5
+        }
+    }
+
+    requirement def TractionFeedbackRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The system shall provide practitioner feedback before traction exceeds the recommended range.";
+
+        require constraint {
+            forceps.tractionLimiter.warningThreshold.value < forceps.tractionLimiter.recommendedTractionLimit.value and
+            forceps.tractionLimiter.overloadThreshold.value > forceps.tractionLimiter.recommendedTractionLimit.value
+        }
+    }
+
+    requirement def SterilizationRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The system shall support repeated cleaning and steam sterilization with accessible surfaces and corrosion-resistant material behavior.";
+
+        require constraint {
+            forceps.sterilizableSurfaces.corrosionResistant == true and
+            forceps.sterilizableSurfaces.maximumCreviceDepth.value <= 0.2 and
+            forceps.sterilizableSurfaces.validatedSteamSterilizationTemperature >= 134.0
+        }
+    }
+
+    requirement def AlignmentRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The system shall support visual or tactile alignment indication so traction is applied along the intended delivery axis.";
+
+        require constraint {
+            forceps.orientationIndicator.acceptableAlignmentTolerance.value <= 10.0
+        }
+    }
+
+    part forcepsSystem : ObstetricalForceps;
+
+    satisfy PrimaryFunctionRequirement by forcepsSystem;
+    satisfy AtraumaticContactRequirement by forcepsSystem;
+    satisfy LockSecurityRequirement by forcepsSystem;
+    satisfy TractionFeedbackRequirement by forcepsSystem;
+    satisfy SterilizationRequirement by forcepsSystem;
+    satisfy AlignmentRequirement by forcepsSystem;
+}
+tokens used
+4,286
+package ObstetricalForcepsSystem {
+
+    import ScalarValues::*;
+    import Quantities::*;
+
+    value def Force_N {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    value def Length_mm {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    value def Angle_deg {
+        attribute value : Real;
+        attribute unit : String = "deg";
+    }
+
+    value def Mass_g {
+        attribute value : Real;
+        attribute unit : String = "g";
+    }
+
+    item def TractionLoad {
+        attribute magnitude : Force_N;
+        attribute directionAngle : Angle_deg;
+    }
+
+    item def ContactPressure {
+        attribute distributedForce : Force_N;
+        attribute contactArea : Length_mm;
+    }
+
+    item def ClinicalGripInput {
+        attribute squeezeForce : Force_N;
+        attribute tractionRequest : Force_N;
+        attribute rotationRequest : Angle_deg;
+    }
+
+    item def DeliveryGuidanceOutput {
+        attribute appliedTraction : Force_N;
+        attribute alignmentCorrection : Angle_deg;
+        attribute contactPressure : ContactPressure;
+    }
+
+    port def HandGripPort {
+        in item gripInput : ClinicalGripInput;
+    }
+
+    port def BladeContactPort {
+        out item guidanceOutput : DeliveryGuidanceOutput;
+    }
+
+    port def MechanicalLoadPort {
+        inout item load : TractionLoad;
+    }
+
+    port def FeedbackPort {
+        out item indicatedLoad : TractionLoad;
+    }
+
+    enum def ForcepsStateKind {
+        enum idle;
+        enum sterileReady;
+        enum positioned;
+        enum locked;
+        enum assistingDelivery;
+        enum released;
+        enum cleaning;
+        enum fault;
+    }
+
+    part def ForcepsBlade {
+        attribute bladeLength : Length_mm = 210;
+        attribute fenestrationLength : Length_mm = 95;
+        attribute cephalicCurveRadius : Length_mm = 115;
+        attribute pelvicCurveAngle : Angle_deg = 32;
+        attribute edgeRadius : Length_mm = 3.5;
+        attribute surfaceFinishRa : Length_mm = 0.0004;
+        attribute maximumLocalPressure : ContactPressure;
+
+        port fetalHeadContact : BladeContactPort;
+        port maternalTissueContact : BladeContactPort;
+        port shankLoad : MechanicalLoadPort;
+    }
+
+    part def Handle {
+        attribute handleLength : Length_mm = 135;
+        attribute gripWidth : Length_mm = 26;
+        attribute gripTextureDepth : Length_mm = 0.45;
+        attribute maximumGripForce : Force_N = 180;
+
+        port practitionerGrip : HandGripPort;
+        port transmittedLoad : MechanicalLoadPort;
+    }
+
+    part def Shank {
+        attribute shankLength : Length_mm = 120;
+        attribute sectionThickness : Length_mm = 8;
+        attribute elasticDeflectionLimit : Length_mm = 1.2;
+
+        port bladeEnd : MechanicalLoadPort;
+        port handleEnd : MechanicalLoadPort;
+        port lockEnd : MechanicalLoadPort;
+    }
+
+    part def ArticulatingLock {
+        attribute engagementClearance : Length_mm = 0.25;
+        attribute maximumSeparationLoad : Force_N = 320;
+        attribute locked : Boolean;
+
+        port leftInterface : MechanicalLoadPort;
+        port rightInterface : MechanicalLoadPort;
+    }
+
+    part def TractionLimiter {
+        attribute recommendedTractionLimit : Force_N = 200;
+        attribute warningThreshold : Force_N = 160;
+        attribute overloadThreshold : Force_N = 220;
+
+        port loadInput : MechanicalLoadPort;
+        port feedbackOutput : FeedbackPort;
+    }
+
+    part def OrientationIndicator {
+        attribute sagittalAlignmentAngle : Angle_deg;
+        attribute rotationAlignmentAngle : Angle_deg;
+        attribute acceptableAlignmentTolerance : Angle_deg = 10;
+
+        port loadReference : MechanicalLoadPort;
+        port feedbackOutput : FeedbackPort;
+    }
+
+    part def SterilizableSurfaceSystem {
+        attribute corrosionResistant : Boolean = true;
+        attribute maximumCreviceDepth : Length_mm = 0.2;
+        attribute cleaningAccessGap : Length_mm = 2.0;
+        attribute validatedSteamSterilizationTemperature : Real = 134;
+        attribute sterilizationTemperatureUnit : String = "degC";
+    }
+
+    part def ObstetricalForceps {
+        attribute totalMass : Mass_g = 720;
+        attribute overallLength : Length_mm = 410;
+        attribute currentState : ForcepsStateKind = ForcepsStateKind::idle;
+        attribute primaryFunction : String =
+            "Provide controlled grasping, alignment, and traction guidance to assist delivery of the fetal head during an indicated assisted vaginal birth while distributing contact forces across atraumatic blades.";
+
+        part leftBlade : ForcepsBlade;
+        part rightBlade : ForcepsBlade;
+        part leftShank : Shank;
+        part rightShank : Shank;
+        part leftHandle : Handle;
+        part rightHandle : Handle;
+        part lock : ArticulatingLock;
+        part tractionLimiter : TractionLimiter;
+        part orientationIndicator : OrientationIndicator;
+        part sterilizableSurfaces : SterilizableSurfaceSystem;
+
+        port leftGripPort : HandGripPort;
+        port rightGripPort : HandGripPort;
+        port fetalInterfacePort : BladeContactPort;
+        port maternalInterfacePort : BladeContactPort;
+        port practitionerFeedbackPort : FeedbackPort;
+
+        connect leftGripPort to leftHandle.practitionerGrip;
+        connect rightGripPort to rightHandle.practitionerGrip;
+
+        connect leftHandle.transmittedLoad to leftShank.handleEnd;
+        connect rightHandle.transmittedLoad to rightShank.handleEnd;
+
+        connect leftShank.bladeEnd to leftBlade.shankLoad;
+        connect rightShank.bladeEnd to rightBlade.shankLoad;
+
+        connect leftShank.lockEnd to lock.leftInterface;
+        connect rightShank.lockEnd to lock.rightInterface;
+
+        connect lock.leftInterface to tractionLimiter.loadInput;
+        connect tractionLimiter.feedbackOutput to practitionerFeedbackPort;
+        connect orientationIndicator.feedbackOutput to practitionerFeedbackPort;
+
+        connect leftBlade.fetalHeadContact to fetalInterfacePort;
+        connect rightBlade.fetalHeadContact to fetalInterfacePort;
+        connect leftBlade.maternalTissueContact to maternalInterfacePort;
+        connect rightBlade.maternalTissueContact to maternalInterfacePort;
+    }
+
+    action def PrepareForceps {
+        inout forceps : ObstetricalForceps;
+        action verifyCleanSurface;
+        action verifyLockMovement;
+        action verifyBladeIntegrity;
+        action setSterileReady;
+    }
+
+    action def PositionBlades {
+        inout forceps : ObstetricalForceps;
+        in maternalClearance : Length_mm;
+        in fetalHeadAlignment : Angle_deg;
+        out positioned : Boolean;
+
+        action alignLeftBlade;
+        action alignRightBlade;
+        action confirmSymmetricContact;
+    }
+
+    action def EngageLock {
+        inout forceps : ObstetricalForceps;
+        out lockEngaged : Boolean;
+
+        action bringShanksTogether;
+        action seatLock;
+        action verifyNoExcessivePlay;
+    }
+
+    action def ApplyControlledTraction {
+        inout forceps : ObstetricalForceps;
+        in requestedLoad : TractionLoad;
+        out deliveredGuidance : DeliveryGuidanceOutput;
+
+        action readGripInput;
+        action limitTractionToRecommendedRange;
+        action distributeLoadAcrossBlades;
+        action indicateLoadToPractitioner;
+    }
+
+    action def ReleaseForceps {
+        inout forceps : ObstetricalForceps;
+        action stopTraction;
+        action disengageLock;
+        action removeBladeContact;
+    }
+
+    state def ForcepsOperationalState {
+        inout forceps : ObstetricalForceps;
+
+        state idle;
+        state sterileReady;
+        state positioned;
+        state locked;
+        state assistingDelivery;
+        state released;
+        state cleaning;
+        state fault;
+
+        transition idle_to_sterileReady
+            first idle
+            then sterileReady
+            accept prepareComplete;
+
+        transition sterileReady_to_positioned
+            first sterileReady
+            then positioned
+            accept bladesPositioned;
+
+        transition positioned_to_locked
+            first positioned
+            then locked
+            accept lockEngaged;
+
+        transition locked_to_assistingDelivery
+            first locked
+            then assistingDelivery
+            accept tractionRequested;
+
+        transition assistingDelivery_to_released
+            first assistingDelivery
+            then released
+            accept deliveryAssistanceComplete;
+
+        transition released_to_cleaning
+            first released
+            then cleaning
+            accept useComplete;
+
+        transition cleaning_to_idle
+            first cleaning
+            then idle
+            accept reprocessed;
+
+        transition any_to_fault_from_overload
+            first assistingDelivery
+            then fault
+            accept overloadDetected;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The device shall provide controlled bilateral blade contact and operator-applied traction guidance for assisted delivery of the fetal head at a high system level.";
+
+        require constraint {
+            forceps.tractionLimiter.recommendedTractionLimit.value <= 200.0
+        }
+    }
+
+    requirement def AtraumaticContactRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "Blade geometry shall distribute contact over broad smooth surfaces to reduce localized fetal and maternal tissue loading.";
+
+        require constraint {
+            forceps.leftBlade.edgeRadius.value >= 3.0 and
+            forceps.rightBlade.edgeRadius.value >= 3.0 and
+            forceps.leftBlade.fenestrationLength.value >= 80.0 and
+            forceps.rightBlade.fenestrationLength.value >= 80.0
+        }
+    }
+
+    requirement def LockSecurityRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The lock shall maintain blade relationship during controlled traction and shall resist separation above expected clinical hand-applied loads.";
+
+        require constraint {
+            forceps.lock.maximumSeparationLoad.value >= 300.0 and
+            forceps.lock.engagementClearance.value <= 0.5
+        }
+    }
+
+    requirement def TractionFeedbackRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The system shall provide practitioner feedback before traction exceeds the recommended range.";
+
+        require constraint {
+            forceps.tractionLimiter.warningThreshold.value < forceps.tractionLimiter.recommendedTractionLimit.value and
+            forceps.tractionLimiter.overloadThreshold.value > forceps.tractionLimiter.recommendedTractionLimit.value
+        }
+    }
+
+    requirement def SterilizationRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The system shall support repeated cleaning and steam sterilization with accessible surfaces and corrosion-resistant material behavior.";
+
+        require constraint {
+            forceps.sterilizableSurfaces.corrosionResistant == true and
+            forceps.sterilizableSurfaces.maximumCreviceDepth.value <= 0.2 and
+            forceps.sterilizableSurfaces.validatedSteamSterilizationTemperature >= 134.0
+        }
+    }
+
+    requirement def AlignmentRequirement {
+        subject forceps : ObstetricalForceps;
+
+        doc
+            "The system shall support visual or tactile alignment indication so traction is applied along the intended delivery axis.";
+
+        require constraint {
+            forceps.orientationIndicator.acceptableAlignmentTolerance.value <= 10.0
+        }
+    }
+
+    part forcepsSystem : ObstetricalForceps;
+
+    satisfy PrimaryFunctionRequirement by forcepsSystem;
+    satisfy AtraumaticContactRequirement by forcepsSystem;
+    satisfy LockSecurityRequirement by forcepsSystem;
+    satisfy TractionFeedbackRequirement by forcepsSystem;
+    satisfy SterilizationRequirement by forcepsSystem;
+    satisfy AlignmentRequirement by forcepsSystem;
+}

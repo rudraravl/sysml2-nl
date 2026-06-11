@@ -1,0 +1,376 @@
+package ValvulotomeSystemSpecification {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Length :> ISQ::length;
+    attribute def Diameter :> Length;
+    attribute def Force :> ISQ::force;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def Time :> ISQ::time;
+    attribute def Velocity :> ISQ::speed;
+    attribute def FlowRate :> ISQ::volumeFlowRate;
+
+    item def Blood {
+        attribute temperature : ISQ::thermodynamicTemperature;
+        attribute viscosity : Real;
+    }
+
+    item def ExcisedValveLeaflet {
+        attribute leafletThickness : Length;
+        attribute leafletLength : Length;
+    }
+
+    item def SurgicalIrrigationFluid {
+        attribute flowRate : FlowRate;
+        attribute pressure : Pressure;
+    }
+
+    item def SterileMechanicalEnergy {
+        attribute pushForce : Force;
+        attribute pullForce : Force;
+        attribute axialVelocity : Velocity;
+    }
+
+    item def VisualGuidance {
+        attribute targetValvePosition : Length;
+        attribute alignmentAngle : Angle;
+    }
+
+    port def FluidPort {
+        in item fluidIn : SurgicalIrrigationFluid;
+        out item fluidOut : SurgicalIrrigationFluid;
+    }
+
+    port def MechanicalCommandPort {
+        in item commandEnergy : SterileMechanicalEnergy;
+    }
+
+    port def TissueInteractionPort {
+        in item venousValveTissue : ExcisedValveLeaflet;
+        out item cutValveTissue : ExcisedValveLeaflet;
+    }
+
+    port def GuidancePort {
+        in item guidance : VisualGuidance;
+    }
+
+    part def HandleAssembly {
+        attribute gripDiameter : Diameter = 18 [mm];
+        attribute usableGripLength : Length = 95 [mm];
+        attribute maxOperatorPushForce : Force = 20 [N];
+
+        port commandPort : MechanicalCommandPort;
+    }
+
+    part def ShaftAssembly {
+        attribute shaftLength : Length = 450 [mm];
+        attribute outerDiameter : Diameter = 2.7 [mm];
+        attribute flexibilityRadius : Length = 75 [mm];
+
+        port proximalCommandPort : MechanicalCommandPort;
+        port distalCommandPort : MechanicalCommandPort;
+        port irrigationPort : FluidPort;
+    }
+
+    part def CuttingHead {
+        attribute deployedBladeSpan : Diameter = 4.2 [mm];
+        attribute retractedProfileDiameter : Diameter = 2.5 [mm];
+        attribute bladeEdgeAngle : Angle = 25 [deg];
+        attribute maximumCuttingForce : Force = 6 [N];
+
+        port actuationPort : MechanicalCommandPort;
+        port tissuePort : TissueInteractionPort;
+        port guidePort : GuidancePort;
+    }
+
+    part def BladeGuard {
+        attribute guardClearance : Length = 0.35 [mm];
+        attribute minimumGuardCoverage : Real = 0.85;
+    }
+
+    part def BladeSet {
+        attribute bladeCount : Integer = 2;
+        attribute bladeThickness : Length = 0.18 [mm];
+        attribute exposedCuttingLength : Length = 3.5 [mm];
+        attribute sharpnessRadius : Length = 0.015 [mm];
+    }
+
+    part def VenousLumenEnvironment {
+        attribute vesselInnerDiameter : Diameter = 3.5 [mm];
+        attribute targetValveDepth : Length = 320 [mm];
+        attribute bloodPressure : Pressure = 12 [kPa];
+
+        port tissueInterface : TissueInteractionPort;
+        port guidanceInterface : GuidancePort;
+        port irrigationInterface : FluidPort;
+    }
+
+    part def ValvulotomeSystem {
+        attribute systemName : String = "Valvulotome";
+        attribute sterileSingleUse : Boolean = true;
+        attribute intendedUse : String = "Intraluminal cutting of venous valve leaflets to establish unobstructed blood flow through a vein graft or treated vessel.";
+        attribute insertionProfileDiameter : Diameter = 2.7 [mm];
+        attribute effectiveWorkingLength : Length = 450 [mm];
+
+        part handle : HandleAssembly;
+        part shaft : ShaftAssembly;
+        part cutter : CuttingHead;
+        part guard : BladeGuard;
+        part blades : BladeSet;
+        part vessel : VenousLumenEnvironment;
+
+        port operatorInput : MechanicalCommandPort;
+        port irrigationInput : FluidPort;
+        port tissueInterface : TissueInteractionPort;
+        port guidanceInput : GuidancePort;
+
+        connect operatorInput to handle.commandPort;
+        connect handle.commandPort to shaft.proximalCommandPort;
+        connect shaft.distalCommandPort to cutter.actuationPort;
+        connect irrigationInput to shaft.irrigationPort;
+        connect shaft.irrigationPort to vessel.irrigationInterface;
+        connect guidanceInput to cutter.guidePort;
+        connect vessel.guidanceInterface to cutter.guidePort;
+        connect cutter.tissuePort to vessel.tissueInterface;
+        connect tissueInterface to cutter.tissuePort;
+
+        perform action primaryFunction;
+        exhibit state valvulotomeOperationalStates;
+    }
+
+    action def InsertThroughVenousLumen {
+        in item guidance : VisualGuidance;
+        in item command : SterileMechanicalEnergy;
+        out success : Boolean;
+
+        constraint insertionForceLimit {
+            command.pushForce <= 10 [N]
+        }
+    }
+
+    action def PositionCuttingHeadAtValve {
+        in item guidance : VisualGuidance;
+        out aligned : Boolean;
+
+        constraint alignmentTolerance {
+            guidance.alignmentAngle <= 8 [deg]
+        }
+    }
+
+    action def DeployBladeSet {
+        in item command : SterileMechanicalEnergy;
+        out deployedSpan : Diameter;
+
+        constraint deploymentLimit {
+            deployedSpan <= 4.2 [mm]
+        }
+    }
+
+    action def SeverValveLeaflets {
+        in item valveTissue : ExcisedValveLeaflet;
+        in item command : SterileMechanicalEnergy;
+        out item cutTissue : ExcisedValveLeaflet;
+
+        constraint cuttingForceRange {
+            command.pullForce >= 1.5 [N] and command.pullForce <= 6 [N]
+        }
+    }
+
+    action def RetractBladeSet {
+        in item command : SterileMechanicalEnergy;
+        out retracted : Boolean;
+    }
+
+    action def WithdrawInstrument {
+        in item command : SterileMechanicalEnergy;
+        out removed : Boolean;
+
+        constraint withdrawalSpeedLimit {
+            command.axialVelocity <= 25 [mm/s]
+        }
+    }
+
+    action def ValvulotomePrimaryFunction {
+        in item operatorCommand : SterileMechanicalEnergy;
+        in item guidance : VisualGuidance;
+        in item valveLeaflet : ExcisedValveLeaflet;
+        out item dividedLeaflet : ExcisedValveLeaflet;
+
+        first start;
+        then insert : InsertThroughVenousLumen;
+        then position : PositionCuttingHeadAtValve;
+        then deploy : DeployBladeSet;
+        then cut : SeverValveLeaflets;
+        then retract : RetractBladeSet;
+        then withdraw : WithdrawInstrument;
+        then done;
+
+        bind guidance = insert.guidance;
+        bind operatorCommand = insert.command;
+        bind guidance = position.guidance;
+        bind operatorCommand = deploy.command;
+        bind valveLeaflet = cut.valveTissue;
+        bind operatorCommand = cut.command;
+        bind cut.cutTissue = dividedLeaflet;
+        bind operatorCommand = retract.command;
+        bind operatorCommand = withdraw.command;
+    }
+
+    state def ValvulotomeOperationalStateMachine {
+        state sterilePackaged;
+        state prepared;
+        state inserted;
+        state positionedAtValve;
+        state bladesDeployed;
+        state valveLeafletsCut;
+        state bladesRetracted;
+        state withdrawn;
+        state disposed;
+
+        initial then sterilePackaged;
+
+        transition sterilePackaged_to_prepared
+            first sterilePackaged
+            accept PrepareInstrument
+            then prepared;
+
+        transition prepared_to_inserted
+            first prepared
+            accept InsertInstrument
+            then inserted;
+
+        transition inserted_to_positioned
+            first inserted
+            accept AlignWithValve
+            then positionedAtValve;
+
+        transition positioned_to_deployed
+            first positionedAtValve
+            accept DeployBlades
+            then bladesDeployed;
+
+        transition deployed_to_cut
+            first bladesDeployed
+            accept DrawAcrossValveLeaflets
+            then valveLeafletsCut;
+
+        transition cut_to_retracted
+            first valveLeafletsCut
+            accept RetractBlades
+            then bladesRetracted;
+
+        transition retracted_to_withdrawn
+            first bladesRetracted
+            accept WithdrawInstrument
+            then withdrawn;
+
+        transition withdrawn_to_disposed
+            first withdrawn
+            accept DisposeSingleUseDevice
+            then disposed;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject device : ValvulotomeSystem;
+
+        require constraint {
+            device.intendedUse == "Intraluminal cutting of venous valve leaflets to establish unobstructed blood flow through a vein graft or treated vessel."
+        }
+
+        doc /* The valvulotome shall provide a controlled intraluminal cutting function that divides venous valve leaflets while preserving the surrounding vessel wall. */
+    }
+
+    requirement def LowProfileInsertionRequirement {
+        subject device : ValvulotomeSystem;
+
+        require constraint {
+            device.insertionProfileDiameter <= 3.0 [mm]
+        }
+
+        doc /* The instrument shall maintain a low insertion profile suitable for passage through a peripheral venous lumen. */
+    }
+
+    requirement def ControlledCuttingRequirement {
+        subject cutter : CuttingHead;
+
+        require constraint {
+            cutter.maximumCuttingForce <= 6 [N]
+        }
+
+        doc /* The cutting head shall limit cutting force to support controlled division of valve tissue. */
+    }
+
+    requirement def BladeRetractionRequirement {
+        subject cutter : CuttingHead;
+
+        require constraint {
+            cutter.retractedProfileDiameter <= 2.7 [mm]
+        }
+
+        doc /* The cutting blades shall retract to a protected profile before withdrawal. */
+    }
+
+    requirement def GuardProtectionRequirement {
+        subject guard : BladeGuard;
+
+        require constraint {
+            guard.minimumGuardCoverage >= 0.85
+        }
+
+        doc /* The guard shall cover most non-cutting blade exposure to reduce unintended vessel-wall contact. */
+    }
+
+    requirement def SterilityRequirement {
+        subject device : ValvulotomeSystem;
+
+        require constraint {
+            device.sterileSingleUse == true
+        }
+
+        doc /* The valvulotome shall be provided as a sterile single-use device. */
+    }
+
+    requirement def WorkingLengthRequirement {
+        subject device : ValvulotomeSystem;
+
+        require constraint {
+            device.effectiveWorkingLength >= 400 [mm]
+        }
+
+        doc /* The device shall provide sufficient working length for access to target venous valves. */
+    }
+
+    requirement def HighLevelValvulotomeRequirement {
+        subject device : ValvulotomeSystem;
+
+        require PrimaryFunctionRequirement {
+            device = subject;
+        }
+
+        require LowProfileInsertionRequirement {
+            device = subject;
+        }
+
+        require SterilityRequirement {
+            device = subject;
+        }
+
+        require WorkingLengthRequirement {
+            device = subject;
+        }
+
+        doc /* At a high level, the system is a manually actuated surgical valvulotome whose primary function is to pass through a vein, align with venous valve leaflets, deploy protected cutting blades, divide the obstructing leaflets, retract the blades, and withdraw safely. */
+    }
+
+    part valvulotome : ValvulotomeSystem {
+        attribute insertionProfileDiameter = 2.7 [mm];
+        attribute effectiveWorkingLength = 450 [mm];
+
+        perform action primaryFunction : ValvulotomePrimaryFunction;
+        exhibit state valvulotomeOperationalStates : ValvulotomeOperationalStateMachine;
+    }
+
+}

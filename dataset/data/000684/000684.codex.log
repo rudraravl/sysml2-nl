@@ -1,0 +1,947 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-93lpn70w
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3d2-0eef-72c1-b766-038c31cf3989
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Medical ultrasound and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MedicalUltrasoundSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value type FrequencyMHz : Real {
+        unit = "MHz";
+    }
+
+    value type AcousticPressureMPa : Real {
+        unit = "MPa";
+    }
+
+    value type AcousticPower_mW : Real {
+        unit = "mW";
+    }
+
+    value type Voltage_V : Real {
+        unit = "V";
+    }
+
+    value type Current_A : Real {
+        unit = "A";
+    }
+
+    value type Temperature_C : Real {
+        unit = "degC";
+    }
+
+    value type FrameRate_Hz : Real {
+        unit = "Hz";
+    }
+
+    value type Depth_mm : Real {
+        unit = "mm";
+    }
+
+    value type Time_ms : Real {
+        unit = "ms";
+    }
+
+    value type Resolution_mm : Real {
+        unit = "mm";
+    }
+
+    enum def ImagingMode {
+        BMode;
+        MMode;
+        ColorDoppler;
+        PulsedWaveDoppler;
+    }
+
+    enum def SystemState {
+        Off;
+        Booting;
+        Standby;
+        ProbeCheck;
+        Imaging;
+        Frozen;
+        SavingStudy;
+        Fault;
+        Shutdown;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage_V;
+        attribute current : Current_A;
+    }
+
+    item def ControlCommand {
+        attribute mode : ImagingMode;
+        attribute requestedDepth : Depth_mm;
+        attribute requestedFrequency : FrequencyMHz;
+        attribute freezeRequested : Boolean;
+        attribute saveRequested : Boolean;
+    }
+
+    item def AcousticPulse {
+        attribute centerFrequency : FrequencyMHz;
+        attribute peakNegativePressure : AcousticPressureMPa;
+        attribute pulseDuration : Time_ms;
+        attribute acousticPower : AcousticPower_mW;
+    }
+
+    item def EchoSignal {
+        attribute receivedFrequency : FrequencyMHz;
+        attribute amplitude : AcousticPressureMPa;
+        attribute timeOfFlight : Time_ms;
+    }
+
+    item def BeamformedData {
+        attribute imagingDepth : Depth_mm;
+        attribute lateralResolution : Resolution_mm;
+        attribute axialResolution : Resolution_mm;
+    }
+
+    item def UltrasoundImageFrame {
+        attribute mode : ImagingMode;
+        attribute frameRate : FrameRate_Hz;
+        attribute depth : Depth_mm;
+        attribute grayscaleDynamicRange_dB : Real;
+        attribute isDiagnosticQuality : Boolean;
+    }
+
+    item def PatientContactStatus {
+        attribute couplingGelPresent : Boolean;
+        attribute probeInContact : Boolean;
+        attribute skinTemperature : Temperature_C;
+    }
+
+    item def SafetyStatus {
+        attribute thermalIndex : Real;
+        attribute mechanicalIndex : Real;
+        attribute transducerTemperature : Temperature_C;
+        attribute acousticOutputEnabled : Boolean;
+        attribute faultPresent : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def AcousticTransmitPort {
+        out item pulse : AcousticPulse;
+    }
+
+    port def AcousticReceivePort {
+        in item echo : EchoSignal;
+    }
+
+    port def ImageOutputPort {
+        out item frame : UltrasoundImageFrame;
+    }
+
+    port def SafetyStatusPort {
+        out item status : SafetyStatus;
+    }
+
+    port def PatientContactPort {
+        in item contact : PatientContactStatus;
+    }
+
+    part def MedicalUltrasoundSystem {
+        attribute selectedMode : ImagingMode = ImagingMode::BMode;
+        attribute maxImagingDepth : Depth_mm = 240.0;
+        attribute nominalFrameRate : FrameRate_Hz = 60.0;
+        attribute primaryFunction : String = "Generate real-time diagnostic images of internal patient anatomy by transmitting controlled high-frequency acoustic pulses into tissue, receiving reflected echoes, processing them into image frames, and presenting them safely to a clinician.";
+
+        port powerIn : PowerInputPort;
+        port operatorCommandIn : CommandInputPort;
+        port patientContactIn : PatientContactPort;
+        port imageOut : ImageOutputPort;
+        port safetyOut : SafetyStatusPort;
+
+        part console : OperatorConsole;
+        part powerSupply : MedicalPowerSupply;
+        part imagingController : ImagingController;
+        part pulserReceiver : PulserReceiver;
+        part transducerProbe : UltrasoundProbe;
+        part beamformer : DigitalBeamformer;
+        part imageProcessor : ImageProcessor;
+        part display : DiagnosticDisplay;
+        part safetyMonitor : AcousticSafetyMonitor;
+        part studyStorage : StudyStorage;
+
+        connect powerIn.power to powerSupply.inputPower;
+        connect operatorCommandIn.command to console.operatorCommand;
+        connect patientContactIn.contact to safetyMonitor.patientContact;
+
+        connect console.validatedCommand to imagingController.controlCommand;
+        connect imagingController.txSequence to pulserReceiver.transmitSequence;
+        connect pulserReceiver.drivePulse to transducerProbe.electricalDrive;
+        connect transducerProbe.acousticPulse to transducerProbe.patientAcousticOutput;
+        connect transducerProbe.patientEchoInput to transducerProbe.echoAcousticInput;
+        connect transducerProbe.rawEchoSignal to pulserReceiver.receivedEcho;
+        connect pulserReceiver.digitizedEcho to beamformer.echoSamples;
+        connect beamformer.beamformedOutput to imageProcessor.beamformedInput;
+        connect imageProcessor.imageFrame to display.imageFrameInput;
+        connect imageProcessor.imageFrame to studyStorage.frameInput;
+        connect display.videoOutput to imageOut.frame;
+        connect safetyMonitor.safetyStatus to safetyOut.status;
+        connect safetyMonitor.outputLimitCommand to imagingController.safetyLimitCommand;
+        connect powerSupply.regulatedPower to console.power;
+        connect powerSupply.regulatedPower to imagingController.power;
+        connect powerSupply.regulatedPower to pulserReceiver.power;
+        connect powerSupply.regulatedPower to beamformer.power;
+        connect powerSupply.regulatedPower to imageProcessor.power;
+        connect powerSupply.regulatedPower to display.power;
+        connect powerSupply.regulatedPower to safetyMonitor.power;
+
+        state machine operationalState {
+            state off;
+            state booting;
+            state standby;
+            state probeCheck;
+            state imaging;
+            state frozen;
+            state savingStudy;
+            state fault;
+            state shutdown;
+
+            initial then off;
+
+            transition off_to_booting
+                first off
+                accept PowerApplied
+                then booting;
+
+            transition booting_to_standby
+                first booting
+                accept SelfTestPassed
+                then standby;
+
+            transition booting_to_fault
+                first booting
+                accept SelfTestFailed
+                then fault;
+
+            transition standby_to_probeCheck
+                first standby
+                accept ProbeConnected
+                then probeCheck;
+
+            transition probeCheck_to_imaging
+                first probeCheck
+                accept ProbeValidAndContactConfirmed
+                then imaging;
+
+            transition imaging_to_frozen
+                first imaging
+                accept FreezeCommand
+                then frozen;
+
+            transition frozen_to_imaging
+                first frozen
+                accept ResumeCommand
+                then imaging;
+
+            transition frozen_to_savingStudy
+                first frozen
+                accept SaveCommand
+                then savingStudy;
+
+            transition savingStudy_to_frozen
+                first savingStudy
+                accept SaveComplete
+                then frozen;
+
+            transition imaging_to_fault
+                first imaging
+                accept SafetyLimitExceeded
+                then fault;
+
+            transition standby_to_shutdown
+                first standby
+                accept ShutdownCommand
+                then shutdown;
+
+            transition fault_to_shutdown
+                first fault
+                accept ShutdownCommand
+                then shutdown;
+
+            transition shutdown_to_off
+                first shutdown
+                accept PowerRemoved
+                then off;
+        }
+
+        action performImagingCycle {
+            in command : ControlCommand;
+            in contact : PatientContactStatus;
+            out image : UltrasoundImageFrame;
+            out status : SafetyStatus;
+
+            first start;
+            then validatePatientContact;
+            then configureTransmitReceive;
+            then transmitAcousticPulse;
+            then receiveEchoSignals;
+            then beamformEchoData;
+            then processImageFrame;
+            then updateSafetyStatus;
+            then outputImage;
+            then done;
+
+            action validatePatientContact {
+                in contact : PatientContactStatus;
+                out contactOk : Boolean;
+            }
+
+            action configureTransmitReceive {
+                in command : ControlCommand;
+                out pulse : AcousticPulse;
+            }
+
+            action transmitAcousticPulse {
+                in pulse : AcousticPulse;
+            }
+
+            action receiveEchoSignals {
+                out echo : EchoSignal;
+            }
+
+            action beamformEchoData {
+                in echo : EchoSignal;
+                out data : BeamformedData;
+            }
+
+            action processImageFrame {
+                in data : BeamformedData;
+                out image : UltrasoundImageFrame;
+            }
+
+            action updateSafetyStatus {
+                in pulse : AcousticPulse;
+                in contact : PatientContactStatus;
+                out status : SafetyStatus;
+            }
+
+            action outputImage {
+                in image : UltrasoundImageFrame;
+            }
+        }
+    }
+
+    part def MedicalPowerSupply {
+        port inputPower : PowerInputPort;
+        out item regulatedPower : ElectricalPower;
+        attribute leakageCurrentLimit_mA : Real = 0.1;
+        attribute outputVoltage : Voltage_V = 24.0;
+    }
+
+    part def OperatorConsole {
+        in item operatorCommand : ControlCommand;
+        in item power : ElectricalPower;
+        out item validatedCommand : ControlCommand;
+        attribute supportsTouchInput : Boolean = true;
+        attribute supportsProbeSelection : Boolean = true;
+    }
+
+    part def ImagingController {
+        in item power : ElectricalPower;
+        in item controlCommand : ControlCommand;
+        in item safetyLimitCommand : ControlCommand;
+        out item txSequence : AcousticPulse;
+        attribute activeMode : ImagingMode = ImagingMode::BMode;
+        attribute transmitFrequency : FrequencyMHz = 5.0;
+        attribute imagingDepth : Depth_mm = 160.0;
+    }
+
+    part def PulserReceiver {
+        in item power : ElectricalPower;
+        in item transmitSequence : AcousticPulse;
+        in item receivedEcho : EchoSignal;
+        out item drivePulse : ElectricalPower;
+        out item digitizedEcho : EchoSignal;
+        attribute transmitVoltage : Voltage_V = 80.0;
+        attribute receiveGain_dB : Real = 42.0;
+        attribute analogToDigitalResolution_bits : Integer = 14;
+    }
+
+    part def UltrasoundProbe {
+        in item electricalDrive : ElectricalPower;
+        in item echoAcousticInput : EchoSignal;
+        in item patientEchoInput : EchoSignal;
+        out item acousticPulse : AcousticPulse;
+        out item patientAcousticOutput : AcousticPulse;
+        out item rawEchoSignal : EchoSignal;
+        attribute elementCount : Integer = 128;
+        attribute centerFrequency : FrequencyMHz = 5.0;
+        attribute apertureWidth_mm : Real = 38.0;
+        attribute maximumSurfaceTemperature : Temperature_C = 43.0;
+    }
+
+    part def DigitalBeamformer {
+        in item power : ElectricalPower;
+        in item echoSamples : EchoSignal;
+        out item beamformedOutput : BeamformedData;
+        attribute receiveChannelCount : Integer = 128;
+        attribute dynamicReceiveFocusingEnabled : Boolean = true;
+        attribute nominalAxialResolution : Resolution_mm = 0.6;
+        attribute nominalLateralResolution : Resolution_mm = 1.2;
+    }
+
+    part def ImageProcessor {
+        in item power : ElectricalPower;
+        in item beamformedInput : BeamformedData;
+        out item imageFrame : UltrasoundImageFrame;
+        attribute speckleReductionEnabled : Boolean = true;
+        attribute timeGainCompensationEnabled : Boolean = true;
+        attribute grayscaleDynamicRange_dB : Real = 72.0;
+    }
+
+    part def DiagnosticDisplay {
+        in item power : ElectricalPower;
+        in item imageFrameInput : UltrasoundImageFrame;
+        out item videoOutput : UltrasoundImageFrame;
+        attribute displaySize_in : Real = 15.6;
+        attribute luminance_cd_per_m2 : Real = 400.0;
+        attribute resolutionHorizontal_px : Integer = 1920;
+        attribute resolutionVertical_px : Integer = 1080;
+    }
+
+    part def AcousticSafetyMonitor {
+        in item power : ElectricalPower;
+        in item patientContact : PatientContactStatus;
+        out item safetyStatus : SafetyStatus;
+        out item outputLimitCommand : ControlCommand;
+        attribute maximumMechanicalIndex : Real = 1.9;
+        attribute maximumThermalIndex : Real = 6.0;
+        attribute maximumTransducerTemperature : Temperature_C = 43.0;
+
+        constraint acousticOutputConstraint {
+            safetyStatus.mechanicalIndex <= maximumMechanicalIndex;
+            safetyStatus.thermalIndex <= maximumThermalIndex;
+            safetyStatus.transducerTemperature <= maximumTransducerTemperature;
+        }
+    }
+
+    part def StudyStorage {
+        in item frameInput : UltrasoundImageFrame;
+        attribute localStudyCapacity_GB : Real = 512.0;
+        attribute supportsDICOMExport : Boolean = true;
+        attribute encryptedAtRest : Boolean = true;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The medical ultrasound system shall provide real-time visualization of internal patient anatomy by emitting controlled ultrasound pulses, receiving tissue echoes, and converting those echoes into diagnostic image frames for clinician interpretation. */
+    }
+
+    requirement def AcousticSafetyRequirement {
+        doc /* The system shall continuously monitor acoustic output and transducer temperature and shall disable or limit acoustic transmission before mechanical index, thermal index, or surface temperature exceeds configured clinical safety limits. */
+    }
+
+    requirement def ImageQualityRequirement {
+        doc /* In B-mode imaging, the system shall produce diagnostic image frames with axial resolution no worse than 1.0 mm, lateral resolution no worse than 2.0 mm, and frame rate of at least 30 Hz at imaging depths up to 160 mm. */
+    }
+
+    requirement def PatientContactRequirement {
+        doc /* The system shall inhibit imaging when probe contact is not confirmed or coupling gel is not detected. */
+    }
+
+    requirement def DataStorageRequirement {
+        doc /* The system shall store frozen ultrasound image frames and associated study metadata in encrypted local storage and support export using a clinical imaging format. */
+    }
+
+    requirement primaryFunctionReq : PrimaryFunctionRequirement;
+    requirement acousticSafetyReq : AcousticSafetyRequirement;
+    requirement imageQualityReq : ImageQualityRequirement;
+    requirement patientContactReq : PatientContactRequirement;
+    requirement dataStorageReq : DataStorageRequirement;
+
+    satisfy primaryFunctionReq by MedicalUltrasoundSystem;
+    satisfy acousticSafetyReq by MedicalUltrasoundSystem::safetyMonitor;
+    satisfy imageQualityReq by MedicalUltrasoundSystem::beamformer;
+    satisfy imageQualityReq by MedicalUltrasoundSystem::imageProcessor;
+    satisfy patientContactReq by MedicalUltrasoundSystem::safetyMonitor;
+    satisfy dataStorageReq by MedicalUltrasoundSystem::studyStorage;
+}
+tokens used
+4,553
+package MedicalUltrasoundSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value type FrequencyMHz : Real {
+        unit = "MHz";
+    }
+
+    value type AcousticPressureMPa : Real {
+        unit = "MPa";
+    }
+
+    value type AcousticPower_mW : Real {
+        unit = "mW";
+    }
+
+    value type Voltage_V : Real {
+        unit = "V";
+    }
+
+    value type Current_A : Real {
+        unit = "A";
+    }
+
+    value type Temperature_C : Real {
+        unit = "degC";
+    }
+
+    value type FrameRate_Hz : Real {
+        unit = "Hz";
+    }
+
+    value type Depth_mm : Real {
+        unit = "mm";
+    }
+
+    value type Time_ms : Real {
+        unit = "ms";
+    }
+
+    value type Resolution_mm : Real {
+        unit = "mm";
+    }
+
+    enum def ImagingMode {
+        BMode;
+        MMode;
+        ColorDoppler;
+        PulsedWaveDoppler;
+    }
+
+    enum def SystemState {
+        Off;
+        Booting;
+        Standby;
+        ProbeCheck;
+        Imaging;
+        Frozen;
+        SavingStudy;
+        Fault;
+        Shutdown;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage_V;
+        attribute current : Current_A;
+    }
+
+    item def ControlCommand {
+        attribute mode : ImagingMode;
+        attribute requestedDepth : Depth_mm;
+        attribute requestedFrequency : FrequencyMHz;
+        attribute freezeRequested : Boolean;
+        attribute saveRequested : Boolean;
+    }
+
+    item def AcousticPulse {
+        attribute centerFrequency : FrequencyMHz;
+        attribute peakNegativePressure : AcousticPressureMPa;
+        attribute pulseDuration : Time_ms;
+        attribute acousticPower : AcousticPower_mW;
+    }
+
+    item def EchoSignal {
+        attribute receivedFrequency : FrequencyMHz;
+        attribute amplitude : AcousticPressureMPa;
+        attribute timeOfFlight : Time_ms;
+    }
+
+    item def BeamformedData {
+        attribute imagingDepth : Depth_mm;
+        attribute lateralResolution : Resolution_mm;
+        attribute axialResolution : Resolution_mm;
+    }
+
+    item def UltrasoundImageFrame {
+        attribute mode : ImagingMode;
+        attribute frameRate : FrameRate_Hz;
+        attribute depth : Depth_mm;
+        attribute grayscaleDynamicRange_dB : Real;
+        attribute isDiagnosticQuality : Boolean;
+    }
+
+    item def PatientContactStatus {
+        attribute couplingGelPresent : Boolean;
+        attribute probeInContact : Boolean;
+        attribute skinTemperature : Temperature_C;
+    }
+
+    item def SafetyStatus {
+        attribute thermalIndex : Real;
+        attribute mechanicalIndex : Real;
+        attribute transducerTemperature : Temperature_C;
+        attribute acousticOutputEnabled : Boolean;
+        attribute faultPresent : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def AcousticTransmitPort {
+        out item pulse : AcousticPulse;
+    }
+
+    port def AcousticReceivePort {
+        in item echo : EchoSignal;
+    }
+
+    port def ImageOutputPort {
+        out item frame : UltrasoundImageFrame;
+    }
+
+    port def SafetyStatusPort {
+        out item status : SafetyStatus;
+    }
+
+    port def PatientContactPort {
+        in item contact : PatientContactStatus;
+    }
+
+    part def MedicalUltrasoundSystem {
+        attribute selectedMode : ImagingMode = ImagingMode::BMode;
+        attribute maxImagingDepth : Depth_mm = 240.0;
+        attribute nominalFrameRate : FrameRate_Hz = 60.0;
+        attribute primaryFunction : String = "Generate real-time diagnostic images of internal patient anatomy by transmitting controlled high-frequency acoustic pulses into tissue, receiving reflected echoes, processing them into image frames, and presenting them safely to a clinician.";
+
+        port powerIn : PowerInputPort;
+        port operatorCommandIn : CommandInputPort;
+        port patientContactIn : PatientContactPort;
+        port imageOut : ImageOutputPort;
+        port safetyOut : SafetyStatusPort;
+
+        part console : OperatorConsole;
+        part powerSupply : MedicalPowerSupply;
+        part imagingController : ImagingController;
+        part pulserReceiver : PulserReceiver;
+        part transducerProbe : UltrasoundProbe;
+        part beamformer : DigitalBeamformer;
+        part imageProcessor : ImageProcessor;
+        part display : DiagnosticDisplay;
+        part safetyMonitor : AcousticSafetyMonitor;
+        part studyStorage : StudyStorage;
+
+        connect powerIn.power to powerSupply.inputPower;
+        connect operatorCommandIn.command to console.operatorCommand;
+        connect patientContactIn.contact to safetyMonitor.patientContact;
+
+        connect console.validatedCommand to imagingController.controlCommand;
+        connect imagingController.txSequence to pulserReceiver.transmitSequence;
+        connect pulserReceiver.drivePulse to transducerProbe.electricalDrive;
+        connect transducerProbe.acousticPulse to transducerProbe.patientAcousticOutput;
+        connect transducerProbe.patientEchoInput to transducerProbe.echoAcousticInput;
+        connect transducerProbe.rawEchoSignal to pulserReceiver.receivedEcho;
+        connect pulserReceiver.digitizedEcho to beamformer.echoSamples;
+        connect beamformer.beamformedOutput to imageProcessor.beamformedInput;
+        connect imageProcessor.imageFrame to display.imageFrameInput;
+        connect imageProcessor.imageFrame to studyStorage.frameInput;
+        connect display.videoOutput to imageOut.frame;
+        connect safetyMonitor.safetyStatus to safetyOut.status;
+        connect safetyMonitor.outputLimitCommand to imagingController.safetyLimitCommand;
+        connect powerSupply.regulatedPower to console.power;
+        connect powerSupply.regulatedPower to imagingController.power;
+        connect powerSupply.regulatedPower to pulserReceiver.power;
+        connect powerSupply.regulatedPower to beamformer.power;
+        connect powerSupply.regulatedPower to imageProcessor.power;
+        connect powerSupply.regulatedPower to display.power;
+        connect powerSupply.regulatedPower to safetyMonitor.power;
+
+        state machine operationalState {
+            state off;
+            state booting;
+            state standby;
+            state probeCheck;
+            state imaging;
+            state frozen;
+            state savingStudy;
+            state fault;
+            state shutdown;
+
+            initial then off;
+
+            transition off_to_booting
+                first off
+                accept PowerApplied
+                then booting;
+
+            transition booting_to_standby
+                first booting
+                accept SelfTestPassed
+                then standby;
+
+            transition booting_to_fault
+                first booting
+                accept SelfTestFailed
+                then fault;
+
+            transition standby_to_probeCheck
+                first standby
+                accept ProbeConnected
+                then probeCheck;
+
+            transition probeCheck_to_imaging
+                first probeCheck
+                accept ProbeValidAndContactConfirmed
+                then imaging;
+
+            transition imaging_to_frozen
+                first imaging
+                accept FreezeCommand
+                then frozen;
+
+            transition frozen_to_imaging
+                first frozen
+                accept ResumeCommand
+                then imaging;
+
+            transition frozen_to_savingStudy
+                first frozen
+                accept SaveCommand
+                then savingStudy;
+
+            transition savingStudy_to_frozen
+                first savingStudy
+                accept SaveComplete
+                then frozen;
+
+            transition imaging_to_fault
+                first imaging
+                accept SafetyLimitExceeded
+                then fault;
+
+            transition standby_to_shutdown
+                first standby
+                accept ShutdownCommand
+                then shutdown;
+
+            transition fault_to_shutdown
+                first fault
+                accept ShutdownCommand
+                then shutdown;
+
+            transition shutdown_to_off
+                first shutdown
+                accept PowerRemoved
+                then off;
+        }
+
+        action performImagingCycle {
+            in command : ControlCommand;
+            in contact : PatientContactStatus;
+            out image : UltrasoundImageFrame;
+            out status : SafetyStatus;
+
+            first start;
+            then validatePatientContact;
+            then configureTransmitReceive;
+            then transmitAcousticPulse;
+            then receiveEchoSignals;
+            then beamformEchoData;
+            then processImageFrame;
+            then updateSafetyStatus;
+            then outputImage;
+            then done;
+
+            action validatePatientContact {
+                in contact : PatientContactStatus;
+                out contactOk : Boolean;
+            }
+
+            action configureTransmitReceive {
+                in command : ControlCommand;
+                out pulse : AcousticPulse;
+            }
+
+            action transmitAcousticPulse {
+                in pulse : AcousticPulse;
+            }
+
+            action receiveEchoSignals {
+                out echo : EchoSignal;
+            }
+
+            action beamformEchoData {
+                in echo : EchoSignal;
+                out data : BeamformedData;
+            }
+
+            action processImageFrame {
+                in data : BeamformedData;
+                out image : UltrasoundImageFrame;
+            }
+
+            action updateSafetyStatus {
+                in pulse : AcousticPulse;
+                in contact : PatientContactStatus;
+                out status : SafetyStatus;
+            }
+
+            action outputImage {
+                in image : UltrasoundImageFrame;
+            }
+        }
+    }
+
+    part def MedicalPowerSupply {
+        port inputPower : PowerInputPort;
+        out item regulatedPower : ElectricalPower;
+        attribute leakageCurrentLimit_mA : Real = 0.1;
+        attribute outputVoltage : Voltage_V = 24.0;
+    }
+
+    part def OperatorConsole {
+        in item operatorCommand : ControlCommand;
+        in item power : ElectricalPower;
+        out item validatedCommand : ControlCommand;
+        attribute supportsTouchInput : Boolean = true;
+        attribute supportsProbeSelection : Boolean = true;
+    }
+
+    part def ImagingController {
+        in item power : ElectricalPower;
+        in item controlCommand : ControlCommand;
+        in item safetyLimitCommand : ControlCommand;
+        out item txSequence : AcousticPulse;
+        attribute activeMode : ImagingMode = ImagingMode::BMode;
+        attribute transmitFrequency : FrequencyMHz = 5.0;
+        attribute imagingDepth : Depth_mm = 160.0;
+    }
+
+    part def PulserReceiver {
+        in item power : ElectricalPower;
+        in item transmitSequence : AcousticPulse;
+        in item receivedEcho : EchoSignal;
+        out item drivePulse : ElectricalPower;
+        out item digitizedEcho : EchoSignal;
+        attribute transmitVoltage : Voltage_V = 80.0;
+        attribute receiveGain_dB : Real = 42.0;
+        attribute analogToDigitalResolution_bits : Integer = 14;
+    }
+
+    part def UltrasoundProbe {
+        in item electricalDrive : ElectricalPower;
+        in item echoAcousticInput : EchoSignal;
+        in item patientEchoInput : EchoSignal;
+        out item acousticPulse : AcousticPulse;
+        out item patientAcousticOutput : AcousticPulse;
+        out item rawEchoSignal : EchoSignal;
+        attribute elementCount : Integer = 128;
+        attribute centerFrequency : FrequencyMHz = 5.0;
+        attribute apertureWidth_mm : Real = 38.0;
+        attribute maximumSurfaceTemperature : Temperature_C = 43.0;
+    }
+
+    part def DigitalBeamformer {
+        in item power : ElectricalPower;
+        in item echoSamples : EchoSignal;
+        out item beamformedOutput : BeamformedData;
+        attribute receiveChannelCount : Integer = 128;
+        attribute dynamicReceiveFocusingEnabled : Boolean = true;
+        attribute nominalAxialResolution : Resolution_mm = 0.6;
+        attribute nominalLateralResolution : Resolution_mm = 1.2;
+    }
+
+    part def ImageProcessor {
+        in item power : ElectricalPower;
+        in item beamformedInput : BeamformedData;
+        out item imageFrame : UltrasoundImageFrame;
+        attribute speckleReductionEnabled : Boolean = true;
+        attribute timeGainCompensationEnabled : Boolean = true;
+        attribute grayscaleDynamicRange_dB : Real = 72.0;
+    }
+
+    part def DiagnosticDisplay {
+        in item power : ElectricalPower;
+        in item imageFrameInput : UltrasoundImageFrame;
+        out item videoOutput : UltrasoundImageFrame;
+        attribute displaySize_in : Real = 15.6;
+        attribute luminance_cd_per_m2 : Real = 400.0;
+        attribute resolutionHorizontal_px : Integer = 1920;
+        attribute resolutionVertical_px : Integer = 1080;
+    }
+
+    part def AcousticSafetyMonitor {
+        in item power : ElectricalPower;
+        in item patientContact : PatientContactStatus;
+        out item safetyStatus : SafetyStatus;
+        out item outputLimitCommand : ControlCommand;
+        attribute maximumMechanicalIndex : Real = 1.9;
+        attribute maximumThermalIndex : Real = 6.0;
+        attribute maximumTransducerTemperature : Temperature_C = 43.0;
+
+        constraint acousticOutputConstraint {
+            safetyStatus.mechanicalIndex <= maximumMechanicalIndex;
+            safetyStatus.thermalIndex <= maximumThermalIndex;
+            safetyStatus.transducerTemperature <= maximumTransducerTemperature;
+        }
+    }
+
+    part def StudyStorage {
+        in item frameInput : UltrasoundImageFrame;
+        attribute localStudyCapacity_GB : Real = 512.0;
+        attribute supportsDICOMExport : Boolean = true;
+        attribute encryptedAtRest : Boolean = true;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The medical ultrasound system shall provide real-time visualization of internal patient anatomy by emitting controlled ultrasound pulses, receiving tissue echoes, and converting those echoes into diagnostic image frames for clinician interpretation. */
+    }
+
+    requirement def AcousticSafetyRequirement {
+        doc /* The system shall continuously monitor acoustic output and transducer temperature and shall disable or limit acoustic transmission before mechanical index, thermal index, or surface temperature exceeds configured clinical safety limits. */
+    }
+
+    requirement def ImageQualityRequirement {
+        doc /* In B-mode imaging, the system shall produce diagnostic image frames with axial resolution no worse than 1.0 mm, lateral resolution no worse than 2.0 mm, and frame rate of at least 30 Hz at imaging depths up to 160 mm. */
+    }
+
+    requirement def PatientContactRequirement {
+        doc /* The system shall inhibit imaging when probe contact is not confirmed or coupling gel is not detected. */
+    }
+
+    requirement def DataStorageRequirement {
+        doc /* The system shall store frozen ultrasound image frames and associated study metadata in encrypted local storage and support export using a clinical imaging format. */
+    }
+
+    requirement primaryFunctionReq : PrimaryFunctionRequirement;
+    requirement acousticSafetyReq : AcousticSafetyRequirement;
+    requirement imageQualityReq : ImageQualityRequirement;
+    requirement patientContactReq : PatientContactRequirement;
+    requirement dataStorageReq : DataStorageRequirement;
+
+    satisfy primaryFunctionReq by MedicalUltrasoundSystem;
+    satisfy acousticSafetyReq by MedicalUltrasoundSystem::safetyMonitor;
+    satisfy imageQualityReq by MedicalUltrasoundSystem::beamformer;
+    satisfy imageQualityReq by MedicalUltrasoundSystem::imageProcessor;
+    satisfy patientContactReq by MedicalUltrasoundSystem::safetyMonitor;
+    satisfy dataStorageReq by MedicalUltrasoundSystem::studyStorage;
+}

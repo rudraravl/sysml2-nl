@@ -1,0 +1,891 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-gcokbuud
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb48b-1aa1-70a2-95ce-7057d4caa3db
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a pumping subsystem that moves fluid using a Euler's pump and turbine equation.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PumpingSubsystem_EulerPumpModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Density :> ISQ::massDensity;
+  attribute def VolumetricFlowRate :> ISQ::volumeFlowRate;
+  attribute def Pressure :> ISQ::pressure;
+  attribute def Head :> ISQ::length;
+  attribute def AngularVelocity :> ISQ::angularVelocity;
+  attribute def TangentialVelocity :> ISQ::speed;
+  attribute def AbsoluteTangentialVelocity :> ISQ::speed;
+  attribute def Torque :> ISQ::torque;
+  attribute def Power :> ISQ::power;
+  attribute def Efficiency :> ScalarValues::Real;
+  attribute def Temperature :> ISQ::thermodynamicTemperature;
+
+  item def WorkingFluid {
+    attribute density : Density;
+    attribute temperature : Temperature;
+    attribute staticPressure : Pressure;
+    attribute flowRate : VolumetricFlowRate;
+  }
+
+  item def ShaftPower {
+    attribute torque : Torque;
+    attribute angularSpeed : AngularVelocity;
+    attribute mechanicalPower : Power;
+  }
+
+  port def FluidPort {
+    inout fluid : WorkingFluid;
+    attribute pressure : Pressure;
+    attribute flowRate : VolumetricFlowRate;
+  }
+
+  port def MechanicalRotaryPort {
+    inout shaftPower : ShaftPower;
+    attribute torque : Torque;
+    attribute angularSpeed : AngularVelocity;
+  }
+
+  port def ControlPort {
+    in commandSpeed : AngularVelocity;
+    in enable : Boolean;
+    out running : Boolean;
+    out faultActive : Boolean;
+  }
+
+  part def EulerImpeller {
+    attribute inletRadius : ISQ::length;
+    attribute outletRadius : ISQ::length;
+    attribute bladeOutletAngle : ISQ::planeAngle;
+    attribute rotationalSpeed : AngularVelocity;
+    attribute inletPeripheralSpeed : TangentialVelocity;
+    attribute outletPeripheralSpeed : TangentialVelocity;
+    attribute inletTangentialAbsoluteVelocity : AbsoluteTangentialVelocity;
+    attribute outletTangentialAbsoluteVelocity : AbsoluteTangentialVelocity;
+    attribute theoreticalHead : Head;
+
+    assert constraint PeripheralSpeedEquation {
+      inletPeripheralSpeed == rotationalSpeed * inletRadius;
+      outletPeripheralSpeed == rotationalSpeed * outletRadius;
+    }
+
+    assert constraint EulerPumpTurbineEquation {
+      theoreticalHead ==
+        (outletPeripheralSpeed * outletTangentialAbsoluteVelocity
+        - inletPeripheralSpeed * inletTangentialAbsoluteVelocity)
+        / 9.80665 [m / s^2];
+    }
+  }
+
+  part def PumpCasing {
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+
+    attribute allowablePressure : Pressure;
+    attribute casingLossHead : Head;
+  }
+
+  part def MechanicalSeal {
+    attribute leakageFlow : VolumetricFlowRate;
+    attribute maximumLeakageFlow : VolumetricFlowRate;
+    attribute healthy : Boolean;
+
+    assert constraint LeakageLimit {
+      leakageFlow <= maximumLeakageFlow;
+    }
+  }
+
+  part def VariableSpeedMotor {
+    port shaft : MechanicalRotaryPort;
+    port control : ControlPort;
+
+    attribute commandedSpeed : AngularVelocity;
+    attribute actualSpeed : AngularVelocity;
+    attribute ratedPower : Power;
+    attribute motorEfficiency : Efficiency;
+    attribute enabled : Boolean;
+
+    action def StartMotor {
+      in targetSpeed : AngularVelocity;
+      out achievedSpeed : AngularVelocity;
+      first start;
+      then rampSpeed;
+      then confirmRunning;
+
+      action start {
+        enabled := true;
+      }
+
+      action rampSpeed {
+        commandedSpeed := targetSpeed;
+        achievedSpeed := targetSpeed;
+      }
+
+      action confirmRunning {
+        control.running := true;
+      }
+    }
+
+    action def StopMotor {
+      first removeCommand;
+      then deenergize;
+
+      action removeCommand {
+        commandedSpeed := 0 [rad / s];
+      }
+
+      action deenergize {
+        enabled := false;
+        control.running := false;
+      }
+    }
+  }
+
+  part def EulerPump {
+    port suction : FluidPort;
+    port discharge : FluidPort;
+    port shaft : MechanicalRotaryPort;
+    port control : ControlPort;
+
+    part casing : PumpCasing;
+    part impeller : EulerImpeller;
+    part seal : MechanicalSeal;
+
+    attribute hydraulicEfficiency : Efficiency;
+    attribute mechanicalEfficiency : Efficiency;
+    attribute overallEfficiency : Efficiency;
+    attribute requiredHead : Head;
+    attribute deliveredHead : Head;
+    attribute netHead : Head;
+    attribute fluidDensity : Density;
+    attribute volumeFlow : VolumetricFlowRate;
+    attribute hydraulicPower : Power;
+    attribute shaftPowerRequired : Power;
+    attribute pressureRise : Pressure;
+    attribute minimumFlow : VolumetricFlowRate;
+    attribute maximumFlow : VolumetricFlowRate;
+    attribute maximumDischargePressure : Pressure;
+    attribute fault : Boolean;
+
+    connect suction to casing.inlet;
+    connect casing.outlet to discharge;
+    connect shaft.angularSpeed to impeller.rotationalSpeed;
+
+    assert constraint EfficiencyComposition {
+      overallEfficiency == hydraulicEfficiency * mechanicalEfficiency;
+    }
+
+    assert constraint DeliveredHeadFromEulerEquation {
+      deliveredHead == impeller.theoreticalHead * hydraulicEfficiency - casing.casingLossHead;
+    }
+
+    assert constraint PressureRiseEquation {
+      pressureRise == fluidDensity * 9.80665 [m / s^2] * deliveredHead;
+    }
+
+    assert constraint HydraulicPowerEquation {
+      hydraulicPower == fluidDensity * 9.80665 [m / s^2] * volumeFlow * deliveredHead;
+    }
+
+    assert constraint ShaftPowerEquation {
+      shaftPowerRequired == hydraulicPower / overallEfficiency;
+    }
+
+    assert constraint OperatingEnvelope {
+      volumeFlow >= minimumFlow and
+      volumeFlow <= maximumFlow and
+      discharge.pressure <= maximumDischargePressure;
+    }
+
+    state def PumpOperatingState {
+      entry action initialize {
+        fault := false;
+      }
+
+      state Off;
+      state Priming;
+      state Running;
+      state LowFlowProtection;
+      state Faulted;
+
+      transition initial then Off;
+
+      transition Off_to_Priming
+        first Off
+        accept control.enable
+        if control.enable == true
+        then Priming;
+
+      transition Priming_to_Running
+        first Priming
+        if suction.flowRate >= minimumFlow and seal.healthy == true
+        then Running;
+
+      transition Running_to_LowFlowProtection
+        first Running
+        if volumeFlow < minimumFlow
+        then LowFlowProtection;
+
+      transition LowFlowProtection_to_Running
+        first LowFlowProtection
+        if volumeFlow >= minimumFlow
+        then Running;
+
+      transition Any_to_Faulted
+        first Running
+        if discharge.pressure > maximumDischargePressure or seal.leakageFlow > seal.maximumLeakageFlow
+        then Faulted;
+
+      transition Faulted_to_Off
+        first Faulted
+        accept control.enable
+        if control.enable == false
+        then Off;
+
+      transition Running_to_Off
+        first Running
+        accept control.enable
+        if control.enable == false
+        then Off;
+    }
+
+    exhibit state PumpOperatingState;
+  }
+
+  part def SuctionReservoir {
+    port outlet : FluidPort;
+    attribute fluidLevel : ISQ::length;
+    attribute fluidDensity : Density;
+    attribute temperature : Temperature;
+    attribute reservoirPressure : Pressure;
+  }
+
+  part def DischargeHeader {
+    port inlet : FluidPort;
+    attribute headerPressure : Pressure;
+    attribute demandedFlow : VolumetricFlowRate;
+    attribute allowablePressure : Pressure;
+  }
+
+  part def PumpController {
+    port command : ControlPort;
+
+    attribute targetHead : Head;
+    attribute measuredHead : Head;
+    attribute targetFlow : VolumetricFlowRate;
+    attribute measuredFlow : VolumetricFlowRate;
+    attribute speedCommand : AngularVelocity;
+    attribute startPermitted : Boolean;
+    attribute tripCommand : Boolean;
+
+    action def RegulateSpeed {
+      in headSetpoint : Head;
+      in headFeedback : Head;
+      out speedRequest : AngularVelocity;
+
+      action computeError {
+        speedRequest := speedCommand;
+      }
+    }
+
+    state def ControllerState {
+      state Disabled;
+      state Ready;
+      state Enabled;
+      state Tripped;
+
+      transition initial then Disabled;
+
+      transition Disabled_to_Ready
+        first Disabled
+        if startPermitted == true
+        then Ready;
+
+      transition Ready_to_Enabled
+        first Ready
+        accept command.enable
+        if command.enable == true
+        then Enabled;
+
+      transition Enabled_to_Tripped
+        first Enabled
+        if tripCommand == true
+        then Tripped;
+
+      transition Tripped_to_Disabled
+        first Tripped
+        accept command.enable
+        if command.enable == false
+        then Disabled;
+    }
+
+    exhibit state ControllerState;
+  }
+
+  part def EulerPumpingSubsystem {
+    part suctionReservoir : SuctionReservoir {
+      attribute reservoirPressure = 101325 [Pa];
+      attribute temperature = 293.15 [K];
+      attribute fluidDensity = 998 [kg / m^3];
+    }
+
+    part motor : VariableSpeedMotor {
+      attribute ratedPower = 75000 [W];
+      attribute motorEfficiency = 0.94;
+    }
+
+    part pump : EulerPump {
+      attribute hydraulicEfficiency = 0.82;
+      attribute mechanicalEfficiency = 0.96;
+      attribute minimumFlow = 0.015 [m^3 / s];
+      attribute maximumFlow = 0.120 [m^3 / s];
+      attribute maximumDischargePressure = 900000 [Pa];
+      attribute fluidDensity = 998 [kg / m^3];
+
+      part impeller {
+        attribute inletRadius = 0.055 [m];
+        attribute outletRadius = 0.165 [m];
+        attribute inletTangentialAbsoluteVelocity = 0.0 [m / s];
+        attribute outletTangentialAbsoluteVelocity = 18.5 [m / s];
+      }
+
+      part casing {
+        attribute casingLossHead = 2.2 [m];
+        attribute allowablePressure = 1000000 [Pa];
+      }
+
+      part seal {
+        attribute maximumLeakageFlow = 0.00002 [m^3 / s];
+        attribute healthy = true;
+      }
+    }
+
+    part dischargeHeader : DischargeHeader {
+      attribute allowablePressure = 900000 [Pa];
+      attribute demandedFlow = 0.075 [m^3 / s];
+    }
+
+    part controller : PumpController {
+      attribute targetHead = 42 [m];
+      attribute targetFlow = 0.075 [m^3 / s];
+      attribute startPermitted = true;
+    }
+
+    connect suctionReservoir.outlet to pump.suction;
+    connect pump.discharge to dischargeHeader.inlet;
+    connect motor.shaft to pump.shaft;
+    connect controller.command to motor.control;
+    connect controller.command to pump.control;
+
+    assert constraint SubsystemFlowContinuity {
+      suctionReservoir.outlet.flowRate == pump.volumeFlow and
+      pump.volumeFlow == dischargeHeader.demandedFlow;
+    }
+
+    assert constraint HeaderPressureCompatibility {
+      dischargeHeader.headerPressure ==
+        suctionReservoir.reservoirPressure + pump.pressureRise;
+    }
+  }
+
+  requirement def EulerHeadRequirement {
+    subject pump : EulerPump;
+
+    require constraint {
+      pump.deliveredHead ==
+        ((pump.impeller.outletPeripheralSpeed * pump.impeller.outletTangentialAbsoluteVelocity
+        - pump.impeller.inletPeripheralSpeed * pump.impeller.inletTangentialAbsoluteVelocity)
+        / 9.80665 [m / s^2])
+        * pump.hydraulicEfficiency
+        - pump.casing.casingLossHead;
+    }
+  }
+
+  requirement def PumpingPerformanceRequirement {
+    subject subsystem : EulerPumpingSubsystem;
+
+    require constraint {
+      subsystem.pump.volumeFlow >= 0.015 [m^3 / s] and
+      subsystem.pump.volumeFlow <= 0.120 [m^3 / s] and
+      subsystem.pump.deliveredHead >= 40 [m] and
+      subsystem.dischargeHeader.headerPressure <= subsystem.dischargeHeader.allowablePressure;
+    }
+  }
+
+  requirement def ShaftPowerRequirement {
+    subject pump : EulerPump;
+
+    require constraint {
+      pump.shaftPowerRequired ==
+        pump.fluidDensity * 9.80665 [m / s^2] *
+        pump.volumeFlow * pump.deliveredHead /
+        pump.overallEfficiency;
+    }
+  }
+
+  requirement def ProtectionRequirement {
+    subject pump : EulerPump;
+
+    require constraint {
+      pump.discharge.pressure <= pump.maximumDischargePressure and
+      pump.seal.leakageFlow <= pump.seal.maximumLeakageFlow and
+      pump.volumeFlow >= pump.minimumFlow;
+    }
+  }
+
+  satisfy EulerHeadRequirement by EulerPumpingSubsystem::pump;
+  satisfy PumpingPerformanceRequirement by EulerPumpingSubsystem;
+  satisfy ShaftPowerRequirement by EulerPumpingSubsystem::pump;
+  satisfy ProtectionRequirement by EulerPumpingSubsystem::pump;
+
+}
+tokens used
+3,215
+package PumpingSubsystem_EulerPumpModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Density :> ISQ::massDensity;
+  attribute def VolumetricFlowRate :> ISQ::volumeFlowRate;
+  attribute def Pressure :> ISQ::pressure;
+  attribute def Head :> ISQ::length;
+  attribute def AngularVelocity :> ISQ::angularVelocity;
+  attribute def TangentialVelocity :> ISQ::speed;
+  attribute def AbsoluteTangentialVelocity :> ISQ::speed;
+  attribute def Torque :> ISQ::torque;
+  attribute def Power :> ISQ::power;
+  attribute def Efficiency :> ScalarValues::Real;
+  attribute def Temperature :> ISQ::thermodynamicTemperature;
+
+  item def WorkingFluid {
+    attribute density : Density;
+    attribute temperature : Temperature;
+    attribute staticPressure : Pressure;
+    attribute flowRate : VolumetricFlowRate;
+  }
+
+  item def ShaftPower {
+    attribute torque : Torque;
+    attribute angularSpeed : AngularVelocity;
+    attribute mechanicalPower : Power;
+  }
+
+  port def FluidPort {
+    inout fluid : WorkingFluid;
+    attribute pressure : Pressure;
+    attribute flowRate : VolumetricFlowRate;
+  }
+
+  port def MechanicalRotaryPort {
+    inout shaftPower : ShaftPower;
+    attribute torque : Torque;
+    attribute angularSpeed : AngularVelocity;
+  }
+
+  port def ControlPort {
+    in commandSpeed : AngularVelocity;
+    in enable : Boolean;
+    out running : Boolean;
+    out faultActive : Boolean;
+  }
+
+  part def EulerImpeller {
+    attribute inletRadius : ISQ::length;
+    attribute outletRadius : ISQ::length;
+    attribute bladeOutletAngle : ISQ::planeAngle;
+    attribute rotationalSpeed : AngularVelocity;
+    attribute inletPeripheralSpeed : TangentialVelocity;
+    attribute outletPeripheralSpeed : TangentialVelocity;
+    attribute inletTangentialAbsoluteVelocity : AbsoluteTangentialVelocity;
+    attribute outletTangentialAbsoluteVelocity : AbsoluteTangentialVelocity;
+    attribute theoreticalHead : Head;
+
+    assert constraint PeripheralSpeedEquation {
+      inletPeripheralSpeed == rotationalSpeed * inletRadius;
+      outletPeripheralSpeed == rotationalSpeed * outletRadius;
+    }
+
+    assert constraint EulerPumpTurbineEquation {
+      theoreticalHead ==
+        (outletPeripheralSpeed * outletTangentialAbsoluteVelocity
+        - inletPeripheralSpeed * inletTangentialAbsoluteVelocity)
+        / 9.80665 [m / s^2];
+    }
+  }
+
+  part def PumpCasing {
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+
+    attribute allowablePressure : Pressure;
+    attribute casingLossHead : Head;
+  }
+
+  part def MechanicalSeal {
+    attribute leakageFlow : VolumetricFlowRate;
+    attribute maximumLeakageFlow : VolumetricFlowRate;
+    attribute healthy : Boolean;
+
+    assert constraint LeakageLimit {
+      leakageFlow <= maximumLeakageFlow;
+    }
+  }
+
+  part def VariableSpeedMotor {
+    port shaft : MechanicalRotaryPort;
+    port control : ControlPort;
+
+    attribute commandedSpeed : AngularVelocity;
+    attribute actualSpeed : AngularVelocity;
+    attribute ratedPower : Power;
+    attribute motorEfficiency : Efficiency;
+    attribute enabled : Boolean;
+
+    action def StartMotor {
+      in targetSpeed : AngularVelocity;
+      out achievedSpeed : AngularVelocity;
+      first start;
+      then rampSpeed;
+      then confirmRunning;
+
+      action start {
+        enabled := true;
+      }
+
+      action rampSpeed {
+        commandedSpeed := targetSpeed;
+        achievedSpeed := targetSpeed;
+      }
+
+      action confirmRunning {
+        control.running := true;
+      }
+    }
+
+    action def StopMotor {
+      first removeCommand;
+      then deenergize;
+
+      action removeCommand {
+        commandedSpeed := 0 [rad / s];
+      }
+
+      action deenergize {
+        enabled := false;
+        control.running := false;
+      }
+    }
+  }
+
+  part def EulerPump {
+    port suction : FluidPort;
+    port discharge : FluidPort;
+    port shaft : MechanicalRotaryPort;
+    port control : ControlPort;
+
+    part casing : PumpCasing;
+    part impeller : EulerImpeller;
+    part seal : MechanicalSeal;
+
+    attribute hydraulicEfficiency : Efficiency;
+    attribute mechanicalEfficiency : Efficiency;
+    attribute overallEfficiency : Efficiency;
+    attribute requiredHead : Head;
+    attribute deliveredHead : Head;
+    attribute netHead : Head;
+    attribute fluidDensity : Density;
+    attribute volumeFlow : VolumetricFlowRate;
+    attribute hydraulicPower : Power;
+    attribute shaftPowerRequired : Power;
+    attribute pressureRise : Pressure;
+    attribute minimumFlow : VolumetricFlowRate;
+    attribute maximumFlow : VolumetricFlowRate;
+    attribute maximumDischargePressure : Pressure;
+    attribute fault : Boolean;
+
+    connect suction to casing.inlet;
+    connect casing.outlet to discharge;
+    connect shaft.angularSpeed to impeller.rotationalSpeed;
+
+    assert constraint EfficiencyComposition {
+      overallEfficiency == hydraulicEfficiency * mechanicalEfficiency;
+    }
+
+    assert constraint DeliveredHeadFromEulerEquation {
+      deliveredHead == impeller.theoreticalHead * hydraulicEfficiency - casing.casingLossHead;
+    }
+
+    assert constraint PressureRiseEquation {
+      pressureRise == fluidDensity * 9.80665 [m / s^2] * deliveredHead;
+    }
+
+    assert constraint HydraulicPowerEquation {
+      hydraulicPower == fluidDensity * 9.80665 [m / s^2] * volumeFlow * deliveredHead;
+    }
+
+    assert constraint ShaftPowerEquation {
+      shaftPowerRequired == hydraulicPower / overallEfficiency;
+    }
+
+    assert constraint OperatingEnvelope {
+      volumeFlow >= minimumFlow and
+      volumeFlow <= maximumFlow and
+      discharge.pressure <= maximumDischargePressure;
+    }
+
+    state def PumpOperatingState {
+      entry action initialize {
+        fault := false;
+      }
+
+      state Off;
+      state Priming;
+      state Running;
+      state LowFlowProtection;
+      state Faulted;
+
+      transition initial then Off;
+
+      transition Off_to_Priming
+        first Off
+        accept control.enable
+        if control.enable == true
+        then Priming;
+
+      transition Priming_to_Running
+        first Priming
+        if suction.flowRate >= minimumFlow and seal.healthy == true
+        then Running;
+
+      transition Running_to_LowFlowProtection
+        first Running
+        if volumeFlow < minimumFlow
+        then LowFlowProtection;
+
+      transition LowFlowProtection_to_Running
+        first LowFlowProtection
+        if volumeFlow >= minimumFlow
+        then Running;
+
+      transition Any_to_Faulted
+        first Running
+        if discharge.pressure > maximumDischargePressure or seal.leakageFlow > seal.maximumLeakageFlow
+        then Faulted;
+
+      transition Faulted_to_Off
+        first Faulted
+        accept control.enable
+        if control.enable == false
+        then Off;
+
+      transition Running_to_Off
+        first Running
+        accept control.enable
+        if control.enable == false
+        then Off;
+    }
+
+    exhibit state PumpOperatingState;
+  }
+
+  part def SuctionReservoir {
+    port outlet : FluidPort;
+    attribute fluidLevel : ISQ::length;
+    attribute fluidDensity : Density;
+    attribute temperature : Temperature;
+    attribute reservoirPressure : Pressure;
+  }
+
+  part def DischargeHeader {
+    port inlet : FluidPort;
+    attribute headerPressure : Pressure;
+    attribute demandedFlow : VolumetricFlowRate;
+    attribute allowablePressure : Pressure;
+  }
+
+  part def PumpController {
+    port command : ControlPort;
+
+    attribute targetHead : Head;
+    attribute measuredHead : Head;
+    attribute targetFlow : VolumetricFlowRate;
+    attribute measuredFlow : VolumetricFlowRate;
+    attribute speedCommand : AngularVelocity;
+    attribute startPermitted : Boolean;
+    attribute tripCommand : Boolean;
+
+    action def RegulateSpeed {
+      in headSetpoint : Head;
+      in headFeedback : Head;
+      out speedRequest : AngularVelocity;
+
+      action computeError {
+        speedRequest := speedCommand;
+      }
+    }
+
+    state def ControllerState {
+      state Disabled;
+      state Ready;
+      state Enabled;
+      state Tripped;
+
+      transition initial then Disabled;
+
+      transition Disabled_to_Ready
+        first Disabled
+        if startPermitted == true
+        then Ready;
+
+      transition Ready_to_Enabled
+        first Ready
+        accept command.enable
+        if command.enable == true
+        then Enabled;
+
+      transition Enabled_to_Tripped
+        first Enabled
+        if tripCommand == true
+        then Tripped;
+
+      transition Tripped_to_Disabled
+        first Tripped
+        accept command.enable
+        if command.enable == false
+        then Disabled;
+    }
+
+    exhibit state ControllerState;
+  }
+
+  part def EulerPumpingSubsystem {
+    part suctionReservoir : SuctionReservoir {
+      attribute reservoirPressure = 101325 [Pa];
+      attribute temperature = 293.15 [K];
+      attribute fluidDensity = 998 [kg / m^3];
+    }
+
+    part motor : VariableSpeedMotor {
+      attribute ratedPower = 75000 [W];
+      attribute motorEfficiency = 0.94;
+    }
+
+    part pump : EulerPump {
+      attribute hydraulicEfficiency = 0.82;
+      attribute mechanicalEfficiency = 0.96;
+      attribute minimumFlow = 0.015 [m^3 / s];
+      attribute maximumFlow = 0.120 [m^3 / s];
+      attribute maximumDischargePressure = 900000 [Pa];
+      attribute fluidDensity = 998 [kg / m^3];
+
+      part impeller {
+        attribute inletRadius = 0.055 [m];
+        attribute outletRadius = 0.165 [m];
+        attribute inletTangentialAbsoluteVelocity = 0.0 [m / s];
+        attribute outletTangentialAbsoluteVelocity = 18.5 [m / s];
+      }
+
+      part casing {
+        attribute casingLossHead = 2.2 [m];
+        attribute allowablePressure = 1000000 [Pa];
+      }
+
+      part seal {
+        attribute maximumLeakageFlow = 0.00002 [m^3 / s];
+        attribute healthy = true;
+      }
+    }
+
+    part dischargeHeader : DischargeHeader {
+      attribute allowablePressure = 900000 [Pa];
+      attribute demandedFlow = 0.075 [m^3 / s];
+    }
+
+    part controller : PumpController {
+      attribute targetHead = 42 [m];
+      attribute targetFlow = 0.075 [m^3 / s];
+      attribute startPermitted = true;
+    }
+
+    connect suctionReservoir.outlet to pump.suction;
+    connect pump.discharge to dischargeHeader.inlet;
+    connect motor.shaft to pump.shaft;
+    connect controller.command to motor.control;
+    connect controller.command to pump.control;
+
+    assert constraint SubsystemFlowContinuity {
+      suctionReservoir.outlet.flowRate == pump.volumeFlow and
+      pump.volumeFlow == dischargeHeader.demandedFlow;
+    }
+
+    assert constraint HeaderPressureCompatibility {
+      dischargeHeader.headerPressure ==
+        suctionReservoir.reservoirPressure + pump.pressureRise;
+    }
+  }
+
+  requirement def EulerHeadRequirement {
+    subject pump : EulerPump;
+
+    require constraint {
+      pump.deliveredHead ==
+        ((pump.impeller.outletPeripheralSpeed * pump.impeller.outletTangentialAbsoluteVelocity
+        - pump.impeller.inletPeripheralSpeed * pump.impeller.inletTangentialAbsoluteVelocity)
+        / 9.80665 [m / s^2])
+        * pump.hydraulicEfficiency
+        - pump.casing.casingLossHead;
+    }
+  }
+
+  requirement def PumpingPerformanceRequirement {
+    subject subsystem : EulerPumpingSubsystem;
+
+    require constraint {
+      subsystem.pump.volumeFlow >= 0.015 [m^3 / s] and
+      subsystem.pump.volumeFlow <= 0.120 [m^3 / s] and
+      subsystem.pump.deliveredHead >= 40 [m] and
+      subsystem.dischargeHeader.headerPressure <= subsystem.dischargeHeader.allowablePressure;
+    }
+  }
+
+  requirement def ShaftPowerRequirement {
+    subject pump : EulerPump;
+
+    require constraint {
+      pump.shaftPowerRequired ==
+        pump.fluidDensity * 9.80665 [m / s^2] *
+        pump.volumeFlow * pump.deliveredHead /
+        pump.overallEfficiency;
+    }
+  }
+
+  requirement def ProtectionRequirement {
+    subject pump : EulerPump;
+
+    require constraint {
+      pump.discharge.pressure <= pump.maximumDischargePressure and
+      pump.seal.leakageFlow <= pump.seal.maximumLeakageFlow and
+      pump.volumeFlow >= pump.minimumFlow;
+    }
+  }
+
+  satisfy EulerHeadRequirement by EulerPumpingSubsystem::pump;
+  satisfy PumpingPerformanceRequirement by EulerPumpingSubsystem;
+  satisfy ShaftPowerRequirement by EulerPumpingSubsystem::pump;
+  satisfy ProtectionRequirement by EulerPumpingSubsystem::pump;
+
+}

@@ -1,0 +1,270 @@
+package RectalDilatorSystemSpecification {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value type Millimeter specializes SI::LengthUnit;
+  value type Newton specializes SI::ForceUnit;
+  value type Celsius specializes SI::TemperatureUnit;
+  value type Minute specializes SI::TimeUnit;
+
+  item def Lubricant {
+    attribute viscosity: Real;
+    attribute sterile: Boolean;
+    attribute waterBased: Boolean;
+  }
+
+  item def AppliedForce {
+    attribute magnitude: Real [Newton];
+    attribute direction: String;
+  }
+
+  item def TissueContact {
+    attribute contactPressure: Real;
+    attribute contactArea: Real;
+    attribute continuous: Boolean;
+  }
+
+  port def HandGripPort {
+    out appliedForce: AppliedForce;
+  }
+
+  port def TissueInterfacePort {
+    out tissueContact: TissueContact;
+    in insertionResistance: AppliedForce;
+  }
+
+  port def LubricantInterfacePort {
+    in lubricant: Lubricant;
+  }
+
+  part def RectalDilator {
+    attribute overallLength: Real [Millimeter] = 120.0;
+    attribute maximumDiameter: Real [Millimeter] = 25.0;
+    attribute tipDiameter: Real [Millimeter] = 8.0;
+    attribute surfaceTemperature: Real [Celsius];
+    attribute reusable: Boolean = true;
+    attribute sterileBeforeUse: Boolean = true;
+
+    port gripPort: HandGripPort;
+    port tissuePort: TissueInterfacePort;
+    port lubricantPort: LubricantInterfacePort;
+
+    part taperedTip: TaperedTip;
+    part graduatedBody: GraduatedBody;
+    part safetyFlange: SafetyFlange;
+    part ergonomicHandle: ErgonomicHandle;
+    part surfaceFinish: SmoothSurfaceFinish;
+
+    connection tipToBody connect taperedTip.base to graduatedBody.front;
+    connection bodyToFlange connect graduatedBody.rear to safetyFlange.innerFace;
+    connection flangeToHandle connect safetyFlange.outerFace to ergonomicHandle.frontFace;
+  }
+
+  part def TaperedTip {
+    attribute tipRadius: Real [Millimeter] = 4.0;
+    attribute taperAngle: Real = 6.0;
+    attribute rounded: Boolean = true;
+
+    port base: StructuralPort;
+  }
+
+  part def GraduatedBody {
+    attribute minimumDiameter: Real [Millimeter] = 8.0;
+    attribute maximumDiameter: Real [Millimeter] = 25.0;
+    attribute usableLength: Real [Millimeter] = 90.0;
+    attribute diameterMarkingInterval: Real [Millimeter] = 5.0;
+
+    port front: StructuralPort;
+    port rear: StructuralPort;
+  }
+
+  part def SafetyFlange {
+    attribute flangeDiameter: Real [Millimeter] = 60.0;
+    attribute preventsOverInsertion: Boolean = true;
+
+    port innerFace: StructuralPort;
+    port outerFace: StructuralPort;
+  }
+
+  part def ErgonomicHandle {
+    attribute gripLength: Real [Millimeter] = 35.0;
+    attribute slipResistantTexture: Boolean = true;
+
+    port frontFace: StructuralPort;
+  }
+
+  part def SmoothSurfaceFinish {
+    attribute averageRoughness: Real = 0.4;
+    attribute nonPorous: Boolean = true;
+    attribute cleanable: Boolean = true;
+    attribute biocompatible: Boolean = true;
+  }
+
+  port def StructuralPort;
+
+  part def UserHand {
+    port handOutput: HandGripPort;
+  }
+
+  part def RectalTissue {
+    attribute sensitiveTissue: Boolean = true;
+    attribute maximumRecommendedPressure: Real = 20.0;
+
+    port tissueInput: TissueInterfacePort;
+  }
+
+  part def LubricantSource {
+    attribute lubricantVolume: Real = 5.0;
+    port lubricantOutput: LubricantInterfacePort;
+  }
+
+  part def RectalDilationUseContext {
+    part userHand: UserHand;
+    part rectalTissue: RectalTissue;
+    part lubricantSource: LubricantSource;
+    part dilator: RectalDilator;
+
+    connection handToDilator connect userHand.handOutput to dilator.gripPort;
+    connection dilatorToTissue connect dilator.tissuePort to rectalTissue.tissueInput;
+    connection lubricantToDilator connect lubricantSource.lubricantOutput to dilator.lubricantPort;
+  }
+
+  action def ApplyLubricant {
+    in lubricant: Lubricant;
+    inout dilator: RectalDilator;
+    out lubricated: Boolean;
+  }
+
+  action def InsertGradually {
+    in force: AppliedForce;
+    inout dilator: RectalDilator;
+    out insertionDepth: Real [Millimeter];
+    out discomfortObserved: Boolean;
+  }
+
+  action def MaintainDilation {
+    in duration: Real [Minute];
+    inout dilator: RectalDilator;
+    out dilationMaintained: Boolean;
+  }
+
+  action def RemoveDilator {
+    inout dilator: RectalDilator;
+    out removedIntact: Boolean;
+  }
+
+  action def CleanAndInspect {
+    inout dilator: RectalDilator;
+    out clean: Boolean;
+    out damageDetected: Boolean;
+  }
+
+  state def DilatorUseStateMachine {
+    state idle;
+    state prepared;
+    state lubricated;
+    state inserting;
+    state dilating;
+    state removing;
+    state cleaned;
+    state outOfService;
+
+    transition idle_to_prepared
+      first idle
+      then prepared;
+
+    transition prepared_to_lubricated
+      first prepared
+      then lubricated;
+
+    transition lubricated_to_inserting
+      first lubricated
+      then inserting;
+
+    transition inserting_to_dilating
+      first inserting
+      then dilating;
+
+    transition dilating_to_removing
+      first dilating
+      then removing;
+
+    transition removing_to_cleaned
+      first removing
+      then cleaned;
+
+    transition cleaned_to_idle
+      first cleaned
+      then idle;
+
+    transition any_to_outOfService
+      first idle
+      then outOfService;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     * The rectal dilator shall provide a smooth, tapered, controllable physical interface
+     * for gradual rectal dilation at a high level, enabling progressive insertion,
+     * controlled tissue contact, and prevention of unintended over-insertion.
+     */
+
+    subject dilator: RectalDilator;
+
+    require constraint {
+      dilator.taperedTip.rounded == true and
+      dilator.safetyFlange.preventsOverInsertion == true and
+      dilator.surfaceFinish.biocompatible == true
+    }
+  }
+
+  requirement def GeometryRequirement {
+    subject dilator: RectalDilator;
+
+    require constraint {
+      dilator.tipDiameter < dilator.maximumDiameter and
+      dilator.overallLength > dilator.graduatedBody.usableLength
+    }
+  }
+
+  requirement def SafetyFlangeRequirement {
+    subject flange: SafetyFlange;
+
+    require constraint {
+      flange.flangeDiameter >= 2.0 * 25.0 and
+      flange.preventsOverInsertion == true
+    }
+  }
+
+  requirement def SurfaceRequirement {
+    subject finish: SmoothSurfaceFinish;
+
+    require constraint {
+      finish.nonPorous == true and
+      finish.cleanable == true and
+      finish.biocompatible == true and
+      finish.averageRoughness <= 0.8
+    }
+  }
+
+  requirement def UsabilityRequirement {
+    subject handle: ErgonomicHandle;
+
+    require constraint {
+      handle.gripLength >= 30.0 and
+      handle.slipResistantTexture == true
+    }
+  }
+
+  requirement def SterilityRequirement {
+    subject dilator: RectalDilator;
+
+    require constraint {
+      dilator.sterileBeforeUse == true
+    }
+  }
+
+}

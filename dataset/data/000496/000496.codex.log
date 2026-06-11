@@ -1,0 +1,913 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6ywf8t7t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb319-e97e-72b0-82ea-7f802ce281e9
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Revivent and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ReviventBasedVentricularRestorationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def PressureValue :> ISQ::pressure;
+    attribute def VolumeValue :> ISQ::volume;
+    attribute def LengthValue :> ISQ::length;
+    attribute def ForceValue :> ISQ::force;
+    attribute def TimeValue :> ISQ::time;
+    attribute def AngleValue :> ISQ::planeAngle;
+    attribute def MassValue :> ISQ::mass;
+
+    value def millimeter :> ISQ::millimetre;
+    value def milliliter :> ISQ::millilitre;
+    value def millimeterHg;
+    value def newton :> ISQ::newton;
+    value def minute :> ISQ::minute;
+    value def gram :> ISQ::gram;
+
+    item def MyocardialTissue {
+        attribute wallThickness : LengthValue;
+        attribute perfusionState : PerfusionState;
+        attribute viability : TissueViability;
+    }
+
+    enum def PerfusionState {
+        enum normal;
+        enum reduced;
+        enum absent;
+    }
+
+    enum def TissueViability {
+        enum viable;
+        enum hibernating;
+        enum scarred;
+    }
+
+    item def VentricularBlood {
+        attribute volume : VolumeValue;
+        attribute pressure : PressureValue;
+        attribute oxygenSaturation : Real;
+    }
+
+    item def AnchorImplant {
+        attribute anchorDiameter : LengthValue;
+        attribute tetherLength : LengthValue;
+        attribute deployedForce : ForceValue;
+        attribute locked : Boolean;
+        attribute sterile : Boolean;
+    }
+
+    item def ImagingData {
+        attribute leftVentricularEndDiastolicVolume : VolumeValue;
+        attribute leftVentricularEndSystolicVolume : VolumeValue;
+        attribute ejectionFraction : Real;
+        attribute scarBoundaryConfidence : Real;
+        attribute recommendedAnchorCount : Integer;
+    }
+
+    item def DeploymentCommand {
+        attribute targetAnchorIndex : Integer;
+        attribute targetDepth : LengthValue;
+        attribute compressionForceLimit : ForceValue;
+        attribute releaseAuthorized : Boolean;
+    }
+
+    item def HemodynamicSignal {
+        attribute arterialPressure : PressureValue;
+        attribute ventricularPressure : PressureValue;
+        attribute heartRate : Real;
+        attribute cardiacOutput : Real;
+    }
+
+    port def BloodPort {
+        inout blood : VentricularBlood;
+    }
+
+    port def TissueInterfacePort {
+        inout tissue : MyocardialTissue;
+        out fixationLoad : ForceValue;
+    }
+
+    port def ImplantDeliveryPort {
+        in implant : AnchorImplant;
+        in command : DeploymentCommand;
+        out deployedImplant : AnchorImplant;
+    }
+
+    port def ImagingPort {
+        out imageData : ImagingData;
+    }
+
+    port def ControlPort {
+        in imageData : ImagingData;
+        in hemodynamicSignal : HemodynamicSignal;
+        out deploymentCommand : DeploymentCommand;
+    }
+
+    port def MonitoringPort {
+        out hemodynamicSignal : HemodynamicSignal;
+    }
+
+    part def LeftVentricle {
+        attribute endDiastolicVolume : VolumeValue = 180 [milliliter];
+        attribute endSystolicVolume : VolumeValue = 125 [milliliter];
+        attribute ejectionFraction : Real = 0.31;
+        attribute wallThicknessSeptal : LengthValue = 10 [millimeter];
+        attribute wallThicknessLateral : LengthValue = 8 [millimeter];
+        attribute scarredWallArea : Real = 0.28;
+
+        port inflow : BloodPort;
+        port outflow : BloodPort;
+        port epicardialInterface : TissueInterfacePort;
+        port septalInterface : TissueInterfacePort;
+    }
+
+    part def ScarExclusionZone {
+        attribute excludedVolume : VolumeValue = 55 [milliliter];
+        attribute targetLongAxisReduction : LengthValue = 18 [millimeter];
+        attribute targetCircumferentialReduction : LengthValue = 22 [millimeter];
+        attribute scarViability : TissueViability = TissueViability::scarred;
+
+        port lateralWall : TissueInterfacePort;
+        port septalWall : TissueInterfacePort;
+    }
+
+    part def ReviventAnchorPair {
+        attribute pairIndex : Integer;
+        attribute septalAnchor : AnchorImplant;
+        attribute epicardialAnchor : AnchorImplant;
+        attribute tetherTension : ForceValue = 6 [newton];
+        attribute finalSeparation : LengthValue = 14 [millimeter];
+        attribute locked : Boolean = false;
+
+        port septalTissuePort : TissueInterfacePort;
+        port epicardialTissuePort : TissueInterfacePort;
+    }
+
+    part def AnchorArray {
+        attribute plannedAnchorCount : Integer = 4;
+        attribute deployedAnchorCount : Integer = 0;
+        attribute totalExclusionForce : ForceValue = 24 [newton];
+
+        part anchorPair1 : ReviventAnchorPair {
+            attribute pairIndex = 1;
+        }
+
+        part anchorPair2 : ReviventAnchorPair {
+            attribute pairIndex = 2;
+        }
+
+        part anchorPair3 : ReviventAnchorPair {
+            attribute pairIndex = 3;
+        }
+
+        part anchorPair4 : ReviventAnchorPair {
+            attribute pairIndex = 4;
+        }
+    }
+
+    part def HybridDeliveryTool {
+        attribute catheterOuterDiameter : LengthValue = 4 [millimeter];
+        attribute epicardialAccessAngle : AngleValue = 35 [degree];
+        attribute maxCompressionForce : ForceValue = 12 [newton];
+        attribute sterileBarrierIntact : Boolean = true;
+
+        port implantDelivery : ImplantDeliveryPort;
+        port tissueContact : TissueInterfacePort;
+        port control : ControlPort;
+    }
+
+    part def ImagingAndPlanningSubsystem {
+        attribute imagingFrameRate : Real = 30;
+        attribute scarBoundaryTolerance : LengthValue = 3 [millimeter];
+        attribute planValidated : Boolean = false;
+
+        port imaging : ImagingPort;
+        port control : ControlPort;
+    }
+
+    part def HemodynamicMonitor {
+        attribute minimumMeanArterialPressure : PressureValue = 65 [millimeterHg];
+        attribute maximumVentricularPressure : PressureValue = 180 [millimeterHg];
+        attribute signalLatency : TimeValue = 0.25 [second];
+
+        port monitor : MonitoringPort;
+    }
+
+    part def OperatorConsole {
+        attribute physicianAuthorizedDeployment : Boolean = false;
+        attribute displayedAnchorIndex : Integer = 0;
+        attribute emergencyReleaseAvailable : Boolean = true;
+
+        port control : ControlPort;
+    }
+
+    part def ReviventBasedSystem {
+        doc
+        /*
+         * Primary high-level function:
+         * The system restores left ventricular geometry by placing paired internal and external anchors
+         * across scarred ventricular tissue, drawing the scarred wall inward and excluding non-contractile
+         * volume from the active chamber. This reduces ventricular volume, improves mechanical efficiency,
+         * and supports improved ejection performance while preserving blood flow through the remaining chamber.
+         */
+
+        attribute procedureDurationTarget : TimeValue = 90 [minute];
+        attribute targetEndDiastolicVolumeReduction : VolumeValue = 45 [milliliter];
+        attribute targetEjectionFractionIncrease : Real = 0.08;
+        attribute maximumImplantMass : MassValue = 8 [gram];
+
+        part patientLeftVentricle : LeftVentricle;
+        part scarZone : ScarExclusionZone;
+        part anchors : AnchorArray;
+        part deliveryTool : HybridDeliveryTool;
+        part imagingPlanner : ImagingAndPlanningSubsystem;
+        part monitor : HemodynamicMonitor;
+        part console : OperatorConsole;
+
+        connect patientLeftVentricle.epicardialInterface to scarZone.lateralWall;
+        connect patientLeftVentricle.septalInterface to scarZone.septalWall;
+
+        connect anchors.anchorPair1.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair1.septalTissuePort to scarZone.septalWall;
+
+        connect anchors.anchorPair2.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair2.septalTissuePort to scarZone.septalWall;
+
+        connect anchors.anchorPair3.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair3.septalTissuePort to scarZone.septalWall;
+
+        connect anchors.anchorPair4.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair4.septalTissuePort to scarZone.septalWall;
+
+        connect imagingPlanner.control to console.control;
+        connect console.control to deliveryTool.control;
+        connect monitor.monitor to console.control;
+        connect deliveryTool.tissueContact to scarZone.lateralWall;
+    }
+
+    action def AcquireVentricularGeometry {
+        in ventricle : LeftVentricle;
+        out imagingData : ImagingData;
+
+        first start;
+        then segmentChamber;
+        then identifyScarBoundary;
+        then computeAnchorPlan;
+        then done;
+
+        action segmentChamber;
+        action identifyScarBoundary;
+        action computeAnchorPlan;
+    }
+
+    action def DeployAnchorPair {
+        in command : DeploymentCommand;
+        inout anchorPair : ReviventAnchorPair;
+        inout ventricle : LeftVentricle;
+        out success : Boolean;
+
+        first start;
+        then positionDeliveryTool;
+        then verifyHemodynamicStability;
+        then advanceSeptalAnchor;
+        then placeEpicardialAnchor;
+        then tensionTether;
+        then lockPair;
+        then confirmPlacement;
+        then done;
+
+        action positionDeliveryTool;
+        action verifyHemodynamicStability;
+        action advanceSeptalAnchor;
+        action placeEpicardialAnchor;
+        action tensionTether;
+        action lockPair {
+            out locked : Boolean;
+        }
+        action confirmPlacement;
+    }
+
+    action def RestoreVentricularGeometry {
+        inout system : ReviventBasedSystem;
+        out finalEndDiastolicVolume : VolumeValue;
+        out finalEjectionFraction : Real;
+
+        first start;
+        then acquireBaselineData;
+        then validatePlan;
+        then deployPair1;
+        then reassessHemodynamics1;
+        then deployPair2;
+        then reassessHemodynamics2;
+        then deployPair3;
+        then reassessHemodynamics3;
+        then deployPair4;
+        then finalImagingAssessment;
+        then done;
+
+        action acquireBaselineData : AcquireVentricularGeometry;
+        action validatePlan;
+        action deployPair1 : DeployAnchorPair;
+        action reassessHemodynamics1;
+        action deployPair2 : DeployAnchorPair;
+        action reassessHemodynamics2;
+        action deployPair3 : DeployAnchorPair;
+        action reassessHemodynamics3;
+        action deployPair4 : DeployAnchorPair;
+        action finalImagingAssessment;
+    }
+
+    state def ReviventProcedureStateMachine {
+        state idle;
+        state planning;
+        state accessEstablished;
+        state anchorDeployment;
+        state remodelingAssessment;
+        state completed;
+        state aborted;
+
+        entry action initializeSterileSystem;
+        action initializeSterileSystem;
+
+        transition first idle;
+
+        transition idle_to_planning
+            first idle
+            accept StartProcedure
+            then planning;
+
+        transition planning_to_access
+            first planning
+            accept PlanValidated
+            then accessEstablished;
+
+        transition access_to_deployment
+            first accessEstablished
+            accept VentricularAccessConfirmed
+            then anchorDeployment;
+
+        transition deployment_to_assessment
+            first anchorDeployment
+            accept AllAnchorsLocked
+            then remodelingAssessment;
+
+        transition assessment_to_completed
+            first remodelingAssessment
+            accept GeometryRestored
+            then completed;
+
+        transition any_to_aborted_from_planning
+            first planning
+            accept HemodynamicInstability
+            then aborted;
+
+        transition any_to_aborted_from_access
+            first accessEstablished
+            accept HemodynamicInstability
+            then aborted;
+
+        transition any_to_aborted_from_deployment
+            first anchorDeployment
+            accept HemodynamicInstability
+            then aborted;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The system shall reduce the functional volume of a dilated left ventricle by excluding scarred,
+         * non-contractile myocardial tissue using paired anchors derived from the Revivent ventricular
+         * restoration concept.
+         */
+    }
+
+    requirement def GeometryRestorationRequirement {
+        attribute minimumEndDiastolicVolumeReduction : VolumeValue = 35 [milliliter];
+
+        require constraint {
+            ReviventBasedSystem::targetEndDiastolicVolumeReduction >= minimumEndDiastolicVolumeReduction
+        }
+    }
+
+    requirement def EjectionPerformanceRequirement {
+        attribute minimumEjectionFractionIncrease : Real = 0.05;
+
+        require constraint {
+            ReviventBasedSystem::targetEjectionFractionIncrease >= minimumEjectionFractionIncrease
+        }
+    }
+
+    requirement def AnchorSecurityRequirement {
+        attribute minimumTetherTension : ForceValue = 4 [newton];
+        attribute maximumTetherTension : ForceValue = 10 [newton];
+
+        require constraint {
+            ReviventAnchorPair::tetherTension >= minimumTetherTension and
+            ReviventAnchorPair::tetherTension <= maximumTetherTension
+        }
+    }
+
+    requirement def HemodynamicSafetyRequirement {
+        attribute minimumMeanArterialPressure : PressureValue = 65 [millimeterHg];
+        attribute maximumLeftVentricularPressure : PressureValue = 180 [millimeterHg];
+
+        require constraint {
+            HemodynamicMonitor::minimumMeanArterialPressure >= minimumMeanArterialPressure and
+            HemodynamicMonitor::maximumVentricularPressure <= maximumLeftVentricularPressure
+        }
+    }
+
+    requirement def ImagingAccuracyRequirement {
+        attribute maximumScarBoundaryTolerance : LengthValue = 3 [millimeter];
+
+        require constraint {
+            ImagingAndPlanningSubsystem::scarBoundaryTolerance <= maximumScarBoundaryTolerance
+        }
+    }
+
+    requirement def ProcedureTimeRequirement {
+        attribute maximumProcedureDuration : TimeValue = 120 [minute];
+
+        require constraint {
+            ReviventBasedSystem::procedureDurationTarget <= maximumProcedureDuration
+        }
+    }
+
+    requirement def ImplantMassRequirement {
+        attribute maximumAllowedImplantMass : MassValue = 10 [gram];
+
+        require constraint {
+            ReviventBasedSystem::maximumImplantMass <= maximumAllowedImplantMass
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ReviventBasedSystem;
+    satisfy GeometryRestorationRequirement by RestoreVentricularGeometry;
+    satisfy EjectionPerformanceRequirement by RestoreVentricularGeometry;
+    satisfy AnchorSecurityRequirement by ReviventAnchorPair;
+    satisfy HemodynamicSafetyRequirement by HemodynamicMonitor;
+    satisfy ImagingAccuracyRequirement by ImagingAndPlanningSubsystem;
+    satisfy ProcedureTimeRequirement by ReviventBasedSystem;
+    satisfy ImplantMassRequirement by AnchorArray;
+
+}
+tokens used
+3,757
+package ReviventBasedVentricularRestorationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def PressureValue :> ISQ::pressure;
+    attribute def VolumeValue :> ISQ::volume;
+    attribute def LengthValue :> ISQ::length;
+    attribute def ForceValue :> ISQ::force;
+    attribute def TimeValue :> ISQ::time;
+    attribute def AngleValue :> ISQ::planeAngle;
+    attribute def MassValue :> ISQ::mass;
+
+    value def millimeter :> ISQ::millimetre;
+    value def milliliter :> ISQ::millilitre;
+    value def millimeterHg;
+    value def newton :> ISQ::newton;
+    value def minute :> ISQ::minute;
+    value def gram :> ISQ::gram;
+
+    item def MyocardialTissue {
+        attribute wallThickness : LengthValue;
+        attribute perfusionState : PerfusionState;
+        attribute viability : TissueViability;
+    }
+
+    enum def PerfusionState {
+        enum normal;
+        enum reduced;
+        enum absent;
+    }
+
+    enum def TissueViability {
+        enum viable;
+        enum hibernating;
+        enum scarred;
+    }
+
+    item def VentricularBlood {
+        attribute volume : VolumeValue;
+        attribute pressure : PressureValue;
+        attribute oxygenSaturation : Real;
+    }
+
+    item def AnchorImplant {
+        attribute anchorDiameter : LengthValue;
+        attribute tetherLength : LengthValue;
+        attribute deployedForce : ForceValue;
+        attribute locked : Boolean;
+        attribute sterile : Boolean;
+    }
+
+    item def ImagingData {
+        attribute leftVentricularEndDiastolicVolume : VolumeValue;
+        attribute leftVentricularEndSystolicVolume : VolumeValue;
+        attribute ejectionFraction : Real;
+        attribute scarBoundaryConfidence : Real;
+        attribute recommendedAnchorCount : Integer;
+    }
+
+    item def DeploymentCommand {
+        attribute targetAnchorIndex : Integer;
+        attribute targetDepth : LengthValue;
+        attribute compressionForceLimit : ForceValue;
+        attribute releaseAuthorized : Boolean;
+    }
+
+    item def HemodynamicSignal {
+        attribute arterialPressure : PressureValue;
+        attribute ventricularPressure : PressureValue;
+        attribute heartRate : Real;
+        attribute cardiacOutput : Real;
+    }
+
+    port def BloodPort {
+        inout blood : VentricularBlood;
+    }
+
+    port def TissueInterfacePort {
+        inout tissue : MyocardialTissue;
+        out fixationLoad : ForceValue;
+    }
+
+    port def ImplantDeliveryPort {
+        in implant : AnchorImplant;
+        in command : DeploymentCommand;
+        out deployedImplant : AnchorImplant;
+    }
+
+    port def ImagingPort {
+        out imageData : ImagingData;
+    }
+
+    port def ControlPort {
+        in imageData : ImagingData;
+        in hemodynamicSignal : HemodynamicSignal;
+        out deploymentCommand : DeploymentCommand;
+    }
+
+    port def MonitoringPort {
+        out hemodynamicSignal : HemodynamicSignal;
+    }
+
+    part def LeftVentricle {
+        attribute endDiastolicVolume : VolumeValue = 180 [milliliter];
+        attribute endSystolicVolume : VolumeValue = 125 [milliliter];
+        attribute ejectionFraction : Real = 0.31;
+        attribute wallThicknessSeptal : LengthValue = 10 [millimeter];
+        attribute wallThicknessLateral : LengthValue = 8 [millimeter];
+        attribute scarredWallArea : Real = 0.28;
+
+        port inflow : BloodPort;
+        port outflow : BloodPort;
+        port epicardialInterface : TissueInterfacePort;
+        port septalInterface : TissueInterfacePort;
+    }
+
+    part def ScarExclusionZone {
+        attribute excludedVolume : VolumeValue = 55 [milliliter];
+        attribute targetLongAxisReduction : LengthValue = 18 [millimeter];
+        attribute targetCircumferentialReduction : LengthValue = 22 [millimeter];
+        attribute scarViability : TissueViability = TissueViability::scarred;
+
+        port lateralWall : TissueInterfacePort;
+        port septalWall : TissueInterfacePort;
+    }
+
+    part def ReviventAnchorPair {
+        attribute pairIndex : Integer;
+        attribute septalAnchor : AnchorImplant;
+        attribute epicardialAnchor : AnchorImplant;
+        attribute tetherTension : ForceValue = 6 [newton];
+        attribute finalSeparation : LengthValue = 14 [millimeter];
+        attribute locked : Boolean = false;
+
+        port septalTissuePort : TissueInterfacePort;
+        port epicardialTissuePort : TissueInterfacePort;
+    }
+
+    part def AnchorArray {
+        attribute plannedAnchorCount : Integer = 4;
+        attribute deployedAnchorCount : Integer = 0;
+        attribute totalExclusionForce : ForceValue = 24 [newton];
+
+        part anchorPair1 : ReviventAnchorPair {
+            attribute pairIndex = 1;
+        }
+
+        part anchorPair2 : ReviventAnchorPair {
+            attribute pairIndex = 2;
+        }
+
+        part anchorPair3 : ReviventAnchorPair {
+            attribute pairIndex = 3;
+        }
+
+        part anchorPair4 : ReviventAnchorPair {
+            attribute pairIndex = 4;
+        }
+    }
+
+    part def HybridDeliveryTool {
+        attribute catheterOuterDiameter : LengthValue = 4 [millimeter];
+        attribute epicardialAccessAngle : AngleValue = 35 [degree];
+        attribute maxCompressionForce : ForceValue = 12 [newton];
+        attribute sterileBarrierIntact : Boolean = true;
+
+        port implantDelivery : ImplantDeliveryPort;
+        port tissueContact : TissueInterfacePort;
+        port control : ControlPort;
+    }
+
+    part def ImagingAndPlanningSubsystem {
+        attribute imagingFrameRate : Real = 30;
+        attribute scarBoundaryTolerance : LengthValue = 3 [millimeter];
+        attribute planValidated : Boolean = false;
+
+        port imaging : ImagingPort;
+        port control : ControlPort;
+    }
+
+    part def HemodynamicMonitor {
+        attribute minimumMeanArterialPressure : PressureValue = 65 [millimeterHg];
+        attribute maximumVentricularPressure : PressureValue = 180 [millimeterHg];
+        attribute signalLatency : TimeValue = 0.25 [second];
+
+        port monitor : MonitoringPort;
+    }
+
+    part def OperatorConsole {
+        attribute physicianAuthorizedDeployment : Boolean = false;
+        attribute displayedAnchorIndex : Integer = 0;
+        attribute emergencyReleaseAvailable : Boolean = true;
+
+        port control : ControlPort;
+    }
+
+    part def ReviventBasedSystem {
+        doc
+        /*
+         * Primary high-level function:
+         * The system restores left ventricular geometry by placing paired internal and external anchors
+         * across scarred ventricular tissue, drawing the scarred wall inward and excluding non-contractile
+         * volume from the active chamber. This reduces ventricular volume, improves mechanical efficiency,
+         * and supports improved ejection performance while preserving blood flow through the remaining chamber.
+         */
+
+        attribute procedureDurationTarget : TimeValue = 90 [minute];
+        attribute targetEndDiastolicVolumeReduction : VolumeValue = 45 [milliliter];
+        attribute targetEjectionFractionIncrease : Real = 0.08;
+        attribute maximumImplantMass : MassValue = 8 [gram];
+
+        part patientLeftVentricle : LeftVentricle;
+        part scarZone : ScarExclusionZone;
+        part anchors : AnchorArray;
+        part deliveryTool : HybridDeliveryTool;
+        part imagingPlanner : ImagingAndPlanningSubsystem;
+        part monitor : HemodynamicMonitor;
+        part console : OperatorConsole;
+
+        connect patientLeftVentricle.epicardialInterface to scarZone.lateralWall;
+        connect patientLeftVentricle.septalInterface to scarZone.septalWall;
+
+        connect anchors.anchorPair1.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair1.septalTissuePort to scarZone.septalWall;
+
+        connect anchors.anchorPair2.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair2.septalTissuePort to scarZone.septalWall;
+
+        connect anchors.anchorPair3.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair3.septalTissuePort to scarZone.septalWall;
+
+        connect anchors.anchorPair4.epicardialTissuePort to scarZone.lateralWall;
+        connect anchors.anchorPair4.septalTissuePort to scarZone.septalWall;
+
+        connect imagingPlanner.control to console.control;
+        connect console.control to deliveryTool.control;
+        connect monitor.monitor to console.control;
+        connect deliveryTool.tissueContact to scarZone.lateralWall;
+    }
+
+    action def AcquireVentricularGeometry {
+        in ventricle : LeftVentricle;
+        out imagingData : ImagingData;
+
+        first start;
+        then segmentChamber;
+        then identifyScarBoundary;
+        then computeAnchorPlan;
+        then done;
+
+        action segmentChamber;
+        action identifyScarBoundary;
+        action computeAnchorPlan;
+    }
+
+    action def DeployAnchorPair {
+        in command : DeploymentCommand;
+        inout anchorPair : ReviventAnchorPair;
+        inout ventricle : LeftVentricle;
+        out success : Boolean;
+
+        first start;
+        then positionDeliveryTool;
+        then verifyHemodynamicStability;
+        then advanceSeptalAnchor;
+        then placeEpicardialAnchor;
+        then tensionTether;
+        then lockPair;
+        then confirmPlacement;
+        then done;
+
+        action positionDeliveryTool;
+        action verifyHemodynamicStability;
+        action advanceSeptalAnchor;
+        action placeEpicardialAnchor;
+        action tensionTether;
+        action lockPair {
+            out locked : Boolean;
+        }
+        action confirmPlacement;
+    }
+
+    action def RestoreVentricularGeometry {
+        inout system : ReviventBasedSystem;
+        out finalEndDiastolicVolume : VolumeValue;
+        out finalEjectionFraction : Real;
+
+        first start;
+        then acquireBaselineData;
+        then validatePlan;
+        then deployPair1;
+        then reassessHemodynamics1;
+        then deployPair2;
+        then reassessHemodynamics2;
+        then deployPair3;
+        then reassessHemodynamics3;
+        then deployPair4;
+        then finalImagingAssessment;
+        then done;
+
+        action acquireBaselineData : AcquireVentricularGeometry;
+        action validatePlan;
+        action deployPair1 : DeployAnchorPair;
+        action reassessHemodynamics1;
+        action deployPair2 : DeployAnchorPair;
+        action reassessHemodynamics2;
+        action deployPair3 : DeployAnchorPair;
+        action reassessHemodynamics3;
+        action deployPair4 : DeployAnchorPair;
+        action finalImagingAssessment;
+    }
+
+    state def ReviventProcedureStateMachine {
+        state idle;
+        state planning;
+        state accessEstablished;
+        state anchorDeployment;
+        state remodelingAssessment;
+        state completed;
+        state aborted;
+
+        entry action initializeSterileSystem;
+        action initializeSterileSystem;
+
+        transition first idle;
+
+        transition idle_to_planning
+            first idle
+            accept StartProcedure
+            then planning;
+
+        transition planning_to_access
+            first planning
+            accept PlanValidated
+            then accessEstablished;
+
+        transition access_to_deployment
+            first accessEstablished
+            accept VentricularAccessConfirmed
+            then anchorDeployment;
+
+        transition deployment_to_assessment
+            first anchorDeployment
+            accept AllAnchorsLocked
+            then remodelingAssessment;
+
+        transition assessment_to_completed
+            first remodelingAssessment
+            accept GeometryRestored
+            then completed;
+
+        transition any_to_aborted_from_planning
+            first planning
+            accept HemodynamicInstability
+            then aborted;
+
+        transition any_to_aborted_from_access
+            first accessEstablished
+            accept HemodynamicInstability
+            then aborted;
+
+        transition any_to_aborted_from_deployment
+            first anchorDeployment
+            accept HemodynamicInstability
+            then aborted;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The system shall reduce the functional volume of a dilated left ventricle by excluding scarred,
+         * non-contractile myocardial tissue using paired anchors derived from the Revivent ventricular
+         * restoration concept.
+         */
+    }
+
+    requirement def GeometryRestorationRequirement {
+        attribute minimumEndDiastolicVolumeReduction : VolumeValue = 35 [milliliter];
+
+        require constraint {
+            ReviventBasedSystem::targetEndDiastolicVolumeReduction >= minimumEndDiastolicVolumeReduction
+        }
+    }
+
+    requirement def EjectionPerformanceRequirement {
+        attribute minimumEjectionFractionIncrease : Real = 0.05;
+
+        require constraint {
+            ReviventBasedSystem::targetEjectionFractionIncrease >= minimumEjectionFractionIncrease
+        }
+    }
+
+    requirement def AnchorSecurityRequirement {
+        attribute minimumTetherTension : ForceValue = 4 [newton];
+        attribute maximumTetherTension : ForceValue = 10 [newton];
+
+        require constraint {
+            ReviventAnchorPair::tetherTension >= minimumTetherTension and
+            ReviventAnchorPair::tetherTension <= maximumTetherTension
+        }
+    }
+
+    requirement def HemodynamicSafetyRequirement {
+        attribute minimumMeanArterialPressure : PressureValue = 65 [millimeterHg];
+        attribute maximumLeftVentricularPressure : PressureValue = 180 [millimeterHg];
+
+        require constraint {
+            HemodynamicMonitor::minimumMeanArterialPressure >= minimumMeanArterialPressure and
+            HemodynamicMonitor::maximumVentricularPressure <= maximumLeftVentricularPressure
+        }
+    }
+
+    requirement def ImagingAccuracyRequirement {
+        attribute maximumScarBoundaryTolerance : LengthValue = 3 [millimeter];
+
+        require constraint {
+            ImagingAndPlanningSubsystem::scarBoundaryTolerance <= maximumScarBoundaryTolerance
+        }
+    }
+
+    requirement def ProcedureTimeRequirement {
+        attribute maximumProcedureDuration : TimeValue = 120 [minute];
+
+        require constraint {
+            ReviventBasedSystem::procedureDurationTarget <= maximumProcedureDuration
+        }
+    }
+
+    requirement def ImplantMassRequirement {
+        attribute maximumAllowedImplantMass : MassValue = 10 [gram];
+
+        require constraint {
+            ReviventBasedSystem::maximumImplantMass <= maximumAllowedImplantMass
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ReviventBasedSystem;
+    satisfy GeometryRestorationRequirement by RestoreVentricularGeometry;
+    satisfy EjectionPerformanceRequirement by RestoreVentricularGeometry;
+    satisfy AnchorSecurityRequirement by ReviventAnchorPair;
+    satisfy HemodynamicSafetyRequirement by HemodynamicMonitor;
+    satisfy ImagingAccuracyRequirement by ImagingAndPlanningSubsystem;
+    satisfy ProcedureTimeRequirement by ReviventBasedSystem;
+    satisfy ImplantMassRequirement by AnchorArray;
+
+}

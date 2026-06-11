@@ -1,0 +1,883 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p0ljlax0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2cd-b2c5-7bf0-ba54-c6bdc1d4e16f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Medical device and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MedicalInfusionPumpSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate {
+        :> ISQ::flowRate;
+        unit = L / h;
+    }
+
+    attribute def Volume {
+        :> ISQ::volume;
+        unit = mL;
+    }
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = kPa;
+    }
+
+    attribute def BatteryCharge {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def TimeInterval {
+        :> ISQ::time;
+        unit = s;
+    }
+
+    attribute def DrugConcentration {
+        :> ScalarValues::Real;
+        unit = "mg/mL";
+    }
+
+    enum def TherapyMode {
+        enum continuous;
+        enum intermittent;
+        enum patientControlled;
+        enum keepVeinOpen;
+    }
+
+    enum def AlarmPriority {
+        enum advisory;
+        enum medium;
+        enum high;
+    }
+
+    item def MedicationFluid {
+        attribute drugName : String;
+        attribute concentration : DrugConcentration;
+        attribute remainingVolume : Volume;
+        attribute prescribedRate : FlowRate;
+    }
+
+    item def InfusionCommand {
+        attribute requestedMode : TherapyMode;
+        attribute targetRate : FlowRate;
+        attribute doseLimit : Volume;
+        attribute lockoutInterval : TimeInterval;
+    }
+
+    item def FlowMeasurement {
+        attribute measuredRate : FlowRate;
+        attribute deliveredVolume : Volume;
+        attribute linePressure : Pressure;
+    }
+
+    item def AlarmSignal {
+        attribute priority : AlarmPriority;
+        attribute code : String;
+        attribute message : String;
+    }
+
+    item def PowerEnergy {
+        attribute charge : BatteryCharge;
+        attribute externalPowerAvailable : Boolean;
+    }
+
+    port def FluidInletPort {
+        in item fluid : MedicationFluid;
+    }
+
+    port def FluidOutletPort {
+        out item fluid : MedicationFluid;
+    }
+
+    port def CommandPort {
+        in item command : InfusionCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : FlowMeasurement;
+        out item alarm : AlarmSignal;
+    }
+
+    port def PowerPort {
+        in item power : PowerEnergy;
+    }
+
+    part def MedicationReservoir {
+        attribute capacity : Volume = 250 [mL];
+        attribute usableVolume : Volume = 240 [mL];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action dispenseMedication {
+            in item requestedFluid : MedicationFluid;
+            out item meteredFluid : MedicationFluid;
+        }
+    }
+
+    part def PumpMechanism {
+        attribute minimumRate : FlowRate = 0.1 [mL/h];
+        attribute maximumRate : FlowRate = 1200 [mL/h];
+        attribute commandedRate : FlowRate;
+        attribute actualRate : FlowRate;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action meterFluid {
+            in item inputFluid : MedicationFluid;
+            in attribute requestedRate : FlowRate;
+            out item outputFluid : MedicationFluid;
+            out attribute achievedRate : FlowRate;
+        }
+    }
+
+    part def FlowSensor {
+        attribute sampleInterval : TimeInterval = 1 [s];
+        attribute measurementTolerance : FlowRate = 0.05 [mL/h];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port telemetry : TelemetryPort;
+
+        action measureFlow {
+            in item flowingFluid : MedicationFluid;
+            out item measurement : FlowMeasurement;
+        }
+    }
+
+    part def OcclusionSensor {
+        attribute alarmPressureThreshold : Pressure = 90 [kPa];
+        attribute shutdownPressureThreshold : Pressure = 120 [kPa];
+
+        port telemetry : TelemetryPort;
+
+        action detectOcclusion {
+            in item measurement : FlowMeasurement;
+            out attribute occluded : Boolean;
+            out item alarm : AlarmSignal;
+        }
+    }
+
+    part def AirInLineSensor {
+        attribute detectableBubbleVolume : Volume = 0.05 [mL];
+
+        port telemetry : TelemetryPort;
+
+        action detectAir {
+            in item flowingFluid : MedicationFluid;
+            out attribute airDetected : Boolean;
+            out item alarm : AlarmSignal;
+        }
+    }
+
+    part def TherapyController {
+        attribute activeMode : TherapyMode = TherapyMode::continuous;
+        attribute prescribedRate : FlowRate;
+        attribute cumulativeDeliveredVolume : Volume;
+        attribute maximumSingleDose : Volume = 5 [mL];
+        attribute patientBolusLockout : TimeInterval = 900 [s];
+
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+
+        action validateCommand {
+            in item command : InfusionCommand;
+            out attribute accepted : Boolean;
+        }
+
+        action computePumpRate {
+            in item command : InfusionCommand;
+            in item measurement : FlowMeasurement;
+            out attribute rateSetpoint : FlowRate;
+        }
+
+        state def TherapyControlStateMachine {
+            state Off;
+            state SelfTest;
+            state Ready;
+            state Infusing;
+            state KVO;
+            state Paused;
+            state Alarmed;
+            state Shutdown;
+
+            initial then Off;
+
+            transition Off_to_SelfTest
+                first Off
+                then SelfTest
+                accept powerApplied;
+
+            transition SelfTest_to_Ready
+                first SelfTest
+                then Ready
+                accept selfTestPassed;
+
+            transition SelfTest_to_Shutdown
+                first SelfTest
+                then Shutdown
+                accept selfTestFailed;
+
+            transition Ready_to_Infusing
+                first Ready
+                then Infusing
+                accept validStartCommand;
+
+            transition Infusing_to_KVO
+                first Infusing
+                then KVO
+                accept therapyComplete;
+
+            transition Infusing_to_Paused
+                first Infusing
+                then Paused
+                accept pauseRequested;
+
+            transition Paused_to_Infusing
+                first Paused
+                then Infusing
+                accept resumeRequested;
+
+            transition Infusing_to_Alarmed
+                first Infusing
+                then Alarmed
+                accept highPriorityAlarm;
+
+            transition KVO_to_Alarmed
+                first KVO
+                then Alarmed
+                accept highPriorityAlarm;
+
+            transition Alarmed_to_Ready
+                first Alarmed
+                then Ready
+                accept alarmCleared;
+
+            transition Alarmed_to_Shutdown
+                first Alarmed
+                then Shutdown
+                accept unsafeCondition;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayBrightness : ScalarValues::Real = 75;
+        attribute audibleAlarmEnabled : Boolean = true;
+
+        port commandOutput : CommandPort;
+        port telemetryInput : TelemetryPort;
+
+        action receiveClinicianPrescription {
+            out item command : InfusionCommand;
+        }
+
+        action displayTherapyStatus {
+            in item measurement : FlowMeasurement;
+            in item alarm : AlarmSignal;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : ScalarValues::Real = 4800;
+        attribute currentCharge : BatteryCharge = 100 [%];
+        attribute minimumSafeCharge : BatteryCharge = 15 [%];
+
+        port powerOutput : PowerPort;
+        port telemetry : TelemetryPort;
+
+        action supplyPower {
+            out item energy : PowerEnergy;
+        }
+
+        action monitorBattery {
+            out item alarm : AlarmSignal;
+        }
+    }
+
+    part def InfusionSet {
+        attribute primed : Boolean;
+        attribute maximumLinePressure : Pressure = 150 [kPa];
+
+        port inlet : FluidInletPort;
+        port patientConnector : FluidOutletPort;
+    }
+
+    part def PatientInterface {
+        attribute venousAccessConfirmed : Boolean;
+
+        port medicationInput : FluidInletPort;
+
+        action receiveMedication {
+            in item infusedFluid : MedicationFluid;
+        }
+    }
+
+    part def MedicalInfusionPump {
+        attribute deviceIdentifier : String;
+        attribute primaryFunction : String = "Deliver prescribed medication fluid to a patient at a controlled and monitored flow rate.";
+        attribute expectedServiceLifeHours : ScalarValues::Real = 43800;
+
+        port medicationSupply : FluidInletPort;
+        port medicationDelivery : FluidOutletPort;
+        port clinicianCommands : CommandPort;
+        port systemTelemetry : TelemetryPort;
+        port electricalPower : PowerPort;
+
+        part reservoir : MedicationReservoir;
+        part pump : PumpMechanism;
+        part flowSensor : FlowSensor;
+        part occlusionSensor : OcclusionSensor;
+        part airSensor : AirInLineSensor;
+        part controller : TherapyController;
+        part interface : UserInterface;
+        part power : PowerSubsystem;
+        part infusionSet : InfusionSet;
+        part patient : PatientInterface;
+
+        connect medicationSupply to reservoir.inlet;
+        connect reservoir.outlet to pump.inlet;
+        connect pump.outlet to flowSensor.inlet;
+        connect flowSensor.outlet to infusionSet.inlet;
+        connect infusionSet.patientConnector to medicationDelivery;
+        connect medicationDelivery to patient.medicationInput;
+
+        connect clinicianCommands to interface.commandOutput;
+        connect interface.commandOutput to controller.commandInput;
+
+        connect flowSensor.telemetry to controller.telemetryOutput;
+        connect occlusionSensor.telemetry to controller.telemetryOutput;
+        connect airSensor.telemetry to controller.telemetryOutput;
+        connect power.telemetry to controller.telemetryOutput;
+        connect controller.telemetryOutput to systemTelemetry;
+        connect systemTelemetry to interface.telemetryInput;
+
+        connect electricalPower to power.powerOutput;
+
+        action performInfusionTherapy {
+            in item prescription : InfusionCommand;
+            in item medication : MedicationFluid;
+            out item deliveredMeasurement : FlowMeasurement;
+
+            first startSelfTest;
+            then validatePrescription;
+            then primeInfusionPath;
+            then deliverMedication;
+            then monitorDelivery;
+            then completeTherapy;
+
+            action startSelfTest;
+            action validatePrescription;
+            action primeInfusionPath;
+            action deliverMedication;
+            action monitorDelivery;
+            action completeTherapy;
+        }
+    }
+
+    requirement def ControlledDeliveryRequirement {
+        doc /* The device shall deliver medication at the clinician-prescribed flow rate within the allowed tolerance during active infusion. */
+        attribute requiredAccuracy : ScalarValues::Real = 5;
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.flowSensor.measurementTolerance <= 0.05 [mL/h]
+        }
+    }
+
+    requirement def OcclusionSafetyRequirement {
+        doc /* The device shall detect downstream occlusion and stop infusion before line pressure exceeds the shutdown threshold. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.occlusionSensor.shutdownPressureThreshold <= 120 [kPa]
+        }
+    }
+
+    requirement def AirDetectionRequirement {
+        doc /* The device shall alarm and pause infusion when air in the infusion line exceeds the detectable bubble volume. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.airSensor.detectableBubbleVolume <= 0.05 [mL]
+        }
+    }
+
+    requirement def BatteryBackupRequirement {
+        doc /* The device shall monitor available power and provide a high-priority alarm before battery charge falls below the minimum safe charge. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.power.minimumSafeCharge >= 15 [%]
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The medical infusion pump shall provide controlled intravenous medication delivery from a reservoir through an infusion set to the patient. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.pump.minimumRate <= pump.controller.prescribedRate and
+            pump.controller.prescribedRate <= pump.pump.maximumRate
+        }
+    }
+
+    satisfy ControlledDeliveryRequirement by MedicalInfusionPump::flowSensor;
+    satisfy ControlledDeliveryRequirement by MedicalInfusionPump::pump;
+    satisfy OcclusionSafetyRequirement by MedicalInfusionPump::occlusionSensor;
+    satisfy AirDetectionRequirement by MedicalInfusionPump::airSensor;
+    satisfy BatteryBackupRequirement by MedicalInfusionPump::power;
+    satisfy PrimaryFunctionRequirement by MedicalInfusionPump;
+
+    part hospitalBedsideInfusionPump : MedicalInfusionPump {
+        attribute deviceIdentifier = "BED-INF-001";
+        attribute controller.prescribedRate = 75 [mL/h];
+        attribute reservoir.capacity = 250 [mL];
+        attribute power.currentCharge = 92 [%];
+        attribute patient.venousAccessConfirmed = true;
+        attribute infusionSet.primed = true;
+    }
+}
+tokens used
+4,250
+package MedicalInfusionPumpSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate {
+        :> ISQ::flowRate;
+        unit = L / h;
+    }
+
+    attribute def Volume {
+        :> ISQ::volume;
+        unit = mL;
+    }
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = kPa;
+    }
+
+    attribute def BatteryCharge {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def TimeInterval {
+        :> ISQ::time;
+        unit = s;
+    }
+
+    attribute def DrugConcentration {
+        :> ScalarValues::Real;
+        unit = "mg/mL";
+    }
+
+    enum def TherapyMode {
+        enum continuous;
+        enum intermittent;
+        enum patientControlled;
+        enum keepVeinOpen;
+    }
+
+    enum def AlarmPriority {
+        enum advisory;
+        enum medium;
+        enum high;
+    }
+
+    item def MedicationFluid {
+        attribute drugName : String;
+        attribute concentration : DrugConcentration;
+        attribute remainingVolume : Volume;
+        attribute prescribedRate : FlowRate;
+    }
+
+    item def InfusionCommand {
+        attribute requestedMode : TherapyMode;
+        attribute targetRate : FlowRate;
+        attribute doseLimit : Volume;
+        attribute lockoutInterval : TimeInterval;
+    }
+
+    item def FlowMeasurement {
+        attribute measuredRate : FlowRate;
+        attribute deliveredVolume : Volume;
+        attribute linePressure : Pressure;
+    }
+
+    item def AlarmSignal {
+        attribute priority : AlarmPriority;
+        attribute code : String;
+        attribute message : String;
+    }
+
+    item def PowerEnergy {
+        attribute charge : BatteryCharge;
+        attribute externalPowerAvailable : Boolean;
+    }
+
+    port def FluidInletPort {
+        in item fluid : MedicationFluid;
+    }
+
+    port def FluidOutletPort {
+        out item fluid : MedicationFluid;
+    }
+
+    port def CommandPort {
+        in item command : InfusionCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : FlowMeasurement;
+        out item alarm : AlarmSignal;
+    }
+
+    port def PowerPort {
+        in item power : PowerEnergy;
+    }
+
+    part def MedicationReservoir {
+        attribute capacity : Volume = 250 [mL];
+        attribute usableVolume : Volume = 240 [mL];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action dispenseMedication {
+            in item requestedFluid : MedicationFluid;
+            out item meteredFluid : MedicationFluid;
+        }
+    }
+
+    part def PumpMechanism {
+        attribute minimumRate : FlowRate = 0.1 [mL/h];
+        attribute maximumRate : FlowRate = 1200 [mL/h];
+        attribute commandedRate : FlowRate;
+        attribute actualRate : FlowRate;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action meterFluid {
+            in item inputFluid : MedicationFluid;
+            in attribute requestedRate : FlowRate;
+            out item outputFluid : MedicationFluid;
+            out attribute achievedRate : FlowRate;
+        }
+    }
+
+    part def FlowSensor {
+        attribute sampleInterval : TimeInterval = 1 [s];
+        attribute measurementTolerance : FlowRate = 0.05 [mL/h];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port telemetry : TelemetryPort;
+
+        action measureFlow {
+            in item flowingFluid : MedicationFluid;
+            out item measurement : FlowMeasurement;
+        }
+    }
+
+    part def OcclusionSensor {
+        attribute alarmPressureThreshold : Pressure = 90 [kPa];
+        attribute shutdownPressureThreshold : Pressure = 120 [kPa];
+
+        port telemetry : TelemetryPort;
+
+        action detectOcclusion {
+            in item measurement : FlowMeasurement;
+            out attribute occluded : Boolean;
+            out item alarm : AlarmSignal;
+        }
+    }
+
+    part def AirInLineSensor {
+        attribute detectableBubbleVolume : Volume = 0.05 [mL];
+
+        port telemetry : TelemetryPort;
+
+        action detectAir {
+            in item flowingFluid : MedicationFluid;
+            out attribute airDetected : Boolean;
+            out item alarm : AlarmSignal;
+        }
+    }
+
+    part def TherapyController {
+        attribute activeMode : TherapyMode = TherapyMode::continuous;
+        attribute prescribedRate : FlowRate;
+        attribute cumulativeDeliveredVolume : Volume;
+        attribute maximumSingleDose : Volume = 5 [mL];
+        attribute patientBolusLockout : TimeInterval = 900 [s];
+
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+
+        action validateCommand {
+            in item command : InfusionCommand;
+            out attribute accepted : Boolean;
+        }
+
+        action computePumpRate {
+            in item command : InfusionCommand;
+            in item measurement : FlowMeasurement;
+            out attribute rateSetpoint : FlowRate;
+        }
+
+        state def TherapyControlStateMachine {
+            state Off;
+            state SelfTest;
+            state Ready;
+            state Infusing;
+            state KVO;
+            state Paused;
+            state Alarmed;
+            state Shutdown;
+
+            initial then Off;
+
+            transition Off_to_SelfTest
+                first Off
+                then SelfTest
+                accept powerApplied;
+
+            transition SelfTest_to_Ready
+                first SelfTest
+                then Ready
+                accept selfTestPassed;
+
+            transition SelfTest_to_Shutdown
+                first SelfTest
+                then Shutdown
+                accept selfTestFailed;
+
+            transition Ready_to_Infusing
+                first Ready
+                then Infusing
+                accept validStartCommand;
+
+            transition Infusing_to_KVO
+                first Infusing
+                then KVO
+                accept therapyComplete;
+
+            transition Infusing_to_Paused
+                first Infusing
+                then Paused
+                accept pauseRequested;
+
+            transition Paused_to_Infusing
+                first Paused
+                then Infusing
+                accept resumeRequested;
+
+            transition Infusing_to_Alarmed
+                first Infusing
+                then Alarmed
+                accept highPriorityAlarm;
+
+            transition KVO_to_Alarmed
+                first KVO
+                then Alarmed
+                accept highPriorityAlarm;
+
+            transition Alarmed_to_Ready
+                first Alarmed
+                then Ready
+                accept alarmCleared;
+
+            transition Alarmed_to_Shutdown
+                first Alarmed
+                then Shutdown
+                accept unsafeCondition;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayBrightness : ScalarValues::Real = 75;
+        attribute audibleAlarmEnabled : Boolean = true;
+
+        port commandOutput : CommandPort;
+        port telemetryInput : TelemetryPort;
+
+        action receiveClinicianPrescription {
+            out item command : InfusionCommand;
+        }
+
+        action displayTherapyStatus {
+            in item measurement : FlowMeasurement;
+            in item alarm : AlarmSignal;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : ScalarValues::Real = 4800;
+        attribute currentCharge : BatteryCharge = 100 [%];
+        attribute minimumSafeCharge : BatteryCharge = 15 [%];
+
+        port powerOutput : PowerPort;
+        port telemetry : TelemetryPort;
+
+        action supplyPower {
+            out item energy : PowerEnergy;
+        }
+
+        action monitorBattery {
+            out item alarm : AlarmSignal;
+        }
+    }
+
+    part def InfusionSet {
+        attribute primed : Boolean;
+        attribute maximumLinePressure : Pressure = 150 [kPa];
+
+        port inlet : FluidInletPort;
+        port patientConnector : FluidOutletPort;
+    }
+
+    part def PatientInterface {
+        attribute venousAccessConfirmed : Boolean;
+
+        port medicationInput : FluidInletPort;
+
+        action receiveMedication {
+            in item infusedFluid : MedicationFluid;
+        }
+    }
+
+    part def MedicalInfusionPump {
+        attribute deviceIdentifier : String;
+        attribute primaryFunction : String = "Deliver prescribed medication fluid to a patient at a controlled and monitored flow rate.";
+        attribute expectedServiceLifeHours : ScalarValues::Real = 43800;
+
+        port medicationSupply : FluidInletPort;
+        port medicationDelivery : FluidOutletPort;
+        port clinicianCommands : CommandPort;
+        port systemTelemetry : TelemetryPort;
+        port electricalPower : PowerPort;
+
+        part reservoir : MedicationReservoir;
+        part pump : PumpMechanism;
+        part flowSensor : FlowSensor;
+        part occlusionSensor : OcclusionSensor;
+        part airSensor : AirInLineSensor;
+        part controller : TherapyController;
+        part interface : UserInterface;
+        part power : PowerSubsystem;
+        part infusionSet : InfusionSet;
+        part patient : PatientInterface;
+
+        connect medicationSupply to reservoir.inlet;
+        connect reservoir.outlet to pump.inlet;
+        connect pump.outlet to flowSensor.inlet;
+        connect flowSensor.outlet to infusionSet.inlet;
+        connect infusionSet.patientConnector to medicationDelivery;
+        connect medicationDelivery to patient.medicationInput;
+
+        connect clinicianCommands to interface.commandOutput;
+        connect interface.commandOutput to controller.commandInput;
+
+        connect flowSensor.telemetry to controller.telemetryOutput;
+        connect occlusionSensor.telemetry to controller.telemetryOutput;
+        connect airSensor.telemetry to controller.telemetryOutput;
+        connect power.telemetry to controller.telemetryOutput;
+        connect controller.telemetryOutput to systemTelemetry;
+        connect systemTelemetry to interface.telemetryInput;
+
+        connect electricalPower to power.powerOutput;
+
+        action performInfusionTherapy {
+            in item prescription : InfusionCommand;
+            in item medication : MedicationFluid;
+            out item deliveredMeasurement : FlowMeasurement;
+
+            first startSelfTest;
+            then validatePrescription;
+            then primeInfusionPath;
+            then deliverMedication;
+            then monitorDelivery;
+            then completeTherapy;
+
+            action startSelfTest;
+            action validatePrescription;
+            action primeInfusionPath;
+            action deliverMedication;
+            action monitorDelivery;
+            action completeTherapy;
+        }
+    }
+
+    requirement def ControlledDeliveryRequirement {
+        doc /* The device shall deliver medication at the clinician-prescribed flow rate within the allowed tolerance during active infusion. */
+        attribute requiredAccuracy : ScalarValues::Real = 5;
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.flowSensor.measurementTolerance <= 0.05 [mL/h]
+        }
+    }
+
+    requirement def OcclusionSafetyRequirement {
+        doc /* The device shall detect downstream occlusion and stop infusion before line pressure exceeds the shutdown threshold. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.occlusionSensor.shutdownPressureThreshold <= 120 [kPa]
+        }
+    }
+
+    requirement def AirDetectionRequirement {
+        doc /* The device shall alarm and pause infusion when air in the infusion line exceeds the detectable bubble volume. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.airSensor.detectableBubbleVolume <= 0.05 [mL]
+        }
+    }
+
+    requirement def BatteryBackupRequirement {
+        doc /* The device shall monitor available power and provide a high-priority alarm before battery charge falls below the minimum safe charge. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.power.minimumSafeCharge >= 15 [%]
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The medical infusion pump shall provide controlled intravenous medication delivery from a reservoir through an infusion set to the patient. */
+        subject pump : MedicalInfusionPump;
+        require constraint {
+            pump.pump.minimumRate <= pump.controller.prescribedRate and
+            pump.controller.prescribedRate <= pump.pump.maximumRate
+        }
+    }
+
+    satisfy ControlledDeliveryRequirement by MedicalInfusionPump::flowSensor;
+    satisfy ControlledDeliveryRequirement by MedicalInfusionPump::pump;
+    satisfy OcclusionSafetyRequirement by MedicalInfusionPump::occlusionSensor;
+    satisfy AirDetectionRequirement by MedicalInfusionPump::airSensor;
+    satisfy BatteryBackupRequirement by MedicalInfusionPump::power;
+    satisfy PrimaryFunctionRequirement by MedicalInfusionPump;
+
+    part hospitalBedsideInfusionPump : MedicalInfusionPump {
+        attribute deviceIdentifier = "BED-INF-001";
+        attribute controller.prescribedRate = 75 [mL/h];
+        attribute reservoir.capacity = 250 [mL];
+        attribute power.currentCharge = 92 [%];
+        attribute patient.venousAccessConfirmed = true;
+        attribute infusionSet.primed = true;
+    }
+}

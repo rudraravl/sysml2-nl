@@ -1,0 +1,321 @@
+package EmergencyTourniquetModel {
+
+    unit def mm;
+    unit def cm;
+    unit def N;
+    unit def mmHg;
+    unit def s;
+    unit def min;
+
+    attribute def Length {
+        unit = mm;
+    }
+
+    attribute def Force {
+        unit = N;
+    }
+
+    attribute def Pressure {
+        unit = mmHg;
+    }
+
+    attribute def Duration {
+        unit = s;
+    }
+
+    attribute def TimeToControl {
+        unit = min;
+    }
+
+    item def BloodFlow {
+        attribute flowPressure : Pressure;
+        attribute flowRatePercent : Real;
+    }
+
+    item def LimbSegment {
+        attribute circumference : Length;
+        attribute tissueCompliance : Real;
+        attribute arterialPressure : Pressure;
+        attribute hasLifeThreateningBleeding : Boolean;
+    }
+
+    item def CompressionLoad {
+        attribute circumferentialForce : Force;
+        attribute interfacePressure : Pressure;
+    }
+
+    item def ApplicationStatus {
+        attribute isApplied : Boolean;
+        attribute isLocked : Boolean;
+        attribute bleedingControlled : Boolean;
+        attribute elapsedApplicationTime : Duration;
+    }
+
+    port def LimbContactPort {
+        in limb : LimbSegment;
+        out compression : CompressionLoad;
+    }
+
+    port def UserGripPort {
+        in pullForce : Force;
+        in twistTorque : Force;
+        out tactileFeedback : ApplicationStatus;
+    }
+
+    port def HemorrhageMonitoringPort {
+        in preControlFlow : BloodFlow;
+        out postControlFlow : BloodFlow;
+        out status : ApplicationStatus;
+    }
+
+    part def EmergencyTourniquet {
+        attribute primaryFunction : String = "Rapidly restrict arterial blood flow in an injured extremity by applying controlled circumferential compression until life-threatening bleeding is controlled.";
+        attribute minimumOcclusionPressure : Pressure = 180 [mmHg];
+        attribute maximumSafeInterfacePressure : Pressure = 320 [mmHg];
+        attribute targetApplicationTime : TimeToControl = 2 [min];
+        attribute supportedLimbCircumferenceMin : Length = 120 [mm];
+        attribute supportedLimbCircumferenceMax : Length = 760 [mm];
+
+        port limbInterface : LimbContactPort;
+        port rescuerInterface : UserGripPort;
+        port monitorInterface : HemorrhageMonitoringPort;
+
+        part strap : CompressionStrap;
+        part windlass : WindlassTensioner;
+        part buckle : RoutingBuckle;
+        part lockingClip : WindlassLock;
+        part timeMarker : ApplicationTimeMarker;
+        part instructionPanel : PrintedInstructionPanel;
+
+        connect strap.limbSide to limbInterface;
+        connect strap.freeEnd to buckle.strapPassage;
+        connect strap.tensionSide to windlass.strapAnchor;
+        connect windlass.lockingEnd to lockingClip.windlassReceiver;
+        connect rescuerInterface to windlass.userHandle;
+        connect monitorInterface to limbInterface;
+    }
+
+    part def CompressionStrap {
+        attribute width : Length = 38 [mm];
+        attribute usableLength : Length = 950 [mm];
+        attribute tensileStrength : Force = 1500 [N];
+        attribute lowStretchRatio : Real = 0.04;
+
+        port limbSide : LimbContactPort;
+        port freeEnd : StrapEndPort;
+        port tensionSide : StrapEndPort;
+    }
+
+    port def StrapEndPort {
+        in pullForce : Force;
+        out strapTension : Force;
+    }
+
+    part def WindlassTensioner {
+        attribute handleLength : Length = 120 [mm];
+        attribute generatedTensionPerTurn : Force = 85 [N];
+        attribute maximumTurns : Integer = 7;
+
+        port userHandle : UserGripPort;
+        port strapAnchor : StrapEndPort;
+        port lockingEnd : WindlassLockPort;
+    }
+
+    port def WindlassLockPort {
+        in lockedPosition : Boolean;
+        out retainedTension : Force;
+    }
+
+    part def RoutingBuckle {
+        attribute slotWidth : Length = 42 [mm];
+        attribute frictionRetentionFactor : Real = 0.82;
+
+        port strapPassage : StrapEndPort;
+    }
+
+    part def WindlassLock {
+        attribute minimumRetentionForce : Force = 900 [N];
+
+        port windlassReceiver : WindlassLockPort;
+    }
+
+    part def ApplicationTimeMarker {
+        attribute markedElapsedTime : Duration;
+        attribute isWritten : Boolean;
+    }
+
+    part def PrintedInstructionPanel {
+        attribute stepCount : Integer = 4;
+        attribute isVisibleInLowLight : Boolean = true;
+    }
+
+    action def ApplyEmergencyTourniquet {
+        in injuredLimb : LimbSegment;
+        in rescuerPullForce : Force;
+        out finalStatus : ApplicationStatus;
+
+        action positionStrap {
+            in limb : LimbSegment = injuredLimb;
+        }
+
+        action routeAndTightenStrap {
+            in pullForce : Force = rescuerPullForce;
+            out preliminaryCompression : CompressionLoad;
+        }
+
+        action rotateWindlass {
+            in preliminaryCompression : CompressionLoad;
+            out occlusiveCompression : CompressionLoad;
+        }
+
+        action lockWindlass {
+            in compression : CompressionLoad = occlusiveCompression;
+            out locked : Boolean;
+        }
+
+        action verifyBleedingControl {
+            in compression : CompressionLoad = occlusiveCompression;
+            out controlled : Boolean;
+        }
+
+        action markApplicationTime {
+            in controlled : Boolean;
+            out marked : Boolean;
+        }
+
+        first positionStrap then routeAndTightenStrap;
+        then rotateWindlass;
+        then lockWindlass;
+        then verifyBleedingControl;
+        then markApplicationTime;
+    }
+
+    state def TourniquetUseStateMachine {
+        attribute status : ApplicationStatus;
+
+        state Packaged;
+        state PositionedOnLimb;
+        state StrapTightened;
+        state WindlassTensioned;
+        state Locked;
+        state BleedingControlled;
+        state RequiresRetightening;
+        state RemovedByClinician;
+
+        first Packaged;
+
+        transition Packaged_to_Positioned
+            first Packaged
+            accept positioned
+            then PositionedOnLimb;
+
+        transition Positioned_to_Tightened
+            first PositionedOnLimb
+            accept strapPulled
+            then StrapTightened;
+
+        transition Tightened_to_Tensioned
+            first StrapTightened
+            accept windlassRotated
+            then WindlassTensioned;
+
+        transition Tensioned_to_Locked
+            first WindlassTensioned
+            accept windlassSecured
+            then Locked;
+
+        transition Locked_to_Controlled
+            first Locked
+            accept bleedingStopped
+            then BleedingControlled;
+
+        transition Locked_to_Retighten
+            first Locked
+            accept bleedingContinues
+            then RequiresRetightening;
+
+        transition Retighten_to_Tensioned
+            first RequiresRetightening
+            accept additionalWindlassRotation
+            then WindlassTensioned;
+
+        transition Controlled_to_Removed
+            first BleedingControlled
+            accept clinicianRemoval
+            then RemovedByClinician;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject tourniquet : EmergencyTourniquet;
+
+        require constraint {
+            tourniquet.primaryFunction == "Rapidly restrict arterial blood flow in an injured extremity by applying controlled circumferential compression until life-threatening bleeding is controlled."
+        }
+    }
+
+    requirement def OcclusionPressureRequirement {
+        subject tourniquet : EmergencyTourniquet;
+        attribute requiredPressure : Pressure = 180 [mmHg];
+
+        require constraint {
+            tourniquet.minimumOcclusionPressure >= requiredPressure
+        }
+    }
+
+    requirement def SafeCompressionRequirement {
+        subject tourniquet : EmergencyTourniquet;
+        attribute maximumAllowedPressure : Pressure = 320 [mmHg];
+
+        require constraint {
+            tourniquet.maximumSafeInterfacePressure <= maximumAllowedPressure
+        }
+    }
+
+    requirement def RapidApplicationRequirement {
+        subject tourniquet : EmergencyTourniquet;
+        attribute maximumApplicationTime : TimeToControl = 2 [min];
+
+        require constraint {
+            tourniquet.targetApplicationTime <= maximumApplicationTime
+        }
+    }
+
+    requirement def LimbCompatibilityRequirement {
+        subject tourniquet : EmergencyTourniquet;
+
+        require constraint {
+            tourniquet.supportedLimbCircumferenceMin <= 120 [mm] and
+            tourniquet.supportedLimbCircumferenceMax >= 760 [mm]
+        }
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject tourniquet = EmergencyTourniquet;
+    }
+
+    requirement occlusionPressure : OcclusionPressureRequirement {
+        subject tourniquet = EmergencyTourniquet;
+    }
+
+    requirement safeCompression : SafeCompressionRequirement {
+        subject tourniquet = EmergencyTourniquet;
+    }
+
+    requirement rapidApplication : RapidApplicationRequirement {
+        subject tourniquet = EmergencyTourniquet;
+    }
+
+    requirement limbCompatibility : LimbCompatibilityRequirement {
+        subject tourniquet = EmergencyTourniquet;
+    }
+
+    part fieldedEmergencyTourniquet : EmergencyTourniquet;
+
+    perform action fieldApplication : ApplyEmergencyTourniquet;
+
+    satisfy primaryFunction by fieldedEmergencyTourniquet;
+    satisfy occlusionPressure by fieldedEmergencyTourniquet;
+    satisfy safeCompression by fieldedEmergencyTourniquet;
+    satisfy rapidApplication by fieldedEmergencyTourniquet;
+    satisfy limbCompatibility by fieldedEmergencyTourniquet;
+}

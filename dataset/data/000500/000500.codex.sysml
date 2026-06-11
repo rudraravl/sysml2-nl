@@ -1,0 +1,353 @@
+package SingleUseMedicalDeviceSystem {
+  import ScalarValues::*;
+  import SI::*;
+
+  alias mL for SI::millilitre;
+  alias kPa for SI::kilopascal;
+  alias mm for SI::millimetre;
+  alias s for SI::second;
+  alias degC for SI::degreeCelsius;
+
+  item def SterileMedication {
+    attribute volume : Real;
+    attribute concentration_mg_per_mL : Real;
+    attribute sterilityAssuranceLevel : Real;
+  }
+
+  item def PatientBloodstream;
+  item def ContaminatedWaste;
+  item def UserForce;
+  item def FluidPressure;
+
+  enum def DeviceDispositionKind {
+    enum unused;
+    enum used;
+    enum sharpsContainerDisposed;
+    enum compromised;
+  }
+
+  enum def SterilityStateKind {
+    enum sterileBarrierIntact;
+    enum openedForUse;
+    enum fluidPathContacted;
+    enum nonSterile;
+  }
+
+  port def LuerFluidPort {
+    in item medicationIn : SterileMedication;
+    out item medicationOut : SterileMedication;
+    attribute innerDiameter : Real;
+    attribute lockEngaged : Boolean;
+  }
+
+  port def PlungerForcePort {
+    in item appliedForce : UserForce;
+    attribute maximumForce_N : Real;
+  }
+
+  port def NeedlePatientPort {
+    out item deliveredDose : SterileMedication;
+    in item vascularAccess : PatientBloodstream;
+    attribute needleGauge : Integer;
+    attribute insertionDepth_mm : Real;
+  }
+
+  port def WastePort {
+    out item discardedDevice : ContaminatedWaste;
+  }
+
+  part def SterileBarrierPackage {
+    attribute sealIntegrity : Boolean;
+    attribute packageSterility : SterilityStateKind;
+    attribute expirationTemperature_degC : Real;
+    attribute expirationMonths : Integer;
+
+    port protectedDevicePort : LuerFluidPort;
+  }
+
+  part def Barrel {
+    attribute nominalCapacity_mL : Real;
+    attribute graduationInterval_mL : Real;
+    attribute residualVolume_mL : Real;
+    attribute transparent : Boolean;
+
+    port fluidPort : LuerFluidPort;
+  }
+
+  part def Plunger {
+    attribute sealLeakRate_mL_per_s : Real;
+    attribute displacement_mm : Real;
+    attribute userForceLimit_N : Real;
+
+    port forcePort : PlungerForcePort;
+  }
+
+  part def SterileNeedle {
+    attribute gauge : Integer;
+    attribute length_mm : Real;
+    attribute bevelAngle_deg : Real;
+    attribute protectiveCapInstalled : Boolean;
+
+    port hubPort : LuerFluidPort;
+    port patientPort : NeedlePatientPort;
+  }
+
+  part def TamperEvidentLabel {
+    attribute lotNumber : String;
+    attribute deviceIdentifier : String;
+    attribute manufactureDate : String;
+    attribute expirationDate : String;
+    attribute singleUseSymbolPresent : Boolean;
+  }
+
+  part def SingleUseSterileSyringe {
+    doc
+    /*
+     Primary high-level function:
+     provide one controlled, sterile transfer of a measured medication dose
+     from a prepared syringe fluid path into a patient, then prevent reuse by
+     requiring disposal as contaminated medical waste.
+     */
+
+    attribute intendedUse : String = "single sterile medication injection";
+    attribute maximumDose_mL : Real = 10.0;
+    attribute minimumMeasurableDose_mL : Real = 0.1;
+    attribute maximumDeliveryPressure_kPa : Real = 300.0;
+    attribute disposition : DeviceDispositionKind = DeviceDispositionKind::unused;
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterileBarrierIntact;
+    attribute reuseAllowed : Boolean = false;
+
+    part package : SterileBarrierPackage {
+      :>> sealIntegrity = true;
+      :>> packageSterility = SterilityStateKind::sterileBarrierIntact;
+      :>> expirationTemperature_degC = 40.0;
+      :>> expirationMonths = 60;
+    }
+
+    part barrel : Barrel {
+      :>> nominalCapacity_mL = 10.0;
+      :>> graduationInterval_mL = 0.2;
+      :>> residualVolume_mL = 0.05;
+      :>> transparent = true;
+    }
+
+    part plunger : Plunger {
+      :>> sealLeakRate_mL_per_s = 0.001;
+      :>> displacement_mm = 0.0;
+      :>> userForceLimit_N = 45.0;
+    }
+
+    part needle : SterileNeedle {
+      :>> gauge = 22;
+      :>> length_mm = 25.0;
+      :>> bevelAngle_deg = 12.0;
+      :>> protectiveCapInstalled = true;
+    }
+
+    part label : TamperEvidentLabel {
+      :>> lotNumber = "L240611-A";
+      :>> deviceIdentifier = "SUD-SYR-10ML-22G";
+      :>> manufactureDate = "2026-06-10";
+      :>> expirationDate = "2031-06-10";
+      :>> singleUseSymbolPresent = true;
+    }
+
+    port medicationFillPort : LuerFluidPort {
+      :>> innerDiameter = 2.5;
+      :>> lockEngaged = true;
+    }
+
+    port userInputPort : PlungerForcePort {
+      :>> maximumForce_N = 45.0;
+    }
+
+    port patientInterfacePort : NeedlePatientPort {
+      :>> needleGauge = 22;
+      :>> insertionDepth_mm = 15.0;
+    }
+
+    port disposalPort : WastePort;
+
+    connection medicationPath1 connect medicationFillPort to barrel.fluidPort;
+    connection medicationPath2 connect barrel.fluidPort to needle.hubPort;
+    connection needleToPatient connect needle.patientPort to patientInterfacePort;
+    connection appliedForcePath connect userInputPort to plunger.forcePort;
+
+    perform action provideSingleUseInjection : ProvideSingleUseInjection;
+    exhibit state lifecycle : SingleUseDeviceLifecycle;
+  }
+
+  action def ProvideSingleUseInjection {
+    in item prescribedMedication : SterileMedication;
+    in item appliedUserForce : UserForce;
+    out item deliveredMedication : SterileMedication;
+    out item discardedDevice : ContaminatedWaste;
+
+    attribute targetDose_mL : Real;
+    attribute deliveredDose_mL : Real;
+    attribute deliveryDuration_s : Real;
+    attribute peakPressure_kPa : Real;
+
+    first start;
+    then verifySterileBarrier;
+    then openPackage;
+    then removeNeedleCap;
+    then fillOrConfirmMedication;
+    then expelAir;
+    then accessPatient;
+    then depressPlunger;
+    then confirmDoseDelivered;
+    then activatePostUseDisposition;
+    then discardInSharpsContainer;
+    then done;
+
+    action verifySterileBarrier {
+      in item medication : SterileMedication;
+      out item acceptedMedication : SterileMedication;
+    }
+
+    action openPackage;
+    action removeNeedleCap;
+    action fillOrConfirmMedication;
+    action expelAir;
+    action accessPatient;
+    action depressPlunger;
+    action confirmDoseDelivered;
+    action activatePostUseDisposition;
+    action discardInSharpsContainer;
+  }
+
+  state def SingleUseDeviceLifecycle {
+    entry action initialize {
+      disposition = DeviceDispositionKind::unused;
+      sterilityState = SterilityStateKind::sterileBarrierIntact;
+    }
+
+    state PackagedSterile;
+    state OpenedForProcedure;
+    state PreparedWithMedication;
+    state PatientContact;
+    state DoseDelivered;
+    state ContaminatedAfterUse;
+    state Disposed;
+    state CompromisedBeforeUse;
+
+    transition first PackagedSterile;
+
+    transition openForUse
+      first PackagedSterile
+      accept OpenPackage
+      then OpenedForProcedure;
+
+    transition packageDamaged
+      first PackagedSterile
+      accept DetectSealFailure
+      then CompromisedBeforeUse;
+
+    transition prepareDose
+      first OpenedForProcedure
+      accept MedicationLoaded
+      then PreparedWithMedication;
+
+    transition contactPatient
+      first PreparedWithMedication
+      accept NeedleInserted
+      then PatientContact;
+
+    transition deliverDose
+      first PatientContact
+      accept PlungerFullyDepressed
+      then DoseDelivered;
+
+    transition markContaminated
+      first DoseDelivered
+      accept InjectionComplete
+      then ContaminatedAfterUse;
+
+    transition discard
+      first ContaminatedAfterUse
+      accept PlacedInSharpsContainer
+      then Disposed;
+  }
+
+  requirement def SingleUseRequirement {
+    subject device : SingleUseSterileSyringe;
+
+    require constraint {
+      device.reuseAllowed == false
+    }
+
+    require constraint {
+      device.disposition != DeviceDispositionKind::used or
+      device.sterilityState != SterilityStateKind::sterileBarrierIntact
+    }
+  }
+
+  requirement def SterileBarrierRequirement {
+    subject device : SingleUseSterileSyringe;
+
+    require constraint {
+      device.package.sealIntegrity == true implies
+      device.package.packageSterility == SterilityStateKind::sterileBarrierIntact
+    }
+  }
+
+  requirement def DoseAccuracyRequirement {
+    subject device : SingleUseSterileSyringe;
+
+    attribute commandedDose_mL : Real;
+    attribute deliveredDose_mL : Real;
+
+    require constraint {
+      commandedDose_mL >= device.minimumMeasurableDose_mL and
+      commandedDose_mL <= device.maximumDose_mL
+    }
+
+    require constraint {
+      deliveredDose_mL >= commandedDose_mL * 0.95 and
+      deliveredDose_mL <= commandedDose_mL * 1.05
+    }
+  }
+
+  requirement def PressureSafetyRequirement {
+    subject device : SingleUseSterileSyringe;
+
+    attribute measuredPressure_kPa : Real;
+
+    require constraint {
+      measuredPressure_kPa <= device.maximumDeliveryPressure_kPa
+    }
+  }
+
+  requirement def LabelingRequirement {
+    subject device : SingleUseSterileSyringe;
+
+    require constraint {
+      device.label.singleUseSymbolPresent == true
+    }
+
+    require constraint {
+      device.label.deviceIdentifier != "" and
+      device.label.lotNumber != "" and
+      device.label.expirationDate != ""
+    }
+  }
+
+  requirement def DisposalRequirement {
+    subject device : SingleUseSterileSyringe;
+
+    require constraint {
+      device.disposition == DeviceDispositionKind::used implies
+      device.disposalPort.discardedDevice != null
+    }
+  }
+
+  part medicalDeviceSystem : SingleUseSterileSyringe;
+
+  satisfy SingleUseRequirement by medicalDeviceSystem;
+  satisfy SterileBarrierRequirement by medicalDeviceSystem;
+  satisfy DoseAccuracyRequirement by medicalDeviceSystem;
+  satisfy PressureSafetyRequirement by medicalDeviceSystem;
+  satisfy LabelingRequirement by medicalDeviceSystem;
+  satisfy DisposalRequirement by medicalDeviceSystem;
+}

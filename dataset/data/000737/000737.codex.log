@@ -1,0 +1,1217 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-3qg68rf3
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb404-a513-77b3-ba82-89a18b2a0831
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Pneumonia jacket and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PneumoniaJacketSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Temperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def HeartRate :> Real {
+    unit = "1/min";
+  }
+
+  attribute def RespiratoryRate :> Real {
+    unit = "1/min";
+  }
+
+  attribute def OxygenSaturation :> Real {
+    unit = "%";
+  }
+
+  attribute def Pressure :> Real {
+    unit = "kPa";
+  }
+
+  attribute def SoundLevel :> Real {
+    unit = "dB";
+  }
+
+  attribute def BatteryCharge :> Real {
+    unit = "%";
+  }
+
+  attribute def Power :> Real {
+    unit = "W";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Mass :> Real {
+    unit = "kg";
+  }
+
+  attribute def RiskScore :> Real {
+    unit = "1";
+  }
+
+  item def BreathSoundSignal {
+    attribute amplitude : SoundLevel;
+    attribute sampleRate : Real = 4000.0;
+    attribute duration : TimeDuration;
+  }
+
+  item def ChestMotionSignal {
+    attribute expansionPressure : Pressure;
+    attribute breathPeriod : TimeDuration;
+    attribute respiratoryRate : RespiratoryRate;
+  }
+
+  item def PhysiologicalSample {
+    attribute bodyTemperature : Temperature;
+    attribute heartRate : HeartRate;
+    attribute respiratoryRate : RespiratoryRate;
+    attribute oxygenSaturation : OxygenSaturation;
+    attribute breathSoundLevel : SoundLevel;
+    attribute timestamp : TimeDuration;
+  }
+
+  item def PneumoniaAssessment {
+    attribute feverDetected : Boolean;
+    attribute tachypneaDetected : Boolean;
+    attribute hypoxemiaDetected : Boolean;
+    attribute abnormalBreathSoundsDetected : Boolean;
+    attribute riskScore : RiskScore;
+    attribute alertRequired : Boolean;
+  }
+
+  item def TherapyCommand {
+    attribute warmingEnabled : Boolean;
+    attribute vibrationEnabled : Boolean;
+    attribute targetChestTemperature : Temperature;
+    attribute vibrationIntensity : Real;
+  }
+
+  item def UserAlert {
+    attribute priority : Integer;
+    attribute messageCode : Integer;
+    attribute riskScore : RiskScore;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real { unit = "V"; }
+    attribute current : Real { unit = "A"; }
+    attribute availablePower : Power;
+  }
+
+  item def WirelessPacket {
+    attribute packetId : Integer;
+    attribute encrypted : Boolean;
+    attribute payloadSize : Real { unit = "byte"; }
+  }
+
+  port def PhysiologicalSensorPort {
+    out item sample : PhysiologicalSample;
+  }
+
+  port def BreathSoundPort {
+    out item sound : BreathSoundSignal;
+  }
+
+  port def ChestMotionPort {
+    out item motion : ChestMotionSignal;
+  }
+
+  port def AssessmentPort {
+    in item sample : PhysiologicalSample;
+    out item assessment : PneumoniaAssessment;
+  }
+
+  port def TherapyControlPort {
+    in item command : TherapyCommand;
+  }
+
+  port def AlertPort {
+    out item alert : UserAlert;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+  }
+
+  port def WirelessPort {
+    inout item packet : WirelessPacket;
+  }
+
+  part def PneumoniaJacket {
+    attribute mass : Mass = 0.85;
+    attribute operatingTemperatureMin : Temperature = 5.0;
+    attribute operatingTemperatureMax : Temperature = 40.0;
+    attribute monitoringInterval : TimeDuration = 5.0;
+
+    port powerPort : PowerPort;
+    port wirelessPort : WirelessPort;
+    port alertPort : AlertPort;
+
+    part textileShell : TextileShell;
+    part sensorArray : SensorArray;
+    part controller : EmbeddedController;
+    part therapyModule : ChestComfortTherapyModule;
+    part userInterface : JacketUserInterface;
+    part batteryPack : BatteryPack;
+    part communicationModule : CommunicationModule;
+
+    connect batteryPack.powerOut to powerPort;
+    connect batteryPack.powerOut to controller.powerIn;
+    connect batteryPack.powerOut to sensorArray.powerIn;
+    connect batteryPack.powerOut to therapyModule.powerIn;
+    connect batteryPack.powerOut to communicationModule.powerIn;
+
+    connect sensorArray.physiologicalOut to controller.physiologicalIn;
+    connect sensorArray.breathSoundOut to controller.breathSoundIn;
+    connect sensorArray.chestMotionOut to controller.chestMotionIn;
+
+    connect controller.therapyOut to therapyModule.controlIn;
+    connect controller.alertOut to userInterface.alertIn;
+    connect controller.alertOut to alertPort;
+    connect controller.dataOut to communicationModule.dataIn;
+    connect communicationModule.radioPort to wirelessPort;
+
+    perform action monitorAndSupportPatient;
+  }
+
+  part def TextileShell {
+    attribute washable : Boolean = true;
+    attribute flameRetardant : Boolean = true;
+    attribute maximumSkinContactTemperature : Temperature = 42.0;
+
+    port powerIn : PowerPort;
+
+    part innerLayer : FabricLayer {
+      attribute breathable : Boolean = true;
+      attribute skinSafe : Boolean = true;
+    }
+
+    part insulationLayer : FabricLayer {
+      attribute thermalResistance : Real { unit = "K/W"; } = 0.35;
+      attribute moistureWicking : Boolean = true;
+    }
+
+    part outerLayer : FabricLayer {
+      attribute waterResistant : Boolean = true;
+      attribute antimicrobialCoating : Boolean = true;
+    }
+  }
+
+  part def FabricLayer {
+    attribute thickness : Real { unit = "mm"; } = 1.2;
+    attribute flexible : Boolean = true;
+  }
+
+  part def SensorArray {
+    port powerIn : PowerPort;
+    port physiologicalOut : PhysiologicalSensorPort;
+    port breathSoundOut : BreathSoundPort;
+    port chestMotionOut : ChestMotionPort;
+
+    part temperatureSensor : TemperatureSensor;
+    part pulseOximeter : PulseOximeter;
+    part respirationBand : RespirationBand;
+    part acousticSensorLeft : BreathSoundSensor;
+    part acousticSensorRight : BreathSoundSensor;
+
+    connect temperatureSensor.sampleOut to physiologicalOut;
+    connect pulseOximeter.sampleOut to physiologicalOut;
+    connect respirationBand.motionOut to chestMotionOut;
+    connect acousticSensorLeft.soundOut to breathSoundOut;
+    connect acousticSensorRight.soundOut to breathSoundOut;
+  }
+
+  part def TemperatureSensor {
+    attribute accuracy : Temperature = 0.1;
+    attribute samplingPeriod : TimeDuration = 5.0;
+    port powerIn : PowerPort;
+    port sampleOut : PhysiologicalSensorPort;
+  }
+
+  part def PulseOximeter {
+    attribute oxygenSaturationAccuracy : OxygenSaturation = 2.0;
+    attribute heartRateAccuracy : HeartRate = 3.0;
+    port powerIn : PowerPort;
+    port sampleOut : PhysiologicalSensorPort;
+  }
+
+  part def RespirationBand {
+    attribute pressureRangeMin : Pressure = 0.0;
+    attribute pressureRangeMax : Pressure = 20.0;
+    attribute respiratoryRateAccuracy : RespiratoryRate = 1.0;
+    port powerIn : PowerPort;
+    port motionOut : ChestMotionPort;
+  }
+
+  part def BreathSoundSensor {
+    attribute frequencyMin : Real { unit = "Hz"; } = 100.0;
+    attribute frequencyMax : Real { unit = "Hz"; } = 2000.0;
+    attribute noiseFloor : SoundLevel = 25.0;
+    port powerIn : PowerPort;
+    port soundOut : BreathSoundPort;
+  }
+
+  part def EmbeddedController {
+    attribute processorLoad : Real { unit = "%"; }
+    attribute feverThreshold : Temperature = 38.0;
+    attribute tachypneaAdultThreshold : RespiratoryRate = 24.0;
+    attribute hypoxemiaThreshold : OxygenSaturation = 92.0;
+    attribute highRiskThreshold : RiskScore = 0.70;
+
+    port powerIn : PowerPort;
+    port physiologicalIn : PhysiologicalSensorPort;
+    port breathSoundIn : BreathSoundPort;
+    port chestMotionIn : ChestMotionPort;
+    port therapyOut : TherapyControlPort;
+    port alertOut : AlertPort;
+    port dataOut : WirelessPort;
+
+    part pneumoniaRiskEstimator : PneumoniaRiskEstimator;
+    part dataLogger : DataLogger;
+
+    state def ControllerStateMachine {
+      entry action initializeController;
+
+      state Off;
+      state SelfTest;
+      state Monitoring;
+      state Assessing;
+      state Supporting;
+      state Alerting;
+      state Fault;
+
+      transition first Off;
+      transition Off_to_SelfTest
+        first Off then SelfTest
+        accept PowerOn;
+
+      transition SelfTest_to_Monitoring
+        first SelfTest then Monitoring
+        if selfTestPassed;
+
+      transition SelfTest_to_Fault
+        first SelfTest then Fault
+        if not selfTestPassed;
+
+      transition Monitoring_to_Assessing
+        first Monitoring then Assessing
+        accept NewPhysiologicalSample;
+
+      transition Assessing_to_Supporting
+        first Assessing then Supporting
+        if currentAssessment.riskScore >= 0.35 and currentAssessment.riskScore < highRiskThreshold;
+
+      transition Assessing_to_Alerting
+        first Assessing then Alerting
+        if currentAssessment.alertRequired;
+
+      transition Assessing_to_Monitoring
+        first Assessing then Monitoring
+        if currentAssessment.riskScore < 0.35;
+
+      transition Supporting_to_Monitoring
+        first Supporting then Monitoring
+        after supportInterval;
+
+      transition Alerting_to_Monitoring
+        first Alerting then Monitoring
+        accept AlertAcknowledged;
+
+      transition Monitoring_to_Fault
+        first Monitoring then Fault
+        if batteryCritical or sensorFailure;
+    }
+
+    action def initializeController {
+      out selfTestPassed : Boolean;
+    }
+
+    action def assessPneumoniaRisk {
+      in sample : PhysiologicalSample;
+      in sound : BreathSoundSignal;
+      in motion : ChestMotionSignal;
+      out assessment : PneumoniaAssessment;
+
+      action detectFever;
+      action detectTachypnea;
+      action detectHypoxemia;
+      action classifyBreathSounds;
+      action calculateRiskScore;
+    }
+
+    action def issueSupportCommand {
+      in assessment : PneumoniaAssessment;
+      out command : TherapyCommand;
+    }
+
+    action def issueAlert {
+      in assessment : PneumoniaAssessment;
+      out alert : UserAlert;
+    }
+
+    attribute currentAssessment : PneumoniaAssessment;
+    attribute supportInterval : TimeDuration = 300.0;
+    attribute batteryCritical : Boolean;
+    attribute sensorFailure : Boolean;
+  }
+
+  part def PneumoniaRiskEstimator {
+    attribute feverWeight : Real = 0.25;
+    attribute tachypneaWeight : Real = 0.25;
+    attribute hypoxemiaWeight : Real = 0.30;
+    attribute abnormalBreathSoundWeight : Real = 0.20;
+
+    port assessmentPort : AssessmentPort;
+
+    action def estimateRisk {
+      in sample : PhysiologicalSample;
+      out assessment : PneumoniaAssessment;
+    }
+  }
+
+  part def ChestComfortTherapyModule {
+    attribute maximumHeaterPower : Power = 8.0;
+    attribute maximumVibrationPower : Power = 2.0;
+    attribute defaultTargetChestTemperature : Temperature = 37.0;
+
+    port powerIn : PowerPort;
+    port controlIn : TherapyControlPort;
+
+    part heatingPanelLeft : HeatingPanel;
+    part heatingPanelRight : HeatingPanel;
+    part vibrationPadLeft : VibrationPad;
+    part vibrationPadRight : VibrationPad;
+
+    action def applyComfortTherapy {
+      in command : TherapyCommand;
+      out deliveredHeatPower : Power;
+      out deliveredVibrationIntensity : Real;
+    }
+  }
+
+  part def HeatingPanel {
+    attribute targetTemperature : Temperature = 37.0;
+    attribute maximumTemperature : Temperature = 41.0;
+    attribute powerDraw : Power = 4.0;
+    port powerIn : PowerPort;
+  }
+
+  part def VibrationPad {
+    attribute intensity : Real = 0.4;
+    attribute frequency : Real { unit = "Hz"; } = 25.0;
+    attribute powerDraw : Power = 1.0;
+    port powerIn : PowerPort;
+  }
+
+  part def JacketUserInterface {
+    port alertIn : AlertPort;
+    port powerIn : PowerPort;
+
+    part statusLight : StatusLight;
+    part hapticMotor : HapticMotor;
+    part acknowledgeButton : Button;
+
+    action def presentAlert {
+      in alert : UserAlert;
+    }
+  }
+
+  part def StatusLight {
+    attribute colorCode : Integer;
+    attribute blinkRate : Real { unit = "Hz"; } = 1.0;
+  }
+
+  part def HapticMotor {
+    attribute vibrationStrength : Real = 0.6;
+    attribute vibrationDuration : TimeDuration = 2.0;
+  }
+
+  part def Button {
+    attribute pressed : Boolean;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : Real { unit = "V"; } = 7.4;
+    attribute capacity : Real { unit = "A*h"; } = 4.0;
+    attribute chargeRemaining : BatteryCharge = 100.0;
+    attribute lowChargeThreshold : BatteryCharge = 15.0;
+    attribute criticalChargeThreshold : BatteryCharge = 5.0;
+
+    port powerOut : PowerPort;
+
+    state def BatteryStateMachine {
+      state Charged;
+      state Discharging;
+      state Low;
+      state Critical;
+      state Charging;
+
+      transition first Charged;
+      transition Charged_to_Discharging
+        first Charged then Discharging
+        accept LoadConnected;
+
+      transition Discharging_to_Low
+        first Discharging then Low
+        if chargeRemaining <= lowChargeThreshold;
+
+      transition Low_to_Critical
+        first Low then Critical
+        if chargeRemaining <= criticalChargeThreshold;
+
+      transition Discharging_to_Charging
+        first Discharging then Charging
+        accept ChargerConnected;
+
+      transition Low_to_Charging
+        first Low then Charging
+        accept ChargerConnected;
+
+      transition Charging_to_Charged
+        first Charging then Charged
+        if chargeRemaining >= 99.0;
+    }
+  }
+
+  part def CommunicationModule {
+    attribute bluetoothEnabled : Boolean = true;
+    attribute encryptionEnabled : Boolean = true;
+    attribute transmitInterval : TimeDuration = 60.0;
+
+    port powerIn : PowerPort;
+    port dataIn : WirelessPort;
+    port radioPort : WirelessPort;
+
+    action def transmitSummary {
+      in assessment : PneumoniaAssessment;
+      out packet : WirelessPacket;
+    }
+  }
+
+  part def DataLogger {
+    attribute storageCapacity : Real { unit = "Mbyte"; } = 128.0;
+    attribute sampleRetentionTime : Real { unit = "d"; } = 14.0;
+
+    action def storeSample {
+      in sample : PhysiologicalSample;
+      in assessment : PneumoniaAssessment;
+    }
+  }
+
+  action def monitorAndSupportPatient {
+    in wearerPresent : Boolean;
+    out currentAssessment : PneumoniaAssessment;
+
+    action collectPhysiologicalSignals;
+    action estimatePneumoniaRisk;
+    action maintainChestWarmth;
+    action notifyCaregiverWhenNeeded;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The pneumonia jacket shall continuously monitor respiratory and vital signs of a wearer, estimate pneumonia-related risk indicators, provide gentle chest warming and vibration support, and alert the wearer or caregiver when signs indicate possible deterioration. */
+
+    subject jacket : PneumoniaJacket;
+
+    require constraint {
+      jacket.monitoringInterval <= 10.0
+    }
+  }
+
+  requirement def PhysiologicalMonitoringRequirement {
+    doc /* The jacket shall measure body temperature, respiratory rate, oxygen saturation, heart rate, chest expansion, and breath sound features while worn. */
+
+    subject sensors : SensorArray;
+
+    require constraint {
+      sensors.temperatureSensor.accuracy <= 0.2 and
+      sensors.pulseOximeter.oxygenSaturationAccuracy <= 3.0 and
+      sensors.respirationBand.respiratoryRateAccuracy <= 2.0
+    }
+  }
+
+  requirement def RiskAssessmentRequirement {
+    doc /* The controller shall classify fever, tachypnea, hypoxemia, and abnormal breath sounds into a pneumonia risk assessment at least once every monitoring interval. */
+
+    subject controller : EmbeddedController;
+
+    require constraint {
+      controller.feverThreshold == 38.0 and
+      controller.hypoxemiaThreshold == 92.0 and
+      controller.highRiskThreshold == 0.70
+    }
+  }
+
+  requirement def AlertRequirement {
+    doc /* The jacket shall issue a local and wireless alert when the computed pneumonia risk score is high or oxygen saturation falls below the configured hypoxemia threshold. */
+
+    subject controller : EmbeddedController;
+
+    require constraint {
+      controller.currentAssessment.alertRequired ==
+        (controller.currentAssessment.riskScore >= controller.highRiskThreshold or
+         controller.currentAssessment.hypoxemiaDetected)
+    }
+  }
+
+  requirement def ComfortTherapyRequirement {
+    doc /* The jacket shall provide non-invasive chest comfort therapy by warming the chest area below the safe skin contact temperature and applying low-intensity vibration when moderate risk indicators are present. */
+
+    subject therapy : ChestComfortTherapyModule;
+
+    require constraint {
+      therapy.heatingPanelLeft.maximumTemperature <= 41.0 and
+      therapy.heatingPanelRight.maximumTemperature <= 41.0 and
+      therapy.maximumVibrationPower <= 2.0
+    }
+  }
+
+  requirement def WearabilityRequirement {
+    doc /* The jacket shall remain wearable for daily use by limiting total mass and using breathable skin-safe textile layers. */
+
+    subject jacket : PneumoniaJacket;
+
+    require constraint {
+      jacket.mass <= 1.0 and
+      jacket.textileShell.innerLayer.breathable and
+      jacket.textileShell.innerLayer.skinSafe
+    }
+  }
+
+  requirement def PowerRequirement {
+    doc /* The jacket shall support portable operation and warn before battery charge reaches a critical level. */
+
+    subject battery : BatteryPack;
+
+    require constraint {
+      battery.capacity >= 3.0 and
+      battery.lowChargeThreshold > battery.criticalChargeThreshold
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by PneumoniaJacket;
+  satisfy PhysiologicalMonitoringRequirement by SensorArray;
+  satisfy RiskAssessmentRequirement by EmbeddedController;
+  satisfy AlertRequirement by EmbeddedController;
+  satisfy ComfortTherapyRequirement by ChestComfortTherapyModule;
+  satisfy WearabilityRequirement by PneumoniaJacket;
+  satisfy PowerRequirement by BatteryPack;
+
+}
+tokens used
+4,390
+package PneumoniaJacketSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Temperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def HeartRate :> Real {
+    unit = "1/min";
+  }
+
+  attribute def RespiratoryRate :> Real {
+    unit = "1/min";
+  }
+
+  attribute def OxygenSaturation :> Real {
+    unit = "%";
+  }
+
+  attribute def Pressure :> Real {
+    unit = "kPa";
+  }
+
+  attribute def SoundLevel :> Real {
+    unit = "dB";
+  }
+
+  attribute def BatteryCharge :> Real {
+    unit = "%";
+  }
+
+  attribute def Power :> Real {
+    unit = "W";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Mass :> Real {
+    unit = "kg";
+  }
+
+  attribute def RiskScore :> Real {
+    unit = "1";
+  }
+
+  item def BreathSoundSignal {
+    attribute amplitude : SoundLevel;
+    attribute sampleRate : Real = 4000.0;
+    attribute duration : TimeDuration;
+  }
+
+  item def ChestMotionSignal {
+    attribute expansionPressure : Pressure;
+    attribute breathPeriod : TimeDuration;
+    attribute respiratoryRate : RespiratoryRate;
+  }
+
+  item def PhysiologicalSample {
+    attribute bodyTemperature : Temperature;
+    attribute heartRate : HeartRate;
+    attribute respiratoryRate : RespiratoryRate;
+    attribute oxygenSaturation : OxygenSaturation;
+    attribute breathSoundLevel : SoundLevel;
+    attribute timestamp : TimeDuration;
+  }
+
+  item def PneumoniaAssessment {
+    attribute feverDetected : Boolean;
+    attribute tachypneaDetected : Boolean;
+    attribute hypoxemiaDetected : Boolean;
+    attribute abnormalBreathSoundsDetected : Boolean;
+    attribute riskScore : RiskScore;
+    attribute alertRequired : Boolean;
+  }
+
+  item def TherapyCommand {
+    attribute warmingEnabled : Boolean;
+    attribute vibrationEnabled : Boolean;
+    attribute targetChestTemperature : Temperature;
+    attribute vibrationIntensity : Real;
+  }
+
+  item def UserAlert {
+    attribute priority : Integer;
+    attribute messageCode : Integer;
+    attribute riskScore : RiskScore;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real { unit = "V"; }
+    attribute current : Real { unit = "A"; }
+    attribute availablePower : Power;
+  }
+
+  item def WirelessPacket {
+    attribute packetId : Integer;
+    attribute encrypted : Boolean;
+    attribute payloadSize : Real { unit = "byte"; }
+  }
+
+  port def PhysiologicalSensorPort {
+    out item sample : PhysiologicalSample;
+  }
+
+  port def BreathSoundPort {
+    out item sound : BreathSoundSignal;
+  }
+
+  port def ChestMotionPort {
+    out item motion : ChestMotionSignal;
+  }
+
+  port def AssessmentPort {
+    in item sample : PhysiologicalSample;
+    out item assessment : PneumoniaAssessment;
+  }
+
+  port def TherapyControlPort {
+    in item command : TherapyCommand;
+  }
+
+  port def AlertPort {
+    out item alert : UserAlert;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+  }
+
+  port def WirelessPort {
+    inout item packet : WirelessPacket;
+  }
+
+  part def PneumoniaJacket {
+    attribute mass : Mass = 0.85;
+    attribute operatingTemperatureMin : Temperature = 5.0;
+    attribute operatingTemperatureMax : Temperature = 40.0;
+    attribute monitoringInterval : TimeDuration = 5.0;
+
+    port powerPort : PowerPort;
+    port wirelessPort : WirelessPort;
+    port alertPort : AlertPort;
+
+    part textileShell : TextileShell;
+    part sensorArray : SensorArray;
+    part controller : EmbeddedController;
+    part therapyModule : ChestComfortTherapyModule;
+    part userInterface : JacketUserInterface;
+    part batteryPack : BatteryPack;
+    part communicationModule : CommunicationModule;
+
+    connect batteryPack.powerOut to powerPort;
+    connect batteryPack.powerOut to controller.powerIn;
+    connect batteryPack.powerOut to sensorArray.powerIn;
+    connect batteryPack.powerOut to therapyModule.powerIn;
+    connect batteryPack.powerOut to communicationModule.powerIn;
+
+    connect sensorArray.physiologicalOut to controller.physiologicalIn;
+    connect sensorArray.breathSoundOut to controller.breathSoundIn;
+    connect sensorArray.chestMotionOut to controller.chestMotionIn;
+
+    connect controller.therapyOut to therapyModule.controlIn;
+    connect controller.alertOut to userInterface.alertIn;
+    connect controller.alertOut to alertPort;
+    connect controller.dataOut to communicationModule.dataIn;
+    connect communicationModule.radioPort to wirelessPort;
+
+    perform action monitorAndSupportPatient;
+  }
+
+  part def TextileShell {
+    attribute washable : Boolean = true;
+    attribute flameRetardant : Boolean = true;
+    attribute maximumSkinContactTemperature : Temperature = 42.0;
+
+    port powerIn : PowerPort;
+
+    part innerLayer : FabricLayer {
+      attribute breathable : Boolean = true;
+      attribute skinSafe : Boolean = true;
+    }
+
+    part insulationLayer : FabricLayer {
+      attribute thermalResistance : Real { unit = "K/W"; } = 0.35;
+      attribute moistureWicking : Boolean = true;
+    }
+
+    part outerLayer : FabricLayer {
+      attribute waterResistant : Boolean = true;
+      attribute antimicrobialCoating : Boolean = true;
+    }
+  }
+
+  part def FabricLayer {
+    attribute thickness : Real { unit = "mm"; } = 1.2;
+    attribute flexible : Boolean = true;
+  }
+
+  part def SensorArray {
+    port powerIn : PowerPort;
+    port physiologicalOut : PhysiologicalSensorPort;
+    port breathSoundOut : BreathSoundPort;
+    port chestMotionOut : ChestMotionPort;
+
+    part temperatureSensor : TemperatureSensor;
+    part pulseOximeter : PulseOximeter;
+    part respirationBand : RespirationBand;
+    part acousticSensorLeft : BreathSoundSensor;
+    part acousticSensorRight : BreathSoundSensor;
+
+    connect temperatureSensor.sampleOut to physiologicalOut;
+    connect pulseOximeter.sampleOut to physiologicalOut;
+    connect respirationBand.motionOut to chestMotionOut;
+    connect acousticSensorLeft.soundOut to breathSoundOut;
+    connect acousticSensorRight.soundOut to breathSoundOut;
+  }
+
+  part def TemperatureSensor {
+    attribute accuracy : Temperature = 0.1;
+    attribute samplingPeriod : TimeDuration = 5.0;
+    port powerIn : PowerPort;
+    port sampleOut : PhysiologicalSensorPort;
+  }
+
+  part def PulseOximeter {
+    attribute oxygenSaturationAccuracy : OxygenSaturation = 2.0;
+    attribute heartRateAccuracy : HeartRate = 3.0;
+    port powerIn : PowerPort;
+    port sampleOut : PhysiologicalSensorPort;
+  }
+
+  part def RespirationBand {
+    attribute pressureRangeMin : Pressure = 0.0;
+    attribute pressureRangeMax : Pressure = 20.0;
+    attribute respiratoryRateAccuracy : RespiratoryRate = 1.0;
+    port powerIn : PowerPort;
+    port motionOut : ChestMotionPort;
+  }
+
+  part def BreathSoundSensor {
+    attribute frequencyMin : Real { unit = "Hz"; } = 100.0;
+    attribute frequencyMax : Real { unit = "Hz"; } = 2000.0;
+    attribute noiseFloor : SoundLevel = 25.0;
+    port powerIn : PowerPort;
+    port soundOut : BreathSoundPort;
+  }
+
+  part def EmbeddedController {
+    attribute processorLoad : Real { unit = "%"; }
+    attribute feverThreshold : Temperature = 38.0;
+    attribute tachypneaAdultThreshold : RespiratoryRate = 24.0;
+    attribute hypoxemiaThreshold : OxygenSaturation = 92.0;
+    attribute highRiskThreshold : RiskScore = 0.70;
+
+    port powerIn : PowerPort;
+    port physiologicalIn : PhysiologicalSensorPort;
+    port breathSoundIn : BreathSoundPort;
+    port chestMotionIn : ChestMotionPort;
+    port therapyOut : TherapyControlPort;
+    port alertOut : AlertPort;
+    port dataOut : WirelessPort;
+
+    part pneumoniaRiskEstimator : PneumoniaRiskEstimator;
+    part dataLogger : DataLogger;
+
+    state def ControllerStateMachine {
+      entry action initializeController;
+
+      state Off;
+      state SelfTest;
+      state Monitoring;
+      state Assessing;
+      state Supporting;
+      state Alerting;
+      state Fault;
+
+      transition first Off;
+      transition Off_to_SelfTest
+        first Off then SelfTest
+        accept PowerOn;
+
+      transition SelfTest_to_Monitoring
+        first SelfTest then Monitoring
+        if selfTestPassed;
+
+      transition SelfTest_to_Fault
+        first SelfTest then Fault
+        if not selfTestPassed;
+
+      transition Monitoring_to_Assessing
+        first Monitoring then Assessing
+        accept NewPhysiologicalSample;
+
+      transition Assessing_to_Supporting
+        first Assessing then Supporting
+        if currentAssessment.riskScore >= 0.35 and currentAssessment.riskScore < highRiskThreshold;
+
+      transition Assessing_to_Alerting
+        first Assessing then Alerting
+        if currentAssessment.alertRequired;
+
+      transition Assessing_to_Monitoring
+        first Assessing then Monitoring
+        if currentAssessment.riskScore < 0.35;
+
+      transition Supporting_to_Monitoring
+        first Supporting then Monitoring
+        after supportInterval;
+
+      transition Alerting_to_Monitoring
+        first Alerting then Monitoring
+        accept AlertAcknowledged;
+
+      transition Monitoring_to_Fault
+        first Monitoring then Fault
+        if batteryCritical or sensorFailure;
+    }
+
+    action def initializeController {
+      out selfTestPassed : Boolean;
+    }
+
+    action def assessPneumoniaRisk {
+      in sample : PhysiologicalSample;
+      in sound : BreathSoundSignal;
+      in motion : ChestMotionSignal;
+      out assessment : PneumoniaAssessment;
+
+      action detectFever;
+      action detectTachypnea;
+      action detectHypoxemia;
+      action classifyBreathSounds;
+      action calculateRiskScore;
+    }
+
+    action def issueSupportCommand {
+      in assessment : PneumoniaAssessment;
+      out command : TherapyCommand;
+    }
+
+    action def issueAlert {
+      in assessment : PneumoniaAssessment;
+      out alert : UserAlert;
+    }
+
+    attribute currentAssessment : PneumoniaAssessment;
+    attribute supportInterval : TimeDuration = 300.0;
+    attribute batteryCritical : Boolean;
+    attribute sensorFailure : Boolean;
+  }
+
+  part def PneumoniaRiskEstimator {
+    attribute feverWeight : Real = 0.25;
+    attribute tachypneaWeight : Real = 0.25;
+    attribute hypoxemiaWeight : Real = 0.30;
+    attribute abnormalBreathSoundWeight : Real = 0.20;
+
+    port assessmentPort : AssessmentPort;
+
+    action def estimateRisk {
+      in sample : PhysiologicalSample;
+      out assessment : PneumoniaAssessment;
+    }
+  }
+
+  part def ChestComfortTherapyModule {
+    attribute maximumHeaterPower : Power = 8.0;
+    attribute maximumVibrationPower : Power = 2.0;
+    attribute defaultTargetChestTemperature : Temperature = 37.0;
+
+    port powerIn : PowerPort;
+    port controlIn : TherapyControlPort;
+
+    part heatingPanelLeft : HeatingPanel;
+    part heatingPanelRight : HeatingPanel;
+    part vibrationPadLeft : VibrationPad;
+    part vibrationPadRight : VibrationPad;
+
+    action def applyComfortTherapy {
+      in command : TherapyCommand;
+      out deliveredHeatPower : Power;
+      out deliveredVibrationIntensity : Real;
+    }
+  }
+
+  part def HeatingPanel {
+    attribute targetTemperature : Temperature = 37.0;
+    attribute maximumTemperature : Temperature = 41.0;
+    attribute powerDraw : Power = 4.0;
+    port powerIn : PowerPort;
+  }
+
+  part def VibrationPad {
+    attribute intensity : Real = 0.4;
+    attribute frequency : Real { unit = "Hz"; } = 25.0;
+    attribute powerDraw : Power = 1.0;
+    port powerIn : PowerPort;
+  }
+
+  part def JacketUserInterface {
+    port alertIn : AlertPort;
+    port powerIn : PowerPort;
+
+    part statusLight : StatusLight;
+    part hapticMotor : HapticMotor;
+    part acknowledgeButton : Button;
+
+    action def presentAlert {
+      in alert : UserAlert;
+    }
+  }
+
+  part def StatusLight {
+    attribute colorCode : Integer;
+    attribute blinkRate : Real { unit = "Hz"; } = 1.0;
+  }
+
+  part def HapticMotor {
+    attribute vibrationStrength : Real = 0.6;
+    attribute vibrationDuration : TimeDuration = 2.0;
+  }
+
+  part def Button {
+    attribute pressed : Boolean;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : Real { unit = "V"; } = 7.4;
+    attribute capacity : Real { unit = "A*h"; } = 4.0;
+    attribute chargeRemaining : BatteryCharge = 100.0;
+    attribute lowChargeThreshold : BatteryCharge = 15.0;
+    attribute criticalChargeThreshold : BatteryCharge = 5.0;
+
+    port powerOut : PowerPort;
+
+    state def BatteryStateMachine {
+      state Charged;
+      state Discharging;
+      state Low;
+      state Critical;
+      state Charging;
+
+      transition first Charged;
+      transition Charged_to_Discharging
+        first Charged then Discharging
+        accept LoadConnected;
+
+      transition Discharging_to_Low
+        first Discharging then Low
+        if chargeRemaining <= lowChargeThreshold;
+
+      transition Low_to_Critical
+        first Low then Critical
+        if chargeRemaining <= criticalChargeThreshold;
+
+      transition Discharging_to_Charging
+        first Discharging then Charging
+        accept ChargerConnected;
+
+      transition Low_to_Charging
+        first Low then Charging
+        accept ChargerConnected;
+
+      transition Charging_to_Charged
+        first Charging then Charged
+        if chargeRemaining >= 99.0;
+    }
+  }
+
+  part def CommunicationModule {
+    attribute bluetoothEnabled : Boolean = true;
+    attribute encryptionEnabled : Boolean = true;
+    attribute transmitInterval : TimeDuration = 60.0;
+
+    port powerIn : PowerPort;
+    port dataIn : WirelessPort;
+    port radioPort : WirelessPort;
+
+    action def transmitSummary {
+      in assessment : PneumoniaAssessment;
+      out packet : WirelessPacket;
+    }
+  }
+
+  part def DataLogger {
+    attribute storageCapacity : Real { unit = "Mbyte"; } = 128.0;
+    attribute sampleRetentionTime : Real { unit = "d"; } = 14.0;
+
+    action def storeSample {
+      in sample : PhysiologicalSample;
+      in assessment : PneumoniaAssessment;
+    }
+  }
+
+  action def monitorAndSupportPatient {
+    in wearerPresent : Boolean;
+    out currentAssessment : PneumoniaAssessment;
+
+    action collectPhysiologicalSignals;
+    action estimatePneumoniaRisk;
+    action maintainChestWarmth;
+    action notifyCaregiverWhenNeeded;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The pneumonia jacket shall continuously monitor respiratory and vital signs of a wearer, estimate pneumonia-related risk indicators, provide gentle chest warming and vibration support, and alert the wearer or caregiver when signs indicate possible deterioration. */
+
+    subject jacket : PneumoniaJacket;
+
+    require constraint {
+      jacket.monitoringInterval <= 10.0
+    }
+  }
+
+  requirement def PhysiologicalMonitoringRequirement {
+    doc /* The jacket shall measure body temperature, respiratory rate, oxygen saturation, heart rate, chest expansion, and breath sound features while worn. */
+
+    subject sensors : SensorArray;
+
+    require constraint {
+      sensors.temperatureSensor.accuracy <= 0.2 and
+      sensors.pulseOximeter.oxygenSaturationAccuracy <= 3.0 and
+      sensors.respirationBand.respiratoryRateAccuracy <= 2.0
+    }
+  }
+
+  requirement def RiskAssessmentRequirement {
+    doc /* The controller shall classify fever, tachypnea, hypoxemia, and abnormal breath sounds into a pneumonia risk assessment at least once every monitoring interval. */
+
+    subject controller : EmbeddedController;
+
+    require constraint {
+      controller.feverThreshold == 38.0 and
+      controller.hypoxemiaThreshold == 92.0 and
+      controller.highRiskThreshold == 0.70
+    }
+  }
+
+  requirement def AlertRequirement {
+    doc /* The jacket shall issue a local and wireless alert when the computed pneumonia risk score is high or oxygen saturation falls below the configured hypoxemia threshold. */
+
+    subject controller : EmbeddedController;
+
+    require constraint {
+      controller.currentAssessment.alertRequired ==
+        (controller.currentAssessment.riskScore >= controller.highRiskThreshold or
+         controller.currentAssessment.hypoxemiaDetected)
+    }
+  }
+
+  requirement def ComfortTherapyRequirement {
+    doc /* The jacket shall provide non-invasive chest comfort therapy by warming the chest area below the safe skin contact temperature and applying low-intensity vibration when moderate risk indicators are present. */
+
+    subject therapy : ChestComfortTherapyModule;
+
+    require constraint {
+      therapy.heatingPanelLeft.maximumTemperature <= 41.0 and
+      therapy.heatingPanelRight.maximumTemperature <= 41.0 and
+      therapy.maximumVibrationPower <= 2.0
+    }
+  }
+
+  requirement def WearabilityRequirement {
+    doc /* The jacket shall remain wearable for daily use by limiting total mass and using breathable skin-safe textile layers. */
+
+    subject jacket : PneumoniaJacket;
+
+    require constraint {
+      jacket.mass <= 1.0 and
+      jacket.textileShell.innerLayer.breathable and
+      jacket.textileShell.innerLayer.skinSafe
+    }
+  }
+
+  requirement def PowerRequirement {
+    doc /* The jacket shall support portable operation and warn before battery charge reaches a critical level. */
+
+    subject battery : BatteryPack;
+
+    require constraint {
+      battery.capacity >= 3.0 and
+      battery.lowChargeThreshold > battery.criticalChargeThreshold
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by PneumoniaJacket;
+  satisfy PhysiologicalMonitoringRequirement by SensorArray;
+  satisfy RiskAssessmentRequirement by EmbeddedController;
+  satisfy AlertRequirement by EmbeddedController;
+  satisfy ComfortTherapyRequirement by ChestComfortTherapyModule;
+  satisfy WearabilityRequirement by PneumoniaJacket;
+  satisfy PowerRequirement by BatteryPack;
+
+}

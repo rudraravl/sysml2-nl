@@ -1,0 +1,452 @@
+package BilgePumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> scalar;
+    attribute def FlowRate :> scalar;
+    attribute def Volume :> scalar;
+    attribute def Current :> scalar;
+    attribute def Voltage :> scalar;
+    attribute def Power :> scalar;
+    attribute def Time :> scalar;
+    attribute def Percent :> scalar;
+    attribute def RotationalSpeed :> scalar;
+
+    item def BilgeWater {
+        attribute salinity : Percent;
+        attribute temperature : TemperatureValue;
+        attribute contaminationLevel : Percent;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def CommandSignal {
+        attribute enable : Boolean;
+        attribute manualOverride : Boolean;
+        attribute requestedMode : PumpMode;
+    }
+
+    item def PumpStatus {
+        attribute running : Boolean;
+        attribute faulted : Boolean;
+        attribute dryRunDetected : Boolean;
+        attribute measuredFlow : FlowRate;
+        attribute motorCurrent : Current;
+    }
+
+    enum def PumpMode {
+        enum off;
+        enum automatic;
+        enum manual;
+        enum fault;
+    }
+
+    enum def WaterLevelState {
+        enum dry;
+        enum low;
+        enum high;
+        enum critical;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : BilgeWater;
+        attribute inletPressure : Pressure;
+        attribute inletFlow : FlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : BilgeWater;
+        attribute dischargePressure : Pressure;
+        attribute dischargeFlow : FlowRate;
+    }
+
+    port def PowerInputPort {
+        in item electricalInput : ElectricalEnergy;
+        attribute suppliedVoltage : Voltage;
+        attribute suppliedCurrent : Current;
+    }
+
+    port def ControlInputPort {
+        in item command : CommandSignal;
+    }
+
+    port def StatusOutputPort {
+        out item status : PumpStatus;
+    }
+
+    port def LevelMeasurementPort {
+        out attribute levelState : WaterLevelState;
+        out attribute waterHeight : LengthValue;
+    }
+
+    part def BilgePump {
+        port suction : FluidInletPort;
+        port discharge : FluidOutletPort;
+        port power : PowerInputPort;
+        port control : ControlInputPort;
+        port status : StatusOutputPort;
+
+        attribute ratedVoltage : Voltage = 12;
+        attribute maxCurrent : Current = 8;
+        attribute nominalFlowRate : FlowRate = 0.0025;
+        attribute maxDischargeHead : LengthValue = 4.0 [m];
+        attribute dryRunTimeout : Time = 10;
+        attribute impellerSpeed : RotationalSpeed;
+        attribute enabled : Boolean;
+        attribute running : Boolean;
+        attribute faulted : Boolean;
+
+        action startPump {
+            in command : CommandSignal;
+            out status : PumpStatus;
+            first startMotor;
+            then accelerateImpeller;
+            then publishRunningStatus;
+        }
+
+        action stopPump {
+            out status : PumpStatus;
+            first deenergizeMotor;
+            then publishStoppedStatus;
+        }
+
+        action moveFluid {
+            in water : BilgeWater;
+            out dischargedWater : BilgeWater;
+            attribute deliveredFlow : FlowRate;
+            first drawFromSuction;
+            then pressurizeFlow;
+            then dischargeOverboard;
+        }
+
+        state def PumpOperatingState {
+            entry; then Off;
+
+            state Off;
+            state Starting;
+            state Running;
+            state DryRunProtection;
+            state Faulted;
+
+            transition Off_to_Starting
+                first Off
+                accept CommandSignal
+                if command.enable
+                then Starting;
+
+            transition Starting_to_Running
+                first Starting
+                if power.suppliedVoltage >= ratedVoltage
+                then Running;
+
+            transition Running_to_Off
+                first Running
+                accept CommandSignal
+                if not command.enable
+                then Off;
+
+            transition Running_to_DryRunProtection
+                first Running
+                if status.status.measuredFlow <= 0.0001
+                then DryRunProtection;
+
+            transition DryRunProtection_to_Off
+                first DryRunProtection
+                after dryRunTimeout
+                then Off;
+
+            transition Any_to_Faulted
+                first Off
+                if faulted
+                then Faulted;
+
+            transition Faulted_to_Off
+                first Faulted
+                accept CommandSignal
+                if command.manualOverride and not faulted
+                then Off;
+        }
+    }
+
+    part def BilgeWell {
+        port outlet : FluidInletPort;
+        attribute waterVolume : Volume;
+        attribute waterHeight : LengthValue;
+        attribute capacity : Volume = 0.08;
+        attribute highLevelThreshold : LengthValue = 0.18 [m];
+        attribute lowLevelThreshold : LengthValue = 0.04 [m];
+        attribute criticalLevelThreshold : LengthValue = 0.28 [m];
+
+        item containedWater : BilgeWater;
+    }
+
+    part def WaterLevelSensor {
+        port measurement : LevelMeasurementPort;
+        attribute sensedHeight : LengthValue;
+        attribute reportedState : WaterLevelState;
+        attribute samplePeriod : Time = 0.5;
+
+        action classifyLevel {
+            in height : LengthValue;
+            out state : WaterLevelState;
+        }
+
+        state def SensorState {
+            entry; then Monitoring;
+
+            state Monitoring;
+            state Failed;
+
+            transition Monitoring_to_Failed
+                first Monitoring
+                if sensedHeight < 0.0 [m]
+                then Failed;
+        }
+    }
+
+    part def PumpController {
+        port levelInput : LevelMeasurementPort;
+        port pumpCommand : ControlInputPort;
+        port pumpFeedback : StatusOutputPort;
+
+        attribute selectedMode : PumpMode = PumpMode::automatic;
+        attribute highStartDelay : Time = 1.0;
+        attribute lowStopDelay : Time = 2.0;
+        attribute commandedEnable : Boolean;
+        attribute manualSwitch : Boolean;
+        attribute alarmActive : Boolean;
+
+        action evaluateLevel {
+            in level : WaterLevelState;
+            out command : CommandSignal;
+        }
+
+        action raiseAlarm {
+            in status : PumpStatus;
+        }
+
+        state def ControllerState {
+            entry; then AutomaticStandby;
+
+            state AutomaticStandby;
+            state AutomaticPumping;
+            state ManualPumping;
+            state Alarmed;
+
+            transition Standby_to_AutoPumping
+                first AutomaticStandby
+                if levelInput.levelState == WaterLevelState::high or levelInput.levelState == WaterLevelState::critical
+                then AutomaticPumping;
+
+            transition AutoPumping_to_Standby
+                first AutomaticPumping
+                if levelInput.levelState == WaterLevelState::low or levelInput.levelState == WaterLevelState::dry
+                then AutomaticStandby;
+
+            transition Standby_to_Manual
+                first AutomaticStandby
+                if manualSwitch
+                then ManualPumping;
+
+            transition Manual_to_Standby
+                first ManualPumping
+                if not manualSwitch
+                then AutomaticStandby;
+
+            transition Any_to_Alarmed
+                first AutomaticPumping
+                if pumpFeedback.status.faulted or levelInput.levelState == WaterLevelState::critical
+                then Alarmed;
+        }
+    }
+
+    part def DischargeHose {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        attribute insideDiameter : LengthValue = 0.019 [m];
+        attribute length : LengthValue = 2.5 [m];
+        attribute pressureDrop : Pressure;
+        attribute ratedPressure : Pressure = 200000;
+    }
+
+    part def CheckValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        attribute crackingPressure : Pressure = 1000;
+        attribute reverseLeakageFlow : FlowRate = 0.0;
+        attribute open : Boolean;
+
+        action preventBackflow {
+            in downstreamPressure : Pressure;
+            in upstreamPressure : Pressure;
+            out leakage : FlowRate;
+        }
+    }
+
+    part def OverboardOutlet {
+        port inlet : FluidInletPort;
+        attribute outletHeightAboveBilge : LengthValue = 1.1 [m];
+        attribute environmentPressure : Pressure = 101325;
+    }
+
+    part def ElectricalSupply {
+        port output : PowerInputPort;
+        attribute busVoltage : Voltage = 12;
+        attribute availableCurrent : Current = 15;
+        attribute fuseRating : Current = 10;
+        attribute energized : Boolean;
+    }
+
+    part def BilgePumpingSubsystem {
+        part bilgeWell : BilgeWell;
+        part levelSensor : WaterLevelSensor;
+        part controller : PumpController;
+        part pump : BilgePump;
+        part dischargeHose : DischargeHose;
+        part checkValve : CheckValve;
+        part outlet : OverboardOutlet;
+        part supply : ElectricalSupply;
+
+        port subsystemInlet : FluidInletPort;
+        port subsystemOutlet : FluidOutletPort;
+        port subsystemPower : PowerInputPort;
+        port subsystemStatus : StatusOutputPort;
+
+        attribute totalDeliveredFlow : FlowRate;
+        attribute pumpCycleCount : Integer;
+        attribute residualWaterHeight : LengthValue;
+        attribute subsystemAvailable : Boolean;
+
+        connect bilgeWell.outlet to pump.suction;
+        connect pump.discharge to dischargeHose.inlet;
+        connect dischargeHose.outlet to checkValve.inlet;
+        connect checkValve.outlet to outlet.inlet;
+        connect supply.output to pump.power;
+        connect levelSensor.measurement to controller.levelInput;
+        connect controller.pumpCommand to pump.control;
+        connect pump.status to controller.pumpFeedback;
+        connect pump.status to subsystemStatus;
+        connect subsystemPower to supply.output;
+        connect outlet.inlet to subsystemOutlet;
+        connect subsystemInlet to bilgeWell.outlet;
+
+        action pumpBilgeWater {
+            in incomingWater : BilgeWater;
+            out dischargedWater : BilgeWater;
+            first senseWaterLevel;
+            then commandPump;
+            then energizePump;
+            then transferFluid;
+            then stopAtLowLevel;
+        }
+
+        state def SubsystemState {
+            entry; then Ready;
+
+            state Ready;
+            state Pumping;
+            state StoppedLowWater;
+            state Faulted;
+            state MaintenanceRequired;
+
+            transition Ready_to_Pumping
+                first Ready
+                if levelSensor.reportedState == WaterLevelState::high
+                then Pumping;
+
+            transition Pumping_to_StoppedLowWater
+                first Pumping
+                if levelSensor.reportedState == WaterLevelState::low or levelSensor.reportedState == WaterLevelState::dry
+                then StoppedLowWater;
+
+            transition StoppedLowWater_to_Ready
+                first StoppedLowWater
+                if levelSensor.reportedState == WaterLevelState::low
+                then Ready;
+
+            transition Pumping_to_Faulted
+                first Pumping
+                if pump.faulted
+                then Faulted;
+
+            transition Faulted_to_MaintenanceRequired
+                first Faulted
+                after 60
+                then MaintenanceRequired;
+        }
+    }
+
+    requirement def PumpFluidMovementRequirement {
+        subject subsystem : BilgePumpingSubsystem;
+
+        require constraint {
+            subsystem.totalDeliveredFlow >= 0.0015
+        }
+
+        doc /* The pumping subsystem shall move bilge water from the bilge well to the overboard outlet whenever high water is detected. */
+    }
+
+    requirement def AutomaticStartRequirement {
+        subject subsystem : BilgePumpingSubsystem;
+
+        require constraint {
+            subsystem.levelSensor.reportedState == WaterLevelState::high implies subsystem.pump.running
+        }
+
+        doc /* The controller shall command the bilge pump to start automatically when the water level sensor reports high water. */
+    }
+
+    requirement def AutomaticStopRequirement {
+        subject subsystem : BilgePumpingSubsystem;
+
+        require constraint {
+            subsystem.levelSensor.reportedState == WaterLevelState::low implies not subsystem.pump.running
+        }
+
+        doc /* The subsystem shall stop pumping when the bilge well reaches the low-water threshold to reduce dry running. */
+    }
+
+    requirement def BackflowPreventionRequirement {
+        subject subsystem : BilgePumpingSubsystem;
+
+        require constraint {
+            subsystem.checkValve.reverseLeakageFlow == 0.0
+        }
+
+        doc /* The discharge path shall prevent reverse flow from the overboard outlet into the bilge well. */
+    }
+
+    requirement def ElectricalProtectionRequirement {
+        subject subsystem : BilgePumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.power.suppliedCurrent <= subsystem.supply.fuseRating
+        }
+
+        doc /* The electrical supply shall protect the bilge pump circuit from overcurrent conditions. */
+    }
+
+    requirement def DryRunProtectionRequirement {
+        subject subsystem : BilgePumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.status.status.dryRunDetected implies not subsystem.pump.running
+        }
+
+        doc /* The pump shall stop after detecting inadequate flow while energized. */
+    }
+
+    satisfy PumpFluidMovementRequirement by BilgePumpingSubsystem::pumpBilgeWater;
+    satisfy AutomaticStartRequirement by PumpController::evaluateLevel;
+    satisfy AutomaticStopRequirement by PumpController::evaluateLevel;
+    satisfy BackflowPreventionRequirement by CheckValve::preventBackflow;
+    satisfy ElectricalProtectionRequirement by ElectricalSupply;
+    satisfy DryRunProtectionRequirement by BilgePump::PumpOperatingState;
+
+}

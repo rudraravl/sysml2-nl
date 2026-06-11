@@ -1,0 +1,341 @@
+package ScramblerTherapySystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  value type Volt specializes Real {
+    unit = "V";
+  }
+
+  value type Milliampere specializes Real {
+    unit = "mA";
+  }
+
+  value type Hertz specializes Real {
+    unit = "Hz";
+  }
+
+  value type Microsecond specializes Real {
+    unit = "us";
+  }
+
+  value type Minute specializes Real {
+    unit = "min";
+  }
+
+  value type Percent specializes Real {
+    unit = "%";
+  }
+
+  value type PainScore specializes Integer {
+    range = 0..10;
+  }
+
+  value type ContactImpedance specializes Real {
+    unit = "ohm";
+  }
+
+  item def TherapyProgram {
+    attribute carrierFrequency : Hertz;
+    attribute pulseWidth : Microsecond;
+    attribute outputAmplitude : Milliampere;
+    attribute sessionDuration : Minute;
+    attribute modulationDepth : Percent;
+  }
+
+  item def PatientPainAssessment {
+    attribute baselinePain : PainScore;
+    attribute currentPain : PainScore;
+    attribute treatmentSiteDescription : String;
+  }
+
+  item def EncodedStimulationSignal {
+    attribute voltage : Volt;
+    attribute current : Milliampere;
+    attribute frequency : Hertz;
+    attribute pulseWidth : Microsecond;
+    attribute modulationDepth : Percent;
+  }
+
+  item def ElectrodeContactStatus {
+    attribute impedance : ContactImpedance;
+    attribute contactAcceptable : Boolean;
+  }
+
+  item def ClinicianCommand {
+    attribute startRequested : Boolean;
+    attribute stopRequested : Boolean;
+    attribute pauseRequested : Boolean;
+    attribute amplitudeAdjustment : Milliampere;
+  }
+
+  port def OperatorInterfacePort {
+    in item command : ClinicianCommand;
+    out item program : TherapyProgram;
+    out item assessment : PatientPainAssessment;
+  }
+
+  port def TherapyOutputPort {
+    out item stimulation : EncodedStimulationSignal;
+  }
+
+  port def ElectrodeSensePort {
+    in item contact : ElectrodeContactStatus;
+  }
+
+  port def PatientFeedbackPort {
+    in item assessment : PatientPainAssessment;
+  }
+
+  part def ScramblerTherapySystem {
+    attribute primaryFunction : String =
+      "Provide non-invasive electrocutaneous neuromodulation intended to reduce perceived pain by delivering controlled, encoded stimulation signals through skin electrodes near painful regions.";
+
+    part clinicianConsole : ClinicianConsole;
+    part therapyController : TherapyController;
+    part signalGenerator : SignalGenerator;
+    part safetyMonitor : SafetyMonitor;
+    part electrodeSet : ElectrodeSet;
+    part patientInterface : PatientInterface;
+    part powerSubsystem : PowerSubsystem;
+
+    port operatorPort : OperatorInterfacePort;
+    port feedbackPort : PatientFeedbackPort;
+
+    connect clinicianConsole.consolePort to operatorPort;
+    connect clinicianConsole.programOut to therapyController.programIn;
+    connect clinicianConsole.commandOut to therapyController.commandIn;
+    connect patientInterface.feedbackOut to feedbackPort;
+    connect feedbackPort to therapyController.patientFeedbackIn;
+    connect therapyController.signalRequestOut to signalGenerator.controlIn;
+    connect signalGenerator.therapyOut to electrodeSet.signalIn;
+    connect electrodeSet.contactOut to safetyMonitor.contactIn;
+    connect safetyMonitor.safetyStatusOut to therapyController.safetyIn;
+    connect powerSubsystem.powerOut to clinicianConsole.powerIn;
+    connect powerSubsystem.powerOut to therapyController.powerIn;
+    connect powerSubsystem.powerOut to signalGenerator.powerIn;
+    connect powerSubsystem.powerOut to safetyMonitor.powerIn;
+  }
+
+  part def ClinicianConsole {
+    port consolePort : OperatorInterfacePort;
+    port commandOut : OperatorInterfacePort;
+    port programOut : OperatorInterfacePort;
+    port powerIn : PowerPort;
+
+    attribute displayedPainScore : PainScore;
+    attribute selectedDuration : Minute;
+    attribute selectedAmplitude : Milliampere;
+  }
+
+  part def TherapyController {
+    port programIn : OperatorInterfacePort;
+    port commandIn : OperatorInterfacePort;
+    port patientFeedbackIn : PatientFeedbackPort;
+    port signalRequestOut : TherapyOutputPort;
+    port safetyIn : SafetyStatusPort;
+    port powerIn : PowerPort;
+
+    attribute activeProgram : TherapyProgram;
+    attribute sessionElapsedTime : Minute;
+    attribute targetPainScoreReduction : PainScore = 2;
+
+    behavior therapySession : TherapySessionStateMachine;
+  }
+
+  part def SignalGenerator {
+    port controlIn : TherapyOutputPort;
+    port therapyOut : TherapyOutputPort;
+    port powerIn : PowerPort;
+
+    attribute maximumCurrent : Milliampere = 5.5;
+    attribute maximumVoltage : Volt = 70.0;
+    attribute nominalFrequency : Hertz = 43.0;
+    attribute nominalPulseWidth : Microsecond = 200.0;
+
+    behavior generateSignal : EncodeTherapySignal;
+  }
+
+  part def SafetyMonitor {
+    port contactIn : ElectrodeSensePort;
+    port safetyStatusOut : SafetyStatusPort;
+    port powerIn : PowerPort;
+
+    attribute maximumAllowedCurrent : Milliampere = 6.0;
+    attribute minimumContactImpedance : ContactImpedance = 500.0;
+    attribute maximumContactImpedance : ContactImpedance = 10000.0;
+  }
+
+  part def ElectrodeSet {
+    part electrode[5] : SurfaceElectrode;
+
+    port signalIn : TherapyOutputPort;
+    port contactOut : ElectrodeSensePort;
+
+    attribute placementRegion : String;
+  }
+
+  part def SurfaceElectrode {
+    attribute contactArea : Real = 4.0;
+    attribute adhesiveIntegrity : Percent;
+    attribute measuredImpedance : ContactImpedance;
+  }
+
+  part def PatientInterface {
+    port feedbackOut : PatientFeedbackPort;
+
+    attribute reportedPain : PainScore;
+    attribute comfortAcceptable : Boolean;
+  }
+
+  part def PowerSubsystem {
+    port powerOut : PowerPort;
+
+    attribute batteryCharge : Percent;
+    attribute outputVoltage : Volt = 24.0;
+  }
+
+  port def PowerPort {
+    out item supplyVoltage : PowerSupply;
+  }
+
+  item def PowerSupply {
+    attribute voltage : Volt;
+    attribute chargeRemaining : Percent;
+  }
+
+  port def SafetyStatusPort {
+    out item status : SafetyStatus;
+  }
+
+  item def SafetyStatus {
+    attribute therapyAllowed : Boolean;
+    attribute faultCode : String;
+    attribute measuredCurrent : Milliampere;
+    attribute measuredImpedance : ContactImpedance;
+  }
+
+  action def EncodeTherapySignal {
+    in item program : TherapyProgram;
+    in item painAssessment : PatientPainAssessment;
+    out item stimulation : EncodedStimulationSignal;
+
+    action selectCarrierFrequency;
+    action applyInformationModulation;
+    action limitAmplitude;
+    action emitStimulation;
+
+    first selectCarrierFrequency then applyInformationModulation;
+    then applyInformationModulation then limitAmplitude;
+    then limitAmplitude then emitStimulation;
+  }
+
+  action def VerifyElectrodeContact {
+    in item contact : ElectrodeContactStatus;
+    out item status : SafetyStatus;
+  }
+
+  action def AdjustTherapyIntensity {
+    in item command : ClinicianCommand;
+    in item currentProgram : TherapyProgram;
+    out item adjustedProgram : TherapyProgram;
+  }
+
+  state def TherapySessionStateMachine {
+    state Off;
+    state SelfTest;
+    state Ready;
+    state ElectrodeCheck;
+    state DeliveringTherapy;
+    state Paused;
+    state Completed;
+    state Fault;
+
+    transition initial then Off;
+
+    transition Off_to_SelfTest
+      first Off
+      accept ClinicianCommand
+      if command.startRequested
+      then SelfTest;
+
+    transition SelfTest_to_Ready
+      first SelfTest
+      if powerSubsystem.batteryCharge > 20.0
+      then Ready;
+
+    transition Ready_to_ElectrodeCheck
+      first Ready
+      accept TherapyProgram
+      then ElectrodeCheck;
+
+    transition ElectrodeCheck_to_DeliveringTherapy
+      first ElectrodeCheck
+      if safetyMonitor.minimumContactImpedance <= electrodeSet.electrode[1].measuredImpedance and
+         electrodeSet.electrode[1].measuredImpedance <= safetyMonitor.maximumContactImpedance
+      then DeliveringTherapy;
+
+    transition DeliveringTherapy_to_Paused
+      first DeliveringTherapy
+      accept ClinicianCommand
+      if command.pauseRequested
+      then Paused;
+
+    transition Paused_to_DeliveringTherapy
+      first Paused
+      accept ClinicianCommand
+      if command.startRequested
+      then DeliveringTherapy;
+
+    transition DeliveringTherapy_to_Completed
+      first DeliveringTherapy
+      if therapyController.sessionElapsedTime >= therapyController.activeProgram.sessionDuration
+      then Completed;
+
+    transition Any_to_Fault
+      first Off, SelfTest, Ready, ElectrodeCheck, DeliveringTherapy, Paused
+      if not safetyMonitor.safetyStatusOut.status.therapyAllowed
+      then Fault;
+
+    transition Fault_to_Off
+      first Fault
+      accept ClinicianCommand
+      if command.stopRequested
+      then Off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall provide a high-level therapeutic function by delivering non-invasive, controlled, encoded electrical stimulation through surface electrodes to support modulation of pain perception. */
+  }
+
+  requirement def SafetyRequirement {
+    doc /* The system shall inhibit stimulation when electrode contact impedance or delivered current is outside configured safe operating limits. */
+  }
+
+  requirement def ClinicianControlRequirement {
+    doc /* The system shall allow a trained operator to configure treatment duration, stimulation amplitude, and treatment site before therapy delivery. */
+  }
+
+  requirement def PatientFeedbackRequirement {
+    doc /* The system shall collect patient pain assessment and comfort feedback before and during therapy delivery. */
+  }
+
+  requirement def TherapySignalRequirement {
+    doc /* The system shall generate an encoded stimulation signal with controlled amplitude, pulse width, frequency, and modulation depth according to the active therapy program. */
+  }
+
+  requirement primaryFunctionReq : PrimaryFunctionRequirement;
+  requirement safetyReq : SafetyRequirement;
+  requirement clinicianControlReq : ClinicianControlRequirement;
+  requirement patientFeedbackReq : PatientFeedbackRequirement;
+  requirement therapySignalReq : TherapySignalRequirement;
+
+  part system : ScramblerTherapySystem;
+
+  satisfy primaryFunctionReq by system;
+  satisfy safetyReq by system.safetyMonitor;
+  satisfy clinicianControlReq by system.clinicianConsole;
+  satisfy patientFeedbackReq by system.patientInterface;
+  satisfy therapySignalReq by system.signalGenerator;
+}

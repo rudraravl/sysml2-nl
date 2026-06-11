@@ -1,0 +1,663 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-75pdgnun
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4d1-e1c7-7571-8472-a069848658f7
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Saqiyah and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SaqiyahIrrigationSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def FlowRate :> Real {
+        unit = "m^3/h";
+    }
+
+    attribute def Volume :> Real {
+        unit = "m^3";
+    }
+
+    attribute def Height :> Real {
+        unit = "m";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rev/min";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Force :> Real {
+        unit = "N";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "min";
+    }
+
+    item def Water {
+        attribute volume : Volume;
+        attribute sedimentFraction : Real;
+    }
+
+    item def AnimalMotiveForce {
+        attribute pullForce : Force;
+        attribute walkingSpeed : Real {
+            unit = "m/s";
+        }
+    }
+
+    item def RotationalMotion {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute mechanicalPower : Power;
+    }
+
+    item def LiftedWater :> Water {
+        attribute liftHeight : Height;
+        attribute deliveryFlowRate : FlowRate;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : Water;
+    }
+
+    port def WaterOutletPort {
+        out item waterOut : LiftedWater;
+    }
+
+    port def AnimalDrivePort {
+        in item motiveInput : AnimalMotiveForce;
+    }
+
+    port def RotaryShaftPort {
+        out item rotaryOutput : RotationalMotion;
+    }
+
+    port def RotaryInputPort {
+        in item rotaryInput : RotationalMotion;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Saqiyah system shall convert continuous circular animal motion into rotation of a scoop wheel to lift water from a lower source and discharge it into an elevated irrigation channel. */
+    }
+
+    requirement def ContinuousIrrigationRequirement {
+        attribute minimumFlowRate : FlowRate = 8.0;
+        attribute minimumOperatingDuration : TimeDuration = 180.0;
+
+        doc /* The Saqiyah system shall deliver at least minimumFlowRate of water continuously for minimumOperatingDuration during normal irrigation operation. */
+    }
+
+    requirement def LiftHeightRequirement {
+        attribute requiredLiftHeight : Height = 3.5;
+
+        doc /* The Saqiyah system shall raise water from the source level to the discharge channel level across the required lift height. */
+    }
+
+    requirement def AnimalSafetyRequirement {
+        attribute maximumPullForce : Force = 650.0;
+
+        doc /* The animal drive subsystem shall not require pull force above maximumPullForce during steady operation. */
+    }
+
+    action def ConvertAnimalWalkingToRotation {
+        in item motiveInput : AnimalMotiveForce;
+        out item rotaryMotion : RotationalMotion;
+
+        attribute driveRadius : Height = 2.0;
+        attribute expectedSpeed : RotationalSpeed = 4.0;
+    }
+
+    action def TransferRotationThroughGearTrain {
+        in item inputRotation : RotationalMotion;
+        out item wheelRotation : RotationalMotion;
+
+        attribute gearRatio : Real = 3.0;
+        attribute transmissionEfficiency : Efficiency = 0.72;
+    }
+
+    action def ScoopWaterFromSource {
+        in item sourceWater : Water;
+        in item wheelMotion : RotationalMotion;
+        out item containedWater : Water;
+
+        attribute bucketVolume : Volume = 0.025;
+        attribute bucketsFilledPerMinute : Real = 120.0;
+    }
+
+    action def LiftWaterByWheelRotation {
+        in item containedWater : Water;
+        in item wheelMotion : RotationalMotion;
+        out item raisedWater : LiftedWater;
+
+        attribute liftHeight : Height = 3.5;
+    }
+
+    action def DischargeWaterToChannel {
+        in item raisedWater : LiftedWater;
+        out item irrigationWater : LiftedWater;
+
+        attribute channelEntryHeight : Height = 3.5;
+        attribute nominalFlowRate : FlowRate = 9.0;
+    }
+
+    state def SaqiyahOperatingState {
+        entry action InitializeSaqiyah;
+        exit action SecureSaqiyah;
+
+        state Idle;
+        state AnimalHarnessed;
+        state PrimingWheel;
+        state LiftingWater;
+        state DeliveringWater;
+        state Paused;
+        state Faulted;
+
+        transition first Idle;
+
+        transition HarnessAnimal
+            first Idle
+            then AnimalHarnessed;
+
+        transition BeginDrive
+            first AnimalHarnessed
+            then PrimingWheel;
+
+        transition BucketsEngaged
+            first PrimingWheel
+            then LiftingWater;
+
+        transition FlowEstablished
+            first LiftingWater
+            then DeliveringWater;
+
+        transition TemporaryStop
+            first DeliveringWater
+            then Paused;
+
+        transition ResumeDrive
+            first Paused
+            then LiftingWater;
+
+        transition LowWaterDetected
+            first DeliveringWater
+            then Faulted;
+
+        transition ExcessLoadDetected
+            first LiftingWater
+            then Faulted;
+
+        transition Shutdown
+            first Paused
+            then Idle;
+
+        transition ResetFault
+            first Faulted
+            then Idle;
+    }
+
+    part def AnimalDriveSubsystem {
+        port animalDriveIn : AnimalDrivePort;
+        port shaftOut : RotaryShaftPort;
+
+        attribute walkingCircleRadius : Height = 2.0;
+        attribute nominalPullForce : Force = 420.0;
+        attribute nominalMechanicalPower : Power = 520.0;
+
+        perform action driveConversion : ConvertAnimalWalkingToRotation;
+    }
+
+    part def GearTrainSubsystem {
+        port shaftIn : RotaryInputPort;
+        port wheelShaftOut : RotaryShaftPort;
+
+        attribute gearRatio : Real = 3.0;
+        attribute nominalEfficiency : Efficiency = 0.72;
+        attribute outputSpeed : RotationalSpeed = 12.0;
+
+        perform action gearTransfer : TransferRotationThroughGearTrain;
+    }
+
+    part def ScoopWheelSubsystem {
+        port wheelDriveIn : RotaryInputPort;
+        port waterInlet : WaterInletPort;
+        port waterOutlet : WaterOutletPort;
+
+        attribute wheelDiameter : Height = 3.8;
+        attribute bucketCount : Integer = 30;
+        attribute bucketVolume : Volume = 0.025;
+        attribute nominalLiftHeight : Height = 3.5;
+        attribute nominalFlowRate : FlowRate = 9.0;
+
+        perform action scooping : ScoopWaterFromSource;
+        perform action lifting : LiftWaterByWheelRotation;
+        perform action discharging : DischargeWaterToChannel;
+    }
+
+    part def WaterSource {
+        port sourceOutlet : WaterOutletPort;
+
+        attribute availableWaterVolume : Volume = 1200.0;
+        attribute sourceDepth : Height = 1.2;
+        attribute waterLevelBelowChannel : Height = 3.5;
+    }
+
+    part def IrrigationChannel {
+        port channelInlet : WaterInletPort;
+
+        attribute channelHeight : Height = 3.5;
+        attribute channelCapacity : FlowRate = 15.0;
+        attribute deliveredDailyVolume : Volume;
+    }
+
+    part def SaqiyahSystem {
+        port animalInput : AnimalDrivePort;
+        port sourceWaterInput : WaterInletPort;
+        port irrigationOutput : WaterOutletPort;
+
+        part animalDrive : AnimalDriveSubsystem;
+        part gearTrain : GearTrainSubsystem;
+        part scoopWheel : ScoopWheelSubsystem;
+        part waterSource : WaterSource;
+        part irrigationChannel : IrrigationChannel;
+
+        attribute systemLiftHeight : Height = 3.5;
+        attribute nominalSystemFlowRate : FlowRate = 9.0;
+        attribute nominalOperatingSpeed : RotationalSpeed = 12.0;
+        attribute overallEfficiency : Efficiency = 0.55;
+
+        exhibit state operatingState : SaqiyahOperatingState;
+
+        connect animalInput to animalDrive.animalDriveIn;
+        connect animalDrive.shaftOut to gearTrain.shaftIn;
+        connect gearTrain.wheelShaftOut to scoopWheel.wheelDriveIn;
+        connect waterSource.sourceOutlet to scoopWheel.waterInlet;
+        connect scoopWheel.waterOutlet to irrigationChannel.channelInlet;
+        connect scoopWheel.waterOutlet to irrigationOutput;
+
+        satisfy PrimaryFunctionRequirement by SaqiyahSystem;
+        satisfy ContinuousIrrigationRequirement by scoopWheel;
+        satisfy LiftHeightRequirement by scoopWheel;
+        satisfy AnimalSafetyRequirement by animalDrive;
+
+        perform action convertMotion : ConvertAnimalWalkingToRotation;
+        perform action transmitMotion : TransferRotationThroughGearTrain;
+        perform action scoopWater : ScoopWaterFromSource;
+        perform action liftWater : LiftWaterByWheelRotation;
+        perform action dischargeWater : DischargeWaterToChannel;
+    }
+
+    part saqiyahIrrigationSystem : SaqiyahSystem {
+        attribute systemLiftHeight = 3.5;
+        attribute nominalSystemFlowRate = 9.0;
+        attribute nominalOperatingSpeed = 12.0;
+        attribute overallEfficiency = 0.55;
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject saqiyahIrrigationSystem;
+    }
+
+    requirement continuousIrrigation : ContinuousIrrigationRequirement {
+        subject saqiyahIrrigationSystem.scoopWheel;
+        attribute minimumFlowRate = 8.0;
+        attribute minimumOperatingDuration = 180.0;
+    }
+
+    requirement liftHeightCapability : LiftHeightRequirement {
+        subject saqiyahIrrigationSystem.scoopWheel;
+        attribute requiredLiftHeight = 3.5;
+    }
+
+    requirement animalLoadLimit : AnimalSafetyRequirement {
+        subject saqiyahIrrigationSystem.animalDrive;
+        attribute maximumPullForce = 650.0;
+    }
+
+}
+tokens used
+2,542
+package SaqiyahIrrigationSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def FlowRate :> Real {
+        unit = "m^3/h";
+    }
+
+    attribute def Volume :> Real {
+        unit = "m^3";
+    }
+
+    attribute def Height :> Real {
+        unit = "m";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rev/min";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Force :> Real {
+        unit = "N";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "min";
+    }
+
+    item def Water {
+        attribute volume : Volume;
+        attribute sedimentFraction : Real;
+    }
+
+    item def AnimalMotiveForce {
+        attribute pullForce : Force;
+        attribute walkingSpeed : Real {
+            unit = "m/s";
+        }
+    }
+
+    item def RotationalMotion {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute mechanicalPower : Power;
+    }
+
+    item def LiftedWater :> Water {
+        attribute liftHeight : Height;
+        attribute deliveryFlowRate : FlowRate;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : Water;
+    }
+
+    port def WaterOutletPort {
+        out item waterOut : LiftedWater;
+    }
+
+    port def AnimalDrivePort {
+        in item motiveInput : AnimalMotiveForce;
+    }
+
+    port def RotaryShaftPort {
+        out item rotaryOutput : RotationalMotion;
+    }
+
+    port def RotaryInputPort {
+        in item rotaryInput : RotationalMotion;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Saqiyah system shall convert continuous circular animal motion into rotation of a scoop wheel to lift water from a lower source and discharge it into an elevated irrigation channel. */
+    }
+
+    requirement def ContinuousIrrigationRequirement {
+        attribute minimumFlowRate : FlowRate = 8.0;
+        attribute minimumOperatingDuration : TimeDuration = 180.0;
+
+        doc /* The Saqiyah system shall deliver at least minimumFlowRate of water continuously for minimumOperatingDuration during normal irrigation operation. */
+    }
+
+    requirement def LiftHeightRequirement {
+        attribute requiredLiftHeight : Height = 3.5;
+
+        doc /* The Saqiyah system shall raise water from the source level to the discharge channel level across the required lift height. */
+    }
+
+    requirement def AnimalSafetyRequirement {
+        attribute maximumPullForce : Force = 650.0;
+
+        doc /* The animal drive subsystem shall not require pull force above maximumPullForce during steady operation. */
+    }
+
+    action def ConvertAnimalWalkingToRotation {
+        in item motiveInput : AnimalMotiveForce;
+        out item rotaryMotion : RotationalMotion;
+
+        attribute driveRadius : Height = 2.0;
+        attribute expectedSpeed : RotationalSpeed = 4.0;
+    }
+
+    action def TransferRotationThroughGearTrain {
+        in item inputRotation : RotationalMotion;
+        out item wheelRotation : RotationalMotion;
+
+        attribute gearRatio : Real = 3.0;
+        attribute transmissionEfficiency : Efficiency = 0.72;
+    }
+
+    action def ScoopWaterFromSource {
+        in item sourceWater : Water;
+        in item wheelMotion : RotationalMotion;
+        out item containedWater : Water;
+
+        attribute bucketVolume : Volume = 0.025;
+        attribute bucketsFilledPerMinute : Real = 120.0;
+    }
+
+    action def LiftWaterByWheelRotation {
+        in item containedWater : Water;
+        in item wheelMotion : RotationalMotion;
+        out item raisedWater : LiftedWater;
+
+        attribute liftHeight : Height = 3.5;
+    }
+
+    action def DischargeWaterToChannel {
+        in item raisedWater : LiftedWater;
+        out item irrigationWater : LiftedWater;
+
+        attribute channelEntryHeight : Height = 3.5;
+        attribute nominalFlowRate : FlowRate = 9.0;
+    }
+
+    state def SaqiyahOperatingState {
+        entry action InitializeSaqiyah;
+        exit action SecureSaqiyah;
+
+        state Idle;
+        state AnimalHarnessed;
+        state PrimingWheel;
+        state LiftingWater;
+        state DeliveringWater;
+        state Paused;
+        state Faulted;
+
+        transition first Idle;
+
+        transition HarnessAnimal
+            first Idle
+            then AnimalHarnessed;
+
+        transition BeginDrive
+            first AnimalHarnessed
+            then PrimingWheel;
+
+        transition BucketsEngaged
+            first PrimingWheel
+            then LiftingWater;
+
+        transition FlowEstablished
+            first LiftingWater
+            then DeliveringWater;
+
+        transition TemporaryStop
+            first DeliveringWater
+            then Paused;
+
+        transition ResumeDrive
+            first Paused
+            then LiftingWater;
+
+        transition LowWaterDetected
+            first DeliveringWater
+            then Faulted;
+
+        transition ExcessLoadDetected
+            first LiftingWater
+            then Faulted;
+
+        transition Shutdown
+            first Paused
+            then Idle;
+
+        transition ResetFault
+            first Faulted
+            then Idle;
+    }
+
+    part def AnimalDriveSubsystem {
+        port animalDriveIn : AnimalDrivePort;
+        port shaftOut : RotaryShaftPort;
+
+        attribute walkingCircleRadius : Height = 2.0;
+        attribute nominalPullForce : Force = 420.0;
+        attribute nominalMechanicalPower : Power = 520.0;
+
+        perform action driveConversion : ConvertAnimalWalkingToRotation;
+    }
+
+    part def GearTrainSubsystem {
+        port shaftIn : RotaryInputPort;
+        port wheelShaftOut : RotaryShaftPort;
+
+        attribute gearRatio : Real = 3.0;
+        attribute nominalEfficiency : Efficiency = 0.72;
+        attribute outputSpeed : RotationalSpeed = 12.0;
+
+        perform action gearTransfer : TransferRotationThroughGearTrain;
+    }
+
+    part def ScoopWheelSubsystem {
+        port wheelDriveIn : RotaryInputPort;
+        port waterInlet : WaterInletPort;
+        port waterOutlet : WaterOutletPort;
+
+        attribute wheelDiameter : Height = 3.8;
+        attribute bucketCount : Integer = 30;
+        attribute bucketVolume : Volume = 0.025;
+        attribute nominalLiftHeight : Height = 3.5;
+        attribute nominalFlowRate : FlowRate = 9.0;
+
+        perform action scooping : ScoopWaterFromSource;
+        perform action lifting : LiftWaterByWheelRotation;
+        perform action discharging : DischargeWaterToChannel;
+    }
+
+    part def WaterSource {
+        port sourceOutlet : WaterOutletPort;
+
+        attribute availableWaterVolume : Volume = 1200.0;
+        attribute sourceDepth : Height = 1.2;
+        attribute waterLevelBelowChannel : Height = 3.5;
+    }
+
+    part def IrrigationChannel {
+        port channelInlet : WaterInletPort;
+
+        attribute channelHeight : Height = 3.5;
+        attribute channelCapacity : FlowRate = 15.0;
+        attribute deliveredDailyVolume : Volume;
+    }
+
+    part def SaqiyahSystem {
+        port animalInput : AnimalDrivePort;
+        port sourceWaterInput : WaterInletPort;
+        port irrigationOutput : WaterOutletPort;
+
+        part animalDrive : AnimalDriveSubsystem;
+        part gearTrain : GearTrainSubsystem;
+        part scoopWheel : ScoopWheelSubsystem;
+        part waterSource : WaterSource;
+        part irrigationChannel : IrrigationChannel;
+
+        attribute systemLiftHeight : Height = 3.5;
+        attribute nominalSystemFlowRate : FlowRate = 9.0;
+        attribute nominalOperatingSpeed : RotationalSpeed = 12.0;
+        attribute overallEfficiency : Efficiency = 0.55;
+
+        exhibit state operatingState : SaqiyahOperatingState;
+
+        connect animalInput to animalDrive.animalDriveIn;
+        connect animalDrive.shaftOut to gearTrain.shaftIn;
+        connect gearTrain.wheelShaftOut to scoopWheel.wheelDriveIn;
+        connect waterSource.sourceOutlet to scoopWheel.waterInlet;
+        connect scoopWheel.waterOutlet to irrigationChannel.channelInlet;
+        connect scoopWheel.waterOutlet to irrigationOutput;
+
+        satisfy PrimaryFunctionRequirement by SaqiyahSystem;
+        satisfy ContinuousIrrigationRequirement by scoopWheel;
+        satisfy LiftHeightRequirement by scoopWheel;
+        satisfy AnimalSafetyRequirement by animalDrive;
+
+        perform action convertMotion : ConvertAnimalWalkingToRotation;
+        perform action transmitMotion : TransferRotationThroughGearTrain;
+        perform action scoopWater : ScoopWaterFromSource;
+        perform action liftWater : LiftWaterByWheelRotation;
+        perform action dischargeWater : DischargeWaterToChannel;
+    }
+
+    part saqiyahIrrigationSystem : SaqiyahSystem {
+        attribute systemLiftHeight = 3.5;
+        attribute nominalSystemFlowRate = 9.0;
+        attribute nominalOperatingSpeed = 12.0;
+        attribute overallEfficiency = 0.55;
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject saqiyahIrrigationSystem;
+    }
+
+    requirement continuousIrrigation : ContinuousIrrigationRequirement {
+        subject saqiyahIrrigationSystem.scoopWheel;
+        attribute minimumFlowRate = 8.0;
+        attribute minimumOperatingDuration = 180.0;
+    }
+
+    requirement liftHeightCapability : LiftHeightRequirement {
+        subject saqiyahIrrigationSystem.scoopWheel;
+        attribute requiredLiftHeight = 3.5;
+    }
+
+    requirement animalLoadLimit : AnimalSafetyRequirement {
+        subject saqiyahIrrigationSystem.animalDrive;
+        attribute maximumPullForce = 650.0;
+    }
+
+}

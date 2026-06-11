@@ -1,0 +1,899 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-824nlv0q
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2c4-2a3f-73c2-8703-293e9a59fc5b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a robotic system that performs its primary task using a Insectoid robot.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package InsectoidRoboticSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real;
+    attribute def Degree : Real;
+    attribute def Meter : Real;
+    attribute def Second : Real;
+    attribute def MeterPerSecond : Real;
+    attribute def NewtonMeter : Real;
+    attribute def Watt : Real;
+    attribute def Volt : Real;
+    attribute def AmpereHour : Real;
+    attribute def Celsius : Real;
+    attribute def Lux : Real;
+    attribute def PartsPerMillion : Real;
+    attribute def Pascal : Real;
+
+    item def TerrainMap {
+        attribute resolution : Meter;
+        attribute confidence : Percent;
+        attribute mappedArea : Meter;
+    }
+
+    item def MissionPlan {
+        attribute targetWaypointCount : Integer;
+        attribute maxMissionDuration : Second;
+        attribute requiredCoverageArea : Meter;
+        attribute returnHomeRequired : Boolean;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : Second;
+        attribute frameConfidence : Percent;
+    }
+
+    item def HazardReport {
+        attribute carbonMonoxide : PartsPerMillion;
+        attribute temperature : Celsius;
+        attribute smokeDensity : Percent;
+        attribute structuralRisk : Percent;
+        attribute locationX : Meter;
+        attribute locationY : Meter;
+    }
+
+    item def LocomotionCommand {
+        attribute forwardVelocity : MeterPerSecond;
+        attribute yawRate : Degree;
+        attribute bodyHeight : Meter;
+        attribute gaitMode : GaitKind;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Volt;
+        attribute current : Real;
+        attribute availableEnergy : Watt;
+    }
+
+    item def DiagnosticMessage {
+        attribute faultCode : Integer;
+        attribute severity : FaultSeverity;
+        attribute recoverable : Boolean;
+    }
+
+    enum def GaitKind {
+        enum walk;
+        enum climb;
+        enum crouch;
+        enum bridge;
+        enum recovery;
+    }
+
+    enum def FaultSeverity {
+        enum advisory;
+        enum degraded;
+        enum critical;
+    }
+
+    enum def MissionMode {
+        enum standby;
+        enum deploy;
+        enum explore;
+        enum inspect;
+        enum report;
+        enum returnToBase;
+        enum safeStop;
+    }
+
+    port def DataPort {
+        in item inputFrame : SensorFrame;
+        out item outputFrame : SensorFrame;
+    }
+
+    port def MissionPort {
+        in item plan : MissionPlan;
+        out item report : HazardReport;
+        out item map : TerrainMap;
+        out item diagnostic : DiagnosticMessage;
+    }
+
+    port def CommandPort {
+        in item commandIn : LocomotionCommand;
+        out item commandOut : LocomotionCommand;
+    }
+
+    port def PowerPort {
+        in item supply : PowerFlow;
+        out item demand : PowerFlow;
+    }
+
+    port def WirelessPort {
+        in item uplinkPlan : MissionPlan;
+        out item downlinkReport : HazardReport;
+        out item downlinkMap : TerrainMap;
+        out item downlinkDiagnostic : DiagnosticMessage;
+    }
+
+    part def InsectoidLeg {
+        attribute femurLength : Meter = 0.18;
+        attribute tibiaLength : Meter = 0.21;
+        attribute coxaYawLimit : Degree = 55.0;
+        attribute femurPitchLimit : Degree = 80.0;
+        attribute tibiaPitchLimit : Degree = 95.0;
+        attribute maxTipForce : Real = 38.0;
+        attribute maxJointTorque : NewtonMeter = 8.0;
+
+        port power : PowerPort;
+        port command : CommandPort;
+
+        part coxaActuator;
+        part femurActuator;
+        part tibiaActuator;
+        part footContactSensor;
+
+        action extendFoot {
+            in attribute targetX : Meter;
+            in attribute targetY : Meter;
+            in attribute targetZ : Meter;
+            out attribute contactConfirmed : Boolean;
+        }
+
+        action regulateGroundForce {
+            in attribute targetForce : Real;
+            out attribute slipDetected : Boolean;
+        }
+    }
+
+    part def AntennaSensor {
+        attribute length : Meter = 0.24;
+        attribute contactSensitivity : Real = 0.03;
+        port data : DataPort;
+
+        action sweep {
+            in attribute sweepAngle : Degree;
+            out attribute obstacleDetected : Boolean;
+        }
+    }
+
+    part def CompoundVisionSensor {
+        attribute horizontalFieldOfView : Degree = 210.0;
+        attribute verticalFieldOfView : Degree = 110.0;
+        attribute minimumIllumination : Lux = 0.2;
+        port data : DataPort;
+    }
+
+    part def ChemicalSensorArray {
+        attribute coRange : PartsPerMillion = 1000.0;
+        attribute smokeSensitivity : Percent = 2.0;
+        port data : DataPort;
+    }
+
+    part def InertialNavigationUnit {
+        attribute driftRate : Degree = 0.8;
+        port data : DataPort;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Volt = 28.8;
+        attribute capacity : AmpereHour = 12.0;
+        attribute reserveEnergyPercent : Percent = 18.0;
+        port outputPower : PowerPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute maxContinuousPower : Watt = 420.0;
+        port batteryInput : PowerPort;
+        port locomotionOutput : PowerPort;
+        port computeOutput : PowerPort;
+        port sensorOutput : PowerPort;
+    }
+
+    part def GaitController {
+        attribute stabilityMargin : Percent = 35.0;
+        attribute maxForwardVelocity : MeterPerSecond = 0.65;
+        attribute maxClimbIncline : Degree = 55.0;
+        port command : CommandPort;
+        port data : DataPort;
+
+        action selectGait {
+            in attribute terrainRoughness : Percent;
+            in attribute obstacleHeight : Meter;
+            out attribute selectedGait : GaitKind;
+        }
+
+        action synthesizeLegCommands {
+            in item bodyCommand : LocomotionCommand;
+            out item legCommand : LocomotionCommand;
+        }
+    }
+
+    part def PerceptionComputer {
+        attribute computePower : Watt = 48.0;
+        attribute mapUpdateRate : Real = 10.0;
+        port visionInput : DataPort;
+        port antennaInput : DataPort;
+        port chemicalInput : DataPort;
+        port inertialInput : DataPort;
+        port mapOutput : MissionPort;
+
+        action fuseSensors {
+            in item visionFrame : SensorFrame;
+            in item antennaFrame : SensorFrame;
+            in item chemicalFrame : SensorFrame;
+            out item localMap : TerrainMap;
+            out item hazards : HazardReport;
+        }
+    }
+
+    part def MissionComputer {
+        attribute missionMode : MissionMode = MissionMode::standby;
+        attribute minimumBatteryForReturn : Percent = 25.0;
+        attribute requiredMapConfidence : Percent = 82.0;
+
+        port operatorLink : WirelessPort;
+        port missionInterface : MissionPort;
+        port gaitCommand : CommandPort;
+        port perceptionInterface : MissionPort;
+
+        action planCoveragePath {
+            in item plan : MissionPlan;
+            in item currentMap : TerrainMap;
+            out item command : LocomotionCommand;
+        }
+
+        action evaluateReturnCondition {
+            in attribute batteryRemaining : Percent;
+            in attribute elapsedMissionTime : Second;
+            out attribute returnRequired : Boolean;
+        }
+    }
+
+    part def WirelessBaseStation {
+        attribute communicationRange : Meter = 300.0;
+        attribute minimumLinkQuality : Percent = 70.0;
+        port robotLink : WirelessPort;
+        port operatorConsole : MissionPort;
+    }
+
+    part def InsectoidRobot {
+        attribute bodyLength : Meter = 0.72;
+        attribute bodyWidth : Meter = 0.34;
+        attribute bodyHeight : Meter = 0.22;
+        attribute mass : Real = 18.5;
+        attribute payloadCapacity : Real = 4.0;
+        attribute ingressHeight : Meter = 0.28;
+        attribute nominalSpeed : MeterPerSecond = 0.42;
+        attribute operatingTemperatureMin : Celsius = -10.0;
+        attribute operatingTemperatureMax : Celsius = 55.0;
+
+        port missionPort : MissionPort;
+        port wirelessPort : WirelessPort;
+
+        part battery : BatteryPack;
+        part powerDistribution : PowerDistributionUnit;
+        part missionComputer : MissionComputer;
+        part perceptionComputer : PerceptionComputer;
+        part gaitController : GaitController;
+
+        part frontLeftLeg : InsectoidLeg;
+        part middleLeftLeg : InsectoidLeg;
+        part rearLeftLeg : InsectoidLeg;
+        part frontRightLeg : InsectoidLeg;
+        part middleRightLeg : InsectoidLeg;
+        part rearRightLeg : InsectoidLeg;
+
+        part leftAntenna : AntennaSensor;
+        part rightAntenna : AntennaSensor;
+        part compoundVision : CompoundVisionSensor;
+        part chemicalSensorArray : ChemicalSensorArray;
+        part inertialNavigation : InertialNavigationUnit;
+
+        connect battery.outputPower to powerDistribution.batteryInput;
+        connect powerDistribution.locomotionOutput to frontLeftLeg.power;
+        connect powerDistribution.locomotionOutput to middleLeftLeg.power;
+        connect powerDistribution.locomotionOutput to rearLeftLeg.power;
+        connect powerDistribution.locomotionOutput to frontRightLeg.power;
+        connect powerDistribution.locomotionOutput to middleRightLeg.power;
+        connect powerDistribution.locomotionOutput to rearRightLeg.power;
+
+        connect missionComputer.gaitCommand to gaitController.command;
+        connect gaitController.command to frontLeftLeg.command;
+        connect gaitController.command to middleLeftLeg.command;
+        connect gaitController.command to rearLeftLeg.command;
+        connect gaitController.command to frontRightLeg.command;
+        connect gaitController.command to middleRightLeg.command;
+        connect gaitController.command to rearRightLeg.command;
+
+        connect compoundVision.data to perceptionComputer.visionInput;
+        connect leftAntenna.data to perceptionComputer.antennaInput;
+        connect rightAntenna.data to perceptionComputer.antennaInput;
+        connect chemicalSensorArray.data to perceptionComputer.chemicalInput;
+        connect inertialNavigation.data to perceptionComputer.inertialInput;
+
+        connect perceptionComputer.mapOutput to missionComputer.perceptionInterface;
+        connect missionComputer.operatorLink to wirelessPort;
+        connect missionComputer.missionInterface to missionPort;
+
+        state missionState {
+            entry action initializeSystems;
+            state Standby;
+            state Deploying;
+            state Exploring;
+            state InspectingHazard;
+            state Reporting;
+            state Returning;
+            state SafeStop;
+
+            transition first Standby;
+            transition Standby to Deploying
+                accept planReceived
+                do missionComputer.planCoveragePath;
+            transition Deploying to Exploring
+                accept allLegsContactStable;
+            transition Exploring to InspectingHazard
+                accept hazardCandidateDetected
+                do perceptionComputer.fuseSensors;
+            transition InspectingHazard to Reporting
+                accept hazardClassified;
+            transition Reporting to Exploring
+                accept reportTransmitted
+                if missionAreaIncomplete;
+            transition Reporting to Returning
+                accept reportTransmitted
+                if missionAreaComplete;
+            transition Exploring to Returning
+                accept lowBatteryDetected
+                do missionComputer.evaluateReturnCondition;
+            transition Returning to Standby
+                accept dockedAtBase;
+            transition Exploring to SafeStop
+                accept criticalFault;
+            transition InspectingHazard to SafeStop
+                accept criticalFault;
+            transition Returning to SafeStop
+                accept criticalFault;
+        }
+    }
+
+    part def RoboticInspectionSystem {
+        attribute primaryTask : String = "Autonomous inspection and hazard reporting in confined damaged structures using an insectoid robot";
+        attribute requiredCoverage : Percent = 95.0;
+        attribute maximumMissionTime : Second = 3600.0;
+
+        part insectoidRobot : InsectoidRobot;
+        part baseStation : WirelessBaseStation;
+
+        port operatorMissionPort : MissionPort;
+
+        connect baseStation.robotLink to insectoidRobot.wirelessPort;
+        connect baseStation.operatorConsole to operatorMissionPort;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        doc /* The robotic system shall perform autonomous confined-space inspection using an insectoid robot as the primary task performer. */
+        subject system : RoboticInspectionSystem;
+        require constraint {
+            system.insectoidRobot.bodyHeight <= system.insectoidRobot.ingressHeight
+        }
+    }
+
+    requirement def HexapodLocomotionRequirement {
+        doc /* The insectoid robot shall use six articulated legs to maintain stable locomotion across rubble, gaps, and inclines. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.gaitController.stabilityMargin >= 30.0 and
+            robot.gaitController.maxClimbIncline >= 50.0
+        }
+    }
+
+    requirement def ConfinedSpaceIngressRequirement {
+        doc /* The robot shall enter openings no taller than 0.30 m while carrying the inspection sensor suite. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.bodyHeight <= 0.30
+        }
+    }
+
+    requirement def HazardDetectionRequirement {
+        doc /* The robot shall detect and report chemical, thermal, smoke, and structural hazards with location estimates. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.perceptionComputer.mapUpdateRate >= 5.0 and
+            robot.chemicalSensorArray.coRange >= 500.0
+        }
+    }
+
+    requirement def MissionEnduranceRequirement {
+        doc /* The robot shall reserve enough energy to return to the base station after completing or aborting inspection. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.battery.reserveEnergyPercent >= robot.missionComputer.minimumBatteryForReturn
+        }
+    }
+
+    requirement def OperatorCommunicationRequirement {
+        doc /* The system shall transmit maps, hazard reports, and diagnostics to the operator base station during the mission. */
+        subject system : RoboticInspectionSystem;
+        require constraint {
+            system.baseStation.communicationRange >= 250.0 and
+            system.baseStation.minimumLinkQuality >= 65.0
+        }
+    }
+
+    requirement def CoverageRequirement {
+        doc /* The robotic inspection system shall cover at least 95 percent of the assigned inspection area before mission completion unless a critical fault occurs. */
+        subject system : RoboticInspectionSystem;
+        require constraint {
+            system.requiredCoverage >= 95.0
+        }
+    }
+
+    satisfy PrimaryTaskRequirement by RoboticInspectionSystem;
+    satisfy HexapodLocomotionRequirement by InsectoidRobot;
+    satisfy ConfinedSpaceIngressRequirement by InsectoidRobot;
+    satisfy HazardDetectionRequirement by PerceptionComputer;
+    satisfy MissionEnduranceRequirement by BatteryPack;
+    satisfy OperatorCommunicationRequirement by WirelessBaseStation;
+    satisfy CoverageRequirement by MissionComputer;
+}
+tokens used
+4,783
+package InsectoidRoboticSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real;
+    attribute def Degree : Real;
+    attribute def Meter : Real;
+    attribute def Second : Real;
+    attribute def MeterPerSecond : Real;
+    attribute def NewtonMeter : Real;
+    attribute def Watt : Real;
+    attribute def Volt : Real;
+    attribute def AmpereHour : Real;
+    attribute def Celsius : Real;
+    attribute def Lux : Real;
+    attribute def PartsPerMillion : Real;
+    attribute def Pascal : Real;
+
+    item def TerrainMap {
+        attribute resolution : Meter;
+        attribute confidence : Percent;
+        attribute mappedArea : Meter;
+    }
+
+    item def MissionPlan {
+        attribute targetWaypointCount : Integer;
+        attribute maxMissionDuration : Second;
+        attribute requiredCoverageArea : Meter;
+        attribute returnHomeRequired : Boolean;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : Second;
+        attribute frameConfidence : Percent;
+    }
+
+    item def HazardReport {
+        attribute carbonMonoxide : PartsPerMillion;
+        attribute temperature : Celsius;
+        attribute smokeDensity : Percent;
+        attribute structuralRisk : Percent;
+        attribute locationX : Meter;
+        attribute locationY : Meter;
+    }
+
+    item def LocomotionCommand {
+        attribute forwardVelocity : MeterPerSecond;
+        attribute yawRate : Degree;
+        attribute bodyHeight : Meter;
+        attribute gaitMode : GaitKind;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Volt;
+        attribute current : Real;
+        attribute availableEnergy : Watt;
+    }
+
+    item def DiagnosticMessage {
+        attribute faultCode : Integer;
+        attribute severity : FaultSeverity;
+        attribute recoverable : Boolean;
+    }
+
+    enum def GaitKind {
+        enum walk;
+        enum climb;
+        enum crouch;
+        enum bridge;
+        enum recovery;
+    }
+
+    enum def FaultSeverity {
+        enum advisory;
+        enum degraded;
+        enum critical;
+    }
+
+    enum def MissionMode {
+        enum standby;
+        enum deploy;
+        enum explore;
+        enum inspect;
+        enum report;
+        enum returnToBase;
+        enum safeStop;
+    }
+
+    port def DataPort {
+        in item inputFrame : SensorFrame;
+        out item outputFrame : SensorFrame;
+    }
+
+    port def MissionPort {
+        in item plan : MissionPlan;
+        out item report : HazardReport;
+        out item map : TerrainMap;
+        out item diagnostic : DiagnosticMessage;
+    }
+
+    port def CommandPort {
+        in item commandIn : LocomotionCommand;
+        out item commandOut : LocomotionCommand;
+    }
+
+    port def PowerPort {
+        in item supply : PowerFlow;
+        out item demand : PowerFlow;
+    }
+
+    port def WirelessPort {
+        in item uplinkPlan : MissionPlan;
+        out item downlinkReport : HazardReport;
+        out item downlinkMap : TerrainMap;
+        out item downlinkDiagnostic : DiagnosticMessage;
+    }
+
+    part def InsectoidLeg {
+        attribute femurLength : Meter = 0.18;
+        attribute tibiaLength : Meter = 0.21;
+        attribute coxaYawLimit : Degree = 55.0;
+        attribute femurPitchLimit : Degree = 80.0;
+        attribute tibiaPitchLimit : Degree = 95.0;
+        attribute maxTipForce : Real = 38.0;
+        attribute maxJointTorque : NewtonMeter = 8.0;
+
+        port power : PowerPort;
+        port command : CommandPort;
+
+        part coxaActuator;
+        part femurActuator;
+        part tibiaActuator;
+        part footContactSensor;
+
+        action extendFoot {
+            in attribute targetX : Meter;
+            in attribute targetY : Meter;
+            in attribute targetZ : Meter;
+            out attribute contactConfirmed : Boolean;
+        }
+
+        action regulateGroundForce {
+            in attribute targetForce : Real;
+            out attribute slipDetected : Boolean;
+        }
+    }
+
+    part def AntennaSensor {
+        attribute length : Meter = 0.24;
+        attribute contactSensitivity : Real = 0.03;
+        port data : DataPort;
+
+        action sweep {
+            in attribute sweepAngle : Degree;
+            out attribute obstacleDetected : Boolean;
+        }
+    }
+
+    part def CompoundVisionSensor {
+        attribute horizontalFieldOfView : Degree = 210.0;
+        attribute verticalFieldOfView : Degree = 110.0;
+        attribute minimumIllumination : Lux = 0.2;
+        port data : DataPort;
+    }
+
+    part def ChemicalSensorArray {
+        attribute coRange : PartsPerMillion = 1000.0;
+        attribute smokeSensitivity : Percent = 2.0;
+        port data : DataPort;
+    }
+
+    part def InertialNavigationUnit {
+        attribute driftRate : Degree = 0.8;
+        port data : DataPort;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Volt = 28.8;
+        attribute capacity : AmpereHour = 12.0;
+        attribute reserveEnergyPercent : Percent = 18.0;
+        port outputPower : PowerPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute maxContinuousPower : Watt = 420.0;
+        port batteryInput : PowerPort;
+        port locomotionOutput : PowerPort;
+        port computeOutput : PowerPort;
+        port sensorOutput : PowerPort;
+    }
+
+    part def GaitController {
+        attribute stabilityMargin : Percent = 35.0;
+        attribute maxForwardVelocity : MeterPerSecond = 0.65;
+        attribute maxClimbIncline : Degree = 55.0;
+        port command : CommandPort;
+        port data : DataPort;
+
+        action selectGait {
+            in attribute terrainRoughness : Percent;
+            in attribute obstacleHeight : Meter;
+            out attribute selectedGait : GaitKind;
+        }
+
+        action synthesizeLegCommands {
+            in item bodyCommand : LocomotionCommand;
+            out item legCommand : LocomotionCommand;
+        }
+    }
+
+    part def PerceptionComputer {
+        attribute computePower : Watt = 48.0;
+        attribute mapUpdateRate : Real = 10.0;
+        port visionInput : DataPort;
+        port antennaInput : DataPort;
+        port chemicalInput : DataPort;
+        port inertialInput : DataPort;
+        port mapOutput : MissionPort;
+
+        action fuseSensors {
+            in item visionFrame : SensorFrame;
+            in item antennaFrame : SensorFrame;
+            in item chemicalFrame : SensorFrame;
+            out item localMap : TerrainMap;
+            out item hazards : HazardReport;
+        }
+    }
+
+    part def MissionComputer {
+        attribute missionMode : MissionMode = MissionMode::standby;
+        attribute minimumBatteryForReturn : Percent = 25.0;
+        attribute requiredMapConfidence : Percent = 82.0;
+
+        port operatorLink : WirelessPort;
+        port missionInterface : MissionPort;
+        port gaitCommand : CommandPort;
+        port perceptionInterface : MissionPort;
+
+        action planCoveragePath {
+            in item plan : MissionPlan;
+            in item currentMap : TerrainMap;
+            out item command : LocomotionCommand;
+        }
+
+        action evaluateReturnCondition {
+            in attribute batteryRemaining : Percent;
+            in attribute elapsedMissionTime : Second;
+            out attribute returnRequired : Boolean;
+        }
+    }
+
+    part def WirelessBaseStation {
+        attribute communicationRange : Meter = 300.0;
+        attribute minimumLinkQuality : Percent = 70.0;
+        port robotLink : WirelessPort;
+        port operatorConsole : MissionPort;
+    }
+
+    part def InsectoidRobot {
+        attribute bodyLength : Meter = 0.72;
+        attribute bodyWidth : Meter = 0.34;
+        attribute bodyHeight : Meter = 0.22;
+        attribute mass : Real = 18.5;
+        attribute payloadCapacity : Real = 4.0;
+        attribute ingressHeight : Meter = 0.28;
+        attribute nominalSpeed : MeterPerSecond = 0.42;
+        attribute operatingTemperatureMin : Celsius = -10.0;
+        attribute operatingTemperatureMax : Celsius = 55.0;
+
+        port missionPort : MissionPort;
+        port wirelessPort : WirelessPort;
+
+        part battery : BatteryPack;
+        part powerDistribution : PowerDistributionUnit;
+        part missionComputer : MissionComputer;
+        part perceptionComputer : PerceptionComputer;
+        part gaitController : GaitController;
+
+        part frontLeftLeg : InsectoidLeg;
+        part middleLeftLeg : InsectoidLeg;
+        part rearLeftLeg : InsectoidLeg;
+        part frontRightLeg : InsectoidLeg;
+        part middleRightLeg : InsectoidLeg;
+        part rearRightLeg : InsectoidLeg;
+
+        part leftAntenna : AntennaSensor;
+        part rightAntenna : AntennaSensor;
+        part compoundVision : CompoundVisionSensor;
+        part chemicalSensorArray : ChemicalSensorArray;
+        part inertialNavigation : InertialNavigationUnit;
+
+        connect battery.outputPower to powerDistribution.batteryInput;
+        connect powerDistribution.locomotionOutput to frontLeftLeg.power;
+        connect powerDistribution.locomotionOutput to middleLeftLeg.power;
+        connect powerDistribution.locomotionOutput to rearLeftLeg.power;
+        connect powerDistribution.locomotionOutput to frontRightLeg.power;
+        connect powerDistribution.locomotionOutput to middleRightLeg.power;
+        connect powerDistribution.locomotionOutput to rearRightLeg.power;
+
+        connect missionComputer.gaitCommand to gaitController.command;
+        connect gaitController.command to frontLeftLeg.command;
+        connect gaitController.command to middleLeftLeg.command;
+        connect gaitController.command to rearLeftLeg.command;
+        connect gaitController.command to frontRightLeg.command;
+        connect gaitController.command to middleRightLeg.command;
+        connect gaitController.command to rearRightLeg.command;
+
+        connect compoundVision.data to perceptionComputer.visionInput;
+        connect leftAntenna.data to perceptionComputer.antennaInput;
+        connect rightAntenna.data to perceptionComputer.antennaInput;
+        connect chemicalSensorArray.data to perceptionComputer.chemicalInput;
+        connect inertialNavigation.data to perceptionComputer.inertialInput;
+
+        connect perceptionComputer.mapOutput to missionComputer.perceptionInterface;
+        connect missionComputer.operatorLink to wirelessPort;
+        connect missionComputer.missionInterface to missionPort;
+
+        state missionState {
+            entry action initializeSystems;
+            state Standby;
+            state Deploying;
+            state Exploring;
+            state InspectingHazard;
+            state Reporting;
+            state Returning;
+            state SafeStop;
+
+            transition first Standby;
+            transition Standby to Deploying
+                accept planReceived
+                do missionComputer.planCoveragePath;
+            transition Deploying to Exploring
+                accept allLegsContactStable;
+            transition Exploring to InspectingHazard
+                accept hazardCandidateDetected
+                do perceptionComputer.fuseSensors;
+            transition InspectingHazard to Reporting
+                accept hazardClassified;
+            transition Reporting to Exploring
+                accept reportTransmitted
+                if missionAreaIncomplete;
+            transition Reporting to Returning
+                accept reportTransmitted
+                if missionAreaComplete;
+            transition Exploring to Returning
+                accept lowBatteryDetected
+                do missionComputer.evaluateReturnCondition;
+            transition Returning to Standby
+                accept dockedAtBase;
+            transition Exploring to SafeStop
+                accept criticalFault;
+            transition InspectingHazard to SafeStop
+                accept criticalFault;
+            transition Returning to SafeStop
+                accept criticalFault;
+        }
+    }
+
+    part def RoboticInspectionSystem {
+        attribute primaryTask : String = "Autonomous inspection and hazard reporting in confined damaged structures using an insectoid robot";
+        attribute requiredCoverage : Percent = 95.0;
+        attribute maximumMissionTime : Second = 3600.0;
+
+        part insectoidRobot : InsectoidRobot;
+        part baseStation : WirelessBaseStation;
+
+        port operatorMissionPort : MissionPort;
+
+        connect baseStation.robotLink to insectoidRobot.wirelessPort;
+        connect baseStation.operatorConsole to operatorMissionPort;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        doc /* The robotic system shall perform autonomous confined-space inspection using an insectoid robot as the primary task performer. */
+        subject system : RoboticInspectionSystem;
+        require constraint {
+            system.insectoidRobot.bodyHeight <= system.insectoidRobot.ingressHeight
+        }
+    }
+
+    requirement def HexapodLocomotionRequirement {
+        doc /* The insectoid robot shall use six articulated legs to maintain stable locomotion across rubble, gaps, and inclines. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.gaitController.stabilityMargin >= 30.0 and
+            robot.gaitController.maxClimbIncline >= 50.0
+        }
+    }
+
+    requirement def ConfinedSpaceIngressRequirement {
+        doc /* The robot shall enter openings no taller than 0.30 m while carrying the inspection sensor suite. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.bodyHeight <= 0.30
+        }
+    }
+
+    requirement def HazardDetectionRequirement {
+        doc /* The robot shall detect and report chemical, thermal, smoke, and structural hazards with location estimates. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.perceptionComputer.mapUpdateRate >= 5.0 and
+            robot.chemicalSensorArray.coRange >= 500.0
+        }
+    }
+
+    requirement def MissionEnduranceRequirement {
+        doc /* The robot shall reserve enough energy to return to the base station after completing or aborting inspection. */
+        subject robot : InsectoidRobot;
+        require constraint {
+            robot.battery.reserveEnergyPercent >= robot.missionComputer.minimumBatteryForReturn
+        }
+    }
+
+    requirement def OperatorCommunicationRequirement {
+        doc /* The system shall transmit maps, hazard reports, and diagnostics to the operator base station during the mission. */
+        subject system : RoboticInspectionSystem;
+        require constraint {
+            system.baseStation.communicationRange >= 250.0 and
+            system.baseStation.minimumLinkQuality >= 65.0
+        }
+    }
+
+    requirement def CoverageRequirement {
+        doc /* The robotic inspection system shall cover at least 95 percent of the assigned inspection area before mission completion unless a critical fault occurs. */
+        subject system : RoboticInspectionSystem;
+        require constraint {
+            system.requiredCoverage >= 95.0
+        }
+    }
+
+    satisfy PrimaryTaskRequirement by RoboticInspectionSystem;
+    satisfy HexapodLocomotionRequirement by InsectoidRobot;
+    satisfy ConfinedSpaceIngressRequirement by InsectoidRobot;
+    satisfy HazardDetectionRequirement by PerceptionComputer;
+    satisfy MissionEnduranceRequirement by BatteryPack;
+    satisfy OperatorCommunicationRequirement by WirelessBaseStation;
+    satisfy CoverageRequirement by MissionComputer;
+}

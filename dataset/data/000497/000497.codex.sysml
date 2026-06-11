@@ -1,0 +1,312 @@
+package RightspotPHIndicatorModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PHValue : Real {
+        doc /* Dimensionless hydrogen ion activity measure. */;
+    }
+
+    attribute def Temperature_C : Real {
+        unit = "degC";
+    }
+
+    attribute def Volume_uL : Real {
+        unit = "uL";
+    }
+
+    attribute def Time_s : Real {
+        unit = "s";
+    }
+
+    attribute def Length_mm : Real {
+        unit = "mm";
+    }
+
+    attribute def ColorName : String;
+    attribute def ConfidencePercent : Real {
+        unit = "%";
+    }
+
+    item def LiquidSample {
+        attribute pH : PHValue;
+        attribute temperature : Temperature_C;
+        attribute appliedVolume : Volume_uL;
+        attribute contaminantsPresent : Boolean;
+    }
+
+    item def HydrogenIonActivity {
+        attribute pH : PHValue;
+    }
+
+    item def VisualColorSignal {
+        attribute observedColor : ColorName;
+        attribute estimatedPH : PHValue;
+        attribute confidence : ConfidencePercent;
+    }
+
+    item def UserInterpretation {
+        attribute readablePHBand : String;
+        attribute decision : String;
+    }
+
+    port def SampleContactPort {
+        in item sample : LiquidSample;
+    }
+
+    port def IonTransportPort {
+        in item ionActivity : HydrogenIonActivity;
+    }
+
+    port def VisualOutputPort {
+        out item colorSignal : VisualColorSignal;
+    }
+
+    port def UserViewingPort {
+        in item colorSignal : VisualColorSignal;
+        out item interpretation : UserInterpretation;
+    }
+
+    part def RightspotPHIndicator {
+        doc /* Disposable colorimetric indicator that provides a high-level visible indication of sample pH by changing the color of a reagent spot after liquid contact. */
+
+        attribute supportedPHMin : PHValue = 4.0;
+        attribute supportedPHMax : PHValue = 10.0;
+        attribute nominalResponseTime : Time_s = 30.0;
+        attribute requiredSampleVolume : Volume_uL = 25.0;
+        attribute operatingTemperatureMin : Temperature_C = 15.0;
+        attribute operatingTemperatureMax : Temperature_C = 35.0;
+
+        port sampleInput : SampleContactPort;
+        port visualOutput : VisualOutputPort;
+
+        part housing : IndicatorHousing;
+        part absorbentPad : SampleAbsorbentPad;
+        part reagentSpot : PHReactiveSpot;
+        part colorReference : PrintedColorReference;
+        part protectiveLayer : ProtectiveOverlay;
+
+        connection samplePath connect sampleInput to absorbentPad.samplePort;
+        connection ionPath connect absorbentPad.ionPort to reagentSpot.ionInput;
+        connection visiblePath connect reagentSpot.visualPort to visualOutput;
+
+        action indicatePH {
+            in item incomingSample : LiquidSample;
+            out item visibleResult : VisualColorSignal;
+
+            first start;
+            then validateSample;
+            then wickSample;
+            then reactWithIndicatorChemistry;
+            then stabilizeColor;
+            then emitVisualSignal;
+            then done;
+
+            action validateSample {
+                in item incomingSample : LiquidSample;
+                out valid : Boolean;
+            }
+
+            action wickSample {
+                in item incomingSample : LiquidSample;
+                out item ionActivity : HydrogenIonActivity;
+            }
+
+            action reactWithIndicatorChemistry {
+                in item ionActivity : HydrogenIonActivity;
+                out item transientColor : VisualColorSignal;
+            }
+
+            action stabilizeColor {
+                in item transientColor : VisualColorSignal;
+                out item stableColor : VisualColorSignal;
+            }
+
+            action emitVisualSignal {
+                in item stableColor : VisualColorSignal;
+                out item visibleResult : VisualColorSignal;
+            }
+        }
+
+        state indicatorState {
+            state Unused;
+            state SampleApplied;
+            state Reacting;
+            state ColorStable;
+            state Interpreted;
+            state InvalidSample;
+
+            entry; then Unused;
+
+            transition applySample
+                first Unused
+                accept sampleInput.sample
+                then SampleApplied;
+
+            transition beginReaction
+                first SampleApplied
+                if sampleInput.sample.appliedVolume >= requiredSampleVolume
+                then Reacting;
+
+            transition rejectLowVolume
+                first SampleApplied
+                if sampleInput.sample.appliedVolume < requiredSampleVolume
+                then InvalidSample;
+
+            transition completeReaction
+                first Reacting
+                after nominalResponseTime
+                then ColorStable;
+
+            transition viewResult
+                first ColorStable
+                then Interpreted;
+        }
+    }
+
+    part def IndicatorHousing {
+        attribute length : Length_mm = 55.0;
+        attribute width : Length_mm = 8.0;
+        attribute thickness : Length_mm = 1.5;
+        attribute material : String = "white polymer carrier";
+    }
+
+    part def SampleAbsorbentPad {
+        attribute capacity : Volume_uL = 60.0;
+        attribute retainedVolume : Volume_uL;
+        attribute wet : Boolean = false;
+
+        port samplePort : SampleContactPort;
+        port ionPort : IonTransportPort;
+
+        action transportSample {
+            in item sample : LiquidSample;
+            out item ionActivity : HydrogenIonActivity;
+        }
+    }
+
+    part def PHReactiveSpot {
+        attribute diameter : Length_mm = 5.0;
+        attribute chemistry : String = "immobilized broad-range pH indicator dye blend";
+        attribute lowerPHLimit : PHValue = 4.0;
+        attribute upperPHLimit : PHValue = 10.0;
+        attribute responseTime : Time_s = 30.0;
+        attribute currentColor : ColorName = "unreacted amber";
+
+        port ionInput : IonTransportPort;
+        port visualPort : VisualOutputPort;
+
+        action convertPHToColor {
+            in item ionActivity : HydrogenIonActivity;
+            out item signal : VisualColorSignal;
+        }
+
+        state reagentCondition {
+            state Dry;
+            state Wetting;
+            state ColorDeveloping;
+            state Stable;
+            state Exhausted;
+
+            entry; then Dry;
+
+            transition wet
+                first Dry
+                accept ionInput.ionActivity
+                then Wetting;
+
+            transition develop
+                first Wetting
+                then ColorDeveloping;
+
+            transition stabilize
+                first ColorDeveloping
+                after responseTime
+                then Stable;
+
+            transition expire
+                first Stable
+                after 600.0 [s]
+                then Exhausted;
+        }
+    }
+
+    part def PrintedColorReference {
+        attribute band1Label : String = "pH 4-5 orange";
+        attribute band2Label : String = "pH 6 yellow";
+        attribute band3Label : String = "pH 7 green";
+        attribute band4Label : String = "pH 8 blue-green";
+        attribute band5Label : String = "pH 9-10 blue";
+        attribute readableDistance : Length_mm = 300.0;
+
+        port viewerPort : UserViewingPort;
+
+        action compareObservedColor {
+            in item colorSignal : VisualColorSignal;
+            out item interpretation : UserInterpretation;
+        }
+    }
+
+    part def ProtectiveOverlay {
+        attribute transparentWindow : Boolean = true;
+        attribute reagentAreaExposed : Boolean = true;
+        attribute splashResistant : Boolean = true;
+    }
+
+    part def Operator {
+        attribute visualAcuityNormal : Boolean;
+
+        port viewing : UserViewingPort;
+
+        action readIndicator {
+            in item colorSignal : VisualColorSignal;
+            out item interpretation : UserInterpretation;
+        }
+    }
+
+    part rightspotSystem : RightspotPHIndicator;
+    part operator : Operator;
+
+    connection operatorViewsResult connect rightspotSystem.visualOutput to operator.viewing;
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The RightspotpH Indicator shall provide a visible high-level indication of the pH range of a contacted liquid sample. */
+        subject indicator : RightspotPHIndicator;
+        require constraint {
+            indicator.supportedPHMin <= 4.0 and
+            indicator.supportedPHMax >= 10.0 and
+            indicator.nominalResponseTime <= 30.0
+        }
+    }
+
+    requirement def SampleVolumeRequirement {
+        doc /* The indicator shall produce a stable visible color when at least 25 uL of liquid sample is applied to the sample contact area. */
+        subject indicator : RightspotPHIndicator;
+        require constraint {
+            indicator.requiredSampleVolume <= 25.0
+        }
+    }
+
+    requirement def VisualInterpretabilityRequirement {
+        doc /* The stable color shall correspond to one of the printed pH reference bands so that an operator can determine acidic, neutral, or alkaline condition without electronics. */
+        subject indicator : RightspotPHIndicator;
+        require constraint {
+            indicator.colorReference.readableDistance >= 300.0
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        doc /* The indicator shall operate within common ambient use temperatures. */
+        subject indicator : RightspotPHIndicator;
+        require constraint {
+            indicator.operatingTemperatureMin <= 15.0 and
+            indicator.operatingTemperatureMax >= 35.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by rightspotSystem;
+    satisfy SampleVolumeRequirement by rightspotSystem;
+    satisfy VisualInterpretabilityRequirement by rightspotSystem;
+    satisfy OperatingTemperatureRequirement by rightspotSystem;
+}

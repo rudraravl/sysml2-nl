@@ -1,0 +1,400 @@
+package HomeMedicalEquipmentSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value type OxygenConcentration {
+    unit = "%";
+    quantity = "volume fraction";
+  }
+
+  value type FlowRate {
+    unit = "L/min";
+    quantity = "gas volumetric flow rate";
+  }
+
+  value type Pressure {
+    unit = "kPa";
+    quantity = "gas pressure";
+  }
+
+  value type Temperature {
+    unit = "degC";
+    quantity = "temperature";
+  }
+
+  value type RelativeHumidity {
+    unit = "%";
+    quantity = "relative humidity";
+  }
+
+  value type ElectricalVoltage {
+    unit = "V";
+    quantity = "electric potential";
+  }
+
+  value type ElectricalPower {
+    unit = "W";
+    quantity = "power";
+  }
+
+  value type SoundLevel {
+    unit = "dBA";
+    quantity = "sound pressure level";
+  }
+
+  item def AmbientAir {
+    attribute oxygenFraction : OxygenConcentration = 20.9;
+    attribute particulateLoad : Real;
+  }
+
+  item def OxygenEnrichedAir {
+    attribute oxygenFraction : OxygenConcentration;
+    attribute deliveredFlow : FlowRate;
+    attribute outletPressure : Pressure;
+    attribute relativeHumidity : RelativeHumidity;
+    attribute gasTemperature : Temperature;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : ElectricalVoltage;
+    attribute power : ElectricalPower;
+  }
+
+  item def TherapyPrescription {
+    attribute prescribedFlow : FlowRate;
+    attribute minimumOxygenConcentration : OxygenConcentration;
+    attribute humidificationEnabled : Boolean;
+    attribute continuousOperationRequired : Boolean;
+  }
+
+  item def SensorTelemetry {
+    attribute measuredFlow : FlowRate;
+    attribute measuredOxygenConcentration : OxygenConcentration;
+    attribute measuredPressure : Pressure;
+    attribute measuredTemperature : Temperature;
+    attribute waterLevelLow : Boolean;
+    attribute filterRestricted : Boolean;
+    attribute powerPresent : Boolean;
+  }
+
+  item def AlarmNotification {
+    attribute alarmCode : String;
+    attribute alarmPriority : String;
+    attribute audibleRequired : Boolean;
+    attribute visualRequired : Boolean;
+  }
+
+  port def AirInletPort {
+    in item air : AmbientAir;
+  }
+
+  port def GasOutletPort {
+    out item gas : OxygenEnrichedAir;
+  }
+
+  port def PowerInputPort {
+    in item energy : ElectricalEnergy;
+  }
+
+  port def PrescriptionInputPort {
+    in item prescription : TherapyPrescription;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : SensorTelemetry;
+  }
+
+  port def AlarmPort {
+    out item alarm : AlarmNotification;
+  }
+
+  part def IntakeFilter {
+    port inlet : AirInletPort;
+    port outlet : AirInletPort;
+    attribute replaceIntervalHours : Real = 720.0;
+    attribute maximumPressureDrop : Pressure = 2.0;
+  }
+
+  part def Compressor {
+    port inlet : AirInletPort;
+    port power : PowerInputPort;
+    port outlet : GasOutletPort;
+    attribute nominalPower : ElectricalPower = 280.0;
+    attribute maximumOutletPressure : Pressure = 180.0;
+    attribute maximumSoundLevel : SoundLevel = 45.0;
+  }
+
+  part def MolecularSieveAssembly {
+    port feedGas : GasOutletPort;
+    port productGas : GasOutletPort;
+    attribute targetOxygenConcentration : OxygenConcentration = 93.0;
+    attribute minimumAcceptableConcentration : OxygenConcentration = 87.0;
+    attribute adsorptionCycleSeconds : Real = 8.0;
+  }
+
+  part def ProductReservoir {
+    port inlet : GasOutletPort;
+    port outlet : GasOutletPort;
+    attribute nominalVolume_L : Real = 1.2;
+    attribute reliefPressure : Pressure = 170.0;
+  }
+
+  part def FlowControlValve {
+    port inlet : GasOutletPort;
+    port outlet : GasOutletPort;
+    attribute minimumFlow : FlowRate = 0.5;
+    attribute maximumFlow : FlowRate = 5.0;
+    attribute flowAccuracyPercent : Real = 10.0;
+  }
+
+  part def HumidifierBottle {
+    port dryGasIn : GasOutletPort;
+    port humidifiedGasOut : GasOutletPort;
+    attribute waterCapacity_mL : Real = 350.0;
+    attribute maximumRelativeHumidity : RelativeHumidity = 85.0;
+    attribute lowWaterThreshold_mL : Real = 50.0;
+  }
+
+  part def PatientInterface {
+    port inlet : GasOutletPort;
+    attribute interfaceType : String = "nasal cannula";
+    attribute tubingLength_m : Real = 2.1;
+    attribute singlePatientUse : Boolean = true;
+  }
+
+  part def SensorSuite {
+    port sampledGas : GasOutletPort;
+    port telemetryOut : TelemetryPort;
+    attribute flowSensorRange : FlowRate = 6.0;
+    attribute oxygenSensorRange : OxygenConcentration = 100.0;
+    attribute pressureSensorRange : Pressure = 200.0;
+  }
+
+  part def EmbeddedController {
+    port prescriptionIn : PrescriptionInputPort;
+    port telemetryIn : TelemetryPort;
+    port alarmOut : AlarmPort;
+    attribute controlLoopPeriod_ms : Real = 100.0;
+    attribute oxygenLowAlarmDelay_s : Real = 30.0;
+    attribute pressureHighAlarmDelay_s : Real = 2.0;
+  }
+
+  part def UserInterface {
+    port prescriptionOut : PrescriptionInputPort;
+    port alarmIn : AlarmPort;
+    attribute displayType : String = "backlit LCD";
+    attribute hasFlowSetKnob : Boolean = true;
+    attribute hasMuteButton : Boolean = true;
+  }
+
+  part def AlarmSubsystem {
+    port alarmIn : AlarmPort;
+    attribute audibleLevel : SoundLevel = 70.0;
+    attribute visualIndicatorColor : String = "amber/red";
+  }
+
+  part def PowerSubsystem {
+    port mainsInput : PowerInputPort;
+    port regulatedOutput : PowerInputPort;
+    attribute nominalInputVoltage : ElectricalVoltage = 120.0;
+    attribute maximumInputPower : ElectricalPower = 350.0;
+    attribute backupBatteryMinutes : Real = 20.0;
+  }
+
+  part def HomeOxygenTherapyEquipment {
+    doc /* Primary function: provide continuous, prescribed oxygen-enriched breathing gas to a home patient while monitoring delivery quality and alerting the user when therapy cannot be maintained. */
+
+    port roomAirIn : AirInletPort;
+    port acPowerIn : PowerInputPort;
+    port patientGasOut : GasOutletPort;
+    port prescriptionIn : PrescriptionInputPort;
+    port telemetryOut : TelemetryPort;
+    port alarmOut : AlarmPort;
+
+    part filter : IntakeFilter;
+    part compressor : Compressor;
+    part sieve : MolecularSieveAssembly;
+    part reservoir : ProductReservoir;
+    part valve : FlowControlValve;
+    part humidifier : HumidifierBottle;
+    part cannula : PatientInterface;
+    part sensors : SensorSuite;
+    part controller : EmbeddedController;
+    part ui : UserInterface;
+    part alarms : AlarmSubsystem;
+    part power : PowerSubsystem;
+
+    connect roomAirIn to filter.inlet;
+    connect filter.outlet to compressor.inlet;
+    connect acPowerIn to power.mainsInput;
+    connect power.regulatedOutput to compressor.power;
+    connect compressor.outlet to sieve.feedGas;
+    connect sieve.productGas to reservoir.inlet;
+    connect reservoir.outlet to valve.inlet;
+    connect valve.outlet to humidifier.dryGasIn;
+    connect humidifier.humidifiedGasOut to cannula.inlet;
+    connect humidifier.humidifiedGasOut to patientGasOut;
+    connect reservoir.outlet to sensors.sampledGas;
+    connect sensors.telemetryOut to telemetryOut;
+    connect sensors.telemetryOut to controller.telemetryIn;
+    connect prescriptionIn to controller.prescriptionIn;
+    connect ui.prescriptionOut to controller.prescriptionIn;
+    connect controller.alarmOut to alarms.alarmIn;
+    connect controller.alarmOut to alarmOut;
+  }
+
+  action def DeliverTherapy {
+    in item prescription : TherapyPrescription;
+    in item ambientAir : AmbientAir;
+    in item power : ElectricalEnergy;
+    out item deliveredGas : OxygenEnrichedAir;
+    out item telemetry : SensorTelemetry;
+    out item alarm : AlarmNotification;
+
+    action drawAmbientAir;
+    action filterParticulates;
+    action compressAir;
+    action separateNitrogen;
+    action storeProductGas;
+    action regulateFlow;
+    action humidifyGas;
+    action deliverToPatient;
+    action monitorTherapy;
+    action evaluateAlarms;
+
+    first drawAmbientAir then filterParticulates;
+    then compressAir;
+    then separateNitrogen;
+    then storeProductGas;
+    then regulateFlow;
+    then humidifyGas;
+    then deliverToPatient;
+    then monitorTherapy;
+    then evaluateAlarms;
+  }
+
+  state def TherapyOperatingState {
+    entry action initializeSelfTest;
+
+    state Off;
+    state Standby;
+    state StartupSelfTest;
+    state OxygenProduction;
+    state DeliveringTherapy;
+    state AlarmActive;
+    state ServiceRequired;
+    state PowerLossBackup;
+
+    transition first Off;
+    transition Off to StartupSelfTest
+      accept PowerApplied;
+
+    transition StartupSelfTest to Standby
+      if selfTestPassed;
+
+    transition StartupSelfTest to ServiceRequired
+      if selfTestFailed;
+
+    transition Standby to OxygenProduction
+      accept TherapyStart;
+
+    transition OxygenProduction to DeliveringTherapy
+      if oxygenConcentration >= 87.0 and outletPressure >= 35.0;
+
+    transition DeliveringTherapy to AlarmActive
+      if oxygenConcentration < 87.0 or deliveredFlow < prescribedFlow * 0.9 or outletPressure > 170.0;
+
+    transition AlarmActive to DeliveringTherapy
+      if alarmConditionCleared;
+
+    transition DeliveringTherapy to PowerLossBackup
+      if mainsPowerLost;
+
+    transition PowerLossBackup to DeliveringTherapy
+      if mainsPowerRestored;
+
+    transition PowerLossBackup to AlarmActive
+      if backupBatteryRemainingMinutes < 5.0;
+
+    transition AlarmActive to ServiceRequired
+      if unrecoverableFaultDetected;
+
+    transition Standby to Off
+      accept PowerRemoved;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject equipment : HomeOxygenTherapyEquipment;
+    require constraint {
+      equipment.patientGasOut.gas.deliveredFlow >= 0.5 and
+      equipment.patientGasOut.gas.deliveredFlow <= 5.0 and
+      equipment.patientGasOut.gas.oxygenFraction >= 87.0
+    }
+  }
+
+  requirement def FlowPrescriptionRequirement {
+    subject gas : OxygenEnrichedAir;
+    subject prescription : TherapyPrescription;
+    require constraint {
+      gas.deliveredFlow >= prescription.prescribedFlow * 0.9 and
+      gas.deliveredFlow <= prescription.prescribedFlow * 1.1
+    }
+  }
+
+  requirement def OxygenPurityRequirement {
+    subject gas : OxygenEnrichedAir;
+    subject prescription : TherapyPrescription;
+    require constraint {
+      gas.oxygenFraction >= prescription.minimumOxygenConcentration
+    }
+  }
+
+  requirement def PatientOutletPressureRequirement {
+    subject gas : OxygenEnrichedAir;
+    require constraint {
+      gas.outletPressure >= 20.0 and gas.outletPressure <= 60.0
+    }
+  }
+
+  requirement def HomeElectricalSafetyRequirement {
+    subject power : PowerSubsystem;
+    require constraint {
+      power.nominalInputVoltage == 120.0 and
+      power.maximumInputPower <= 350.0
+    }
+  }
+
+  requirement def AlarmRequirement {
+    subject telemetry : SensorTelemetry;
+    require constraint {
+      telemetry.powerPresent == true and
+      telemetry.measuredOxygenConcentration >= 87.0 and
+      telemetry.measuredPressure <= 170.0 and
+      telemetry.filterRestricted == false
+    }
+  }
+
+  requirement def NoiseRequirement {
+    subject compressor : Compressor;
+    require constraint {
+      compressor.maximumSoundLevel <= 45.0
+    }
+  }
+
+  requirement def HumidificationRequirement {
+    subject gas : OxygenEnrichedAir;
+    subject prescription : TherapyPrescription;
+    require constraint {
+      prescription.humidificationEnabled implies gas.relativeHumidity >= 40.0
+    }
+  }
+
+  part homeMedicalEquipmentSystem : HomeOxygenTherapyEquipment;
+
+  action provideHomeOxygenTherapy : DeliverTherapy;
+
+  satisfy PrimaryFunctionRequirement by homeMedicalEquipmentSystem;
+  satisfy HomeElectricalSafetyRequirement by homeMedicalEquipmentSystem.power;
+  satisfy NoiseRequirement by homeMedicalEquipmentSystem.compressor;
+}

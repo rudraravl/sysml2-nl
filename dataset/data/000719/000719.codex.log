@@ -1,0 +1,1199 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-k0kjbrbr
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3f2-e938-7f60-958d-0c3c7a7d774f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Orchidometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OrchidometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Millimeter :> LengthValue {
+        unit = mm;
+    }
+
+    attribute def Milliliter :> VolumeValue {
+        unit = mL;
+    }
+
+    attribute def Gram :> MassValue {
+        unit = g;
+    }
+
+    attribute def Newton :> ForceValue {
+        unit = N;
+    }
+
+    attribute def Celsius :> TemperatureValue {
+        unit = degC;
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    enum def MeasurementSide {
+        enum left;
+        enum right;
+        enum bilateral;
+        enum unspecified;
+    }
+
+    enum def MeasurementConfidence {
+        enum low;
+        enum medium;
+        enum high;
+    }
+
+    enum def ClinicalUseMode {
+        enum routineAssessment;
+        enum pubertalStaging;
+        enum endocrineFollowUp;
+        enum educationalDemonstration;
+    }
+
+    enum def CleaningStatus {
+        enum clean;
+        enum used;
+        enum disinfecting;
+        enum drying;
+        enum quarantined;
+    }
+
+    enum def MatchResult {
+        enum smallerThanReference;
+        enum approximateMatch;
+        enum largerThanReference;
+        enum noMatch;
+    }
+
+    item def HandForce {
+        attribute magnitude : Newton;
+        attribute directionDescription : String;
+    }
+
+    item def VisualComparison {
+        attribute observedSide : MeasurementSide;
+        attribute selectedBeadVolume : Milliliter;
+        attribute confidence : MeasurementConfidence;
+        attribute matchResult : MatchResult;
+    }
+
+    item def MeasurementRecord {
+        attribute patientIdentifier : String;
+        attribute encounterIdentifier : String;
+        attribute useMode : ClinicalUseMode;
+        attribute leftEstimatedVolume : Milliliter;
+        attribute rightEstimatedVolume : Milliliter;
+        attribute selectedReferenceVolume : Milliliter;
+        attribute confidence : MeasurementConfidence;
+        attribute clinicianId : String;
+        attribute timestampIso8601 : String;
+        attribute notes : String;
+    }
+
+    item def CleaningAgent {
+        attribute name : String;
+        attribute concentration : Percent;
+        attribute contactTime : TimeValue;
+        attribute compatibleWithPlastic : Boolean;
+    }
+
+    item def StorageCondition {
+        attribute ambientTemperature : Celsius;
+        attribute relativeHumidity : Percent;
+        attribute protectedFromDirectSunlight : Boolean;
+    }
+
+    port def HandlingPort {
+        in item appliedForce : HandForce;
+    }
+
+    port def VisualReferencePort {
+        out item referenceObservation : VisualComparison;
+    }
+
+    port def RecordPort {
+        out item measurementRecord : MeasurementRecord;
+    }
+
+    port def CleaningPort {
+        in item cleaningAgent : CleaningAgent;
+        out item cleaningState : CleaningStatus;
+    }
+
+    port def StoragePort {
+        in item storageCondition : StorageCondition;
+    }
+
+    part def Bead {
+        attribute nominalVolume : Milliliter;
+        attribute majorDiameter : Millimeter;
+        attribute minorDiameter : Millimeter;
+        attribute mass : Gram;
+        attribute colorName : String;
+        attribute surfaceFinish : String;
+        attribute volumeLabelText : String;
+        attribute manufacturingTolerance : Percent;
+
+        port visualReference : VisualReferencePort;
+        port handling : HandlingPort;
+    }
+
+    part def GraduatedBeadSet {
+        part bead_01mL : Bead {
+            attribute nominalVolume = 1 [mL];
+            attribute majorDiameter = 16 [mm];
+            attribute minorDiameter = 10 [mm];
+            attribute mass = 1.1 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "1 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_02mL : Bead {
+            attribute nominalVolume = 2 [mL];
+            attribute majorDiameter = 19 [mm];
+            attribute minorDiameter = 12 [mm];
+            attribute mass = 1.7 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "2 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_03mL : Bead {
+            attribute nominalVolume = 3 [mL];
+            attribute majorDiameter = 21 [mm];
+            attribute minorDiameter = 14 [mm];
+            attribute mass = 2.4 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "3 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_04mL : Bead {
+            attribute nominalVolume = 4 [mL];
+            attribute majorDiameter = 23 [mm];
+            attribute minorDiameter = 15 [mm];
+            attribute mass = 3.0 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "4 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_05mL : Bead {
+            attribute nominalVolume = 5 [mL];
+            attribute majorDiameter = 25 [mm];
+            attribute minorDiameter = 16 [mm];
+            attribute mass = 3.8 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "5 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_06mL : Bead {
+            attribute nominalVolume = 6 [mL];
+            attribute majorDiameter = 27 [mm];
+            attribute minorDiameter = 17 [mm];
+            attribute mass = 4.4 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "6 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_08mL : Bead {
+            attribute nominalVolume = 8 [mL];
+            attribute majorDiameter = 30 [mm];
+            attribute minorDiameter = 19 [mm];
+            attribute mass = 5.8 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "8 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_10mL : Bead {
+            attribute nominalVolume = 10 [mL];
+            attribute majorDiameter = 33 [mm];
+            attribute minorDiameter = 21 [mm];
+            attribute mass = 7.1 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "10 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_12mL : Bead {
+            attribute nominalVolume = 12 [mL];
+            attribute majorDiameter = 36 [mm];
+            attribute minorDiameter = 22 [mm];
+            attribute mass = 8.6 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "12 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_15mL : Bead {
+            attribute nominalVolume = 15 [mL];
+            attribute majorDiameter = 40 [mm];
+            attribute minorDiameter = 24 [mm];
+            attribute mass = 10.5 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "15 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_20mL : Bead {
+            attribute nominalVolume = 20 [mL];
+            attribute majorDiameter = 45 [mm];
+            attribute minorDiameter = 27 [mm];
+            attribute mass = 14.0 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "20 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_25mL : Bead {
+            attribute nominalVolume = 25 [mL];
+            attribute majorDiameter = 50 [mm];
+            attribute minorDiameter = 30 [mm];
+            attribute mass = 17.5 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "25 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+    }
+
+    part def CordAssembly {
+        attribute material : String;
+        attribute length : Millimeter;
+        attribute diameter : Millimeter;
+        attribute tensileRating : Newton;
+        attribute flexible : Boolean;
+
+        port handling : HandlingPort;
+    }
+
+    part def LabelMarker {
+        attribute labelText : String;
+        attribute labelHeight : Millimeter;
+        attribute contrastRatio : Real;
+        attribute abrasionResistant : Boolean;
+    }
+
+    part def StorageCase {
+        attribute material : String;
+        attribute closedLength : Millimeter;
+        attribute closedWidth : Millimeter;
+        attribute closedHeight : Millimeter;
+        attribute cleanable : Boolean;
+
+        port storage : StoragePort;
+        port cleaning : CleaningPort;
+    }
+
+    part def Clinician {
+        attribute clinicianId : String;
+        attribute trainedForUse : Boolean;
+
+        port handInterface : HandlingPort;
+        port recordInterface : RecordPort;
+    }
+
+    part def PatientAnatomy {
+        attribute observedSide : MeasurementSide;
+        attribute actualLeftTesticularVolume : Milliliter;
+        attribute actualRightTesticularVolume : Milliliter;
+    }
+
+    action def SelectCandidateBead {
+        in item comparison : VisualComparison;
+        out item selectedComparison : VisualComparison;
+
+        first start;
+        then inspectObservedAnatomy;
+        then compareAgainstGraduatedBeads;
+        then chooseNearestVolume;
+        then assignConfidence;
+        then done;
+
+        flow start to inspectObservedAnatomy;
+        flow inspectObservedAnatomy to compareAgainstGraduatedBeads;
+        flow compareAgainstGraduatedBeads to chooseNearestVolume;
+        flow chooseNearestVolume to assignConfidence;
+        flow assignConfidence to done;
+    }
+
+    action def EstimateTesticularVolume {
+        in side : MeasurementSide;
+        in useMode : ClinicalUseMode;
+        out item result : MeasurementRecord;
+
+        action prepareDevice;
+        action visuallyCompareAnatomyToBeads;
+        action selectClosestNominalVolume : SelectCandidateBead;
+        action repeatForOppositeSide;
+        action recordEstimatedVolumes;
+
+        first prepareDevice;
+        then visuallyCompareAnatomyToBeads;
+        then selectClosestNominalVolume;
+        then repeatForOppositeSide;
+        then recordEstimatedVolumes;
+
+        flow prepareDevice to visuallyCompareAnatomyToBeads;
+        flow visuallyCompareAnatomyToBeads to selectClosestNominalVolume;
+        flow selectClosestNominalVolume to repeatForOppositeSide;
+        flow repeatForOppositeSide to recordEstimatedVolumes;
+    }
+
+    action def CleanAndStoreDevice {
+        in item agent : CleaningAgent;
+        in item storage : StorageCondition;
+        out status : CleaningStatus;
+
+        first receiveUsedDevice;
+        then applyCompatibleDisinfectant;
+        then maintainContactTime;
+        then drySurfaces;
+        then placeInStorageCase;
+        then markClean;
+
+        flow receiveUsedDevice to applyCompatibleDisinfectant;
+        flow applyCompatibleDisinfectant to maintainContactTime;
+        flow maintainContactTime to drySurfaces;
+        flow drySurfaces to placeInStorageCase;
+        flow placeInStorageCase to markClean;
+    }
+
+    state def OrchidometerOperationalState {
+        state stored;
+        state readyForUse;
+        state inClinicalUse;
+        state usedAwaitingCleaning;
+        state beingDisinfected;
+        state drying;
+        state quarantined;
+
+        initial then stored;
+
+        transition stored_to_ready
+            first stored
+            accept event openCase
+            then readyForUse;
+
+        transition ready_to_use
+            first readyForUse
+            accept event beginMeasurement
+            then inClinicalUse;
+
+        transition use_to_used
+            first inClinicalUse
+            accept event completeMeasurement
+            then usedAwaitingCleaning;
+
+        transition used_to_disinfecting
+            first usedAwaitingCleaning
+            accept event applyCleaningAgent
+            then beingDisinfected;
+
+        transition disinfecting_to_drying
+            first beingDisinfected
+            accept event contactTimeElapsed
+            then drying;
+
+        transition drying_to_stored
+            first drying
+            accept event deviceDryAndClosed
+            then stored;
+
+        transition any_to_quarantine
+            first readyForUse
+            accept event damageDetected
+            then quarantined;
+    }
+
+    part def Orchidometer {
+        attribute deviceName : String = "Prader-style Orchidometer";
+        attribute primaryFunction : String = "Provide a high-level clinical reference for estimating testicular volume by visual and tactile comparison with a sequence of calibrated ellipsoid beads.";
+        attribute reusable : Boolean = true;
+        attribute minimumNominalVolume : Milliliter = 1 [mL];
+        attribute maximumNominalVolume : Milliliter = 25 [mL];
+        attribute nominalVolumeTolerance : Percent = 5 [%];
+        attribute cleaningStatus : CleaningStatus = CleaningStatus::clean;
+        attribute intendedUseMode : ClinicalUseMode = ClinicalUseMode::routineAssessment;
+
+        part beadSet : GraduatedBeadSet;
+        part cord : CordAssembly {
+            attribute material = "medical-grade nylon";
+            attribute length = 360 [mm];
+            attribute diameter = 2 [mm];
+            attribute tensileRating = 80 [N];
+            attribute flexible = true;
+        }
+
+        part volumeLabels : LabelMarker {
+            attribute labelText = "1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25 mL";
+            attribute labelHeight = 3 [mm];
+            attribute contrastRatio = 7.0;
+            attribute abrasionResistant = true;
+        }
+
+        part case : StorageCase {
+            attribute material = "rigid cleanable polymer";
+            attribute closedLength = 180 [mm];
+            attribute closedWidth = 95 [mm];
+            attribute closedHeight = 35 [mm];
+            attribute cleanable = true;
+        }
+
+        port clinicianHandling : HandlingPort;
+        port visualReference : VisualReferencePort;
+        port documentation : RecordPort;
+        port cleaningInterface : CleaningPort;
+        port storageInterface : StoragePort;
+
+        perform measurementBehavior : EstimateTesticularVolume;
+        perform cleaningBehavior : CleanAndStoreDevice;
+
+        exhibit stateMachine : OrchidometerOperationalState;
+
+        connect clinicianHandling to cord.handling;
+        connect visualReference to beadSet.bead_01mL.visualReference;
+        connect visualReference to beadSet.bead_02mL.visualReference;
+        connect visualReference to beadSet.bead_03mL.visualReference;
+        connect visualReference to beadSet.bead_04mL.visualReference;
+        connect visualReference to beadSet.bead_05mL.visualReference;
+        connect visualReference to beadSet.bead_06mL.visualReference;
+        connect visualReference to beadSet.bead_08mL.visualReference;
+        connect visualReference to beadSet.bead_10mL.visualReference;
+        connect visualReference to beadSet.bead_12mL.visualReference;
+        connect visualReference to beadSet.bead_15mL.visualReference;
+        connect visualReference to beadSet.bead_20mL.visualReference;
+        connect visualReference to beadSet.bead_25mL.visualReference;
+        connect cleaningInterface to case.cleaning;
+        connect storageInterface to case.storage;
+    }
+
+    part def ClinicalUseContext {
+        part clinician : Clinician {
+            attribute clinicianId = "clinical-user";
+            attribute trainedForUse = true;
+        }
+
+        part subject : PatientAnatomy {
+            attribute observedSide = MeasurementSide::bilateral;
+            attribute actualLeftTesticularVolume = 12 [mL];
+            attribute actualRightTesticularVolume = 15 [mL];
+        }
+
+        part system : Orchidometer;
+
+        port clinicalRecordOutput : RecordPort;
+
+        connect clinician.handInterface to system.clinicianHandling;
+        connect clinician.recordInterface to system.documentation;
+        connect clinicalRecordOutput to system.documentation;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The orchidometer shall support high-level estimation of testicular volume by providing a visible, hand-held series of calibrated ellipsoid references. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.minimumNominalVolume <= 1 [mL] and
+            system.maximumNominalVolume >= 25 [mL] and
+            system.reusable == true
+        }
+    }
+
+    requirement def VolumeCoverageRequirement {
+        doc /* The bead set shall cover the clinically common comparison range from 1 mL through 25 mL using discrete labeled reference volumes. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.beadSet.bead_01mL.nominalVolume == 1 [mL] and
+            system.beadSet.bead_02mL.nominalVolume == 2 [mL] and
+            system.beadSet.bead_03mL.nominalVolume == 3 [mL] and
+            system.beadSet.bead_04mL.nominalVolume == 4 [mL] and
+            system.beadSet.bead_05mL.nominalVolume == 5 [mL] and
+            system.beadSet.bead_06mL.nominalVolume == 6 [mL] and
+            system.beadSet.bead_08mL.nominalVolume == 8 [mL] and
+            system.beadSet.bead_10mL.nominalVolume == 10 [mL] and
+            system.beadSet.bead_12mL.nominalVolume == 12 [mL] and
+            system.beadSet.bead_15mL.nominalVolume == 15 [mL] and
+            system.beadSet.bead_20mL.nominalVolume == 20 [mL] and
+            system.beadSet.bead_25mL.nominalVolume == 25 [mL]
+        }
+    }
+
+    requirement def LabelLegibilityRequirement {
+        doc /* Each reference bead shall be identifiable by a durable volume label with sufficient visual contrast for routine clinical lighting. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.volumeLabels.labelHeight >= 3 [mm] and
+            system.volumeLabels.contrastRatio >= 4.5 and
+            system.volumeLabels.abrasionResistant == true
+        }
+    }
+
+    requirement def HandlingRequirement {
+        doc /* The cord assembly shall allow the clinician to manipulate the bead sequence with one hand without detaching individual beads. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.cord.flexible == true and
+            system.cord.length >= 300 [mm] and
+            system.cord.tensileRating >= 50 [N]
+        }
+    }
+
+    requirement def CleanabilityRequirement {
+        doc /* The device and case shall support cleaning and storage between clinical uses. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.reusable == true and
+            system.case.cleanable == true
+        }
+    }
+
+    requirement def DocumentationRequirement {
+        doc /* The system shall produce a clinical measurement record containing side, estimated volume, confidence, clinician identity, and timestamp. */
+        subject record : MeasurementRecord;
+
+        require constraint {
+            record.patientIdentifier != "" and
+            record.clinicianId != "" and
+            record.timestampIso8601 != "" and
+            record.selectedReferenceVolume >= 1 [mL] and
+            record.selectedReferenceVolume <= 25 [mL]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Orchidometer;
+    satisfy VolumeCoverageRequirement by Orchidometer::beadSet;
+    satisfy LabelLegibilityRequirement by Orchidometer::volumeLabels;
+    satisfy HandlingRequirement by Orchidometer::cord;
+    satisfy CleanabilityRequirement by Orchidometer;
+    satisfy DocumentationRequirement by MeasurementRecord;
+
+    part clinicalDeployment : ClinicalUseContext;
+
+}
+tokens used
+4,741
+package OrchidometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Millimeter :> LengthValue {
+        unit = mm;
+    }
+
+    attribute def Milliliter :> VolumeValue {
+        unit = mL;
+    }
+
+    attribute def Gram :> MassValue {
+        unit = g;
+    }
+
+    attribute def Newton :> ForceValue {
+        unit = N;
+    }
+
+    attribute def Celsius :> TemperatureValue {
+        unit = degC;
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    enum def MeasurementSide {
+        enum left;
+        enum right;
+        enum bilateral;
+        enum unspecified;
+    }
+
+    enum def MeasurementConfidence {
+        enum low;
+        enum medium;
+        enum high;
+    }
+
+    enum def ClinicalUseMode {
+        enum routineAssessment;
+        enum pubertalStaging;
+        enum endocrineFollowUp;
+        enum educationalDemonstration;
+    }
+
+    enum def CleaningStatus {
+        enum clean;
+        enum used;
+        enum disinfecting;
+        enum drying;
+        enum quarantined;
+    }
+
+    enum def MatchResult {
+        enum smallerThanReference;
+        enum approximateMatch;
+        enum largerThanReference;
+        enum noMatch;
+    }
+
+    item def HandForce {
+        attribute magnitude : Newton;
+        attribute directionDescription : String;
+    }
+
+    item def VisualComparison {
+        attribute observedSide : MeasurementSide;
+        attribute selectedBeadVolume : Milliliter;
+        attribute confidence : MeasurementConfidence;
+        attribute matchResult : MatchResult;
+    }
+
+    item def MeasurementRecord {
+        attribute patientIdentifier : String;
+        attribute encounterIdentifier : String;
+        attribute useMode : ClinicalUseMode;
+        attribute leftEstimatedVolume : Milliliter;
+        attribute rightEstimatedVolume : Milliliter;
+        attribute selectedReferenceVolume : Milliliter;
+        attribute confidence : MeasurementConfidence;
+        attribute clinicianId : String;
+        attribute timestampIso8601 : String;
+        attribute notes : String;
+    }
+
+    item def CleaningAgent {
+        attribute name : String;
+        attribute concentration : Percent;
+        attribute contactTime : TimeValue;
+        attribute compatibleWithPlastic : Boolean;
+    }
+
+    item def StorageCondition {
+        attribute ambientTemperature : Celsius;
+        attribute relativeHumidity : Percent;
+        attribute protectedFromDirectSunlight : Boolean;
+    }
+
+    port def HandlingPort {
+        in item appliedForce : HandForce;
+    }
+
+    port def VisualReferencePort {
+        out item referenceObservation : VisualComparison;
+    }
+
+    port def RecordPort {
+        out item measurementRecord : MeasurementRecord;
+    }
+
+    port def CleaningPort {
+        in item cleaningAgent : CleaningAgent;
+        out item cleaningState : CleaningStatus;
+    }
+
+    port def StoragePort {
+        in item storageCondition : StorageCondition;
+    }
+
+    part def Bead {
+        attribute nominalVolume : Milliliter;
+        attribute majorDiameter : Millimeter;
+        attribute minorDiameter : Millimeter;
+        attribute mass : Gram;
+        attribute colorName : String;
+        attribute surfaceFinish : String;
+        attribute volumeLabelText : String;
+        attribute manufacturingTolerance : Percent;
+
+        port visualReference : VisualReferencePort;
+        port handling : HandlingPort;
+    }
+
+    part def GraduatedBeadSet {
+        part bead_01mL : Bead {
+            attribute nominalVolume = 1 [mL];
+            attribute majorDiameter = 16 [mm];
+            attribute minorDiameter = 10 [mm];
+            attribute mass = 1.1 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "1 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_02mL : Bead {
+            attribute nominalVolume = 2 [mL];
+            attribute majorDiameter = 19 [mm];
+            attribute minorDiameter = 12 [mm];
+            attribute mass = 1.7 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "2 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_03mL : Bead {
+            attribute nominalVolume = 3 [mL];
+            attribute majorDiameter = 21 [mm];
+            attribute minorDiameter = 14 [mm];
+            attribute mass = 2.4 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "3 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_04mL : Bead {
+            attribute nominalVolume = 4 [mL];
+            attribute majorDiameter = 23 [mm];
+            attribute minorDiameter = 15 [mm];
+            attribute mass = 3.0 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "4 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_05mL : Bead {
+            attribute nominalVolume = 5 [mL];
+            attribute majorDiameter = 25 [mm];
+            attribute minorDiameter = 16 [mm];
+            attribute mass = 3.8 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "5 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_06mL : Bead {
+            attribute nominalVolume = 6 [mL];
+            attribute majorDiameter = 27 [mm];
+            attribute minorDiameter = 17 [mm];
+            attribute mass = 4.4 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "6 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_08mL : Bead {
+            attribute nominalVolume = 8 [mL];
+            attribute majorDiameter = 30 [mm];
+            attribute minorDiameter = 19 [mm];
+            attribute mass = 5.8 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "8 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_10mL : Bead {
+            attribute nominalVolume = 10 [mL];
+            attribute majorDiameter = 33 [mm];
+            attribute minorDiameter = 21 [mm];
+            attribute mass = 7.1 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "10 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_12mL : Bead {
+            attribute nominalVolume = 12 [mL];
+            attribute majorDiameter = 36 [mm];
+            attribute minorDiameter = 22 [mm];
+            attribute mass = 8.6 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "12 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_15mL : Bead {
+            attribute nominalVolume = 15 [mL];
+            attribute majorDiameter = 40 [mm];
+            attribute minorDiameter = 24 [mm];
+            attribute mass = 10.5 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "15 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_20mL : Bead {
+            attribute nominalVolume = 20 [mL];
+            attribute majorDiameter = 45 [mm];
+            attribute minorDiameter = 27 [mm];
+            attribute mass = 14.0 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "20 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+
+        part bead_25mL : Bead {
+            attribute nominalVolume = 25 [mL];
+            attribute majorDiameter = 50 [mm];
+            attribute minorDiameter = 30 [mm];
+            attribute mass = 17.5 [g];
+            attribute colorName = "white";
+            attribute surfaceFinish = "smooth satin";
+            attribute volumeLabelText = "25 mL";
+            attribute manufacturingTolerance = 5 [%];
+        }
+    }
+
+    part def CordAssembly {
+        attribute material : String;
+        attribute length : Millimeter;
+        attribute diameter : Millimeter;
+        attribute tensileRating : Newton;
+        attribute flexible : Boolean;
+
+        port handling : HandlingPort;
+    }
+
+    part def LabelMarker {
+        attribute labelText : String;
+        attribute labelHeight : Millimeter;
+        attribute contrastRatio : Real;
+        attribute abrasionResistant : Boolean;
+    }
+
+    part def StorageCase {
+        attribute material : String;
+        attribute closedLength : Millimeter;
+        attribute closedWidth : Millimeter;
+        attribute closedHeight : Millimeter;
+        attribute cleanable : Boolean;
+
+        port storage : StoragePort;
+        port cleaning : CleaningPort;
+    }
+
+    part def Clinician {
+        attribute clinicianId : String;
+        attribute trainedForUse : Boolean;
+
+        port handInterface : HandlingPort;
+        port recordInterface : RecordPort;
+    }
+
+    part def PatientAnatomy {
+        attribute observedSide : MeasurementSide;
+        attribute actualLeftTesticularVolume : Milliliter;
+        attribute actualRightTesticularVolume : Milliliter;
+    }
+
+    action def SelectCandidateBead {
+        in item comparison : VisualComparison;
+        out item selectedComparison : VisualComparison;
+
+        first start;
+        then inspectObservedAnatomy;
+        then compareAgainstGraduatedBeads;
+        then chooseNearestVolume;
+        then assignConfidence;
+        then done;
+
+        flow start to inspectObservedAnatomy;
+        flow inspectObservedAnatomy to compareAgainstGraduatedBeads;
+        flow compareAgainstGraduatedBeads to chooseNearestVolume;
+        flow chooseNearestVolume to assignConfidence;
+        flow assignConfidence to done;
+    }
+
+    action def EstimateTesticularVolume {
+        in side : MeasurementSide;
+        in useMode : ClinicalUseMode;
+        out item result : MeasurementRecord;
+
+        action prepareDevice;
+        action visuallyCompareAnatomyToBeads;
+        action selectClosestNominalVolume : SelectCandidateBead;
+        action repeatForOppositeSide;
+        action recordEstimatedVolumes;
+
+        first prepareDevice;
+        then visuallyCompareAnatomyToBeads;
+        then selectClosestNominalVolume;
+        then repeatForOppositeSide;
+        then recordEstimatedVolumes;
+
+        flow prepareDevice to visuallyCompareAnatomyToBeads;
+        flow visuallyCompareAnatomyToBeads to selectClosestNominalVolume;
+        flow selectClosestNominalVolume to repeatForOppositeSide;
+        flow repeatForOppositeSide to recordEstimatedVolumes;
+    }
+
+    action def CleanAndStoreDevice {
+        in item agent : CleaningAgent;
+        in item storage : StorageCondition;
+        out status : CleaningStatus;
+
+        first receiveUsedDevice;
+        then applyCompatibleDisinfectant;
+        then maintainContactTime;
+        then drySurfaces;
+        then placeInStorageCase;
+        then markClean;
+
+        flow receiveUsedDevice to applyCompatibleDisinfectant;
+        flow applyCompatibleDisinfectant to maintainContactTime;
+        flow maintainContactTime to drySurfaces;
+        flow drySurfaces to placeInStorageCase;
+        flow placeInStorageCase to markClean;
+    }
+
+    state def OrchidometerOperationalState {
+        state stored;
+        state readyForUse;
+        state inClinicalUse;
+        state usedAwaitingCleaning;
+        state beingDisinfected;
+        state drying;
+        state quarantined;
+
+        initial then stored;
+
+        transition stored_to_ready
+            first stored
+            accept event openCase
+            then readyForUse;
+
+        transition ready_to_use
+            first readyForUse
+            accept event beginMeasurement
+            then inClinicalUse;
+
+        transition use_to_used
+            first inClinicalUse
+            accept event completeMeasurement
+            then usedAwaitingCleaning;
+
+        transition used_to_disinfecting
+            first usedAwaitingCleaning
+            accept event applyCleaningAgent
+            then beingDisinfected;
+
+        transition disinfecting_to_drying
+            first beingDisinfected
+            accept event contactTimeElapsed
+            then drying;
+
+        transition drying_to_stored
+            first drying
+            accept event deviceDryAndClosed
+            then stored;
+
+        transition any_to_quarantine
+            first readyForUse
+            accept event damageDetected
+            then quarantined;
+    }
+
+    part def Orchidometer {
+        attribute deviceName : String = "Prader-style Orchidometer";
+        attribute primaryFunction : String = "Provide a high-level clinical reference for estimating testicular volume by visual and tactile comparison with a sequence of calibrated ellipsoid beads.";
+        attribute reusable : Boolean = true;
+        attribute minimumNominalVolume : Milliliter = 1 [mL];
+        attribute maximumNominalVolume : Milliliter = 25 [mL];
+        attribute nominalVolumeTolerance : Percent = 5 [%];
+        attribute cleaningStatus : CleaningStatus = CleaningStatus::clean;
+        attribute intendedUseMode : ClinicalUseMode = ClinicalUseMode::routineAssessment;
+
+        part beadSet : GraduatedBeadSet;
+        part cord : CordAssembly {
+            attribute material = "medical-grade nylon";
+            attribute length = 360 [mm];
+            attribute diameter = 2 [mm];
+            attribute tensileRating = 80 [N];
+            attribute flexible = true;
+        }
+
+        part volumeLabels : LabelMarker {
+            attribute labelText = "1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25 mL";
+            attribute labelHeight = 3 [mm];
+            attribute contrastRatio = 7.0;
+            attribute abrasionResistant = true;
+        }
+
+        part case : StorageCase {
+            attribute material = "rigid cleanable polymer";
+            attribute closedLength = 180 [mm];
+            attribute closedWidth = 95 [mm];
+            attribute closedHeight = 35 [mm];
+            attribute cleanable = true;
+        }
+
+        port clinicianHandling : HandlingPort;
+        port visualReference : VisualReferencePort;
+        port documentation : RecordPort;
+        port cleaningInterface : CleaningPort;
+        port storageInterface : StoragePort;
+
+        perform measurementBehavior : EstimateTesticularVolume;
+        perform cleaningBehavior : CleanAndStoreDevice;
+
+        exhibit stateMachine : OrchidometerOperationalState;
+
+        connect clinicianHandling to cord.handling;
+        connect visualReference to beadSet.bead_01mL.visualReference;
+        connect visualReference to beadSet.bead_02mL.visualReference;
+        connect visualReference to beadSet.bead_03mL.visualReference;
+        connect visualReference to beadSet.bead_04mL.visualReference;
+        connect visualReference to beadSet.bead_05mL.visualReference;
+        connect visualReference to beadSet.bead_06mL.visualReference;
+        connect visualReference to beadSet.bead_08mL.visualReference;
+        connect visualReference to beadSet.bead_10mL.visualReference;
+        connect visualReference to beadSet.bead_12mL.visualReference;
+        connect visualReference to beadSet.bead_15mL.visualReference;
+        connect visualReference to beadSet.bead_20mL.visualReference;
+        connect visualReference to beadSet.bead_25mL.visualReference;
+        connect cleaningInterface to case.cleaning;
+        connect storageInterface to case.storage;
+    }
+
+    part def ClinicalUseContext {
+        part clinician : Clinician {
+            attribute clinicianId = "clinical-user";
+            attribute trainedForUse = true;
+        }
+
+        part subject : PatientAnatomy {
+            attribute observedSide = MeasurementSide::bilateral;
+            attribute actualLeftTesticularVolume = 12 [mL];
+            attribute actualRightTesticularVolume = 15 [mL];
+        }
+
+        part system : Orchidometer;
+
+        port clinicalRecordOutput : RecordPort;
+
+        connect clinician.handInterface to system.clinicianHandling;
+        connect clinician.recordInterface to system.documentation;
+        connect clinicalRecordOutput to system.documentation;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The orchidometer shall support high-level estimation of testicular volume by providing a visible, hand-held series of calibrated ellipsoid references. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.minimumNominalVolume <= 1 [mL] and
+            system.maximumNominalVolume >= 25 [mL] and
+            system.reusable == true
+        }
+    }
+
+    requirement def VolumeCoverageRequirement {
+        doc /* The bead set shall cover the clinically common comparison range from 1 mL through 25 mL using discrete labeled reference volumes. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.beadSet.bead_01mL.nominalVolume == 1 [mL] and
+            system.beadSet.bead_02mL.nominalVolume == 2 [mL] and
+            system.beadSet.bead_03mL.nominalVolume == 3 [mL] and
+            system.beadSet.bead_04mL.nominalVolume == 4 [mL] and
+            system.beadSet.bead_05mL.nominalVolume == 5 [mL] and
+            system.beadSet.bead_06mL.nominalVolume == 6 [mL] and
+            system.beadSet.bead_08mL.nominalVolume == 8 [mL] and
+            system.beadSet.bead_10mL.nominalVolume == 10 [mL] and
+            system.beadSet.bead_12mL.nominalVolume == 12 [mL] and
+            system.beadSet.bead_15mL.nominalVolume == 15 [mL] and
+            system.beadSet.bead_20mL.nominalVolume == 20 [mL] and
+            system.beadSet.bead_25mL.nominalVolume == 25 [mL]
+        }
+    }
+
+    requirement def LabelLegibilityRequirement {
+        doc /* Each reference bead shall be identifiable by a durable volume label with sufficient visual contrast for routine clinical lighting. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.volumeLabels.labelHeight >= 3 [mm] and
+            system.volumeLabels.contrastRatio >= 4.5 and
+            system.volumeLabels.abrasionResistant == true
+        }
+    }
+
+    requirement def HandlingRequirement {
+        doc /* The cord assembly shall allow the clinician to manipulate the bead sequence with one hand without detaching individual beads. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.cord.flexible == true and
+            system.cord.length >= 300 [mm] and
+            system.cord.tensileRating >= 50 [N]
+        }
+    }
+
+    requirement def CleanabilityRequirement {
+        doc /* The device and case shall support cleaning and storage between clinical uses. */
+        subject system : Orchidometer;
+
+        require constraint {
+            system.reusable == true and
+            system.case.cleanable == true
+        }
+    }
+
+    requirement def DocumentationRequirement {
+        doc /* The system shall produce a clinical measurement record containing side, estimated volume, confidence, clinician identity, and timestamp. */
+        subject record : MeasurementRecord;
+
+        require constraint {
+            record.patientIdentifier != "" and
+            record.clinicianId != "" and
+            record.timestampIso8601 != "" and
+            record.selectedReferenceVolume >= 1 [mL] and
+            record.selectedReferenceVolume <= 25 [mL]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Orchidometer;
+    satisfy VolumeCoverageRequirement by Orchidometer::beadSet;
+    satisfy LabelLegibilityRequirement by Orchidometer::volumeLabels;
+    satisfy HandlingRequirement by Orchidometer::cord;
+    satisfy CleanabilityRequirement by Orchidometer;
+    satisfy DocumentationRequirement by MeasurementRecord;
+
+    part clinicalDeployment : ClinicalUseContext;
+
+}

@@ -1,0 +1,342 @@
+package WartenbergWheelSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Angle :> Real {
+    unit = "deg";
+  }
+
+  attribute def Length :> Real {
+    unit = "mm";
+  }
+
+  attribute def Force :> Real {
+    unit = "N";
+  }
+
+  attribute def Torque :> Real {
+    unit = "N*m";
+  }
+
+  attribute def Mass :> Real {
+    unit = "g";
+  }
+
+  attribute def RotationalSpeed :> Real {
+    unit = "rpm";
+  }
+
+  attribute def Pressure :> Real {
+    unit = "kPa";
+  }
+
+  attribute def Count :> Integer;
+
+  attribute def SterilityLevel :> String;
+
+  item def MechanicalForce {
+    attribute magnitude : Force;
+    attribute directionAngle : Angle;
+  }
+
+  item def SkinContactStimulus {
+    attribute contactForce : Force;
+    attribute contactPressure : Pressure;
+    attribute wheelSpeed : RotationalSpeed;
+    attribute contactDuration : Time;
+    attribute contactPathLength : Length;
+  }
+
+  item def UserGripLoad {
+    attribute gripForce : Force;
+    attribute appliedTorque : Torque;
+  }
+
+  item def CleaningStatus {
+    attribute sterility : SterilityLevel;
+    attribute residueDetected : Boolean;
+  }
+
+  port def HandInterfacePort {
+    in item gripLoad : UserGripLoad;
+    out item tactileFeedback : MechanicalForce;
+  }
+
+  port def AxleSupportPort {
+    in item bearingLoad : MechanicalForce;
+    out item rotationalReaction : MechanicalForce;
+  }
+
+  port def WheelContactPort {
+    in item appliedLoad : MechanicalForce;
+    out item stimulus : SkinContactStimulus;
+  }
+
+  port def CleaningInterfacePort {
+    in item cleaningStatus : CleaningStatus;
+  }
+
+  part def Handle {
+    attribute length : Length = 120;
+    attribute diameter : Length = 9;
+    attribute mass : Mass = 24;
+    attribute material : String = "stainless steel";
+    attribute surfaceFinish : String = "satin, non-slip knurled grip";
+
+    port userGrip : HandInterfacePort;
+    port distalMount : AxleSupportPort;
+  }
+
+  part def Axle {
+    attribute diameter : Length = 2;
+    attribute length : Length = 16;
+    attribute material : String = "hardened stainless steel";
+    attribute maximumBearingLoad : Force = 8;
+    attribute maximumFrictionTorque : Torque = 0.003;
+
+    port handleMount : AxleSupportPort;
+    port wheelMount : AxleSupportPort;
+  }
+
+  part def BearingInterface {
+    attribute radialClearance : Length = 0.05;
+    attribute lubricationType : String = "dry medical-grade low-friction interface";
+    attribute expectedFreeSpinSpeed : RotationalSpeed = 300;
+
+    port axleSide : AxleSupportPort;
+    port wheelSide : AxleSupportPort;
+  }
+
+  part def WartenbergWheel {
+    attribute diameter : Length = 22;
+    attribute thickness : Length = 1.2;
+    attribute mass : Mass = 5;
+    attribute spokeCount : Count = 18;
+    attribute toothCount : Count = 24;
+    attribute toothTipRadius : Length = 0.15;
+    attribute toothHeight : Length = 2;
+    attribute material : String = "stainless steel";
+    attribute edgeProfile : String = "radial evenly spaced blunt-point tactile teeth";
+
+    port hub : AxleSupportPort;
+    port skinInterface : WheelContactPort;
+    port cleaningInterface : CleaningInterfacePort;
+  }
+
+  part def ProtectiveCap {
+    attribute innerDiameter : Length = 26;
+    attribute length : Length = 32;
+    attribute mass : Mass = 4;
+    attribute material : String = "transparent autoclavable polymer";
+    attribute retainedOnHandle : Boolean = true;
+
+    port cleaningInterface : CleaningInterfacePort;
+  }
+
+  part def WartenbergAssessmentDevice {
+    attribute totalLength : Length = 155;
+    attribute nominalMass : Mass = 38;
+    attribute intendedPrimaryFunction : String =
+      "Provide controlled rolling tactile stimulation through a toothed rotating wheel so a clinician can observe or assess cutaneous sensory response at a high level.";
+
+    part handle : Handle;
+    part axle : Axle;
+    part bearing : BearingInterface;
+    part wheel : WartenbergWheel;
+    part cap : ProtectiveCap;
+
+    port handPort : HandInterfacePort;
+    port contactPort : WheelContactPort;
+    port cleaningPort : CleaningInterfacePort;
+
+    connect handPort to handle.userGrip;
+    connect handle.distalMount to axle.handleMount;
+    connect axle.wheelMount to bearing.axleSide;
+    connect bearing.wheelSide to wheel.hub;
+    connect contactPort to wheel.skinInterface;
+    connect cleaningPort to wheel.cleaningInterface;
+    connect cleaningPort to cap.cleaningInterface;
+  }
+
+  action def ApplyRollingStimulus {
+    in item appliedGrip : UserGripLoad;
+    in attribute pathLength : Length;
+    in attribute requestedContactForce : Force;
+    out item producedStimulus : SkinContactStimulus;
+
+    first start;
+    then positionWheel;
+    then establishLightContact;
+    then rollAlongPath;
+    then removeFromSurface;
+    then done;
+
+    action positionWheel;
+    action establishLightContact;
+    action rollAlongPath;
+    action removeFromSurface;
+
+    flow appliedGrip to positionWheel;
+    flow requestedContactForce to establishLightContact;
+    flow pathLength to rollAlongPath;
+    flow rollAlongPath.producedStimulus to producedStimulus;
+  }
+
+  action def CleanAndInspectDevice {
+    in item currentStatus : CleaningStatus;
+    out item verifiedStatus : CleaningStatus;
+
+    first start;
+    then inspectTeeth;
+    then removeResidue;
+    then disinfectMetalSurfaces;
+    then dryAndCap;
+    then done;
+
+    action inspectTeeth;
+    action removeResidue;
+    action disinfectMetalSurfaces;
+    action dryAndCap;
+
+    flow currentStatus to inspectTeeth;
+    flow dryAndCap.verifiedStatus to verifiedStatus;
+  }
+
+  state def DeviceOperationalState {
+    entry action initializeDevice;
+
+    state Stored;
+    state Ready;
+    state InUse;
+    state Cleaning;
+    state OutOfService;
+
+    transition initial then Stored;
+
+    transition Stored_to_Ready
+      first Stored
+      accept capRemoved
+      if deviceClean == true
+      then Ready;
+
+    transition Ready_to_InUse
+      first Ready
+      accept contactApplied
+      then InUse;
+
+    transition InUse_to_Ready
+      first InUse
+      accept contactRemoved
+      then Ready;
+
+    transition Ready_to_Cleaning
+      first Ready
+      accept cleaningRequested
+      then Cleaning;
+
+    transition Cleaning_to_Stored
+      first Cleaning
+      accept cleaningComplete
+      if residueDetected == false
+      then Stored;
+
+    transition Any_to_OutOfService
+      first Ready
+      accept damageDetected
+      then OutOfService;
+
+    transition OutOfService_to_Cleaning
+      first OutOfService
+      accept repairedAndReleased
+      then Cleaning;
+
+    attribute deviceClean : Boolean = true;
+    attribute residueDetected : Boolean = false;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall provide controlled rolling tactile stimulation by transferring a user's hand motion through a handle, axle, and rotating toothed wheel to a contacted surface. */
+    subject device : WartenbergAssessmentDevice;
+    require constraint {
+      device.wheel.toothCount >= 18 and
+      device.wheel.diameter >= 18 and
+      device.wheel.diameter <= 30
+    }
+  }
+
+  requirement def FreeRotationRequirement {
+    doc
+      /* The wheel shall rotate freely on the axle during light contact so that stimulus is produced by rolling contact rather than dragging. */
+    subject device : WartenbergAssessmentDevice;
+    require constraint {
+      device.axle.maximumFrictionTorque <= 0.005
+    }
+  }
+
+  requirement def ControlledContactRequirement {
+    doc
+      /* The device shall support light manually controlled contact forces appropriate for high-level sensory assessment. */
+    subject stimulus : SkinContactStimulus;
+    require constraint {
+      stimulus.contactForce >= 0.05 and
+      stimulus.contactForce <= 2.0
+    }
+  }
+
+  requirement def CleanabilityRequirement {
+    doc
+      /* The device shall expose smooth metallic wheel and handle surfaces that can be cleaned and inspected after use. */
+    subject device : WartenbergAssessmentDevice;
+    require constraint {
+      device.handle.material == "stainless steel" and
+      device.wheel.material == "stainless steel"
+    }
+  }
+
+  requirement def ProtectiveStorageRequirement {
+    doc
+      /* The system shall include a protective cap that covers the wheel during storage to reduce accidental contact and contamination. */
+    subject device : WartenbergAssessmentDevice;
+    require constraint {
+      device.cap.retainedOnHandle == true and
+      device.cap.innerDiameter > device.wheel.diameter
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by WartenbergAssessmentDevice;
+  satisfy FreeRotationRequirement by Axle;
+  satisfy FreeRotationRequirement by BearingInterface;
+  satisfy CleanabilityRequirement by WartenbergAssessmentDevice;
+  satisfy ProtectiveStorageRequirement by ProtectiveCap;
+
+  part clinicalWartenbergWheel : WartenbergAssessmentDevice {
+    attribute totalLength = 155;
+    attribute nominalMass = 38;
+
+    part handle {
+      attribute length = 120;
+      attribute diameter = 9;
+      attribute mass = 24;
+    }
+
+    part wheel {
+      attribute diameter = 22;
+      attribute toothCount = 24;
+      attribute toothTipRadius = 0.15;
+      attribute material = "stainless steel";
+    }
+
+    part axle {
+      attribute diameter = 2;
+      attribute maximumFrictionTorque = 0.003;
+    }
+
+    exhibit state DeviceOperationalState;
+    perform action ApplyRollingStimulus;
+    perform action CleanAndInspectDevice;
+  }
+
+}

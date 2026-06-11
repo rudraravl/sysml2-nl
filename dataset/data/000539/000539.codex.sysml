@@ -1,0 +1,407 @@
+package AutoinjectorSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  /* Value and item definitions */
+
+  value def Milliliter :> Real {
+    unit = "mL";
+  }
+
+  value def Millimeter :> Real {
+    unit = "mm";
+  }
+
+  value def Newton :> Real {
+    unit = "N";
+  }
+
+  value def Second :> Real {
+    unit = "s";
+  }
+
+  value def Milligram :> Real {
+    unit = "mg";
+  }
+
+  value def Celsius :> Real {
+    unit = "degC";
+  }
+
+  value def Percent :> Real {
+    unit = "%";
+  }
+
+  item def DrugSolution {
+    attribute drugMass : Milligram;
+    attribute fillVolume : Milliliter;
+    attribute concentration : Real;
+    attribute storageTemperature : Celsius;
+    attribute sterilityMaintained : Boolean;
+  }
+
+  item def InjectionCommand {
+    attribute userIntentConfirmed : Boolean;
+    attribute skinContactConfirmed : Boolean;
+    attribute safetyUnlocked : Boolean;
+  }
+
+  item def InjectionStatus {
+    attribute armed : Boolean;
+    attribute injecting : Boolean;
+    attribute complete : Boolean;
+    attribute faulted : Boolean;
+    attribute deliveredVolume : Milliliter;
+  }
+
+  item def AudibleCue {
+    attribute cueKind : String;
+    attribute duration : Second;
+  }
+
+  item def VisualCue {
+    attribute color : String;
+    attribute steady : Boolean;
+  }
+
+  item def MechanicalEnergy {
+    attribute springForce : Newton;
+    attribute availableStroke : Millimeter;
+  }
+
+  /* Port definitions */
+
+  port def DrugOutletPort {
+    out item drug : DrugSolution;
+  }
+
+  port def DrugReservoirPort {
+    inout item drug : DrugSolution;
+  }
+
+  port def CommandPort {
+    in item command : InjectionCommand;
+  }
+
+  port def StatusPort {
+    out item status : InjectionStatus;
+  }
+
+  port def CuePort {
+    out item audible : AudibleCue;
+    out item visual : VisualCue;
+  }
+
+  port def EnergyPort {
+    out item energy : MechanicalEnergy;
+  }
+
+  port def SkinInterfacePort {
+    out item drug : DrugSolution;
+    in item command : InjectionCommand;
+  }
+
+  /* Part definitions */
+
+  part def Autoinjector {
+    attribute nominalDoseVolume : Milliliter = 1.0;
+    attribute maximumDoseVolume : Milliliter = 1.2;
+    attribute minimumDeliveredDose : Milliliter = 0.95;
+    attribute maximumInjectionTime : Second = 15.0;
+    attribute needleInsertionDepth : Millimeter = 12.0;
+    attribute activationForce : Newton = 8.0;
+    attribute shelfLifeMonths : Integer = 24;
+    attribute singleUse : Boolean = true;
+
+    port commandPort : CommandPort;
+    port statusPort : StatusPort;
+    port cuePort : CuePort;
+    port skinPort : SkinInterfacePort;
+
+    part housing : Housing;
+    part safetyCap : SafetyCap;
+    part drugCartridge : DrugCartridge;
+    part needleAssembly : NeedleAssembly;
+    part driveSpring : DriveSpring;
+    part plunger : Plunger;
+    part activationButton : ActivationButton;
+    part interlock : SkinContactInterlock;
+    part doseIndicator : DoseIndicator;
+    part endOfDoseClicker : EndOfDoseClicker;
+
+    connection drugPath connect drugCartridge.outlet to needleAssembly.inlet;
+    connection needleToSkin connect needleAssembly.outlet to skinPort;
+    connection springToPlunger connect driveSpring.energyPort to plunger.energyPort;
+    connection plungerToCartridge connect plunger.mechanicalPort to drugCartridge.plungerPort;
+    connection buttonToInterlock connect activationButton.commandPort to interlock.commandPort;
+    connection interlockToSpring connect interlock.releasePort to driveSpring.releasePort;
+    connection indicatorStatus connect doseIndicator.statusPort to statusPort;
+    connection clickerCue connect endOfDoseClicker.cuePort to cuePort;
+
+    perform action deliverDose : DeliverDoseAction {
+      in item command = commandPort.command;
+      out item status = statusPort.status;
+    }
+
+    exhibit state behavior AutoinjectorOperationalStates;
+  }
+
+  part def Housing {
+    attribute material : String = "medical-grade polymer";
+    attribute length : Millimeter = 150.0;
+    attribute diameter : Millimeter = 18.0;
+    attribute protectsInternalSterility : Boolean = true;
+  }
+
+  part def SafetyCap {
+    attribute installed : Boolean = true;
+    attribute needleShieldEngaged : Boolean = true;
+    attribute removalForce : Newton = 15.0;
+  }
+
+  part def DrugCartridge {
+    attribute containedDrug : DrugSolution;
+    attribute initialFillVolume : Milliliter = 1.05;
+    attribute residualVolumeAfterInjection : Milliliter = 0.05;
+    attribute glassBreakageDetected : Boolean = false;
+
+    port outlet : DrugReservoirPort;
+    port plungerPort : EnergyPort;
+  }
+
+  part def NeedleAssembly {
+    attribute needleGauge : Integer = 27;
+    attribute exposedBeforeUse : Boolean = false;
+    attribute insertionDepth : Millimeter = 12.0;
+    attribute shieldedAfterUse : Boolean = true;
+
+    port inlet : DrugReservoirPort;
+    port outlet : DrugOutletPort;
+  }
+
+  part def DriveSpring {
+    attribute preloaded : Boolean = true;
+    attribute nominalForce : Newton = 30.0;
+    attribute strokeLength : Millimeter = 35.0;
+
+    port energyPort : EnergyPort;
+    port releasePort : CommandPort;
+  }
+
+  part def Plunger {
+    attribute position : Millimeter = 0.0;
+    attribute fullStrokePosition : Millimeter = 35.0;
+    attribute sealIntegrityMaintained : Boolean = true;
+
+    port energyPort : EnergyPort;
+    port mechanicalPort : EnergyPort;
+  }
+
+  part def ActivationButton {
+    attribute pressed : Boolean = false;
+    attribute requiredForce : Newton = 8.0;
+
+    port commandPort : CommandPort;
+  }
+
+  part def SkinContactInterlock {
+    attribute contactRequired : Boolean = true;
+    attribute contactDetected : Boolean = false;
+    attribute releasePermitted : Boolean = false;
+
+    port commandPort : CommandPort;
+    port releasePort : CommandPort;
+  }
+
+  part def DoseIndicator {
+    attribute windowColor : String = "clear";
+    attribute percentDelivered : Percent = 0.0;
+
+    port statusPort : StatusPort;
+  }
+
+  part def EndOfDoseClicker {
+    attribute clickGenerated : Boolean = false;
+    attribute clickDuration : Second = 0.2;
+
+    port cuePort : CuePort;
+  }
+
+  /* Behavior definitions */
+
+  action def DeliverDoseAction {
+    in item command : InjectionCommand;
+    out item status : InjectionStatus;
+
+    first start;
+    then verifySafety;
+    then insertNeedle;
+    then releaseDriveSpring;
+    then expelDrug;
+    then signalCompletion;
+    then done;
+
+    action verifySafety {
+      in item command : InjectionCommand;
+      out valid : Boolean;
+    }
+
+    action insertNeedle {
+      in insertionDepth : Millimeter = 12.0;
+      out needleSeated : Boolean;
+    }
+
+    action releaseDriveSpring {
+      in springForce : Newton = 30.0;
+      out energyReleased : Boolean;
+    }
+
+    action expelDrug {
+      in doseVolume : Milliliter = 1.0;
+      in maxDuration : Second = 15.0;
+      out deliveredVolume : Milliliter;
+    }
+
+    action signalCompletion {
+      in deliveredVolume : Milliliter;
+      out item status : InjectionStatus;
+    }
+  }
+
+  state def AutoinjectorOperationalStates {
+    entry action initializeStatus;
+
+    state Stored {
+      entry action maintainSterileNeedleShield;
+    }
+
+    state CapRemoved {
+      entry action exposeReadyPosition;
+    }
+
+    state Armed {
+      entry action enableSkinContactDetection;
+    }
+
+    state ReadyOnSkin {
+      entry action confirmSkinContact;
+    }
+
+    state Injecting {
+      entry action drivePlunger;
+      do action deliverDose : DeliverDoseAction;
+    }
+
+    state Complete {
+      entry action lockNeedleShield;
+      entry action emitEndOfDoseCue;
+    }
+
+    state Fault {
+      entry action inhibitSpringRelease;
+      entry action showFaultIndicator;
+    }
+
+    transition removeCap first Stored then CapRemoved
+      accept SafetyCapRemoved;
+
+    transition armDevice first CapRemoved then Armed
+      accept UserPlacesDeviceOnSkin
+      if safetyCap.installed == false;
+
+    transition confirmContact first Armed then ReadyOnSkin
+      accept SkinContactDetected
+      if interlock.contactDetected == true;
+
+    transition startInjection first ReadyOnSkin then Injecting
+      accept ButtonPressed
+      if activationButton.pressed == true and interlock.releasePermitted == true;
+
+    transition doseComplete first Injecting then Complete
+      accept DoseDelivered
+      if doseIndicator.percentDelivered >= 100.0;
+
+    transition faultNoContact first Armed then Fault
+      accept ButtonPressed
+      if interlock.contactDetected == false;
+
+    transition faultUnderDose first Injecting then Fault
+      accept InjectionTimeout
+      if doseIndicator.percentDelivered < 95.0;
+  }
+
+  /* System usage */
+
+  part autoinjectorSystem : Autoinjector {
+    attribute nominalDoseVolume = 1.0;
+    attribute maximumInjectionTime = 15.0;
+    attribute needleInsertionDepth = 12.0;
+  }
+
+  /* Requirements */
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The autoinjector shall enable a user to deliver a prefilled therapeutic dose through a concealed needle using a single activation sequence. */
+    subject injector : Autoinjector;
+
+    require constraint {
+      injector.singleUse == true and
+      injector.nominalDoseVolume > 0.0
+    }
+  }
+
+  requirement def DoseAccuracyRequirement {
+    doc /* The autoinjector shall deliver at least 95 percent of the nominal dose volume during a completed injection. */
+    subject injector : Autoinjector;
+
+    require constraint {
+      injector.minimumDeliveredDose >= 0.95 * injector.nominalDoseVolume
+    }
+  }
+
+  requirement def InjectionTimeRequirement {
+    doc /* The autoinjector shall complete nominal dose delivery within the maximum injection time after activation. */
+    subject injector : Autoinjector;
+
+    require constraint {
+      injector.maximumInjectionTime <= 15.0
+    }
+  }
+
+  requirement def SkinContactSafetyRequirement {
+    doc /* The autoinjector shall prevent spring release unless skin contact and user activation are both confirmed. */
+    subject injector : Autoinjector;
+
+    require constraint {
+      injector.interlock.contactRequired == true
+    }
+  }
+
+  requirement def NeedleShieldRequirement {
+    doc /* The autoinjector shall keep the needle shielded before use and automatically shield it after dose delivery. */
+    subject injector : Autoinjector;
+
+    require constraint {
+      injector.needleAssembly.exposedBeforeUse == false and
+      injector.needleAssembly.shieldedAfterUse == true
+    }
+  }
+
+  requirement def CompletionFeedbackRequirement {
+    doc /* The autoinjector shall provide visual and audible feedback when dose delivery is complete. */
+    subject injector : Autoinjector;
+
+    require constraint {
+      injector.endOfDoseClicker.clickDuration > 0.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by autoinjectorSystem;
+  satisfy DoseAccuracyRequirement by autoinjectorSystem;
+  satisfy InjectionTimeRequirement by autoinjectorSystem;
+  satisfy SkinContactSafetyRequirement by autoinjectorSystem;
+  satisfy NeedleShieldRequirement by autoinjectorSystem;
+  satisfy CompletionFeedbackRequirement by autoinjectorSystem;
+}

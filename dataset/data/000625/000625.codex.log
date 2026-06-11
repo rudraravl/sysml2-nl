@@ -1,0 +1,715 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-uoqwatro
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb398-3323-7e43-9e54-11959cd5a0bb
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Hirtz compass and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HirtzCompassSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Degree :> Real {
+        doc /* Angular measure in degrees. */
+    }
+
+    attribute def Millimeter :> Real {
+        doc /* Length measure in millimeters. */
+    }
+
+    attribute def Gram :> Real {
+        doc /* Mass measure in grams. */
+    }
+
+    attribute def Seconds :> Real {
+        doc /* Time measure in seconds. */
+    }
+
+    attribute def MagneticFluxDensityMicroTesla :> Real {
+        doc /* Magnetic flux density in microtesla. */
+    }
+
+    attribute def CompassAccuracy :> Real {
+        doc /* Heading error in degrees. */
+    }
+
+    item def MagneticField {
+        attribute horizontalIntensity : MagneticFluxDensityMicroTesla;
+        attribute declination : Degree;
+        attribute inclination : Degree;
+    }
+
+    item def BearingReading {
+        attribute magneticAzimuth : Degree;
+        attribute correctedAzimuth : Degree;
+        attribute confidence : Real;
+    }
+
+    item def UserAlignmentInput {
+        attribute sightLineAzimuth : Degree;
+        attribute levelConfirmed : Boolean;
+        attribute targetAligned : Boolean;
+    }
+
+    item def CalibrationSetting {
+        attribute declinationCorrection : Degree;
+        attribute needleFrictionOffset : Degree;
+        attribute dampingFactor : Real;
+    }
+
+    port def MagneticFieldPort {
+        in item field : MagneticField;
+    }
+
+    port def AlignmentPort {
+        in item alignment : UserAlignmentInput;
+    }
+
+    port def ReadingPort {
+        out item reading : BearingReading;
+    }
+
+    port def CalibrationPort {
+        in item setting : CalibrationSetting;
+    }
+
+    port def VisualIndicationPort {
+        out item displayedReading : BearingReading;
+    }
+
+    part def HirtzCompass {
+        doc /* A precision magnetic compass system based on the Hirtz compass principle, using a freely suspended magnetized needle, graduated circular scale, sighting mechanism, level reference, and declination correction to determine magnetic and corrected horizontal bearing. */
+
+        attribute mass : Gram = 420.0;
+        attribute caseDiameter : Millimeter = 86.0;
+        attribute nominalAccuracy : CompassAccuracy = 0.5;
+        attribute settlingTime : Seconds = 4.0;
+        attribute operatingHorizontalFieldMin : MagneticFluxDensityMicroTesla = 15.0;
+        attribute operatingHorizontalFieldMax : MagneticFluxDensityMicroTesla = 65.0;
+
+        port magneticEnvironment : MagneticFieldPort;
+        port operatorAlignment : AlignmentPort;
+        port calibrationInput : CalibrationPort;
+        port bearingOutput : ReadingPort;
+        port visualOutput : VisualIndicationPort;
+
+        part housing : ProtectiveHousing;
+        part pivotAssembly : LowFrictionPivotAssembly;
+        part magneticNeedle : MagnetizedNeedle;
+        part graduatedDial : GraduatedAzimuthDial;
+        part sightingAssembly : SightingAssembly;
+        part bubbleLevel : LevelIndicator;
+        part declinationAdjuster : DeclinationCorrectionMechanism;
+        part dampingSystem : NeedleDampingSystem;
+        part readingIndex : OpticalReadingIndex;
+
+        connect magneticEnvironment.field to magneticNeedle.ambientField;
+        connect calibrationInput.setting to declinationAdjuster.calibrationSetting;
+        connect operatorAlignment.alignment to sightingAssembly.alignmentInput;
+        connect magneticNeedle.needleAngle to dampingSystem.rawNeedleAngle;
+        connect dampingSystem.stabilizedNeedleAngle to readingIndex.needleReference;
+        connect graduatedDial.scaleReference to readingIndex.scaleReference;
+        connect declinationAdjuster.correctedScaleOffset to readingIndex.declinationOffset;
+        connect sightingAssembly.sightReference to readingIndex.sightReference;
+        connect bubbleLevel.levelState to readingIndex.levelReference;
+        connect readingIndex.bearingReading to bearingOutput.reading;
+        connect readingIndex.bearingReading to visualOutput.displayedReading;
+
+        perform action determineBearing : DetermineBearingAction;
+        exhibit state compassOperatingState : HirtzCompassOperatingState;
+    }
+
+    part def ProtectiveHousing {
+        attribute material : String = "brass and glass";
+        attribute dustProtected : Boolean = true;
+        attribute shockResistance : Real = 0.75;
+    }
+
+    part def LowFrictionPivotAssembly {
+        attribute jewelBearingMaterial : String = "sapphire";
+        attribute pivotFrictionCoefficient : Real = 0.015;
+        attribute maximumTiltTolerance : Degree = 3.0;
+    }
+
+    part def MagnetizedNeedle {
+        attribute magneticMoment : Real = 0.065;
+        attribute balanceError : Degree = 0.2;
+        attribute ambientField : MagneticField;
+        attribute needleAngle : Degree;
+    }
+
+    part def GraduatedAzimuthDial {
+        attribute graduationInterval : Degree = 1.0;
+        attribute majorGraduationInterval : Degree = 10.0;
+        attribute fullScale : Degree = 360.0;
+        attribute scaleReference : Degree = 0.0;
+    }
+
+    part def SightingAssembly {
+        attribute frontSightWidth : Millimeter = 0.6;
+        attribute rearSightAperture : Millimeter = 1.2;
+        attribute sightReference : Degree;
+        attribute alignmentInput : UserAlignmentInput;
+    }
+
+    part def LevelIndicator {
+        attribute bubbleSensitivity : Degree = 0.5;
+        attribute levelState : Boolean;
+    }
+
+    part def DeclinationCorrectionMechanism {
+        attribute adjustmentRangePositive : Degree = 30.0;
+        attribute adjustmentRangeNegative : Degree = -30.0;
+        attribute calibrationSetting : CalibrationSetting;
+        attribute correctedScaleOffset : Degree;
+    }
+
+    part def NeedleDampingSystem {
+        attribute dampingMedium : String = "air";
+        attribute dampingRatio : Real = 0.62;
+        attribute rawNeedleAngle : Degree;
+        attribute stabilizedNeedleAngle : Degree;
+    }
+
+    part def OpticalReadingIndex {
+        attribute needleReference : Degree;
+        attribute scaleReference : Degree;
+        attribute declinationOffset : Degree;
+        attribute sightReference : Degree;
+        attribute levelReference : Boolean;
+        attribute bearingReading : BearingReading;
+    }
+
+    action def DetermineBearingAction {
+        in item field : MagneticField;
+        in item alignment : UserAlignmentInput;
+        in item calibration : CalibrationSetting;
+        out item reading : BearingReading;
+
+        first start;
+        then validateLevel;
+        then alignSight;
+        then settleNeedle;
+        then readMagneticAzimuth;
+        then applyDeclinationCorrection;
+        then publishBearing;
+        then done;
+
+        action start;
+        action validateLevel {
+            doc /* Confirms that the compass is held sufficiently horizontal for the magnetic needle and dial reference to be valid. */
+        }
+        action alignSight {
+            doc /* Aligns the Hirtz compass sighting line with the observed object or route direction. */
+        }
+        action settleNeedle {
+            doc /* Allows the magnetized needle to stabilize under the horizontal component of the local magnetic field. */
+        }
+        action readMagneticAzimuth {
+            doc /* Determines the magnetic azimuth between the sight line and the stabilized needle reference. */
+        }
+        action applyDeclinationCorrection {
+            doc /* Applies local magnetic declination and instrument calibration offsets to produce corrected azimuth. */
+        }
+        action publishBearing {
+            doc /* Outputs a bearing reading for visual inspection and external use. */
+        }
+        action done;
+    }
+
+    state def HirtzCompassOperatingState {
+        entry action initialize {
+            doc /* Establishes default scale reference, zero declination offset, and free needle movement. */
+        }
+
+        state stowed;
+        state deployed;
+        state leveling;
+        state aligning;
+        state stabilizingNeedle;
+        state readingBearing;
+        state correctedBearingAvailable;
+        state faulted;
+
+        transition first stowed;
+        transition stowed_to_deployed
+            first stowed
+            then deployed;
+
+        transition deployed_to_leveling
+            first deployed
+            then leveling;
+
+        transition leveling_to_aligning
+            first leveling
+            then aligning
+            if levelConfirmed;
+
+        transition leveling_to_faulted
+            first leveling
+            then faulted
+            if not levelConfirmed;
+
+        transition aligning_to_stabilizing
+            first aligning
+            then stabilizingNeedle
+            if targetAligned;
+
+        transition stabilizing_to_reading
+            first stabilizingNeedle
+            then readingBearing
+            if needleSettled;
+
+        transition reading_to_available
+            first readingBearing
+            then correctedBearingAvailable;
+
+        transition available_to_aligning
+            first correctedBearingAvailable
+            then aligning;
+
+        transition faulted_to_leveling
+            first faulted
+            then leveling
+            if operatorReset;
+
+        attribute levelConfirmed : Boolean;
+        attribute targetAligned : Boolean;
+        attribute needleSettled : Boolean;
+        attribute operatorReset : Boolean;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Hirtz compass shall provide a high-level primary function of determining the horizontal bearing of an observed direction relative to magnetic north and presenting a corrected azimuth when local declination calibration is supplied. */
+        subject compass : HirtzCompass;
+        require constraint {
+            compass.nominalAccuracy <= 0.5
+        }
+    }
+
+    requirement def NeedleFreedomRequirement {
+        doc /* The magnetized needle shall rotate freely about a low-friction pivot so that it aligns with the horizontal component of the local magnetic field. */
+        subject needle : MagnetizedNeedle;
+        require constraint {
+            needle.balanceError <= 0.2
+        }
+    }
+
+    requirement def FullCircleScaleRequirement {
+        doc /* The graduated dial shall support complete azimuth readings from 0 degrees through 360 degrees with one-degree graduations. */
+        subject dial : GraduatedAzimuthDial;
+        require constraint {
+            dial.fullScale == 360.0 and dial.graduationInterval <= 1.0
+        }
+    }
+
+    requirement def DeclinationCorrectionRequirement {
+        doc /* The compass shall allow operator-supplied declination correction over at least plus or minus 30 degrees. */
+        subject adjuster : DeclinationCorrectionMechanism;
+        require constraint {
+            adjuster.adjustmentRangePositive >= 30.0 and adjuster.adjustmentRangeNegative <= -30.0
+        }
+    }
+
+    requirement def LevelValidityRequirement {
+        doc /* The compass shall indicate whether the instrument is sufficiently level before a bearing is accepted. */
+        subject level : LevelIndicator;
+        require constraint {
+            level.bubbleSensitivity <= 0.5
+        }
+    }
+
+    requirement def StabilizationRequirement {
+        doc /* The damping system shall allow the needle to reach a stable readable indication within the required settling time. */
+        subject compass : HirtzCompass;
+        require constraint {
+            compass.settlingTime <= 4.0
+        }
+    }
+
+    requirement def SightingRequirement {
+        doc /* The sighting assembly shall define a repeatable line of sight for aligning the compass body with a distant object or travel direction. */
+        subject sight : SightingAssembly;
+        require constraint {
+            sight.frontSightWidth <= 0.6 and sight.rearSightAperture <= 1.2
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HirtzCompass;
+    satisfy NeedleFreedomRequirement by MagnetizedNeedle;
+    satisfy FullCircleScaleRequirement by GraduatedAzimuthDial;
+    satisfy DeclinationCorrectionRequirement by DeclinationCorrectionMechanism;
+    satisfy LevelValidityRequirement by LevelIndicator;
+    satisfy StabilizationRequirement by HirtzCompass;
+    satisfy SightingRequirement by SightingAssembly;
+
+    part hirtzCompassSystem : HirtzCompass {
+        attribute mass = 420.0;
+        attribute caseDiameter = 86.0;
+        attribute nominalAccuracy = 0.5;
+        attribute settlingTime = 4.0;
+    }
+
+}
+tokens used
+2,945
+package HirtzCompassSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Degree :> Real {
+        doc /* Angular measure in degrees. */
+    }
+
+    attribute def Millimeter :> Real {
+        doc /* Length measure in millimeters. */
+    }
+
+    attribute def Gram :> Real {
+        doc /* Mass measure in grams. */
+    }
+
+    attribute def Seconds :> Real {
+        doc /* Time measure in seconds. */
+    }
+
+    attribute def MagneticFluxDensityMicroTesla :> Real {
+        doc /* Magnetic flux density in microtesla. */
+    }
+
+    attribute def CompassAccuracy :> Real {
+        doc /* Heading error in degrees. */
+    }
+
+    item def MagneticField {
+        attribute horizontalIntensity : MagneticFluxDensityMicroTesla;
+        attribute declination : Degree;
+        attribute inclination : Degree;
+    }
+
+    item def BearingReading {
+        attribute magneticAzimuth : Degree;
+        attribute correctedAzimuth : Degree;
+        attribute confidence : Real;
+    }
+
+    item def UserAlignmentInput {
+        attribute sightLineAzimuth : Degree;
+        attribute levelConfirmed : Boolean;
+        attribute targetAligned : Boolean;
+    }
+
+    item def CalibrationSetting {
+        attribute declinationCorrection : Degree;
+        attribute needleFrictionOffset : Degree;
+        attribute dampingFactor : Real;
+    }
+
+    port def MagneticFieldPort {
+        in item field : MagneticField;
+    }
+
+    port def AlignmentPort {
+        in item alignment : UserAlignmentInput;
+    }
+
+    port def ReadingPort {
+        out item reading : BearingReading;
+    }
+
+    port def CalibrationPort {
+        in item setting : CalibrationSetting;
+    }
+
+    port def VisualIndicationPort {
+        out item displayedReading : BearingReading;
+    }
+
+    part def HirtzCompass {
+        doc /* A precision magnetic compass system based on the Hirtz compass principle, using a freely suspended magnetized needle, graduated circular scale, sighting mechanism, level reference, and declination correction to determine magnetic and corrected horizontal bearing. */
+
+        attribute mass : Gram = 420.0;
+        attribute caseDiameter : Millimeter = 86.0;
+        attribute nominalAccuracy : CompassAccuracy = 0.5;
+        attribute settlingTime : Seconds = 4.0;
+        attribute operatingHorizontalFieldMin : MagneticFluxDensityMicroTesla = 15.0;
+        attribute operatingHorizontalFieldMax : MagneticFluxDensityMicroTesla = 65.0;
+
+        port magneticEnvironment : MagneticFieldPort;
+        port operatorAlignment : AlignmentPort;
+        port calibrationInput : CalibrationPort;
+        port bearingOutput : ReadingPort;
+        port visualOutput : VisualIndicationPort;
+
+        part housing : ProtectiveHousing;
+        part pivotAssembly : LowFrictionPivotAssembly;
+        part magneticNeedle : MagnetizedNeedle;
+        part graduatedDial : GraduatedAzimuthDial;
+        part sightingAssembly : SightingAssembly;
+        part bubbleLevel : LevelIndicator;
+        part declinationAdjuster : DeclinationCorrectionMechanism;
+        part dampingSystem : NeedleDampingSystem;
+        part readingIndex : OpticalReadingIndex;
+
+        connect magneticEnvironment.field to magneticNeedle.ambientField;
+        connect calibrationInput.setting to declinationAdjuster.calibrationSetting;
+        connect operatorAlignment.alignment to sightingAssembly.alignmentInput;
+        connect magneticNeedle.needleAngle to dampingSystem.rawNeedleAngle;
+        connect dampingSystem.stabilizedNeedleAngle to readingIndex.needleReference;
+        connect graduatedDial.scaleReference to readingIndex.scaleReference;
+        connect declinationAdjuster.correctedScaleOffset to readingIndex.declinationOffset;
+        connect sightingAssembly.sightReference to readingIndex.sightReference;
+        connect bubbleLevel.levelState to readingIndex.levelReference;
+        connect readingIndex.bearingReading to bearingOutput.reading;
+        connect readingIndex.bearingReading to visualOutput.displayedReading;
+
+        perform action determineBearing : DetermineBearingAction;
+        exhibit state compassOperatingState : HirtzCompassOperatingState;
+    }
+
+    part def ProtectiveHousing {
+        attribute material : String = "brass and glass";
+        attribute dustProtected : Boolean = true;
+        attribute shockResistance : Real = 0.75;
+    }
+
+    part def LowFrictionPivotAssembly {
+        attribute jewelBearingMaterial : String = "sapphire";
+        attribute pivotFrictionCoefficient : Real = 0.015;
+        attribute maximumTiltTolerance : Degree = 3.0;
+    }
+
+    part def MagnetizedNeedle {
+        attribute magneticMoment : Real = 0.065;
+        attribute balanceError : Degree = 0.2;
+        attribute ambientField : MagneticField;
+        attribute needleAngle : Degree;
+    }
+
+    part def GraduatedAzimuthDial {
+        attribute graduationInterval : Degree = 1.0;
+        attribute majorGraduationInterval : Degree = 10.0;
+        attribute fullScale : Degree = 360.0;
+        attribute scaleReference : Degree = 0.0;
+    }
+
+    part def SightingAssembly {
+        attribute frontSightWidth : Millimeter = 0.6;
+        attribute rearSightAperture : Millimeter = 1.2;
+        attribute sightReference : Degree;
+        attribute alignmentInput : UserAlignmentInput;
+    }
+
+    part def LevelIndicator {
+        attribute bubbleSensitivity : Degree = 0.5;
+        attribute levelState : Boolean;
+    }
+
+    part def DeclinationCorrectionMechanism {
+        attribute adjustmentRangePositive : Degree = 30.0;
+        attribute adjustmentRangeNegative : Degree = -30.0;
+        attribute calibrationSetting : CalibrationSetting;
+        attribute correctedScaleOffset : Degree;
+    }
+
+    part def NeedleDampingSystem {
+        attribute dampingMedium : String = "air";
+        attribute dampingRatio : Real = 0.62;
+        attribute rawNeedleAngle : Degree;
+        attribute stabilizedNeedleAngle : Degree;
+    }
+
+    part def OpticalReadingIndex {
+        attribute needleReference : Degree;
+        attribute scaleReference : Degree;
+        attribute declinationOffset : Degree;
+        attribute sightReference : Degree;
+        attribute levelReference : Boolean;
+        attribute bearingReading : BearingReading;
+    }
+
+    action def DetermineBearingAction {
+        in item field : MagneticField;
+        in item alignment : UserAlignmentInput;
+        in item calibration : CalibrationSetting;
+        out item reading : BearingReading;
+
+        first start;
+        then validateLevel;
+        then alignSight;
+        then settleNeedle;
+        then readMagneticAzimuth;
+        then applyDeclinationCorrection;
+        then publishBearing;
+        then done;
+
+        action start;
+        action validateLevel {
+            doc /* Confirms that the compass is held sufficiently horizontal for the magnetic needle and dial reference to be valid. */
+        }
+        action alignSight {
+            doc /* Aligns the Hirtz compass sighting line with the observed object or route direction. */
+        }
+        action settleNeedle {
+            doc /* Allows the magnetized needle to stabilize under the horizontal component of the local magnetic field. */
+        }
+        action readMagneticAzimuth {
+            doc /* Determines the magnetic azimuth between the sight line and the stabilized needle reference. */
+        }
+        action applyDeclinationCorrection {
+            doc /* Applies local magnetic declination and instrument calibration offsets to produce corrected azimuth. */
+        }
+        action publishBearing {
+            doc /* Outputs a bearing reading for visual inspection and external use. */
+        }
+        action done;
+    }
+
+    state def HirtzCompassOperatingState {
+        entry action initialize {
+            doc /* Establishes default scale reference, zero declination offset, and free needle movement. */
+        }
+
+        state stowed;
+        state deployed;
+        state leveling;
+        state aligning;
+        state stabilizingNeedle;
+        state readingBearing;
+        state correctedBearingAvailable;
+        state faulted;
+
+        transition first stowed;
+        transition stowed_to_deployed
+            first stowed
+            then deployed;
+
+        transition deployed_to_leveling
+            first deployed
+            then leveling;
+
+        transition leveling_to_aligning
+            first leveling
+            then aligning
+            if levelConfirmed;
+
+        transition leveling_to_faulted
+            first leveling
+            then faulted
+            if not levelConfirmed;
+
+        transition aligning_to_stabilizing
+            first aligning
+            then stabilizingNeedle
+            if targetAligned;
+
+        transition stabilizing_to_reading
+            first stabilizingNeedle
+            then readingBearing
+            if needleSettled;
+
+        transition reading_to_available
+            first readingBearing
+            then correctedBearingAvailable;
+
+        transition available_to_aligning
+            first correctedBearingAvailable
+            then aligning;
+
+        transition faulted_to_leveling
+            first faulted
+            then leveling
+            if operatorReset;
+
+        attribute levelConfirmed : Boolean;
+        attribute targetAligned : Boolean;
+        attribute needleSettled : Boolean;
+        attribute operatorReset : Boolean;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Hirtz compass shall provide a high-level primary function of determining the horizontal bearing of an observed direction relative to magnetic north and presenting a corrected azimuth when local declination calibration is supplied. */
+        subject compass : HirtzCompass;
+        require constraint {
+            compass.nominalAccuracy <= 0.5
+        }
+    }
+
+    requirement def NeedleFreedomRequirement {
+        doc /* The magnetized needle shall rotate freely about a low-friction pivot so that it aligns with the horizontal component of the local magnetic field. */
+        subject needle : MagnetizedNeedle;
+        require constraint {
+            needle.balanceError <= 0.2
+        }
+    }
+
+    requirement def FullCircleScaleRequirement {
+        doc /* The graduated dial shall support complete azimuth readings from 0 degrees through 360 degrees with one-degree graduations. */
+        subject dial : GraduatedAzimuthDial;
+        require constraint {
+            dial.fullScale == 360.0 and dial.graduationInterval <= 1.0
+        }
+    }
+
+    requirement def DeclinationCorrectionRequirement {
+        doc /* The compass shall allow operator-supplied declination correction over at least plus or minus 30 degrees. */
+        subject adjuster : DeclinationCorrectionMechanism;
+        require constraint {
+            adjuster.adjustmentRangePositive >= 30.0 and adjuster.adjustmentRangeNegative <= -30.0
+        }
+    }
+
+    requirement def LevelValidityRequirement {
+        doc /* The compass shall indicate whether the instrument is sufficiently level before a bearing is accepted. */
+        subject level : LevelIndicator;
+        require constraint {
+            level.bubbleSensitivity <= 0.5
+        }
+    }
+
+    requirement def StabilizationRequirement {
+        doc /* The damping system shall allow the needle to reach a stable readable indication within the required settling time. */
+        subject compass : HirtzCompass;
+        require constraint {
+            compass.settlingTime <= 4.0
+        }
+    }
+
+    requirement def SightingRequirement {
+        doc /* The sighting assembly shall define a repeatable line of sight for aligning the compass body with a distant object or travel direction. */
+        subject sight : SightingAssembly;
+        require constraint {
+            sight.frontSightWidth <= 0.6 and sight.rearSightAperture <= 1.2
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HirtzCompass;
+    satisfy NeedleFreedomRequirement by MagnetizedNeedle;
+    satisfy FullCircleScaleRequirement by GraduatedAzimuthDial;
+    satisfy DeclinationCorrectionRequirement by DeclinationCorrectionMechanism;
+    satisfy LevelValidityRequirement by LevelIndicator;
+    satisfy StabilizationRequirement by HirtzCompass;
+    satisfy SightingRequirement by SightingAssembly;
+
+    part hirtzCompassSystem : HirtzCompass {
+        attribute mass = 420.0;
+        attribute caseDiameter = 86.0;
+        attribute nominalAccuracy = 0.5;
+        attribute settlingTime = 4.0;
+    }
+
+}

@@ -1,0 +1,1091 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-th2g1dno
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4a9-f714-7872-b54c-afebbf927a1d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a pumping subsystem that moves fluid using a Injection pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package InjectionPumpPumpingSubsystemModel {
+
+    private import ScalarValues::*;
+    private import SI::*;
+
+    value type Volume_L specializes Real {
+        unit = "L";
+        quantityKind = "volume";
+    }
+
+    value type Volume_mL specializes Real {
+        unit = "mL";
+        quantityKind = "volume";
+    }
+
+    value type FlowRate_mL_per_min specializes Real {
+        unit = "mL/min";
+        quantityKind = "volume flow rate";
+    }
+
+    value type Pressure_kPa specializes Real {
+        unit = "kPa";
+        quantityKind = "pressure";
+    }
+
+    value type Temperature_C specializes Real {
+        unit = "degC";
+        quantityKind = "temperature";
+    }
+
+    value type Voltage_V specializes Real {
+        unit = "V";
+        quantityKind = "electric potential";
+    }
+
+    value type Current_A specializes Real {
+        unit = "A";
+        quantityKind = "electric current";
+    }
+
+    value type Time_s specializes Real {
+        unit = "s";
+        quantityKind = "time";
+    }
+
+    value type RotationalSpeed_rpm specializes Real {
+        unit = "rpm";
+        quantityKind = "rotational speed";
+    }
+
+    value type Concentration_mg_per_mL specializes Real {
+        unit = "mg/mL";
+        quantityKind = "mass concentration";
+    }
+
+    item def ProcessFluid {
+        attribute temperature: Temperature_C;
+        attribute concentration: Concentration_mg_per_mL;
+        attribute viscosity_cP: Real;
+        attribute isSterile: Boolean;
+        attribute containsAir: Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage: Voltage_V;
+        attribute current: Current_A;
+        attribute isEnergized: Boolean;
+    }
+
+    item def PumpCommand {
+        attribute requestedDose: Volume_mL;
+        attribute requestedFlowRate: FlowRate_mL_per_min;
+        attribute primeRequested: Boolean;
+        attribute stopRequested: Boolean;
+        attribute resetRequested: Boolean;
+    }
+
+    item def PumpStatus {
+        attribute actualFlowRate: FlowRate_mL_per_min;
+        attribute deliveredVolume: Volume_mL;
+        attribute inletPressure: Pressure_kPa;
+        attribute outletPressure: Pressure_kPa;
+        attribute motorSpeed: RotationalSpeed_rpm;
+        attribute isPrimed: Boolean;
+        attribute isInjecting: Boolean;
+        attribute faultActive: Boolean;
+        attribute faultCode: String;
+    }
+
+    port def FluidPort {
+        inout fluid: ProcessFluid;
+        attribute pressure: Pressure_kPa;
+        attribute flowRate: FlowRate_mL_per_min;
+    }
+
+    port def PowerPort {
+        in power: ElectricalPower;
+    }
+
+    port def CommandPort {
+        in command: PumpCommand;
+    }
+
+    port def StatusPort {
+        out status: PumpStatus;
+    }
+
+    port def DrainPort {
+        out drainedFluid: ProcessFluid;
+    }
+
+    part def FluidReservoir {
+        port outlet: FluidPort;
+
+        attribute usableVolume: Volume_mL = 500.0;
+        attribute minimumVolume: Volume_mL = 5.0;
+        attribute currentVolume: Volume_mL;
+        attribute fluidTemperature: Temperature_C;
+        attribute outletPressure: Pressure_kPa;
+
+        constraint sufficientFluid {
+            currentVolume >= minimumVolume
+        }
+    }
+
+    part def InletFilter {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+
+        attribute poreSize_um: Real = 20.0;
+        attribute maximumDifferentialPressure: Pressure_kPa = 50.0;
+        attribute capturedParticleMass_mg: Real;
+        attribute clogged: Boolean;
+
+        constraint filterPressureLimit {
+            inlet.pressure - outlet.pressure <= maximumDifferentialPressure
+        }
+    }
+
+    part def CheckValve {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+
+        attribute crackingPressure: Pressure_kPa = 8.0;
+        attribute reverseLeakageRate: FlowRate_mL_per_min = 0.02;
+        attribute open: Boolean;
+
+        constraint preventsBackflow {
+            if outlet.pressure > inlet.pressure then outlet.flowRate <= reverseLeakageRate else true
+        }
+    }
+
+    part def InjectionPump {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+        port power: PowerPort;
+        port command: CommandPort;
+        port status: StatusPort;
+
+        attribute displacementPerStroke: Volume_mL = 0.125;
+        attribute maximumFlowRate: FlowRate_mL_per_min = 250.0;
+        attribute minimumFlowRate: FlowRate_mL_per_min = 0.1;
+        attribute maximumOutletPressure: Pressure_kPa = 1200.0;
+        attribute commandedFlowRate: FlowRate_mL_per_min;
+        attribute deliveredVolume: Volume_mL;
+        attribute motorSpeed: RotationalSpeed_rpm;
+        attribute strokeFrequency_Hz: Real;
+        attribute primed: Boolean;
+        attribute enabled: Boolean;
+        attribute faulted: Boolean;
+
+        constraint flowWithinCapability {
+            commandedFlowRate >= minimumFlowRate and commandedFlowRate <= maximumFlowRate
+        }
+
+        constraint pressureWithinCapability {
+            outlet.pressure <= maximumOutletPressure
+        }
+
+        constraint noInjectionWithoutPrime {
+            enabled implies primed
+        }
+    }
+
+    part def OutletPressureSensor {
+        port sensedPort: FluidPort;
+        port status: StatusPort;
+
+        attribute measuredPressure: Pressure_kPa;
+        attribute measurementRange: Pressure_kPa = 1500.0;
+        attribute accuracyPercentFullScale: Real = 0.5;
+        attribute failed: Boolean;
+
+        constraint sensorRange {
+            measuredPressure >= 0.0 and measuredPressure <= measurementRange
+        }
+    }
+
+    part def FlowSensor {
+        port sensedPort: FluidPort;
+        port status: StatusPort;
+
+        attribute measuredFlowRate: FlowRate_mL_per_min;
+        attribute minimumDetectableFlow: FlowRate_mL_per_min = 0.05;
+        attribute maximumMeasuredFlow: FlowRate_mL_per_min = 300.0;
+        attribute failed: Boolean;
+    }
+
+    part def ReliefValve {
+        port inlet: FluidPort;
+        port drain: DrainPort;
+
+        attribute setPressure: Pressure_kPa = 1300.0;
+        attribute open: Boolean;
+        attribute reliefFlowRate: FlowRate_mL_per_min;
+
+        constraint opensAtSetPressure {
+            open == (inlet.pressure >= setPressure)
+        }
+    }
+
+    part def InjectionOutlet {
+        port inlet: FluidPort;
+        port patientLine: FluidPort;
+
+        attribute lineVolume: Volume_mL = 2.0;
+        attribute outletNeedleGauge: Real = 22.0;
+        attribute maximumLinePressure: Pressure_kPa = 1000.0;
+    }
+
+    action def PrimePump {
+        in pump: InjectionPump;
+        in primeVolume: Volume_mL = 2.0;
+        out primed: Boolean;
+
+        first startPrime;
+        then displaceAir;
+        then verifyContinuousFluid;
+        then completePrime;
+
+        action startPrime;
+        action displaceAir;
+        action verifyContinuousFluid;
+        action completePrime;
+
+        constraint primeVolumeLimit {
+            primeVolume >= 1.0 and primeVolume <= 5.0
+        }
+    }
+
+    action def InjectDose {
+        in pump: InjectionPump;
+        in requestedDose: Volume_mL;
+        in requestedFlowRate: FlowRate_mL_per_min;
+        out deliveredDose: Volume_mL;
+        out completed: Boolean;
+
+        first validateCommand;
+        then enableMotor;
+        then meterFluid;
+        then stopMotor;
+        then reportDose;
+
+        action validateCommand;
+        action enableMotor;
+        action meterFluid;
+        action stopMotor;
+        action reportDose;
+
+        constraint doseRange {
+            requestedDose > 0.0 and requestedDose <= 100.0
+        }
+
+        constraint flowRange {
+            requestedFlowRate >= pump.minimumFlowRate and requestedFlowRate <= pump.maximumFlowRate
+        }
+    }
+
+    action def DetectPumpFault {
+        in pump: InjectionPump;
+        in outletPressure: Pressure_kPa;
+        in measuredFlow: FlowRate_mL_per_min;
+        out faultDetected: Boolean;
+        out faultCode: String;
+
+        first comparePressure;
+        then compareFlow;
+        then classifyFault;
+
+        action comparePressure;
+        action compareFlow;
+        action classifyFault;
+    }
+
+    state def PumpOperatingState {
+        entry action initializeStatus;
+
+        state Off;
+        state Standby;
+        state Priming;
+        state Ready;
+        state Injecting;
+        state OcclusionFault;
+        state EmptyReservoirFault;
+        state EmergencyStopped;
+
+        transition initial then Off;
+
+        transition powerApplied
+            first Off
+            accept ElectricalPower
+            if power.isEnergized
+            then Standby;
+
+        transition requestPrime
+            first Standby
+            accept PumpCommand
+            if command.primeRequested
+            then Priming;
+
+        transition primeComplete
+            first Priming
+            if true
+            then Ready;
+
+        transition startInjection
+            first Ready
+            accept PumpCommand
+            if command.requestedDose > 0.0 and not command.stopRequested
+            then Injecting;
+
+        transition doseComplete
+            first Injecting
+            if true
+            then Ready;
+
+        transition stopCommanded
+            first Injecting
+            accept PumpCommand
+            if command.stopRequested
+            then Standby;
+
+        transition occlusionDetected
+            first Injecting
+            if true
+            then OcclusionFault;
+
+        transition reservoirEmpty
+            first Priming
+            if true
+            then EmptyReservoirFault;
+
+        transition emergencyStop
+            first Standby
+            accept PumpCommand
+            if command.stopRequested
+            then EmergencyStopped;
+
+        transition resetFromFault
+            first OcclusionFault
+            accept PumpCommand
+            if command.resetRequested
+            then Standby;
+
+        transition resetEmptyReservoir
+            first EmptyReservoirFault
+            accept PumpCommand
+            if command.resetRequested
+            then Standby;
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        doc /* The pumping subsystem shall move sterile process fluid from the reservoir to the injection outlet using an injection pump. */
+
+        require constraint {
+            subsystem.pump.commandedFlowRate >= subsystem.minimumRequiredFlowRate and
+            subsystem.pump.outlet.pressure <= subsystem.maximumAllowedOutletPressure
+        }
+    }
+
+    requirement def InjectionAccuracyRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        attribute maximumDoseErrorPercent: Real = 2.0;
+
+        require constraint {
+            abs(subsystem.commandedDose - subsystem.deliveredDose) <= subsystem.commandedDose * maximumDoseErrorPercent / 100.0
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        require constraint {
+            subsystem.reliefValve.open == true implies subsystem.pump.outlet.pressure >= subsystem.reliefValve.setPressure
+        }
+    }
+
+    requirement def BackflowPreventionRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        require constraint {
+            subsystem.outletCheckValve.reverseLeakageRate <= 0.02
+        }
+    }
+
+    requirement def PrimeBeforeInjectionRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.enabled implies subsystem.pump.primed
+        }
+    }
+
+    part def PumpingSubsystem {
+        port fluidInlet: FluidPort;
+        port injectionOutlet: FluidPort;
+        port electricalInput: PowerPort;
+        port commandInput: CommandPort;
+        port statusOutput: StatusPort;
+        port reliefDrain: DrainPort;
+
+        part reservoir: FluidReservoir;
+        part inletFilter: InletFilter;
+        part inletCheckValve: CheckValve;
+        part pump: InjectionPump;
+        part outletCheckValve: CheckValve;
+        part pressureSensor: OutletPressureSensor;
+        part flowSensor: FlowSensor;
+        part reliefValve: ReliefValve;
+        part outletAssembly: InjectionOutlet;
+
+        attribute minimumRequiredFlowRate: FlowRate_mL_per_min = 0.5;
+        attribute maximumAllowedOutletPressure: Pressure_kPa = 1200.0;
+        attribute commandedDose: Volume_mL;
+        attribute deliveredDose: Volume_mL;
+        attribute normalOperatingTemperatureMin: Temperature_C = 15.0;
+        attribute normalOperatingTemperatureMax: Temperature_C = 35.0;
+
+        connect fluidInlet to reservoir.outlet;
+        connect reservoir.outlet to inletFilter.inlet;
+        connect inletFilter.outlet to inletCheckValve.inlet;
+        connect inletCheckValve.outlet to pump.inlet;
+        connect pump.outlet to outletCheckValve.inlet;
+        connect outletCheckValve.outlet to flowSensor.sensedPort;
+        connect flowSensor.sensedPort to pressureSensor.sensedPort;
+        connect pressureSensor.sensedPort to outletAssembly.inlet;
+        connect outletAssembly.patientLine to injectionOutlet;
+        connect pump.outlet to reliefValve.inlet;
+        connect reliefValve.drain to reliefDrain;
+        connect electricalInput to pump.power;
+        connect commandInput to pump.command;
+        connect pump.status to statusOutput;
+
+        perform action prime: PrimePump {
+            in pump = pump;
+            in primeVolume = 2.0;
+        }
+
+        perform action inject: InjectDose {
+            in pump = pump;
+            in requestedDose = commandedDose;
+            in requestedFlowRate = pump.commandedFlowRate;
+            out deliveredDose = deliveredDose;
+        }
+
+        perform action faultDetection: DetectPumpFault {
+            in pump = pump;
+            in outletPressure = pressureSensor.measuredPressure;
+            in measuredFlow = flowSensor.measuredFlowRate;
+        }
+
+        exhibit state operatingState: PumpOperatingState;
+
+        satisfy MoveFluidRequirement by this;
+        satisfy InjectionAccuracyRequirement by this;
+        satisfy OverPressureProtectionRequirement by this;
+        satisfy BackflowPreventionRequirement by this;
+        satisfy PrimeBeforeInjectionRequirement by this;
+
+        constraint operatingTemperature {
+            reservoir.fluidTemperature >= normalOperatingTemperatureMin and
+            reservoir.fluidTemperature <= normalOperatingTemperatureMax
+        }
+
+        constraint deliveredFlowMatchesCommand {
+            abs(flowSensor.measuredFlowRate - pump.commandedFlowRate) <= pump.commandedFlowRate * 0.03
+        }
+
+        constraint outletPressureLimited {
+            pressureSensor.measuredPressure <= maximumAllowedOutletPressure
+        }
+
+        constraint reservoirFeedsPump {
+            reservoir.currentVolume > reservoir.minimumVolume implies pump.inlet.flowRate >= minimumRequiredFlowRate
+        }
+    }
+
+    part injectionPumpPumpingSubsystem: PumpingSubsystem {
+        attribute commandedDose = 10.0;
+        attribute deliveredDose = 0.0;
+
+        part reservoir {
+            attribute currentVolume = 250.0;
+            attribute fluidTemperature = 22.0;
+            attribute outletPressure = 101.0;
+        }
+
+        part pump {
+            attribute commandedFlowRate = 25.0;
+            attribute deliveredVolume = 0.0;
+            attribute motorSpeed = 600.0;
+            attribute primed = false;
+            attribute enabled = false;
+            attribute faulted = false;
+        }
+
+        part inletCheckValve {
+            attribute crackingPressure = 5.0;
+        }
+
+        part outletCheckValve {
+            attribute crackingPressure = 10.0;
+        }
+
+        part pressureSensor {
+            attribute measuredPressure = 250.0;
+        }
+
+        part flowSensor {
+            attribute measuredFlowRate = 25.0;
+        }
+    }
+}
+tokens used
+5,102
+package InjectionPumpPumpingSubsystemModel {
+
+    private import ScalarValues::*;
+    private import SI::*;
+
+    value type Volume_L specializes Real {
+        unit = "L";
+        quantityKind = "volume";
+    }
+
+    value type Volume_mL specializes Real {
+        unit = "mL";
+        quantityKind = "volume";
+    }
+
+    value type FlowRate_mL_per_min specializes Real {
+        unit = "mL/min";
+        quantityKind = "volume flow rate";
+    }
+
+    value type Pressure_kPa specializes Real {
+        unit = "kPa";
+        quantityKind = "pressure";
+    }
+
+    value type Temperature_C specializes Real {
+        unit = "degC";
+        quantityKind = "temperature";
+    }
+
+    value type Voltage_V specializes Real {
+        unit = "V";
+        quantityKind = "electric potential";
+    }
+
+    value type Current_A specializes Real {
+        unit = "A";
+        quantityKind = "electric current";
+    }
+
+    value type Time_s specializes Real {
+        unit = "s";
+        quantityKind = "time";
+    }
+
+    value type RotationalSpeed_rpm specializes Real {
+        unit = "rpm";
+        quantityKind = "rotational speed";
+    }
+
+    value type Concentration_mg_per_mL specializes Real {
+        unit = "mg/mL";
+        quantityKind = "mass concentration";
+    }
+
+    item def ProcessFluid {
+        attribute temperature: Temperature_C;
+        attribute concentration: Concentration_mg_per_mL;
+        attribute viscosity_cP: Real;
+        attribute isSterile: Boolean;
+        attribute containsAir: Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage: Voltage_V;
+        attribute current: Current_A;
+        attribute isEnergized: Boolean;
+    }
+
+    item def PumpCommand {
+        attribute requestedDose: Volume_mL;
+        attribute requestedFlowRate: FlowRate_mL_per_min;
+        attribute primeRequested: Boolean;
+        attribute stopRequested: Boolean;
+        attribute resetRequested: Boolean;
+    }
+
+    item def PumpStatus {
+        attribute actualFlowRate: FlowRate_mL_per_min;
+        attribute deliveredVolume: Volume_mL;
+        attribute inletPressure: Pressure_kPa;
+        attribute outletPressure: Pressure_kPa;
+        attribute motorSpeed: RotationalSpeed_rpm;
+        attribute isPrimed: Boolean;
+        attribute isInjecting: Boolean;
+        attribute faultActive: Boolean;
+        attribute faultCode: String;
+    }
+
+    port def FluidPort {
+        inout fluid: ProcessFluid;
+        attribute pressure: Pressure_kPa;
+        attribute flowRate: FlowRate_mL_per_min;
+    }
+
+    port def PowerPort {
+        in power: ElectricalPower;
+    }
+
+    port def CommandPort {
+        in command: PumpCommand;
+    }
+
+    port def StatusPort {
+        out status: PumpStatus;
+    }
+
+    port def DrainPort {
+        out drainedFluid: ProcessFluid;
+    }
+
+    part def FluidReservoir {
+        port outlet: FluidPort;
+
+        attribute usableVolume: Volume_mL = 500.0;
+        attribute minimumVolume: Volume_mL = 5.0;
+        attribute currentVolume: Volume_mL;
+        attribute fluidTemperature: Temperature_C;
+        attribute outletPressure: Pressure_kPa;
+
+        constraint sufficientFluid {
+            currentVolume >= minimumVolume
+        }
+    }
+
+    part def InletFilter {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+
+        attribute poreSize_um: Real = 20.0;
+        attribute maximumDifferentialPressure: Pressure_kPa = 50.0;
+        attribute capturedParticleMass_mg: Real;
+        attribute clogged: Boolean;
+
+        constraint filterPressureLimit {
+            inlet.pressure - outlet.pressure <= maximumDifferentialPressure
+        }
+    }
+
+    part def CheckValve {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+
+        attribute crackingPressure: Pressure_kPa = 8.0;
+        attribute reverseLeakageRate: FlowRate_mL_per_min = 0.02;
+        attribute open: Boolean;
+
+        constraint preventsBackflow {
+            if outlet.pressure > inlet.pressure then outlet.flowRate <= reverseLeakageRate else true
+        }
+    }
+
+    part def InjectionPump {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+        port power: PowerPort;
+        port command: CommandPort;
+        port status: StatusPort;
+
+        attribute displacementPerStroke: Volume_mL = 0.125;
+        attribute maximumFlowRate: FlowRate_mL_per_min = 250.0;
+        attribute minimumFlowRate: FlowRate_mL_per_min = 0.1;
+        attribute maximumOutletPressure: Pressure_kPa = 1200.0;
+        attribute commandedFlowRate: FlowRate_mL_per_min;
+        attribute deliveredVolume: Volume_mL;
+        attribute motorSpeed: RotationalSpeed_rpm;
+        attribute strokeFrequency_Hz: Real;
+        attribute primed: Boolean;
+        attribute enabled: Boolean;
+        attribute faulted: Boolean;
+
+        constraint flowWithinCapability {
+            commandedFlowRate >= minimumFlowRate and commandedFlowRate <= maximumFlowRate
+        }
+
+        constraint pressureWithinCapability {
+            outlet.pressure <= maximumOutletPressure
+        }
+
+        constraint noInjectionWithoutPrime {
+            enabled implies primed
+        }
+    }
+
+    part def OutletPressureSensor {
+        port sensedPort: FluidPort;
+        port status: StatusPort;
+
+        attribute measuredPressure: Pressure_kPa;
+        attribute measurementRange: Pressure_kPa = 1500.0;
+        attribute accuracyPercentFullScale: Real = 0.5;
+        attribute failed: Boolean;
+
+        constraint sensorRange {
+            measuredPressure >= 0.0 and measuredPressure <= measurementRange
+        }
+    }
+
+    part def FlowSensor {
+        port sensedPort: FluidPort;
+        port status: StatusPort;
+
+        attribute measuredFlowRate: FlowRate_mL_per_min;
+        attribute minimumDetectableFlow: FlowRate_mL_per_min = 0.05;
+        attribute maximumMeasuredFlow: FlowRate_mL_per_min = 300.0;
+        attribute failed: Boolean;
+    }
+
+    part def ReliefValve {
+        port inlet: FluidPort;
+        port drain: DrainPort;
+
+        attribute setPressure: Pressure_kPa = 1300.0;
+        attribute open: Boolean;
+        attribute reliefFlowRate: FlowRate_mL_per_min;
+
+        constraint opensAtSetPressure {
+            open == (inlet.pressure >= setPressure)
+        }
+    }
+
+    part def InjectionOutlet {
+        port inlet: FluidPort;
+        port patientLine: FluidPort;
+
+        attribute lineVolume: Volume_mL = 2.0;
+        attribute outletNeedleGauge: Real = 22.0;
+        attribute maximumLinePressure: Pressure_kPa = 1000.0;
+    }
+
+    action def PrimePump {
+        in pump: InjectionPump;
+        in primeVolume: Volume_mL = 2.0;
+        out primed: Boolean;
+
+        first startPrime;
+        then displaceAir;
+        then verifyContinuousFluid;
+        then completePrime;
+
+        action startPrime;
+        action displaceAir;
+        action verifyContinuousFluid;
+        action completePrime;
+
+        constraint primeVolumeLimit {
+            primeVolume >= 1.0 and primeVolume <= 5.0
+        }
+    }
+
+    action def InjectDose {
+        in pump: InjectionPump;
+        in requestedDose: Volume_mL;
+        in requestedFlowRate: FlowRate_mL_per_min;
+        out deliveredDose: Volume_mL;
+        out completed: Boolean;
+
+        first validateCommand;
+        then enableMotor;
+        then meterFluid;
+        then stopMotor;
+        then reportDose;
+
+        action validateCommand;
+        action enableMotor;
+        action meterFluid;
+        action stopMotor;
+        action reportDose;
+
+        constraint doseRange {
+            requestedDose > 0.0 and requestedDose <= 100.0
+        }
+
+        constraint flowRange {
+            requestedFlowRate >= pump.minimumFlowRate and requestedFlowRate <= pump.maximumFlowRate
+        }
+    }
+
+    action def DetectPumpFault {
+        in pump: InjectionPump;
+        in outletPressure: Pressure_kPa;
+        in measuredFlow: FlowRate_mL_per_min;
+        out faultDetected: Boolean;
+        out faultCode: String;
+
+        first comparePressure;
+        then compareFlow;
+        then classifyFault;
+
+        action comparePressure;
+        action compareFlow;
+        action classifyFault;
+    }
+
+    state def PumpOperatingState {
+        entry action initializeStatus;
+
+        state Off;
+        state Standby;
+        state Priming;
+        state Ready;
+        state Injecting;
+        state OcclusionFault;
+        state EmptyReservoirFault;
+        state EmergencyStopped;
+
+        transition initial then Off;
+
+        transition powerApplied
+            first Off
+            accept ElectricalPower
+            if power.isEnergized
+            then Standby;
+
+        transition requestPrime
+            first Standby
+            accept PumpCommand
+            if command.primeRequested
+            then Priming;
+
+        transition primeComplete
+            first Priming
+            if true
+            then Ready;
+
+        transition startInjection
+            first Ready
+            accept PumpCommand
+            if command.requestedDose > 0.0 and not command.stopRequested
+            then Injecting;
+
+        transition doseComplete
+            first Injecting
+            if true
+            then Ready;
+
+        transition stopCommanded
+            first Injecting
+            accept PumpCommand
+            if command.stopRequested
+            then Standby;
+
+        transition occlusionDetected
+            first Injecting
+            if true
+            then OcclusionFault;
+
+        transition reservoirEmpty
+            first Priming
+            if true
+            then EmptyReservoirFault;
+
+        transition emergencyStop
+            first Standby
+            accept PumpCommand
+            if command.stopRequested
+            then EmergencyStopped;
+
+        transition resetFromFault
+            first OcclusionFault
+            accept PumpCommand
+            if command.resetRequested
+            then Standby;
+
+        transition resetEmptyReservoir
+            first EmptyReservoirFault
+            accept PumpCommand
+            if command.resetRequested
+            then Standby;
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        doc /* The pumping subsystem shall move sterile process fluid from the reservoir to the injection outlet using an injection pump. */
+
+        require constraint {
+            subsystem.pump.commandedFlowRate >= subsystem.minimumRequiredFlowRate and
+            subsystem.pump.outlet.pressure <= subsystem.maximumAllowedOutletPressure
+        }
+    }
+
+    requirement def InjectionAccuracyRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        attribute maximumDoseErrorPercent: Real = 2.0;
+
+        require constraint {
+            abs(subsystem.commandedDose - subsystem.deliveredDose) <= subsystem.commandedDose * maximumDoseErrorPercent / 100.0
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        require constraint {
+            subsystem.reliefValve.open == true implies subsystem.pump.outlet.pressure >= subsystem.reliefValve.setPressure
+        }
+    }
+
+    requirement def BackflowPreventionRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        require constraint {
+            subsystem.outletCheckValve.reverseLeakageRate <= 0.02
+        }
+    }
+
+    requirement def PrimeBeforeInjectionRequirement {
+        subject subsystem: PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.enabled implies subsystem.pump.primed
+        }
+    }
+
+    part def PumpingSubsystem {
+        port fluidInlet: FluidPort;
+        port injectionOutlet: FluidPort;
+        port electricalInput: PowerPort;
+        port commandInput: CommandPort;
+        port statusOutput: StatusPort;
+        port reliefDrain: DrainPort;
+
+        part reservoir: FluidReservoir;
+        part inletFilter: InletFilter;
+        part inletCheckValve: CheckValve;
+        part pump: InjectionPump;
+        part outletCheckValve: CheckValve;
+        part pressureSensor: OutletPressureSensor;
+        part flowSensor: FlowSensor;
+        part reliefValve: ReliefValve;
+        part outletAssembly: InjectionOutlet;
+
+        attribute minimumRequiredFlowRate: FlowRate_mL_per_min = 0.5;
+        attribute maximumAllowedOutletPressure: Pressure_kPa = 1200.0;
+        attribute commandedDose: Volume_mL;
+        attribute deliveredDose: Volume_mL;
+        attribute normalOperatingTemperatureMin: Temperature_C = 15.0;
+        attribute normalOperatingTemperatureMax: Temperature_C = 35.0;
+
+        connect fluidInlet to reservoir.outlet;
+        connect reservoir.outlet to inletFilter.inlet;
+        connect inletFilter.outlet to inletCheckValve.inlet;
+        connect inletCheckValve.outlet to pump.inlet;
+        connect pump.outlet to outletCheckValve.inlet;
+        connect outletCheckValve.outlet to flowSensor.sensedPort;
+        connect flowSensor.sensedPort to pressureSensor.sensedPort;
+        connect pressureSensor.sensedPort to outletAssembly.inlet;
+        connect outletAssembly.patientLine to injectionOutlet;
+        connect pump.outlet to reliefValve.inlet;
+        connect reliefValve.drain to reliefDrain;
+        connect electricalInput to pump.power;
+        connect commandInput to pump.command;
+        connect pump.status to statusOutput;
+
+        perform action prime: PrimePump {
+            in pump = pump;
+            in primeVolume = 2.0;
+        }
+
+        perform action inject: InjectDose {
+            in pump = pump;
+            in requestedDose = commandedDose;
+            in requestedFlowRate = pump.commandedFlowRate;
+            out deliveredDose = deliveredDose;
+        }
+
+        perform action faultDetection: DetectPumpFault {
+            in pump = pump;
+            in outletPressure = pressureSensor.measuredPressure;
+            in measuredFlow = flowSensor.measuredFlowRate;
+        }
+
+        exhibit state operatingState: PumpOperatingState;
+
+        satisfy MoveFluidRequirement by this;
+        satisfy InjectionAccuracyRequirement by this;
+        satisfy OverPressureProtectionRequirement by this;
+        satisfy BackflowPreventionRequirement by this;
+        satisfy PrimeBeforeInjectionRequirement by this;
+
+        constraint operatingTemperature {
+            reservoir.fluidTemperature >= normalOperatingTemperatureMin and
+            reservoir.fluidTemperature <= normalOperatingTemperatureMax
+        }
+
+        constraint deliveredFlowMatchesCommand {
+            abs(flowSensor.measuredFlowRate - pump.commandedFlowRate) <= pump.commandedFlowRate * 0.03
+        }
+
+        constraint outletPressureLimited {
+            pressureSensor.measuredPressure <= maximumAllowedOutletPressure
+        }
+
+        constraint reservoirFeedsPump {
+            reservoir.currentVolume > reservoir.minimumVolume implies pump.inlet.flowRate >= minimumRequiredFlowRate
+        }
+    }
+
+    part injectionPumpPumpingSubsystem: PumpingSubsystem {
+        attribute commandedDose = 10.0;
+        attribute deliveredDose = 0.0;
+
+        part reservoir {
+            attribute currentVolume = 250.0;
+            attribute fluidTemperature = 22.0;
+            attribute outletPressure = 101.0;
+        }
+
+        part pump {
+            attribute commandedFlowRate = 25.0;
+            attribute deliveredVolume = 0.0;
+            attribute motorSpeed = 600.0;
+            attribute primed = false;
+            attribute enabled = false;
+            attribute faulted = false;
+        }
+
+        part inletCheckValve {
+            attribute crackingPressure = 5.0;
+        }
+
+        part outletCheckValve {
+            attribute crackingPressure = 10.0;
+        }
+
+        part pressureSensor {
+            attribute measuredPressure = 250.0;
+        }
+
+        part flowSensor {
+            attribute measuredFlowRate = 25.0;
+        }
+    }
+}

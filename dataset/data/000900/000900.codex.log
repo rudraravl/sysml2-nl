@@ -1,0 +1,713 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-pq92ecxw
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4a7-9b48-73c0-abef-9234a05777d3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Impeller and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ImpellerBasedFluidEnergySystem {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def FlowRate :> ISQ::volumeFlowRate;
+    attribute def RotationalSpeed :> ISQ::angularVelocity;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Torque :> ISQ::torque;
+    attribute def Power :> ISQ::power;
+    attribute def Efficiency :> ScalarValues::Real;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Diameter :> ISQ::length;
+    attribute def Mass :> ISQ::mass;
+
+    item def WorkingFluid {
+        attribute density : ISQ::density;
+        attribute dynamicViscosity : ISQ::dynamicViscosity;
+        attribute temperature : Temperature;
+        attribute vaporPressure : Pressure;
+    }
+
+    item def RotationalEnergy {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute shaftPower : Power;
+    }
+
+    item def PressurizedFluid :> WorkingFluid {
+        attribute staticPressure : Pressure;
+        attribute totalPressure : Pressure;
+        attribute volumeFlow : FlowRate;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : WorkingFluid;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : PressurizedFluid;
+    }
+
+    port def ShaftPowerPort {
+        in item driveEnergy : RotationalEnergy;
+    }
+
+    port def SensorSignalPort {
+        out attribute measuredSpeed : RotationalSpeed;
+        out attribute measuredPressureRise : Pressure;
+        out attribute measuredFlow : FlowRate;
+    }
+
+    part def Impeller {
+        attribute outerDiameter : Diameter = 0.18 [m];
+        attribute hubDiameter : Diameter = 0.045 [m];
+        attribute bladeCount : ScalarValues::Integer = 7;
+        attribute bladeExitAngle : ISQ::planeAngle = 32 [deg];
+        attribute nominalSpeed : RotationalSpeed = 314.16 [rad/s];
+        attribute maximumSpeed : RotationalSpeed = 418.88 [rad/s];
+        attribute designFlow : FlowRate = 0.024 [m^3/s];
+        attribute designPressureRise : Pressure = 185000 [Pa];
+        attribute hydraulicEfficiency : Efficiency = 0.78;
+        attribute mass : Mass = 2.6 [kg];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port shaft : ShaftPowerPort;
+
+        action accelerateFluid {
+            in item incomingFluid : WorkingFluid;
+            in item shaftEnergy : RotationalEnergy;
+            out item dischargedFluid : PressurizedFluid;
+
+            first start;
+            then captureFluid;
+            then transferAngularMomentum;
+            then convertVelocityToPressure;
+            then dischargeFlow;
+            then done;
+
+            action captureFluid;
+            action transferAngularMomentum;
+            action convertVelocityToPressure;
+            action dischargeFlow;
+        }
+
+        state operatingState {
+            state stopped;
+            state spinningUp;
+            state pumping;
+            state overspeed;
+            state cavitationRisk;
+            state shutdown;
+
+            initial then stopped;
+
+            transition stopped_to_spinningUp
+                first stopped
+                accept StartCommand
+                then spinningUp;
+
+            transition spinningUp_to_pumping
+                first spinningUp
+                if shaft.driveEnergy.speed >= 0.95 * nominalSpeed
+                then pumping;
+
+            transition pumping_to_overspeed
+                first pumping
+                if shaft.driveEnergy.speed > maximumSpeed
+                then overspeed;
+
+            transition pumping_to_cavitationRisk
+                first pumping
+                if inlet.fluidIn.vaporPressure >= 0.85 * outlet.fluidOut.staticPressure
+                then cavitationRisk;
+
+            transition overspeed_to_shutdown
+                first overspeed
+                then shutdown;
+
+            transition cavitationRisk_to_shutdown
+                first cavitationRisk
+                then shutdown;
+
+            transition pumping_to_shutdown
+                first pumping
+                accept StopCommand
+                then shutdown;
+
+            transition shutdown_to_stopped
+                first shutdown
+                if shaft.driveEnergy.speed <= 5 [rad/s]
+                then stopped;
+        }
+    }
+
+    part def DriveMotor {
+        attribute ratedPower : Power = 6200 [W];
+        attribute ratedTorque : Torque = 19.7 [N*m];
+        attribute ratedSpeed : RotationalSpeed = 314.16 [rad/s];
+
+        port shaftOutput : ShaftPowerPort;
+
+        action provideRotationalPower {
+            out item rotation : RotationalEnergy;
+        }
+    }
+
+    part def VoluteHousing {
+        attribute inletPressureLimit : Pressure = 350000 [Pa];
+        attribute outletPressureLimit : Pressure = 650000 [Pa];
+        attribute casingMass : Mass = 5.4 [kg];
+
+        port suctionPort : FluidInletPort;
+        port impellerInletPort : FluidInletPort;
+        port impellerOutletPort : FluidOutletPort;
+        port dischargePort : FluidOutletPort;
+
+        action guideAndDiffuseFlow {
+            in item highVelocityFluid : PressurizedFluid;
+            out item deliveredFluid : PressurizedFluid;
+        }
+    }
+
+    part def BearingAssembly {
+        attribute radialLoadCapacity : ISQ::force = 1800 [N];
+        attribute axialLoadCapacity : ISQ::force = 950 [N];
+        attribute maximumTemperature : Temperature = 363.15 [K];
+
+        port shaftSupport : ShaftPowerPort;
+
+        state bearingCondition {
+            state normal;
+            state highTemperature;
+            state degraded;
+
+            initial then normal;
+
+            transition normal_to_highTemperature
+                first normal
+                if maximumTemperature < 373.15 [K]
+                then highTemperature;
+
+            transition highTemperature_to_degraded
+                first highTemperature
+                after 600 [s]
+                then degraded;
+        }
+    }
+
+    part def SealAssembly {
+        attribute leakageLimit : FlowRate = 0.000002 [m^3/s];
+        attribute pressureRating : Pressure = 700000 [Pa];
+
+        port processSide : FluidInletPort;
+    }
+
+    part def Controller {
+        attribute commandedSpeed : RotationalSpeed = 314.16 [rad/s];
+        attribute lowFlowLimit : FlowRate = 0.006 [m^3/s];
+        attribute highPressureLimit : Pressure = 620000 [Pa];
+
+        port sensorInput : SensorSignalPort;
+
+        action regulateImpellerSpeed {
+            in attribute actualSpeed : RotationalSpeed;
+            in attribute actualFlow : FlowRate;
+            out attribute requestedSpeed : RotationalSpeed;
+        }
+
+        state controlMode {
+            state idle;
+            state startSequence;
+            state closedLoopControl;
+            state protectiveTrip;
+
+            initial then idle;
+
+            transition idle_to_startSequence
+                first idle
+                accept StartCommand
+                then startSequence;
+
+            transition startSequence_to_closedLoopControl
+                first startSequence
+                if sensorInput.measuredSpeed >= 0.95 * commandedSpeed
+                then closedLoopControl;
+
+            transition closedLoopControl_to_protectiveTrip
+                first closedLoopControl
+                if sensorInput.measuredFlow < lowFlowLimit or sensorInput.measuredPressureRise > highPressureLimit
+                then protectiveTrip;
+
+            transition closedLoopControl_to_idle
+                first closedLoopControl
+                accept StopCommand
+                then idle;
+        }
+    }
+
+    part def ImpellerFluidMover {
+        doc /* Primary function: convert supplied shaft rotational energy into increased fluid kinetic energy and pressure, producing a controlled continuous flow from inlet to outlet. */
+
+        attribute nominalFlow : FlowRate = 0.024 [m^3/s];
+        attribute nominalPressureRise : Pressure = 185000 [Pa];
+        attribute nominalShaftPower : Power = 5700 [W];
+        attribute overallEfficiency : Efficiency = 0.72;
+        attribute allowableFluidTemperatureMin : Temperature = 273.15 [K];
+        attribute allowableFluidTemperatureMax : Temperature = 353.15 [K];
+
+        part motor : DriveMotor;
+        part impeller : Impeller;
+        part housing : VoluteHousing;
+        part bearings : BearingAssembly;
+        part seal : SealAssembly;
+        part controller : Controller;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port telemetry : SensorSignalPort;
+
+        connect inlet to housing.suctionPort;
+        connect housing.impellerInletPort to impeller.inlet;
+        connect impeller.outlet to housing.impellerOutletPort;
+        connect housing.dischargePort to outlet;
+        connect motor.shaftOutput to impeller.shaft;
+        connect motor.shaftOutput to bearings.shaftSupport;
+        connect housing.impellerInletPort to seal.processSide;
+        connect telemetry to controller.sensorInput;
+
+        action performPrimaryFunction {
+            in item inletFluid : WorkingFluid;
+            in item motorEnergy : RotationalEnergy;
+            out item outletFluid : PressurizedFluid;
+
+            first receiveFluid;
+            then energizeImpeller;
+            then impartMomentum;
+            then recoverPressure;
+            then deliverPressurizedFlow;
+            then reportTelemetry;
+            then done;
+
+            action receiveFluid;
+            action energizeImpeller;
+            action impartMomentum;
+            action recoverPressure;
+            action deliverPressurizedFlow;
+            action reportTelemetry;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The impeller-based system shall convert mechanical rotational shaft power into a continuous pressurized fluid flow. */
+        subject system : ImpellerFluidMover;
+
+        require constraint {
+            system.nominalFlow >= 0.020 [m^3/s] and
+            system.nominalPressureRise >= 150000 [Pa] and
+            system.overallEfficiency >= 0.65
+        }
+    }
+
+    requirement def SafeOperatingSpeedRequirement {
+        doc /* The impeller shall remain below its maximum permitted rotational speed during normal pumping operation. */
+        subject impeller : Impeller;
+
+        require constraint {
+            impeller.nominalSpeed <= impeller.maximumSpeed
+        }
+    }
+
+    requirement def FluidCompatibilityRequirement {
+        doc /* The system shall operate only when the working fluid temperature remains within the specified allowable range. */
+        subject system : ImpellerFluidMover;
+        subject fluid : WorkingFluid;
+
+        require constraint {
+            fluid.temperature >= system.allowableFluidTemperatureMin and
+            fluid.temperature <= system.allowableFluidTemperatureMax
+        }
+    }
+
+    requirement def LeakageRequirement {
+        doc /* The seal assembly shall limit process-fluid leakage during pressurized operation. */
+        subject seal : SealAssembly;
+
+        require constraint {
+            seal.leakageLimit <= 0.000002 [m^3/s]
+        }
+    }
+
+    requirement def ProtectiveControlRequirement {
+        doc /* The controller shall trip the system when measured flow is too low or pressure rise exceeds the protective limit. */
+        subject controller : Controller;
+
+        require constraint {
+            controller.lowFlowLimit > 0 [m^3/s] and
+            controller.highPressureLimit <= 620000 [Pa]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ImpellerFluidMover;
+    satisfy SafeOperatingSpeedRequirement by Impeller;
+    satisfy FluidCompatibilityRequirement by ImpellerFluidMover;
+    satisfy LeakageRequirement by SealAssembly;
+    satisfy ProtectiveControlRequirement by Controller;
+}
+tokens used
+2,813
+package ImpellerBasedFluidEnergySystem {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def FlowRate :> ISQ::volumeFlowRate;
+    attribute def RotationalSpeed :> ISQ::angularVelocity;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Torque :> ISQ::torque;
+    attribute def Power :> ISQ::power;
+    attribute def Efficiency :> ScalarValues::Real;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Diameter :> ISQ::length;
+    attribute def Mass :> ISQ::mass;
+
+    item def WorkingFluid {
+        attribute density : ISQ::density;
+        attribute dynamicViscosity : ISQ::dynamicViscosity;
+        attribute temperature : Temperature;
+        attribute vaporPressure : Pressure;
+    }
+
+    item def RotationalEnergy {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute shaftPower : Power;
+    }
+
+    item def PressurizedFluid :> WorkingFluid {
+        attribute staticPressure : Pressure;
+        attribute totalPressure : Pressure;
+        attribute volumeFlow : FlowRate;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : WorkingFluid;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : PressurizedFluid;
+    }
+
+    port def ShaftPowerPort {
+        in item driveEnergy : RotationalEnergy;
+    }
+
+    port def SensorSignalPort {
+        out attribute measuredSpeed : RotationalSpeed;
+        out attribute measuredPressureRise : Pressure;
+        out attribute measuredFlow : FlowRate;
+    }
+
+    part def Impeller {
+        attribute outerDiameter : Diameter = 0.18 [m];
+        attribute hubDiameter : Diameter = 0.045 [m];
+        attribute bladeCount : ScalarValues::Integer = 7;
+        attribute bladeExitAngle : ISQ::planeAngle = 32 [deg];
+        attribute nominalSpeed : RotationalSpeed = 314.16 [rad/s];
+        attribute maximumSpeed : RotationalSpeed = 418.88 [rad/s];
+        attribute designFlow : FlowRate = 0.024 [m^3/s];
+        attribute designPressureRise : Pressure = 185000 [Pa];
+        attribute hydraulicEfficiency : Efficiency = 0.78;
+        attribute mass : Mass = 2.6 [kg];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port shaft : ShaftPowerPort;
+
+        action accelerateFluid {
+            in item incomingFluid : WorkingFluid;
+            in item shaftEnergy : RotationalEnergy;
+            out item dischargedFluid : PressurizedFluid;
+
+            first start;
+            then captureFluid;
+            then transferAngularMomentum;
+            then convertVelocityToPressure;
+            then dischargeFlow;
+            then done;
+
+            action captureFluid;
+            action transferAngularMomentum;
+            action convertVelocityToPressure;
+            action dischargeFlow;
+        }
+
+        state operatingState {
+            state stopped;
+            state spinningUp;
+            state pumping;
+            state overspeed;
+            state cavitationRisk;
+            state shutdown;
+
+            initial then stopped;
+
+            transition stopped_to_spinningUp
+                first stopped
+                accept StartCommand
+                then spinningUp;
+
+            transition spinningUp_to_pumping
+                first spinningUp
+                if shaft.driveEnergy.speed >= 0.95 * nominalSpeed
+                then pumping;
+
+            transition pumping_to_overspeed
+                first pumping
+                if shaft.driveEnergy.speed > maximumSpeed
+                then overspeed;
+
+            transition pumping_to_cavitationRisk
+                first pumping
+                if inlet.fluidIn.vaporPressure >= 0.85 * outlet.fluidOut.staticPressure
+                then cavitationRisk;
+
+            transition overspeed_to_shutdown
+                first overspeed
+                then shutdown;
+
+            transition cavitationRisk_to_shutdown
+                first cavitationRisk
+                then shutdown;
+
+            transition pumping_to_shutdown
+                first pumping
+                accept StopCommand
+                then shutdown;
+
+            transition shutdown_to_stopped
+                first shutdown
+                if shaft.driveEnergy.speed <= 5 [rad/s]
+                then stopped;
+        }
+    }
+
+    part def DriveMotor {
+        attribute ratedPower : Power = 6200 [W];
+        attribute ratedTorque : Torque = 19.7 [N*m];
+        attribute ratedSpeed : RotationalSpeed = 314.16 [rad/s];
+
+        port shaftOutput : ShaftPowerPort;
+
+        action provideRotationalPower {
+            out item rotation : RotationalEnergy;
+        }
+    }
+
+    part def VoluteHousing {
+        attribute inletPressureLimit : Pressure = 350000 [Pa];
+        attribute outletPressureLimit : Pressure = 650000 [Pa];
+        attribute casingMass : Mass = 5.4 [kg];
+
+        port suctionPort : FluidInletPort;
+        port impellerInletPort : FluidInletPort;
+        port impellerOutletPort : FluidOutletPort;
+        port dischargePort : FluidOutletPort;
+
+        action guideAndDiffuseFlow {
+            in item highVelocityFluid : PressurizedFluid;
+            out item deliveredFluid : PressurizedFluid;
+        }
+    }
+
+    part def BearingAssembly {
+        attribute radialLoadCapacity : ISQ::force = 1800 [N];
+        attribute axialLoadCapacity : ISQ::force = 950 [N];
+        attribute maximumTemperature : Temperature = 363.15 [K];
+
+        port shaftSupport : ShaftPowerPort;
+
+        state bearingCondition {
+            state normal;
+            state highTemperature;
+            state degraded;
+
+            initial then normal;
+
+            transition normal_to_highTemperature
+                first normal
+                if maximumTemperature < 373.15 [K]
+                then highTemperature;
+
+            transition highTemperature_to_degraded
+                first highTemperature
+                after 600 [s]
+                then degraded;
+        }
+    }
+
+    part def SealAssembly {
+        attribute leakageLimit : FlowRate = 0.000002 [m^3/s];
+        attribute pressureRating : Pressure = 700000 [Pa];
+
+        port processSide : FluidInletPort;
+    }
+
+    part def Controller {
+        attribute commandedSpeed : RotationalSpeed = 314.16 [rad/s];
+        attribute lowFlowLimit : FlowRate = 0.006 [m^3/s];
+        attribute highPressureLimit : Pressure = 620000 [Pa];
+
+        port sensorInput : SensorSignalPort;
+
+        action regulateImpellerSpeed {
+            in attribute actualSpeed : RotationalSpeed;
+            in attribute actualFlow : FlowRate;
+            out attribute requestedSpeed : RotationalSpeed;
+        }
+
+        state controlMode {
+            state idle;
+            state startSequence;
+            state closedLoopControl;
+            state protectiveTrip;
+
+            initial then idle;
+
+            transition idle_to_startSequence
+                first idle
+                accept StartCommand
+                then startSequence;
+
+            transition startSequence_to_closedLoopControl
+                first startSequence
+                if sensorInput.measuredSpeed >= 0.95 * commandedSpeed
+                then closedLoopControl;
+
+            transition closedLoopControl_to_protectiveTrip
+                first closedLoopControl
+                if sensorInput.measuredFlow < lowFlowLimit or sensorInput.measuredPressureRise > highPressureLimit
+                then protectiveTrip;
+
+            transition closedLoopControl_to_idle
+                first closedLoopControl
+                accept StopCommand
+                then idle;
+        }
+    }
+
+    part def ImpellerFluidMover {
+        doc /* Primary function: convert supplied shaft rotational energy into increased fluid kinetic energy and pressure, producing a controlled continuous flow from inlet to outlet. */
+
+        attribute nominalFlow : FlowRate = 0.024 [m^3/s];
+        attribute nominalPressureRise : Pressure = 185000 [Pa];
+        attribute nominalShaftPower : Power = 5700 [W];
+        attribute overallEfficiency : Efficiency = 0.72;
+        attribute allowableFluidTemperatureMin : Temperature = 273.15 [K];
+        attribute allowableFluidTemperatureMax : Temperature = 353.15 [K];
+
+        part motor : DriveMotor;
+        part impeller : Impeller;
+        part housing : VoluteHousing;
+        part bearings : BearingAssembly;
+        part seal : SealAssembly;
+        part controller : Controller;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port telemetry : SensorSignalPort;
+
+        connect inlet to housing.suctionPort;
+        connect housing.impellerInletPort to impeller.inlet;
+        connect impeller.outlet to housing.impellerOutletPort;
+        connect housing.dischargePort to outlet;
+        connect motor.shaftOutput to impeller.shaft;
+        connect motor.shaftOutput to bearings.shaftSupport;
+        connect housing.impellerInletPort to seal.processSide;
+        connect telemetry to controller.sensorInput;
+
+        action performPrimaryFunction {
+            in item inletFluid : WorkingFluid;
+            in item motorEnergy : RotationalEnergy;
+            out item outletFluid : PressurizedFluid;
+
+            first receiveFluid;
+            then energizeImpeller;
+            then impartMomentum;
+            then recoverPressure;
+            then deliverPressurizedFlow;
+            then reportTelemetry;
+            then done;
+
+            action receiveFluid;
+            action energizeImpeller;
+            action impartMomentum;
+            action recoverPressure;
+            action deliverPressurizedFlow;
+            action reportTelemetry;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The impeller-based system shall convert mechanical rotational shaft power into a continuous pressurized fluid flow. */
+        subject system : ImpellerFluidMover;
+
+        require constraint {
+            system.nominalFlow >= 0.020 [m^3/s] and
+            system.nominalPressureRise >= 150000 [Pa] and
+            system.overallEfficiency >= 0.65
+        }
+    }
+
+    requirement def SafeOperatingSpeedRequirement {
+        doc /* The impeller shall remain below its maximum permitted rotational speed during normal pumping operation. */
+        subject impeller : Impeller;
+
+        require constraint {
+            impeller.nominalSpeed <= impeller.maximumSpeed
+        }
+    }
+
+    requirement def FluidCompatibilityRequirement {
+        doc /* The system shall operate only when the working fluid temperature remains within the specified allowable range. */
+        subject system : ImpellerFluidMover;
+        subject fluid : WorkingFluid;
+
+        require constraint {
+            fluid.temperature >= system.allowableFluidTemperatureMin and
+            fluid.temperature <= system.allowableFluidTemperatureMax
+        }
+    }
+
+    requirement def LeakageRequirement {
+        doc /* The seal assembly shall limit process-fluid leakage during pressurized operation. */
+        subject seal : SealAssembly;
+
+        require constraint {
+            seal.leakageLimit <= 0.000002 [m^3/s]
+        }
+    }
+
+    requirement def ProtectiveControlRequirement {
+        doc /* The controller shall trip the system when measured flow is too low or pressure rise exceeds the protective limit. */
+        subject controller : Controller;
+
+        require constraint {
+            controller.lowFlowLimit > 0 [m^3/s] and
+            controller.highPressureLimit <= 620000 [Pa]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ImpellerFluidMover;
+    satisfy SafeOperatingSpeedRequirement by Impeller;
+    satisfy FluidCompatibilityRequirement by ImpellerFluidMover;
+    satisfy LeakageRequirement by SealAssembly;
+    satisfy ProtectiveControlRequirement by Controller;
+}

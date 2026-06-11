@@ -1,0 +1,723 @@
+package OncologyInstrumentationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def DoseRate {
+        :> scalarValue;
+        unit = "Gy/min";
+    }
+
+    attribute def AbsorbedDose {
+        :> scalarValue;
+        unit = "Gy";
+    }
+
+    attribute def Energy {
+        :> scalarValue;
+        unit = "MeV";
+    }
+
+    attribute def Length {
+        :> scalarValue;
+        unit = "mm";
+    }
+
+    attribute def Time {
+        :> scalarValue;
+        unit = "s";
+    }
+
+    attribute def Temperature {
+        :> scalarValue;
+        unit = "degC";
+    }
+
+    attribute def ElectricPotential {
+        :> scalarValue;
+        unit = "V";
+    }
+
+    attribute def DataRate {
+        :> scalarValue;
+        unit = "MB/s";
+    }
+
+    enum def TreatmentMode {
+        enum externalBeamRadiotherapy;
+        enum imageGuidedRadiotherapy;
+        enum stereotacticRadiotherapy;
+        enum qualityAssurance;
+        enum service;
+    }
+
+    enum def SystemOperatingState {
+        enum poweredOff;
+        enum initialization;
+        enum standby;
+        enum patientSetup;
+        enum imaging;
+        enum treatmentReady;
+        enum beamOn;
+        enum paused;
+        enum completed;
+        enum faulted;
+        enum emergencyStop;
+    }
+
+    item def PatientAnatomy {
+        attribute patientIdentifier : String;
+        attribute targetSite : String;
+        attribute prescribedDose : AbsorbedDose;
+        attribute setupTolerance : Length;
+    }
+
+    item def TreatmentPlan {
+        attribute planIdentifier : String;
+        attribute mode : TreatmentMode;
+        attribute targetDose : AbsorbedDose;
+        attribute fractionDose : AbsorbedDose;
+        attribute beamEnergy : Energy;
+        attribute plannedDoseRate : DoseRate;
+        attribute fieldSizeX : Length;
+        attribute fieldSizeY : Length;
+        attribute gantryAngle : Real;
+        attribute couchAngle : Real;
+        attribute collimatorAngle : Real;
+    }
+
+    item def ImagingDataset {
+        attribute datasetIdentifier : String;
+        attribute sliceThickness : Length;
+        attribute acquisitionTime : Time;
+        attribute registrationError : Length;
+    }
+
+    item def DosimetryMeasurement {
+        attribute measuredDose : AbsorbedDose;
+        attribute measuredDoseRate : DoseRate;
+        attribute measurementTime : Time;
+        attribute detectorTemperature : Temperature;
+    }
+
+    item def BeamCommand {
+        attribute requestedEnergy : Energy;
+        attribute requestedDoseRate : DoseRate;
+        attribute requestedMonitorUnits : Real;
+        attribute enableBeam : Boolean;
+    }
+
+    item def SafetyInterlockSignal {
+        attribute interlockName : String;
+        attribute asserted : Boolean;
+        attribute diagnosticMessage : String;
+    }
+
+    item def ClinicalReport {
+        attribute treatmentDelivered : Boolean;
+        attribute deliveredDose : AbsorbedDose;
+        attribute completedFractions : Integer;
+        attribute reportSummary : String;
+    }
+
+    port def PatientSupportPort {
+        in patient : PatientAnatomy;
+        out setupStatus : String;
+    }
+
+    port def TreatmentPlanPort {
+        in plan : TreatmentPlan;
+    }
+
+    port def ImagingPort {
+        out imageData : ImagingDataset;
+    }
+
+    port def BeamControlPort {
+        out command : BeamCommand;
+        in measuredDose : DosimetryMeasurement;
+    }
+
+    port def SafetyPort {
+        in interlock : SafetyInterlockSignal;
+        out inhibitBeam : Boolean;
+    }
+
+    port def UserInterfacePort {
+        in operatorCommand : String;
+        out statusDisplay : String;
+        out clinicalReport : ClinicalReport;
+    }
+
+    port def NetworkPort {
+        in treatmentPlanData : TreatmentPlan;
+        out treatmentRecord : ClinicalReport;
+        attribute throughput : DataRate;
+    }
+
+    part def OncologyTreatmentInstrument {
+        attribute primaryFunction : String =
+            "Deliver clinically prescribed ionizing radiation to an oncology target volume while using imaging, positioning, dosimetry, and safety interlocks to spare surrounding healthy tissue.";
+
+        attribute operatingState : SystemOperatingState;
+        attribute maximumDoseRate : DoseRate = 24.0 [Gy/min];
+        attribute nominalPhotonEnergy : Energy = 6.0 [MeV];
+        attribute positioningAccuracy : Length = 0.5 [mm];
+        attribute imagingRegistrationTolerance : Length = 1.0 [mm];
+
+        port patientPort : PatientSupportPort;
+        port planPort : TreatmentPlanPort;
+        port imagingPort : ImagingPort;
+        port beamPort : BeamControlPort;
+        port safetyPort : SafetyPort;
+        port uiPort : UserInterfacePort;
+        port networkPort : NetworkPort;
+
+        part controlConsole : ClinicalControlConsole;
+        part treatmentPlanningInterface : TreatmentPlanningInterface;
+        part imagingSubsystem : ImageGuidanceSubsystem;
+        part beamGenerationSubsystem : RadiationBeamSubsystem;
+        part patientPositioningSubsystem : PatientPositioningSubsystem;
+        part dosimetrySubsystem : DosimetryMonitoringSubsystem;
+        part safetySubsystem : SafetyInterlockSubsystem;
+        part treatmentRecordSubsystem : TreatmentRecordSubsystem;
+
+        connect networkPort to treatmentPlanningInterface.networkPort;
+        connect planPort to treatmentPlanningInterface.planInputPort;
+        connect treatmentPlanningInterface.validatedPlanPort to controlConsole.planPort;
+
+        connect controlConsole.beamCommandPort to beamGenerationSubsystem.commandPort;
+        connect beamGenerationSubsystem.doseFeedbackPort to dosimetrySubsystem.measurementInputPort;
+        connect dosimetrySubsystem.doseOutputPort to controlConsole.doseMonitorPort;
+
+        connect patientPort to patientPositioningSubsystem.patientPort;
+        connect controlConsole.positionCommandPort to patientPositioningSubsystem.positionCommandPort;
+        connect patientPositioningSubsystem.positionStatusPort to controlConsole.positionStatusPort;
+
+        connect imagingSubsystem.imageOutputPort to controlConsole.imageInputPort;
+        connect imagingPort to imagingSubsystem.externalImagePort;
+
+        connect safetySubsystem.safetyStatusPort to controlConsole.safetyPort;
+        connect safetyPort to safetySubsystem.externalSafetyPort;
+        connect safetySubsystem.beamInhibitPort to beamGenerationSubsystem.inhibitPort;
+
+        connect controlConsole.reportPort to treatmentRecordSubsystem.reportInputPort;
+        connect treatmentRecordSubsystem.networkRecordPort to networkPort;
+        connect uiPort to controlConsole.userInterfacePort;
+
+        action performTreatment {
+            in patient : PatientAnatomy;
+            in plan : TreatmentPlan;
+            out report : ClinicalReport;
+
+            first start;
+            then validatePlan;
+            then positionPatient;
+            then acquireGuidanceImage;
+            then registerImageToPlan;
+            then verifySafetyInterlocks;
+            then enableBeamDelivery;
+            then monitorDeliveredDose;
+            then terminateBeam;
+            then storeTreatmentRecord;
+            then done;
+
+            action start;
+            action validatePlan {
+                in plan : TreatmentPlan;
+                out accepted : Boolean;
+            }
+            action positionPatient {
+                in patient : PatientAnatomy;
+                attribute targetAccuracy : Length = 0.5 [mm];
+            }
+            action acquireGuidanceImage {
+                out image : ImagingDataset;
+            }
+            action registerImageToPlan {
+                in image : ImagingDataset;
+                in plan : TreatmentPlan;
+                out registrationError : Length;
+            }
+            action verifySafetyInterlocks {
+                out allClear : Boolean;
+            }
+            action enableBeamDelivery {
+                in command : BeamCommand;
+            }
+            action monitorDeliveredDose {
+                out measurement : DosimetryMeasurement;
+            }
+            action terminateBeam;
+            action storeTreatmentRecord {
+                out report : ClinicalReport;
+            }
+            action done;
+        }
+
+        state treatmentOperation {
+            entry action initializeHardware;
+
+            state off;
+            state initializing;
+            state standby;
+            state setup;
+            state imaging;
+            state ready;
+            state treating;
+            state paused;
+            state complete;
+            state fault;
+            state emergency;
+
+            transition first off;
+            transition powerOn from off to initializing;
+            transition initializationComplete from initializing to standby;
+            transition planLoaded from standby to setup;
+            transition patientAligned from setup to imaging;
+            transition imageAccepted from imaging to ready;
+            transition beamEnableRequested from ready to treating;
+            transition pauseRequested from treating to paused;
+            transition resumeRequested from paused to treating;
+            transition prescribedDoseReached from treating to complete;
+            transition resetAfterComplete from complete to standby;
+            transition recoverableFaultDetected from setup to fault;
+            transition imagingFaultDetected from imaging to fault;
+            transition beamFaultDetected from treating to fault;
+            transition faultCleared from fault to standby;
+            transition emergencyStopPressed from standby to emergency;
+            transition emergencyStopDuringSetup from setup to emergency;
+            transition emergencyStopDuringTreatment from treating to emergency;
+            transition emergencyReset from emergency to standby;
+        }
+    }
+
+    part def ClinicalControlConsole {
+        attribute authorizedOperator : String;
+        attribute selectedMode : TreatmentMode;
+        attribute displayedDose : AbsorbedDose;
+        attribute displayedState : SystemOperatingState;
+
+        port userInterfacePort : UserInterfacePort;
+        port planPort : TreatmentPlanPort;
+        port beamCommandPort : BeamControlPort;
+        port doseMonitorPort : BeamControlPort;
+        port imageInputPort : ImagingPort;
+        port safetyPort : SafetyPort;
+        port positionCommandPort : PatientSupportPort;
+        port positionStatusPort : PatientSupportPort;
+        port reportPort : NetworkPort;
+
+        action authorizeOperator {
+            in operatorId : String;
+            out authorized : Boolean;
+        }
+
+        action reviewAndApprovePlan {
+            in plan : TreatmentPlan;
+            out approved : Boolean;
+        }
+
+        action commandBeam {
+            in approvedPlan : TreatmentPlan;
+            out command : BeamCommand;
+        }
+    }
+
+    part def TreatmentPlanningInterface {
+        attribute acceptedDoseDifference : AbsorbedDose = 0.05 [Gy];
+        attribute acceptedGeometryDifference : Length = 0.5 [mm];
+
+        port networkPort : NetworkPort;
+        port planInputPort : TreatmentPlanPort;
+        port validatedPlanPort : TreatmentPlanPort;
+
+        action importPlan {
+            in sourcePlan : TreatmentPlan;
+            out importedPlan : TreatmentPlan;
+        }
+
+        action validatePlanParameters {
+            in importedPlan : TreatmentPlan;
+            out validPlan : TreatmentPlan;
+            out validationPassed : Boolean;
+        }
+    }
+
+    part def ImageGuidanceSubsystem {
+        attribute nominalSliceThickness : Length = 1.0 [mm];
+        attribute maximumRegistrationError : Length = 1.0 [mm];
+        attribute acquisitionDuration : Time = 30.0 [s];
+
+        port externalImagePort : ImagingPort;
+        port imageOutputPort : ImagingPort;
+
+        part xraySource : ImagingXraySource;
+        part detectorPanel : FlatPanelDetector;
+        part registrationProcessor : ImageRegistrationProcessor;
+
+        connect xraySource.imageExposurePort to detectorPanel.exposurePort;
+        connect detectorPanel.rawImagePort to registrationProcessor.rawImagePort;
+        connect registrationProcessor.registeredImagePort to imageOutputPort;
+
+        action acquireSetupImage {
+            out dataset : ImagingDataset;
+        }
+
+        action registerToPlanningImage {
+            in setupImage : ImagingDataset;
+            in plan : TreatmentPlan;
+            out registrationError : Length;
+        }
+    }
+
+    part def ImagingXraySource {
+        attribute tubeVoltage : ElectricPotential = 120.0 [V];
+        attribute exposureTime : Time = 0.5 [s];
+
+        port imageExposurePort : ImagingPort;
+    }
+
+    part def FlatPanelDetector {
+        attribute pixelPitch : Length = 0.25 [mm];
+        attribute activeAreaX : Length = 410.0 [mm];
+        attribute activeAreaY : Length = 410.0 [mm];
+
+        port exposurePort : ImagingPort;
+        port rawImagePort : ImagingPort;
+    }
+
+    part def ImageRegistrationProcessor {
+        attribute processingLatency : Time = 2.0 [s];
+        attribute registrationTolerance : Length = 1.0 [mm];
+
+        port rawImagePort : ImagingPort;
+        port registeredImagePort : ImagingPort;
+    }
+
+    part def RadiationBeamSubsystem {
+        attribute photonEnergy : Energy = 6.0 [MeV];
+        attribute electronEnergy : Energy = 12.0 [MeV];
+        attribute maximumDoseRate : DoseRate = 24.0 [Gy/min];
+        attribute beamOutputStability : Real = 0.01;
+
+        port commandPort : BeamControlPort;
+        port doseFeedbackPort : BeamControlPort;
+        port inhibitPort : SafetyPort;
+
+        part accelerator : LinearAccelerator;
+        part beamShapingAssembly : BeamShapingAssembly;
+        part beamStopper : BeamStopper;
+
+        connect commandPort to accelerator.commandPort;
+        connect accelerator.generatedBeamPort to beamShapingAssembly.inputBeamPort;
+        connect beamShapingAssembly.shapedBeamPort to doseFeedbackPort;
+        connect inhibitPort to beamStopper.inhibitPort;
+
+        action generateTherapeuticBeam {
+            in command : BeamCommand;
+            out measurement : DosimetryMeasurement;
+        }
+
+        state beamState {
+            state disabled;
+            state warmup;
+            state ready;
+            state emitting;
+            state inhibited;
+
+            transition first disabled;
+            transition enable from disabled to warmup;
+            transition stableOutput from warmup to ready;
+            transition beamOn from ready to emitting;
+            transition beamOff from emitting to ready;
+            transition inhibitAsserted from ready to inhibited;
+            transition inhibitDuringEmission from emitting to inhibited;
+            transition inhibitCleared from inhibited to ready;
+        }
+    }
+
+    part def LinearAccelerator {
+        attribute acceleratingPotential : ElectricPotential = 6000000.0 [V];
+        attribute pulseRepetitionFrequency : Real = 360.0;
+        attribute nominalEnergy : Energy = 6.0 [MeV];
+
+        port commandPort : BeamControlPort;
+        port generatedBeamPort : BeamControlPort;
+    }
+
+    part def BeamShapingAssembly {
+        attribute leafPositionAccuracy : Length = 0.25 [mm];
+        attribute maximumFieldX : Length = 400.0 [mm];
+        attribute maximumFieldY : Length = 400.0 [mm];
+
+        port inputBeamPort : BeamControlPort;
+        port shapedBeamPort : BeamControlPort;
+
+        part primaryCollimator : Collimator;
+        part multiLeafCollimator : MultiLeafCollimator;
+    }
+
+    part def Collimator {
+        attribute jawPositionX1 : Length;
+        attribute jawPositionX2 : Length;
+        attribute jawPositionY1 : Length;
+        attribute jawPositionY2 : Length;
+    }
+
+    part def MultiLeafCollimator {
+        attribute leafCount : Integer = 120;
+        attribute leafWidthAtIsocenter : Length = 5.0 [mm];
+        attribute leafTransmission : Real = 0.015;
+    }
+
+    part def BeamStopper {
+        attribute responseTime : Time = 0.05 [s];
+
+        port inhibitPort : SafetyPort;
+
+        action stopBeam {
+            out inhibited : Boolean;
+        }
+    }
+
+    part def PatientPositioningSubsystem {
+        attribute couchVerticalRange : Length = 500.0 [mm];
+        attribute couchLongitudinalRange : Length = 1000.0 [mm];
+        attribute couchLateralRange : Length = 500.0 [mm];
+        attribute positioningAccuracy : Length = 0.5 [mm];
+
+        port patientPort : PatientSupportPort;
+        port positionCommandPort : PatientSupportPort;
+        port positionStatusPort : PatientSupportPort;
+
+        part treatmentCouch : RoboticTreatmentCouch;
+        part immobilizationDevice : PatientImmobilizationDevice;
+        part laserAlignmentSystem : LaserAlignmentSystem;
+
+        action alignPatient {
+            in patient : PatientAnatomy;
+            out setupStatus : String;
+        }
+    }
+
+    part def RoboticTreatmentCouch {
+        attribute verticalPosition : Length;
+        attribute longitudinalPosition : Length;
+        attribute lateralPosition : Length;
+        attribute rotationAngle : Real;
+        attribute maximumSpeed : Real = 25.0;
+    }
+
+    part def PatientImmobilizationDevice {
+        attribute deviceType : String = "Thermoplastic mask and indexed support";
+        attribute reproducibility : Length = 1.0 [mm];
+    }
+
+    part def LaserAlignmentSystem {
+        attribute alignmentAccuracy : Length = 0.5 [mm];
+        attribute wavelength : Length = 635.0 [mm];
+    }
+
+    part def DosimetryMonitoringSubsystem {
+        attribute doseTolerance : AbsorbedDose = 0.02 [Gy];
+        attribute doseRateTolerance : DoseRate = 0.5 [Gy/min];
+        attribute samplingInterval : Time = 0.01 [s];
+
+        port measurementInputPort : BeamControlPort;
+        port doseOutputPort : BeamControlPort;
+
+        part ionChamber : IonizationChamber;
+        part independentDoseMonitor : IndependentDoseMonitor;
+
+        connect measurementInputPort to ionChamber.measurementPort;
+        connect ionChamber.measurementPort to independentDoseMonitor.primaryDosePort;
+        connect independentDoseMonitor.verifiedDosePort to doseOutputPort;
+
+        action compareMeasuredToPlannedDose {
+            in planned : TreatmentPlan;
+            in measured : DosimetryMeasurement;
+            out withinTolerance : Boolean;
+        }
+    }
+
+    part def IonizationChamber {
+        attribute collectionVoltage : ElectricPotential = 300.0 [V];
+        attribute responseTime : Time = 0.01 [s];
+
+        port measurementPort : BeamControlPort;
+    }
+
+    part def IndependentDoseMonitor {
+        attribute alarmThreshold : AbsorbedDose = 0.05 [Gy];
+
+        port primaryDosePort : BeamControlPort;
+        port verifiedDosePort : BeamControlPort;
+
+        action assertDoseAlarm {
+            in measurement : DosimetryMeasurement;
+            out interlock : SafetyInterlockSignal;
+        }
+    }
+
+    part def SafetyInterlockSubsystem {
+        attribute maximumDoorOpenResponseTime : Time = 0.1 [s];
+        attribute maximumBeamOffResponseTime : Time = 0.05 [s];
+
+        port externalSafetyPort : SafetyPort;
+        port safetyStatusPort : SafetyPort;
+        port beamInhibitPort : SafetyPort;
+
+        part roomDoorInterlock : RoomDoorInterlock;
+        part collisionSensor : CollisionSensor;
+        part emergencyStopCircuit : EmergencyStopCircuit;
+        part doseLimitInterlock : DoseLimitInterlock;
+
+        connect roomDoorInterlock.safetyPort to safetyStatusPort;
+        connect collisionSensor.safetyPort to safetyStatusPort;
+        connect emergencyStopCircuit.safetyPort to beamInhibitPort;
+        connect doseLimitInterlock.safetyPort to beamInhibitPort;
+
+        action evaluateInterlocks {
+            out inhibitBeam : Boolean;
+        }
+    }
+
+    part def RoomDoorInterlock {
+        attribute doorClosed : Boolean;
+        port safetyPort : SafetyPort;
+    }
+
+    part def CollisionSensor {
+        attribute clearanceMargin : Length = 20.0 [mm];
+        port safetyPort : SafetyPort;
+    }
+
+    part def EmergencyStopCircuit {
+        attribute latched : Boolean;
+        attribute responseTime : Time = 0.02 [s];
+        port safetyPort : SafetyPort;
+    }
+
+    part def DoseLimitInterlock {
+        attribute maximumAllowedDosePerFraction : AbsorbedDose = 20.0 [Gy];
+        port safetyPort : SafetyPort;
+    }
+
+    part def TreatmentRecordSubsystem {
+        attribute recordRetentionYears : Integer = 30;
+
+        port reportInputPort : NetworkPort;
+        port networkRecordPort : NetworkPort;
+
+        action createTreatmentRecord {
+            in patient : PatientAnatomy;
+            in plan : TreatmentPlan;
+            in deliveredDose : DosimetryMeasurement;
+            out report : ClinicalReport;
+        }
+    }
+
+    requirement def OncologyInstrumentPrimaryFunctionRequirement {
+        doc /* The oncology instrument shall support high-level cancer treatment by delivering a prescribed therapeutic radiation dose to a defined patient target volume while enabling image guidance, patient positioning, dose monitoring, treatment recording, and safety interlock enforcement. */
+
+        subject instrument : OncologyTreatmentInstrument;
+
+        require constraint {
+            instrument.maximumDoseRate <= 24.0 [Gy/min]
+        }
+    }
+
+    requirement def TreatmentAccuracyRequirement {
+        doc /* The system shall position the patient and register guidance images such that the total setup uncertainty is no greater than 1.0 mm before treatment beam enablement. */
+
+        subject instrument : OncologyTreatmentInstrument;
+
+        require constraint {
+            instrument.positioningAccuracy <= 0.5 [mm] and
+            instrument.imagingRegistrationTolerance <= 1.0 [mm]
+        }
+    }
+
+    requirement def DoseMonitoringRequirement {
+        doc /* The system shall continuously monitor delivered dose during beam emission and inhibit the beam when measured delivered dose exceeds the approved treatment plan tolerance. */
+
+        subject dosimetry : DosimetryMonitoringSubsystem;
+
+        require constraint {
+            dosimetry.samplingInterval <= 0.01 [s] and
+            dosimetry.doseTolerance <= 0.02 [Gy]
+        }
+    }
+
+    requirement def BeamSafetyRequirement {
+        doc /* The system shall remove or inhibit the therapeutic beam within 0.05 seconds after emergency stop, dose limit violation, or critical interlock assertion. */
+
+        subject safety : SafetyInterlockSubsystem;
+
+        require constraint {
+            safety.maximumBeamOffResponseTime <= 0.05 [s]
+        }
+    }
+
+    requirement def ImagingGuidanceRequirement {
+        doc /* The system shall acquire patient setup images and register them to the treatment plan before beam delivery when operating in image-guided radiotherapy mode. */
+
+        subject imaging : ImageGuidanceSubsystem;
+
+        require constraint {
+            imaging.maximumRegistrationError <= 1.0 [mm]
+        }
+    }
+
+    requirement def TreatmentRecordRequirement {
+        doc /* The system shall create a clinical treatment record containing treatment completion status, delivered dose, and fraction count after each treatment session. */
+
+        subject recordSystem : TreatmentRecordSubsystem;
+
+        require constraint {
+            recordSystem.recordRetentionYears >= 30
+        }
+    }
+
+    satisfy OncologyInstrumentPrimaryFunctionRequirement by OncologyTreatmentInstrument;
+    satisfy TreatmentAccuracyRequirement by OncologyTreatmentInstrument;
+    satisfy DoseMonitoringRequirement by DosimetryMonitoringSubsystem;
+    satisfy BeamSafetyRequirement by SafetyInterlockSubsystem;
+    satisfy ImagingGuidanceRequirement by ImageGuidanceSubsystem;
+    satisfy TreatmentRecordRequirement by TreatmentRecordSubsystem;
+
+    part oncologyLinearAcceleratorSystem : OncologyTreatmentInstrument {
+        attribute primaryFunction =
+            "Provide image-guided external beam radiotherapy for oncology patients by planning, positioning, imaging, delivering, monitoring, and recording therapeutic radiation treatment.";
+        attribute operatingState = SystemOperatingState::standby;
+        attribute maximumDoseRate = 24.0 [Gy/min];
+        attribute nominalPhotonEnergy = 6.0 [MeV];
+        attribute positioningAccuracy = 0.5 [mm];
+        attribute imagingRegistrationTolerance = 1.0 [mm];
+
+        part controlConsole {
+            attribute selectedMode = TreatmentMode::imageGuidedRadiotherapy;
+        }
+
+        part imagingSubsystem {
+            attribute nominalSliceThickness = 1.0 [mm];
+            attribute maximumRegistrationError = 1.0 [mm];
+        }
+
+        part beamGenerationSubsystem {
+            attribute photonEnergy = 6.0 [MeV];
+            attribute maximumDoseRate = 24.0 [Gy/min];
+        }
+
+        part dosimetrySubsystem {
+            attribute doseTolerance = 0.02 [Gy];
+            attribute samplingInterval = 0.01 [s];
+        }
+
+        part safetySubsystem {
+            attribute maximumBeamOffResponseTime = 0.05 [s];
+        }
+    }
+}

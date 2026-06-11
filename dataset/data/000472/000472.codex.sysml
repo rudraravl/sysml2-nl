@@ -1,0 +1,461 @@
+package MERCIRetrieverSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def LengthValue :> Real {
+    unit = "mm";
+  }
+
+  attribute def DiameterValue :> Real {
+    unit = "mm";
+  }
+
+  attribute def ForceValue :> Real {
+    unit = "N";
+  }
+
+  attribute def PressureValue :> Real {
+    unit = "kPa";
+  }
+
+  attribute def FlowRateValue :> Real {
+    unit = "mL/min";
+  }
+
+  attribute def TimeValue :> Real {
+    unit = "s";
+  }
+
+  attribute def VolumeValue :> Real {
+    unit = "mL";
+  }
+
+  attribute def PercentValue :> Real {
+    unit = "%";
+  }
+
+  enum def VesselAccessState {
+    enum idle;
+    enum prepared;
+    enum navigated;
+    enum deployed;
+    enum engaged;
+    enum retrieved;
+    enum completed;
+    enum aborted;
+  }
+
+  item def Blood {
+    attribute flowRate : FlowRateValue;
+    attribute pressure : PressureValue;
+  }
+
+  item def Thrombus {
+    attribute length : LengthValue;
+    attribute diameter : DiameterValue;
+    attribute stiffness : ForceValue;
+    attribute locationDescription : String;
+  }
+
+  item def ContrastMedium {
+    attribute volume : VolumeValue;
+  }
+
+  item def FlushSaline {
+    attribute flowRate : FlowRateValue;
+    attribute volume : VolumeValue;
+  }
+
+  item def Guidewire {
+    attribute outerDiameter : DiameterValue;
+    attribute usableLength : LengthValue;
+  }
+
+  item def Microcatheter {
+    attribute innerDiameter : DiameterValue;
+    attribute outerDiameter : DiameterValue;
+    attribute usableLength : LengthValue;
+  }
+
+  item def RetrievalCoil {
+    attribute deployedDiameter : DiameterValue;
+    attribute deployedLength : LengthValue;
+    attribute engagementForce : ForceValue;
+  }
+
+  port def ProximalHubPort {
+    in item guidewire : Guidewire;
+    in item flush : FlushSaline;
+    in item contrast : ContrastMedium;
+    out item retrievedThrombus : Thrombus;
+  }
+
+  port def DistalVesselPort {
+    inout item blood : Blood;
+    in item thrombus : Thrombus;
+    out item capturedThrombus : Thrombus;
+  }
+
+  port def OperatorCommandPort {
+    in attribute advanceCommand : Boolean;
+    in attribute deployCommand : Boolean;
+    in attribute retractCommand : Boolean;
+    in attribute abortCommand : Boolean;
+  }
+
+  port def VisualizationPort {
+    out attribute distalTipVisible : Boolean;
+    out attribute coilPositionVisible : Boolean;
+    out attribute vesselPatencyPercent : PercentValue;
+  }
+
+  part def MerciRetrieverSystem {
+    attribute systemState : VesselAccessState;
+    attribute targetVesselDiameter : DiameterValue;
+    attribute targetThrombusLength : LengthValue;
+    attribute maximumRetrievalForce : ForceValue;
+    attribute allowedProcedureTime : TimeValue;
+    attribute restoredFlowTarget : PercentValue;
+
+    port proximalHub : ProximalHubPort;
+    port distalVessel : DistalVesselPort;
+    port operatorCommands : OperatorCommandPort;
+    port imaging : VisualizationPort;
+
+    part deliveryMicrocatheter : MicrocatheterAssembly;
+    part retrieverWire : RetrieverWireAssembly;
+    part hemostasisValve : HemostasisValve;
+    part flushSubsystem : FlushSubsystem;
+    part radiopaqueMarkerSet : MarkerSet;
+    part operatorInterface : OperatorInterface;
+
+    connection flushToHub connect flushSubsystem.flushOut to proximalHub.flush;
+    connection wireThroughCatheter connect retrieverWire.distalInterface to deliveryMicrocatheter.lumenInterface;
+    connection catheterToVessel connect deliveryMicrocatheter.distalInterface to distalVessel;
+    connection markersToImaging connect radiopaqueMarkerSet.visibilityOut to imaging;
+    connection commandsToRetriever connect operatorCommands to operatorInterface.commandIn;
+
+    perform action retrieveObstructingThrombus;
+    exhibit state merciRetrievalLifecycle;
+  }
+
+  part def MicrocatheterAssembly {
+    attribute innerDiameter : DiameterValue = 0.021;
+    attribute outerDiameter : DiameterValue = 0.65;
+    attribute usableLength : LengthValue = 1500.0;
+
+    port proximalInterface : ProximalHubPort;
+    port distalInterface : DistalVesselPort;
+    port lumenInterface : ProximalHubPort;
+  }
+
+  part def RetrieverWireAssembly {
+    attribute wireDiameter : DiameterValue = 0.36;
+    attribute usableLength : LengthValue = 1800.0;
+    attribute deployedHelixDiameter : DiameterValue = 2.5;
+    attribute deployedHelixLength : LengthValue = 30.0;
+    attribute ratedTensileForce : ForceValue = 2.0;
+
+    item coil : RetrievalCoil {
+      attribute deployedDiameter = 2.5;
+      attribute deployedLength = 30.0;
+      attribute engagementForce = 0.25;
+    }
+
+    port proximalControl : OperatorCommandPort;
+    port distalInterface : DistalVesselPort;
+  }
+
+  part def HemostasisValve {
+    attribute leakageLimit : FlowRateValue = 0.1;
+    port hubInterface : ProximalHubPort;
+  }
+
+  part def FlushSubsystem {
+    attribute nominalFlushRate : FlowRateValue = 3.0;
+    attribute reservoirVolume : VolumeValue = 250.0;
+    port flushOut : ProximalHubPort;
+  }
+
+  part def MarkerSet {
+    attribute markerCount : Integer = 3;
+    attribute distalMarkerSpacing : LengthValue = 10.0;
+    port visibilityOut : VisualizationPort;
+  }
+
+  part def OperatorInterface {
+    attribute tactileForceFeedback : ForceValue;
+    attribute currentInsertionDepth : LengthValue;
+    port commandIn : OperatorCommandPort;
+  }
+
+  action def PrepareRetrieverSystem {
+    in item microcatheter : Microcatheter;
+    in item guidewire : Guidewire;
+    in item flush : FlushSaline;
+    out attribute readyForNavigation : Boolean;
+
+    first start;
+    then verifyFlush;
+    then verifyRadiopacity;
+    then loadRetrieverWire;
+    then done;
+
+    action verifyFlush {
+      out attribute airCleared : Boolean;
+    }
+
+    action verifyRadiopacity {
+      out attribute markersVisible : Boolean;
+    }
+
+    action loadRetrieverWire {
+      out attribute wireLoaded : Boolean;
+    }
+  }
+
+  action def NavigateToThrombus {
+    in item guidewire : Guidewire;
+    in item microcatheter : Microcatheter;
+    in item thrombus : Thrombus;
+    out attribute distalTipAtThrombus : Boolean;
+    out attribute vesselTraumaDetected : Boolean;
+
+    first start;
+    then advanceGuidewire;
+    then advanceMicrocatheter;
+    then confirmDistalPosition;
+    then done;
+
+    action advanceGuidewire {
+      out attribute wirePastOcclusion : Boolean;
+    }
+
+    action advanceMicrocatheter {
+      out attribute catheterPastOcclusion : Boolean;
+    }
+
+    action confirmDistalPosition {
+      out attribute positionConfirmed : Boolean;
+    }
+  }
+
+  action def DeployRetrieverCoil {
+    in item coil : RetrievalCoil;
+    in item thrombus : Thrombus;
+    out attribute coilExpanded : Boolean;
+    out attribute thrombusContactEstablished : Boolean;
+
+    first start;
+    then exposeCoil;
+    then allowHelicalExpansion;
+    then verifyEngagementPosition;
+    then done;
+
+    action exposeCoil;
+    action allowHelicalExpansion;
+    action verifyEngagementPosition;
+  }
+
+  action def EngageThrombus {
+    in item coil : RetrievalCoil;
+    in item thrombus : Thrombus;
+    out item capturedThrombus : Thrombus;
+    out attribute engagementStable : Boolean;
+
+    first start;
+    then embedCoilInThrombus;
+    then assessResistance;
+    then stabilizeCapture;
+    then done;
+
+    action embedCoilInThrombus;
+    action assessResistance;
+    action stabilizeCapture;
+  }
+
+  action def RetractAndRemoveThrombus {
+    in item capturedThrombus : Thrombus;
+    out item retrievedThrombus : Thrombus;
+    out attribute flowRestored : Boolean;
+    out attribute retrievalForce : ForceValue;
+
+    first start;
+    then retractRetrieverIntoCatheter;
+    then withdrawAssembly;
+    then removeThrombusFromBody;
+    then assessRecanalization;
+    then done;
+
+    action retractRetrieverIntoCatheter;
+    action withdrawAssembly;
+    action removeThrombusFromBody;
+    action assessRecanalization;
+  }
+
+  action def retrieveObstructingThrombus {
+    objective {
+      doc /* Primary high-level function: mechanically engage, capture, and remove an obstructing intravascular thrombus from a target cerebral vessel to restore blood flow. */
+    }
+
+    in item targetThrombus : Thrombus;
+    in item guidewire : Guidewire;
+    in item microcatheter : Microcatheter;
+    in item flush : FlushSaline;
+    out item retrievedThrombus : Thrombus;
+    out attribute finalPatency : PercentValue;
+    out attribute procedureCompleted : Boolean;
+
+    first prepare;
+    then navigate;
+    then deploy;
+    then engage;
+    then retract;
+    then confirmFlow;
+    then done;
+
+    action prepare : PrepareRetrieverSystem;
+    action navigate : NavigateToThrombus;
+    action deploy : DeployRetrieverCoil;
+    action engage : EngageThrombus;
+    action retract : RetractAndRemoveThrombus;
+
+    action confirmFlow {
+      out attribute finalPatency : PercentValue;
+    }
+  }
+
+  state def merciRetrievalLifecycle {
+    entry action initializeSystem;
+
+    state Idle;
+    state Prepared;
+    state Navigating;
+    state PositionedAcrossThrombus;
+    state CoilDeployed;
+    state ThrombusEngaged;
+    state Retracting;
+    state FlowAssessment;
+    state Completed;
+    state Aborted;
+
+    transition initial then Idle;
+
+    transition Idle_to_Prepared
+      first Idle
+      accept operatorCommands.advanceCommand
+      then Prepared;
+
+    transition Prepared_to_Navigating
+      first Prepared
+      accept operatorCommands.advanceCommand
+      then Navigating;
+
+    transition Navigating_to_Positioned
+      first Navigating
+      if imaging.distalTipVisible
+      then PositionedAcrossThrombus;
+
+    transition Positioned_to_Deployed
+      first PositionedAcrossThrombus
+      accept operatorCommands.deployCommand
+      then CoilDeployed;
+
+    transition Deployed_to_Engaged
+      first CoilDeployed
+      then ThrombusEngaged;
+
+    transition Engaged_to_Retracting
+      first ThrombusEngaged
+      accept operatorCommands.retractCommand
+      then Retracting;
+
+    transition Retracting_to_Assessment
+      first Retracting
+      then FlowAssessment;
+
+    transition Assessment_to_Completed
+      first FlowAssessment
+      if imaging.vesselPatencyPercent >= 50.0
+      then Completed;
+
+    transition Any_to_Aborted
+      first Idle
+      accept operatorCommands.abortCommand
+      then Aborted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall provide a mechanical intravascular retrieval function that captures and removes an obstructing thrombus from a target vessel to improve downstream blood flow. */
+
+    subject system : MerciRetrieverSystem;
+
+    require constraint {
+      system.restoredFlowTarget >= 50.0
+    }
+  }
+
+  requirement def NavigationRequirement {
+    doc /* The system shall allow a compatible microcatheter and retriever wire to be navigated to and across the target thrombus under imaging visibility. */
+
+    subject system : MerciRetrieverSystem;
+
+    require constraint {
+      system.deliveryMicrocatheter.innerDiameter >= 0.021 and
+      system.radiopaqueMarkerSet.markerCount >= 2
+    }
+  }
+
+  requirement def DeploymentRequirement {
+    doc /* The retriever coil shall expand at the distal target location and establish mechanical contact with the thrombus. */
+
+    subject system : MerciRetrieverSystem;
+
+    require constraint {
+      system.retrieverWire.deployedHelixDiameter >= 2.0 and
+      system.retrieverWire.deployedHelixLength >= 20.0
+    }
+  }
+
+  requirement def RetrievalForceRequirement {
+    doc /* The retrieval force applied during withdrawal shall remain below the rated tensile force of the retriever wire. */
+
+    subject system : MerciRetrieverSystem;
+
+    require constraint {
+      system.maximumRetrievalForce <= system.retrieverWire.ratedTensileForce
+    }
+  }
+
+  requirement def FlushRequirement {
+    doc /* The system shall maintain continuous flush capability through the proximal hub to reduce air ingress and maintain catheter patency. */
+
+    subject system : MerciRetrieverSystem;
+
+    require constraint {
+      system.flushSubsystem.nominalFlushRate >= 1.0 and
+      system.flushSubsystem.reservoirVolume >= 50.0
+    }
+  }
+
+  requirement def ProcedureTimeRequirement {
+    doc /* The system shall support completion of a single retrieval pass within the allocated procedural time window. */
+
+    subject system : MerciRetrieverSystem;
+
+    require constraint {
+      system.allowedProcedureTime <= 1800.0
+    }
+  }
+
+  part merciBasedThrombectomySystem : MerciRetrieverSystem {
+    attribute systemState = VesselAccessState::idle;
+    attribute targetVesselDiameter = 2.5;
+    attribute targetThrombusLength = 18.0;
+    attribute maximumRetrievalForce = 1.5;
+    attribute allowedProcedureTime = 1800.0;
+    attribute restoredFlowTarget = 50.0;
+  }
+
+}

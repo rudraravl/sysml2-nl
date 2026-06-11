@@ -1,0 +1,919 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tzuxau57
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb43d-4a0c-7c91-8ab0-1c5e4a66f7f1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Traction splint and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TractionSplintSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ForceValue {
+        attribute magnitude : Real;
+        attribute unit : String = "N";
+    }
+
+    attribute def LengthValue {
+        attribute magnitude : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def AngleValue {
+        attribute magnitude : Real;
+        attribute unit : String = "deg";
+    }
+
+    attribute def PressureValue {
+        attribute magnitude : Real;
+        attribute unit : String = "kPa";
+    }
+
+    attribute def TimeValue {
+        attribute magnitude : Real;
+        attribute unit : String = "s";
+    }
+
+    item def PatientLimb {
+        attribute femurLength : LengthValue;
+        attribute thighCircumference : LengthValue;
+        attribute lowerLegCircumference : LengthValue;
+        attribute injurySide : String;
+        attribute suspectedFemurFracture : Boolean;
+    }
+
+    item def TractionLoad {
+        attribute appliedForce : ForceValue;
+        attribute directionAngle : AngleValue;
+        attribute duration : TimeValue;
+    }
+
+    item def LimbSupportLoad {
+        attribute normalForce : ForceValue;
+        attribute contactPressure : PressureValue;
+    }
+
+    item def RestraintCommand {
+        attribute tighten : Boolean;
+        attribute targetStrapTension : ForceValue;
+    }
+
+    item def TractionCommand {
+        attribute engage : Boolean;
+        attribute targetTractionForce : ForceValue;
+    }
+
+    item def ForceReading {
+        attribute measuredForce : ForceValue;
+        attribute valid : Boolean;
+    }
+
+    port def LimbInterfacePort {
+        inout limb : PatientLimb;
+        out supportLoad : LimbSupportLoad;
+        out tractionLoad : TractionLoad;
+    }
+
+    port def StrapControlPort {
+        in command : RestraintCommand;
+        out load : LimbSupportLoad;
+    }
+
+    port def TractionControlPort {
+        in command : TractionCommand;
+        out reading : ForceReading;
+        out load : TractionLoad;
+    }
+
+    port def IndicatorPort {
+        in reading : ForceReading;
+        out visualStatus : String;
+    }
+
+    part def TractionSplint {
+        attribute mass : Real = 3.2;
+        attribute stowedLength : LengthValue = (magnitude = 920.0; unit = "mm");
+        attribute deployedLength : LengthValue = (magnitude = 1320.0; unit = "mm");
+        attribute minimumPatientHeight : LengthValue = (magnitude = 1200.0; unit = "mm");
+        attribute maximumPatientHeight : LengthValue = (magnitude = 2050.0; unit = "mm");
+        attribute maximumTractionForce : ForceValue = (magnitude = 180.0; unit = "N");
+        attribute nominalTractionForce : ForceValue = (magnitude = 95.0; unit = "N");
+
+        port limbInterface : LimbInterfacePort;
+        port indicatorInterface : IndicatorPort;
+
+        part frame : FrameAssembly;
+        part proximalAnchor : ProximalAnchorAssembly;
+        part distalAnkleHarness : AnkleHarnessAssembly;
+        part tractionMechanism : TractionMechanismAssembly;
+        part legSupport : LegSupportAssembly;
+        part restraintSet : RestraintStrapSet;
+        part forceIndicator : ForceIndicatorAssembly;
+        part releaseControl : QuickReleaseAssembly;
+
+        connect frame.distalMount to tractionMechanism.frameMount;
+        connect tractionMechanism.harnessMount to distalAnkleHarness.tractionAttachment;
+        connect proximalAnchor.frameMount to frame.proximalMount;
+        connect legSupport.frameMount to frame.supportMount;
+        connect restraintSet.supportMount to legSupport.strapMount;
+        connect forceIndicator.sensePort to tractionMechanism.sensorPort;
+        connect indicatorInterface to forceIndicator.indicatorPort;
+        connect limbInterface to legSupport.limbPort;
+        connect limbInterface to distalAnkleHarness.limbPort;
+        connect limbInterface to proximalAnchor.limbPort;
+
+        perform action applyTherapeuticTraction;
+        exhibit state splintOperationalState;
+    }
+
+    part def FrameAssembly {
+        attribute material : String = "anodized aluminum";
+        attribute railLength : LengthValue = (magnitude = 1320.0; unit = "mm");
+        attribute railWidth : LengthValue = (magnitude = 42.0; unit = "mm");
+        attribute allowableBendingLoad : ForceValue = (magnitude = 650.0; unit = "N");
+
+        port proximalMount : MechanicalMountPort;
+        port distalMount : MechanicalMountPort;
+        port supportMount : MechanicalMountPort;
+    }
+
+    port def MechanicalMountPort {
+        inout mountedLoad : ForceValue;
+    }
+
+    part def ProximalAnchorAssembly {
+        attribute ischialPadWidth : LengthValue = (magnitude = 115.0; unit = "mm");
+        attribute perinealStrapPressureLimit : PressureValue = (magnitude = 18.0; unit = "kPa");
+
+        port frameMount : MechanicalMountPort;
+        port limbPort : LimbInterfacePort;
+
+        part ischialPad : Pad;
+        part proximalStrap : AdjustableStrap;
+    }
+
+    part def AnkleHarnessAssembly {
+        attribute ankleCuffWidth : LengthValue = (magnitude = 80.0; unit = "mm");
+        attribute maximumAnkleContactPressure : PressureValue = (magnitude = 22.0; unit = "kPa");
+
+        port tractionAttachment : MechanicalMountPort;
+        port limbPort : LimbInterfacePort;
+
+        part leftCuff : Pad;
+        part rightCuff : Pad;
+        part heelLoop : AdjustableStrap;
+        part tractionRing : LoadRing;
+    }
+
+    part def TractionMechanismAssembly {
+        attribute strokeLength : LengthValue = (magnitude = 260.0; unit = "mm");
+        attribute mechanicalAdvantage : Real = 4.0;
+        attribute minimumIncrementForce : ForceValue = (magnitude = 5.0; unit = "N");
+        attribute lockBackdriveLimit : ForceValue = (magnitude = 240.0; unit = "N");
+
+        port frameMount : MechanicalMountPort;
+        port harnessMount : MechanicalMountPort;
+        port sensorPort : TractionControlPort;
+
+        part ratchetHandle : RatchetHandle;
+        part cable : TractionCable;
+        part lockingPawl : LockingPawl;
+        part overloadLimiter : OverloadLimiter;
+    }
+
+    part def LegSupportAssembly {
+        attribute supportLength : LengthValue = (magnitude = 760.0; unit = "mm");
+        attribute padContactArea : Real = 0.065;
+
+        port frameMount : MechanicalMountPort;
+        port strapMount : MechanicalMountPort;
+        port limbPort : LimbInterfacePort;
+
+        part thighPad : Pad;
+        part calfPad : Pad;
+        part kneeClearanceBridge : SupportBridge;
+    }
+
+    part def RestraintStrapSet {
+        attribute strapCount : Integer = 4;
+        attribute targetStrapTension : ForceValue = (magnitude = 35.0; unit = "N");
+        attribute maximumStrapTension : ForceValue = (magnitude = 70.0; unit = "N");
+
+        port supportMount : MechanicalMountPort;
+        port strapControl : StrapControlPort;
+
+        part thighStrapUpper : AdjustableStrap;
+        part thighStrapLower : AdjustableStrap;
+        part kneeStabilizerStrap : AdjustableStrap;
+        part calfStrap : AdjustableStrap;
+    }
+
+    part def ForceIndicatorAssembly {
+        attribute greenBandLower : ForceValue = (magnitude = 70.0; unit = "N");
+        attribute greenBandUpper : ForceValue = (magnitude = 130.0; unit = "N");
+        attribute redBandUpper : ForceValue = (magnitude = 180.0; unit = "N");
+
+        port sensePort : TractionControlPort;
+        port indicatorPort : IndicatorPort;
+
+        part springScale : SpringForceSensor;
+        part colorWindow : VisualIndicator;
+    }
+
+    part def QuickReleaseAssembly {
+        attribute releaseTravel : LengthValue = (magnitude = 18.0; unit = "mm");
+        attribute releaseForce : ForceValue = (magnitude = 25.0; unit = "N");
+
+        part releaseLever : Lever;
+        part tractionLatch : LockingPawl;
+    }
+
+    part def Pad {
+        attribute material : String = "closed-cell foam";
+        attribute thickness : LengthValue = (magnitude = 18.0; unit = "mm");
+        attribute contactPressureLimit : PressureValue = (magnitude = 20.0; unit = "kPa");
+    }
+
+    part def AdjustableStrap {
+        attribute material : String = "woven nylon";
+        attribute width : LengthValue = (magnitude = 50.0; unit = "mm");
+        attribute minimumLength : LengthValue = (magnitude = 180.0; unit = "mm");
+        attribute maximumLength : LengthValue = (magnitude = 680.0; unit = "mm");
+        attribute tension : ForceValue;
+    }
+
+    part def LoadRing {
+        attribute ratedLoad : ForceValue = (magnitude = 300.0; unit = "N");
+    }
+
+    part def RatchetHandle {
+        attribute handleLength : LengthValue = (magnitude = 145.0; unit = "mm");
+        attribute inputForceLimit : ForceValue = (magnitude = 120.0; unit = "N");
+    }
+
+    part def TractionCable {
+        attribute cableDiameter : LengthValue = (magnitude = 3.0; unit = "mm");
+        attribute ratedTensileLoad : ForceValue = (magnitude = 500.0; unit = "N");
+    }
+
+    part def LockingPawl {
+        attribute engaged : Boolean;
+        attribute ratedHoldingLoad : ForceValue = (magnitude = 250.0; unit = "N");
+    }
+
+    part def OverloadLimiter {
+        attribute slipForce : ForceValue = (magnitude = 185.0; unit = "N");
+        attribute resetRequired : Boolean;
+    }
+
+    part def SupportBridge {
+        attribute bridgeHeight : LengthValue = (magnitude = 70.0; unit = "mm");
+        attribute kneeContactClearance : LengthValue = (magnitude = 35.0; unit = "mm");
+    }
+
+    part def SpringForceSensor {
+        attribute calibrationTolerance : Real = 0.10;
+        attribute measuredForce : ForceValue;
+    }
+
+    part def VisualIndicator {
+        attribute statusText : String;
+        attribute color : String;
+    }
+
+    part def Lever {
+        attribute leverLength : LengthValue = (magnitude = 95.0; unit = "mm");
+    }
+
+    action def ApplyTherapeuticTraction {
+        in patientLimb : PatientLimb;
+        in targetTraction : ForceValue;
+        out stabilizedLimb : PatientLimb;
+        out finalReading : ForceReading;
+
+        first start;
+        then positionFrame;
+        then anchorProximalEnd;
+        then secureAnkleHarness;
+        then tensionRestraintStraps;
+        then incrementTraction;
+        then verifyForceBand;
+        then monitorPatientInterface;
+        then done;
+
+        action positionFrame {
+            in patientLimb : PatientLimb;
+            out frameAligned : Boolean;
+        }
+
+        action anchorProximalEnd {
+            in patientLimb : PatientLimb;
+            out anchorStable : Boolean;
+        }
+
+        action secureAnkleHarness {
+            in patientLimb : PatientLimb;
+            out harnessStable : Boolean;
+        }
+
+        action tensionRestraintStraps {
+            out strapLoad : LimbSupportLoad;
+        }
+
+        action incrementTraction {
+            in targetTraction : ForceValue;
+            out tractionLoad : TractionLoad;
+        }
+
+        action verifyForceBand {
+            in tractionLoad : TractionLoad;
+            out reading : ForceReading;
+        }
+
+        action monitorPatientInterface {
+            in reading : ForceReading;
+            out contactPressureAcceptable : Boolean;
+        }
+    }
+
+    state def SplintOperationalState {
+        entry action initialize {
+            out initialized : Boolean;
+        }
+
+        state Stowed;
+        state Deployed;
+        state Positioned;
+        state Anchored;
+        state Restrained;
+        state TractionApplied;
+        state Locked;
+        state Monitoring;
+        state Released;
+
+        transition first Stowed;
+        transition deploy from Stowed to Deployed;
+        transition alignWithLimb from Deployed to Positioned;
+        transition anchorPelvicEnd from Positioned to Anchored;
+        transition secureLimb from Anchored to Restrained;
+        transition applyTraction from Restrained to TractionApplied
+            accept TractionCommand
+            if engage == true;
+        transition lockTraction from TractionApplied to Locked;
+        transition beginMonitoring from Locked to Monitoring;
+        transition adjustTraction from Monitoring to TractionApplied
+            accept TractionCommand
+            if targetTractionForce.magnitude < 180.0;
+        transition emergencyRelease from TractionApplied to Released;
+        transition emergencyReleaseFromLocked from Locked to Released;
+        transition emergencyReleaseFromMonitoring from Monitoring to Released;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The traction splint shall stabilize a patient limb with a suspected femoral shaft fracture by applying controlled longitudinal traction between a proximal pelvic anchor and a distal ankle harness while supporting and restraining the limb for transport. */
+
+        subject splint : TractionSplint;
+
+        require constraint {
+            splint.nominalTractionForce.magnitude >= 70.0 and
+            splint.nominalTractionForce.magnitude <= 130.0
+        }
+    }
+
+    requirement def ControlledTractionRequirement {
+        doc /* The traction mechanism shall apply adjustable traction in increments no greater than 5 N and shall limit delivered traction to no more than 180 N. */
+
+        subject mechanism : TractionMechanismAssembly;
+
+        require constraint {
+            mechanism.minimumIncrementForce.magnitude <= 5.0 and
+            mechanism.overloadLimiter.slipForce.magnitude <= 185.0
+        }
+    }
+
+    requirement def LimbSupportRequirement {
+        doc /* The leg support assembly shall distribute support loads across thigh and calf pads while maintaining clearance at the knee and fracture region. */
+
+        subject support : LegSupportAssembly;
+
+        require constraint {
+            support.kneeClearanceBridge.kneeContactClearance.magnitude >= 30.0
+        }
+    }
+
+    requirement def InterfacePressureRequirement {
+        doc /* Patient-contact pads and harness surfaces shall limit sustained contact pressure to reduce soft-tissue injury during transport. */
+
+        subject splint : TractionSplint;
+
+        require constraint {
+            splint.proximalAnchor.ischialPad.contactPressureLimit.magnitude <= 20.0 and
+            splint.distalAnkleHarness.maximumAnkleContactPressure.magnitude <= 22.0
+        }
+    }
+
+    requirement def ReleaseRequirement {
+        doc /* The splint shall provide a manually accessible quick release that removes traction without removing all limb support straps. */
+
+        subject release : QuickReleaseAssembly;
+
+        require constraint {
+            release.releaseForce.magnitude <= 30.0 and
+            release.releaseTravel.magnitude <= 25.0
+        }
+    }
+
+    requirement def ForceIndicationRequirement {
+        doc /* The force indicator shall provide a visible indication when traction is below, within, or above the therapeutic band. */
+
+        subject indicator : ForceIndicatorAssembly;
+
+        require constraint {
+            indicator.greenBandLower.magnitude == 70.0 and
+            indicator.greenBandUpper.magnitude == 130.0 and
+            indicator.redBandUpper.magnitude == 180.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TractionSplint;
+    satisfy ControlledTractionRequirement by TractionMechanismAssembly;
+    satisfy LimbSupportRequirement by LegSupportAssembly;
+    satisfy InterfacePressureRequirement by TractionSplint;
+    satisfy ReleaseRequirement by QuickReleaseAssembly;
+    satisfy ForceIndicationRequirement by ForceIndicatorAssembly;
+
+    part tractionSplintSystem : TractionSplint {
+        attribute mass = 3.2;
+        attribute nominalTractionForce = (magnitude = 95.0; unit = "N");
+        attribute maximumTractionForce = (magnitude = 180.0; unit = "N");
+
+        perform action applyTherapeuticTraction : ApplyTherapeuticTraction {
+            in targetTraction = (magnitude = 95.0; unit = "N");
+        }
+
+        exhibit state splintOperationalState : SplintOperationalState;
+    }
+}
+tokens used
+5,001
+package TractionSplintSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ForceValue {
+        attribute magnitude : Real;
+        attribute unit : String = "N";
+    }
+
+    attribute def LengthValue {
+        attribute magnitude : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def AngleValue {
+        attribute magnitude : Real;
+        attribute unit : String = "deg";
+    }
+
+    attribute def PressureValue {
+        attribute magnitude : Real;
+        attribute unit : String = "kPa";
+    }
+
+    attribute def TimeValue {
+        attribute magnitude : Real;
+        attribute unit : String = "s";
+    }
+
+    item def PatientLimb {
+        attribute femurLength : LengthValue;
+        attribute thighCircumference : LengthValue;
+        attribute lowerLegCircumference : LengthValue;
+        attribute injurySide : String;
+        attribute suspectedFemurFracture : Boolean;
+    }
+
+    item def TractionLoad {
+        attribute appliedForce : ForceValue;
+        attribute directionAngle : AngleValue;
+        attribute duration : TimeValue;
+    }
+
+    item def LimbSupportLoad {
+        attribute normalForce : ForceValue;
+        attribute contactPressure : PressureValue;
+    }
+
+    item def RestraintCommand {
+        attribute tighten : Boolean;
+        attribute targetStrapTension : ForceValue;
+    }
+
+    item def TractionCommand {
+        attribute engage : Boolean;
+        attribute targetTractionForce : ForceValue;
+    }
+
+    item def ForceReading {
+        attribute measuredForce : ForceValue;
+        attribute valid : Boolean;
+    }
+
+    port def LimbInterfacePort {
+        inout limb : PatientLimb;
+        out supportLoad : LimbSupportLoad;
+        out tractionLoad : TractionLoad;
+    }
+
+    port def StrapControlPort {
+        in command : RestraintCommand;
+        out load : LimbSupportLoad;
+    }
+
+    port def TractionControlPort {
+        in command : TractionCommand;
+        out reading : ForceReading;
+        out load : TractionLoad;
+    }
+
+    port def IndicatorPort {
+        in reading : ForceReading;
+        out visualStatus : String;
+    }
+
+    part def TractionSplint {
+        attribute mass : Real = 3.2;
+        attribute stowedLength : LengthValue = (magnitude = 920.0; unit = "mm");
+        attribute deployedLength : LengthValue = (magnitude = 1320.0; unit = "mm");
+        attribute minimumPatientHeight : LengthValue = (magnitude = 1200.0; unit = "mm");
+        attribute maximumPatientHeight : LengthValue = (magnitude = 2050.0; unit = "mm");
+        attribute maximumTractionForce : ForceValue = (magnitude = 180.0; unit = "N");
+        attribute nominalTractionForce : ForceValue = (magnitude = 95.0; unit = "N");
+
+        port limbInterface : LimbInterfacePort;
+        port indicatorInterface : IndicatorPort;
+
+        part frame : FrameAssembly;
+        part proximalAnchor : ProximalAnchorAssembly;
+        part distalAnkleHarness : AnkleHarnessAssembly;
+        part tractionMechanism : TractionMechanismAssembly;
+        part legSupport : LegSupportAssembly;
+        part restraintSet : RestraintStrapSet;
+        part forceIndicator : ForceIndicatorAssembly;
+        part releaseControl : QuickReleaseAssembly;
+
+        connect frame.distalMount to tractionMechanism.frameMount;
+        connect tractionMechanism.harnessMount to distalAnkleHarness.tractionAttachment;
+        connect proximalAnchor.frameMount to frame.proximalMount;
+        connect legSupport.frameMount to frame.supportMount;
+        connect restraintSet.supportMount to legSupport.strapMount;
+        connect forceIndicator.sensePort to tractionMechanism.sensorPort;
+        connect indicatorInterface to forceIndicator.indicatorPort;
+        connect limbInterface to legSupport.limbPort;
+        connect limbInterface to distalAnkleHarness.limbPort;
+        connect limbInterface to proximalAnchor.limbPort;
+
+        perform action applyTherapeuticTraction;
+        exhibit state splintOperationalState;
+    }
+
+    part def FrameAssembly {
+        attribute material : String = "anodized aluminum";
+        attribute railLength : LengthValue = (magnitude = 1320.0; unit = "mm");
+        attribute railWidth : LengthValue = (magnitude = 42.0; unit = "mm");
+        attribute allowableBendingLoad : ForceValue = (magnitude = 650.0; unit = "N");
+
+        port proximalMount : MechanicalMountPort;
+        port distalMount : MechanicalMountPort;
+        port supportMount : MechanicalMountPort;
+    }
+
+    port def MechanicalMountPort {
+        inout mountedLoad : ForceValue;
+    }
+
+    part def ProximalAnchorAssembly {
+        attribute ischialPadWidth : LengthValue = (magnitude = 115.0; unit = "mm");
+        attribute perinealStrapPressureLimit : PressureValue = (magnitude = 18.0; unit = "kPa");
+
+        port frameMount : MechanicalMountPort;
+        port limbPort : LimbInterfacePort;
+
+        part ischialPad : Pad;
+        part proximalStrap : AdjustableStrap;
+    }
+
+    part def AnkleHarnessAssembly {
+        attribute ankleCuffWidth : LengthValue = (magnitude = 80.0; unit = "mm");
+        attribute maximumAnkleContactPressure : PressureValue = (magnitude = 22.0; unit = "kPa");
+
+        port tractionAttachment : MechanicalMountPort;
+        port limbPort : LimbInterfacePort;
+
+        part leftCuff : Pad;
+        part rightCuff : Pad;
+        part heelLoop : AdjustableStrap;
+        part tractionRing : LoadRing;
+    }
+
+    part def TractionMechanismAssembly {
+        attribute strokeLength : LengthValue = (magnitude = 260.0; unit = "mm");
+        attribute mechanicalAdvantage : Real = 4.0;
+        attribute minimumIncrementForce : ForceValue = (magnitude = 5.0; unit = "N");
+        attribute lockBackdriveLimit : ForceValue = (magnitude = 240.0; unit = "N");
+
+        port frameMount : MechanicalMountPort;
+        port harnessMount : MechanicalMountPort;
+        port sensorPort : TractionControlPort;
+
+        part ratchetHandle : RatchetHandle;
+        part cable : TractionCable;
+        part lockingPawl : LockingPawl;
+        part overloadLimiter : OverloadLimiter;
+    }
+
+    part def LegSupportAssembly {
+        attribute supportLength : LengthValue = (magnitude = 760.0; unit = "mm");
+        attribute padContactArea : Real = 0.065;
+
+        port frameMount : MechanicalMountPort;
+        port strapMount : MechanicalMountPort;
+        port limbPort : LimbInterfacePort;
+
+        part thighPad : Pad;
+        part calfPad : Pad;
+        part kneeClearanceBridge : SupportBridge;
+    }
+
+    part def RestraintStrapSet {
+        attribute strapCount : Integer = 4;
+        attribute targetStrapTension : ForceValue = (magnitude = 35.0; unit = "N");
+        attribute maximumStrapTension : ForceValue = (magnitude = 70.0; unit = "N");
+
+        port supportMount : MechanicalMountPort;
+        port strapControl : StrapControlPort;
+
+        part thighStrapUpper : AdjustableStrap;
+        part thighStrapLower : AdjustableStrap;
+        part kneeStabilizerStrap : AdjustableStrap;
+        part calfStrap : AdjustableStrap;
+    }
+
+    part def ForceIndicatorAssembly {
+        attribute greenBandLower : ForceValue = (magnitude = 70.0; unit = "N");
+        attribute greenBandUpper : ForceValue = (magnitude = 130.0; unit = "N");
+        attribute redBandUpper : ForceValue = (magnitude = 180.0; unit = "N");
+
+        port sensePort : TractionControlPort;
+        port indicatorPort : IndicatorPort;
+
+        part springScale : SpringForceSensor;
+        part colorWindow : VisualIndicator;
+    }
+
+    part def QuickReleaseAssembly {
+        attribute releaseTravel : LengthValue = (magnitude = 18.0; unit = "mm");
+        attribute releaseForce : ForceValue = (magnitude = 25.0; unit = "N");
+
+        part releaseLever : Lever;
+        part tractionLatch : LockingPawl;
+    }
+
+    part def Pad {
+        attribute material : String = "closed-cell foam";
+        attribute thickness : LengthValue = (magnitude = 18.0; unit = "mm");
+        attribute contactPressureLimit : PressureValue = (magnitude = 20.0; unit = "kPa");
+    }
+
+    part def AdjustableStrap {
+        attribute material : String = "woven nylon";
+        attribute width : LengthValue = (magnitude = 50.0; unit = "mm");
+        attribute minimumLength : LengthValue = (magnitude = 180.0; unit = "mm");
+        attribute maximumLength : LengthValue = (magnitude = 680.0; unit = "mm");
+        attribute tension : ForceValue;
+    }
+
+    part def LoadRing {
+        attribute ratedLoad : ForceValue = (magnitude = 300.0; unit = "N");
+    }
+
+    part def RatchetHandle {
+        attribute handleLength : LengthValue = (magnitude = 145.0; unit = "mm");
+        attribute inputForceLimit : ForceValue = (magnitude = 120.0; unit = "N");
+    }
+
+    part def TractionCable {
+        attribute cableDiameter : LengthValue = (magnitude = 3.0; unit = "mm");
+        attribute ratedTensileLoad : ForceValue = (magnitude = 500.0; unit = "N");
+    }
+
+    part def LockingPawl {
+        attribute engaged : Boolean;
+        attribute ratedHoldingLoad : ForceValue = (magnitude = 250.0; unit = "N");
+    }
+
+    part def OverloadLimiter {
+        attribute slipForce : ForceValue = (magnitude = 185.0; unit = "N");
+        attribute resetRequired : Boolean;
+    }
+
+    part def SupportBridge {
+        attribute bridgeHeight : LengthValue = (magnitude = 70.0; unit = "mm");
+        attribute kneeContactClearance : LengthValue = (magnitude = 35.0; unit = "mm");
+    }
+
+    part def SpringForceSensor {
+        attribute calibrationTolerance : Real = 0.10;
+        attribute measuredForce : ForceValue;
+    }
+
+    part def VisualIndicator {
+        attribute statusText : String;
+        attribute color : String;
+    }
+
+    part def Lever {
+        attribute leverLength : LengthValue = (magnitude = 95.0; unit = "mm");
+    }
+
+    action def ApplyTherapeuticTraction {
+        in patientLimb : PatientLimb;
+        in targetTraction : ForceValue;
+        out stabilizedLimb : PatientLimb;
+        out finalReading : ForceReading;
+
+        first start;
+        then positionFrame;
+        then anchorProximalEnd;
+        then secureAnkleHarness;
+        then tensionRestraintStraps;
+        then incrementTraction;
+        then verifyForceBand;
+        then monitorPatientInterface;
+        then done;
+
+        action positionFrame {
+            in patientLimb : PatientLimb;
+            out frameAligned : Boolean;
+        }
+
+        action anchorProximalEnd {
+            in patientLimb : PatientLimb;
+            out anchorStable : Boolean;
+        }
+
+        action secureAnkleHarness {
+            in patientLimb : PatientLimb;
+            out harnessStable : Boolean;
+        }
+
+        action tensionRestraintStraps {
+            out strapLoad : LimbSupportLoad;
+        }
+
+        action incrementTraction {
+            in targetTraction : ForceValue;
+            out tractionLoad : TractionLoad;
+        }
+
+        action verifyForceBand {
+            in tractionLoad : TractionLoad;
+            out reading : ForceReading;
+        }
+
+        action monitorPatientInterface {
+            in reading : ForceReading;
+            out contactPressureAcceptable : Boolean;
+        }
+    }
+
+    state def SplintOperationalState {
+        entry action initialize {
+            out initialized : Boolean;
+        }
+
+        state Stowed;
+        state Deployed;
+        state Positioned;
+        state Anchored;
+        state Restrained;
+        state TractionApplied;
+        state Locked;
+        state Monitoring;
+        state Released;
+
+        transition first Stowed;
+        transition deploy from Stowed to Deployed;
+        transition alignWithLimb from Deployed to Positioned;
+        transition anchorPelvicEnd from Positioned to Anchored;
+        transition secureLimb from Anchored to Restrained;
+        transition applyTraction from Restrained to TractionApplied
+            accept TractionCommand
+            if engage == true;
+        transition lockTraction from TractionApplied to Locked;
+        transition beginMonitoring from Locked to Monitoring;
+        transition adjustTraction from Monitoring to TractionApplied
+            accept TractionCommand
+            if targetTractionForce.magnitude < 180.0;
+        transition emergencyRelease from TractionApplied to Released;
+        transition emergencyReleaseFromLocked from Locked to Released;
+        transition emergencyReleaseFromMonitoring from Monitoring to Released;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The traction splint shall stabilize a patient limb with a suspected femoral shaft fracture by applying controlled longitudinal traction between a proximal pelvic anchor and a distal ankle harness while supporting and restraining the limb for transport. */
+
+        subject splint : TractionSplint;
+
+        require constraint {
+            splint.nominalTractionForce.magnitude >= 70.0 and
+            splint.nominalTractionForce.magnitude <= 130.0
+        }
+    }
+
+    requirement def ControlledTractionRequirement {
+        doc /* The traction mechanism shall apply adjustable traction in increments no greater than 5 N and shall limit delivered traction to no more than 180 N. */
+
+        subject mechanism : TractionMechanismAssembly;
+
+        require constraint {
+            mechanism.minimumIncrementForce.magnitude <= 5.0 and
+            mechanism.overloadLimiter.slipForce.magnitude <= 185.0
+        }
+    }
+
+    requirement def LimbSupportRequirement {
+        doc /* The leg support assembly shall distribute support loads across thigh and calf pads while maintaining clearance at the knee and fracture region. */
+
+        subject support : LegSupportAssembly;
+
+        require constraint {
+            support.kneeClearanceBridge.kneeContactClearance.magnitude >= 30.0
+        }
+    }
+
+    requirement def InterfacePressureRequirement {
+        doc /* Patient-contact pads and harness surfaces shall limit sustained contact pressure to reduce soft-tissue injury during transport. */
+
+        subject splint : TractionSplint;
+
+        require constraint {
+            splint.proximalAnchor.ischialPad.contactPressureLimit.magnitude <= 20.0 and
+            splint.distalAnkleHarness.maximumAnkleContactPressure.magnitude <= 22.0
+        }
+    }
+
+    requirement def ReleaseRequirement {
+        doc /* The splint shall provide a manually accessible quick release that removes traction without removing all limb support straps. */
+
+        subject release : QuickReleaseAssembly;
+
+        require constraint {
+            release.releaseForce.magnitude <= 30.0 and
+            release.releaseTravel.magnitude <= 25.0
+        }
+    }
+
+    requirement def ForceIndicationRequirement {
+        doc /* The force indicator shall provide a visible indication when traction is below, within, or above the therapeutic band. */
+
+        subject indicator : ForceIndicatorAssembly;
+
+        require constraint {
+            indicator.greenBandLower.magnitude == 70.0 and
+            indicator.greenBandUpper.magnitude == 130.0 and
+            indicator.redBandUpper.magnitude == 180.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TractionSplint;
+    satisfy ControlledTractionRequirement by TractionMechanismAssembly;
+    satisfy LimbSupportRequirement by LegSupportAssembly;
+    satisfy InterfacePressureRequirement by TractionSplint;
+    satisfy ReleaseRequirement by QuickReleaseAssembly;
+    satisfy ForceIndicationRequirement by ForceIndicatorAssembly;
+
+    part tractionSplintSystem : TractionSplint {
+        attribute mass = 3.2;
+        attribute nominalTractionForce = (magnitude = 95.0; unit = "N");
+        attribute maximumTractionForce = (magnitude = 180.0; unit = "N");
+
+        perform action applyTherapeuticTraction : ApplyTherapeuticTraction {
+            in targetTraction = (magnitude = 95.0; unit = "N");
+        }
+
+        exhibit state splintOperationalState : SplintOperationalState;
+    }
+}

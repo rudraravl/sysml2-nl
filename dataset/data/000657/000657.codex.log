@@ -1,0 +1,817 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-578x0t48
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3b8-d9d1-7612-a843-5171fdc3f6b8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Karman cannula and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package KarmanCannulaSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "mL/min";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "mL";
+    }
+
+    attribute def Length {
+        :> ScalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Diameter {
+        :> ScalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Force {
+        :> ScalarValues::Real;
+        unit = "N";
+    }
+
+    attribute def SterilityState {
+        :> ScalarValues::String;
+    }
+
+    item def AspiratedTissueFluidMixture {
+        attribute fluidVolume : Volume;
+        attribute tissueVolume : Volume;
+        attribute containsAir : Boolean;
+        attribute collectionTimestamp : ScalarValues::String;
+    }
+
+    item def VacuumMedium {
+        attribute negativePressure : Pressure;
+        attribute availableVolume : Volume;
+    }
+
+    item def UterineTissueInterface {
+        attribute contactForce : Force;
+        attribute localPressure : Pressure;
+    }
+
+    port def CannulaTipPort {
+        in tissueInterface : UterineTissueInterface;
+        out aspirate : AspiratedTissueFluidMixture;
+        in vacuum : VacuumMedium;
+    }
+
+    port def HubPort {
+        out aspirate : AspiratedTissueFluidMixture;
+        in vacuum : VacuumMedium;
+    }
+
+    port def VacuumSourcePort {
+        out vacuum : VacuumMedium;
+        in aspirate : AspiratedTissueFluidMixture;
+    }
+
+    part def RoundedDistalTip {
+        attribute outerDiameter : Diameter;
+        attribute tipRadius : Length;
+        attribute material : ScalarValues::String;
+        attribute radiopaqueVisible : Boolean;
+
+        requirement roundedTipSafety {
+            doc /* The distal tip shall provide a rounded profile intended to reduce focal tissue trauma during controlled clinical use. */
+        }
+    }
+
+    part def SideAperture {
+        attribute apertureLength : Length;
+        attribute apertureWidth : Length;
+        attribute edgeFinish : ScalarValues::String;
+        attribute apertureCount : Integer;
+
+        requirement apertureFunction {
+            doc /* The side aperture shall allow tissue and fluid to enter the cannula lumen when vacuum is applied. */
+        }
+    }
+
+    part def CannulaShaft {
+        attribute outerDiameter : Diameter;
+        attribute innerDiameter : Diameter;
+        attribute workingLength : Length;
+        attribute flexibilityClass : ScalarValues::String;
+        attribute material : ScalarValues::String;
+        attribute sterileState : SterilityState;
+
+        part distalTip : RoundedDistalTip;
+        part aspirationAperture : SideAperture;
+
+        port tipPort : CannulaTipPort;
+        port hubPort : HubPort;
+
+        requirement lumenContinuity {
+            doc /* The cannula shaft shall maintain a continuous internal lumen between the distal aperture region and the proximal hub. */
+        }
+    }
+
+    part def ProximalHub {
+        attribute connectorStandard : ScalarValues::String;
+        attribute gripTexture : ScalarValues::String;
+        attribute colorCode : ScalarValues::String;
+        attribute compatibleWithManualVacuumAspirator : Boolean;
+
+        port cannulaSide : HubPort;
+        port vacuumSide : VacuumSourcePort;
+
+        requirement secureConnection {
+            doc /* The proximal hub shall provide a secure connection to a compatible vacuum source during aspiration. */
+        }
+    }
+
+    part def ManualVacuumAspirator {
+        attribute maximumVacuum : Pressure;
+        attribute collectionCapacity : Volume;
+        attribute currentVacuum : Pressure;
+        attribute collectedVolume : Volume;
+        attribute lockedReady : Boolean;
+
+        port cannulaConnection : VacuumSourcePort;
+
+        action createVacuum {
+            in requestedVacuum : Pressure;
+            out generatedVacuum : VacuumMedium;
+        }
+
+        action receiveAspirate {
+            in incomingMixture : AspiratedTissueFluidMixture;
+            out storedVolume : Volume;
+        }
+
+        state def AspiratorState {
+            state idle;
+            state charged;
+            state aspirating;
+            state full;
+            state released;
+
+            transition idle_to_charged
+                first idle
+                then charged
+                accept createVacuum;
+
+            transition charged_to_aspirating
+                first charged
+                then aspirating;
+
+            transition aspirating_to_full
+                first aspirating
+                then full
+                guard collectedVolume >= collectionCapacity;
+
+            transition aspirating_to_released
+                first aspirating
+                then released;
+
+            transition released_to_idle
+                first released
+                then idle;
+        }
+    }
+
+    part def ClinicalOperatorInterface {
+        attribute operatorInputForce : Force;
+        attribute rotationCommanded : Boolean;
+        attribute insertionDepthObserved : Length;
+        attribute procedureStatus : ScalarValues::String;
+
+        action positionCannula {
+            in targetDepth : Length;
+            out observedDepth : Length;
+        }
+
+        action rotateAndSweep {
+            in controlledMotion : Boolean;
+            out tissueContact : UterineTissueInterface;
+        }
+
+        action stopAspiration {
+            out vacuumReleased : Boolean;
+        }
+    }
+
+    part def KarmanCannulaAssembly {
+        attribute nominalSize : Diameter;
+        attribute singleUse : Boolean;
+        attribute sterilePackaged : Boolean;
+        attribute primaryFunction : ScalarValues::String =
+            "Provide a flexible sterile aspiration pathway from a uterine cavity interface to a vacuum collection source.";
+
+        part shaft : CannulaShaft;
+        part hub : ProximalHub;
+
+        connect shaft.hubPort to hub.cannulaSide;
+
+        requirement primaryFunctionRequirement {
+            doc /* The Karman cannula assembly shall provide a controlled conduit for vacuum-assisted removal of tissue and fluid through distal side apertures into a collection device. */
+        }
+
+        requirement sterilityRequirement {
+            doc /* The Karman cannula assembly shall be supplied sterile and intended for single-patient clinical use. */
+        }
+
+        requirement compatibilityRequirement {
+            doc /* The proximal hub shall be compatible with a manual vacuum aspirator or equivalent regulated suction source. */
+        }
+    }
+
+    part def KarmanCannulaBasedAspirationSystem {
+        attribute systemPurpose : ScalarValues::String =
+            "High-level uterine aspiration system using a Karman cannula as the patient-interface conduit.";
+        attribute operatingVacuumRangeMin : Pressure = -60.0;
+        attribute operatingVacuumRangeMax : Pressure = -85.0;
+        attribute expectedFlowRangeMin : FlowRate = 20.0;
+        attribute expectedFlowRangeMax : FlowRate = 250.0;
+
+        part cannula : KarmanCannulaAssembly {
+            :>> nominalSize = 6.0;
+            :>> singleUse = true;
+            :>> sterilePackaged = true;
+        }
+
+        part vacuumAspirator : ManualVacuumAspirator {
+            :>> maximumVacuum = -85.0;
+            :>> collectionCapacity = 60.0;
+            :>> currentVacuum = 0.0;
+            :>> collectedVolume = 0.0;
+            :>> lockedReady = false;
+        }
+
+        part operatorInterface : ClinicalOperatorInterface;
+
+        port patientInterface : CannulaTipPort;
+
+        connect patientInterface to cannula.shaft.tipPort;
+        connect cannula.hub.vacuumSide to vacuumAspirator.cannulaConnection;
+
+        action prepareSystem {
+            first start;
+            then verifySterilePackage;
+            then connectCannulaToAspirator;
+            then chargeVacuumAspirator;
+            then ready;
+
+            action verifySterilePackage {
+                out sterileConfirmed : Boolean;
+            }
+
+            action connectCannulaToAspirator {
+                out connectionSecured : Boolean;
+            }
+
+            action chargeVacuumAspirator {
+                out vacuumReady : VacuumMedium;
+            }
+        }
+
+        action performHighLevelAspiration {
+            in clinicianAuthorized : Boolean;
+            out collectedMixture : AspiratedTissueFluidMixture;
+
+            first confirmAuthorization;
+            then positionDistalTip;
+            then applyVacuum;
+            then conveyAspirate;
+            then monitorCollection;
+            then releaseVacuum;
+            then completeProcedure;
+
+            action confirmAuthorization {
+                in authorized : Boolean = clinicianAuthorized;
+                out permitted : Boolean;
+            }
+
+            action positionDistalTip {
+                out tissueContactEstablished : UterineTissueInterface;
+            }
+
+            action applyVacuum {
+                out activeVacuum : VacuumMedium;
+            }
+
+            action conveyAspirate {
+                in activeVacuum : VacuumMedium;
+                out aspirateFlow : AspiratedTissueFluidMixture;
+            }
+
+            action monitorCollection {
+                in aspirateFlow : AspiratedTissueFluidMixture;
+                out collectionStable : Boolean;
+            }
+
+            action releaseVacuum {
+                out vacuumTerminated : Boolean;
+            }
+
+            action completeProcedure {
+                out collectedMixture : AspiratedTissueFluidMixture;
+            }
+        }
+
+        state def SystemOperationalState {
+            state packagedSterile;
+            state assembled;
+            state vacuumReady;
+            state positioned;
+            state aspirating;
+            state aspirationPaused;
+            state completed;
+            state disposalReady;
+
+            transition packaged_to_assembled
+                first packagedSterile
+                then assembled
+                accept prepareSystem.connectCannulaToAspirator;
+
+            transition assembled_to_vacuumReady
+                first assembled
+                then vacuumReady
+                accept prepareSystem.chargeVacuumAspirator;
+
+            transition vacuumReady_to_positioned
+                first vacuumReady
+                then positioned
+                accept performHighLevelAspiration.positionDistalTip;
+
+            transition positioned_to_aspirating
+                first positioned
+                then aspirating
+                accept performHighLevelAspiration.applyVacuum;
+
+            transition aspirating_to_paused
+                first aspirating
+                then aspirationPaused
+                accept operatorInterface.stopAspiration;
+
+            transition aspirationPaused_to_aspirating
+                first aspirationPaused
+                then aspirating
+                accept performHighLevelAspiration.applyVacuum;
+
+            transition aspirating_to_completed
+                first aspirating
+                then completed
+                accept performHighLevelAspiration.completeProcedure;
+
+            transition completed_to_disposalReady
+                first completed
+                then disposalReady;
+        }
+
+        requirement systemPrimaryFunction {
+            doc /* The system shall use the Karman cannula to provide vacuum-assisted aspiration by transmitting negative pressure from the aspirator to the distal aperture and conveying aspirated tissue and fluid to a collection chamber. */
+        }
+
+        requirement flowPathIntegrity {
+            doc /* During aspiration, the system shall maintain an unobstructed flow path from the distal side aperture, through the cannula shaft and hub, into the collection chamber. */
+        }
+
+        requirement controlledVacuum {
+            doc /* The system shall operate only within the defined negative pressure range for compatible manual aspiration. */
+        }
+
+        requirement collectionContainment {
+            doc /* Aspirated tissue and fluid shall be contained within the vacuum aspirator collection chamber after passing through the cannula. */
+        }
+
+        requirement singleUseDisposal {
+            doc /* After clinical use, the cannula shall transition to disposal-ready status and shall not be reused. */
+        }
+
+        requirement highLevelClinicalBoundary {
+            doc /* The model describes device structure and high-level function only and does not define clinical indications, procedural technique, or patient-specific medical decisions. */
+        }
+    }
+
+    satisfy KarmanCannulaBasedAspirationSystem::systemPrimaryFunction by KarmanCannulaBasedAspirationSystem::performHighLevelAspiration;
+    satisfy KarmanCannulaBasedAspirationSystem::flowPathIntegrity by KarmanCannulaBasedAspirationSystem::cannula;
+    satisfy KarmanCannulaBasedAspirationSystem::controlledVacuum by KarmanCannulaBasedAspirationSystem::vacuumAspirator;
+    satisfy KarmanCannulaBasedAspirationSystem::collectionContainment by KarmanCannulaBasedAspirationSystem::vacuumAspirator;
+    satisfy KarmanCannulaBasedAspirationSystem::singleUseDisposal by KarmanCannulaBasedAspirationSystem::cannula;
+
+}
+tokens used
+3,021
+package KarmanCannulaSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "mL/min";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "mL";
+    }
+
+    attribute def Length {
+        :> ScalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Diameter {
+        :> ScalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Force {
+        :> ScalarValues::Real;
+        unit = "N";
+    }
+
+    attribute def SterilityState {
+        :> ScalarValues::String;
+    }
+
+    item def AspiratedTissueFluidMixture {
+        attribute fluidVolume : Volume;
+        attribute tissueVolume : Volume;
+        attribute containsAir : Boolean;
+        attribute collectionTimestamp : ScalarValues::String;
+    }
+
+    item def VacuumMedium {
+        attribute negativePressure : Pressure;
+        attribute availableVolume : Volume;
+    }
+
+    item def UterineTissueInterface {
+        attribute contactForce : Force;
+        attribute localPressure : Pressure;
+    }
+
+    port def CannulaTipPort {
+        in tissueInterface : UterineTissueInterface;
+        out aspirate : AspiratedTissueFluidMixture;
+        in vacuum : VacuumMedium;
+    }
+
+    port def HubPort {
+        out aspirate : AspiratedTissueFluidMixture;
+        in vacuum : VacuumMedium;
+    }
+
+    port def VacuumSourcePort {
+        out vacuum : VacuumMedium;
+        in aspirate : AspiratedTissueFluidMixture;
+    }
+
+    part def RoundedDistalTip {
+        attribute outerDiameter : Diameter;
+        attribute tipRadius : Length;
+        attribute material : ScalarValues::String;
+        attribute radiopaqueVisible : Boolean;
+
+        requirement roundedTipSafety {
+            doc /* The distal tip shall provide a rounded profile intended to reduce focal tissue trauma during controlled clinical use. */
+        }
+    }
+
+    part def SideAperture {
+        attribute apertureLength : Length;
+        attribute apertureWidth : Length;
+        attribute edgeFinish : ScalarValues::String;
+        attribute apertureCount : Integer;
+
+        requirement apertureFunction {
+            doc /* The side aperture shall allow tissue and fluid to enter the cannula lumen when vacuum is applied. */
+        }
+    }
+
+    part def CannulaShaft {
+        attribute outerDiameter : Diameter;
+        attribute innerDiameter : Diameter;
+        attribute workingLength : Length;
+        attribute flexibilityClass : ScalarValues::String;
+        attribute material : ScalarValues::String;
+        attribute sterileState : SterilityState;
+
+        part distalTip : RoundedDistalTip;
+        part aspirationAperture : SideAperture;
+
+        port tipPort : CannulaTipPort;
+        port hubPort : HubPort;
+
+        requirement lumenContinuity {
+            doc /* The cannula shaft shall maintain a continuous internal lumen between the distal aperture region and the proximal hub. */
+        }
+    }
+
+    part def ProximalHub {
+        attribute connectorStandard : ScalarValues::String;
+        attribute gripTexture : ScalarValues::String;
+        attribute colorCode : ScalarValues::String;
+        attribute compatibleWithManualVacuumAspirator : Boolean;
+
+        port cannulaSide : HubPort;
+        port vacuumSide : VacuumSourcePort;
+
+        requirement secureConnection {
+            doc /* The proximal hub shall provide a secure connection to a compatible vacuum source during aspiration. */
+        }
+    }
+
+    part def ManualVacuumAspirator {
+        attribute maximumVacuum : Pressure;
+        attribute collectionCapacity : Volume;
+        attribute currentVacuum : Pressure;
+        attribute collectedVolume : Volume;
+        attribute lockedReady : Boolean;
+
+        port cannulaConnection : VacuumSourcePort;
+
+        action createVacuum {
+            in requestedVacuum : Pressure;
+            out generatedVacuum : VacuumMedium;
+        }
+
+        action receiveAspirate {
+            in incomingMixture : AspiratedTissueFluidMixture;
+            out storedVolume : Volume;
+        }
+
+        state def AspiratorState {
+            state idle;
+            state charged;
+            state aspirating;
+            state full;
+            state released;
+
+            transition idle_to_charged
+                first idle
+                then charged
+                accept createVacuum;
+
+            transition charged_to_aspirating
+                first charged
+                then aspirating;
+
+            transition aspirating_to_full
+                first aspirating
+                then full
+                guard collectedVolume >= collectionCapacity;
+
+            transition aspirating_to_released
+                first aspirating
+                then released;
+
+            transition released_to_idle
+                first released
+                then idle;
+        }
+    }
+
+    part def ClinicalOperatorInterface {
+        attribute operatorInputForce : Force;
+        attribute rotationCommanded : Boolean;
+        attribute insertionDepthObserved : Length;
+        attribute procedureStatus : ScalarValues::String;
+
+        action positionCannula {
+            in targetDepth : Length;
+            out observedDepth : Length;
+        }
+
+        action rotateAndSweep {
+            in controlledMotion : Boolean;
+            out tissueContact : UterineTissueInterface;
+        }
+
+        action stopAspiration {
+            out vacuumReleased : Boolean;
+        }
+    }
+
+    part def KarmanCannulaAssembly {
+        attribute nominalSize : Diameter;
+        attribute singleUse : Boolean;
+        attribute sterilePackaged : Boolean;
+        attribute primaryFunction : ScalarValues::String =
+            "Provide a flexible sterile aspiration pathway from a uterine cavity interface to a vacuum collection source.";
+
+        part shaft : CannulaShaft;
+        part hub : ProximalHub;
+
+        connect shaft.hubPort to hub.cannulaSide;
+
+        requirement primaryFunctionRequirement {
+            doc /* The Karman cannula assembly shall provide a controlled conduit for vacuum-assisted removal of tissue and fluid through distal side apertures into a collection device. */
+        }
+
+        requirement sterilityRequirement {
+            doc /* The Karman cannula assembly shall be supplied sterile and intended for single-patient clinical use. */
+        }
+
+        requirement compatibilityRequirement {
+            doc /* The proximal hub shall be compatible with a manual vacuum aspirator or equivalent regulated suction source. */
+        }
+    }
+
+    part def KarmanCannulaBasedAspirationSystem {
+        attribute systemPurpose : ScalarValues::String =
+            "High-level uterine aspiration system using a Karman cannula as the patient-interface conduit.";
+        attribute operatingVacuumRangeMin : Pressure = -60.0;
+        attribute operatingVacuumRangeMax : Pressure = -85.0;
+        attribute expectedFlowRangeMin : FlowRate = 20.0;
+        attribute expectedFlowRangeMax : FlowRate = 250.0;
+
+        part cannula : KarmanCannulaAssembly {
+            :>> nominalSize = 6.0;
+            :>> singleUse = true;
+            :>> sterilePackaged = true;
+        }
+
+        part vacuumAspirator : ManualVacuumAspirator {
+            :>> maximumVacuum = -85.0;
+            :>> collectionCapacity = 60.0;
+            :>> currentVacuum = 0.0;
+            :>> collectedVolume = 0.0;
+            :>> lockedReady = false;
+        }
+
+        part operatorInterface : ClinicalOperatorInterface;
+
+        port patientInterface : CannulaTipPort;
+
+        connect patientInterface to cannula.shaft.tipPort;
+        connect cannula.hub.vacuumSide to vacuumAspirator.cannulaConnection;
+
+        action prepareSystem {
+            first start;
+            then verifySterilePackage;
+            then connectCannulaToAspirator;
+            then chargeVacuumAspirator;
+            then ready;
+
+            action verifySterilePackage {
+                out sterileConfirmed : Boolean;
+            }
+
+            action connectCannulaToAspirator {
+                out connectionSecured : Boolean;
+            }
+
+            action chargeVacuumAspirator {
+                out vacuumReady : VacuumMedium;
+            }
+        }
+
+        action performHighLevelAspiration {
+            in clinicianAuthorized : Boolean;
+            out collectedMixture : AspiratedTissueFluidMixture;
+
+            first confirmAuthorization;
+            then positionDistalTip;
+            then applyVacuum;
+            then conveyAspirate;
+            then monitorCollection;
+            then releaseVacuum;
+            then completeProcedure;
+
+            action confirmAuthorization {
+                in authorized : Boolean = clinicianAuthorized;
+                out permitted : Boolean;
+            }
+
+            action positionDistalTip {
+                out tissueContactEstablished : UterineTissueInterface;
+            }
+
+            action applyVacuum {
+                out activeVacuum : VacuumMedium;
+            }
+
+            action conveyAspirate {
+                in activeVacuum : VacuumMedium;
+                out aspirateFlow : AspiratedTissueFluidMixture;
+            }
+
+            action monitorCollection {
+                in aspirateFlow : AspiratedTissueFluidMixture;
+                out collectionStable : Boolean;
+            }
+
+            action releaseVacuum {
+                out vacuumTerminated : Boolean;
+            }
+
+            action completeProcedure {
+                out collectedMixture : AspiratedTissueFluidMixture;
+            }
+        }
+
+        state def SystemOperationalState {
+            state packagedSterile;
+            state assembled;
+            state vacuumReady;
+            state positioned;
+            state aspirating;
+            state aspirationPaused;
+            state completed;
+            state disposalReady;
+
+            transition packaged_to_assembled
+                first packagedSterile
+                then assembled
+                accept prepareSystem.connectCannulaToAspirator;
+
+            transition assembled_to_vacuumReady
+                first assembled
+                then vacuumReady
+                accept prepareSystem.chargeVacuumAspirator;
+
+            transition vacuumReady_to_positioned
+                first vacuumReady
+                then positioned
+                accept performHighLevelAspiration.positionDistalTip;
+
+            transition positioned_to_aspirating
+                first positioned
+                then aspirating
+                accept performHighLevelAspiration.applyVacuum;
+
+            transition aspirating_to_paused
+                first aspirating
+                then aspirationPaused
+                accept operatorInterface.stopAspiration;
+
+            transition aspirationPaused_to_aspirating
+                first aspirationPaused
+                then aspirating
+                accept performHighLevelAspiration.applyVacuum;
+
+            transition aspirating_to_completed
+                first aspirating
+                then completed
+                accept performHighLevelAspiration.completeProcedure;
+
+            transition completed_to_disposalReady
+                first completed
+                then disposalReady;
+        }
+
+        requirement systemPrimaryFunction {
+            doc /* The system shall use the Karman cannula to provide vacuum-assisted aspiration by transmitting negative pressure from the aspirator to the distal aperture and conveying aspirated tissue and fluid to a collection chamber. */
+        }
+
+        requirement flowPathIntegrity {
+            doc /* During aspiration, the system shall maintain an unobstructed flow path from the distal side aperture, through the cannula shaft and hub, into the collection chamber. */
+        }
+
+        requirement controlledVacuum {
+            doc /* The system shall operate only within the defined negative pressure range for compatible manual aspiration. */
+        }
+
+        requirement collectionContainment {
+            doc /* Aspirated tissue and fluid shall be contained within the vacuum aspirator collection chamber after passing through the cannula. */
+        }
+
+        requirement singleUseDisposal {
+            doc /* After clinical use, the cannula shall transition to disposal-ready status and shall not be reused. */
+        }
+
+        requirement highLevelClinicalBoundary {
+            doc /* The model describes device structure and high-level function only and does not define clinical indications, procedural technique, or patient-specific medical decisions. */
+        }
+    }
+
+    satisfy KarmanCannulaBasedAspirationSystem::systemPrimaryFunction by KarmanCannulaBasedAspirationSystem::performHighLevelAspiration;
+    satisfy KarmanCannulaBasedAspirationSystem::flowPathIntegrity by KarmanCannulaBasedAspirationSystem::cannula;
+    satisfy KarmanCannulaBasedAspirationSystem::controlledVacuum by KarmanCannulaBasedAspirationSystem::vacuumAspirator;
+    satisfy KarmanCannulaBasedAspirationSystem::collectionContainment by KarmanCannulaBasedAspirationSystem::vacuumAspirator;
+    satisfy KarmanCannulaBasedAspirationSystem::singleUseDisposal by KarmanCannulaBasedAspirationSystem::cannula;
+
+}

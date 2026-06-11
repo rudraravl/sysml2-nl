@@ -1,0 +1,454 @@
+package EndobronchialValveSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalarValue;
+        unit = "Pa";
+    }
+
+    attribute def VolumeFlowRate {
+        :> scalarValue;
+        unit = "mL/s";
+    }
+
+    attribute def Volume {
+        :> scalarValue;
+        unit = "mL";
+    }
+
+    attribute def Length {
+        :> scalarValue;
+        unit = "mm";
+    }
+
+    attribute def Force {
+        :> scalarValue;
+        unit = "N";
+    }
+
+    attribute def Percent {
+        :> scalarValue;
+        unit = "%";
+    }
+
+    attribute def Time {
+        :> scalarValue;
+        unit = "s";
+    }
+
+    attribute def GasConcentration {
+        :> scalarValue;
+        unit = "%";
+    }
+
+    item def AirFlow {
+        attribute flowRate : VolumeFlowRate;
+        attribute pressure : Pressure;
+        attribute oxygenFraction : GasConcentration;
+        attribute carbonDioxideFraction : GasConcentration;
+    }
+
+    item def Mucus {
+        attribute volume : Volume;
+        attribute viscosityLevel : Percent;
+    }
+
+    item def BronchoscopicDeploymentCommand {
+        attribute releaseRequested : Boolean;
+        attribute targetConfirmed : Boolean;
+    }
+
+    item def ValveStatusSignal {
+        attribute deployed : Boolean;
+        attribute seated : Boolean;
+        attribute migrationSuspected : Boolean;
+        attribute occlusionSuspected : Boolean;
+    }
+
+    port def AirwayPort {
+        in item inspiredAir : AirFlow;
+        out item expiredAir : AirFlow;
+        out item mucusDrainage : Mucus;
+    }
+
+    port def OneWayValvePort {
+        in item proximalAir : AirFlow;
+        out item distalAir : AirFlow;
+        in item distalExhalation : AirFlow;
+        out item proximalExhalation : AirFlow;
+        out item secretions : Mucus;
+    }
+
+    port def BronchoscopeToolPort {
+        in item deploymentCommand : BronchoscopicDeploymentCommand;
+        out item valveStatus : ValveStatusSignal;
+    }
+
+    part def EndobronchialValve {
+        attribute outerDiameter : Length = 5.5 [mm];
+        attribute frameLength : Length = 10.0 [mm];
+        attribute nominalOpeningPressure : Pressure = 80 [Pa];
+        attribute maximumInspiratoryLeakage : VolumeFlowRate = 1.0 [mL/s];
+        attribute minimumExpiratoryReliefFlow : VolumeFlowRate = 15.0 [mL/s];
+        attribute retentionForce : Force = 0.45 [N];
+        attribute expectedImplantDuration : Time = 15552000 [s];
+
+        port proximal : OneWayValvePort;
+        port deployment : BronchoscopeToolPort;
+
+        part nitinolFrame {
+            attribute expandedDiameter : Length = 5.5 [mm];
+            attribute compressedDiameter : Length = 2.0 [mm];
+            attribute radialRetentionForce : Force = 0.45 [N];
+        }
+
+        part siliconeMembrane {
+            attribute leafletThickness : Length = 0.08 [mm];
+            attribute closedLeakageRate : VolumeFlowRate = 0.5 [mL/s];
+            attribute openingPressure : Pressure = 80 [Pa];
+        }
+
+        part anchorStruts {
+            attribute strutCount : Integer = 6;
+            attribute contactLength : Length = 2.5 [mm];
+            attribute migrationResistance : Force = 0.45 [N];
+        }
+
+        action def PermitExpiration {
+            in item distalGas : AirFlow;
+            out item proximalGas : AirFlow;
+            objective {
+                distalGas.pressure > proximalGas.pressure;
+            }
+        }
+
+        action def BlockInspiration {
+            in item proximalGas : AirFlow;
+            out leakageRate : VolumeFlowRate;
+            objective {
+                leakageRate <= maximumInspiratoryLeakage;
+            }
+        }
+
+        action def DrainSecretions {
+            in item distalMucus : Mucus;
+            out item proximalMucus : Mucus;
+        }
+
+        state def ValveOperationalState {
+            entry action initializeStatus {
+                deployment.valveStatus.deployed = false;
+                deployment.valveStatus.seated = false;
+                deployment.valveStatus.migrationSuspected = false;
+                deployment.valveStatus.occlusionSuspected = false;
+            }
+
+            state Crimped;
+            state Positioned;
+            state Deployed;
+            state Seated;
+            state InspiratoryBlocked;
+            state ExpiratoryOpen;
+            state SecretionDrainage;
+            state FaultSuspected;
+
+            initial then Crimped;
+
+            transition Crimped_to_Positioned
+                first Crimped
+                accept deployment.deploymentCommand
+                if deployment.deploymentCommand.targetConfirmed
+                then Positioned;
+
+            transition Positioned_to_Deployed
+                first Positioned
+                accept deployment.deploymentCommand
+                if deployment.deploymentCommand.releaseRequested
+                do {
+                    deployment.valveStatus.deployed = true;
+                }
+                then Deployed;
+
+            transition Deployed_to_Seated
+                first Deployed
+                if nitinolFrame.radialRetentionForce >= 0.35 [N]
+                do {
+                    deployment.valveStatus.seated = true;
+                }
+                then Seated;
+
+            transition Seated_to_InspiratoryBlocked
+                first Seated
+                if proximal.proximalAir.pressure > proximal.distalExhalation.pressure
+                do BlockInspiration
+                then InspiratoryBlocked;
+
+            transition Seated_to_ExpiratoryOpen
+                first Seated
+                if proximal.distalExhalation.pressure > proximal.proximalAir.pressure + nominalOpeningPressure
+                do PermitExpiration
+                then ExpiratoryOpen;
+
+            transition ExpiratoryOpen_to_Seated
+                first ExpiratoryOpen
+                if proximal.distalExhalation.flowRate < 2.0 [mL/s]
+                then Seated;
+
+            transition InspiratoryBlocked_to_Seated
+                first InspiratoryBlocked
+                if proximal.proximalAir.pressure <= proximal.distalExhalation.pressure
+                then Seated;
+
+            transition Seated_to_SecretionDrainage
+                first Seated
+                if proximal.secretions.volume > 0.1 [mL]
+                do DrainSecretions
+                then SecretionDrainage;
+
+            transition SecretionDrainage_to_Seated
+                first SecretionDrainage
+                if proximal.secretions.volume <= 0.1 [mL]
+                then Seated;
+
+            transition Seated_to_FaultSuspected
+                first Seated
+                if deployment.valveStatus.migrationSuspected or deployment.valveStatus.occlusionSuspected
+                then FaultSuspected;
+        }
+
+        exhibit state behavior valveBehavior : ValveOperationalState;
+    }
+
+    part def TargetLungLobe {
+        attribute trappedAirVolume : Volume = 1200 [mL];
+        attribute targetAtelectasisLevel : Percent = 80 [%];
+        attribute collateralVentilationLevel : Percent = 5 [%];
+
+        port segmentalBronchus : AirwayPort;
+
+        part distalAirspace {
+            attribute residualVolume : Volume = 1200 [mL];
+            attribute pressure : Pressure = 0 [Pa];
+            attribute oxygenFraction : GasConcentration = 16 [%];
+            attribute carbonDioxideFraction : GasConcentration = 5 [%];
+        }
+
+        part bronchialSecretions {
+            attribute retainedVolume : Volume = 0.2 [mL];
+        }
+    }
+
+    part def AdjacentLungLobe {
+        attribute expansionReserveVolume : Volume = 600 [mL];
+        port airway : AirwayPort;
+    }
+
+    part def BronchialTree {
+        port trachealSide : AirwayPort;
+        port targetBranch : AirwayPort;
+        port adjacentBranch : AirwayPort;
+
+        part trachea {
+            attribute innerDiameter : Length = 18 [mm];
+        }
+
+        part mainBronchus {
+            attribute innerDiameter : Length = 12 [mm];
+        }
+
+        part targetSegmentalBronchus {
+            attribute innerDiameter : Length = 5.5 [mm];
+        }
+
+        part adjacentSegmentalBronchus {
+            attribute innerDiameter : Length = 6.0 [mm];
+        }
+    }
+
+    part def BronchoscopeDeliverySystem {
+        attribute workingChannelDiameter : Length = 2.8 [mm];
+        attribute catheterLength : Length = 1050 [mm];
+
+        port toolInterface : BronchoscopeToolPort;
+
+        part flexibleBronchoscope {
+            attribute outerDiameter : Length = 5.0 [mm];
+            attribute visualizationEnabled : Boolean = true;
+        }
+
+        part deploymentCatheter {
+            attribute constrainedValveDiameter : Length = 2.0 [mm];
+            attribute releaseControlArmed : Boolean = false;
+        }
+
+        action def NavigateToTargetBronchus {
+            out command : BronchoscopicDeploymentCommand;
+        }
+
+        action def ReleaseValve {
+            in command : BronchoscopicDeploymentCommand;
+            out status : ValveStatusSignal;
+        }
+    }
+
+    part def PatientRespiratorySystem {
+        attribute respiratoryCyclePeriod : Time = 4.0 [s];
+        attribute restingTidalVolume : Volume = 500 [mL];
+        attribute airwayPeakInspiratoryPressure : Pressure = -500 [Pa];
+        attribute airwayPeakExpiratoryPressure : Pressure = 500 [Pa];
+
+        port mouthAirway : AirwayPort;
+
+        part airway : BronchialTree;
+        part targetLobe : TargetLungLobe;
+        part adjacentLobe : AdjacentLungLobe;
+
+        connect mouthAirway to airway.trachealSide;
+        connect airway.targetBranch to targetLobe.segmentalBronchus;
+        connect airway.adjacentBranch to adjacentLobe.airway;
+    }
+
+    part def EndobronchialValveTherapySystem {
+        attribute procedureTimeLimit : Time = 1800 [s];
+        attribute desiredTargetLobeVolumeReduction : Percent = 50 [%];
+
+        part patient : PatientRespiratorySystem;
+        part valve : EndobronchialValve;
+        part deliverySystem : BronchoscopeDeliverySystem;
+
+        connect deliverySystem.toolInterface to valve.deployment;
+        connect patient.airway.targetBranch to valve.proximal;
+
+        action def ProvideOneWayBronchialOcclusion {
+            in item inspiredFlow : AirFlow;
+            in item trappedDistalFlow : AirFlow;
+            out item exhaledDistalFlow : AirFlow;
+            out achievedVolumeReduction : Percent;
+
+            first start;
+            then blockInspiredFlow;
+            then ventDistalAir;
+            then maintainLobarIsolation;
+            then done;
+
+            action blockInspiredFlow : valve.BlockInspiration;
+            action ventDistalAir : valve.PermitExpiration;
+            action maintainLobarIsolation {
+                objective {
+                    achievedVolumeReduction >= desiredTargetLobeVolumeReduction;
+                }
+            }
+        }
+
+        state def TherapyLifecycle {
+            state PreProcedureAssessment;
+            state BronchoscopicPlacement;
+            state ValveReleased;
+            state OneWayOcclusionActive;
+            state TargetLobeDeflation;
+            state FollowUpMonitoring;
+            state RevisionConsidered;
+
+            initial then PreProcedureAssessment;
+
+            transition assess_to_place
+                first PreProcedureAssessment
+                if patient.targetLobe.collateralVentilationLevel <= 10 [%]
+                then BronchoscopicPlacement;
+
+            transition place_to_release
+                first BronchoscopicPlacement
+                accept deliverySystem.toolInterface.deploymentCommand
+                if deliverySystem.toolInterface.deploymentCommand.targetConfirmed
+                then ValveReleased;
+
+            transition release_to_active
+                first ValveReleased
+                if valve.deployment.valveStatus.deployed and valve.deployment.valveStatus.seated
+                then OneWayOcclusionActive;
+
+            transition active_to_deflation
+                first OneWayOcclusionActive
+                do ProvideOneWayBronchialOcclusion
+                if patient.targetLobe.trappedAirVolume > 0 [mL]
+                then TargetLobeDeflation;
+
+            transition deflation_to_followup
+                first TargetLobeDeflation
+                if patient.targetLobe.targetAtelectasisLevel >= 80 [%]
+                then FollowUpMonitoring;
+
+            transition followup_to_revision
+                first FollowUpMonitoring
+                if valve.deployment.valveStatus.migrationSuspected or valve.deployment.valveStatus.occlusionSuspected
+                then RevisionConsidered;
+        }
+
+        exhibit state behavior therapyBehavior : TherapyLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject therapySystem : EndobronchialValveTherapySystem;
+
+        doc /* The endobronchial valve system shall provide bronchoscopic, implantable one-way occlusion of a selected airway so that inspired air is blocked from entering the targeted diseased lung region while trapped gas and secretions can exit proximally, promoting controlled target-lobe volume reduction. */
+
+        require constraint {
+            therapySystem.valve.maximumInspiratoryLeakage <= 1.0 [mL/s] and
+            therapySystem.valve.minimumExpiratoryReliefFlow >= 15.0 [mL/s] and
+            therapySystem.patient.targetLobe.collateralVentilationLevel <= 10 [%];
+        }
+    }
+
+    requirement def DeploymentRequirement {
+        subject valve : EndobronchialValve;
+
+        doc /* The valve shall remain crimped during catheter navigation and shall expand to contact the bronchial wall only after the deployment command confirms the target airway. */
+
+        require constraint {
+            valve.nitinolFrame.compressedDiameter <= 2.0 [mm] and
+            valve.nitinolFrame.expandedDiameter >= 5.0 [mm] and
+            valve.retentionForce >= 0.35 [N];
+        }
+    }
+
+    requirement def OneWayFlowRequirement {
+        subject valve : EndobronchialValve;
+
+        doc /* The valve shall resist inspiratory airflow into the distal target lobe and shall open under distal expiratory pressure to permit trapped air to leave the treated region. */
+
+        require constraint {
+            valve.siliconeMembrane.closedLeakageRate <= valve.maximumInspiratoryLeakage and
+            valve.siliconeMembrane.openingPressure <= valve.nominalOpeningPressure;
+        }
+    }
+
+    requirement def SecretionManagementRequirement {
+        subject valve : EndobronchialValve;
+
+        doc /* The valve shall permit proximal drainage of airway secretions from the isolated distal lung region without requiring active powered components. */
+
+        require constraint {
+            valve.proximal.secretions.volume >= 0 [mL];
+        }
+    }
+
+    requirement def PassiveImplantRequirement {
+        subject valve : EndobronchialValve;
+
+        doc /* The implanted valve shall perform its airflow control function passively using respiratory pressure differences and shall not require electrical power, software control, or implanted energy storage. */
+
+        require constraint {
+            valve.expectedImplantDuration >= 7776000 [s];
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by EndobronchialValveTherapySystem::ProvideOneWayBronchialOcclusion;
+    satisfy DeploymentRequirement by EndobronchialValve::nitinolFrame;
+    satisfy OneWayFlowRequirement by EndobronchialValve::siliconeMembrane;
+    satisfy SecretionManagementRequirement by EndobronchialValve::DrainSecretions;
+    satisfy PassiveImplantRequirement by EndobronchialValve;
+
+}

@@ -1,0 +1,1589 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-xxz2qzs1
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4ae-67ac-7d02-8a79-c865441354ef
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a pumping subsystem that moves fluid using a Kearny air pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package KearnyAirPumpPumpingSubsystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Pressure :> ScalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> ScalarValues::Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Volume :> ScalarValues::Real {
+        unit = "m^3";
+    }
+
+    attribute def Temperature :> ScalarValues::Real {
+        unit = "K";
+    }
+
+    attribute def StrokeRate :> ScalarValues::Real {
+        unit = "1/min";
+    }
+
+    attribute def Force :> ScalarValues::Real {
+        unit = "N";
+    }
+
+    attribute def Efficiency :> ScalarValues::Real {
+        unit = "1";
+    }
+
+    attribute def TimeDuration :> ScalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def FluidDensity :> ScalarValues::Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def FluidViscosity :> ScalarValues::Real {
+        unit = "Pa*s";
+    }
+
+    item def WorkingFluid {
+        attribute density : FluidDensity;
+        attribute dynamicViscosity : FluidViscosity;
+        attribute vaporPressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute relativeHumidity : ScalarValues::Real;
+    }
+
+    item def PumpedLiquid :> WorkingFluid {
+        attribute contaminationLevel : ScalarValues::Real;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommandKind;
+        attribute requestedStrokeRate : StrokeRate;
+    }
+
+    item def StatusSignal {
+        attribute state : PumpStateKind;
+        attribute measuredFlow : FlowRate;
+        attribute dischargePressure : Pressure;
+        attribute inletPressure : Pressure;
+        attribute faultCode : FaultKind;
+    }
+
+    enum def PumpCommandKind {
+        enum idle;
+        enum prime;
+        enum start;
+        enum stop;
+        enum emergencyStop;
+        enum resetFault;
+    }
+
+    enum def PumpStateKind {
+        enum off;
+        enum priming;
+        enum pumping;
+        enum recirculating;
+        enum stopped;
+        enum faulted;
+    }
+
+    enum def FaultKind {
+        enum none;
+        enum lossOfPrime;
+        enum overPressure;
+        enum underPressure;
+        enum excessiveStrokeRate;
+        enum valveLeakage;
+        enum diaphragmRupture;
+        enum blockedInlet;
+        enum blockedDischarge;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : PumpedLiquid;
+        attribute staticPressure : Pressure;
+        attribute availableFlow : FlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : PumpedLiquid;
+        attribute staticPressure : Pressure;
+        attribute deliveredFlow : FlowRate;
+    }
+
+    port def AirSupplyPort {
+        in item compressedAir : Air;
+        attribute supplyPressure : Pressure;
+        attribute supplyFlow : FlowRate;
+    }
+
+    port def ExhaustAirPort {
+        out item exhaustAir : Air;
+        attribute exhaustPressure : Pressure;
+    }
+
+    port def ControlInputPort {
+        in item commandSignal : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item statusSignal : StatusSignal;
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 2500.0;
+        attribute leakageRateLimit : FlowRate = 0.000001;
+        attribute reversePressureLimit : Pressure = 1200000.0;
+        attribute open : ScalarValues::Boolean;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action def OpenValve {
+            in pressureDifferential : Pressure;
+            out valveOpen : ScalarValues::Boolean;
+        }
+
+        action def CloseValve {
+            out valveOpen : ScalarValues::Boolean;
+        }
+
+        requirement noReverseFlow {
+            doc
+            /* The check valve shall prevent reverse liquid flow greater than the leakage rate limit when outlet pressure exceeds inlet pressure. */
+            require constraint { inlet.staticPressure < outlet.staticPressure implies outlet.deliveredFlow <= leakageRateLimit }
+        }
+    }
+
+    part def DiaphragmChamber {
+        attribute displacedVolumePerStroke : Volume = 0.00085;
+        attribute maxChamberPressure : Pressure = 950000.0;
+        attribute minChamberPressure : Pressure = 75000.0;
+        attribute chamberPressure : Pressure;
+        attribute containedVolume : Volume;
+
+        port suctionPort : FluidInletPort;
+        port dischargePort : FluidOutletPort;
+
+        action def ExpandChamber {
+            in strokeDisplacement : Volume;
+            out suctionFlow : FlowRate;
+        }
+
+        action def CompressChamber {
+            in strokeDisplacement : Volume;
+            out dischargeFlow : FlowRate;
+        }
+
+        state def ChamberCycle {
+            state contracted;
+            state expanding;
+            state expanded;
+            state compressing;
+
+            transition first contracted;
+            transition contracted_to_expanding
+                first contracted then expanding;
+
+            transition expanding_to_expanded
+                first expanding then expanded;
+
+            transition expanded_to_compressing
+                first expanded then compressing;
+
+            transition compressing_to_contracted
+                first compressing then contracted;
+        }
+    }
+
+    part def AirMotor {
+        attribute supplyPressureMinimum : Pressure = 275000.0;
+        attribute supplyPressureNominal : Pressure = 550000.0;
+        attribute supplyPressureMaximum : Pressure = 700000.0;
+        attribute exhaustBackPressureMaximum : Pressure = 120000.0;
+        attribute strokeRateCommand : StrokeRate;
+        attribute actualStrokeRate : StrokeRate;
+        attribute airConsumptionAtNominal : FlowRate = 0.0035;
+        attribute mechanicalEfficiency : Efficiency = 0.68;
+
+        port airIn : AirSupplyPort;
+        port airOut : ExhaustAirPort;
+
+        action def AdmitAir {
+            in airPressure : Pressure;
+            out driveForce : Force;
+        }
+
+        action def ExhaustAir {
+            out exhaustFlow : FlowRate;
+        }
+
+        requirement airSupplyRange {
+            doc
+            /* The air motor shall operate continuously when supplied with air pressure from 275 kPa to 700 kPa. */
+            require constraint { airIn.supplyPressure >= supplyPressureMinimum and airIn.supplyPressure <= supplyPressureMaximum }
+        }
+
+        requirement exhaustPressureLimit {
+            doc
+            /* Exhaust back pressure shall remain below the allowable limit. */
+            require constraint { airOut.exhaustPressure <= exhaustBackPressureMaximum }
+        }
+    }
+
+    part def KearnyAirPump {
+        attribute ratedFlowAtNominalStroke : FlowRate = 0.0017;
+        attribute minimumFlow : FlowRate = 0.00015;
+        attribute maximumFlow : FlowRate = 0.0022;
+        attribute maximumDischargePressure : Pressure = 850000.0;
+        attribute minimumInletPressure : Pressure = 65000.0;
+        attribute maximumStrokeRate : StrokeRate = 120.0;
+        attribute nominalStrokeRate : StrokeRate = 90.0;
+        attribute volumetricEfficiency : Efficiency = 0.82;
+        attribute selfPrimingLiftPressureEquivalent : Pressure = 45000.0;
+        attribute dryRunLimit : TimeDuration = 30.0;
+        attribute measuredFlow : FlowRate;
+        attribute measuredDischargePressure : Pressure;
+        attribute measuredInletPressure : Pressure;
+
+        port suction : FluidInletPort;
+        port discharge : FluidOutletPort;
+        port airSupply : AirSupplyPort;
+        port airExhaust : ExhaustAirPort;
+        port control : ControlInputPort;
+        port status : StatusOutputPort;
+
+        part airMotor : AirMotor;
+        part diaphragmChamber : DiaphragmChamber;
+        part suctionCheckValve : CheckValve;
+        part dischargeCheckValve : CheckValve;
+
+        connect airSupply to airMotor.airIn;
+        connect airMotor.airOut to airExhaust;
+        connect suction to suctionCheckValve.inlet;
+        connect suctionCheckValve.outlet to diaphragmChamber.suctionPort;
+        connect diaphragmChamber.dischargePort to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to discharge;
+
+        action def Prime {
+            in availableInletPressure : Pressure;
+            out primeEstablished : ScalarValues::Boolean;
+        }
+
+        action def PumpStroke {
+            in commandedStrokeRate : StrokeRate;
+            out deliveredFlow : FlowRate;
+            out dischargePressure : Pressure;
+        }
+
+        action def DetectFault {
+            in inletPressure : Pressure;
+            in dischargePressure : Pressure;
+            in strokeRate : StrokeRate;
+            in deliveredFlow : FlowRate;
+            out detectedFault : FaultKind;
+        }
+
+        state def KearnyPumpOperatingState {
+            state Off;
+            state Priming;
+            state Pumping;
+            state Recirculating;
+            state Stopped;
+            state Faulted;
+
+            transition initial_to_off
+                first Off;
+
+            transition off_to_priming
+                first Off
+                accept control.commandSignal.command == PumpCommandKind::prime
+                then Priming;
+
+            transition priming_to_pumping
+                first Priming
+                accept measuredInletPressure >= minimumInletPressure
+                then Pumping;
+
+            transition priming_to_faulted
+                first Priming
+                accept measuredInletPressure < minimumInletPressure
+                then Faulted;
+
+            transition pumping_to_recirculating
+                first Pumping
+                accept measuredFlow > maximumFlow
+                then Recirculating;
+
+            transition recirculating_to_pumping
+                first Recirculating
+                accept measuredFlow <= ratedFlowAtNominalStroke
+                then Pumping;
+
+            transition pumping_to_stopped
+                first Pumping
+                accept control.commandSignal.command == PumpCommandKind::stop
+                then Stopped;
+
+            transition stopped_to_off
+                first Stopped
+                accept control.commandSignal.command == PumpCommandKind::idle
+                then Off;
+
+            transition pumping_to_faulted_overpressure
+                first Pumping
+                accept measuredDischargePressure > maximumDischargePressure
+                then Faulted;
+
+            transition pumping_to_faulted_strokerate
+                first Pumping
+                accept airMotor.actualStrokeRate > maximumStrokeRate
+                then Faulted;
+
+            transition faulted_to_off
+                first Faulted
+                accept control.commandSignal.command == PumpCommandKind::resetFault
+                then Off;
+
+            transition emergency_stop_from_priming
+                first Priming
+                accept control.commandSignal.command == PumpCommandKind::emergencyStop
+                then Faulted;
+
+            transition emergency_stop_from_pumping
+                first Pumping
+                accept control.commandSignal.command == PumpCommandKind::emergencyStop
+                then Faulted;
+
+            transition emergency_stop_from_recirculating
+                first Recirculating
+                accept control.commandSignal.command == PumpCommandKind::emergencyStop
+                then Faulted;
+        }
+
+        requirement flowCapacity {
+            doc
+            /* The Kearny air pump shall deliver liquid flow between the minimum and maximum specified flow rates during normal pumping operation. */
+            require constraint { measuredFlow >= minimumFlow and measuredFlow <= maximumFlow }
+        }
+
+        requirement dischargePressureLimit {
+            doc
+            /* The Kearny air pump shall not exceed the maximum allowable discharge pressure. */
+            require constraint { measuredDischargePressure <= maximumDischargePressure }
+        }
+
+        requirement inletPressureLimit {
+            doc
+            /* The Kearny air pump shall detect loss of prime when inlet pressure falls below the minimum allowable inlet pressure. */
+            require constraint { measuredInletPressure >= minimumInletPressure }
+        }
+
+        requirement strokeRateLimit {
+            doc
+            /* The Kearny air pump shall limit stroke rate to prevent mechanical damage. */
+            require constraint { airMotor.actualStrokeRate <= maximumStrokeRate }
+        }
+
+        requirement dryRunProtection {
+            doc
+            /* The Kearny air pump shall transition to faulted state if commanded to pump without prime longer than the dry-run limit. */
+            require constraint { dryRunLimit <= 30.0 }
+        }
+    }
+
+    part def InletStrainer {
+        attribute meshOpening : ScalarValues::Real = 0.0015;
+        attribute cleanPressureDrop : Pressure = 3000.0;
+        attribute cloggedPressureDropLimit : Pressure = 25000.0;
+        attribute measuredPressureDrop : Pressure;
+
+        port rawFluidIn : FluidInletPort;
+        port filteredFluidOut : FluidOutletPort;
+
+        requirement strainerPressureDrop {
+            doc
+            /* The inlet strainer shall maintain pressure drop below the clogged limit during commanded pumping operation. */
+            require constraint { measuredPressureDrop <= cloggedPressureDropLimit }
+        }
+    }
+
+    part def PulsationDampener {
+        attribute gasPrechargePressure : Pressure = 320000.0;
+        attribute workingVolume : Volume = 0.004;
+        attribute maximumWorkingPressure : Pressure = 900000.0;
+        attribute residualFlowRipple : FlowRate;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action def AbsorbPulse {
+            in incomingFlow : FlowRate;
+            out smoothedFlow : FlowRate;
+        }
+
+        requirement rippleReduction {
+            doc
+            /* The pulsation dampener shall reduce outlet flow ripple to less than ten percent of rated pump flow. */
+            require constraint { residualFlowRipple <= 0.00017 }
+        }
+    }
+
+    part def PressureReliefValve {
+        attribute setPressure : Pressure = 820000.0;
+        attribute reseatPressure : Pressure = 760000.0;
+        attribute reliefCapacity : FlowRate = 0.0025;
+        attribute open : ScalarValues::Boolean;
+
+        port protectedLine : FluidInletPort;
+        port returnLine : FluidOutletPort;
+
+        action def RelievePressure {
+            in linePressure : Pressure;
+            out bypassFlow : FlowRate;
+        }
+
+        requirement reliefBeforeOverPressure {
+            doc
+            /* The relief valve shall open before pump discharge pressure exceeds the pump maximum discharge pressure. */
+            require constraint { setPressure < 850000.0 }
+        }
+    }
+
+    part def FlowMeter {
+        attribute measuredFlow : FlowRate;
+        attribute accuracyPercentOfReading : ScalarValues::Real = 2.0;
+        attribute minimumMeasurableFlow : FlowRate = 0.00005;
+        attribute maximumMeasurableFlow : FlowRate = 0.003;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        attribute lowerRange : Pressure = 0.0;
+        attribute upperRange : Pressure = 1000000.0;
+        attribute accuracyPercentFullScale : ScalarValues::Real = 1.0;
+
+        port processPort : FluidInletPort;
+        port status : StatusOutputPort;
+    }
+
+    part def PumpController {
+        attribute targetFlow : FlowRate = 0.0015;
+        attribute commandedStrokeRate : StrokeRate;
+        attribute lowInletPressureTrip : Pressure = 65000.0;
+        attribute highDischargePressureTrip : Pressure = 850000.0;
+        attribute flowControlTolerance : FlowRate = 0.00012;
+        attribute currentState : PumpStateKind;
+        attribute activeFault : FaultKind;
+
+        port commandIn : ControlInputPort;
+        port pumpCommandOut : ControlInputPort;
+        port pumpStatusIn : StatusOutputPort;
+        port subsystemStatusOut : StatusOutputPort;
+
+        action def CalculateStrokeRate {
+            in requestedFlow : FlowRate;
+            in measuredFlow : FlowRate;
+            out strokeRateCommand : StrokeRate;
+        }
+
+        action def TripOnFault {
+            in inletPressure : Pressure;
+            in dischargePressure : Pressure;
+            in pumpFlow : FlowRate;
+            out fault : FaultKind;
+        }
+
+        state def ControllerState {
+            state Disabled;
+            state Ready;
+            state Starting;
+            state Regulating;
+            state Shutdown;
+            state FaultLatched;
+
+            transition initial_to_disabled
+                first Disabled;
+
+            transition disabled_to_ready
+                first Disabled
+                accept commandIn.commandSignal.command == PumpCommandKind::idle
+                then Ready;
+
+            transition ready_to_starting
+                first Ready
+                accept commandIn.commandSignal.command == PumpCommandKind::start
+                then Starting;
+
+            transition starting_to_regulating
+                first Starting
+                accept pumpStatusIn.statusSignal.state == PumpStateKind::pumping
+                then Regulating;
+
+            transition regulating_to_shutdown
+                first Regulating
+                accept commandIn.commandSignal.command == PumpCommandKind::stop
+                then Shutdown;
+
+            transition shutdown_to_ready
+                first Shutdown
+                accept pumpStatusIn.statusSignal.state == PumpStateKind::stopped
+                then Ready;
+
+            transition regulating_to_fault
+                first Regulating
+                accept pumpStatusIn.statusSignal.faultCode != FaultKind::none
+                then FaultLatched;
+
+            transition fault_to_ready
+                first FaultLatched
+                accept commandIn.commandSignal.command == PumpCommandKind::resetFault
+                then Ready;
+        }
+
+        requirement closedLoopFlowControl {
+            doc
+            /* The controller shall regulate pump stroke rate to keep measured flow within tolerance of target flow during normal pumping. */
+            require constraint { abs(targetFlow - pumpStatusIn.statusSignal.measuredFlow) <= flowControlTolerance }
+        }
+
+        requirement faultLatching {
+            doc
+            /* The controller shall latch pump faults until an explicit reset command is received. */
+            require constraint { activeFault != FaultKind::none implies currentState == PumpStateKind::faulted }
+        }
+    }
+
+    part def KearnyAirPumpPumpingSubsystem {
+        attribute subsystemRatedFlow : FlowRate = 0.0015;
+        attribute subsystemMaximumDischargePressure : Pressure = 850000.0;
+        attribute subsystemMinimumAirSupplyPressure : Pressure = 275000.0;
+        attribute subsystemMaximumAirSupplyPressure : Pressure = 700000.0;
+        attribute startupPrimeTimeLimit : TimeDuration = 20.0;
+        attribute shutdownDrainTimeLimit : TimeDuration = 45.0;
+        attribute nominalLiquidTemperature : Temperature = 293.15;
+        attribute overallEfficiency : Efficiency = 0.55;
+
+        port liquidSource : FluidInletPort;
+        port liquidDelivery : FluidOutletPort;
+        port compressedAirSource : AirSupplyPort;
+        port exhaustVent : ExhaustAirPort;
+        port operatorCommand : ControlInputPort;
+        port subsystemStatus : StatusOutputPort;
+
+        part strainer : InletStrainer;
+        part pump : KearnyAirPump;
+        part dampener : PulsationDampener;
+        part reliefValve : PressureReliefValve;
+        part flowMeter : FlowMeter;
+        part inletPressureSensor : PressureSensor;
+        part dischargePressureSensor : PressureSensor;
+        part controller : PumpController;
+
+        connect liquidSource to strainer.rawFluidIn;
+        connect strainer.filteredFluidOut to pump.suction;
+        connect pump.discharge to dampener.inlet;
+        connect dampener.outlet to flowMeter.inlet;
+        connect flowMeter.outlet to liquidDelivery;
+        connect dampener.outlet to reliefValve.protectedLine;
+        connect reliefValve.returnLine to strainer.rawFluidIn;
+
+        connect compressedAirSource to pump.airSupply;
+        connect pump.airExhaust to exhaustVent;
+
+        connect operatorCommand to controller.commandIn;
+        connect controller.pumpCommandOut to pump.control;
+        connect pump.status to controller.pumpStatusIn;
+        connect controller.subsystemStatusOut to subsystemStatus;
+
+        connect strainer.filteredFluidOut to inletPressureSensor.processPort;
+        connect dampener.outlet to dischargePressureSensor.processPort;
+
+        action def StartSubsystem {
+            in operatorStart : ControlSignal;
+            out readyToPump : ScalarValues::Boolean;
+        }
+
+        action def PumpFluid {
+            in sourceFluid : PumpedLiquid;
+            in compressedAir : Air;
+            out deliveredFluid : PumpedLiquid;
+            out operatingStatus : StatusSignal;
+        }
+
+        action def StopSubsystem {
+            in operatorStop : ControlSignal;
+            out stopped : ScalarValues::Boolean;
+        }
+
+        action def EmergencyShutdown {
+            in tripReason : FaultKind;
+            out isolated : ScalarValues::Boolean;
+        }
+
+        state def SubsystemOperatingState {
+            state Off;
+            state AirAvailable;
+            state Priming;
+            state Pumping;
+            state ControlledShutdown;
+            state EmergencyShutdownState;
+            state MaintenanceLockout;
+
+            transition initial_to_off
+                first Off;
+
+            transition off_to_air_available
+                first Off
+                accept compressedAirSource.supplyPressure >= subsystemMinimumAirSupplyPressure
+                then AirAvailable;
+
+            transition air_available_to_priming
+                first AirAvailable
+                accept operatorCommand.commandSignal.command == PumpCommandKind::start
+                then Priming;
+
+            transition priming_to_pumping
+                first Priming
+                accept pump.measuredInletPressure >= pump.minimumInletPressure
+                then Pumping;
+
+            transition pumping_to_shutdown
+                first Pumping
+                accept operatorCommand.commandSignal.command == PumpCommandKind::stop
+                then ControlledShutdown;
+
+            transition shutdown_to_off
+                first ControlledShutdown
+                accept pump.status.statusSignal.state == PumpStateKind::stopped
+                then Off;
+
+            transition any_to_emergency_from_priming
+                first Priming
+                accept operatorCommand.commandSignal.command == PumpCommandKind::emergencyStop
+                then EmergencyShutdownState;
+
+            transition any_to_emergency_from_pumping
+                first Pumping
+                accept operatorCommand.commandSignal.command == PumpCommandKind::emergencyStop
+                then EmergencyShutdownState;
+
+            transition emergency_to_lockout
+                first EmergencyShutdownState
+                accept controller.activeFault != FaultKind::none
+                then MaintenanceLockout;
+
+            transition lockout_to_off
+                first MaintenanceLockout
+                accept operatorCommand.commandSignal.command == PumpCommandKind::resetFault
+                then Off;
+        }
+
+        requirement moveFluidRequirement {
+            doc
+            /* The pumping subsystem shall move liquid from the liquid source port to the liquid delivery port using the Kearny air pump as the only active pumping device. */
+            require constraint { liquidDelivery.deliveredFlow > 0.0 and pump.measuredFlow == liquidDelivery.deliveredFlow }
+        }
+
+        requirement ratedFlowRequirement {
+            doc
+            /* The pumping subsystem shall provide rated delivered flow of 0.0015 cubic meters per second within controller tolerance during pumping state. */
+            require constraint { abs(flowMeter.measuredFlow - subsystemRatedFlow) <= controller.flowControlTolerance }
+        }
+
+        requirement airPressureCompatibilityRequirement {
+            doc
+            /* The subsystem shall accept compressed air supply pressure from 275 kPa to 700 kPa. */
+            require constraint { compressedAirSource.supplyPressure >= subsystemMinimumAirSupplyPressure and compressedAirSource.supplyPressure <= subsystemMaximumAirSupplyPressure }
+        }
+
+        requirement dischargeProtectionRequirement {
+            doc
+            /* The subsystem shall protect the delivery line from discharge pressure above 850 kPa by relief valve action and controller shutdown. */
+            require constraint { dischargePressureSensor.measuredPressure <= subsystemMaximumDischargePressure }
+        }
+
+        requirement primeStartupRequirement {
+            doc
+            /* The subsystem shall establish pump prime within 20 seconds when source liquid is available and air supply is within range. */
+            require constraint { startupPrimeTimeLimit <= 20.0 }
+        }
+
+        requirement fluidContainmentRequirement {
+            doc
+            /* The subsystem shall contain pumped liquid within wetted components during all operating states except maintenance drain operations. */
+            require constraint { pump.measuredDischargePressure <= subsystemMaximumDischargePressure }
+        }
+
+        requirement lowInletPressureTripRequirement {
+            doc
+            /* The subsystem shall trip to a faulted condition when inlet pressure is below the Kearny pump minimum inlet pressure during a pumping command. */
+            require constraint { inletPressureSensor.measuredPressure < pump.minimumInletPressure implies controller.activeFault == FaultKind::lossOfPrime }
+        }
+
+        requirement overPressureTripRequirement {
+            doc
+            /* The subsystem shall trip to a faulted condition when discharge pressure exceeds the maximum discharge pressure. */
+            require constraint { dischargePressureSensor.measuredPressure > subsystemMaximumDischargePressure implies controller.activeFault == FaultKind::overPressure }
+        }
+
+        requirement maintenanceIsolationRequirement {
+            doc
+            /* The subsystem shall enter maintenance lockout after emergency shutdown until reset by operator command. */
+            require constraint { controller.activeFault != FaultKind::none implies subsystemStatus.statusSignal.state == PumpStateKind::faulted }
+        }
+    }
+
+    connection def FluidConnection {
+        end source : FluidOutletPort;
+        end destination : FluidInletPort;
+        item transferredFluid : PumpedLiquid;
+    }
+
+    connection def AirConnection {
+        end source : AirSupplyPort;
+        end destination : AirSupplyPort;
+        item transferredAir : Air;
+    }
+
+    connection def ExhaustConnection {
+        end source : ExhaustAirPort;
+        end destination : ExhaustAirPort;
+        item exhaustedAir : Air;
+    }
+
+    connection def ControlConnection {
+        end source : ControlInputPort;
+        end destination : ControlInputPort;
+        item command : ControlSignal;
+    }
+
+    connection def StatusConnection {
+        end source : StatusOutputPort;
+        end destination : StatusOutputPort;
+        item status : StatusSignal;
+    }
+
+    satisfy KearnyAirPumpPumpingSubsystem.moveFluidRequirement by KearnyAirPumpPumpingSubsystem.pump;
+    satisfy KearnyAirPumpPumpingSubsystem.ratedFlowRequirement by KearnyAirPumpPumpingSubsystem.controller;
+    satisfy KearnyAirPumpPumpingSubsystem.airPressureCompatibilityRequirement by KearnyAirPumpPumpingSubsystem.pump.airMotor;
+    satisfy KearnyAirPumpPumpingSubsystem.dischargeProtectionRequirement by KearnyAirPumpPumpingSubsystem.reliefValve;
+    satisfy KearnyAirPumpPumpingSubsystem.lowInletPressureTripRequirement by KearnyAirPumpPumpingSubsystem.controller;
+    satisfy KearnyAirPumpPumpingSubsystem.overPressureTripRequirement by KearnyAirPumpPumpingSubsystem.controller;
+}
+tokens used
+6,930
+package KearnyAirPumpPumpingSubsystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Pressure :> ScalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> ScalarValues::Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Volume :> ScalarValues::Real {
+        unit = "m^3";
+    }
+
+    attribute def Temperature :> ScalarValues::Real {
+        unit = "K";
+    }
+
+    attribute def StrokeRate :> ScalarValues::Real {
+        unit = "1/min";
+    }
+
+    attribute def Force :> ScalarValues::Real {
+        unit = "N";
+    }
+
+    attribute def Efficiency :> ScalarValues::Real {
+        unit = "1";
+    }
+
+    attribute def TimeDuration :> ScalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def FluidDensity :> ScalarValues::Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def FluidViscosity :> ScalarValues::Real {
+        unit = "Pa*s";
+    }
+
+    item def WorkingFluid {
+        attribute density : FluidDensity;
+        attribute dynamicViscosity : FluidViscosity;
+        attribute vaporPressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute relativeHumidity : ScalarValues::Real;
+    }
+
+    item def PumpedLiquid :> WorkingFluid {
+        attribute contaminationLevel : ScalarValues::Real;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommandKind;
+        attribute requestedStrokeRate : StrokeRate;
+    }
+
+    item def StatusSignal {
+        attribute state : PumpStateKind;
+        attribute measuredFlow : FlowRate;
+        attribute dischargePressure : Pressure;
+        attribute inletPressure : Pressure;
+        attribute faultCode : FaultKind;
+    }
+
+    enum def PumpCommandKind {
+        enum idle;
+        enum prime;
+        enum start;
+        enum stop;
+        enum emergencyStop;
+        enum resetFault;
+    }
+
+    enum def PumpStateKind {
+        enum off;
+        enum priming;
+        enum pumping;
+        enum recirculating;
+        enum stopped;
+        enum faulted;
+    }
+
+    enum def FaultKind {
+        enum none;
+        enum lossOfPrime;
+        enum overPressure;
+        enum underPressure;
+        enum excessiveStrokeRate;
+        enum valveLeakage;
+        enum diaphragmRupture;
+        enum blockedInlet;
+        enum blockedDischarge;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : PumpedLiquid;
+        attribute staticPressure : Pressure;
+        attribute availableFlow : FlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : PumpedLiquid;
+        attribute staticPressure : Pressure;
+        attribute deliveredFlow : FlowRate;
+    }
+
+    port def AirSupplyPort {
+        in item compressedAir : Air;
+        attribute supplyPressure : Pressure;
+        attribute supplyFlow : FlowRate;
+    }
+
+    port def ExhaustAirPort {
+        out item exhaustAir : Air;
+        attribute exhaustPressure : Pressure;
+    }
+
+    port def ControlInputPort {
+        in item commandSignal : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item statusSignal : StatusSignal;
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 2500.0;
+        attribute leakageRateLimit : FlowRate = 0.000001;
+        attribute reversePressureLimit : Pressure = 1200000.0;
+        attribute open : ScalarValues::Boolean;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action def OpenValve {
+            in pressureDifferential : Pressure;
+            out valveOpen : ScalarValues::Boolean;
+        }
+
+        action def CloseValve {
+            out valveOpen : ScalarValues::Boolean;
+        }
+
+        requirement noReverseFlow {
+            doc
+            /* The check valve shall prevent reverse liquid flow greater than the leakage rate limit when outlet pressure exceeds inlet pressure. */
+            require constraint { inlet.staticPressure < outlet.staticPressure implies outlet.deliveredFlow <= leakageRateLimit }
+        }
+    }
+
+    part def DiaphragmChamber {
+        attribute displacedVolumePerStroke : Volume = 0.00085;
+        attribute maxChamberPressure : Pressure = 950000.0;
+        attribute minChamberPressure : Pressure = 75000.0;
+        attribute chamberPressure : Pressure;
+        attribute containedVolume : Volume;
+
+        port suctionPort : FluidInletPort;
+        port dischargePort : FluidOutletPort;
+
+        action def ExpandChamber {
+            in strokeDisplacement : Volume;
+            out suctionFlow : FlowRate;
+        }
+
+        action def CompressChamber {
+            in strokeDisplacement : Volume;
+            out dischargeFlow : FlowRate;
+        }
+
+        state def ChamberCycle {
+            state contracted;
+            state expanding;
+            state expanded;
+            state compressing;
+
+            transition first contracted;
+            transition contracted_to_expanding
+                first contracted then expanding;
+
+            transition expanding_to_expanded
+                first expanding then expanded;
+
+            transition expanded_to_compressing
+                first expanded then compressing;
+
+            transition compressing_to_contracted
+                first compressing then contracted;
+        }
+    }
+
+    part def AirMotor {
+        attribute supplyPressureMinimum : Pressure = 275000.0;
+        attribute supplyPressureNominal : Pressure = 550000.0;
+        attribute supplyPressureMaximum : Pressure = 700000.0;
+        attribute exhaustBackPressureMaximum : Pressure = 120000.0;
+        attribute strokeRateCommand : StrokeRate;
+        attribute actualStrokeRate : StrokeRate;
+        attribute airConsumptionAtNominal : FlowRate = 0.0035;
+        attribute mechanicalEfficiency : Efficiency = 0.68;
+
+        port airIn : AirSupplyPort;
+        port airOut : ExhaustAirPort;
+
+        action def AdmitAir {
+            in airPressure : Pressure;
+            out driveForce : Force;
+        }
+
+        action def ExhaustAir {
+            out exhaustFlow : FlowRate;
+        }
+
+        requirement airSupplyRange {
+            doc
+            /* The air motor shall operate continuously when supplied with air pressure from 275 kPa to 700 kPa. */
+            require constraint { airIn.supplyPressure >= supplyPressureMinimum and airIn.supplyPressure <= supplyPressureMaximum }
+        }
+
+        requirement exhaustPressureLimit {
+            doc
+            /* Exhaust back pressure shall remain below the allowable limit. */
+            require constraint { airOut.exhaustPressure <= exhaustBackPressureMaximum }
+        }
+    }
+
+    part def KearnyAirPump {
+        attribute ratedFlowAtNominalStroke : FlowRate = 0.0017;
+        attribute minimumFlow : FlowRate = 0.00015;
+        attribute maximumFlow : FlowRate = 0.0022;
+        attribute maximumDischargePressure : Pressure = 850000.0;
+        attribute minimumInletPressure : Pressure = 65000.0;
+        attribute maximumStrokeRate : StrokeRate = 120.0;
+        attribute nominalStrokeRate : StrokeRate = 90.0;
+        attribute volumetricEfficiency : Efficiency = 0.82;
+        attribute selfPrimingLiftPressureEquivalent : Pressure = 45000.0;
+        attribute dryRunLimit : TimeDuration = 30.0;
+        attribute measuredFlow : FlowRate;
+        attribute measuredDischargePressure : Pressure;
+        attribute measuredInletPressure : Pressure;
+
+        port suction : FluidInletPort;
+        port discharge : FluidOutletPort;
+        port airSupply : AirSupplyPort;
+        port airExhaust : ExhaustAirPort;
+        port control : ControlInputPort;
+        port status : StatusOutputPort;
+
+        part airMotor : AirMotor;
+        part diaphragmChamber : DiaphragmChamber;
+        part suctionCheckValve : CheckValve;
+        part dischargeCheckValve : CheckValve;
+
+        connect airSupply to airMotor.airIn;
+        connect airMotor.airOut to airExhaust;
+        connect suction to suctionCheckValve.inlet;
+        connect suctionCheckValve.outlet to diaphragmChamber.suctionPort;
+        connect diaphragmChamber.dischargePort to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to discharge;
+
+        action def Prime {
+            in availableInletPressure : Pressure;
+            out primeEstablished : ScalarValues::Boolean;
+        }
+
+        action def PumpStroke {
+            in commandedStrokeRate : StrokeRate;
+            out deliveredFlow : FlowRate;
+            out dischargePressure : Pressure;
+        }
+
+        action def DetectFault {
+            in inletPressure : Pressure;
+            in dischargePressure : Pressure;
+            in strokeRate : StrokeRate;
+            in deliveredFlow : FlowRate;
+            out detectedFault : FaultKind;
+        }
+
+        state def KearnyPumpOperatingState {
+            state Off;
+            state Priming;
+            state Pumping;
+            state Recirculating;
+            state Stopped;
+            state Faulted;
+
+            transition initial_to_off
+                first Off;
+
+            transition off_to_priming
+                first Off
+                accept control.commandSignal.command == PumpCommandKind::prime
+                then Priming;
+
+            transition priming_to_pumping
+                first Priming
+                accept measuredInletPressure >= minimumInletPressure
+                then Pumping;
+
+            transition priming_to_faulted
+                first Priming
+                accept measuredInletPressure < minimumInletPressure
+                then Faulted;
+
+            transition pumping_to_recirculating
+                first Pumping
+                accept measuredFlow > maximumFlow
+                then Recirculating;
+
+            transition recirculating_to_pumping
+                first Recirculating
+                accept measuredFlow <= ratedFlowAtNominalStroke
+                then Pumping;
+
+            transition pumping_to_stopped
+                first Pumping
+                accept control.commandSignal.command == PumpCommandKind::stop
+                then Stopped;
+
+            transition stopped_to_off
+                first Stopped
+                accept control.commandSignal.command == PumpCommandKind::idle
+                then Off;
+
+            transition pumping_to_faulted_overpressure
+                first Pumping
+                accept measuredDischargePressure > maximumDischargePressure
+                then Faulted;
+
+            transition pumping_to_faulted_strokerate
+                first Pumping
+                accept airMotor.actualStrokeRate > maximumStrokeRate
+                then Faulted;
+
+            transition faulted_to_off
+                first Faulted
+                accept control.commandSignal.command == PumpCommandKind::resetFault
+                then Off;
+
+            transition emergency_stop_from_priming
+                first Priming
+                accept control.commandSignal.command == PumpCommandKind::emergencyStop
+                then Faulted;
+
+            transition emergency_stop_from_pumping
+                first Pumping
+                accept control.commandSignal.command == PumpCommandKind::emergencyStop
+                then Faulted;
+
+            transition emergency_stop_from_recirculating
+                first Recirculating
+                accept control.commandSignal.command == PumpCommandKind::emergencyStop
+                then Faulted;
+        }
+
+        requirement flowCapacity {
+            doc
+            /* The Kearny air pump shall deliver liquid flow between the minimum and maximum specified flow rates during normal pumping operation. */
+            require constraint { measuredFlow >= minimumFlow and measuredFlow <= maximumFlow }
+        }
+
+        requirement dischargePressureLimit {
+            doc
+            /* The Kearny air pump shall not exceed the maximum allowable discharge pressure. */
+            require constraint { measuredDischargePressure <= maximumDischargePressure }
+        }
+
+        requirement inletPressureLimit {
+            doc
+            /* The Kearny air pump shall detect loss of prime when inlet pressure falls below the minimum allowable inlet pressure. */
+            require constraint { measuredInletPressure >= minimumInletPressure }
+        }
+
+        requirement strokeRateLimit {
+            doc
+            /* The Kearny air pump shall limit stroke rate to prevent mechanical damage. */
+            require constraint { airMotor.actualStrokeRate <= maximumStrokeRate }
+        }
+
+        requirement dryRunProtection {
+            doc
+            /* The Kearny air pump shall transition to faulted state if commanded to pump without prime longer than the dry-run limit. */
+            require constraint { dryRunLimit <= 30.0 }
+        }
+    }
+
+    part def InletStrainer {
+        attribute meshOpening : ScalarValues::Real = 0.0015;
+        attribute cleanPressureDrop : Pressure = 3000.0;
+        attribute cloggedPressureDropLimit : Pressure = 25000.0;
+        attribute measuredPressureDrop : Pressure;
+
+        port rawFluidIn : FluidInletPort;
+        port filteredFluidOut : FluidOutletPort;
+
+        requirement strainerPressureDrop {
+            doc
+            /* The inlet strainer shall maintain pressure drop below the clogged limit during commanded pumping operation. */
+            require constraint { measuredPressureDrop <= cloggedPressureDropLimit }
+        }
+    }
+
+    part def PulsationDampener {
+        attribute gasPrechargePressure : Pressure = 320000.0;
+        attribute workingVolume : Volume = 0.004;
+        attribute maximumWorkingPressure : Pressure = 900000.0;
+        attribute residualFlowRipple : FlowRate;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        action def AbsorbPulse {
+            in incomingFlow : FlowRate;
+            out smoothedFlow : FlowRate;
+        }
+
+        requirement rippleReduction {
+            doc
+            /* The pulsation dampener shall reduce outlet flow ripple to less than ten percent of rated pump flow. */
+            require constraint { residualFlowRipple <= 0.00017 }
+        }
+    }
+
+    part def PressureReliefValve {
+        attribute setPressure : Pressure = 820000.0;
+        attribute reseatPressure : Pressure = 760000.0;
+        attribute reliefCapacity : FlowRate = 0.0025;
+        attribute open : ScalarValues::Boolean;
+
+        port protectedLine : FluidInletPort;
+        port returnLine : FluidOutletPort;
+
+        action def RelievePressure {
+            in linePressure : Pressure;
+            out bypassFlow : FlowRate;
+        }
+
+        requirement reliefBeforeOverPressure {
+            doc
+            /* The relief valve shall open before pump discharge pressure exceeds the pump maximum discharge pressure. */
+            require constraint { setPressure < 850000.0 }
+        }
+    }
+
+    part def FlowMeter {
+        attribute measuredFlow : FlowRate;
+        attribute accuracyPercentOfReading : ScalarValues::Real = 2.0;
+        attribute minimumMeasurableFlow : FlowRate = 0.00005;
+        attribute maximumMeasurableFlow : FlowRate = 0.003;
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        attribute lowerRange : Pressure = 0.0;
+        attribute upperRange : Pressure = 1000000.0;
+        attribute accuracyPercentFullScale : ScalarValues::Real = 1.0;
+
+        port processPort : FluidInletPort;
+        port status : StatusOutputPort;
+    }
+
+    part def PumpController {
+        attribute targetFlow : FlowRate = 0.0015;
+        attribute commandedStrokeRate : StrokeRate;
+        attribute lowInletPressureTrip : Pressure = 65000.0;
+        attribute highDischargePressureTrip : Pressure = 850000.0;
+        attribute flowControlTolerance : FlowRate = 0.00012;
+        attribute currentState : PumpStateKind;
+        attribute activeFault : FaultKind;
+
+        port commandIn : ControlInputPort;
+        port pumpCommandOut : ControlInputPort;
+        port pumpStatusIn : StatusOutputPort;
+        port subsystemStatusOut : StatusOutputPort;
+
+        action def CalculateStrokeRate {
+            in requestedFlow : FlowRate;
+            in measuredFlow : FlowRate;
+            out strokeRateCommand : StrokeRate;
+        }
+
+        action def TripOnFault {
+            in inletPressure : Pressure;
+            in dischargePressure : Pressure;
+            in pumpFlow : FlowRate;
+            out fault : FaultKind;
+        }
+
+        state def ControllerState {
+            state Disabled;
+            state Ready;
+            state Starting;
+            state Regulating;
+            state Shutdown;
+            state FaultLatched;
+
+            transition initial_to_disabled
+                first Disabled;
+
+            transition disabled_to_ready
+                first Disabled
+                accept commandIn.commandSignal.command == PumpCommandKind::idle
+                then Ready;
+
+            transition ready_to_starting
+                first Ready
+                accept commandIn.commandSignal.command == PumpCommandKind::start
+                then Starting;
+
+            transition starting_to_regulating
+                first Starting
+                accept pumpStatusIn.statusSignal.state == PumpStateKind::pumping
+                then Regulating;
+
+            transition regulating_to_shutdown
+                first Regulating
+                accept commandIn.commandSignal.command == PumpCommandKind::stop
+                then Shutdown;
+
+            transition shutdown_to_ready
+                first Shutdown
+                accept pumpStatusIn.statusSignal.state == PumpStateKind::stopped
+                then Ready;
+
+            transition regulating_to_fault
+                first Regulating
+                accept pumpStatusIn.statusSignal.faultCode != FaultKind::none
+                then FaultLatched;
+
+            transition fault_to_ready
+                first FaultLatched
+                accept commandIn.commandSignal.command == PumpCommandKind::resetFault
+                then Ready;
+        }
+
+        requirement closedLoopFlowControl {
+            doc
+            /* The controller shall regulate pump stroke rate to keep measured flow within tolerance of target flow during normal pumping. */
+            require constraint { abs(targetFlow - pumpStatusIn.statusSignal.measuredFlow) <= flowControlTolerance }
+        }
+
+        requirement faultLatching {
+            doc
+            /* The controller shall latch pump faults until an explicit reset command is received. */
+            require constraint { activeFault != FaultKind::none implies currentState == PumpStateKind::faulted }
+        }
+    }
+
+    part def KearnyAirPumpPumpingSubsystem {
+        attribute subsystemRatedFlow : FlowRate = 0.0015;
+        attribute subsystemMaximumDischargePressure : Pressure = 850000.0;
+        attribute subsystemMinimumAirSupplyPressure : Pressure = 275000.0;
+        attribute subsystemMaximumAirSupplyPressure : Pressure = 700000.0;
+        attribute startupPrimeTimeLimit : TimeDuration = 20.0;
+        attribute shutdownDrainTimeLimit : TimeDuration = 45.0;
+        attribute nominalLiquidTemperature : Temperature = 293.15;
+        attribute overallEfficiency : Efficiency = 0.55;
+
+        port liquidSource : FluidInletPort;
+        port liquidDelivery : FluidOutletPort;
+        port compressedAirSource : AirSupplyPort;
+        port exhaustVent : ExhaustAirPort;
+        port operatorCommand : ControlInputPort;
+        port subsystemStatus : StatusOutputPort;
+
+        part strainer : InletStrainer;
+        part pump : KearnyAirPump;
+        part dampener : PulsationDampener;
+        part reliefValve : PressureReliefValve;
+        part flowMeter : FlowMeter;
+        part inletPressureSensor : PressureSensor;
+        part dischargePressureSensor : PressureSensor;
+        part controller : PumpController;
+
+        connect liquidSource to strainer.rawFluidIn;
+        connect strainer.filteredFluidOut to pump.suction;
+        connect pump.discharge to dampener.inlet;
+        connect dampener.outlet to flowMeter.inlet;
+        connect flowMeter.outlet to liquidDelivery;
+        connect dampener.outlet to reliefValve.protectedLine;
+        connect reliefValve.returnLine to strainer.rawFluidIn;
+
+        connect compressedAirSource to pump.airSupply;
+        connect pump.airExhaust to exhaustVent;
+
+        connect operatorCommand to controller.commandIn;
+        connect controller.pumpCommandOut to pump.control;
+        connect pump.status to controller.pumpStatusIn;
+        connect controller.subsystemStatusOut to subsystemStatus;
+
+        connect strainer.filteredFluidOut to inletPressureSensor.processPort;
+        connect dampener.outlet to dischargePressureSensor.processPort;
+
+        action def StartSubsystem {
+            in operatorStart : ControlSignal;
+            out readyToPump : ScalarValues::Boolean;
+        }
+
+        action def PumpFluid {
+            in sourceFluid : PumpedLiquid;
+            in compressedAir : Air;
+            out deliveredFluid : PumpedLiquid;
+            out operatingStatus : StatusSignal;
+        }
+
+        action def StopSubsystem {
+            in operatorStop : ControlSignal;
+            out stopped : ScalarValues::Boolean;
+        }
+
+        action def EmergencyShutdown {
+            in tripReason : FaultKind;
+            out isolated : ScalarValues::Boolean;
+        }
+
+        state def SubsystemOperatingState {
+            state Off;
+            state AirAvailable;
+            state Priming;
+            state Pumping;
+            state ControlledShutdown;
+            state EmergencyShutdownState;
+            state MaintenanceLockout;
+
+            transition initial_to_off
+                first Off;
+
+            transition off_to_air_available
+                first Off
+                accept compressedAirSource.supplyPressure >= subsystemMinimumAirSupplyPressure
+                then AirAvailable;
+
+            transition air_available_to_priming
+                first AirAvailable
+                accept operatorCommand.commandSignal.command == PumpCommandKind::start
+                then Priming;
+
+            transition priming_to_pumping
+                first Priming
+                accept pump.measuredInletPressure >= pump.minimumInletPressure
+                then Pumping;
+
+            transition pumping_to_shutdown
+                first Pumping
+                accept operatorCommand.commandSignal.command == PumpCommandKind::stop
+                then ControlledShutdown;
+
+            transition shutdown_to_off
+                first ControlledShutdown
+                accept pump.status.statusSignal.state == PumpStateKind::stopped
+                then Off;
+
+            transition any_to_emergency_from_priming
+                first Priming
+                accept operatorCommand.commandSignal.command == PumpCommandKind::emergencyStop
+                then EmergencyShutdownState;
+
+            transition any_to_emergency_from_pumping
+                first Pumping
+                accept operatorCommand.commandSignal.command == PumpCommandKind::emergencyStop
+                then EmergencyShutdownState;
+
+            transition emergency_to_lockout
+                first EmergencyShutdownState
+                accept controller.activeFault != FaultKind::none
+                then MaintenanceLockout;
+
+            transition lockout_to_off
+                first MaintenanceLockout
+                accept operatorCommand.commandSignal.command == PumpCommandKind::resetFault
+                then Off;
+        }
+
+        requirement moveFluidRequirement {
+            doc
+            /* The pumping subsystem shall move liquid from the liquid source port to the liquid delivery port using the Kearny air pump as the only active pumping device. */
+            require constraint { liquidDelivery.deliveredFlow > 0.0 and pump.measuredFlow == liquidDelivery.deliveredFlow }
+        }
+
+        requirement ratedFlowRequirement {
+            doc
+            /* The pumping subsystem shall provide rated delivered flow of 0.0015 cubic meters per second within controller tolerance during pumping state. */
+            require constraint { abs(flowMeter.measuredFlow - subsystemRatedFlow) <= controller.flowControlTolerance }
+        }
+
+        requirement airPressureCompatibilityRequirement {
+            doc
+            /* The subsystem shall accept compressed air supply pressure from 275 kPa to 700 kPa. */
+            require constraint { compressedAirSource.supplyPressure >= subsystemMinimumAirSupplyPressure and compressedAirSource.supplyPressure <= subsystemMaximumAirSupplyPressure }
+        }
+
+        requirement dischargeProtectionRequirement {
+            doc
+            /* The subsystem shall protect the delivery line from discharge pressure above 850 kPa by relief valve action and controller shutdown. */
+            require constraint { dischargePressureSensor.measuredPressure <= subsystemMaximumDischargePressure }
+        }
+
+        requirement primeStartupRequirement {
+            doc
+            /* The subsystem shall establish pump prime within 20 seconds when source liquid is available and air supply is within range. */
+            require constraint { startupPrimeTimeLimit <= 20.0 }
+        }
+
+        requirement fluidContainmentRequirement {
+            doc
+            /* The subsystem shall contain pumped liquid within wetted components during all operating states except maintenance drain operations. */
+            require constraint { pump.measuredDischargePressure <= subsystemMaximumDischargePressure }
+        }
+
+        requirement lowInletPressureTripRequirement {
+            doc
+            /* The subsystem shall trip to a faulted condition when inlet pressure is below the Kearny pump minimum inlet pressure during a pumping command. */
+            require constraint { inletPressureSensor.measuredPressure < pump.minimumInletPressure implies controller.activeFault == FaultKind::lossOfPrime }
+        }
+
+        requirement overPressureTripRequirement {
+            doc
+            /* The subsystem shall trip to a faulted condition when discharge pressure exceeds the maximum discharge pressure. */
+            require constraint { dischargePressureSensor.measuredPressure > subsystemMaximumDischargePressure implies controller.activeFault == FaultKind::overPressure }
+        }
+
+        requirement maintenanceIsolationRequirement {
+            doc
+            /* The subsystem shall enter maintenance lockout after emergency shutdown until reset by operator command. */
+            require constraint { controller.activeFault != FaultKind::none implies subsystemStatus.statusSignal.state == PumpStateKind::faulted }
+        }
+    }
+
+    connection def FluidConnection {
+        end source : FluidOutletPort;
+        end destination : FluidInletPort;
+        item transferredFluid : PumpedLiquid;
+    }
+
+    connection def AirConnection {
+        end source : AirSupplyPort;
+        end destination : AirSupplyPort;
+        item transferredAir : Air;
+    }
+
+    connection def ExhaustConnection {
+        end source : ExhaustAirPort;
+        end destination : ExhaustAirPort;
+        item exhaustedAir : Air;
+    }
+
+    connection def ControlConnection {
+        end source : ControlInputPort;
+        end destination : ControlInputPort;
+        item command : ControlSignal;
+    }
+
+    connection def StatusConnection {
+        end source : StatusOutputPort;
+        end destination : StatusOutputPort;
+        item status : StatusSignal;
+    }
+
+    satisfy KearnyAirPumpPumpingSubsystem.moveFluidRequirement by KearnyAirPumpPumpingSubsystem.pump;
+    satisfy KearnyAirPumpPumpingSubsystem.ratedFlowRequirement by KearnyAirPumpPumpingSubsystem.controller;
+    satisfy KearnyAirPumpPumpingSubsystem.airPressureCompatibilityRequirement by KearnyAirPumpPumpingSubsystem.pump.airMotor;
+    satisfy KearnyAirPumpPumpingSubsystem.dischargeProtectionRequirement by KearnyAirPumpPumpingSubsystem.reliefValve;
+    satisfy KearnyAirPumpPumpingSubsystem.lowInletPressureTripRequirement by KearnyAirPumpPumpingSubsystem.controller;
+    satisfy KearnyAirPumpPumpingSubsystem.overPressureTripRequirement by KearnyAirPumpPumpingSubsystem.controller;
+}

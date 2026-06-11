@@ -1,0 +1,857 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-uuzm2h3u
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb439-97c0-7743-9c53-a276518aa440
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Tongue depressor and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TongueDepressorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Length :> ISQ::length;
+    attribute def Width :> ISQ::length;
+    attribute def Thickness :> ISQ::length;
+    attribute def Mass :> ISQ::mass;
+    attribute def Force :> ISQ::force;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Time :> ISQ::time;
+    attribute def Count :> ScalarValues::Integer;
+    attribute def BooleanFlag :> ScalarValues::Boolean;
+
+    enum def DepressorMaterial {
+        enum wood;
+        enum medicalGradePlastic;
+        enum biodegradableComposite;
+    }
+
+    enum def SterilityState {
+        enum sterilePackaged;
+        enum openedClean;
+        enum contactedPatient;
+        enum discarded;
+    }
+
+    enum def UseState {
+        enum stored;
+        enum inspected;
+        enum positioned;
+        enum depressingTongue;
+        enum examinationComplete;
+        enum disposed;
+    }
+
+    item def HandContact;
+    item def OralCavityContact;
+    item def TongueContact;
+    item def VisualAccess;
+    item def UsedMedicalWaste;
+    item def SterilePackage;
+    item def AppliedDepressionLoad {
+        attribute loadMagnitude : Force;
+        attribute contactPressure : Pressure;
+        attribute applicationDuration : Time;
+    }
+
+    item def PatientTongue {
+        attribute estimatedContactArea : ISQ::area;
+        attribute toleratedPressure : Pressure;
+    }
+
+    item def ClinicianHand {
+        attribute gripForce : Force;
+    }
+
+    port def GripPort {
+        in handContact : HandContact;
+        in gripCommand : AppliedDepressionLoad;
+    }
+
+    port def PatientContactPort {
+        out tongueContact : TongueContact;
+        out oralContact : OralCavityContact;
+        out appliedLoad : AppliedDepressionLoad;
+    }
+
+    port def SterileBarrierPort {
+        in package : SterilePackage;
+        out contaminationBlocked : BooleanFlag;
+    }
+
+    port def WastePort {
+        out wasteItem : UsedMedicalWaste;
+    }
+
+    part def TongueDepressor {
+        attribute material : DepressorMaterial = DepressorMaterial::wood;
+        attribute sterility : SterilityState = SterilityState::sterilePackaged;
+        attribute length : Length = 150 [mm];
+        attribute width : Width = 18 [mm];
+        attribute thickness : Thickness = 1.6 [mm];
+        attribute mass : Mass = 2.5 [g];
+        attribute minimumBendingLoad : Force = 12 [N];
+        attribute maximumRecommendedTongueForce : Force = 5 [N];
+        attribute maximumRecommendedContactPressure : Pressure = 35 [kPa];
+        attribute surfaceTemperatureLimit : Temperature = 315 [K];
+        attribute singleUse : BooleanFlag = true;
+
+        port gripPort : GripPort;
+        port contactPort : PatientContactPort;
+        port packagePort : SterileBarrierPort;
+        port wastePort : WastePort;
+
+        part handleSection {
+            attribute length : Length = 55 [mm];
+            attribute width : Width = 18 [mm];
+            attribute gripTextureDepth : Length = 0.1 [mm];
+        }
+
+        part shaftSection {
+            attribute length : Length = 40 [mm];
+            attribute width : Width = 18 [mm];
+            attribute elasticCompliance : ScalarValues::Real = 0.08;
+        }
+
+        part oralEnd {
+            attribute roundedTipRadius : Length = 9 [mm];
+            attribute edgeRadius : Length = 0.8 [mm];
+            attribute surfaceRoughness : Length = 12 [um];
+        }
+
+        part sterileWrapper {
+            attribute sealIntegrity : BooleanFlag = true;
+            attribute wrapperLength : Length = 165 [mm];
+            attribute wrapperWidth : Width = 32 [mm];
+        }
+
+        action inspectDepressor {
+            in packageSealIntact : BooleanFlag;
+            in visibleDamage : BooleanFlag;
+            out acceptableForUse : BooleanFlag;
+
+            first start;
+            then checkSeal;
+            then checkBody;
+            then decision acceptable;
+
+            action checkSeal {
+                in packageSealIntact;
+            }
+
+            action checkBody {
+                in visibleDamage;
+            }
+
+            action acceptable {
+                out acceptableForUse;
+            }
+        }
+
+        action removeFromWrapper {
+            in wrapper : SterilePackage;
+            out cleanDepressorReady : BooleanFlag;
+        }
+
+        action applyToTongue {
+            in clinicianHand : ClinicianHand;
+            in patientTongue : PatientTongue;
+            out appliedLoad : AppliedDepressionLoad;
+            out visualAccessCreated : VisualAccess;
+
+            constraint loadWithinLimit {
+                appliedLoad.loadMagnitude <= maximumRecommendedTongueForce
+            }
+
+            constraint pressureWithinLimit {
+                appliedLoad.contactPressure <= maximumRecommendedContactPressure
+            }
+        }
+
+        action disposeAfterUse {
+            in contactedOralCavity : BooleanFlag;
+            out waste : UsedMedicalWaste;
+        }
+
+        state useLifecycle {
+            state stored;
+            state inspected;
+            state opened;
+            state positioned;
+            state depressingTongue;
+            state examinationComplete;
+            state discarded;
+
+            entry;
+            then stored;
+
+            transition stored_to_inspected
+                first stored
+                accept inspectRequest
+                then inspected;
+
+            transition inspected_to_opened
+                first inspected
+                accept packageOpened
+                if sterileWrapper.sealIntegrity == true
+                then opened;
+
+            transition opened_to_positioned
+                first opened
+                accept placedInOralCavity
+                then positioned;
+
+            transition positioned_to_depressing
+                first positioned
+                accept clinicianAppliesForce
+                then depressingTongue;
+
+            transition depressing_to_complete
+                first depressingTongue
+                accept examinationViewAchieved
+                then examinationComplete;
+
+            transition complete_to_discarded
+                first examinationComplete
+                accept placedInWaste
+                then discarded;
+        }
+    }
+
+    part def Clinician {
+        attribute trainedForOralExam : BooleanFlag = true;
+        attribute maximumControlledGripForce : Force = 20 [N];
+
+        port handPort {
+            out handContact : HandContact;
+            out gripCommand : AppliedDepressionLoad;
+        }
+
+        action performTongueDepression {
+            in depressor : TongueDepressor;
+            in patient : Patient;
+            out view : VisualAccess;
+        }
+    }
+
+    part def Patient {
+        attribute mouthOpeningWidth : Width = 35 [mm];
+        attribute gagReflexSensitivity : ScalarValues::Real = 0.4;
+
+        port oralPort {
+            in tongueContact : TongueContact;
+            in oralContact : OralCavityContact;
+            in appliedLoad : AppliedDepressionLoad;
+        }
+
+        part tongue : PatientTongue {
+            attribute estimatedContactArea = 320 [mm^2];
+            attribute toleratedPressure = 35 [kPa];
+        }
+
+        part throatView {
+            attribute unobstructed : BooleanFlag = false;
+            attribute illuminationRequired : BooleanFlag = true;
+        }
+    }
+
+    part def ExaminationEnvironment {
+        attribute ambientTemperature : Temperature = 295 [K];
+        attribute cleanWorkSurfaceAvailable : BooleanFlag = true;
+        attribute medicalWasteContainerAvailable : BooleanFlag = true;
+
+        part wasteContainer {
+            attribute capacityRemaining : Count = 120;
+            port inputWaste {
+                in wasteItem : UsedMedicalWaste;
+            }
+        }
+    }
+
+    part def TongueDepressorUseSystem {
+        attribute primaryFunction : ScalarValues::String =
+            "Provide a simple, clean, hand-held surface that gently presses the patient's tongue downward to improve visual access to the mouth and throat during examination.";
+
+        part clinician : Clinician;
+        part patient : Patient;
+        part environment : ExaminationEnvironment;
+        part depressor : TongueDepressor;
+
+        connect clinician.handPort.handContact to depressor.gripPort.handContact;
+        connect clinician.handPort.gripCommand to depressor.gripPort.gripCommand;
+
+        connect depressor.contactPort.tongueContact to patient.oralPort.tongueContact;
+        connect depressor.contactPort.oralContact to patient.oralPort.oralContact;
+        connect depressor.contactPort.appliedLoad to patient.oralPort.appliedLoad;
+
+        connect depressor.wastePort.wasteItem to environment.wasteContainer.inputWaste.wasteItem;
+
+        action conductOralExamination {
+            in examRequest : BooleanFlag;
+            out viewEstablished : VisualAccess;
+            out usedDepressorWaste : UsedMedicalWaste;
+
+            first receiveRequest;
+            then inspectTool;
+            then openPackage;
+            then positionTool;
+            then depressTongue;
+            then observeMouthAndThroat;
+            then removeTool;
+            then discardTool;
+
+            action receiveRequest {
+                in examRequest;
+            }
+
+            action inspectTool {
+                in sealIntact : BooleanFlag = depressor.sterileWrapper.sealIntegrity;
+                out toolAccepted : BooleanFlag;
+            }
+
+            action openPackage {
+                in toolAccepted;
+                out toolReady : BooleanFlag;
+            }
+
+            action positionTool {
+                in toolReady;
+                out tipPlacedOnAnteriorTongue : BooleanFlag;
+            }
+
+            action depressTongue {
+                in tipPlacedOnAnteriorTongue;
+                out appliedLoad : AppliedDepressionLoad {
+                    attribute loadMagnitude = 3 [N];
+                    attribute contactPressure = 18 [kPa];
+                    attribute applicationDuration = 8 [s];
+                }
+                out viewEstablished;
+            }
+
+            action observeMouthAndThroat {
+                in viewEstablished;
+            }
+
+            action removeTool {
+                out oralContactEnded : BooleanFlag;
+            }
+
+            action discardTool {
+                in oralContactEnded;
+                out usedDepressorWaste;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall enable a clinician to depress a patient's tongue to improve visual access to the oral cavity and throat during a clinical examination. */
+
+        subject system : TongueDepressorUseSystem;
+
+        require constraint {
+            system.depressor.maximumRecommendedTongueForce >= 3 [N]
+        }
+    }
+
+    requirement def SingleUseSterilityRequirement {
+        doc
+        /* The tongue depressor shall remain sterile while packaged and shall be discarded after contact with the patient's oral cavity. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.singleUse == true
+        }
+    }
+
+    requirement def GeometryRequirement {
+        doc
+        /* The tongue depressor shall have sufficient length, width, and rounded edges to allow hand control while reducing oral tissue irritation. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.length >= 140 [mm] and
+            depressor.length <= 160 [mm] and
+            depressor.width >= 15 [mm] and
+            depressor.width <= 22 [mm] and
+            depressor.oralEnd.edgeRadius >= 0.5 [mm]
+        }
+    }
+
+    requirement def LoadSafetyRequirement {
+        doc
+        /* The tongue depressor shall tolerate normal clinical tongue-depression loads without breaking and shall limit recommended patient-contact force. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.minimumBendingLoad >= 2 * depressor.maximumRecommendedTongueForce
+        }
+    }
+
+    requirement def SurfaceRequirement {
+        doc
+        /* The oral contact surface shall be smooth enough to avoid scraping oral tissue during normal use. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.oralEnd.surfaceRoughness <= 20 [um]
+        }
+    }
+
+    requirement def WasteHandlingRequirement {
+        doc
+        /* After use, the tongue depressor shall be treated as used medical waste and transferred to an appropriate waste container. */
+
+        subject system : TongueDepressorUseSystem;
+
+        require constraint {
+            system.environment.medicalWasteContainerAvailable == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TongueDepressorUseSystem::conductOralExamination;
+    satisfy SingleUseSterilityRequirement by TongueDepressor;
+    satisfy GeometryRequirement by TongueDepressor;
+    satisfy LoadSafetyRequirement by TongueDepressor;
+    satisfy SurfaceRequirement by TongueDepressor;
+    satisfy WasteHandlingRequirement by TongueDepressorUseSystem::environment::wasteContainer;
+
+}
+tokens used
+4,064
+package TongueDepressorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Length :> ISQ::length;
+    attribute def Width :> ISQ::length;
+    attribute def Thickness :> ISQ::length;
+    attribute def Mass :> ISQ::mass;
+    attribute def Force :> ISQ::force;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Time :> ISQ::time;
+    attribute def Count :> ScalarValues::Integer;
+    attribute def BooleanFlag :> ScalarValues::Boolean;
+
+    enum def DepressorMaterial {
+        enum wood;
+        enum medicalGradePlastic;
+        enum biodegradableComposite;
+    }
+
+    enum def SterilityState {
+        enum sterilePackaged;
+        enum openedClean;
+        enum contactedPatient;
+        enum discarded;
+    }
+
+    enum def UseState {
+        enum stored;
+        enum inspected;
+        enum positioned;
+        enum depressingTongue;
+        enum examinationComplete;
+        enum disposed;
+    }
+
+    item def HandContact;
+    item def OralCavityContact;
+    item def TongueContact;
+    item def VisualAccess;
+    item def UsedMedicalWaste;
+    item def SterilePackage;
+    item def AppliedDepressionLoad {
+        attribute loadMagnitude : Force;
+        attribute contactPressure : Pressure;
+        attribute applicationDuration : Time;
+    }
+
+    item def PatientTongue {
+        attribute estimatedContactArea : ISQ::area;
+        attribute toleratedPressure : Pressure;
+    }
+
+    item def ClinicianHand {
+        attribute gripForce : Force;
+    }
+
+    port def GripPort {
+        in handContact : HandContact;
+        in gripCommand : AppliedDepressionLoad;
+    }
+
+    port def PatientContactPort {
+        out tongueContact : TongueContact;
+        out oralContact : OralCavityContact;
+        out appliedLoad : AppliedDepressionLoad;
+    }
+
+    port def SterileBarrierPort {
+        in package : SterilePackage;
+        out contaminationBlocked : BooleanFlag;
+    }
+
+    port def WastePort {
+        out wasteItem : UsedMedicalWaste;
+    }
+
+    part def TongueDepressor {
+        attribute material : DepressorMaterial = DepressorMaterial::wood;
+        attribute sterility : SterilityState = SterilityState::sterilePackaged;
+        attribute length : Length = 150 [mm];
+        attribute width : Width = 18 [mm];
+        attribute thickness : Thickness = 1.6 [mm];
+        attribute mass : Mass = 2.5 [g];
+        attribute minimumBendingLoad : Force = 12 [N];
+        attribute maximumRecommendedTongueForce : Force = 5 [N];
+        attribute maximumRecommendedContactPressure : Pressure = 35 [kPa];
+        attribute surfaceTemperatureLimit : Temperature = 315 [K];
+        attribute singleUse : BooleanFlag = true;
+
+        port gripPort : GripPort;
+        port contactPort : PatientContactPort;
+        port packagePort : SterileBarrierPort;
+        port wastePort : WastePort;
+
+        part handleSection {
+            attribute length : Length = 55 [mm];
+            attribute width : Width = 18 [mm];
+            attribute gripTextureDepth : Length = 0.1 [mm];
+        }
+
+        part shaftSection {
+            attribute length : Length = 40 [mm];
+            attribute width : Width = 18 [mm];
+            attribute elasticCompliance : ScalarValues::Real = 0.08;
+        }
+
+        part oralEnd {
+            attribute roundedTipRadius : Length = 9 [mm];
+            attribute edgeRadius : Length = 0.8 [mm];
+            attribute surfaceRoughness : Length = 12 [um];
+        }
+
+        part sterileWrapper {
+            attribute sealIntegrity : BooleanFlag = true;
+            attribute wrapperLength : Length = 165 [mm];
+            attribute wrapperWidth : Width = 32 [mm];
+        }
+
+        action inspectDepressor {
+            in packageSealIntact : BooleanFlag;
+            in visibleDamage : BooleanFlag;
+            out acceptableForUse : BooleanFlag;
+
+            first start;
+            then checkSeal;
+            then checkBody;
+            then decision acceptable;
+
+            action checkSeal {
+                in packageSealIntact;
+            }
+
+            action checkBody {
+                in visibleDamage;
+            }
+
+            action acceptable {
+                out acceptableForUse;
+            }
+        }
+
+        action removeFromWrapper {
+            in wrapper : SterilePackage;
+            out cleanDepressorReady : BooleanFlag;
+        }
+
+        action applyToTongue {
+            in clinicianHand : ClinicianHand;
+            in patientTongue : PatientTongue;
+            out appliedLoad : AppliedDepressionLoad;
+            out visualAccessCreated : VisualAccess;
+
+            constraint loadWithinLimit {
+                appliedLoad.loadMagnitude <= maximumRecommendedTongueForce
+            }
+
+            constraint pressureWithinLimit {
+                appliedLoad.contactPressure <= maximumRecommendedContactPressure
+            }
+        }
+
+        action disposeAfterUse {
+            in contactedOralCavity : BooleanFlag;
+            out waste : UsedMedicalWaste;
+        }
+
+        state useLifecycle {
+            state stored;
+            state inspected;
+            state opened;
+            state positioned;
+            state depressingTongue;
+            state examinationComplete;
+            state discarded;
+
+            entry;
+            then stored;
+
+            transition stored_to_inspected
+                first stored
+                accept inspectRequest
+                then inspected;
+
+            transition inspected_to_opened
+                first inspected
+                accept packageOpened
+                if sterileWrapper.sealIntegrity == true
+                then opened;
+
+            transition opened_to_positioned
+                first opened
+                accept placedInOralCavity
+                then positioned;
+
+            transition positioned_to_depressing
+                first positioned
+                accept clinicianAppliesForce
+                then depressingTongue;
+
+            transition depressing_to_complete
+                first depressingTongue
+                accept examinationViewAchieved
+                then examinationComplete;
+
+            transition complete_to_discarded
+                first examinationComplete
+                accept placedInWaste
+                then discarded;
+        }
+    }
+
+    part def Clinician {
+        attribute trainedForOralExam : BooleanFlag = true;
+        attribute maximumControlledGripForce : Force = 20 [N];
+
+        port handPort {
+            out handContact : HandContact;
+            out gripCommand : AppliedDepressionLoad;
+        }
+
+        action performTongueDepression {
+            in depressor : TongueDepressor;
+            in patient : Patient;
+            out view : VisualAccess;
+        }
+    }
+
+    part def Patient {
+        attribute mouthOpeningWidth : Width = 35 [mm];
+        attribute gagReflexSensitivity : ScalarValues::Real = 0.4;
+
+        port oralPort {
+            in tongueContact : TongueContact;
+            in oralContact : OralCavityContact;
+            in appliedLoad : AppliedDepressionLoad;
+        }
+
+        part tongue : PatientTongue {
+            attribute estimatedContactArea = 320 [mm^2];
+            attribute toleratedPressure = 35 [kPa];
+        }
+
+        part throatView {
+            attribute unobstructed : BooleanFlag = false;
+            attribute illuminationRequired : BooleanFlag = true;
+        }
+    }
+
+    part def ExaminationEnvironment {
+        attribute ambientTemperature : Temperature = 295 [K];
+        attribute cleanWorkSurfaceAvailable : BooleanFlag = true;
+        attribute medicalWasteContainerAvailable : BooleanFlag = true;
+
+        part wasteContainer {
+            attribute capacityRemaining : Count = 120;
+            port inputWaste {
+                in wasteItem : UsedMedicalWaste;
+            }
+        }
+    }
+
+    part def TongueDepressorUseSystem {
+        attribute primaryFunction : ScalarValues::String =
+            "Provide a simple, clean, hand-held surface that gently presses the patient's tongue downward to improve visual access to the mouth and throat during examination.";
+
+        part clinician : Clinician;
+        part patient : Patient;
+        part environment : ExaminationEnvironment;
+        part depressor : TongueDepressor;
+
+        connect clinician.handPort.handContact to depressor.gripPort.handContact;
+        connect clinician.handPort.gripCommand to depressor.gripPort.gripCommand;
+
+        connect depressor.contactPort.tongueContact to patient.oralPort.tongueContact;
+        connect depressor.contactPort.oralContact to patient.oralPort.oralContact;
+        connect depressor.contactPort.appliedLoad to patient.oralPort.appliedLoad;
+
+        connect depressor.wastePort.wasteItem to environment.wasteContainer.inputWaste.wasteItem;
+
+        action conductOralExamination {
+            in examRequest : BooleanFlag;
+            out viewEstablished : VisualAccess;
+            out usedDepressorWaste : UsedMedicalWaste;
+
+            first receiveRequest;
+            then inspectTool;
+            then openPackage;
+            then positionTool;
+            then depressTongue;
+            then observeMouthAndThroat;
+            then removeTool;
+            then discardTool;
+
+            action receiveRequest {
+                in examRequest;
+            }
+
+            action inspectTool {
+                in sealIntact : BooleanFlag = depressor.sterileWrapper.sealIntegrity;
+                out toolAccepted : BooleanFlag;
+            }
+
+            action openPackage {
+                in toolAccepted;
+                out toolReady : BooleanFlag;
+            }
+
+            action positionTool {
+                in toolReady;
+                out tipPlacedOnAnteriorTongue : BooleanFlag;
+            }
+
+            action depressTongue {
+                in tipPlacedOnAnteriorTongue;
+                out appliedLoad : AppliedDepressionLoad {
+                    attribute loadMagnitude = 3 [N];
+                    attribute contactPressure = 18 [kPa];
+                    attribute applicationDuration = 8 [s];
+                }
+                out viewEstablished;
+            }
+
+            action observeMouthAndThroat {
+                in viewEstablished;
+            }
+
+            action removeTool {
+                out oralContactEnded : BooleanFlag;
+            }
+
+            action discardTool {
+                in oralContactEnded;
+                out usedDepressorWaste;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall enable a clinician to depress a patient's tongue to improve visual access to the oral cavity and throat during a clinical examination. */
+
+        subject system : TongueDepressorUseSystem;
+
+        require constraint {
+            system.depressor.maximumRecommendedTongueForce >= 3 [N]
+        }
+    }
+
+    requirement def SingleUseSterilityRequirement {
+        doc
+        /* The tongue depressor shall remain sterile while packaged and shall be discarded after contact with the patient's oral cavity. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.singleUse == true
+        }
+    }
+
+    requirement def GeometryRequirement {
+        doc
+        /* The tongue depressor shall have sufficient length, width, and rounded edges to allow hand control while reducing oral tissue irritation. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.length >= 140 [mm] and
+            depressor.length <= 160 [mm] and
+            depressor.width >= 15 [mm] and
+            depressor.width <= 22 [mm] and
+            depressor.oralEnd.edgeRadius >= 0.5 [mm]
+        }
+    }
+
+    requirement def LoadSafetyRequirement {
+        doc
+        /* The tongue depressor shall tolerate normal clinical tongue-depression loads without breaking and shall limit recommended patient-contact force. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.minimumBendingLoad >= 2 * depressor.maximumRecommendedTongueForce
+        }
+    }
+
+    requirement def SurfaceRequirement {
+        doc
+        /* The oral contact surface shall be smooth enough to avoid scraping oral tissue during normal use. */
+
+        subject depressor : TongueDepressor;
+
+        require constraint {
+            depressor.oralEnd.surfaceRoughness <= 20 [um]
+        }
+    }
+
+    requirement def WasteHandlingRequirement {
+        doc
+        /* After use, the tongue depressor shall be treated as used medical waste and transferred to an appropriate waste container. */
+
+        subject system : TongueDepressorUseSystem;
+
+        require constraint {
+            system.environment.medicalWasteContainerAvailable == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TongueDepressorUseSystem::conductOralExamination;
+    satisfy SingleUseSterilityRequirement by TongueDepressor;
+    satisfy GeometryRequirement by TongueDepressor;
+    satisfy LoadSafetyRequirement by TongueDepressor;
+    satisfy SurfaceRequirement by TongueDepressor;
+    satisfy WasteHandlingRequirement by TongueDepressorUseSystem::environment::wasteContainer;
+
+}

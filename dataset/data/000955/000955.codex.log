@@ -1,0 +1,875 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-sv002a00
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4ea-6bae-7e41-8485-e49f3cd7df1d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Water pumping and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WaterPumpingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "L";
+    }
+
+    attribute def ElectricalPower {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ScalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def RotationalSpeed {
+        :> ScalarValues::Real;
+        unit = "rpm";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Efficiency {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : ElectricalPower;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : ScalarValues::String;
+        attribute requestedSpeed : RotationalSpeed;
+    }
+
+    item def SensorSignal {
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : FlowRate;
+        attribute measuredLevel : Volume;
+        attribute alarmActive : Boolean;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : Water;
+    }
+
+    port def WaterOutletPort {
+        out item waterOut : Water;
+    }
+
+    port def ElectricalInputPort {
+        in item electricalInput : ElectricalEnergy;
+    }
+
+    port def ControlInputPort {
+        in item controlIn : ControlSignal;
+    }
+
+    port def SensorOutputPort {
+        out item sensorOut : SensorSignal;
+    }
+
+    port def MechanicalDrivePort {
+        out attribute shaftSpeed : RotationalSpeed;
+        out attribute shaftPower : ElectricalPower;
+    }
+
+    part def IntakeSource {
+        attribute availableVolume : Volume;
+        attribute sourcePressure : Pressure;
+        port outlet : WaterOutletPort;
+    }
+
+    part def SuctionPipe {
+        attribute internalDiameter : Length;
+        attribute pressureLoss : Pressure;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def PumpHousing {
+        attribute casingPressureLimit : Pressure = 900;
+        attribute internalPressure : Pressure;
+        port suction : WaterInletPort;
+        port discharge : WaterOutletPort;
+    }
+
+    part def Impeller {
+        attribute diameter : Length;
+        attribute speed : RotationalSpeed;
+        attribute hydraulicEfficiency : Efficiency;
+        port drive : MechanicalDrivePort;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : ElectricalPower = 1500;
+        attribute ratedVoltage : Voltage = 240;
+        attribute motorTemperature : Temperature;
+        attribute actualSpeed : RotationalSpeed;
+        port powerInput : ElectricalInputPort;
+        port driveOutput : MechanicalDrivePort;
+    }
+
+    part def VariableSpeedDrive {
+        attribute outputFrequency : Frequency;
+        attribute demandedSpeed : RotationalSpeed;
+        port powerInput : ElectricalInputPort;
+        port commandInput : ControlInputPort;
+        port motorPowerOutput : ElectricalInputPort;
+    }
+
+    part def DischargePipe {
+        attribute internalDiameter : Length;
+        attribute pressureLoss : Pressure;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 20;
+        attribute open : Boolean;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        port processPort : WaterInletPort;
+        port signalPort : SensorOutputPort;
+    }
+
+    part def FlowSensor {
+        attribute measuredFlow : FlowRate;
+        port processPort : WaterInletPort;
+        port signalPort : SensorOutputPort;
+    }
+
+    part def LevelSensor {
+        attribute measuredVolume : Volume;
+        port signalPort : SensorOutputPort;
+    }
+
+    part def PumpController {
+        attribute targetPressure : Pressure = 350;
+        attribute minimumSourceVolume : Volume = 50;
+        attribute startRequested : Boolean;
+        attribute faultLatched : Boolean;
+        port pressureFeedback : SensorOutputPort;
+        port flowFeedback : SensorOutputPort;
+        port levelFeedback : SensorOutputPort;
+        port driveCommand : ControlInputPort;
+    }
+
+    action def PrimePump {
+        in sourceVolume : Volume;
+        out primed : Boolean;
+        first start;
+        then verifyAvailableWater;
+        then fillSuctionLine;
+        then removeAirFromHousing;
+        then setPrimed;
+    }
+
+    action def PumpWater {
+        in inletWater : Water;
+        in demandedSpeed : RotationalSpeed;
+        out dischargedWater : Water;
+        out deliveredFlow : FlowRate;
+        out deliveredPressure : Pressure;
+
+        first acceptWaterAtInlet;
+        then accelerateImpeller;
+        then increaseWaterEnergy;
+        then dischargePressurizedWater;
+    }
+
+    action def MonitorPump {
+        in measuredPressure : Pressure;
+        in measuredFlow : FlowRate;
+        in measuredLevel : Volume;
+        out safeToRun : Boolean;
+        out faultDetected : Boolean;
+
+        first sampleSensors;
+        then evaluateDryRunCondition;
+        then evaluateOverPressureCondition;
+        then evaluateNoFlowCondition;
+        then publishHealthStatus;
+    }
+
+    action def StopPump {
+        out stopped : Boolean;
+        first removeDriveCommand;
+        then allowCheckValveClosure;
+        then confirmZeroSpeed;
+    }
+
+    state def PumpOperatingState {
+        entry action initializeController;
+
+        state Off;
+        state Priming;
+        state Ready;
+        state Running;
+        state Fault;
+        state Shutdown;
+
+        transition first Off;
+
+        transition Off_to_Priming
+            first Off
+            accept startCommand
+            then Priming;
+
+        transition Priming_to_Ready
+            first Priming
+            accept primingComplete
+            then Ready;
+
+        transition Ready_to_Running
+            first Ready
+            accept demandForWater
+            then Running;
+
+        transition Running_to_Ready
+            first Running
+            accept pressureSatisfied
+            then Ready;
+
+        transition Running_to_Fault
+            first Running
+            accept dryRunDetected
+            then Fault;
+
+        transition Running_to_Fault_OverPressure
+            first Running
+            accept overPressureDetected
+            then Fault;
+
+        transition Fault_to_Shutdown
+            first Fault
+            accept faultAcknowledge
+            then Shutdown;
+
+        transition Shutdown_to_Off
+            first Shutdown
+            accept stoppedConfirmed
+            then Off;
+    }
+
+    part def WaterPumpingSystem {
+        attribute designFlowRate : FlowRate = 120;
+        attribute designDischargePressure : Pressure = 350;
+        attribute maximumDischargePressure : Pressure = 600;
+        attribute minimumAllowedSourceVolume : Volume = 50;
+        attribute nominalInputVoltage : Voltage = 240;
+        attribute nominalPowerConsumption : ElectricalPower = 1500;
+        attribute overallEfficiency : Efficiency;
+
+        port rawWaterInlet : WaterInletPort;
+        port pressurizedWaterOutlet : WaterOutletPort;
+        port electricalSupply : ElectricalInputPort;
+        port operatorCommand : ControlInputPort;
+        port healthTelemetry : SensorOutputPort;
+
+        part source : IntakeSource;
+        part suctionPipe : SuctionPipe;
+        part pumpHousing : PumpHousing;
+        part impeller : Impeller;
+        part motor : ElectricMotor;
+        part drive : VariableSpeedDrive;
+        part dischargePipe : DischargePipe;
+        part checkValve : CheckValve;
+        part pressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part levelSensor : LevelSensor;
+        part controller : PumpController;
+
+        perform action prime : PrimePump;
+        perform action pump : PumpWater;
+        perform action monitor : MonitorPump;
+        perform action stop : StopPump;
+
+        exhibit state operatingState : PumpOperatingState;
+
+        connect source.outlet to suctionPipe.inlet;
+        connect suctionPipe.outlet to pumpHousing.suction;
+        connect pumpHousing.discharge to checkValve.inlet;
+        connect checkValve.outlet to dischargePipe.inlet;
+        connect dischargePipe.outlet to pressurizedWaterOutlet;
+
+        connect electricalSupply to drive.powerInput;
+        connect drive.motorPowerOutput to motor.powerInput;
+        connect motor.driveOutput to impeller.drive;
+
+        connect operatorCommand to controller.driveCommand;
+        connect controller.driveCommand to drive.commandInput;
+
+        connect dischargePipe.outlet to pressureSensor.processPort;
+        connect dischargePipe.outlet to flowSensor.processPort;
+        connect pressureSensor.signalPort to controller.pressureFeedback;
+        connect flowSensor.signalPort to controller.flowFeedback;
+        connect levelSensor.signalPort to controller.levelFeedback;
+        connect pressureSensor.signalPort to healthTelemetry;
+
+        constraint pressureLimit {
+            pumpHousing.internalPressure <= maximumDischargePressure;
+        }
+
+        constraint sourceWaterProtection {
+            source.availableVolume >= minimumAllowedSourceVolume;
+        }
+
+        constraint ratedPowerLimit {
+            nominalPowerConsumption <= motor.ratedPower;
+        }
+
+        constraint targetPerformance {
+            designFlowRate >= 100 and designDischargePressure >= 300;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system shall transfer water from a lower-pressure intake source to a higher-pressure discharge outlet by converting electrical energy into hydraulic energy.
+        }
+    }
+
+    requirement def FlowRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.designFlowRate >= 120;
+        }
+    }
+
+    requirement def PressureRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.designDischargePressure >= 350 and system.maximumDischargePressure <= 600;
+        }
+    }
+
+    requirement def ElectricalRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.nominalInputVoltage == 240 and system.nominalPowerConsumption <= 1500;
+        }
+    }
+
+    requirement def DryRunProtectionRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.minimumAllowedSourceVolume >= 50;
+        }
+    }
+
+    requirement def MonitoringRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system shall provide pressure, flow, level, and fault telemetry during priming, running, shutdown, and fault states.
+        }
+    }
+
+    requirement def SafetyShutdownRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system shall command shutdown when dry-run, no-flow, over-pressure, or excessive motor-temperature conditions are detected.
+        }
+    }
+
+    part municipalBoosterPump : WaterPumpingSystem {
+        attribute designFlowRate = 120;
+        attribute designDischargePressure = 350;
+        attribute maximumDischargePressure = 600;
+        attribute minimumAllowedSourceVolume = 50;
+        attribute nominalInputVoltage = 240;
+        attribute nominalPowerConsumption = 1500;
+    }
+
+    satisfy PrimaryFunctionRequirement by municipalBoosterPump;
+    satisfy FlowRequirement by municipalBoosterPump;
+    satisfy PressureRequirement by municipalBoosterPump;
+    satisfy ElectricalRequirement by municipalBoosterPump;
+    satisfy DryRunProtectionRequirement by municipalBoosterPump;
+    satisfy MonitoringRequirement by municipalBoosterPump;
+    satisfy SafetyShutdownRequirement by municipalBoosterPump;
+}
+tokens used
+3,930
+package WaterPumpingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "L";
+    }
+
+    attribute def ElectricalPower {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ScalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def RotationalSpeed {
+        :> ScalarValues::Real;
+        unit = "rpm";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Efficiency {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : ElectricalPower;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : ScalarValues::String;
+        attribute requestedSpeed : RotationalSpeed;
+    }
+
+    item def SensorSignal {
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : FlowRate;
+        attribute measuredLevel : Volume;
+        attribute alarmActive : Boolean;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : Water;
+    }
+
+    port def WaterOutletPort {
+        out item waterOut : Water;
+    }
+
+    port def ElectricalInputPort {
+        in item electricalInput : ElectricalEnergy;
+    }
+
+    port def ControlInputPort {
+        in item controlIn : ControlSignal;
+    }
+
+    port def SensorOutputPort {
+        out item sensorOut : SensorSignal;
+    }
+
+    port def MechanicalDrivePort {
+        out attribute shaftSpeed : RotationalSpeed;
+        out attribute shaftPower : ElectricalPower;
+    }
+
+    part def IntakeSource {
+        attribute availableVolume : Volume;
+        attribute sourcePressure : Pressure;
+        port outlet : WaterOutletPort;
+    }
+
+    part def SuctionPipe {
+        attribute internalDiameter : Length;
+        attribute pressureLoss : Pressure;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def PumpHousing {
+        attribute casingPressureLimit : Pressure = 900;
+        attribute internalPressure : Pressure;
+        port suction : WaterInletPort;
+        port discharge : WaterOutletPort;
+    }
+
+    part def Impeller {
+        attribute diameter : Length;
+        attribute speed : RotationalSpeed;
+        attribute hydraulicEfficiency : Efficiency;
+        port drive : MechanicalDrivePort;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : ElectricalPower = 1500;
+        attribute ratedVoltage : Voltage = 240;
+        attribute motorTemperature : Temperature;
+        attribute actualSpeed : RotationalSpeed;
+        port powerInput : ElectricalInputPort;
+        port driveOutput : MechanicalDrivePort;
+    }
+
+    part def VariableSpeedDrive {
+        attribute outputFrequency : Frequency;
+        attribute demandedSpeed : RotationalSpeed;
+        port powerInput : ElectricalInputPort;
+        port commandInput : ControlInputPort;
+        port motorPowerOutput : ElectricalInputPort;
+    }
+
+    part def DischargePipe {
+        attribute internalDiameter : Length;
+        attribute pressureLoss : Pressure;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 20;
+        attribute open : Boolean;
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        port processPort : WaterInletPort;
+        port signalPort : SensorOutputPort;
+    }
+
+    part def FlowSensor {
+        attribute measuredFlow : FlowRate;
+        port processPort : WaterInletPort;
+        port signalPort : SensorOutputPort;
+    }
+
+    part def LevelSensor {
+        attribute measuredVolume : Volume;
+        port signalPort : SensorOutputPort;
+    }
+
+    part def PumpController {
+        attribute targetPressure : Pressure = 350;
+        attribute minimumSourceVolume : Volume = 50;
+        attribute startRequested : Boolean;
+        attribute faultLatched : Boolean;
+        port pressureFeedback : SensorOutputPort;
+        port flowFeedback : SensorOutputPort;
+        port levelFeedback : SensorOutputPort;
+        port driveCommand : ControlInputPort;
+    }
+
+    action def PrimePump {
+        in sourceVolume : Volume;
+        out primed : Boolean;
+        first start;
+        then verifyAvailableWater;
+        then fillSuctionLine;
+        then removeAirFromHousing;
+        then setPrimed;
+    }
+
+    action def PumpWater {
+        in inletWater : Water;
+        in demandedSpeed : RotationalSpeed;
+        out dischargedWater : Water;
+        out deliveredFlow : FlowRate;
+        out deliveredPressure : Pressure;
+
+        first acceptWaterAtInlet;
+        then accelerateImpeller;
+        then increaseWaterEnergy;
+        then dischargePressurizedWater;
+    }
+
+    action def MonitorPump {
+        in measuredPressure : Pressure;
+        in measuredFlow : FlowRate;
+        in measuredLevel : Volume;
+        out safeToRun : Boolean;
+        out faultDetected : Boolean;
+
+        first sampleSensors;
+        then evaluateDryRunCondition;
+        then evaluateOverPressureCondition;
+        then evaluateNoFlowCondition;
+        then publishHealthStatus;
+    }
+
+    action def StopPump {
+        out stopped : Boolean;
+        first removeDriveCommand;
+        then allowCheckValveClosure;
+        then confirmZeroSpeed;
+    }
+
+    state def PumpOperatingState {
+        entry action initializeController;
+
+        state Off;
+        state Priming;
+        state Ready;
+        state Running;
+        state Fault;
+        state Shutdown;
+
+        transition first Off;
+
+        transition Off_to_Priming
+            first Off
+            accept startCommand
+            then Priming;
+
+        transition Priming_to_Ready
+            first Priming
+            accept primingComplete
+            then Ready;
+
+        transition Ready_to_Running
+            first Ready
+            accept demandForWater
+            then Running;
+
+        transition Running_to_Ready
+            first Running
+            accept pressureSatisfied
+            then Ready;
+
+        transition Running_to_Fault
+            first Running
+            accept dryRunDetected
+            then Fault;
+
+        transition Running_to_Fault_OverPressure
+            first Running
+            accept overPressureDetected
+            then Fault;
+
+        transition Fault_to_Shutdown
+            first Fault
+            accept faultAcknowledge
+            then Shutdown;
+
+        transition Shutdown_to_Off
+            first Shutdown
+            accept stoppedConfirmed
+            then Off;
+    }
+
+    part def WaterPumpingSystem {
+        attribute designFlowRate : FlowRate = 120;
+        attribute designDischargePressure : Pressure = 350;
+        attribute maximumDischargePressure : Pressure = 600;
+        attribute minimumAllowedSourceVolume : Volume = 50;
+        attribute nominalInputVoltage : Voltage = 240;
+        attribute nominalPowerConsumption : ElectricalPower = 1500;
+        attribute overallEfficiency : Efficiency;
+
+        port rawWaterInlet : WaterInletPort;
+        port pressurizedWaterOutlet : WaterOutletPort;
+        port electricalSupply : ElectricalInputPort;
+        port operatorCommand : ControlInputPort;
+        port healthTelemetry : SensorOutputPort;
+
+        part source : IntakeSource;
+        part suctionPipe : SuctionPipe;
+        part pumpHousing : PumpHousing;
+        part impeller : Impeller;
+        part motor : ElectricMotor;
+        part drive : VariableSpeedDrive;
+        part dischargePipe : DischargePipe;
+        part checkValve : CheckValve;
+        part pressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part levelSensor : LevelSensor;
+        part controller : PumpController;
+
+        perform action prime : PrimePump;
+        perform action pump : PumpWater;
+        perform action monitor : MonitorPump;
+        perform action stop : StopPump;
+
+        exhibit state operatingState : PumpOperatingState;
+
+        connect source.outlet to suctionPipe.inlet;
+        connect suctionPipe.outlet to pumpHousing.suction;
+        connect pumpHousing.discharge to checkValve.inlet;
+        connect checkValve.outlet to dischargePipe.inlet;
+        connect dischargePipe.outlet to pressurizedWaterOutlet;
+
+        connect electricalSupply to drive.powerInput;
+        connect drive.motorPowerOutput to motor.powerInput;
+        connect motor.driveOutput to impeller.drive;
+
+        connect operatorCommand to controller.driveCommand;
+        connect controller.driveCommand to drive.commandInput;
+
+        connect dischargePipe.outlet to pressureSensor.processPort;
+        connect dischargePipe.outlet to flowSensor.processPort;
+        connect pressureSensor.signalPort to controller.pressureFeedback;
+        connect flowSensor.signalPort to controller.flowFeedback;
+        connect levelSensor.signalPort to controller.levelFeedback;
+        connect pressureSensor.signalPort to healthTelemetry;
+
+        constraint pressureLimit {
+            pumpHousing.internalPressure <= maximumDischargePressure;
+        }
+
+        constraint sourceWaterProtection {
+            source.availableVolume >= minimumAllowedSourceVolume;
+        }
+
+        constraint ratedPowerLimit {
+            nominalPowerConsumption <= motor.ratedPower;
+        }
+
+        constraint targetPerformance {
+            designFlowRate >= 100 and designDischargePressure >= 300;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system shall transfer water from a lower-pressure intake source to a higher-pressure discharge outlet by converting electrical energy into hydraulic energy.
+        }
+    }
+
+    requirement def FlowRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.designFlowRate >= 120;
+        }
+    }
+
+    requirement def PressureRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.designDischargePressure >= 350 and system.maximumDischargePressure <= 600;
+        }
+    }
+
+    requirement def ElectricalRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.nominalInputVoltage == 240 and system.nominalPowerConsumption <= 1500;
+        }
+    }
+
+    requirement def DryRunProtectionRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system.minimumAllowedSourceVolume >= 50;
+        }
+    }
+
+    requirement def MonitoringRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system shall provide pressure, flow, level, and fault telemetry during priming, running, shutdown, and fault states.
+        }
+    }
+
+    requirement def SafetyShutdownRequirement {
+        subject system : WaterPumpingSystem;
+
+        require constraint {
+            system shall command shutdown when dry-run, no-flow, over-pressure, or excessive motor-temperature conditions are detected.
+        }
+    }
+
+    part municipalBoosterPump : WaterPumpingSystem {
+        attribute designFlowRate = 120;
+        attribute designDischargePressure = 350;
+        attribute maximumDischargePressure = 600;
+        attribute minimumAllowedSourceVolume = 50;
+        attribute nominalInputVoltage = 240;
+        attribute nominalPowerConsumption = 1500;
+    }
+
+    satisfy PrimaryFunctionRequirement by municipalBoosterPump;
+    satisfy FlowRequirement by municipalBoosterPump;
+    satisfy PressureRequirement by municipalBoosterPump;
+    satisfy ElectricalRequirement by municipalBoosterPump;
+    satisfy DryRunProtectionRequirement by municipalBoosterPump;
+    satisfy MonitoringRequirement by municipalBoosterPump;
+    satisfy SafetyShutdownRequirement by municipalBoosterPump;
+}

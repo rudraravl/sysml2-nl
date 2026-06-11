@@ -1,0 +1,353 @@
+package AmmoniaphoneSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def VolumeFlowRate :> ScalarValues::Real;
+    attribute def Concentration :> ScalarValues::Real;
+    attribute def Pressure :> ScalarValues::Real;
+    attribute def Temperature :> ScalarValues::Real;
+    attribute def Duration :> ScalarValues::Real;
+    attribute def Mass :> ScalarValues::Real;
+    attribute def Volume :> ScalarValues::Real;
+    attribute def Percentage :> ScalarValues::Real;
+
+    item def AmbientAir {
+        attribute oxygenFraction : Percentage = 20.9;
+        attribute relativeHumidity : Percentage;
+        attribute temperature : Temperature;
+    }
+
+    item def AmmoniaSolution {
+        attribute ammoniaMassFraction : Percentage;
+        attribute remainingVolume : Volume;
+        attribute solutionTemperature : Temperature;
+    }
+
+    item def AmmoniaVapor {
+        attribute concentration_ppm : Concentration;
+        attribute temperature : Temperature;
+        attribute humidity : Percentage;
+    }
+
+    item def DilutedVaporStream {
+        attribute flowRate_L_per_min : VolumeFlowRate;
+        attribute ammoniaConcentration_ppm : Concentration;
+        attribute temperature : Temperature;
+        attribute relativeHumidity : Percentage;
+    }
+
+    item def ExhaledBreath {
+        attribute flowRate_L_per_min : VolumeFlowRate;
+        attribute carbonDioxideFraction : Percentage;
+        attribute humidity : Percentage;
+    }
+
+    port def AirInletPort {
+        in item air : AmbientAir;
+    }
+
+    port def VaporOutletPort {
+        out item stream : DilutedVaporStream;
+    }
+
+    port def BreathInterfacePort {
+        out item inspiredStream : DilutedVaporStream;
+        in item expiredBreath : ExhaledBreath;
+    }
+
+    port def ReservoirServicePort {
+        in item refill : AmmoniaSolution;
+        out item residualSolution : AmmoniaSolution;
+    }
+
+    part def Ammoniaphone {
+        attribute emptyMass_g : Mass = 180.0;
+        attribute nominalOperatingDuration_min : Duration = 20.0;
+        attribute maximumSafeConcentration_ppm : Concentration = 50.0;
+        attribute targetConcentration_ppm : Concentration = 25.0;
+        attribute nominalFlowRate_L_per_min : VolumeFlowRate = 8.0;
+
+        port airInlet : AirInletPort;
+        port mouthpiece : BreathInterfacePort;
+        port service : ReservoirServicePort;
+
+        part reservoir : AmmoniaReservoir;
+        part wick : AbsorbentWick;
+        part mixingChamber : MixingChamber;
+        part concentrationLimiter : ConcentrationLimiter;
+        part outletValve : OneWayOutletValve;
+        part inhalationMouthpiece : Mouthpiece;
+
+        connection airPath connect airInlet to mixingChamber.airIntake;
+        connection solutionFeed connect reservoir.solutionOutlet to wick.solutionInput;
+        connection vaporFeed connect wick.vaporOutput to mixingChamber.vaporIntake;
+        connection regulatedFlow connect mixingChamber.mixedOutlet to concentrationLimiter.rawStreamInput;
+        connection limitedFlow connect concentrationLimiter.safeStreamOutput to outletValve.inlet;
+        connection deliveryPath connect outletValve.outlet to inhalationMouthpiece.streamInput;
+        connection userInterface connect inhalationMouthpiece.breathPort to mouthpiece;
+
+        perform action DeliverDilutedAmmoniaVapor;
+        exhibit state AmmoniaphoneOperatingStates;
+    }
+
+    part def AmmoniaReservoir {
+        attribute capacity_mL : Volume = 30.0;
+        attribute currentVolume_mL : Volume = 25.0;
+        attribute ammoniaMassFraction_percent : Percentage = 2.0;
+
+        port solutionOutlet {
+            out item solution : AmmoniaSolution;
+        }
+
+        port refillPort : ReservoirServicePort;
+    }
+
+    part def AbsorbentWick {
+        attribute absorbedVolume_mL : Volume = 5.0;
+        attribute exposedSurfaceArea_cm2 : ScalarValues::Real = 18.0;
+
+        port solutionInput {
+            in item solution : AmmoniaSolution;
+        }
+
+        port vaporOutput {
+            out item vapor : AmmoniaVapor;
+        }
+
+        action GenerateVapor {
+            in item solution : AmmoniaSolution;
+            out item vapor : AmmoniaVapor;
+            attribute vaporizationRate_mL_per_min : VolumeFlowRate = 0.08;
+        }
+    }
+
+    part def MixingChamber {
+        attribute chamberVolume_mL : Volume = 45.0;
+        attribute dilutionRatio : ScalarValues::Real = 120.0;
+
+        port airIntake : AirInletPort;
+
+        port vaporIntake {
+            in item vapor : AmmoniaVapor;
+        }
+
+        port mixedOutlet {
+            out item stream : DilutedVaporStream;
+        }
+
+        action MixAirAndVapor {
+            in item air : AmbientAir;
+            in item vapor : AmmoniaVapor;
+            out item stream : DilutedVaporStream;
+        }
+    }
+
+    part def ConcentrationLimiter {
+        attribute upperLimit_ppm : Concentration = 50.0;
+        attribute bypassAirFraction_percent : Percentage = 15.0;
+
+        port rawStreamInput {
+            in item stream : DilutedVaporStream;
+        }
+
+        port safeStreamOutput {
+            out item stream : DilutedVaporStream;
+        }
+
+        action LimitConcentration {
+            in item rawStream : DilutedVaporStream;
+            out item safeStream : DilutedVaporStream;
+            assert constraint {
+                safeStream.ammoniaConcentration_ppm <= upperLimit_ppm
+            }
+        }
+    }
+
+    part def OneWayOutletValve {
+        attribute openingPressure_Pa : Pressure = 25.0;
+        attribute leakageRate_L_per_min : VolumeFlowRate = 0.02;
+
+        port inlet {
+            in item stream : DilutedVaporStream;
+        }
+
+        port outlet : VaporOutletPort;
+
+        action PermitInhalationFlow {
+            in item stream : DilutedVaporStream;
+            out item deliveredStream : DilutedVaporStream;
+        }
+    }
+
+    part def Mouthpiece {
+        attribute innerDiameter_mm : ScalarValues::Real = 16.0;
+        attribute removable : Boolean = true;
+
+        port streamInput : VaporOutletPort;
+        port breathPort : BreathInterfacePort;
+
+        action DeliverToUser {
+            in item stream : DilutedVaporStream;
+            out item inspiredStream : DilutedVaporStream;
+        }
+    }
+
+    action def DeliverDilutedAmmoniaVapor {
+        in item ambientAir : AmbientAir;
+        in item ammoniaSolution : AmmoniaSolution;
+        out item inspiredStream : DilutedVaporStream;
+
+        first start;
+        then absorbSolution;
+        then releaseVapor;
+        then entrainAir;
+        then limitConcentration;
+        then deliverThroughMouthpiece;
+        then done;
+
+        action absorbSolution;
+        action releaseVapor;
+        action entrainAir;
+        action limitConcentration;
+        action deliverThroughMouthpiece;
+    }
+
+    state def AmmoniaphoneOperatingStates {
+        entry action InitializeDevice;
+
+        state Idle;
+        state Primed;
+        state Inhaling;
+        state Paused;
+        state Depleted;
+        state UnsafeConcentration;
+        state ServiceRequired;
+
+        transition initial then Idle;
+
+        transition Idle_to_Primed
+            first Idle
+            accept FillReservoir
+            then Primed;
+
+        transition Primed_to_Inhaling
+            first Primed
+            accept UserInhalationDetected
+            then Inhaling;
+
+        transition Inhaling_to_Paused
+            first Inhaling
+            accept UserInhalationStopped
+            then Paused;
+
+        transition Paused_to_Inhaling
+            first Paused
+            accept UserInhalationDetected
+            then Inhaling;
+
+        transition Inhaling_to_Unsafe
+            first Inhaling
+            if ammoniaConcentration_ppm > 50.0
+            then UnsafeConcentration;
+
+        transition Unsafe_to_Service
+            first UnsafeConcentration
+            then ServiceRequired;
+
+        transition Primed_to_Depleted
+            first Primed
+            if reservoirVolume_mL <= 1.0
+            then Depleted;
+
+        transition Inhaling_to_Depleted
+            first Inhaling
+            if reservoirVolume_mL <= 1.0
+            then Depleted;
+
+        transition Depleted_to_Service
+            first Depleted
+            then ServiceRequired;
+
+        transition Service_to_Idle
+            first ServiceRequired
+            accept CleanAndRefillComplete
+            then Idle;
+    }
+
+    action def InitializeDevice {
+        out attribute ready : Boolean;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Ammoniaphone shall provide a high-level function of delivering a controlled, diluted ammonia vapor stream mixed with ambient air through a mouthpiece for short-duration inhalation by a user. */
+        subject device : Ammoniaphone;
+
+        require constraint {
+            device.nominalFlowRate_L_per_min >= 6.0 and
+            device.nominalFlowRate_L_per_min <= 12.0
+        }
+
+        require constraint {
+            device.targetConcentration_ppm > 0.0 and
+            device.targetConcentration_ppm <= device.maximumSafeConcentration_ppm
+        }
+    }
+
+    requirement def ConcentrationSafetyRequirement {
+        subject device : Ammoniaphone;
+
+        require constraint {
+            device.maximumSafeConcentration_ppm <= 50.0
+        }
+    }
+
+    requirement def ReservoirCapacityRequirement {
+        subject reservoir : AmmoniaReservoir;
+
+        require constraint {
+            reservoir.capacity_mL >= 20.0 and
+            reservoir.capacity_mL <= 40.0
+        }
+    }
+
+    requirement def OneWayFlowRequirement {
+        subject valve : OneWayOutletValve;
+
+        require constraint {
+            valve.leakageRate_L_per_min <= 0.05
+        }
+    }
+
+    requirement def ServiceabilityRequirement {
+        subject device : Ammoniaphone;
+
+        require constraint {
+            device.reservoir.capacity_mL > 0.0 and
+            device.inhalationMouthpiece.removable == true
+        }
+    }
+
+    part ammoniaphoneSystem {
+        part device : Ammoniaphone;
+
+        item ambientAir : AmbientAir {
+            attribute oxygenFraction = 20.9;
+            attribute relativeHumidity = 45.0;
+            attribute temperature = 293.15;
+        }
+
+        item standardSolution : AmmoniaSolution {
+            attribute ammoniaMassFraction = 2.0;
+            attribute remainingVolume = 25.0;
+            attribute solutionTemperature = 293.15;
+        }
+
+        satisfy PrimaryFunctionRequirement by device;
+        satisfy ConcentrationSafetyRequirement by device;
+        satisfy ReservoirCapacityRequirement by device.reservoir;
+        satisfy OneWayFlowRequirement by device.outletValve;
+        satisfy ServiceabilityRequirement by device;
+    }
+}

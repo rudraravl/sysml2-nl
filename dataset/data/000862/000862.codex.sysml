@@ -1,0 +1,509 @@
+package PumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def RotationalSpeed :> ISQ::angularVelocity {
+        unit = SI::radianPerSecond;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Level :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    item def Condensate {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute vaporFraction : Real;
+        attribute density : ISQ::massDensity;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute frequency : ISQ::frequency;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommand;
+        attribute requestedSpeed : RotationalSpeed;
+    }
+
+    item def SensorSignal {
+        attribute measuredValue : Real;
+        attribute valid : Boolean;
+    }
+
+    enum def PumpCommand {
+        enum off;
+        enum standby;
+        enum start;
+        enum stop;
+        enum run;
+        enum trip;
+        enum reset;
+    }
+
+    port def FluidPort {
+        inout item fluid : Condensate;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+        attribute temperature : Temperature;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item commandIn : ControlSignal;
+        out item statusOut : SensorSignal;
+    }
+
+    port def InstrumentPort {
+        out item signalOut : SensorSignal;
+    }
+
+    part def CheckValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute crackingPressure : Pressure = 5000 [SI::pascal];
+        attribute reverseLeakageLimit : FlowRate = 1.0e-7 [SI::cubicMetrePerSecond];
+
+        assert constraint PreventReverseFlow {
+            outlet.pressure - inlet.pressure <= crackingPressure
+                implies inlet.flowRate >= -reverseLeakageLimit;
+        }
+    }
+
+    part def IsolationValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute open : Boolean = true;
+        attribute nominalCv : Real = 4.5;
+
+        assert constraint ClosedValveNoFlow {
+            not open implies abs(inlet.flowRate) <= 1.0e-8;
+        }
+    }
+
+    part def Strainer {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute cleanDifferentialPressure : Pressure = 3000 [SI::pascal];
+        attribute fouledDifferentialPressureLimit : Pressure = 35000 [SI::pascal];
+        attribute differentialPressure : Pressure;
+
+        assert constraint StrainerPressureDropLimit {
+            differentialPressure <= fouledDifferentialPressureLimit;
+        }
+    }
+
+    part def CondensatePump {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port electrical : PowerPort;
+        port control : ControlPort;
+
+        attribute ratedFlow : FlowRate = 0.018 [SI::cubicMetrePerSecond];
+        attribute minimumContinuousFlow : FlowRate = 0.004 [SI::cubicMetrePerSecond];
+        attribute ratedDifferentialPressure : Pressure = 420000 [SI::pascal];
+        attribute maximumDischargePressure : Pressure = 750000 [SI::pascal];
+        attribute ratedSpeed : RotationalSpeed = 188.5 [SI::radianPerSecond];
+        attribute motorRatedPower : Power = 15000 [SI::watt];
+        attribute hydraulicEfficiency : Real = 0.68;
+        attribute running : Boolean;
+        attribute tripped : Boolean;
+        attribute speed : RotationalSpeed;
+        attribute differentialPressure : Pressure;
+
+        assert constraint PumpPressureRise {
+            differentialPressure == discharge.pressure - suction.pressure;
+        }
+
+        assert constraint DischargePressureLimit {
+            discharge.pressure <= maximumDischargePressure;
+        }
+
+        assert constraint MinimumFlowWhenRunning {
+            running implies discharge.flowRate >= minimumContinuousFlow;
+        }
+
+        assert constraint RatedOperatingEnvelope {
+            running implies discharge.flowRate <= ratedFlow * 1.20;
+        }
+
+        action startPump {
+            first startMotor;
+            then verifySuctionPressure;
+            then accelerateToCommandedSpeed;
+            then establishDischargeFlow;
+
+            action startMotor;
+            action verifySuctionPressure;
+            action accelerateToCommandedSpeed;
+            action establishDischargeFlow;
+        }
+
+        action stopPump {
+            first rampDownSpeed;
+            then deEnergizeMotor;
+            then setStoppedStatus;
+
+            action rampDownSpeed;
+            action deEnergizeMotor;
+            action setStoppedStatus;
+        }
+
+        action tripPump {
+            first removeMotorPower;
+            then closeDischargeProtection;
+            then publishTripStatus;
+
+            action removeMotorPower;
+            action closeDischargeProtection;
+            action publishTripStatus;
+        }
+
+        state def PumpOperatingState {
+            entry action initializeStatus;
+
+            state Off;
+            state Standby;
+            state Starting;
+            state Running;
+            state Stopping;
+            state Tripped;
+
+            transition initial then Off;
+
+            transition Off_to_Standby
+                first Off
+                accept ControlSignal
+                if commandIn.command == PumpCommand::standby
+                then Standby;
+
+            transition Standby_to_Starting
+                first Standby
+                accept ControlSignal
+                if commandIn.command == PumpCommand::start
+                then Starting
+                effect startPump;
+
+            transition Starting_to_Running
+                first Starting
+                if speed >= ratedSpeed * 0.95 and discharge.flowRate >= minimumContinuousFlow
+                then Running;
+
+            transition Running_to_Stopping
+                first Running
+                accept ControlSignal
+                if commandIn.command == PumpCommand::stop
+                then Stopping
+                effect stopPump;
+
+            transition Stopping_to_Standby
+                first Stopping
+                if speed <= 1.0 [SI::radianPerSecond]
+                then Standby;
+
+            transition Running_to_Tripped
+                first Running
+                if discharge.pressure > maximumDischargePressure
+                    or suction.pressure < 20000 [SI::pascal]
+                    or discharge.flowRate < minimumContinuousFlow
+                then Tripped
+                effect tripPump;
+
+            transition Tripped_to_Standby
+                first Tripped
+                accept ControlSignal
+                if commandIn.command == PumpCommand::reset
+                then Standby;
+        }
+
+        exhibit state pumpState : PumpOperatingState;
+    }
+
+    part def LevelSensor {
+        port processConnection : FluidPort;
+        port signal : InstrumentPort;
+
+        attribute measuredLevel : Level;
+        attribute lowStartLevel : Level = 0.45 [SI::metre];
+        attribute highStartLevel : Level = 0.85 [SI::metre];
+        attribute highHighTripLevel : Level = 1.15 [SI::metre];
+        attribute valid : Boolean = true;
+    }
+
+    part def PressureSensor {
+        port tap : FluidPort;
+        port signal : InstrumentPort;
+
+        attribute measuredPressure : Pressure;
+        attribute accuracy : Pressure = 1000 [SI::pascal];
+        attribute valid : Boolean = true;
+    }
+
+    part def FlowSensor {
+        port meterRun : FluidPort;
+        port signal : InstrumentPort;
+
+        attribute measuredFlow : FlowRate;
+        attribute lowFlowTripSetpoint : FlowRate = 0.0035 [SI::cubicMetrePerSecond];
+        attribute valid : Boolean = true;
+    }
+
+    part def PumpController {
+        port levelInput : InstrumentPort;
+        port suctionPressureInput : InstrumentPort;
+        port dischargePressureInput : InstrumentPort;
+        port flowInput : InstrumentPort;
+        port pumpControl : ControlPort;
+
+        attribute autoMode : Boolean = true;
+        attribute startLevel : Level = 0.85 [SI::metre];
+        attribute stopLevel : Level = 0.35 [SI::metre];
+        attribute lowSuctionPressureTrip : Pressure = 20000 [SI::pascal];
+        attribute highDischargePressureTrip : Pressure = 750000 [SI::pascal];
+        attribute lowFlowTripDelay : ISQ::time = 10 [SI::second];
+
+        action evaluateDemand {
+            in attribute basinLevel : Level;
+            out item command : ControlSignal;
+        }
+
+        action protectPump {
+            in attribute suctionPressure : Pressure;
+            in attribute dischargePressure : Pressure;
+            in attribute flow : FlowRate;
+            out item command : ControlSignal;
+        }
+
+        state def ControllerState {
+            state Idle;
+            state DemandDetected;
+            state PumpRunning;
+            state FaultLatched;
+
+            transition initial then Idle;
+
+            transition Idle_to_DemandDetected
+                first Idle
+                if autoMode and levelInput.signalOut.measuredValue >= startLevel
+                then DemandDetected;
+
+            transition DemandDetected_to_PumpRunning
+                first DemandDetected
+                then PumpRunning
+                effect evaluateDemand;
+
+            transition PumpRunning_to_Idle
+                first PumpRunning
+                if levelInput.signalOut.measuredValue <= stopLevel
+                then Idle;
+
+            transition Any_to_FaultLatched
+                first PumpRunning
+                if suctionPressureInput.signalOut.measuredValue < lowSuctionPressureTrip
+                    or dischargePressureInput.signalOut.measuredValue > highDischargePressureTrip
+                    or flowInput.signalOut.measuredValue < 0.0035
+                then FaultLatched
+                effect protectPump;
+
+            transition FaultLatched_to_Idle
+                first FaultLatched
+                accept ControlSignal
+                if commandIn.command == PumpCommand::reset
+                then Idle;
+        }
+
+        exhibit state controllerState : ControllerState;
+    }
+
+    part def CondensatePumpSubsystem {
+        port condensateIn : FluidPort;
+        port condensateOut : FluidPort;
+        port electricSupply : PowerPort;
+        port supervisoryControl : ControlPort;
+
+        attribute requiredFlow : FlowRate = 0.015 [SI::cubicMetrePerSecond];
+        attribute requiredPressureRise : Pressure = 350000 [SI::pascal];
+        attribute normalCondensateTemperature : Temperature = 333.15 [SI::kelvin];
+        attribute designInletPressure : Pressure = 101325 [SI::pascal];
+        attribute designOutletPressure : Pressure = 451325 [SI::pascal];
+
+        part suctionIsolationValve : IsolationValve;
+        part suctionStrainer : Strainer;
+        part condensatePump : CondensatePump;
+        part dischargeCheckValve : CheckValve;
+        part dischargeIsolationValve : IsolationValve;
+
+        part levelSensor : LevelSensor;
+        part suctionPressureSensor : PressureSensor;
+        part dischargePressureSensor : PressureSensor;
+        part dischargeFlowSensor : FlowSensor;
+        part controller : PumpController;
+
+        connect condensateIn to suctionIsolationValve.inlet;
+        connect suctionIsolationValve.outlet to suctionStrainer.inlet;
+        connect suctionStrainer.outlet to condensatePump.suction;
+        connect condensatePump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeIsolationValve.inlet;
+        connect dischargeIsolationValve.outlet to condensateOut;
+
+        connect electricSupply to condensatePump.electrical;
+
+        connect condensateIn to levelSensor.processConnection;
+        connect condensatePump.suction to suctionPressureSensor.tap;
+        connect condensatePump.discharge to dischargePressureSensor.tap;
+        connect condensatePump.discharge to dischargeFlowSensor.meterRun;
+
+        connect levelSensor.signal to controller.levelInput;
+        connect suctionPressureSensor.signal to controller.suctionPressureInput;
+        connect dischargePressureSensor.signal to controller.dischargePressureInput;
+        connect dischargeFlowSensor.signal to controller.flowInput;
+
+        connect controller.pumpControl to condensatePump.control;
+        connect supervisoryControl to controller.pumpControl;
+
+        assert constraint RequiredHydraulicPerformance {
+            condensatePump.running implies
+                condensateOut.flowRate >= requiredFlow and
+                condensateOut.pressure - condensateIn.pressure >= requiredPressureRise;
+        }
+
+        assert constraint CondensateTemperatureEnvelope {
+            condensateIn.temperature >= 273.15 [SI::kelvin] and
+            condensateIn.temperature <= 373.15 [SI::kelvin];
+        }
+
+        assert constraint SubsystemPressureBoundary {
+            condensateOut.pressure <= 750000 [SI::pascal];
+        }
+
+        action transferCondensate {
+            first openSuctionPath;
+            then commandPumpStart;
+            then monitorPumpOperation;
+            then deliverCondensate;
+
+            action openSuctionPath;
+            action commandPumpStart;
+            action monitorPumpOperation;
+            action deliverCondensate;
+        }
+
+        action shutdownSubsystem {
+            first commandPumpStop;
+            then verifyNoReverseFlow;
+            then placeInStandby;
+
+            action commandPumpStop;
+            action verifyNoReverseFlow;
+            action placeInStandby;
+        }
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : CondensatePumpSubsystem;
+
+        require constraint {
+            subsystem.condensatePump.ratedFlow >= subsystem.requiredFlow;
+        }
+
+        require constraint {
+            subsystem.condensatePump.ratedDifferentialPressure >= subsystem.requiredPressureRise;
+        }
+
+        require constraint {
+            subsystem.condensatePump.maximumDischargePressure >= subsystem.designOutletPressure;
+        }
+    }
+
+    requirement def CondensateTransferRequirement {
+        subject subsystem : CondensatePumpSubsystem;
+
+        doc /* The pumping subsystem shall move condensate from the inlet interface to the outlet interface using a condensate pump. */
+
+        require constraint {
+            subsystem.condensatePump.running implies
+                subsystem.condensateOut.flowRate >= 0.015 [SI::cubicMetrePerSecond];
+        }
+
+        require constraint {
+            subsystem.condensatePump.running implies
+                subsystem.condensateOut.pressure >= subsystem.condensateIn.pressure + 350000 [SI::pascal];
+        }
+    }
+
+    requirement def PumpProtectionRequirement {
+        subject subsystem : CondensatePumpSubsystem;
+
+        doc /* The subsystem shall protect the condensate pump from low suction pressure, high discharge pressure, and low-flow operation. */
+
+        require constraint {
+            subsystem.condensatePump.suction.pressure >= 20000 [SI::pascal]
+                or subsystem.condensatePump.tripped;
+        }
+
+        require constraint {
+            subsystem.condensatePump.discharge.pressure <= 750000 [SI::pascal]
+                or subsystem.condensatePump.tripped;
+        }
+
+        require constraint {
+            subsystem.condensatePump.discharge.flowRate >= subsystem.condensatePump.minimumContinuousFlow
+                or not subsystem.condensatePump.running
+                or subsystem.condensatePump.tripped;
+        }
+    }
+
+    requirement def InstrumentationRequirement {
+        subject subsystem : CondensatePumpSubsystem;
+
+        doc /* The subsystem shall measure basin level, suction pressure, discharge pressure, and discharge flow for automatic control and protection. */
+
+        require constraint {
+            subsystem.levelSensor.valid and
+            subsystem.suctionPressureSensor.valid and
+            subsystem.dischargePressureSensor.valid and
+            subsystem.dischargeFlowSensor.valid;
+        }
+    }
+
+    part condensatePumpingSubsystem : CondensatePumpSubsystem;
+
+    satisfy CondensateTransferRequirement by condensatePumpingSubsystem;
+    satisfy PumpProtectionRequirement by condensatePumpingSubsystem;
+    satisfy InstrumentationRequirement by condensatePumpingSubsystem;
+    satisfy PumpingSubsystemRequirement by condensatePumpingSubsystem;
+}

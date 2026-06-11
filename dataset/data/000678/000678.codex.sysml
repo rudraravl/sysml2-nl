@@ -1,0 +1,429 @@
+package MedicalCalculatorModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def PatientIdentifier :> ScalarValues::String;
+    attribute def ClinicalWarningText :> ScalarValues::String;
+    attribute def CalculationName :> ScalarValues::String;
+
+    attribute def MassValue {
+        attribute value : Real;
+        attribute unit : String = "kg";
+    }
+
+    attribute def LengthValue {
+        attribute value : Real;
+        attribute unit : String = "cm";
+    }
+
+    attribute def AgeValue {
+        attribute value : Real;
+        attribute unit : String = "yr";
+    }
+
+    attribute def SerumCreatinineValue {
+        attribute value : Real;
+        attribute unit : String = "mg/dL";
+    }
+
+    attribute def DoseValue {
+        attribute value : Real;
+        attribute unit : String = "mg";
+    }
+
+    attribute def FlowRateValue {
+        attribute value : Real;
+        attribute unit : String = "mL/min";
+    }
+
+    attribute def BodySurfaceAreaValue {
+        attribute value : Real;
+        attribute unit : String = "m^2";
+    }
+
+    enum def BiologicalSex {
+        enum male;
+        enum female;
+        enum unspecified;
+    }
+
+    enum def ClinicalStatus {
+        enum draft;
+        enum validated;
+        enum blocked;
+        enum transmitted;
+        enum archived;
+    }
+
+    item def PatientDemographics {
+        attribute patientId : PatientIdentifier;
+        attribute age : AgeValue;
+        attribute sex : BiologicalSex;
+        attribute weight : MassValue;
+        attribute height : LengthValue;
+    }
+
+    item def LaboratoryPanel {
+        attribute serumCreatinine : SerumCreatinineValue;
+        attribute sampleAgeHours : Real;
+    }
+
+    item def CalculatorRequest {
+        attribute calculation : CalculationName;
+        attribute demographics : PatientDemographics;
+        attribute labs : LaboratoryPanel;
+        attribute requestedDose : DoseValue;
+    }
+
+    item def CalculatorResult {
+        attribute bodySurfaceArea : BodySurfaceAreaValue;
+        attribute estimatedCreatinineClearance : FlowRateValue;
+        attribute adjustedDose : DoseValue;
+        attribute status : ClinicalStatus;
+        attribute warning : ClinicalWarningText;
+    }
+
+    item def AuditEntry {
+        attribute patientId : PatientIdentifier;
+        attribute calculation : CalculationName;
+        attribute timestampIso8601 : String;
+        attribute status : ClinicalStatus;
+        attribute userId : String;
+    }
+
+    port def RequestPort {
+        in item request : CalculatorRequest;
+    }
+
+    port def ResultPort {
+        out item result : CalculatorResult;
+    }
+
+    port def AuditPort {
+        out item entry : AuditEntry;
+    }
+
+    port def ClinicalDataPort {
+        in item demographics : PatientDemographics;
+        in item labs : LaboratoryPanel;
+    }
+
+    action def ValidateInputs {
+        in item request : CalculatorRequest;
+        out valid : Boolean;
+        out warning : ClinicalWarningText;
+
+        first start;
+        then checkAge;
+        then checkWeight;
+        then checkHeight;
+        then checkCreatinine;
+        then produceDecision;
+        then done;
+
+        action checkAge {
+            in age : AgeValue;
+        }
+
+        action checkWeight {
+            in weight : MassValue;
+        }
+
+        action checkHeight {
+            in height : LengthValue;
+        }
+
+        action checkCreatinine {
+            in serumCreatinine : SerumCreatinineValue;
+        }
+
+        action produceDecision {
+            out valid : Boolean;
+            out warning : ClinicalWarningText;
+        }
+    }
+
+    action def CalculateBodySurfaceArea {
+        in weight : MassValue;
+        in height : LengthValue;
+        out bsa : BodySurfaceAreaValue;
+    }
+
+    action def CalculateCreatinineClearance {
+        in age : AgeValue;
+        in sex : BiologicalSex;
+        in weight : MassValue;
+        in serumCreatinine : SerumCreatinineValue;
+        out clearance : FlowRateValue;
+    }
+
+    action def AdjustMedicationDose {
+        in requestedDose : DoseValue;
+        in clearance : FlowRateValue;
+        out adjustedDose : DoseValue;
+        out warning : ClinicalWarningText;
+    }
+
+    action def BuildResult {
+        in bsa : BodySurfaceAreaValue;
+        in clearance : FlowRateValue;
+        in adjustedDose : DoseValue;
+        in warning : ClinicalWarningText;
+        out item result : CalculatorResult;
+    }
+
+    action def RecordAuditEntry {
+        in item request : CalculatorRequest;
+        in item result : CalculatorResult;
+        out item entry : AuditEntry;
+    }
+
+    action def PerformMedicalCalculation {
+        in item request : CalculatorRequest;
+        out item result : CalculatorResult;
+        out item audit : AuditEntry;
+
+        action validate : ValidateInputs {
+            in item request = PerformMedicalCalculation::request;
+        }
+
+        action calculateBsa : CalculateBodySurfaceArea {
+            in weight = request.demographics.weight;
+            in height = request.demographics.height;
+        }
+
+        action calculateClearance : CalculateCreatinineClearance {
+            in age = request.demographics.age;
+            in sex = request.demographics.sex;
+            in weight = request.demographics.weight;
+            in serumCreatinine = request.labs.serumCreatinine;
+        }
+
+        action adjustDose : AdjustMedicationDose {
+            in requestedDose = request.requestedDose;
+            in clearance = calculateClearance.clearance;
+        }
+
+        action buildResult : BuildResult {
+            in bsa = calculateBsa.bsa;
+            in clearance = calculateClearance.clearance;
+            in adjustedDose = adjustDose.adjustedDose;
+            in warning = adjustDose.warning;
+        }
+
+        action recordAudit : RecordAuditEntry {
+            in item request = PerformMedicalCalculation::request;
+            in item result = buildResult.result;
+        }
+
+        flow buildResult.result to result;
+        flow recordAudit.entry to audit;
+    }
+
+    state def CalculatorOperationalState {
+        state idle;
+        state collectingInput;
+        state validatingInput;
+        state calculating;
+        state presentingResult;
+        state blockedBySafetyRule;
+        state auditLogging;
+        state archived;
+
+        entry action initializeSession;
+
+        transition first idle;
+
+        transition idle_to_collecting
+            first idle
+            then collectingInput;
+
+        transition collecting_to_validating
+            first collectingInput
+            accept item CalculatorRequest
+            then validatingInput;
+
+        transition validating_to_calculating
+            first validatingInput
+            if validationAccepted
+            then calculating;
+
+        transition validating_to_blocked
+            first validatingInput
+            if validationRejected
+            then blockedBySafetyRule;
+
+        transition calculating_to_presenting
+            first calculating
+            then presentingResult;
+
+        transition presenting_to_audit
+            first presentingResult
+            then auditLogging;
+
+        transition blocked_to_audit
+            first blockedBySafetyRule
+            then auditLogging;
+
+        transition audit_to_archived
+            first auditLogging
+            then archived;
+
+        transition archived_to_idle
+            first archived
+            then idle;
+    }
+
+    part def InputCollector {
+        port clinicalDataIn : ClinicalDataPort;
+        port requestOut : RequestPort;
+
+        attribute activePatientId : PatientIdentifier;
+        attribute currentCalculation : CalculationName = "Renal dose adjustment and body surface area estimation";
+    }
+
+    part def ValidationEngine {
+        port requestIn : RequestPort;
+        port resultOut : ResultPort;
+
+        attribute minimumAgeYears : Real = 0.0;
+        attribute maximumAgeYears : Real = 120.0;
+        attribute minimumWeightKg : Real = 0.5;
+        attribute maximumWeightKg : Real = 350.0;
+        attribute minimumHeightCm : Real = 20.0;
+        attribute maximumHeightCm : Real = 250.0;
+        attribute minimumCreatinineMgPerDl : Real = 0.1;
+        attribute maximumCreatinineMgPerDl : Real = 25.0;
+    }
+
+    part def ClinicalFormulaEngine {
+        port requestIn : RequestPort;
+        port resultOut : ResultPort;
+
+        attribute supportedFormulaSet : String = "Mosteller BSA; Cockcroft-Gault creatinine clearance; renal dose adjustment table";
+        attribute bsaFormulaDescription : String = "sqrt(height_cm * weight_kg / 3600)";
+        attribute creatinineClearanceFormulaDescription : String = "((140 - age) * weight_kg * sex_factor) / (72 * serum_creatinine_mg_dl)";
+        attribute femaleSexFactor : Real = 0.85;
+        attribute maleSexFactor : Real = 1.0;
+    }
+
+    part def SafetyRuleEngine {
+        port requestIn : RequestPort;
+        port resultIn : ResultPort;
+        port resultOut : ResultPort;
+
+        attribute lowClearanceThreshold : FlowRateValue {
+            :>> value = 30.0;
+            :>> unit = "mL/min";
+        }
+
+        attribute criticalClearanceThreshold : FlowRateValue {
+            :>> value = 15.0;
+            :>> unit = "mL/min";
+        }
+
+        attribute maximumDoseMultiplier : Real = 1.0;
+        attribute minimumDoseMultiplier : Real = 0.25;
+    }
+
+    part def ResultPresenter {
+        port resultIn : ResultPort;
+        port resultOut : ResultPort;
+
+        attribute precisionDecimalPlaces : Integer = 2;
+        attribute displayUnits : String = "kg, cm, yr, mg/dL, mL/min, m^2, mg";
+    }
+
+    part def AuditLogger {
+        port requestIn : RequestPort;
+        port resultIn : ResultPort;
+        port auditOut : AuditPort;
+
+        attribute retentionPeriodYears : Real = 7.0;
+        attribute auditPurpose : String = "Trace clinical calculator input, formula selection, safety warnings, and output result";
+    }
+
+    part def MedicalCalculator {
+        doc /* A medical calculator system that receives patient demographics, laboratory values, and a requested medication dose, validates the clinical inputs, computes high-level clinical decision-support values, applies safety rules, presents the calculated result, and records an audit trail. Its primary function is to support clinicians by calculating body surface area, estimating renal function, and recommending a safety-adjusted medication dose while clearly indicating warnings and validation status. */
+
+        port requestIn : RequestPort;
+        port resultOut : ResultPort;
+        port auditOut : AuditPort;
+
+        part inputCollector : InputCollector;
+        part validationEngine : ValidationEngine;
+        part formulaEngine : ClinicalFormulaEngine;
+        part safetyRuleEngine : SafetyRuleEngine;
+        part presenter : ResultPresenter;
+        part auditLogger : AuditLogger;
+
+        attribute calculatorName : String = "Clinical Medical Calculator";
+        attribute version : String = "1.0.0";
+        attribute intendedUse : String = "High-level clinical calculation support, not autonomous diagnosis or treatment";
+        attribute operationalStatus : ClinicalStatus = ClinicalStatus::draft;
+
+        perform action calculationWorkflow : PerformMedicalCalculation;
+
+        exhibit state behavior operationalState : CalculatorOperationalState;
+
+        connect requestIn to inputCollector.requestOut;
+        connect inputCollector.requestOut to validationEngine.requestIn;
+        connect validationEngine.requestIn to formulaEngine.requestIn;
+        connect formulaEngine.resultOut to safetyRuleEngine.resultIn;
+        connect safetyRuleEngine.resultOut to presenter.resultIn;
+        connect presenter.resultOut to resultOut;
+        connect inputCollector.requestOut to auditLogger.requestIn;
+        connect presenter.resultOut to auditLogger.resultIn;
+        connect auditLogger.auditOut to auditOut;
+    }
+
+    requirement def ValidClinicalInputRequirement {
+        subject calculator : MedicalCalculator;
+
+        require constraint {
+            calculator.validationEngine.minimumAgeYears <= calculator.validationEngine.maximumAgeYears
+        }
+
+        doc /* The calculator shall validate age, weight, height, serum creatinine, and requested dose before performing a calculation. */
+    }
+
+    requirement def PrimaryCalculationRequirement {
+        subject calculator : MedicalCalculator;
+
+        doc /* The calculator shall compute body surface area and estimated creatinine clearance from patient demographics and laboratory values. */
+    }
+
+    requirement def DoseAdjustmentRequirement {
+        subject calculator : MedicalCalculator;
+
+        doc /* The calculator shall generate a medication dose recommendation adjusted for estimated renal function and shall never recommend a dose above the requested dose. */
+    }
+
+    requirement def SafetyWarningRequirement {
+        subject calculator : MedicalCalculator;
+
+        doc /* The calculator shall return a visible clinical warning when calculated renal clearance is below the configured low-clearance threshold or when any required input is invalid. */
+    }
+
+    requirement def AuditabilityRequirement {
+        subject calculator : MedicalCalculator;
+
+        doc /* The calculator shall create an audit entry for every submitted calculation request, including patient identifier, calculation name, timestamp, user identifier, and final status. */
+    }
+
+    requirement def NonDiagnosticUseRequirement {
+        subject calculator : MedicalCalculator;
+
+        doc /* The calculator shall identify its output as clinical decision support and shall not represent the result as an autonomous diagnosis or treatment order. */
+    }
+
+    satisfy ValidClinicalInputRequirement by MedicalCalculator::validationEngine;
+    satisfy PrimaryCalculationRequirement by MedicalCalculator::formulaEngine;
+    satisfy DoseAdjustmentRequirement by MedicalCalculator::safetyRuleEngine;
+    satisfy SafetyWarningRequirement by MedicalCalculator::safetyRuleEngine;
+    satisfy AuditabilityRequirement by MedicalCalculator::auditLogger;
+    satisfy NonDiagnosticUseRequirement by MedicalCalculator;
+
+    part medicalCalculatorSystem : MedicalCalculator;
+}

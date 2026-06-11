@@ -1,0 +1,426 @@
+package OmmayaReservoirSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Volume_ml : Real {
+    unit = "mL";
+  }
+
+  attribute def Pressure_cmH2O : Real {
+    unit = "cmH2O";
+  }
+
+  attribute def FlowRate_ml_per_min : Real {
+    unit = "mL/min";
+  }
+
+  attribute def Length_mm : Real {
+    unit = "mm";
+  }
+
+  attribute def Dose_mg : Real {
+    unit = "mg";
+  }
+
+  attribute def SterilityState : String;
+  attribute def FluidClarity : String;
+
+  item def CerebrospinalFluid {
+    attribute volume : Volume_ml;
+    attribute pressure : Pressure_cmH2O;
+    attribute clarity : FluidClarity;
+  }
+
+  item def TherapeuticAgent {
+    attribute agentName : String;
+    attribute concentration_mg_per_ml : Real;
+    attribute dose : Dose_mg;
+    attribute volume : Volume_ml;
+    attribute sterile : Boolean;
+  }
+
+  item def AspiratedSample {
+    attribute sampleVolume : Volume_ml;
+    attribute collectedFrom : String;
+    attribute sterileContainer : Boolean;
+  }
+
+  item def NeedleAccess {
+    attribute needleGauge : Integer;
+    attribute insertionDepth : Length_mm;
+    attribute asepticTechniqueConfirmed : Boolean;
+  }
+
+  port def FluidPort {
+    in item injectedAgent : TherapeuticAgent;
+    out item aspiratedCSF : CerebrospinalFluid;
+  }
+
+  port def NeedlePort {
+    in item access : NeedleAccess;
+    in item injectedAgent : TherapeuticAgent;
+    out item aspiratedSample : AspiratedSample;
+  }
+
+  port def CatheterPort {
+    in item injectedAgent : TherapeuticAgent;
+    out item cerebrospinalFluid : CerebrospinalFluid;
+  }
+
+  part def DomeReservoir {
+    attribute primingVolume : Volume_ml = 1.5;
+    attribute maxCompressionCycles : Integer = 1000;
+    attribute material : String = "medical-grade silicone";
+    attribute palpableThroughScalp : Boolean = true;
+    attribute selfSealing : Boolean = true;
+    attribute sterileBarrierMaintained : Boolean = true;
+
+    port scalpAccessPort : NeedlePort;
+    port catheterInterface : FluidPort;
+
+    action receiveNeedleAccess {
+      in item access : NeedleAccess;
+      out confirmedAccess : Boolean;
+    }
+
+    action acceptInjection {
+      in item agent : TherapeuticAgent;
+      out item agentToCatheter : TherapeuticAgent;
+    }
+
+    action permitAspiration {
+      in item csf : CerebrospinalFluid;
+      out item sample : AspiratedSample;
+    }
+
+    state def ReservoirState {
+      state sealed;
+      state accessed;
+      state infusing;
+      state aspirating;
+      state postAccessSealed;
+
+      initial then sealed;
+
+      transition sealed_to_accessed
+        first sealed
+        accept NeedleAccess
+        then accessed;
+
+      transition accessed_to_infusing
+        first accessed
+        accept TherapeuticAgent
+        then infusing;
+
+      transition accessed_to_aspirating
+        first accessed
+        then aspirating;
+
+      transition infusing_to_postAccessSealed
+        first infusing
+        then postAccessSealed;
+
+      transition aspirating_to_postAccessSealed
+        first aspirating
+        then postAccessSealed;
+
+      transition reseal
+        first postAccessSealed
+        then sealed;
+    }
+  }
+
+  part def VentricularCatheter {
+    attribute length : Length_mm = 60.0;
+    attribute innerDiameter : Length_mm = 1.2;
+    attribute outerDiameter : Length_mm = 2.5;
+    attribute fenestrationCount : Integer = 8;
+    attribute material : String = "radiopaque silicone";
+    attribute distalTipLocation : String = "lateral cerebral ventricle";
+    attribute flowResistanceNominal : Real;
+
+    port reservoirEnd : CatheterPort;
+    port ventricularEnd : CatheterPort;
+
+    action deliverAgentToVentricle {
+      in item agent : TherapeuticAgent;
+      out item agentAtVentricle : TherapeuticAgent;
+    }
+
+    action withdrawCSF {
+      in item ventricularCSF : CerebrospinalFluid;
+      out item csfAtReservoir : CerebrospinalFluid;
+    }
+  }
+
+  part def CranialPlacementInterface {
+    attribute burrHoleDiameter : Length_mm = 14.0;
+    attribute reservoirSeatDepth : Length_mm = 6.0;
+    attribute fixationStable : Boolean = true;
+    attribute scalpCoverageIntact : Boolean = true;
+  }
+
+  part def ClinicalAccessKit {
+    attribute sterileGlovesAvailable : Boolean = true;
+    attribute antisepticPrepared : Boolean = true;
+    attribute nonCoringNeedleRequired : Boolean = true;
+    attribute sampleVialSterile : Boolean = true;
+
+    port kitNeedlePort : NeedlePort;
+
+    action prepareSterileField {
+      out sterileFieldReady : Boolean;
+    }
+
+    action accessReservoir {
+      in needleGauge : Integer;
+      out item access : NeedleAccess;
+    }
+
+    action injectMedication {
+      in item prescribedAgent : TherapeuticAgent;
+      out item deliveredAgent : TherapeuticAgent;
+    }
+
+    action collectSample {
+      in item aspiratedCSF : CerebrospinalFluid;
+      out item diagnosticSample : AspiratedSample;
+    }
+  }
+
+  part def OmmayaReservoirSystem {
+    attribute primaryFunction : String =
+      "Provide a subcutaneous, repeatable access pathway for administering therapeutic agents into cerebrospinal fluid and for withdrawing cerebrospinal fluid samples from the ventricular system.";
+    attribute intendedUse : String =
+      "Long-term intracranial access to the cerebral ventricles without repeated lumbar puncture or repeated cranial surgery.";
+    attribute implantable : Boolean = true;
+    attribute expectedSterilityState : SterilityState = "sterile implanted closed system";
+    attribute nominalReservoirVolume : Volume_ml = 1.5;
+    attribute maximumSingleInjectionVolume : Volume_ml = 5.0;
+    attribute maximumRecommendedInjectionFlow : FlowRate_ml_per_min = 1.0;
+    attribute acceptableCSFOpeningPressure : Pressure_cmH2O = 20.0;
+
+    part reservoir : DomeReservoir;
+    part catheter : VentricularCatheter;
+    part cranialInterface : CranialPlacementInterface;
+    part accessKit : ClinicalAccessKit;
+
+    port clinicianAccess : NeedlePort;
+    port ventricularFluidInterface : CatheterPort;
+
+    connect clinicianAccess to reservoir.scalpAccessPort;
+    connect reservoir.catheterInterface to catheter.reservoirEnd;
+    connect catheter.ventricularEnd to ventricularFluidInterface;
+    connect accessKit.kitNeedlePort to clinicianAccess;
+
+    action administerIntrathecalTherapy {
+      in item prescribedAgent : TherapeuticAgent;
+      out item deliveredAgent : TherapeuticAgent;
+
+      first start;
+      then prepareSterileField;
+      then accessReservoir;
+      then injectMedication;
+      then deliverThroughCatheter;
+      then complete;
+
+      action prepareSterileField {
+        out sterileReady : Boolean;
+      }
+
+      action accessReservoir {
+        in item access : NeedleAccess;
+        out accessConfirmed : Boolean;
+      }
+
+      action injectMedication {
+        in item agent : TherapeuticAgent;
+        out item agentInReservoir : TherapeuticAgent;
+      }
+
+      action deliverThroughCatheter {
+        in item agentInReservoir : TherapeuticAgent;
+        out item deliveredAgent : TherapeuticAgent;
+      }
+    }
+
+    action obtainCerebrospinalFluidSample {
+      in requestedVolume : Volume_ml;
+      out item sample : AspiratedSample;
+
+      first start;
+      then prepareSterileField;
+      then accessReservoir;
+      then aspirateCSF;
+      then transferToSterileContainer;
+      then complete;
+
+      action prepareSterileField {
+        out sterileReady : Boolean;
+      }
+
+      action accessReservoir {
+        out accessConfirmed : Boolean;
+      }
+
+      action aspirateCSF {
+        in volumeRequested : Volume_ml;
+        out item aspiratedCSF : CerebrospinalFluid;
+      }
+
+      action transferToSterileContainer {
+        in item aspiratedCSF : CerebrospinalFluid;
+        out item sample : AspiratedSample;
+      }
+    }
+
+    state def SystemOperationalState {
+      state implantedDormant;
+      state sterilePreparation;
+      state reservoirAccessed;
+      state drugAdministration;
+      state csfSampling;
+      state accessCompleted;
+      state faultDetected;
+
+      initial then implantedDormant;
+
+      transition beginProcedure
+        first implantedDormant
+        then sterilePreparation;
+
+      transition sterileReady
+        first sterilePreparation
+        then reservoirAccessed;
+
+      transition administerDrug
+        first reservoirAccessed
+        accept TherapeuticAgent
+        then drugAdministration;
+
+      transition obtainSample
+        first reservoirAccessed
+        then csfSampling;
+
+      transition drugDeliveryComplete
+        first drugAdministration
+        then accessCompleted;
+
+      transition sampleCollectionComplete
+        first csfSampling
+        then accessCompleted;
+
+      transition returnToDormant
+        first accessCompleted
+        then implantedDormant;
+
+      transition contaminationDetected
+        first sterilePreparation
+        then faultDetected;
+
+      transition occlusionDetected
+        first drugAdministration
+        then faultDetected;
+
+      transition aspirationFailureDetected
+        first csfSampling
+        then faultDetected;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall provide repeatable subcutaneous access to the cerebral ventricular cerebrospinal fluid space for medication delivery and cerebrospinal fluid sampling. */
+
+    subject system : OmmayaReservoirSystem;
+
+    require constraint {
+      system.implantable == true
+    }
+
+    require constraint {
+      system.nominalReservoirVolume > 0.0
+    }
+
+    require constraint {
+      system.maximumRecommendedInjectionFlow <= 1.0
+    }
+  }
+
+  requirement def SterilityRequirement {
+    doc
+      /* The reservoir and catheter fluid path shall remain a closed sterile pathway except during controlled aseptic needle access. */
+
+    subject reservoir : DomeReservoir;
+
+    require constraint {
+      reservoir.selfSealing == true
+    }
+
+    require constraint {
+      reservoir.sterileBarrierMaintained == true
+    }
+  }
+
+  requirement def CatheterPlacementRequirement {
+    doc
+      /* The distal catheter tip shall be positioned in the cerebral ventricle to enable communication between the reservoir and cerebrospinal fluid. */
+
+    subject catheter : VentricularCatheter;
+
+    require constraint {
+      catheter.distalTipLocation == "lateral cerebral ventricle"
+    }
+
+    require constraint {
+      catheter.fenestrationCount >= 4
+    }
+  }
+
+  requirement def AccessRequirement {
+    doc
+      /* The system shall permit clinical access through the scalp using a sterile non-coring needle without removing the implant. */
+
+    subject kit : ClinicalAccessKit;
+
+    require constraint {
+      kit.nonCoringNeedleRequired == true
+    }
+
+    require constraint {
+      kit.antisepticPrepared == true
+    }
+  }
+
+  requirement def DoseDeliveryRequirement {
+    doc
+      /* During medication administration, the system shall transfer the prescribed therapeutic agent from the reservoir through the catheter into cerebrospinal fluid. */
+
+    subject system : OmmayaReservoirSystem;
+
+    require constraint {
+      system.maximumSingleInjectionVolume <= 5.0
+    }
+  }
+
+  requirement def SamplingRequirement {
+    doc
+      /* During diagnostic sampling, the system shall permit withdrawal of cerebrospinal fluid through the catheter and reservoir into a sterile collection container. */
+
+    subject kit : ClinicalAccessKit;
+
+    require constraint {
+      kit.sampleVialSterile == true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by OmmayaReservoirSystem;
+  satisfy SterilityRequirement by DomeReservoir;
+  satisfy CatheterPlacementRequirement by VentricularCatheter;
+  satisfy AccessRequirement by ClinicalAccessKit;
+  satisfy DoseDeliveryRequirement by OmmayaReservoirSystem;
+  satisfy SamplingRequirement by ClinicalAccessKit;
+
+}

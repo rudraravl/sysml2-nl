@@ -1,0 +1,997 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-zvazrzuo
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb31b-90e1-7b40-b93e-d0e09190f952
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Scoliometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ScoliometerSystemModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import MeasurementReferences::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def AngleOfTrunkRotation :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def ContactForce :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def BodyTemperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def BatteryCharge :> ISQ::electricCharge {
+        unit = SI::ampereHour;
+    }
+
+    attribute def MeasurementDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def ConfidenceLevel :> ScalarValues::Real {
+        range = "0.0..1.0";
+    }
+
+    item def BackSurfaceProfile {
+        attribute patientPosition : String;
+        attribute spinalRegion : String;
+        attribute skinContactForce : ContactForce;
+        attribute ambientTemperature : BodyTemperature;
+    }
+
+    item def TrunkRotationMeasurement {
+        attribute angleOfTrunkRotation : AngleOfTrunkRotation;
+        attribute confidence : ConfidenceLevel;
+        attribute duration : MeasurementDuration;
+        attribute timestamp : String;
+        attribute anatomicalLandmark : String;
+        attribute screeningInterpretation : String;
+    }
+
+    item def UserCommand {
+        attribute commandName : String;
+        attribute selectedMode : String;
+    }
+
+    item def DisplayMessage {
+        attribute primaryText : String;
+        attribute secondaryText : String;
+        attribute severity : String;
+    }
+
+    item def CalibrationReference {
+        attribute zeroAngle : AngleOfTrunkRotation;
+        attribute referenceSurfaceName : String;
+        attribute valid : Boolean;
+    }
+
+    port def ContactProfilePort {
+        in item profile : BackSurfaceProfile;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : TrunkRotationMeasurement;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def DisplayPort {
+        out item message : DisplayMessage;
+    }
+
+    port def CalibrationPort {
+        in item reference : CalibrationReference;
+    }
+
+    part def Scoliometer {
+        attribute operatingState : String;
+        attribute measuredATR : AngleOfTrunkRotation;
+        attribute measurementConfidence : ConfidenceLevel;
+        attribute minimumContactForce : ContactForce = 0.5 [SI::newton];
+        attribute maximumContactForce : ContactForce = 8.0 [SI::newton];
+        attribute screeningThreshold : AngleOfTrunkRotation = 7.0 [SI::degree];
+        attribute batteryRemaining : BatteryCharge;
+        attribute calibrated : Boolean;
+
+        port contactInput : ContactProfilePort;
+        port commandInput : CommandPort;
+        port calibrationInput : CalibrationPort;
+        port measurementOutput : MeasurementOutputPort;
+        port displayOutput : DisplayPort;
+
+        part housing : Housing;
+        part curvedBase : CurvedContactBase;
+        part angleSensor : InclinationSensor;
+        part processor : MeasurementProcessor;
+        part display : DigitalDisplay;
+        part buttons : UserInterfaceButtons;
+        part battery : BatteryModule;
+        part calibrationMemory : CalibrationMemory;
+
+        connect contactInput.profile to curvedBase.surfaceProfile;
+        connect curvedBase.transferredProfile to angleSensor.profileInput;
+        connect angleSensor.rawAngleOutput to processor.rawAngleInput;
+        connect calibrationInput.reference to calibrationMemory.referenceInput;
+        connect calibrationMemory.zeroReferenceOutput to processor.calibrationInput;
+        connect commandInput.command to buttons.commandInput;
+        connect buttons.modeCommandOutput to processor.commandInput;
+        connect processor.measurementOutput to measurementOutput.measurement;
+        connect processor.displayOutput to display.displayInput;
+        connect display.displayOutput to displayOutput.message;
+        connect battery.powerOutput to angleSensor.powerInput;
+        connect battery.powerOutput to processor.powerInput;
+        connect battery.powerOutput to display.powerInput;
+
+        state measurementLifecycle {
+            entry action initialize {
+                calibrated = false;
+                operatingState = "PowerOnSelfTest";
+            }
+
+            state Off;
+            state SelfTest;
+            state AwaitingCalibration;
+            state Ready;
+            state Measuring;
+            state Evaluating;
+            state DisplayingResult;
+            state LowBattery;
+            state Fault;
+
+            transition first Off then SelfTest
+                accept UserCommand
+                if command.commandName == "PowerOn";
+
+            transition SelfTest then LowBattery
+                if batteryRemaining < 0.1 [SI::ampereHour];
+
+            transition SelfTest then AwaitingCalibration
+                if batteryRemaining >= 0.1 [SI::ampereHour];
+
+            transition AwaitingCalibration then Ready
+                accept CalibrationReference
+                if reference.valid == true
+                do {
+                    calibrated = true;
+                    operatingState = "Ready";
+                }
+
+            transition Ready then Measuring
+                accept UserCommand
+                if command.commandName == "StartMeasurement" and calibrated == true
+                do {
+                    operatingState = "Measuring";
+                }
+
+            transition Measuring then Evaluating
+                if processor.sampleCount >= processor.requiredSampleCount
+                do {
+                    measuredATR = processor.filteredAngle;
+                    measurementConfidence = processor.computedConfidence;
+                }
+
+            transition Evaluating then DisplayingResult
+                do {
+                    operatingState = "DisplayingResult";
+                }
+
+            transition DisplayingResult then Ready
+                accept UserCommand
+                if command.commandName == "Clear";
+
+            transition Ready then Off
+                accept UserCommand
+                if command.commandName == "PowerOff";
+
+            transition Measuring then Fault
+                if curvedBase.currentContactForce < minimumContactForce or curvedBase.currentContactForce > maximumContactForce;
+
+            transition Fault then Ready
+                accept UserCommand
+                if command.commandName == "AcknowledgeFault";
+        }
+    }
+
+    part def Housing {
+        attribute material : String = "medical grade ABS plastic";
+        attribute disinfectantCompatible : Boolean = true;
+        attribute ingressProtection : String = "IP22";
+    }
+
+    part def CurvedContactBase {
+        attribute radiusMatchedToTorso : Boolean = true;
+        attribute contactWidth : LengthValue = 60 [SI::millimetre];
+        attribute currentContactForce : ContactForce;
+
+        in item surfaceProfile : BackSurfaceProfile;
+        out item transferredProfile : BackSurfaceProfile;
+    }
+
+    part def InclinationSensor {
+        attribute rawInclination : AngleOfTrunkRotation;
+        attribute sensorResolution : AngleOfTrunkRotation = 0.1 [SI::degree];
+        attribute measurementRangePositive : AngleOfTrunkRotation = 30 [SI::degree];
+        attribute measurementRangeNegative : AngleOfTrunkRotation = -30 [SI::degree];
+
+        in item profileInput : BackSurfaceProfile;
+        in item powerInput;
+        out item rawAngleOutput : TrunkRotationMeasurement;
+    }
+
+    part def MeasurementProcessor {
+        attribute requiredSampleCount : Integer = 25;
+        attribute sampleCount : Integer;
+        attribute filteredAngle : AngleOfTrunkRotation;
+        attribute computedConfidence : ConfidenceLevel;
+        attribute abnormalThreshold : AngleOfTrunkRotation = 7.0 [SI::degree];
+
+        in item rawAngleInput : TrunkRotationMeasurement;
+        in item calibrationInput : CalibrationReference;
+        in item commandInput : UserCommand;
+        in item powerInput;
+        out item measurementOutput : TrunkRotationMeasurement;
+        out item displayOutput : DisplayMessage;
+
+        action filterAngleSamples {
+            in item rawAngleInput : TrunkRotationMeasurement;
+            out attribute filteredAngle : AngleOfTrunkRotation;
+
+            first start;
+            then collectSamples;
+            then rejectTransientSamples;
+            then computeMeanAngle;
+            then compensateZeroReference;
+            then done;
+
+            action collectSamples {
+                sampleCount = requiredSampleCount;
+            }
+
+            action rejectTransientSamples;
+            action computeMeanAngle;
+            action compensateZeroReference;
+        }
+
+        action interpretScreeningResult {
+            in attribute filteredAngle : AngleOfTrunkRotation;
+            out item measurementOutput : TrunkRotationMeasurement;
+            out item displayOutput : DisplayMessage;
+
+            first compareThreshold;
+            then publishResult;
+
+            action compareThreshold {
+                if filteredAngle >= abnormalThreshold then {
+                    measurementOutput.screeningInterpretation = "Referral recommended for clinical assessment";
+                    displayOutput.severity = "Attention";
+                } else {
+                    measurementOutput.screeningInterpretation = "No referral threshold exceeded";
+                    displayOutput.severity = "Normal";
+                }
+            }
+
+            action publishResult {
+                measurementOutput.angleOfTrunkRotation = filteredAngle;
+                measurementOutput.confidence = computedConfidence;
+                measurementOutput.duration = 5 [SI::second];
+                displayOutput.primaryText = "ATR " + filteredAngle;
+            }
+        }
+    }
+
+    part def DigitalDisplay {
+        attribute displayType : String = "low power numeric LCD";
+        attribute showsDegrees : Boolean = true;
+        attribute showsReferralIndicator : Boolean = true;
+
+        in item displayInput : DisplayMessage;
+        in item powerInput;
+        out item displayOutput : DisplayMessage;
+    }
+
+    part def UserInterfaceButtons {
+        attribute buttonCount : Integer = 3;
+        attribute supportsPower : Boolean = true;
+        attribute supportsZeroCalibration : Boolean = true;
+        attribute supportsMeasurementHold : Boolean = true;
+
+        in item commandInput : UserCommand;
+        out item modeCommandOutput : UserCommand;
+    }
+
+    part def BatteryModule {
+        attribute nominalVoltage : VoltageValue = 3.0 [SI::volt];
+        attribute capacity : BatteryCharge = 0.22 [SI::ampereHour];
+        attribute rechargeable : Boolean = false;
+
+        out item powerOutput;
+    }
+
+    part def CalibrationMemory {
+        attribute storedZeroAngle : AngleOfTrunkRotation;
+        attribute lastCalibrationTimestamp : String;
+        attribute calibrationValid : Boolean;
+
+        in item referenceInput : CalibrationReference;
+        out item zeroReferenceOutput : CalibrationReference;
+    }
+
+    part def ClinicalUser {
+        port commandOutput : CommandPort;
+        port resultInput : MeasurementOutputPort;
+    }
+
+    part def Patient {
+        attribute forwardBendPosition : Boolean;
+        attribute spinalRegionPresented : String;
+
+        port backProfileOutput : ContactProfilePort;
+    }
+
+    part def ScreeningEnvironment {
+        part clinician : ClinicalUser;
+        part patient : Patient;
+        part instrument : Scoliometer;
+
+        connect patient.backProfileOutput.profile to instrument.contactInput.profile;
+        connect clinician.commandOutput.command to instrument.commandInput.command;
+        connect instrument.measurementOutput.measurement to clinician.resultInput.measurement;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument shall measure the angle of trunk rotation from the patient's back surface during forward bend screening and present a high-level scoliosis screening indication to the clinical user.
+        }
+    }
+
+    requirement def AngleMeasurementAccuracyRequirement {
+        subject instrument : Scoliometer;
+
+        attribute maximumPermittedError : AngleOfTrunkRotation = 1.0 [SI::degree];
+
+        require constraint {
+            instrument.measuredATR shall be within maximumPermittedError of the actual trunk rotation angle after calibration.
+        }
+    }
+
+    requirement def ContactSafetyRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument.curvedBase.currentContactForce >= instrument.minimumContactForce and
+            instrument.curvedBase.currentContactForce <= instrument.maximumContactForce;
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument shall not report a clinical screening result unless instrument.calibrated == true.
+        }
+    }
+
+    requirement def DisplayRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument shall display the measured angle of trunk rotation in degrees and indicate whether the screening threshold is exceeded.
+        }
+    }
+
+    requirement def PortabilityRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument.battery.capacity >= 0.2 [SI::ampereHour] and
+            instrument.housing.disinfectantCompatible == true;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Scoliometer;
+    satisfy AngleMeasurementAccuracyRequirement by MeasurementProcessor;
+    satisfy ContactSafetyRequirement by CurvedContactBase;
+    satisfy CalibrationRequirement by CalibrationMemory;
+    satisfy DisplayRequirement by DigitalDisplay;
+    satisfy PortabilityRequirement by BatteryModule;
+
+    action def PerformScoliosisScreening {
+        in item patientBackProfile : BackSurfaceProfile;
+        in item clinicianCommand : UserCommand;
+        out item atrMeasurement : TrunkRotationMeasurement;
+
+        part instrument : Scoliometer;
+
+        first positionPatient;
+        then zeroInstrument;
+        then placeInstrumentOnBack;
+        then acquireAngle;
+        then evaluateThreshold;
+        then reportResult;
+
+        action positionPatient {
+            patientBackProfile.patientPosition = "Adam forward bend position";
+        }
+
+        action zeroInstrument {
+            instrument.calibrated = true;
+        }
+
+        action placeInstrumentOnBack {
+            patientBackProfile.skinContactForce = 2.0 [SI::newton];
+        }
+
+        action acquireAngle {
+            instrument.processor.sampleCount = instrument.processor.requiredSampleCount;
+        }
+
+        action evaluateThreshold {
+            atrMeasurement.angleOfTrunkRotation = instrument.processor.filteredAngle;
+            atrMeasurement.confidence = instrument.processor.computedConfidence;
+        }
+
+        action reportResult {
+            atrMeasurement.anatomicalLandmark = patientBackProfile.spinalRegion;
+        }
+    }
+
+    analysis case def HighLevelFunctionAnalysis {
+        subject instrument : Scoliometer;
+
+        objective {
+            determine whether the instrument performs the primary high-level function of converting a physical trunk asymmetry presentation into a quantified angle of trunk rotation and an interpretable screening output.
+        }
+
+        return attribute functionSatisfied : Boolean;
+
+        constraint {
+            functionSatisfied ==
+                instrument.calibrated and
+                instrument.measuredATR >= -30 [SI::degree] and
+                instrument.measuredATR <= 30 [SI::degree] and
+                instrument.measurementConfidence >= 0.8;
+        }
+    }
+
+    package ExampleScreeningConfiguration {
+        part screeningRoom : ScreeningEnvironment {
+            part instrument : Scoliometer {
+                batteryRemaining = 0.18 [SI::ampereHour];
+                calibrated = true;
+                measuredATR = 8.5 [SI::degree];
+                measurementConfidence = 0.92;
+            }
+
+            part patient : Patient {
+                forwardBendPosition = true;
+                spinalRegionPresented = "thoracic";
+            }
+        }
+
+        item exampleProfile : BackSurfaceProfile {
+            patientPosition = "standing forward bend";
+            spinalRegion = "thoracic";
+            skinContactForce = 2.4 [SI::newton];
+            ambientTemperature = 22 [SI::degreeCelsius];
+        }
+
+        item exampleMeasurement : TrunkRotationMeasurement {
+            angleOfTrunkRotation = 8.5 [SI::degree];
+            confidence = 0.92;
+            duration = 5 [SI::second];
+            timestamp = "2026-06-10T09:00:00-05:00";
+            anatomicalLandmark = "thoracic apex";
+            screeningInterpretation = "Referral recommended for clinical assessment";
+        }
+    }
+}
+tokens used
+4,770
+package ScoliometerSystemModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import MeasurementReferences::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def AngleOfTrunkRotation :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def ContactForce :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def BodyTemperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def BatteryCharge :> ISQ::electricCharge {
+        unit = SI::ampereHour;
+    }
+
+    attribute def MeasurementDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def ConfidenceLevel :> ScalarValues::Real {
+        range = "0.0..1.0";
+    }
+
+    item def BackSurfaceProfile {
+        attribute patientPosition : String;
+        attribute spinalRegion : String;
+        attribute skinContactForce : ContactForce;
+        attribute ambientTemperature : BodyTemperature;
+    }
+
+    item def TrunkRotationMeasurement {
+        attribute angleOfTrunkRotation : AngleOfTrunkRotation;
+        attribute confidence : ConfidenceLevel;
+        attribute duration : MeasurementDuration;
+        attribute timestamp : String;
+        attribute anatomicalLandmark : String;
+        attribute screeningInterpretation : String;
+    }
+
+    item def UserCommand {
+        attribute commandName : String;
+        attribute selectedMode : String;
+    }
+
+    item def DisplayMessage {
+        attribute primaryText : String;
+        attribute secondaryText : String;
+        attribute severity : String;
+    }
+
+    item def CalibrationReference {
+        attribute zeroAngle : AngleOfTrunkRotation;
+        attribute referenceSurfaceName : String;
+        attribute valid : Boolean;
+    }
+
+    port def ContactProfilePort {
+        in item profile : BackSurfaceProfile;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : TrunkRotationMeasurement;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def DisplayPort {
+        out item message : DisplayMessage;
+    }
+
+    port def CalibrationPort {
+        in item reference : CalibrationReference;
+    }
+
+    part def Scoliometer {
+        attribute operatingState : String;
+        attribute measuredATR : AngleOfTrunkRotation;
+        attribute measurementConfidence : ConfidenceLevel;
+        attribute minimumContactForce : ContactForce = 0.5 [SI::newton];
+        attribute maximumContactForce : ContactForce = 8.0 [SI::newton];
+        attribute screeningThreshold : AngleOfTrunkRotation = 7.0 [SI::degree];
+        attribute batteryRemaining : BatteryCharge;
+        attribute calibrated : Boolean;
+
+        port contactInput : ContactProfilePort;
+        port commandInput : CommandPort;
+        port calibrationInput : CalibrationPort;
+        port measurementOutput : MeasurementOutputPort;
+        port displayOutput : DisplayPort;
+
+        part housing : Housing;
+        part curvedBase : CurvedContactBase;
+        part angleSensor : InclinationSensor;
+        part processor : MeasurementProcessor;
+        part display : DigitalDisplay;
+        part buttons : UserInterfaceButtons;
+        part battery : BatteryModule;
+        part calibrationMemory : CalibrationMemory;
+
+        connect contactInput.profile to curvedBase.surfaceProfile;
+        connect curvedBase.transferredProfile to angleSensor.profileInput;
+        connect angleSensor.rawAngleOutput to processor.rawAngleInput;
+        connect calibrationInput.reference to calibrationMemory.referenceInput;
+        connect calibrationMemory.zeroReferenceOutput to processor.calibrationInput;
+        connect commandInput.command to buttons.commandInput;
+        connect buttons.modeCommandOutput to processor.commandInput;
+        connect processor.measurementOutput to measurementOutput.measurement;
+        connect processor.displayOutput to display.displayInput;
+        connect display.displayOutput to displayOutput.message;
+        connect battery.powerOutput to angleSensor.powerInput;
+        connect battery.powerOutput to processor.powerInput;
+        connect battery.powerOutput to display.powerInput;
+
+        state measurementLifecycle {
+            entry action initialize {
+                calibrated = false;
+                operatingState = "PowerOnSelfTest";
+            }
+
+            state Off;
+            state SelfTest;
+            state AwaitingCalibration;
+            state Ready;
+            state Measuring;
+            state Evaluating;
+            state DisplayingResult;
+            state LowBattery;
+            state Fault;
+
+            transition first Off then SelfTest
+                accept UserCommand
+                if command.commandName == "PowerOn";
+
+            transition SelfTest then LowBattery
+                if batteryRemaining < 0.1 [SI::ampereHour];
+
+            transition SelfTest then AwaitingCalibration
+                if batteryRemaining >= 0.1 [SI::ampereHour];
+
+            transition AwaitingCalibration then Ready
+                accept CalibrationReference
+                if reference.valid == true
+                do {
+                    calibrated = true;
+                    operatingState = "Ready";
+                }
+
+            transition Ready then Measuring
+                accept UserCommand
+                if command.commandName == "StartMeasurement" and calibrated == true
+                do {
+                    operatingState = "Measuring";
+                }
+
+            transition Measuring then Evaluating
+                if processor.sampleCount >= processor.requiredSampleCount
+                do {
+                    measuredATR = processor.filteredAngle;
+                    measurementConfidence = processor.computedConfidence;
+                }
+
+            transition Evaluating then DisplayingResult
+                do {
+                    operatingState = "DisplayingResult";
+                }
+
+            transition DisplayingResult then Ready
+                accept UserCommand
+                if command.commandName == "Clear";
+
+            transition Ready then Off
+                accept UserCommand
+                if command.commandName == "PowerOff";
+
+            transition Measuring then Fault
+                if curvedBase.currentContactForce < minimumContactForce or curvedBase.currentContactForce > maximumContactForce;
+
+            transition Fault then Ready
+                accept UserCommand
+                if command.commandName == "AcknowledgeFault";
+        }
+    }
+
+    part def Housing {
+        attribute material : String = "medical grade ABS plastic";
+        attribute disinfectantCompatible : Boolean = true;
+        attribute ingressProtection : String = "IP22";
+    }
+
+    part def CurvedContactBase {
+        attribute radiusMatchedToTorso : Boolean = true;
+        attribute contactWidth : LengthValue = 60 [SI::millimetre];
+        attribute currentContactForce : ContactForce;
+
+        in item surfaceProfile : BackSurfaceProfile;
+        out item transferredProfile : BackSurfaceProfile;
+    }
+
+    part def InclinationSensor {
+        attribute rawInclination : AngleOfTrunkRotation;
+        attribute sensorResolution : AngleOfTrunkRotation = 0.1 [SI::degree];
+        attribute measurementRangePositive : AngleOfTrunkRotation = 30 [SI::degree];
+        attribute measurementRangeNegative : AngleOfTrunkRotation = -30 [SI::degree];
+
+        in item profileInput : BackSurfaceProfile;
+        in item powerInput;
+        out item rawAngleOutput : TrunkRotationMeasurement;
+    }
+
+    part def MeasurementProcessor {
+        attribute requiredSampleCount : Integer = 25;
+        attribute sampleCount : Integer;
+        attribute filteredAngle : AngleOfTrunkRotation;
+        attribute computedConfidence : ConfidenceLevel;
+        attribute abnormalThreshold : AngleOfTrunkRotation = 7.0 [SI::degree];
+
+        in item rawAngleInput : TrunkRotationMeasurement;
+        in item calibrationInput : CalibrationReference;
+        in item commandInput : UserCommand;
+        in item powerInput;
+        out item measurementOutput : TrunkRotationMeasurement;
+        out item displayOutput : DisplayMessage;
+
+        action filterAngleSamples {
+            in item rawAngleInput : TrunkRotationMeasurement;
+            out attribute filteredAngle : AngleOfTrunkRotation;
+
+            first start;
+            then collectSamples;
+            then rejectTransientSamples;
+            then computeMeanAngle;
+            then compensateZeroReference;
+            then done;
+
+            action collectSamples {
+                sampleCount = requiredSampleCount;
+            }
+
+            action rejectTransientSamples;
+            action computeMeanAngle;
+            action compensateZeroReference;
+        }
+
+        action interpretScreeningResult {
+            in attribute filteredAngle : AngleOfTrunkRotation;
+            out item measurementOutput : TrunkRotationMeasurement;
+            out item displayOutput : DisplayMessage;
+
+            first compareThreshold;
+            then publishResult;
+
+            action compareThreshold {
+                if filteredAngle >= abnormalThreshold then {
+                    measurementOutput.screeningInterpretation = "Referral recommended for clinical assessment";
+                    displayOutput.severity = "Attention";
+                } else {
+                    measurementOutput.screeningInterpretation = "No referral threshold exceeded";
+                    displayOutput.severity = "Normal";
+                }
+            }
+
+            action publishResult {
+                measurementOutput.angleOfTrunkRotation = filteredAngle;
+                measurementOutput.confidence = computedConfidence;
+                measurementOutput.duration = 5 [SI::second];
+                displayOutput.primaryText = "ATR " + filteredAngle;
+            }
+        }
+    }
+
+    part def DigitalDisplay {
+        attribute displayType : String = "low power numeric LCD";
+        attribute showsDegrees : Boolean = true;
+        attribute showsReferralIndicator : Boolean = true;
+
+        in item displayInput : DisplayMessage;
+        in item powerInput;
+        out item displayOutput : DisplayMessage;
+    }
+
+    part def UserInterfaceButtons {
+        attribute buttonCount : Integer = 3;
+        attribute supportsPower : Boolean = true;
+        attribute supportsZeroCalibration : Boolean = true;
+        attribute supportsMeasurementHold : Boolean = true;
+
+        in item commandInput : UserCommand;
+        out item modeCommandOutput : UserCommand;
+    }
+
+    part def BatteryModule {
+        attribute nominalVoltage : VoltageValue = 3.0 [SI::volt];
+        attribute capacity : BatteryCharge = 0.22 [SI::ampereHour];
+        attribute rechargeable : Boolean = false;
+
+        out item powerOutput;
+    }
+
+    part def CalibrationMemory {
+        attribute storedZeroAngle : AngleOfTrunkRotation;
+        attribute lastCalibrationTimestamp : String;
+        attribute calibrationValid : Boolean;
+
+        in item referenceInput : CalibrationReference;
+        out item zeroReferenceOutput : CalibrationReference;
+    }
+
+    part def ClinicalUser {
+        port commandOutput : CommandPort;
+        port resultInput : MeasurementOutputPort;
+    }
+
+    part def Patient {
+        attribute forwardBendPosition : Boolean;
+        attribute spinalRegionPresented : String;
+
+        port backProfileOutput : ContactProfilePort;
+    }
+
+    part def ScreeningEnvironment {
+        part clinician : ClinicalUser;
+        part patient : Patient;
+        part instrument : Scoliometer;
+
+        connect patient.backProfileOutput.profile to instrument.contactInput.profile;
+        connect clinician.commandOutput.command to instrument.commandInput.command;
+        connect instrument.measurementOutput.measurement to clinician.resultInput.measurement;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument shall measure the angle of trunk rotation from the patient's back surface during forward bend screening and present a high-level scoliosis screening indication to the clinical user.
+        }
+    }
+
+    requirement def AngleMeasurementAccuracyRequirement {
+        subject instrument : Scoliometer;
+
+        attribute maximumPermittedError : AngleOfTrunkRotation = 1.0 [SI::degree];
+
+        require constraint {
+            instrument.measuredATR shall be within maximumPermittedError of the actual trunk rotation angle after calibration.
+        }
+    }
+
+    requirement def ContactSafetyRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument.curvedBase.currentContactForce >= instrument.minimumContactForce and
+            instrument.curvedBase.currentContactForce <= instrument.maximumContactForce;
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument shall not report a clinical screening result unless instrument.calibrated == true.
+        }
+    }
+
+    requirement def DisplayRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument shall display the measured angle of trunk rotation in degrees and indicate whether the screening threshold is exceeded.
+        }
+    }
+
+    requirement def PortabilityRequirement {
+        subject instrument : Scoliometer;
+
+        require constraint {
+            instrument.battery.capacity >= 0.2 [SI::ampereHour] and
+            instrument.housing.disinfectantCompatible == true;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Scoliometer;
+    satisfy AngleMeasurementAccuracyRequirement by MeasurementProcessor;
+    satisfy ContactSafetyRequirement by CurvedContactBase;
+    satisfy CalibrationRequirement by CalibrationMemory;
+    satisfy DisplayRequirement by DigitalDisplay;
+    satisfy PortabilityRequirement by BatteryModule;
+
+    action def PerformScoliosisScreening {
+        in item patientBackProfile : BackSurfaceProfile;
+        in item clinicianCommand : UserCommand;
+        out item atrMeasurement : TrunkRotationMeasurement;
+
+        part instrument : Scoliometer;
+
+        first positionPatient;
+        then zeroInstrument;
+        then placeInstrumentOnBack;
+        then acquireAngle;
+        then evaluateThreshold;
+        then reportResult;
+
+        action positionPatient {
+            patientBackProfile.patientPosition = "Adam forward bend position";
+        }
+
+        action zeroInstrument {
+            instrument.calibrated = true;
+        }
+
+        action placeInstrumentOnBack {
+            patientBackProfile.skinContactForce = 2.0 [SI::newton];
+        }
+
+        action acquireAngle {
+            instrument.processor.sampleCount = instrument.processor.requiredSampleCount;
+        }
+
+        action evaluateThreshold {
+            atrMeasurement.angleOfTrunkRotation = instrument.processor.filteredAngle;
+            atrMeasurement.confidence = instrument.processor.computedConfidence;
+        }
+
+        action reportResult {
+            atrMeasurement.anatomicalLandmark = patientBackProfile.spinalRegion;
+        }
+    }
+
+    analysis case def HighLevelFunctionAnalysis {
+        subject instrument : Scoliometer;
+
+        objective {
+            determine whether the instrument performs the primary high-level function of converting a physical trunk asymmetry presentation into a quantified angle of trunk rotation and an interpretable screening output.
+        }
+
+        return attribute functionSatisfied : Boolean;
+
+        constraint {
+            functionSatisfied ==
+                instrument.calibrated and
+                instrument.measuredATR >= -30 [SI::degree] and
+                instrument.measuredATR <= 30 [SI::degree] and
+                instrument.measurementConfidence >= 0.8;
+        }
+    }
+
+    package ExampleScreeningConfiguration {
+        part screeningRoom : ScreeningEnvironment {
+            part instrument : Scoliometer {
+                batteryRemaining = 0.18 [SI::ampereHour];
+                calibrated = true;
+                measuredATR = 8.5 [SI::degree];
+                measurementConfidence = 0.92;
+            }
+
+            part patient : Patient {
+                forwardBendPosition = true;
+                spinalRegionPresented = "thoracic";
+            }
+        }
+
+        item exampleProfile : BackSurfaceProfile {
+            patientPosition = "standing forward bend";
+            spinalRegion = "thoracic";
+            skinContactForce = 2.4 [SI::newton];
+            ambientTemperature = 22 [SI::degreeCelsius];
+        }
+
+        item exampleMeasurement : TrunkRotationMeasurement {
+            angleOfTrunkRotation = 8.5 [SI::degree];
+            confidence = 0.92;
+            duration = 5 [SI::second];
+            timestamp = "2026-06-10T09:00:00-05:00";
+            anatomicalLandmark = "thoracic apex";
+            screeningInterpretation = "Referral recommended for clinical assessment";
+        }
+    }
+}

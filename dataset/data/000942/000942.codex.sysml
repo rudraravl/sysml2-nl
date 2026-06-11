@@ -1,0 +1,536 @@
+package PumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def SpecificPumpPower {
+        :> ScalarValues::Real;
+        unit = W_per_kg;
+        doc /* Pump shaft or electrical power normalized by transported fluid mass flow rate. */
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = Pa;
+    }
+
+    attribute def VolumeFlowRate {
+        :> ScalarValues::Real;
+        unit = m^3 / s;
+    }
+
+    attribute def MassFlowRate {
+        :> ScalarValues::Real;
+        unit = kg / s;
+    }
+
+    attribute def Density {
+        :> ScalarValues::Real;
+        unit = kg / m^3;
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = W;
+    }
+
+    attribute def Efficiency {
+        :> ScalarValues::Real;
+        unit = one;
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = K;
+    }
+
+    attribute def RotationalSpeed {
+        :> ScalarValues::Real;
+        unit = rad / s;
+    }
+
+    attribute def ValveOpening {
+        :> ScalarValues::Real;
+        unit = one;
+    }
+
+    item def Fluid {
+        attribute density : Density;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute volumeFlowRate : VolumeFlowRate;
+        attribute massFlowRate : MassFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute command : Real;
+        attribute valid : Boolean;
+    }
+
+    port def FluidPort {
+        inout item fluid : Fluid;
+    }
+
+    port def ElectricalPowerPort {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def ControlInputPort {
+        in item signal : ControlSignal;
+    }
+
+    port def TelemetryPort {
+        out item signal : ControlSignal;
+    }
+
+    part def Motor {
+        port powerIn : ElectricalPowerPort;
+        port commandIn : ControlInputPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute inputPower : Power;
+        attribute shaftPower : Power;
+        attribute efficiency : Efficiency = 0.93;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute enabled : Boolean = false;
+
+        constraint shaftPowerBalance {
+            shaftPower == inputPower * efficiency;
+        }
+
+        action startMotor {
+            in targetSpeed : RotationalSpeed;
+            out achievedSpeed : RotationalSpeed;
+            first start;
+            then setEnabled;
+            then accelerate;
+            then done;
+
+            action setEnabled {
+                enabled = true;
+            }
+
+            action accelerate {
+                shaftSpeed = targetSpeed;
+                achievedSpeed = shaftSpeed;
+            }
+        }
+
+        action stopMotor {
+            first start;
+            then removeTorque;
+            then done;
+
+            action removeTorque {
+                shaftSpeed = 0 [rad / s];
+                shaftPower = 0 [W];
+                enabled = false;
+            }
+        }
+    }
+
+    part def PumpHydraulicEnd {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute pressureRise : Pressure;
+        attribute volumeFlowRate : VolumeFlowRate;
+        attribute massFlowRate : MassFlowRate;
+        attribute fluidDensity : Density;
+        attribute hydraulicPower : Power;
+        attribute specificPumpPower : SpecificPumpPower;
+        attribute hydraulicEfficiency : Efficiency = 0.78;
+        attribute requiredShaftPower : Power;
+
+        constraint pressureRiseDefinition {
+            pressureRise == outletPressure - inletPressure;
+        }
+
+        constraint massFlowDefinition {
+            massFlowRate == fluidDensity * volumeFlowRate;
+        }
+
+        constraint hydraulicPowerDefinition {
+            hydraulicPower == pressureRise * volumeFlowRate;
+        }
+
+        constraint shaftPowerDefinition {
+            requiredShaftPower == hydraulicPower / hydraulicEfficiency;
+        }
+
+        constraint specificPumpPowerDefinition {
+            specificPumpPower == requiredShaftPower / massFlowRate;
+        }
+    }
+
+    part def CheckValve {
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        attribute crackingPressure : Pressure = 12000 [Pa];
+        attribute reverseFlowAllowed : Boolean = false;
+        attribute open : Boolean = false;
+
+        state def CheckValveState {
+            entry;
+            state Closed;
+            state Open;
+            transition first Closed;
+            transition ClosedToOpen
+                first Closed
+                accept when upstream.fluid.pressure - downstream.fluid.pressure >= crackingPressure
+                then Open;
+            transition OpenToClosed
+                first Open
+                accept when upstream.fluid.pressure <= downstream.fluid.pressure
+                then Closed;
+        }
+    }
+
+    part def IsolationValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port commandIn : ControlInputPort;
+
+        attribute opening : ValveOpening = 1.0;
+        attribute commandedOpen : Boolean = true;
+        attribute pressureLoss : Pressure;
+
+        action openValve {
+            first start;
+            then setOpen;
+            then done;
+
+            action setOpen {
+                opening = 1.0;
+                commandedOpen = true;
+            }
+        }
+
+        action closeValve {
+            first start;
+            then setClosed;
+            then done;
+
+            action setClosed {
+                opening = 0.0;
+                commandedOpen = false;
+            }
+        }
+    }
+
+    part def PressureSensor {
+        port process : FluidPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute measuredPressure : Pressure;
+        attribute accuracy : Pressure = 2500 [Pa];
+        attribute healthy : Boolean = true;
+
+        action samplePressure {
+            out pressureSample : Pressure;
+            first start;
+            then readProcess;
+            then done;
+
+            action readProcess {
+                measuredPressure = process.fluid.pressure;
+                pressureSample = measuredPressure;
+            }
+        }
+    }
+
+    part def FlowSensor {
+        port process : FluidPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute measuredMassFlow : MassFlowRate;
+        attribute measuredVolumeFlow : VolumeFlowRate;
+        attribute healthy : Boolean = true;
+
+        action sampleFlow {
+            out massFlowSample : MassFlowRate;
+            first start;
+            then readProcess;
+            then done;
+
+            action readProcess {
+                measuredMassFlow = process.fluid.massFlowRate;
+                measuredVolumeFlow = process.fluid.volumeFlowRate;
+                massFlowSample = measuredMassFlow;
+            }
+        }
+    }
+
+    part def PumpController {
+        port commandIn : ControlInputPort;
+        port motorCommandOut : ControlInputPort;
+        port valveCommandOut : ControlInputPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute requestedSpecificPumpPower : SpecificPumpPower = 480 [W / kg];
+        attribute measuredSpecificPumpPower : SpecificPumpPower;
+        attribute measuredFlow : MassFlowRate;
+        attribute measuredSuctionPressure : Pressure;
+        attribute measuredDischargePressure : Pressure;
+        attribute specificPowerTolerance : SpecificPumpPower = 35 [W / kg];
+        attribute pumpEnabled : Boolean = false;
+        attribute faultPresent : Boolean = false;
+
+        action computeSpecificPumpPower {
+            in shaftPower : Power;
+            in massFlow : MassFlowRate;
+            out result : SpecificPumpPower;
+
+            first start;
+            then calculate;
+            then done;
+
+            action calculate {
+                result = shaftPower / massFlow;
+                measuredSpecificPumpPower = result;
+            }
+        }
+
+        action regulatePump {
+            in targetSpecificPower : SpecificPumpPower;
+            in actualSpecificPower : SpecificPumpPower;
+
+            first start;
+            then compare;
+            then commandMotor;
+            then done;
+
+            action compare {
+                requestedSpecificPumpPower = targetSpecificPower;
+            }
+
+            action commandMotor {
+                pumpEnabled = true;
+            }
+        }
+
+        state def ControllerState {
+            entry;
+            state Off;
+            state Standby;
+            state Starting;
+            state Regulating;
+            state Faulted;
+            state Stopping;
+
+            transition initial first Off;
+
+            transition OffToStandby
+                first Off
+                accept when commandIn.signal.valid and commandIn.signal.command == 1.0
+                then Standby;
+
+            transition StandbyToStarting
+                first Standby
+                accept when faultPresent == false
+                then Starting;
+
+            transition StartingToRegulating
+                first Starting
+                accept when measuredFlow > 0.2 [kg / s]
+                then Regulating;
+
+            transition RegulatingToFaulted
+                first Regulating
+                accept when measuredSuctionPressure < 65000 [Pa] or measuredDischargePressure > 900000 [Pa]
+                then Faulted;
+
+            transition RegulatingToStopping
+                first Regulating
+                accept when commandIn.signal.valid and commandIn.signal.command == 0.0
+                then Stopping;
+
+            transition StoppingToOff
+                first Stopping
+                accept when measuredFlow <= 0.01 [kg / s]
+                then Off;
+
+            transition FaultedToOff
+                first Faulted
+                accept when commandIn.signal.valid and commandIn.signal.command == 0.0
+                then Off;
+        }
+    }
+
+    part def PumpingSubsystem {
+        port suctionInlet : FluidPort;
+        port dischargeOutlet : FluidPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommand : ControlInputPort;
+        port subsystemTelemetry : TelemetryPort;
+
+        part suctionValve : IsolationValve;
+        part suctionPressureSensor : PressureSensor;
+        part motor : Motor;
+        part pump : PumpHydraulicEnd;
+        part dischargeCheckValve : CheckValve;
+        part dischargePressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part controller : PumpController;
+
+        attribute designFluidDensity : Density = 998 [kg / m^3];
+        attribute ratedVolumeFlowRate : VolumeFlowRate = 0.035 [m^3 / s];
+        attribute ratedMassFlowRate : MassFlowRate = 34.93 [kg / s];
+        attribute ratedPressureRise : Pressure = 420000 [Pa];
+        attribute ratedHydraulicPower : Power = 14700 [W];
+        attribute ratedShaftPower : Power = 18846 [W];
+        attribute ratedSpecificPumpPower : SpecificPumpPower = 540 [W / kg];
+        attribute minimumSuctionPressure : Pressure = 65000 [Pa];
+        attribute maximumDischargePressure : Pressure = 900000 [Pa];
+
+        connect suctionInlet to suctionValve.inlet;
+        connect suctionValve.outlet to suctionPressureSensor.process;
+        connect suctionPressureSensor.process to pump.suction;
+        connect pump.discharge to dischargeCheckValve.upstream;
+        connect dischargeCheckValve.downstream to dischargePressureSensor.process;
+        connect dischargePressureSensor.process to flowSensor.process;
+        connect flowSensor.process to dischargeOutlet;
+
+        connect electricalSupply to motor.powerIn;
+        connect operatorCommand to controller.commandIn;
+        connect controller.motorCommandOut to motor.commandIn;
+        connect controller.valveCommandOut to suctionValve.commandIn;
+        connect controller.telemetryOut to subsystemTelemetry;
+
+        constraint ratedMassFlow {
+            ratedMassFlowRate == designFluidDensity * ratedVolumeFlowRate;
+        }
+
+        constraint ratedHydraulicPowerCalculation {
+            ratedHydraulicPower == ratedPressureRise * ratedVolumeFlowRate;
+        }
+
+        constraint ratedSpecificPowerCalculation {
+            ratedSpecificPumpPower == ratedShaftPower / ratedMassFlowRate;
+        }
+
+        constraint suctionLimit {
+            pump.inletPressure >= minimumSuctionPressure;
+        }
+
+        constraint dischargeLimit {
+            pump.outletPressure <= maximumDischargePressure;
+        }
+
+        perform action startSubsystem {
+            first start;
+            then openSuctionValve;
+            then startDrive;
+            then establishFlow;
+            then regulateSpecificPower;
+            then done;
+
+            action openSuctionValve {
+                suctionValve.openValve;
+            }
+
+            action startDrive {
+                motor.startMotor(targetSpeed = 314 [rad / s]);
+            }
+
+            action establishFlow {
+                pump.volumeFlowRate = ratedVolumeFlowRate;
+                pump.fluidDensity = designFluidDensity;
+                pump.pressureRise = ratedPressureRise;
+            }
+
+            action regulateSpecificPower {
+                controller.regulatePump(
+                    targetSpecificPower = ratedSpecificPumpPower,
+                    actualSpecificPower = pump.specificPumpPower
+                );
+            }
+        }
+
+        perform action stopSubsystem {
+            first start;
+            then stopDrive;
+            then closeSuctionValve;
+            then done;
+
+            action stopDrive {
+                motor.stopMotor;
+            }
+
+            action closeSuctionValve {
+                suctionValve.closeValve;
+            }
+        }
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        requirement fluidTransport {
+            doc /* The pumping subsystem shall move process fluid from the suction inlet to the discharge outlet through a continuous hydraulic path. */
+            require constraint {
+                subsystem.pump.volumeFlowRate >= 0.030 [m^3 / s]
+            }
+        }
+
+        requirement specificPumpPowerControl {
+            doc /* The pumping subsystem shall operate at the commanded specific pump power during normal regulation. */
+            require constraint {
+                abs(subsystem.pump.specificPumpPower - subsystem.controller.requestedSpecificPumpPower)
+                    <= subsystem.controller.specificPowerTolerance
+            }
+        }
+
+        requirement pressureRise {
+            doc /* The pumping subsystem shall provide the rated pressure rise at the rated flow condition. */
+            require constraint {
+                subsystem.pump.pressureRise >= 420000 [Pa]
+            }
+        }
+
+        requirement suctionProtection {
+            doc /* The subsystem shall prevent regulated operation when suction pressure is below the allowable limit. */
+            require constraint {
+                subsystem.pump.inletPressure >= subsystem.minimumSuctionPressure
+            }
+        }
+
+        requirement dischargeProtection {
+            doc /* The subsystem shall prevent regulated operation when discharge pressure exceeds the allowable limit. */
+            require constraint {
+                subsystem.pump.outletPressure <= subsystem.maximumDischargePressure
+            }
+        }
+
+        requirement reverseFlowPrevention {
+            doc /* The subsystem shall include a check valve downstream of the pump to prevent reverse flow from the discharge line. */
+            require constraint {
+                subsystem.dischargeCheckValve.reverseFlowAllowed == false
+            }
+        }
+    }
+
+    satisfy PumpingSubsystemRequirement::fluidTransport by PumpingSubsystem::pump;
+    satisfy PumpingSubsystemRequirement::specificPumpPowerControl by PumpingSubsystem::controller;
+    satisfy PumpingSubsystemRequirement::pressureRise by PumpingSubsystem::pump;
+    satisfy PumpingSubsystemRequirement::suctionProtection by PumpingSubsystem::controller;
+    satisfy PumpingSubsystemRequirement::dischargeProtection by PumpingSubsystem::controller;
+    satisfy PumpingSubsystemRequirement::reverseFlowPrevention by PumpingSubsystem::dischargeCheckValve;
+
+    part pumpingSubsystem : PumpingSubsystem {
+        attribute designFluidDensity = 998 [kg / m^3];
+        attribute ratedVolumeFlowRate = 0.035 [m^3 / s];
+        attribute ratedPressureRise = 420000 [Pa];
+        attribute ratedSpecificPumpPower = 540 [W / kg];
+    }
+}

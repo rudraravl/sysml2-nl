@@ -1,0 +1,460 @@
+package MediPinesRespiratoryAssessmentSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Percent;
+    attribute def Pressure_mmHg;
+    attribute def Flow_L_per_min;
+    attribute def Volume_L;
+    attribute def Frequency_per_min;
+    attribute def Duration_s;
+    attribute def Temperature_C;
+    attribute def Concentration_mmHg;
+
+    item def PatientBreath {
+        attribute oxygenFraction : Percent;
+        attribute carbonDioxideFraction : Percent;
+        attribute breathFlow : Flow_L_per_min;
+        attribute breathTemperature : Temperature_C;
+    }
+
+    item def RespiratoryMeasurement {
+        attribute oxygenSaturation : Percent;
+        attribute partialPressureOxygen : Pressure_mmHg;
+        attribute partialPressureCarbonDioxide : Pressure_mmHg;
+        attribute oxygenDeficit : Pressure_mmHg;
+        attribute respiratoryRate : Frequency_per_min;
+        attribute tidalVolumeEstimate : Volume_L;
+        attribute measurementConfidence : Percent;
+    }
+
+    item def PatientContext {
+        attribute patientIdentifier : String;
+        attribute ageYears : Integer;
+        attribute heightCm : Real;
+        attribute weightKg : Real;
+        attribute ambientPressure : Pressure_mmHg;
+    }
+
+    item def ClinicalAssessmentReport {
+        attribute reportIdentifier : String;
+        attribute generatedAt : String;
+        attribute primaryAssessment : String;
+        attribute recommendedClinicalAction : String;
+        attribute oxygenDeficit : Pressure_mmHg;
+        attribute carbonDioxideStatus : String;
+        attribute trendStatus : String;
+    }
+
+    item def AlarmSignal {
+        attribute alarmCode : String;
+        attribute severity : AlarmSeverity;
+        attribute message : String;
+    }
+
+    enum def AlarmSeverity {
+        none;
+        advisory;
+        caution;
+        critical;
+    }
+
+    enum def MeasurementMode {
+        idle;
+        calibration;
+        spotCheck;
+        continuousMonitoring;
+        reportReview;
+        fault;
+    }
+
+    port def BreathInletPort {
+        in breath : PatientBreath;
+    }
+
+    port def MeasurementOutputPort {
+        out measurement : RespiratoryMeasurement;
+    }
+
+    port def ReportOutputPort {
+        out report : ClinicalAssessmentReport;
+    }
+
+    port def AlarmOutputPort {
+        out alarm : AlarmSignal;
+    }
+
+    port def PatientContextPort {
+        in context : PatientContext;
+    }
+
+    port def PowerPort {
+        in supplyVoltage : Real;
+        out powerStatus : String;
+    }
+
+    port def DisplayPort {
+        in measurement : RespiratoryMeasurement;
+        in report : ClinicalAssessmentReport;
+        in alarm : AlarmSignal;
+    }
+
+    part def DisposableBreathingInterface {
+        port patientBreathPort : BreathInletPort;
+
+        attribute deadSpaceVolume : Volume_L = 0.045;
+        attribute filterEfficiency : Percent = 99.9;
+        attribute singlePatientUse : Boolean = true;
+    }
+
+    part def GasSamplingSubsystem {
+        port breathInput : BreathInletPort;
+        port sampledBreathOutput : BreathInletPort;
+
+        attribute sampleFlowRate : Flow_L_per_min = 0.20;
+        attribute samplingLineVolume : Volume_L = 0.012;
+        attribute maximumResponseTime : Duration_s = 2.0;
+
+        action sampleBreath {
+            in rawBreath : PatientBreath;
+            out conditionedBreath : PatientBreath;
+
+            first startSampling;
+            then removeCondensation;
+            then regulateSampleFlow;
+            then deliverConditionedBreath;
+
+            action startSampling;
+            action removeCondensation;
+            action regulateSampleFlow;
+            action deliverConditionedBreath;
+        }
+    }
+
+    part def OxygenSensor {
+        port sampledBreathInput : BreathInletPort;
+
+        attribute measuredOxygenFraction : Percent;
+        attribute sensorRangeMin : Percent = 0.0;
+        attribute sensorRangeMax : Percent = 100.0;
+        attribute accuracy : Percent = 2.0;
+        attribute warmupTime : Duration_s = 30.0;
+
+        action measureOxygen {
+            in breath : PatientBreath;
+            out oxygenFraction : Percent;
+        }
+    }
+
+    part def CarbonDioxideSensor {
+        port sampledBreathInput : BreathInletPort;
+
+        attribute measuredCarbonDioxideFraction : Percent;
+        attribute sensorRangeMin : Percent = 0.0;
+        attribute sensorRangeMax : Percent = 15.0;
+        attribute accuracy : Percent = 0.3;
+        attribute responseTime : Duration_s = 0.5;
+
+        action measureCarbonDioxide {
+            in breath : PatientBreath;
+            out carbonDioxideFraction : Percent;
+        }
+    }
+
+    part def PulseOximetryModule {
+        attribute oxygenSaturation : Percent;
+        attribute pulseRate : Frequency_per_min;
+        attribute minimumValidPerfusionIndex : Percent = 0.3;
+
+        action acquirePulseOximetry {
+            out saturation : Percent;
+            out pulseRateOutput : Frequency_per_min;
+        }
+    }
+
+    part def RespiratoryRateEstimator {
+        attribute respiratoryRate : Frequency_per_min;
+        attribute minimumBreathDetectionFlow : Flow_L_per_min = 1.0;
+
+        action estimateRate {
+            in sampledBreath : PatientBreath;
+            out rate : Frequency_per_min;
+        }
+    }
+
+    part def GasExchangeProcessor {
+        port patientContextInput : PatientContextPort;
+        port measurementOutput : MeasurementOutputPort;
+
+        attribute assumedSeaLevelPressure : Pressure_mmHg = 760.0;
+        attribute normalOxygenDeficitLimit : Pressure_mmHg = 25.0;
+        attribute elevatedOxygenDeficitLimit : Pressure_mmHg = 45.0;
+        attribute criticalOxygenDeficitLimit : Pressure_mmHg = 65.0;
+
+        action computeGasExchange {
+            in oxygenFraction : Percent;
+            in carbonDioxideFraction : Percent;
+            in oxygenSaturation : Percent;
+            in respiratoryRate : Frequency_per_min;
+            in patientContext : PatientContext;
+            out measurement : RespiratoryMeasurement;
+
+            first validateInputs;
+            then calculatePartialPressures;
+            then calculateOxygenDeficit;
+            then estimateTidalVolume;
+            then assignConfidence;
+
+            action validateInputs;
+            action calculatePartialPressures;
+            action calculateOxygenDeficit;
+            action estimateTidalVolume;
+            action assignConfidence;
+        }
+    }
+
+    part def ClinicalDecisionSupport {
+        port measurementInput : MeasurementOutputPort;
+        port reportOutput : ReportOutputPort;
+        port alarmOutput : AlarmOutputPort;
+
+        attribute hypoxemiaThreshold : Percent = 90.0;
+        attribute hypercapniaThreshold : Pressure_mmHg = 50.0;
+        attribute severeOxygenDeficitThreshold : Pressure_mmHg = 65.0;
+
+        action classifyRespiratoryStatus {
+            in measurement : RespiratoryMeasurement;
+            out report : ClinicalAssessmentReport;
+            out alarm : AlarmSignal;
+
+            first evaluateOxygenation;
+            then evaluateVentilation;
+            then evaluateTrend;
+            then selectClinicalRecommendation;
+            then publishReportAndAlarm;
+
+            action evaluateOxygenation;
+            action evaluateVentilation;
+            action evaluateTrend;
+            action selectClinicalRecommendation;
+            action publishReportAndAlarm;
+        }
+    }
+
+    part def UserInterface {
+        port displayInput : DisplayPort;
+
+        attribute screenBrightness : Percent = 80.0;
+        attribute audibleAlarmEnabled : Boolean = true;
+        attribute currentMode : MeasurementMode = MeasurementMode::idle;
+
+        action displayAssessment {
+            in measurement : RespiratoryMeasurement;
+            in report : ClinicalAssessmentReport;
+            in alarm : AlarmSignal;
+        }
+    }
+
+    part def DataLogger {
+        port measurementInput : MeasurementOutputPort;
+        port reportInput : ReportOutputPort;
+
+        attribute storageCapacityReports : Integer = 10000;
+        attribute encryptedStorageEnabled : Boolean = true;
+
+        action storeRecord {
+            in measurement : RespiratoryMeasurement;
+            in report : ClinicalAssessmentReport;
+        }
+    }
+
+    part def PowerManagementSubsystem {
+        port powerInput : PowerPort;
+
+        attribute batteryCapacityWh : Real = 48.0;
+        attribute operatingVoltage : Real = 12.0;
+        attribute minimumRuntimeHours : Real = 6.0;
+        attribute chargeLevel : Percent;
+
+        action monitorPower {
+            out status : String;
+        }
+    }
+
+    part def MediPinesInspiredRespiratoryMonitor {
+        port breathInlet : BreathInletPort;
+        port patientContextIn : PatientContextPort;
+        port clinicalReportOut : ReportOutputPort;
+        port clinicalAlarmOut : AlarmOutputPort;
+        port externalPower : PowerPort;
+
+        part breathingInterface : DisposableBreathingInterface;
+        part samplingSubsystem : GasSamplingSubsystem;
+        part oxygenSensor : OxygenSensor;
+        part carbonDioxideSensor : CarbonDioxideSensor;
+        part pulseOximetry : PulseOximetryModule;
+        part rateEstimator : RespiratoryRateEstimator;
+        part gasExchangeProcessor : GasExchangeProcessor;
+        part decisionSupport : ClinicalDecisionSupport;
+        part userInterface : UserInterface;
+        part dataLogger : DataLogger;
+        part powerManagement : PowerManagementSubsystem;
+
+        attribute primaryFunction : String =
+            "Provide a high-level, noninvasive respiratory gas-exchange assessment by sampling patient breath, estimating oxygenation and ventilation status, calculating oxygen deficit, and presenting actionable clinical assessment information.";
+
+        attribute measurementCycleTime : Duration_s = 15.0;
+        attribute intendedUseEnvironment : String = "Clinical respiratory assessment, emergency department triage, monitored care, and pulmonary evaluation settings.";
+        attribute systemMode : MeasurementMode = MeasurementMode::idle;
+
+        connect breathInlet to breathingInterface.patientBreathPort;
+        connect breathingInterface.patientBreathPort to samplingSubsystem.breathInput;
+        connect samplingSubsystem.sampledBreathOutput to oxygenSensor.sampledBreathInput;
+        connect samplingSubsystem.sampledBreathOutput to carbonDioxideSensor.sampledBreathInput;
+        connect samplingSubsystem.sampledBreathOutput to rateEstimator;
+        connect patientContextIn to gasExchangeProcessor.patientContextInput;
+        connect gasExchangeProcessor.measurementOutput to decisionSupport.measurementInput;
+        connect gasExchangeProcessor.measurementOutput to dataLogger.measurementInput;
+        connect decisionSupport.reportOutput to clinicalReportOut;
+        connect decisionSupport.alarmOutput to clinicalAlarmOut;
+        connect decisionSupport.reportOutput to dataLogger.reportInput;
+        connect externalPower to powerManagement.powerInput;
+
+        action performSpotCheckAssessment {
+            in patientContext : PatientContext;
+            in patientBreath : PatientBreath;
+            out report : ClinicalAssessmentReport;
+            out alarm : AlarmSignal;
+
+            first initializeDevice;
+            then verifyDisposableInterface;
+            then calibrateSensors;
+            then acquireBreathSample;
+            then acquirePulseOximetrySignal;
+            then computeMeasurement;
+            then classifyStatus;
+            then displayResults;
+            then storeResults;
+            then returnToReady;
+
+            action initializeDevice;
+            action verifyDisposableInterface;
+            action calibrateSensors;
+            action acquireBreathSample;
+            action acquirePulseOximetrySignal;
+            action computeMeasurement;
+            action classifyStatus;
+            action displayResults;
+            action storeResults;
+            action returnToReady;
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state startup;
+            state selfTest;
+            state ready;
+            state calibrating;
+            state acquiringSample;
+            state processing;
+            state displayingAssessment;
+            state continuousMonitoring;
+            state alarmActive;
+            state fault;
+
+            entry action initializeSystem;
+            exit action saveSessionState;
+
+            transition first off then startup;
+            transition startup then selfTest;
+            transition selfTest then ready if selfTestPassed;
+            transition selfTest then fault if selfTestFailed;
+            transition ready then calibrating if calibrationRequested;
+            transition calibrating then ready if calibrationComplete;
+            transition ready then acquiringSample if spotCheckRequested;
+            transition acquiringSample then processing if sampleQualityAcceptable;
+            transition acquiringSample then fault if sampleLineOccluded;
+            transition processing then displayingAssessment if computationComplete;
+            transition displayingAssessment then ready if reportAcknowledged;
+            transition ready then continuousMonitoring if continuousModeRequested;
+            transition continuousMonitoring then processing if measurementCycleElapsed;
+            transition processing then alarmActive if alarmThresholdExceeded;
+            transition alarmActive then continuousMonitoring if alarmAcknowledged and continuousModeRequested;
+            transition alarmActive then ready if alarmAcknowledged and not continuousModeRequested;
+            transition fault then ready if faultCleared;
+
+            action initializeSystem;
+            action saveSessionState;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall provide a high-level respiratory gas-exchange assessment by noninvasively collecting patient breath and oxygenation data, computing clinically relevant oxygenation and ventilation indicators, and presenting a concise assessment report. */
+    }
+
+    requirement def BreathSamplingRequirement {
+        doc
+        /* The system shall collect a conditioned breath sample at a nominal sample flow of 0.20 L/min and deliver it to gas sensors within 2.0 seconds. */
+    }
+
+    requirement def OxygenDeficitRequirement {
+        doc
+        /* The system shall compute oxygen deficit in mmHg using patient context, oxygen measurement, carbon dioxide measurement, oxygen saturation, and ambient pressure. */
+    }
+
+    requirement def ClinicalAlarmRequirement {
+        doc
+        /* The system shall produce a critical alarm when oxygen saturation is below 90 percent or oxygen deficit is at or above 65 mmHg. */
+    }
+
+    requirement def ReportingRequirement {
+        doc
+        /* The system shall generate a clinical assessment report containing oxygen deficit, carbon dioxide status, trend status, and a recommended clinical action. */
+    }
+
+    requirement def DataRetentionRequirement {
+        doc
+        /* The system shall store at least 10000 encrypted assessment records for later review and clinical documentation. */
+    }
+
+    requirement def PowerRequirement {
+        doc
+        /* The system shall operate for at least 6 hours on internal battery power during spot-check and intermittent monitoring use. */
+    }
+
+    satisfy PrimaryFunctionRequirement by MediPinesInspiredRespiratoryMonitor;
+    satisfy BreathSamplingRequirement by GasSamplingSubsystem;
+    satisfy OxygenDeficitRequirement by GasExchangeProcessor;
+    satisfy ClinicalAlarmRequirement by ClinicalDecisionSupport;
+    satisfy ReportingRequirement by ClinicalDecisionSupport;
+    satisfy DataRetentionRequirement by DataLogger;
+    satisfy PowerRequirement by PowerManagementSubsystem;
+
+    constraint def OxygenDeficitCalculation {
+        in alveolarOxygenPressure : Pressure_mmHg;
+        in arterialOxygenEstimate : Pressure_mmHg;
+        out oxygenDeficit : Pressure_mmHg;
+
+        oxygenDeficit = alveolarOxygenPressure - arterialOxygenEstimate;
+    }
+
+    constraint def CriticalAlarmRule {
+        in oxygenSaturation : Percent;
+        in oxygenDeficit : Pressure_mmHg;
+        out criticalAlarmRequired : Boolean;
+
+        criticalAlarmRequired = oxygenSaturation < 90.0 or oxygenDeficit >= 65.0;
+    }
+
+    constraint def HypercapniaRule {
+        in partialPressureCarbonDioxide : Pressure_mmHg;
+        out hypercapniaPresent : Boolean;
+
+        hypercapniaPresent = partialPressureCarbonDioxide >= 50.0;
+    }
+
+    part medipinesBasedSystem : MediPinesInspiredRespiratoryMonitor;
+
+}

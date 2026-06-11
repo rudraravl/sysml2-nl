@@ -1,0 +1,911 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ayoehbeq
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3b7-d4fc-7650-b66b-a2dfb81f7cf4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Jet injector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package JetInjectorSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value type Milliliter :> Real;
+    value type Microliter :> Real;
+    value type Millisecond :> Real;
+    value type Newton :> Real;
+    value type Megapascal :> Real;
+    value type Millimeter :> Real;
+    value type MillimeterPerSecond :> Real;
+    value type Celsius :> Real;
+    value type Percent :> Real;
+    value type Joule :> Real;
+
+    enum def InjectorOperatingMode {
+        enum idle;
+        enum priming;
+        enum armed;
+        enum delivering;
+        enum complete;
+        enum lockedOut;
+        enum fault;
+    }
+
+    enum def DoseStatus {
+        enum notLoaded;
+        enum loaded;
+        enum verified;
+        enum delivered;
+        enum incomplete;
+        enum rejected;
+    }
+
+    enum def SafetyStatus {
+        enum safe;
+        enum contactMissing;
+        enum pressureOutOfRange;
+        enum doseOutOfRange;
+        enum actuatorFault;
+        enum reservoirEmpty;
+        enum locked;
+    }
+
+    item def DrugFormulation {
+        attribute drugName : String;
+        attribute concentration_mgPermL : Real;
+        attribute viscosity_cP : Real;
+        attribute storageTemperature_C : Celsius;
+    }
+
+    item def SterileDose {
+        attribute formulation : DrugFormulation;
+        attribute targetVolume_mL : Milliliter;
+        attribute meteredVolume_uL : Microliter;
+        attribute status : DoseStatus;
+    }
+
+    item def HighPressureFluidJet {
+        attribute jetDiameter_mm : Millimeter;
+        attribute exitPressure_MPa : Megapascal;
+        attribute jetVelocity_mmPerSecond : MillimeterPerSecond;
+        attribute pulseDuration_ms : Millisecond;
+        attribute deliveredVolume_uL : Microliter;
+    }
+
+    item def UserCommand {
+        attribute requestArm : Boolean;
+        attribute requestInject : Boolean;
+        attribute requestCancel : Boolean;
+    }
+
+    item def ContactCondition {
+        attribute normalForce_N : Newton;
+        attribute skinContactConfirmed : Boolean;
+        attribute nozzleStandoff_mm : Millimeter;
+    }
+
+    item def InjectionRecord {
+        attribute deliveredVolume_uL : Microliter;
+        attribute peakPressure_MPa : Megapascal;
+        attribute duration_ms : Millisecond;
+        attribute completed : Boolean;
+        attribute lockoutReason : SafetyStatus;
+    }
+
+    port def DoseFluidInlet {
+        in item dose : SterileDose;
+    }
+
+    port def DoseFluidOutlet {
+        out item dose : SterileDose;
+    }
+
+    port def JetOutlet {
+        out item jet : HighPressureFluidJet;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusPort {
+        out attribute mode : InjectorOperatingMode;
+        out attribute safety : SafetyStatus;
+    }
+
+    port def ContactSensePort {
+        in item contact : ContactCondition;
+    }
+
+    port def MechanicalDrivePort {
+        out attribute driveForce_N : Newton;
+        out attribute driveEnergy_J : Joule;
+    }
+
+    port def PressureSensePort {
+        out attribute measuredPressure_MPa : Megapascal;
+    }
+
+    port def RecordPort {
+        out item record : InjectionRecord;
+    }
+
+    action def MeterDose {
+        in item sourceDose : SterileDose;
+        in attribute requestedVolume_uL : Microliter;
+        out item meteredDose : SterileDose;
+
+        constraint volumeWithinDoseWindow {
+            meteredDose.meteredVolume_uL >= requestedVolume_uL * 0.95 and
+            meteredDose.meteredVolume_uL <= requestedVolume_uL * 1.05
+        }
+    }
+
+    action def PressurizeDose {
+        in item meteredDose : SterileDose;
+        in attribute driveForce_N : Newton;
+        out item pressureJet : HighPressureFluidJet;
+
+        constraint pressureAdequateForNeedleFreeDelivery {
+            pressureJet.exitPressure_MPa >= 15.0 and
+            pressureJet.exitPressure_MPa <= 35.0
+        }
+    }
+
+    action def DeliverNeedleFreeDose {
+        in item pressureJet : HighPressureFluidJet;
+        in item contact : ContactCondition;
+        out item record : InjectionRecord;
+
+        constraint deliveryAllowedOnlyWithSkinContact {
+            contact.skinContactConfirmed == true and
+            contact.normalForce_N >= 5.0 and
+            contact.nozzleStandoff_mm <= 1.0
+        }
+
+        constraint deliveredVolumeAccuracy {
+            record.deliveredVolume_uL >= pressureJet.deliveredVolume_uL * 0.95 and
+            record.deliveredVolume_uL <= pressureJet.deliveredVolume_uL * 1.05
+        }
+    }
+
+    state def InjectionCycle {
+        attribute mode : InjectorOperatingMode;
+        attribute safety : SafetyStatus;
+
+        state idle;
+        state priming;
+        state armed;
+        state delivering;
+        state complete;
+        state lockedOut;
+        state fault;
+
+        transition initial then idle;
+
+        transition idle_to_priming
+            first idle
+            accept UserCommand
+            if command.requestArm == true
+            then priming;
+
+        transition priming_to_armed
+            first priming
+            if safety == SafetyStatus::safe
+            then armed;
+
+        transition armed_to_delivering
+            first armed
+            accept UserCommand
+            if command.requestInject == true
+            then delivering;
+
+        transition delivering_to_complete
+            first delivering
+            if mode == InjectorOperatingMode::complete
+            then complete;
+
+        transition any_to_lockedOut
+            first idle
+            if safety == SafetyStatus::locked
+            then lockedOut;
+
+        transition armed_to_fault
+            first armed
+            if safety != SafetyStatus::safe
+            then fault;
+
+        transition delivering_to_fault
+            first delivering
+            if safety != SafetyStatus::safe
+            then fault;
+
+        transition complete_to_idle
+            first complete
+            accept UserCommand
+            if command.requestCancel == true
+            then idle;
+    }
+
+    part def Reservoir {
+        attribute capacity_mL : Milliliter = 2.0;
+        attribute remainingVolume_mL : Milliliter;
+        attribute sterileBarrierIntact : Boolean;
+        attribute medicationTemperature_C : Celsius;
+
+        port outlet : DoseFluidOutlet;
+    }
+
+    part def DoseMeteringChamber {
+        attribute chamberVolume_uL : Microliter = 500.0;
+        attribute selectedDose_uL : Microliter;
+        attribute meteringAccuracy_percent : Percent = 3.0;
+
+        port inlet : DoseFluidInlet;
+        port outlet : DoseFluidOutlet;
+
+        perform action meter : MeterDose;
+    }
+
+    part def EnergySource {
+        attribute storedEnergy_J : Joule;
+        attribute minimumEnergyForInjection_J : Joule = 8.0;
+        attribute rechargeable : Boolean;
+
+        port drive : MechanicalDrivePort;
+    }
+
+    part def Actuator {
+        attribute maximumForce_N : Newton = 250.0;
+        attribute responseTime_ms : Millisecond = 20.0;
+        attribute commandedForce_N : Newton;
+
+        port driveInput : MechanicalDrivePort;
+        port ramOutput : MechanicalDrivePort;
+    }
+
+    part def PressureRam {
+        attribute ramTravel_mm : Millimeter;
+        attribute ramVelocity_mmPerSecond : MillimeterPerSecond;
+        attribute generatedPressure_MPa : Megapascal;
+
+        port forceInput : MechanicalDrivePort;
+        port pressureSensor : PressureSensePort;
+        port inlet : DoseFluidInlet;
+        port outlet : DoseFluidOutlet;
+
+        perform action pressurize : PressurizeDose;
+    }
+
+    part def MicroNozzle {
+        attribute orificeDiameter_mm : Millimeter = 0.16;
+        attribute length_mm : Millimeter = 1.8;
+        attribute maximumOperatingPressure_MPa : Megapascal = 40.0;
+        attribute clogDetected : Boolean;
+
+        port inlet : DoseFluidInlet;
+        port jetExit : JetOutlet;
+    }
+
+    part def SkinInterface {
+        attribute contactArea_mm2 : Real = 75.0;
+        attribute requiredContactForce_N : Newton = 5.0;
+        attribute maximumStandoff_mm : Millimeter = 1.0;
+
+        port contactSense : ContactSensePort;
+        port jetInput : JetOutlet;
+    }
+
+    part def SafetyController {
+        attribute currentMode : InjectorOperatingMode = InjectorOperatingMode::idle;
+        attribute currentSafetyStatus : SafetyStatus = SafetyStatus::safe;
+        attribute doseLimit_uL : Microliter = 500.0;
+        attribute minimumPressure_MPa : Megapascal = 15.0;
+        attribute maximumPressure_MPa : Megapascal = 35.0;
+
+        port commandInput : CommandPort;
+        port contactInput : ContactSensePort;
+        port pressureInput : PressureSensePort;
+        port statusOutput : StatusPort;
+
+        exhibit state cycle : InjectionCycle;
+    }
+
+    part def UserInterface {
+        attribute armIndicatorOn : Boolean;
+        attribute readyIndicatorOn : Boolean;
+        attribute faultIndicatorOn : Boolean;
+        attribute deliveredIndicatorOn : Boolean;
+
+        port commandOutput : CommandPort;
+        port statusInput : StatusPort;
+    }
+
+    part def DoseLogger {
+        attribute recordCount : Integer;
+        attribute lastDeliveredVolume_uL : Microliter;
+        attribute lastPeakPressure_MPa : Megapascal;
+
+        port recordInput : RecordPort;
+    }
+
+    part def JetInjectorSystem {
+        attribute nominalDose_uL : Microliter = 300.0;
+        attribute nominalJetPressure_MPa : Megapascal = 25.0;
+        attribute primaryFunction : String =
+            "Deliver a controlled sterile medication dose through the skin as a high-pressure narrow fluid jet without using a hypodermic needle.";
+
+        part reservoir : Reservoir;
+        part meteringChamber : DoseMeteringChamber;
+        part energySource : EnergySource;
+        part actuator : Actuator;
+        part pressureRam : PressureRam;
+        part nozzle : MicroNozzle;
+        part skinInterface : SkinInterface;
+        part safetyController : SafetyController;
+        part userInterface : UserInterface;
+        part logger : DoseLogger;
+
+        port command : CommandPort;
+        port status : StatusPort;
+        port patientContact : ContactSensePort;
+        port deliveredJet : JetOutlet;
+        port injectionRecord : RecordPort;
+
+        connect reservoir.outlet to meteringChamber.inlet;
+        connect meteringChamber.outlet to pressureRam.inlet;
+        connect energySource.drive to actuator.driveInput;
+        connect actuator.ramOutput to pressureRam.forceInput;
+        connect pressureRam.outlet to nozzle.inlet;
+        connect nozzle.jetExit to skinInterface.jetInput;
+        connect nozzle.jetExit to deliveredJet;
+        connect patientContact to skinInterface.contactSense;
+        connect skinInterface.contactSense to safetyController.contactInput;
+        connect pressureRam.pressureSensor to safetyController.pressureInput;
+        connect userInterface.commandOutput to safetyController.commandInput;
+        connect command to safetyController.commandInput;
+        connect safetyController.statusOutput to userInterface.statusInput;
+        connect safetyController.statusOutput to status;
+        connect injectionRecord to logger.recordInput;
+
+        perform action meterDose : MeterDose {
+            in sourceDose = reservoir.outlet.dose;
+            in requestedVolume_uL = nominalDose_uL;
+            out meteredDose = meteringChamber.outlet.dose;
+        }
+
+        perform action pressurizeDose : PressurizeDose {
+            in meteredDose = meteringChamber.outlet.dose;
+            in driveForce_N = actuator.ramOutput.driveForce_N;
+            out pressureJet = nozzle.jetExit.jet;
+        }
+
+        perform action deliverDose : DeliverNeedleFreeDose {
+            in pressureJet = nozzle.jetExit.jet;
+            in contact = skinInterface.contactSense.contact;
+            out record = injectionRecord.record;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint primaryFunctionDefined {
+            injector.primaryFunction ==
+            "Deliver a controlled sterile medication dose through the skin as a high-pressure narrow fluid jet without using a hypodermic needle."
+        }
+    }
+
+    requirement def NeedleFreeDeliveryRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint jetPressureRange {
+            injector.nozzle.jetExit.jet.exitPressure_MPa >= 15.0 and
+            injector.nozzle.jetExit.jet.exitPressure_MPa <= 35.0
+        }
+
+        require constraint jetGeometry {
+            injector.nozzle.orificeDiameter_mm >= 0.10 and
+            injector.nozzle.orificeDiameter_mm <= 0.25
+        }
+    }
+
+    requirement def DoseAccuracyRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint doseAccuracy {
+            injector.injectionRecord.record.deliveredVolume_uL >= injector.nominalDose_uL * 0.95 and
+            injector.injectionRecord.record.deliveredVolume_uL <= injector.nominalDose_uL * 1.05
+        }
+    }
+
+    requirement def SafetyInterlockRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint injectionRequiresContact {
+            injector.skinInterface.contactSense.contact.skinContactConfirmed == true
+        }
+
+        require constraint injectionRequiresForce {
+            injector.skinInterface.contactSense.contact.normalForce_N >= injector.skinInterface.requiredContactForce_N
+        }
+
+        require constraint pressureMustRemainBounded {
+            injector.pressureRam.pressureSensor.measuredPressure_MPa <= injector.safetyController.maximumPressure_MPa
+        }
+    }
+
+    requirement def SterilityRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint reservoirBarrier {
+            injector.reservoir.sterileBarrierIntact == true
+        }
+    }
+
+    part jetInjectorSystem : JetInjectorSystem;
+
+    satisfy PrimaryFunctionRequirement by jetInjectorSystem;
+    satisfy NeedleFreeDeliveryRequirement by jetInjectorSystem;
+    satisfy DoseAccuracyRequirement by jetInjectorSystem;
+    satisfy SafetyInterlockRequirement by jetInjectorSystem;
+    satisfy SterilityRequirement by jetInjectorSystem;
+}
+tokens used
+3,729
+package JetInjectorSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value type Milliliter :> Real;
+    value type Microliter :> Real;
+    value type Millisecond :> Real;
+    value type Newton :> Real;
+    value type Megapascal :> Real;
+    value type Millimeter :> Real;
+    value type MillimeterPerSecond :> Real;
+    value type Celsius :> Real;
+    value type Percent :> Real;
+    value type Joule :> Real;
+
+    enum def InjectorOperatingMode {
+        enum idle;
+        enum priming;
+        enum armed;
+        enum delivering;
+        enum complete;
+        enum lockedOut;
+        enum fault;
+    }
+
+    enum def DoseStatus {
+        enum notLoaded;
+        enum loaded;
+        enum verified;
+        enum delivered;
+        enum incomplete;
+        enum rejected;
+    }
+
+    enum def SafetyStatus {
+        enum safe;
+        enum contactMissing;
+        enum pressureOutOfRange;
+        enum doseOutOfRange;
+        enum actuatorFault;
+        enum reservoirEmpty;
+        enum locked;
+    }
+
+    item def DrugFormulation {
+        attribute drugName : String;
+        attribute concentration_mgPermL : Real;
+        attribute viscosity_cP : Real;
+        attribute storageTemperature_C : Celsius;
+    }
+
+    item def SterileDose {
+        attribute formulation : DrugFormulation;
+        attribute targetVolume_mL : Milliliter;
+        attribute meteredVolume_uL : Microliter;
+        attribute status : DoseStatus;
+    }
+
+    item def HighPressureFluidJet {
+        attribute jetDiameter_mm : Millimeter;
+        attribute exitPressure_MPa : Megapascal;
+        attribute jetVelocity_mmPerSecond : MillimeterPerSecond;
+        attribute pulseDuration_ms : Millisecond;
+        attribute deliveredVolume_uL : Microliter;
+    }
+
+    item def UserCommand {
+        attribute requestArm : Boolean;
+        attribute requestInject : Boolean;
+        attribute requestCancel : Boolean;
+    }
+
+    item def ContactCondition {
+        attribute normalForce_N : Newton;
+        attribute skinContactConfirmed : Boolean;
+        attribute nozzleStandoff_mm : Millimeter;
+    }
+
+    item def InjectionRecord {
+        attribute deliveredVolume_uL : Microliter;
+        attribute peakPressure_MPa : Megapascal;
+        attribute duration_ms : Millisecond;
+        attribute completed : Boolean;
+        attribute lockoutReason : SafetyStatus;
+    }
+
+    port def DoseFluidInlet {
+        in item dose : SterileDose;
+    }
+
+    port def DoseFluidOutlet {
+        out item dose : SterileDose;
+    }
+
+    port def JetOutlet {
+        out item jet : HighPressureFluidJet;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusPort {
+        out attribute mode : InjectorOperatingMode;
+        out attribute safety : SafetyStatus;
+    }
+
+    port def ContactSensePort {
+        in item contact : ContactCondition;
+    }
+
+    port def MechanicalDrivePort {
+        out attribute driveForce_N : Newton;
+        out attribute driveEnergy_J : Joule;
+    }
+
+    port def PressureSensePort {
+        out attribute measuredPressure_MPa : Megapascal;
+    }
+
+    port def RecordPort {
+        out item record : InjectionRecord;
+    }
+
+    action def MeterDose {
+        in item sourceDose : SterileDose;
+        in attribute requestedVolume_uL : Microliter;
+        out item meteredDose : SterileDose;
+
+        constraint volumeWithinDoseWindow {
+            meteredDose.meteredVolume_uL >= requestedVolume_uL * 0.95 and
+            meteredDose.meteredVolume_uL <= requestedVolume_uL * 1.05
+        }
+    }
+
+    action def PressurizeDose {
+        in item meteredDose : SterileDose;
+        in attribute driveForce_N : Newton;
+        out item pressureJet : HighPressureFluidJet;
+
+        constraint pressureAdequateForNeedleFreeDelivery {
+            pressureJet.exitPressure_MPa >= 15.0 and
+            pressureJet.exitPressure_MPa <= 35.0
+        }
+    }
+
+    action def DeliverNeedleFreeDose {
+        in item pressureJet : HighPressureFluidJet;
+        in item contact : ContactCondition;
+        out item record : InjectionRecord;
+
+        constraint deliveryAllowedOnlyWithSkinContact {
+            contact.skinContactConfirmed == true and
+            contact.normalForce_N >= 5.0 and
+            contact.nozzleStandoff_mm <= 1.0
+        }
+
+        constraint deliveredVolumeAccuracy {
+            record.deliveredVolume_uL >= pressureJet.deliveredVolume_uL * 0.95 and
+            record.deliveredVolume_uL <= pressureJet.deliveredVolume_uL * 1.05
+        }
+    }
+
+    state def InjectionCycle {
+        attribute mode : InjectorOperatingMode;
+        attribute safety : SafetyStatus;
+
+        state idle;
+        state priming;
+        state armed;
+        state delivering;
+        state complete;
+        state lockedOut;
+        state fault;
+
+        transition initial then idle;
+
+        transition idle_to_priming
+            first idle
+            accept UserCommand
+            if command.requestArm == true
+            then priming;
+
+        transition priming_to_armed
+            first priming
+            if safety == SafetyStatus::safe
+            then armed;
+
+        transition armed_to_delivering
+            first armed
+            accept UserCommand
+            if command.requestInject == true
+            then delivering;
+
+        transition delivering_to_complete
+            first delivering
+            if mode == InjectorOperatingMode::complete
+            then complete;
+
+        transition any_to_lockedOut
+            first idle
+            if safety == SafetyStatus::locked
+            then lockedOut;
+
+        transition armed_to_fault
+            first armed
+            if safety != SafetyStatus::safe
+            then fault;
+
+        transition delivering_to_fault
+            first delivering
+            if safety != SafetyStatus::safe
+            then fault;
+
+        transition complete_to_idle
+            first complete
+            accept UserCommand
+            if command.requestCancel == true
+            then idle;
+    }
+
+    part def Reservoir {
+        attribute capacity_mL : Milliliter = 2.0;
+        attribute remainingVolume_mL : Milliliter;
+        attribute sterileBarrierIntact : Boolean;
+        attribute medicationTemperature_C : Celsius;
+
+        port outlet : DoseFluidOutlet;
+    }
+
+    part def DoseMeteringChamber {
+        attribute chamberVolume_uL : Microliter = 500.0;
+        attribute selectedDose_uL : Microliter;
+        attribute meteringAccuracy_percent : Percent = 3.0;
+
+        port inlet : DoseFluidInlet;
+        port outlet : DoseFluidOutlet;
+
+        perform action meter : MeterDose;
+    }
+
+    part def EnergySource {
+        attribute storedEnergy_J : Joule;
+        attribute minimumEnergyForInjection_J : Joule = 8.0;
+        attribute rechargeable : Boolean;
+
+        port drive : MechanicalDrivePort;
+    }
+
+    part def Actuator {
+        attribute maximumForce_N : Newton = 250.0;
+        attribute responseTime_ms : Millisecond = 20.0;
+        attribute commandedForce_N : Newton;
+
+        port driveInput : MechanicalDrivePort;
+        port ramOutput : MechanicalDrivePort;
+    }
+
+    part def PressureRam {
+        attribute ramTravel_mm : Millimeter;
+        attribute ramVelocity_mmPerSecond : MillimeterPerSecond;
+        attribute generatedPressure_MPa : Megapascal;
+
+        port forceInput : MechanicalDrivePort;
+        port pressureSensor : PressureSensePort;
+        port inlet : DoseFluidInlet;
+        port outlet : DoseFluidOutlet;
+
+        perform action pressurize : PressurizeDose;
+    }
+
+    part def MicroNozzle {
+        attribute orificeDiameter_mm : Millimeter = 0.16;
+        attribute length_mm : Millimeter = 1.8;
+        attribute maximumOperatingPressure_MPa : Megapascal = 40.0;
+        attribute clogDetected : Boolean;
+
+        port inlet : DoseFluidInlet;
+        port jetExit : JetOutlet;
+    }
+
+    part def SkinInterface {
+        attribute contactArea_mm2 : Real = 75.0;
+        attribute requiredContactForce_N : Newton = 5.0;
+        attribute maximumStandoff_mm : Millimeter = 1.0;
+
+        port contactSense : ContactSensePort;
+        port jetInput : JetOutlet;
+    }
+
+    part def SafetyController {
+        attribute currentMode : InjectorOperatingMode = InjectorOperatingMode::idle;
+        attribute currentSafetyStatus : SafetyStatus = SafetyStatus::safe;
+        attribute doseLimit_uL : Microliter = 500.0;
+        attribute minimumPressure_MPa : Megapascal = 15.0;
+        attribute maximumPressure_MPa : Megapascal = 35.0;
+
+        port commandInput : CommandPort;
+        port contactInput : ContactSensePort;
+        port pressureInput : PressureSensePort;
+        port statusOutput : StatusPort;
+
+        exhibit state cycle : InjectionCycle;
+    }
+
+    part def UserInterface {
+        attribute armIndicatorOn : Boolean;
+        attribute readyIndicatorOn : Boolean;
+        attribute faultIndicatorOn : Boolean;
+        attribute deliveredIndicatorOn : Boolean;
+
+        port commandOutput : CommandPort;
+        port statusInput : StatusPort;
+    }
+
+    part def DoseLogger {
+        attribute recordCount : Integer;
+        attribute lastDeliveredVolume_uL : Microliter;
+        attribute lastPeakPressure_MPa : Megapascal;
+
+        port recordInput : RecordPort;
+    }
+
+    part def JetInjectorSystem {
+        attribute nominalDose_uL : Microliter = 300.0;
+        attribute nominalJetPressure_MPa : Megapascal = 25.0;
+        attribute primaryFunction : String =
+            "Deliver a controlled sterile medication dose through the skin as a high-pressure narrow fluid jet without using a hypodermic needle.";
+
+        part reservoir : Reservoir;
+        part meteringChamber : DoseMeteringChamber;
+        part energySource : EnergySource;
+        part actuator : Actuator;
+        part pressureRam : PressureRam;
+        part nozzle : MicroNozzle;
+        part skinInterface : SkinInterface;
+        part safetyController : SafetyController;
+        part userInterface : UserInterface;
+        part logger : DoseLogger;
+
+        port command : CommandPort;
+        port status : StatusPort;
+        port patientContact : ContactSensePort;
+        port deliveredJet : JetOutlet;
+        port injectionRecord : RecordPort;
+
+        connect reservoir.outlet to meteringChamber.inlet;
+        connect meteringChamber.outlet to pressureRam.inlet;
+        connect energySource.drive to actuator.driveInput;
+        connect actuator.ramOutput to pressureRam.forceInput;
+        connect pressureRam.outlet to nozzle.inlet;
+        connect nozzle.jetExit to skinInterface.jetInput;
+        connect nozzle.jetExit to deliveredJet;
+        connect patientContact to skinInterface.contactSense;
+        connect skinInterface.contactSense to safetyController.contactInput;
+        connect pressureRam.pressureSensor to safetyController.pressureInput;
+        connect userInterface.commandOutput to safetyController.commandInput;
+        connect command to safetyController.commandInput;
+        connect safetyController.statusOutput to userInterface.statusInput;
+        connect safetyController.statusOutput to status;
+        connect injectionRecord to logger.recordInput;
+
+        perform action meterDose : MeterDose {
+            in sourceDose = reservoir.outlet.dose;
+            in requestedVolume_uL = nominalDose_uL;
+            out meteredDose = meteringChamber.outlet.dose;
+        }
+
+        perform action pressurizeDose : PressurizeDose {
+            in meteredDose = meteringChamber.outlet.dose;
+            in driveForce_N = actuator.ramOutput.driveForce_N;
+            out pressureJet = nozzle.jetExit.jet;
+        }
+
+        perform action deliverDose : DeliverNeedleFreeDose {
+            in pressureJet = nozzle.jetExit.jet;
+            in contact = skinInterface.contactSense.contact;
+            out record = injectionRecord.record;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint primaryFunctionDefined {
+            injector.primaryFunction ==
+            "Deliver a controlled sterile medication dose through the skin as a high-pressure narrow fluid jet without using a hypodermic needle."
+        }
+    }
+
+    requirement def NeedleFreeDeliveryRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint jetPressureRange {
+            injector.nozzle.jetExit.jet.exitPressure_MPa >= 15.0 and
+            injector.nozzle.jetExit.jet.exitPressure_MPa <= 35.0
+        }
+
+        require constraint jetGeometry {
+            injector.nozzle.orificeDiameter_mm >= 0.10 and
+            injector.nozzle.orificeDiameter_mm <= 0.25
+        }
+    }
+
+    requirement def DoseAccuracyRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint doseAccuracy {
+            injector.injectionRecord.record.deliveredVolume_uL >= injector.nominalDose_uL * 0.95 and
+            injector.injectionRecord.record.deliveredVolume_uL <= injector.nominalDose_uL * 1.05
+        }
+    }
+
+    requirement def SafetyInterlockRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint injectionRequiresContact {
+            injector.skinInterface.contactSense.contact.skinContactConfirmed == true
+        }
+
+        require constraint injectionRequiresForce {
+            injector.skinInterface.contactSense.contact.normalForce_N >= injector.skinInterface.requiredContactForce_N
+        }
+
+        require constraint pressureMustRemainBounded {
+            injector.pressureRam.pressureSensor.measuredPressure_MPa <= injector.safetyController.maximumPressure_MPa
+        }
+    }
+
+    requirement def SterilityRequirement {
+        subject injector : JetInjectorSystem;
+
+        require constraint reservoirBarrier {
+            injector.reservoir.sterileBarrierIntact == true
+        }
+    }
+
+    part jetInjectorSystem : JetInjectorSystem;
+
+    satisfy PrimaryFunctionRequirement by jetInjectorSystem;
+    satisfy NeedleFreeDeliveryRequirement by jetInjectorSystem;
+    satisfy DoseAccuracyRequirement by jetInjectorSystem;
+    satisfy SafetyInterlockRequirement by jetInjectorSystem;
+    satisfy SterilityRequirement by jetInjectorSystem;
+}

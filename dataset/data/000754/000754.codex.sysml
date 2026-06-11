@@ -1,0 +1,358 @@
+package ScavengerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def Percent : Real {
+    unit = "%";
+  }
+
+  value def Energy_kWh : Real {
+    unit = "kWh";
+  }
+
+  value def Mass_kg : Real {
+    unit = "kg";
+  }
+
+  value def Distance_m : Real {
+    unit = "m";
+  }
+
+  value def Speed_mps : Real {
+    unit = "m/s";
+  }
+
+  value def Time_s : Real {
+    unit = "s";
+  }
+
+  value def Power_W : Real {
+    unit = "W";
+  }
+
+  item def TerrainMap {
+    attribute coverageArea : Distance_m;
+    attribute obstacleDensity : Percent;
+    attribute lastUpdatedAge : Time_s;
+  }
+
+  item def ScavengedMaterial {
+    attribute mass : Mass_kg;
+    attribute recyclableFraction : Percent;
+    attribute hazardProbability : Percent;
+  }
+
+  item def MissionPlan {
+    attribute searchRadius : Distance_m;
+    attribute maximumDuration : Time_s;
+    attribute minimumReturnEnergy : Energy_kWh;
+  }
+
+  item def StatusReport {
+    attribute batteryStateOfCharge : Percent;
+    attribute binFillLevel : Percent;
+    attribute currentSpeed : Speed_mps;
+    attribute faultActive : Boolean;
+  }
+
+  port def PowerPort {
+    out item electricalPower : Power_W;
+  }
+
+  port def DataPort {
+    in item command : MissionPlan;
+    out item status : StatusReport;
+    out item map : TerrainMap;
+  }
+
+  port def MaterialIntakePort {
+    in item detectedMaterial : ScavengedMaterial;
+  }
+
+  port def MaterialDischargePort {
+    out item storedMaterial : ScavengedMaterial;
+  }
+
+  port def MobilityInterface {
+    in item terrain : TerrainMap;
+    out attribute tractionAvailable : Percent;
+  }
+
+  action def SurveyArea {
+    in item plan : MissionPlan;
+    out item map : TerrainMap;
+  }
+
+  action def DetectAndClassifyMaterial {
+    in item map : TerrainMap;
+    out item candidateMaterial : ScavengedMaterial;
+  }
+
+  action def CollectMaterial {
+    in item candidateMaterial : ScavengedMaterial;
+    out item recoveredMaterial : ScavengedMaterial;
+  }
+
+  action def StoreMaterial {
+    in item recoveredMaterial : ScavengedMaterial;
+    out attribute binFillLevel : Percent;
+  }
+
+  action def ReturnToDock {
+    in item map : TerrainMap;
+    out attribute docked : Boolean;
+  }
+
+  action def Recharge {
+    in attribute initialCharge : Percent;
+    out attribute finalCharge : Percent;
+  }
+
+  part def SensorSuite {
+    attribute detectionRange : Distance_m = 35 [m];
+    attribute classificationAccuracy : Percent = 92 [%];
+    attribute updatePeriod : Time_s = 0.5 [s];
+
+    port data : DataPort;
+  }
+
+  part def NavigationComputer {
+    attribute localizationError : Distance_m = 0.25 [m];
+    attribute replanningPeriod : Time_s = 2 [s];
+
+    port data : DataPort;
+  }
+
+  part def MobilitySubsystem {
+    attribute maximumSpeed : Speed_mps = 1.8 [m/s];
+    attribute nominalSpeed : Speed_mps = 1.0 [m/s];
+    attribute obstacleClimbHeight : Distance_m = 0.18 [m];
+
+    port terrainInterface : MobilityInterface;
+    port powerIn : PowerPort;
+  }
+
+  part def CollectionSubsystem {
+    attribute intakeWidth : Distance_m = 0.6 [m];
+    attribute collectionRate : Mass_kg = 0.25 [kg];
+    attribute jamDetected : Boolean = false;
+
+    port intake : MaterialIntakePort;
+    port powerIn : PowerPort;
+  }
+
+  part def StorageBin {
+    attribute capacity : Mass_kg = 20 [kg];
+    attribute currentLoad : Mass_kg = 0 [kg];
+    attribute fillLevel : Percent = 0 [%];
+
+    port input : MaterialIntakePort;
+    port discharge : MaterialDischargePort;
+  }
+
+  part def PowerSubsystem {
+    attribute batteryCapacity : Energy_kWh = 4.8 [kWh];
+    attribute stateOfCharge : Percent = 100 [%];
+    attribute reserveThreshold : Percent = 20 [%];
+
+    port drivePower : PowerPort;
+    port collectionPower : PowerPort;
+    port computePower : PowerPort;
+  }
+
+  part def DockingStation {
+    attribute rechargePower : Power_W = 1200 [W];
+    attribute storedMaterialMass : Mass_kg = 0 [kg];
+
+    port receiveMaterial : MaterialIntakePort;
+    port powerOut : PowerPort;
+    port data : DataPort;
+  }
+
+  part def ScavengerRobot {
+    attribute missionActive : Boolean = false;
+    attribute safeMode : Boolean = false;
+    attribute totalRecoveredMass : Mass_kg = 0 [kg];
+
+    port commandAndTelemetry : DataPort;
+    port materialOut : MaterialDischargePort;
+
+    part sensors : SensorSuite;
+    part navigation : NavigationComputer;
+    part mobility : MobilitySubsystem;
+    part collector : CollectionSubsystem;
+    part bin : StorageBin;
+    part power : PowerSubsystem;
+
+    connect power.drivePower to mobility.powerIn;
+    connect power.collectionPower to collector.powerIn;
+    connect sensors.data to navigation.data;
+    connect collector.intake to bin.input;
+    connect bin.discharge to materialOut;
+
+    perform action survey : SurveyArea;
+    perform action classify : DetectAndClassifyMaterial;
+    perform action collect : CollectMaterial;
+    perform action store : StoreMaterial;
+    perform action returnHome : ReturnToDock;
+
+    state def OperatingState {
+      entry;
+      state Idle;
+      state Planning;
+      state Searching;
+      state ApproachingMaterial;
+      state Collecting;
+      state Storing;
+      state Returning;
+      state Docked;
+      state FaultRecovery;
+      state SafeShutdown;
+
+      transition entry then Idle;
+
+      transition Idle to Planning
+        accept MissionPlan
+        if power.stateOfCharge > power.reserveThreshold;
+
+      transition Planning to Searching
+        do survey;
+
+      transition Searching to ApproachingMaterial
+        if classify.candidateMaterial.mass > 0 [kg];
+
+      transition Searching to Returning
+        if power.stateOfCharge <= power.reserveThreshold
+        or bin.fillLevel >= 90 [%];
+
+      transition ApproachingMaterial to Collecting
+        if mobility.terrainInterface.tractionAvailable >= 60 [%];
+
+      transition Collecting to Storing
+        do collect;
+
+      transition Storing to Searching
+        do store
+        if bin.fillLevel < 90 [%]
+        and power.stateOfCharge > power.reserveThreshold;
+
+      transition Storing to Returning
+        if bin.fillLevel >= 90 [%]
+        or power.stateOfCharge <= power.reserveThreshold;
+
+      transition Returning to Docked
+        do returnHome
+        if returnHome.docked == true;
+
+      transition Docked to Idle
+        if power.stateOfCharge >= 95 [%]
+        and bin.fillLevel == 0 [%];
+
+      transition Searching to FaultRecovery
+        if collector.jamDetected == true
+        or safeMode == true;
+
+      transition Collecting to FaultRecovery
+        if collector.jamDetected == true;
+
+      transition FaultRecovery to Searching
+        if collector.jamDetected == false
+        and safeMode == false
+        and power.stateOfCharge > power.reserveThreshold;
+
+      transition FaultRecovery to SafeShutdown
+        if safeMode == true
+        or power.stateOfCharge <= 5 [%];
+    }
+  }
+
+  part def ScavengerSystem {
+    attribute primaryFunction : String =
+      "Autonomously search a bounded area, identify recoverable materials, collect and store them, and return to a dock for unloading and recharging while maintaining safe operation.";
+
+    part robot : ScavengerRobot;
+    part dock : DockingStation;
+
+    port operatorInterface : DataPort;
+
+    connect operatorInterface to robot.commandAndTelemetry;
+    connect robot.materialOut to dock.receiveMaterial;
+    connect dock.powerOut to robot.power.computePower;
+    connect dock.data to robot.commandAndTelemetry;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ScavengerSystem;
+
+    require constraint {
+      system.robot.totalRecoveredMass >= 5 [kg]
+    }
+
+    require constraint {
+      system.robot.power.stateOfCharge >= system.robot.power.reserveThreshold
+    }
+
+    require constraint {
+      system.robot.bin.fillLevel <= 100 [%]
+    }
+
+    doc
+      /* The Scavenger System shall autonomously locate, collect, store, and return scavenged material from an assigned operating area while preserving sufficient energy to return to the docking station. */
+  }
+
+  requirement def MaterialClassificationRequirement {
+    subject robot : ScavengerRobot;
+
+    require constraint {
+      robot.sensors.classificationAccuracy >= 90 [%]
+    }
+
+    doc
+      /* The Scavenger Robot shall classify candidate material with sufficient accuracy before collection. */
+  }
+
+  requirement def MobilityRequirement {
+    subject robot : ScavengerRobot;
+
+    require constraint {
+      robot.mobility.maximumSpeed >= 1.5 [m/s]
+    }
+
+    require constraint {
+      robot.mobility.obstacleClimbHeight >= 0.15 [m]
+    }
+
+    doc
+      /* The Scavenger Robot shall traverse uneven terrain at a controlled speed while avoiding or overcoming minor obstacles. */
+  }
+
+  requirement def StorageRequirement {
+    subject robot : ScavengerRobot;
+
+    require constraint {
+      robot.bin.capacity >= 20 [kg]
+    }
+
+    doc
+      /* The Scavenger Robot shall store collected material until unloading at the docking station. */
+  }
+
+  requirement def SafetyReturnRequirement {
+    subject robot : ScavengerRobot;
+
+    require constraint {
+      robot.power.reserveThreshold >= 20 [%]
+    }
+
+    doc
+      /* The Scavenger Robot shall preserve a minimum battery reserve for safe return to the docking station. */
+  }
+
+  satisfy PrimaryFunctionRequirement by ScavengerSystem;
+  satisfy MaterialClassificationRequirement by ScavengerRobot;
+  satisfy MobilityRequirement by ScavengerRobot;
+  satisfy StorageRequirement by ScavengerRobot;
+  satisfy SafetyReturnRequirement by ScavengerRobot;
+}

@@ -1,0 +1,855 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-f5xs174k
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4c4-e688-7720-8af0-ba9cb9e6e365
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a pumping subsystem that moves fluid using a Pump inducer.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PumpingSubsystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    item def ProcessFluid {
+        attribute density: Real = 998.0 [kg_per_m3];
+        attribute dynamicViscosity: Real = 0.001 [Pa_s];
+        attribute vaporPressure: Real = 2.34 [kPa];
+        attribute temperature: Real = 293.15 [K];
+    }
+
+    item def RotationalPower {
+        attribute torque: Real [N_m];
+        attribute speed: Real [rpm];
+        attribute mechanicalPower: Real [kW];
+    }
+
+    item def ElectricalPower {
+        attribute voltage: Real [V];
+        attribute current: Real [A];
+        attribute frequency: Real [Hz];
+        attribute power: Real [kW];
+    }
+
+    item def ControlSignal {
+        attribute command: String;
+        attribute demandPercent: Real [percent];
+    }
+
+    item def HealthStatus {
+        attribute available: Boolean;
+        attribute faultActive: Boolean;
+        attribute cavitationDetected: Boolean;
+        attribute bearingTemperature: Real [degC];
+        attribute vibrationVelocity: Real [mm_per_s];
+    }
+
+    port def FluidPort {
+        inout item fluid: ProcessFluid;
+        attribute pressure: Real [kPa];
+        attribute flowRate: Real [m3_per_h];
+        attribute temperature: Real [degC];
+    }
+
+    port def ShaftPort {
+        inout item power: RotationalPower;
+    }
+
+    port def ElectricalPort {
+        in item supply: ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command: ControlSignal;
+    }
+
+    port def StatusPort {
+        out item status: HealthStatus;
+    }
+
+    part def PumpInducer {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+        port shaft: ShaftPort;
+
+        attribute bladeCount: Integer = 4;
+        attribute nominalSpeed: Real = 3600 [rpm];
+        attribute inducerDiameter: Real = 0.145 [m];
+        attribute hubDiameter: Real = 0.052 [m];
+        attribute inletTipClearance: Real = 0.0007 [m];
+        attribute requiredNPSH: Real = 2.1 [m];
+        attribute pressureRiseAtRatedFlow: Real = 38.0 [kPa];
+        attribute ratedFlow: Real = 95.0 [m3_per_h];
+
+        action def PreSwirlAndBoost {
+            in item incomingFluid: ProcessFluid;
+            in shaftSpeed: Real [rpm];
+            out item conditionedFluid: ProcessFluid;
+            out pressureGain: Real [kPa];
+
+            first start;
+            then evaluateNPSH;
+            then accelerateFluid;
+            then dischargeConditionedFluid;
+            then done;
+
+            action evaluateNPSH {
+                in suctionPressure: Real [kPa];
+                in vaporPressure: Real [kPa];
+                out npshMargin: Real [m];
+            }
+
+            action accelerateFluid {
+                in axialVelocity: Real [m_per_s];
+                in rotationalSpeed: Real [rpm];
+                out dischargeSwirl: Real [m_per_s];
+            }
+
+            action dischargeConditionedFluid {
+                out pressureGain: Real [kPa];
+            }
+        }
+
+        state def InducerOperatingState {
+            state Off;
+            state Priming;
+            state StableBoost;
+            state CavitationRisk;
+            state Faulted;
+
+            transition first Off;
+            transition Off_to_Priming
+                first Off
+                accept ControlSignal
+                if command == "START"
+                then Priming;
+
+            transition Priming_to_StableBoost
+                first Priming
+                if inlet.pressure > 120 [kPa] and shaft.power.speed > 1200 [rpm]
+                then StableBoost;
+
+            transition StableBoost_to_CavitationRisk
+                first StableBoost
+                if inlet.pressure < 90 [kPa]
+                then CavitationRisk;
+
+            transition CavitationRisk_to_StableBoost
+                first CavitationRisk
+                if inlet.pressure >= 110 [kPa]
+                then StableBoost;
+
+            transition Any_to_Faulted
+                first StableBoost
+                if inlet.flowRate < 10 [m3_per_h] or shaft.power.speed > 3900 [rpm]
+                then Faulted;
+        }
+    }
+
+    part def CentrifugalPumpStage {
+        port suction: FluidPort;
+        port discharge: FluidPort;
+        port shaft: ShaftPort;
+
+        part inducer: PumpInducer;
+
+        attribute ratedFlow: Real = 95.0 [m3_per_h];
+        attribute ratedHead: Real = 72.0 [m];
+        attribute ratedDifferentialPressure: Real = 705.0 [kPa];
+        attribute hydraulicEfficiency: Real = 0.78;
+        attribute minimumContinuousStableFlow: Real = 28.0 [m3_per_h];
+        attribute maximumAllowableWorkingPressure: Real = 1600.0 [kPa];
+
+        connection suctionToInducer connect suction to inducer.inlet;
+        connection inducerToPumpHydraulics connect inducer.outlet to discharge;
+        connection shaftToInducer connect shaft to inducer.shaft;
+
+        action def PumpFluid {
+            in item suctionFluid: ProcessFluid;
+            in rotationalSpeed: Real [rpm];
+            out item dischargeFluid: ProcessFluid;
+            out developedPressure: Real [kPa];
+
+            first receiveFluid;
+            then induceFluid;
+            then addCentrifugalEnergy;
+            then dischargeFluidAction;
+            then done;
+
+            action receiveFluid;
+            action induceFluid;
+            action addCentrifugalEnergy;
+            action dischargeFluidAction;
+        }
+    }
+
+    part def Motor {
+        port electricalInput: ElectricalPort;
+        port shaftOutput: ShaftPort;
+        port commandInput: CommandPort;
+        port statusOutput: StatusPort;
+
+        attribute ratedPower: Real = 55.0 [kW];
+        attribute ratedVoltage: Real = 480.0 [V];
+        attribute ratedSpeed: Real = 3600.0 [rpm];
+        attribute fullLoadCurrent: Real = 72.0 [A];
+        attribute insulationClass: String = "F";
+
+        action def ConvertElectricalToRotationalPower {
+            in item electricalPower: ElectricalPower;
+            out item shaftPower: RotationalPower;
+        }
+
+        state def MotorState {
+            state DeEnergized;
+            state Starting;
+            state Running;
+            state Stopping;
+            state Trip;
+
+            transition first DeEnergized;
+            transition DeEnergized_to_Starting
+                first DeEnergized
+                accept ControlSignal
+                if command == "START"
+                then Starting;
+
+            transition Starting_to_Running
+                first Starting
+                if shaftOutput.power.speed >= 3400 [rpm]
+                then Running;
+
+            transition Running_to_Stopping
+                first Running
+                accept ControlSignal
+                if command == "STOP"
+                then Stopping;
+
+            transition Stopping_to_DeEnergized
+                first Stopping
+                if shaftOutput.power.speed <= 50 [rpm]
+                then DeEnergized;
+
+            transition Running_to_Trip
+                first Running
+                if electricalInput.supply.current > 86 [A]
+                then Trip;
+        }
+    }
+
+    part def SuctionReservoir {
+        port outlet: FluidPort;
+
+        attribute usableVolume: Real = 3.5 [m3];
+        attribute normalLiquidLevel: Real = 1.6 [m];
+        attribute minimumLiquidLevel: Real = 0.45 [m];
+        attribute staticPressureAtOutlet: Real = 145.0 [kPa];
+    }
+
+    part def DischargeHeader {
+        port inlet: FluidPort;
+
+        attribute normalBackPressure: Real = 620.0 [kPa];
+        attribute maximumBackPressure: Real = 900.0 [kPa];
+        attribute designPressure: Real = 1600.0 [kPa];
+    }
+
+    part def PumpController {
+        port commandOutput: CommandPort;
+        port pumpStatusInput: StatusPort;
+
+        attribute startPermissive: Boolean;
+        attribute targetFlow: Real = 95.0 [m3_per_h];
+        attribute lowSuctionPressureTrip: Real = 75.0 [kPa];
+        attribute highVibrationTrip: Real = 9.0 [mm_per_s];
+
+        action def IssueStartStopCommand {
+            in requestedMode: String;
+            out item command: ControlSignal;
+        }
+    }
+
+    part def PumpingSubsystem {
+        port suctionInterface: FluidPort;
+        port dischargeInterface: FluidPort;
+        port electricalInterface: ElectricalPort;
+        port commandInterface: CommandPort;
+        port statusInterface: StatusPort;
+
+        part reservoir: SuctionReservoir;
+        part pump: CentrifugalPumpStage;
+        part motor: Motor;
+        part header: DischargeHeader;
+        part controller: PumpController;
+
+        attribute subsystemRatedFlow: Real = 95.0 [m3_per_h];
+        attribute subsystemRatedDischargePressure: Real = 765.0 [kPa];
+        attribute minimumNPSHMargin: Real = 0.6 [m];
+        attribute allowableLeakage: Real = 0.05 [L_per_min];
+
+        connection externalSuction connect suctionInterface to reservoir.outlet;
+        connection suctionPipe connect reservoir.outlet to pump.suction;
+        connection dischargePipe connect pump.discharge to header.inlet;
+        connection externalDischarge connect header.inlet to dischargeInterface;
+        connection motorShaft connect motor.shaftOutput to pump.shaft;
+        connection electricalFeed connect electricalInterface to motor.electricalInput;
+        connection commandToController connect commandInterface to controller.commandOutput;
+        connection controllerToMotor connect controller.commandOutput to motor.commandInput;
+        connection motorStatus connect motor.statusOutput to statusInterface;
+
+        action def MoveFluidUsingPumpInducer {
+            in item incomingFluid: ProcessFluid;
+            in item electricalPower: ElectricalPower;
+            in item operatorCommand: ControlSignal;
+            out item deliveredFluid: ProcessFluid;
+            out item subsystemStatus: HealthStatus;
+
+            first acceptCommand;
+            then energizeMotor;
+            then rotatePumpInducer;
+            then boostSuctionFluid;
+            then raisePumpPressure;
+            then deliverToHeader;
+            then reportStatus;
+            then done;
+
+            action acceptCommand;
+            action energizeMotor;
+            action rotatePumpInducer;
+            action boostSuctionFluid;
+            action raisePumpPressure;
+            action deliverToHeader;
+            action reportStatus;
+        }
+
+        state def PumpingSubsystemState {
+            state Idle;
+            state Ready;
+            state Starting;
+            state Pumping;
+            state RecirculationRequired;
+            state Shutdown;
+            state Fault;
+
+            transition first Idle;
+
+            transition Idle_to_Ready
+                first Idle
+                if reservoir.normalLiquidLevel > reservoir.minimumLiquidLevel
+                then Ready;
+
+            transition Ready_to_Starting
+                first Ready
+                accept ControlSignal
+                if command == "START"
+                then Starting;
+
+            transition Starting_to_Pumping
+                first Starting
+                if pump.inducer.outlet.flowRate >= 28 [m3_per_h]
+                then Pumping;
+
+            transition Pumping_to_RecirculationRequired
+                first Pumping
+                if pump.discharge.flowRate < pump.minimumContinuousStableFlow
+                then RecirculationRequired;
+
+            transition RecirculationRequired_to_Pumping
+                first RecirculationRequired
+                if pump.discharge.flowRate >= pump.minimumContinuousStableFlow
+                then Pumping;
+
+            transition Pumping_to_Shutdown
+                first Pumping
+                accept ControlSignal
+                if command == "STOP"
+                then Shutdown;
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                if motor.shaftOutput.power.speed <= 50 [rpm]
+                then Idle;
+
+            transition Pumping_to_Fault
+                first Pumping
+                if pump.suction.pressure < controller.lowSuctionPressureTrip
+                then Fault;
+        }
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem: PumpingSubsystem;
+    }
+
+    requirement moveFluidRequirement: PumpingSubsystemRequirement {
+        doc /* The pumping subsystem shall move process fluid from the suction interface to the discharge interface using a pump inducer upstream of the centrifugal pump stage. */
+        require constraint {
+            subsystem.dischargeInterface.flowRate >= 95 [m3_per_h]
+        }
+    }
+
+    requirement inducerBoostRequirement: PumpingSubsystemRequirement {
+        doc /* The pump inducer shall increase suction-side fluid pressure before the main pump hydraulic pressure rise. */
+        require constraint {
+            subsystem.pump.inducer.outlet.pressure - subsystem.pump.inducer.inlet.pressure >= 30 [kPa]
+        }
+    }
+
+    requirement npshRequirement: PumpingSubsystemRequirement {
+        doc /* The inducer shall maintain sufficient net positive suction head margin at rated flow. */
+        require constraint {
+            subsystem.minimumNPSHMargin >= 0.6 [m]
+        }
+    }
+
+    requirement pressureRequirement: PumpingSubsystemRequirement {
+        doc /* The subsystem shall deliver fluid to the discharge header at rated pressure without exceeding design pressure. */
+        require constraint {
+            subsystem.dischargeInterface.pressure >= 765 [kPa] and
+            subsystem.dischargeInterface.pressure <= subsystem.header.designPressure
+        }
+    }
+
+    requirement protectionRequirement: PumpingSubsystemRequirement {
+        doc /* The controller shall prevent sustained operation under low suction pressure or excessive vibration. */
+        require constraint {
+            subsystem.controller.lowSuctionPressureTrip == 75 [kPa] and
+            subsystem.controller.highVibrationTrip == 9 [mm_per_s]
+        }
+    }
+
+    requirement minimumFlowRequirement: PumpingSubsystemRequirement {
+        doc /* The subsystem shall identify operation below minimum continuous stable flow as requiring recirculation. */
+        require constraint {
+            subsystem.pump.minimumContinuousStableFlow == 28 [m3_per_h]
+        }
+    }
+}
+tokens used
+4,863
+package PumpingSubsystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    item def ProcessFluid {
+        attribute density: Real = 998.0 [kg_per_m3];
+        attribute dynamicViscosity: Real = 0.001 [Pa_s];
+        attribute vaporPressure: Real = 2.34 [kPa];
+        attribute temperature: Real = 293.15 [K];
+    }
+
+    item def RotationalPower {
+        attribute torque: Real [N_m];
+        attribute speed: Real [rpm];
+        attribute mechanicalPower: Real [kW];
+    }
+
+    item def ElectricalPower {
+        attribute voltage: Real [V];
+        attribute current: Real [A];
+        attribute frequency: Real [Hz];
+        attribute power: Real [kW];
+    }
+
+    item def ControlSignal {
+        attribute command: String;
+        attribute demandPercent: Real [percent];
+    }
+
+    item def HealthStatus {
+        attribute available: Boolean;
+        attribute faultActive: Boolean;
+        attribute cavitationDetected: Boolean;
+        attribute bearingTemperature: Real [degC];
+        attribute vibrationVelocity: Real [mm_per_s];
+    }
+
+    port def FluidPort {
+        inout item fluid: ProcessFluid;
+        attribute pressure: Real [kPa];
+        attribute flowRate: Real [m3_per_h];
+        attribute temperature: Real [degC];
+    }
+
+    port def ShaftPort {
+        inout item power: RotationalPower;
+    }
+
+    port def ElectricalPort {
+        in item supply: ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command: ControlSignal;
+    }
+
+    port def StatusPort {
+        out item status: HealthStatus;
+    }
+
+    part def PumpInducer {
+        port inlet: FluidPort;
+        port outlet: FluidPort;
+        port shaft: ShaftPort;
+
+        attribute bladeCount: Integer = 4;
+        attribute nominalSpeed: Real = 3600 [rpm];
+        attribute inducerDiameter: Real = 0.145 [m];
+        attribute hubDiameter: Real = 0.052 [m];
+        attribute inletTipClearance: Real = 0.0007 [m];
+        attribute requiredNPSH: Real = 2.1 [m];
+        attribute pressureRiseAtRatedFlow: Real = 38.0 [kPa];
+        attribute ratedFlow: Real = 95.0 [m3_per_h];
+
+        action def PreSwirlAndBoost {
+            in item incomingFluid: ProcessFluid;
+            in shaftSpeed: Real [rpm];
+            out item conditionedFluid: ProcessFluid;
+            out pressureGain: Real [kPa];
+
+            first start;
+            then evaluateNPSH;
+            then accelerateFluid;
+            then dischargeConditionedFluid;
+            then done;
+
+            action evaluateNPSH {
+                in suctionPressure: Real [kPa];
+                in vaporPressure: Real [kPa];
+                out npshMargin: Real [m];
+            }
+
+            action accelerateFluid {
+                in axialVelocity: Real [m_per_s];
+                in rotationalSpeed: Real [rpm];
+                out dischargeSwirl: Real [m_per_s];
+            }
+
+            action dischargeConditionedFluid {
+                out pressureGain: Real [kPa];
+            }
+        }
+
+        state def InducerOperatingState {
+            state Off;
+            state Priming;
+            state StableBoost;
+            state CavitationRisk;
+            state Faulted;
+
+            transition first Off;
+            transition Off_to_Priming
+                first Off
+                accept ControlSignal
+                if command == "START"
+                then Priming;
+
+            transition Priming_to_StableBoost
+                first Priming
+                if inlet.pressure > 120 [kPa] and shaft.power.speed > 1200 [rpm]
+                then StableBoost;
+
+            transition StableBoost_to_CavitationRisk
+                first StableBoost
+                if inlet.pressure < 90 [kPa]
+                then CavitationRisk;
+
+            transition CavitationRisk_to_StableBoost
+                first CavitationRisk
+                if inlet.pressure >= 110 [kPa]
+                then StableBoost;
+
+            transition Any_to_Faulted
+                first StableBoost
+                if inlet.flowRate < 10 [m3_per_h] or shaft.power.speed > 3900 [rpm]
+                then Faulted;
+        }
+    }
+
+    part def CentrifugalPumpStage {
+        port suction: FluidPort;
+        port discharge: FluidPort;
+        port shaft: ShaftPort;
+
+        part inducer: PumpInducer;
+
+        attribute ratedFlow: Real = 95.0 [m3_per_h];
+        attribute ratedHead: Real = 72.0 [m];
+        attribute ratedDifferentialPressure: Real = 705.0 [kPa];
+        attribute hydraulicEfficiency: Real = 0.78;
+        attribute minimumContinuousStableFlow: Real = 28.0 [m3_per_h];
+        attribute maximumAllowableWorkingPressure: Real = 1600.0 [kPa];
+
+        connection suctionToInducer connect suction to inducer.inlet;
+        connection inducerToPumpHydraulics connect inducer.outlet to discharge;
+        connection shaftToInducer connect shaft to inducer.shaft;
+
+        action def PumpFluid {
+            in item suctionFluid: ProcessFluid;
+            in rotationalSpeed: Real [rpm];
+            out item dischargeFluid: ProcessFluid;
+            out developedPressure: Real [kPa];
+
+            first receiveFluid;
+            then induceFluid;
+            then addCentrifugalEnergy;
+            then dischargeFluidAction;
+            then done;
+
+            action receiveFluid;
+            action induceFluid;
+            action addCentrifugalEnergy;
+            action dischargeFluidAction;
+        }
+    }
+
+    part def Motor {
+        port electricalInput: ElectricalPort;
+        port shaftOutput: ShaftPort;
+        port commandInput: CommandPort;
+        port statusOutput: StatusPort;
+
+        attribute ratedPower: Real = 55.0 [kW];
+        attribute ratedVoltage: Real = 480.0 [V];
+        attribute ratedSpeed: Real = 3600.0 [rpm];
+        attribute fullLoadCurrent: Real = 72.0 [A];
+        attribute insulationClass: String = "F";
+
+        action def ConvertElectricalToRotationalPower {
+            in item electricalPower: ElectricalPower;
+            out item shaftPower: RotationalPower;
+        }
+
+        state def MotorState {
+            state DeEnergized;
+            state Starting;
+            state Running;
+            state Stopping;
+            state Trip;
+
+            transition first DeEnergized;
+            transition DeEnergized_to_Starting
+                first DeEnergized
+                accept ControlSignal
+                if command == "START"
+                then Starting;
+
+            transition Starting_to_Running
+                first Starting
+                if shaftOutput.power.speed >= 3400 [rpm]
+                then Running;
+
+            transition Running_to_Stopping
+                first Running
+                accept ControlSignal
+                if command == "STOP"
+                then Stopping;
+
+            transition Stopping_to_DeEnergized
+                first Stopping
+                if shaftOutput.power.speed <= 50 [rpm]
+                then DeEnergized;
+
+            transition Running_to_Trip
+                first Running
+                if electricalInput.supply.current > 86 [A]
+                then Trip;
+        }
+    }
+
+    part def SuctionReservoir {
+        port outlet: FluidPort;
+
+        attribute usableVolume: Real = 3.5 [m3];
+        attribute normalLiquidLevel: Real = 1.6 [m];
+        attribute minimumLiquidLevel: Real = 0.45 [m];
+        attribute staticPressureAtOutlet: Real = 145.0 [kPa];
+    }
+
+    part def DischargeHeader {
+        port inlet: FluidPort;
+
+        attribute normalBackPressure: Real = 620.0 [kPa];
+        attribute maximumBackPressure: Real = 900.0 [kPa];
+        attribute designPressure: Real = 1600.0 [kPa];
+    }
+
+    part def PumpController {
+        port commandOutput: CommandPort;
+        port pumpStatusInput: StatusPort;
+
+        attribute startPermissive: Boolean;
+        attribute targetFlow: Real = 95.0 [m3_per_h];
+        attribute lowSuctionPressureTrip: Real = 75.0 [kPa];
+        attribute highVibrationTrip: Real = 9.0 [mm_per_s];
+
+        action def IssueStartStopCommand {
+            in requestedMode: String;
+            out item command: ControlSignal;
+        }
+    }
+
+    part def PumpingSubsystem {
+        port suctionInterface: FluidPort;
+        port dischargeInterface: FluidPort;
+        port electricalInterface: ElectricalPort;
+        port commandInterface: CommandPort;
+        port statusInterface: StatusPort;
+
+        part reservoir: SuctionReservoir;
+        part pump: CentrifugalPumpStage;
+        part motor: Motor;
+        part header: DischargeHeader;
+        part controller: PumpController;
+
+        attribute subsystemRatedFlow: Real = 95.0 [m3_per_h];
+        attribute subsystemRatedDischargePressure: Real = 765.0 [kPa];
+        attribute minimumNPSHMargin: Real = 0.6 [m];
+        attribute allowableLeakage: Real = 0.05 [L_per_min];
+
+        connection externalSuction connect suctionInterface to reservoir.outlet;
+        connection suctionPipe connect reservoir.outlet to pump.suction;
+        connection dischargePipe connect pump.discharge to header.inlet;
+        connection externalDischarge connect header.inlet to dischargeInterface;
+        connection motorShaft connect motor.shaftOutput to pump.shaft;
+        connection electricalFeed connect electricalInterface to motor.electricalInput;
+        connection commandToController connect commandInterface to controller.commandOutput;
+        connection controllerToMotor connect controller.commandOutput to motor.commandInput;
+        connection motorStatus connect motor.statusOutput to statusInterface;
+
+        action def MoveFluidUsingPumpInducer {
+            in item incomingFluid: ProcessFluid;
+            in item electricalPower: ElectricalPower;
+            in item operatorCommand: ControlSignal;
+            out item deliveredFluid: ProcessFluid;
+            out item subsystemStatus: HealthStatus;
+
+            first acceptCommand;
+            then energizeMotor;
+            then rotatePumpInducer;
+            then boostSuctionFluid;
+            then raisePumpPressure;
+            then deliverToHeader;
+            then reportStatus;
+            then done;
+
+            action acceptCommand;
+            action energizeMotor;
+            action rotatePumpInducer;
+            action boostSuctionFluid;
+            action raisePumpPressure;
+            action deliverToHeader;
+            action reportStatus;
+        }
+
+        state def PumpingSubsystemState {
+            state Idle;
+            state Ready;
+            state Starting;
+            state Pumping;
+            state RecirculationRequired;
+            state Shutdown;
+            state Fault;
+
+            transition first Idle;
+
+            transition Idle_to_Ready
+                first Idle
+                if reservoir.normalLiquidLevel > reservoir.minimumLiquidLevel
+                then Ready;
+
+            transition Ready_to_Starting
+                first Ready
+                accept ControlSignal
+                if command == "START"
+                then Starting;
+
+            transition Starting_to_Pumping
+                first Starting
+                if pump.inducer.outlet.flowRate >= 28 [m3_per_h]
+                then Pumping;
+
+            transition Pumping_to_RecirculationRequired
+                first Pumping
+                if pump.discharge.flowRate < pump.minimumContinuousStableFlow
+                then RecirculationRequired;
+
+            transition RecirculationRequired_to_Pumping
+                first RecirculationRequired
+                if pump.discharge.flowRate >= pump.minimumContinuousStableFlow
+                then Pumping;
+
+            transition Pumping_to_Shutdown
+                first Pumping
+                accept ControlSignal
+                if command == "STOP"
+                then Shutdown;
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                if motor.shaftOutput.power.speed <= 50 [rpm]
+                then Idle;
+
+            transition Pumping_to_Fault
+                first Pumping
+                if pump.suction.pressure < controller.lowSuctionPressureTrip
+                then Fault;
+        }
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem: PumpingSubsystem;
+    }
+
+    requirement moveFluidRequirement: PumpingSubsystemRequirement {
+        doc /* The pumping subsystem shall move process fluid from the suction interface to the discharge interface using a pump inducer upstream of the centrifugal pump stage. */
+        require constraint {
+            subsystem.dischargeInterface.flowRate >= 95 [m3_per_h]
+        }
+    }
+
+    requirement inducerBoostRequirement: PumpingSubsystemRequirement {
+        doc /* The pump inducer shall increase suction-side fluid pressure before the main pump hydraulic pressure rise. */
+        require constraint {
+            subsystem.pump.inducer.outlet.pressure - subsystem.pump.inducer.inlet.pressure >= 30 [kPa]
+        }
+    }
+
+    requirement npshRequirement: PumpingSubsystemRequirement {
+        doc /* The inducer shall maintain sufficient net positive suction head margin at rated flow. */
+        require constraint {
+            subsystem.minimumNPSHMargin >= 0.6 [m]
+        }
+    }
+
+    requirement pressureRequirement: PumpingSubsystemRequirement {
+        doc /* The subsystem shall deliver fluid to the discharge header at rated pressure without exceeding design pressure. */
+        require constraint {
+            subsystem.dischargeInterface.pressure >= 765 [kPa] and
+            subsystem.dischargeInterface.pressure <= subsystem.header.designPressure
+        }
+    }
+
+    requirement protectionRequirement: PumpingSubsystemRequirement {
+        doc /* The controller shall prevent sustained operation under low suction pressure or excessive vibration. */
+        require constraint {
+            subsystem.controller.lowSuctionPressureTrip == 75 [kPa] and
+            subsystem.controller.highVibrationTrip == 9 [mm_per_s]
+        }
+    }
+
+    requirement minimumFlowRequirement: PumpingSubsystemRequirement {
+        doc /* The subsystem shall identify operation below minimum continuous stable flow as requiring recirculation. */
+        require constraint {
+            subsystem.pump.minimumContinuousStableFlow == 28 [m3_per_h]
+        }
+    }
+}

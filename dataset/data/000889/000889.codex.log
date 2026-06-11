@@ -1,0 +1,907 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-jvcxwv0i
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb49b-0f2f-7ee2-b310-6a3bf3290a66
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a HCNG dispenser and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HCNGDispenserSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "MPa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/min";
+    }
+
+    attribute def VolumeFraction :> Real {
+        unit = "%";
+    }
+
+    attribute def Energy :> Real {
+        unit = "kWh";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def CurrencyAmount :> Real {
+        unit = "USD";
+    }
+
+    item def HydrogenGas {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute purity : VolumeFraction;
+    }
+
+    item def NaturalGas {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute methaneFraction : VolumeFraction;
+    }
+
+    item def HCNGBlend {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute hydrogenFraction : VolumeFraction;
+        attribute naturalGasFraction : VolumeFraction;
+        attribute massFlowRate : MassFlowRate;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute energyUsed : Energy;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : String;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def PaymentAuthorization {
+        attribute authorizationId : String;
+        attribute approved : Boolean;
+        attribute maximumAmount : CurrencyAmount;
+    }
+
+    item def TransactionReceipt {
+        attribute dispensedMass : Real;
+        attribute chargedAmount : CurrencyAmount;
+        attribute blendHydrogenFraction : VolumeFraction;
+    }
+
+    port def GasInletPort {
+        in item gas;
+    }
+
+    port def GasOutletPort {
+        out item gas;
+    }
+
+    port def BidirectionalControlPort {
+        in item command : ControlSignal;
+        out item status : ControlSignal;
+    }
+
+    port def ElectricalPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PaymentPort {
+        in item authorization : PaymentAuthorization;
+        out item receipt : TransactionReceipt;
+    }
+
+    part def HydrogenSupplyInterface {
+        port hydrogenOut : GasOutletPort;
+        attribute supplyPressure : Pressure = 70.0;
+        attribute minimumPurity : VolumeFraction = 99.97;
+    }
+
+    part def NaturalGasSupplyInterface {
+        port naturalGasOut : GasOutletPort;
+        attribute supplyPressure : Pressure = 25.0;
+        attribute minimumMethaneFraction : VolumeFraction = 90.0;
+    }
+
+    part def FilterModule {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        attribute particulateLimitMicron : Real = 5.0;
+    }
+
+    part def PressureRegulator {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        attribute inletPressure : Pressure;
+        attribute outletPressureSetpoint : Pressure = 20.0;
+        attribute regulationTolerance : Pressure = 0.2;
+    }
+
+    part def MassFlowController {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        port control : BidirectionalControlPort;
+        attribute commandedFlowRate : MassFlowRate;
+        attribute measuredFlowRate : MassFlowRate;
+        attribute maximumFlowRate : MassFlowRate = 12.0;
+    }
+
+    part def BlendManifold {
+        port hydrogenIn : GasInletPort;
+        port naturalGasIn : GasInletPort;
+        port blendOut : GasOutletPort;
+        attribute targetHydrogenFraction : VolumeFraction = 20.0;
+        attribute blendTolerance : VolumeFraction = 1.0;
+    }
+
+    part def CompressorModule {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        port electricalIn : ElectricalPort;
+        attribute inletPressure : Pressure;
+        attribute dischargePressure : Pressure = 35.0;
+        attribute maximumDischargeTemperature : Temperature = 85.0;
+    }
+
+    part def StorageBuffer {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        attribute storagePressure : Pressure;
+        attribute maximumPressure : Pressure = 40.0;
+        attribute minimumOperatingPressure : Pressure = 18.0;
+        attribute storedMass : Real;
+    }
+
+    part def DispenserHoseAssembly {
+        port gasIn : GasInletPort;
+        port nozzleOut : GasOutletPort;
+        attribute hoseRatedPressure : Pressure = 45.0;
+        attribute breakawayConnected : Boolean = true;
+    }
+
+    part def VehicleNozzle {
+        port gasIn : GasInletPort;
+        attribute lockedToVehicle : Boolean = false;
+        attribute leakCheckPassed : Boolean = false;
+    }
+
+    part def SafetyIsolationValve {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        port control : BidirectionalControlPort;
+        attribute open : Boolean = false;
+        attribute failClosed : Boolean = true;
+    }
+
+    part def GasSensorArray {
+        port control : BidirectionalControlPort;
+        attribute hydrogenConcentrationAmbient : VolumeFraction;
+        attribute methaneConcentrationAmbient : VolumeFraction;
+        attribute alarmThreshold : VolumeFraction = 1.0;
+    }
+
+    part def PressureTemperatureSensor {
+        port control : BidirectionalControlPort;
+        attribute measuredPressure : Pressure;
+        attribute measuredTemperature : Temperature;
+    }
+
+    part def UserInterface {
+        port control : BidirectionalControlPort;
+        port payment : PaymentPort;
+        attribute selectedHydrogenFraction : VolumeFraction = 20.0;
+        attribute requestedFillMass : Real;
+        attribute displayMessage : String;
+    }
+
+    part def PaymentTerminal {
+        port payment : PaymentPort;
+        attribute online : Boolean = true;
+        attribute authorized : Boolean = false;
+    }
+
+    part def DispenserController {
+        port processControl : BidirectionalControlPort;
+        port userControl : BidirectionalControlPort;
+        port safetyControl : BidirectionalControlPort;
+        attribute requestedHydrogenFraction : VolumeFraction;
+        attribute fillActive : Boolean = false;
+        attribute emergencyStop : Boolean = false;
+        attribute totalDispensedMass : Real;
+    }
+
+    action def ValidateAuthorization {
+        in authorization : PaymentAuthorization;
+        out accepted : Boolean;
+    }
+
+    action def CalculateBlendSetpoints {
+        in requestedHydrogenFraction : VolumeFraction;
+        in requestedMassFlowRate : MassFlowRate;
+        out hydrogenFlowSetpoint : MassFlowRate;
+        out naturalGasFlowSetpoint : MassFlowRate;
+    }
+
+    action def PerformLeakCheck {
+        in nozzleLocked : Boolean;
+        in initialPressure : Pressure;
+        out passed : Boolean;
+    }
+
+    action def DispenseHCNG {
+        in blend : HCNGBlend;
+        in requestedMass : Real;
+        out actualMass : Real;
+    }
+
+    action def EmergencyShutdown {
+        out valvesClosed : Boolean;
+        out compressorStopped : Boolean;
+    }
+
+    state def DispenserOperatingState {
+        entry action initialize;
+        state idle;
+        state awaitingPayment;
+        state preparingBlend;
+        state leakChecking;
+        state dispensing;
+        state completingTransaction;
+        state faulted;
+        state emergencyStopped;
+
+        transition first idle;
+
+        transition idle_to_awaitingPayment
+            first idle
+            then awaitingPayment;
+
+        transition awaitingPayment_to_preparingBlend
+            first awaitingPayment
+            then preparingBlend
+            if authorizationApproved;
+
+        transition preparingBlend_to_leakChecking
+            first preparingBlend
+            then leakChecking
+            if blendReady;
+
+        transition leakChecking_to_dispensing
+            first leakChecking
+            then dispensing
+            if leakCheckPassed;
+
+        transition dispensing_to_completingTransaction
+            first dispensing
+            then completingTransaction
+            if requestedMassDelivered;
+
+        transition completingTransaction_to_idle
+            first completingTransaction
+            then idle;
+
+        transition any_to_faulted
+            first idle
+            then faulted
+            if processFaultDetected;
+
+        transition any_to_emergencyStopped
+            first dispensing
+            then emergencyStopped
+            if emergencyStopCommanded;
+
+        state idle {
+            entry action showReadyMessage;
+        }
+
+        state awaitingPayment {
+            entry action requestPaymentAuthorization;
+            do action ValidateAuthorization;
+        }
+
+        state preparingBlend {
+            entry action openSupplyIsolation;
+            do action CalculateBlendSetpoints;
+        }
+
+        state leakChecking {
+            do action PerformLeakCheck;
+        }
+
+        state dispensing {
+            entry action startCompressorAndFlowControllers;
+            do action DispenseHCNG;
+            exit action closeDispenseValve;
+        }
+
+        state completingTransaction {
+            entry action calculateCharge;
+            do action issueReceipt;
+        }
+
+        state faulted {
+            entry action closeAllValves;
+            do action displayFault;
+        }
+
+        state emergencyStopped {
+            entry action EmergencyShutdown;
+            do action requireManualReset;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject dispenser : HCNGDispenser;
+        doc /* The HCNG dispenser shall receive hydrogen and natural gas, blend them to a commanded hydrogen-enriched compressed natural gas ratio, pressurize and meter the blend, and safely dispense the HCNG fuel into a compatible vehicle tank. */
+    }
+
+    requirement def BlendAccuracyRequirement {
+        subject dispenser : HCNGDispenser;
+        attribute requiredTolerance : VolumeFraction = 1.0;
+        doc /* The dispenser shall maintain the delivered hydrogen fraction within plus or minus 1 percent by volume of the selected blend setpoint during steady dispensing. */
+    }
+
+    requirement def MaximumPressureRequirement {
+        subject dispenser : HCNGDispenser;
+        attribute maximumAllowedPressure : Pressure = 35.0;
+        doc /* The dispenser shall prevent delivery pressure from exceeding 35 MPa at the vehicle nozzle. */
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject dispenser : HCNGDispenser;
+        attribute shutdownTime : TimeDuration = 1.0;
+        doc /* The dispenser shall close fail-safe isolation valves and stop compression within 1 second after emergency stop activation or hazardous gas detection. */
+    }
+
+    requirement def LeakCheckRequirement {
+        subject dispenser : HCNGDispenser;
+        doc /* The dispenser shall perform a nozzle and hose leak check before opening the final dispense valve. */
+    }
+
+    part def HCNGDispenser {
+        port hydrogenSupplyPort : GasInletPort;
+        port naturalGasSupplyPort : GasInletPort;
+        port vehicleFuelPort : GasOutletPort;
+        port electricalSupplyPort : ElectricalPort;
+        port paymentInterface : PaymentPort;
+
+        part hydrogenFilter : FilterModule;
+        part naturalGasFilter : FilterModule;
+        part hydrogenRegulator : PressureRegulator;
+        part naturalGasRegulator : PressureRegulator;
+        part hydrogenFlowController : MassFlowController;
+        part naturalGasFlowController : MassFlowController;
+        part blendManifold : BlendManifold;
+        part compressor : CompressorModule;
+        part storageBuffer : StorageBuffer;
+        part inletIsolationValve : SafetyIsolationValve;
+        part outletIsolationValve : SafetyIsolationValve;
+        part hoseAssembly : DispenserHoseAssembly;
+        part nozzle : VehicleNozzle;
+        part gasSensors : GasSensorArray;
+        part pressureTemperatureSensor : PressureTemperatureSensor;
+        part controller : DispenserController;
+        part userInterface : UserInterface;
+        part paymentTerminal : PaymentTerminal;
+
+        attribute nominalHydrogenFraction : VolumeFraction = 20.0;
+        attribute minimumHydrogenFraction : VolumeFraction = 5.0;
+        attribute maximumHydrogenFraction : VolumeFraction = 30.0;
+        attribute nominalDispensePressure : Pressure = 35.0;
+        attribute maximumDispenseTemperature : Temperature = 85.0;
+        attribute nominalMassFlowRate : MassFlowRate = 8.0;
+
+        perform stateMachine : DispenserOperatingState;
+
+        connect hydrogenSupplyPort to hydrogenFilter.gasIn;
+        connect hydrogenFilter.gasOut to hydrogenRegulator.gasIn;
+        connect hydrogenRegulator.gasOut to hydrogenFlowController.gasIn;
+        connect hydrogenFlowController.gasOut to blendManifold.hydrogenIn;
+
+        connect naturalGasSupplyPort to naturalGasFilter.gasIn;
+        connect naturalGasFilter.gasOut to naturalGasRegulator.gasIn;
+        connect naturalGasRegulator.gasOut to naturalGasFlowController.gasIn;
+        connect naturalGasFlowController.gasOut to blendManifold.naturalGasIn;
+
+        connect blendManifold.blendOut to inletIsolationValve.gasIn;
+        connect inletIsolationValve.gasOut to compressor.gasIn;
+        connect compressor.gasOut to storageBuffer.gasIn;
+        connect storageBuffer.gasOut to outletIsolationValve.gasIn;
+        connect outletIsolationValve.gasOut to hoseAssembly.gasIn;
+        connect hoseAssembly.nozzleOut to nozzle.gasIn;
+        connect nozzle.gasIn to vehicleFuelPort;
+
+        connect electricalSupplyPort to compressor.electricalIn;
+        connect paymentInterface to paymentTerminal.payment;
+        connect paymentTerminal.payment to userInterface.payment;
+
+        connect controller.processControl to hydrogenFlowController.control;
+        connect controller.processControl to naturalGasFlowController.control;
+        connect controller.processControl to inletIsolationValve.control;
+        connect controller.processControl to outletIsolationValve.control;
+        connect controller.safetyControl to gasSensors.control;
+        connect controller.safetyControl to pressureTemperatureSensor.control;
+        connect controller.userControl to userInterface.control;
+    }
+
+    part hcngStationDispenser : HCNGDispenser {
+        attribute nominalHydrogenFraction = 20.0;
+        attribute nominalDispensePressure = 35.0;
+        attribute nominalMassFlowRate = 8.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by hcngStationDispenser;
+    satisfy BlendAccuracyRequirement by hcngStationDispenser.blendManifold;
+    satisfy MaximumPressureRequirement by hcngStationDispenser.pressureTemperatureSensor;
+    satisfy EmergencyStopRequirement by hcngStationDispenser.controller;
+    satisfy LeakCheckRequirement by hcngStationDispenser.nozzle;
+}
+tokens used
+4,440
+package HCNGDispenserSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "MPa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/min";
+    }
+
+    attribute def VolumeFraction :> Real {
+        unit = "%";
+    }
+
+    attribute def Energy :> Real {
+        unit = "kWh";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def CurrencyAmount :> Real {
+        unit = "USD";
+    }
+
+    item def HydrogenGas {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute purity : VolumeFraction;
+    }
+
+    item def NaturalGas {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute methaneFraction : VolumeFraction;
+    }
+
+    item def HCNGBlend {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute hydrogenFraction : VolumeFraction;
+        attribute naturalGasFraction : VolumeFraction;
+        attribute massFlowRate : MassFlowRate;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute energyUsed : Energy;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : String;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def PaymentAuthorization {
+        attribute authorizationId : String;
+        attribute approved : Boolean;
+        attribute maximumAmount : CurrencyAmount;
+    }
+
+    item def TransactionReceipt {
+        attribute dispensedMass : Real;
+        attribute chargedAmount : CurrencyAmount;
+        attribute blendHydrogenFraction : VolumeFraction;
+    }
+
+    port def GasInletPort {
+        in item gas;
+    }
+
+    port def GasOutletPort {
+        out item gas;
+    }
+
+    port def BidirectionalControlPort {
+        in item command : ControlSignal;
+        out item status : ControlSignal;
+    }
+
+    port def ElectricalPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PaymentPort {
+        in item authorization : PaymentAuthorization;
+        out item receipt : TransactionReceipt;
+    }
+
+    part def HydrogenSupplyInterface {
+        port hydrogenOut : GasOutletPort;
+        attribute supplyPressure : Pressure = 70.0;
+        attribute minimumPurity : VolumeFraction = 99.97;
+    }
+
+    part def NaturalGasSupplyInterface {
+        port naturalGasOut : GasOutletPort;
+        attribute supplyPressure : Pressure = 25.0;
+        attribute minimumMethaneFraction : VolumeFraction = 90.0;
+    }
+
+    part def FilterModule {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        attribute particulateLimitMicron : Real = 5.0;
+    }
+
+    part def PressureRegulator {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        attribute inletPressure : Pressure;
+        attribute outletPressureSetpoint : Pressure = 20.0;
+        attribute regulationTolerance : Pressure = 0.2;
+    }
+
+    part def MassFlowController {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        port control : BidirectionalControlPort;
+        attribute commandedFlowRate : MassFlowRate;
+        attribute measuredFlowRate : MassFlowRate;
+        attribute maximumFlowRate : MassFlowRate = 12.0;
+    }
+
+    part def BlendManifold {
+        port hydrogenIn : GasInletPort;
+        port naturalGasIn : GasInletPort;
+        port blendOut : GasOutletPort;
+        attribute targetHydrogenFraction : VolumeFraction = 20.0;
+        attribute blendTolerance : VolumeFraction = 1.0;
+    }
+
+    part def CompressorModule {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        port electricalIn : ElectricalPort;
+        attribute inletPressure : Pressure;
+        attribute dischargePressure : Pressure = 35.0;
+        attribute maximumDischargeTemperature : Temperature = 85.0;
+    }
+
+    part def StorageBuffer {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        attribute storagePressure : Pressure;
+        attribute maximumPressure : Pressure = 40.0;
+        attribute minimumOperatingPressure : Pressure = 18.0;
+        attribute storedMass : Real;
+    }
+
+    part def DispenserHoseAssembly {
+        port gasIn : GasInletPort;
+        port nozzleOut : GasOutletPort;
+        attribute hoseRatedPressure : Pressure = 45.0;
+        attribute breakawayConnected : Boolean = true;
+    }
+
+    part def VehicleNozzle {
+        port gasIn : GasInletPort;
+        attribute lockedToVehicle : Boolean = false;
+        attribute leakCheckPassed : Boolean = false;
+    }
+
+    part def SafetyIsolationValve {
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+        port control : BidirectionalControlPort;
+        attribute open : Boolean = false;
+        attribute failClosed : Boolean = true;
+    }
+
+    part def GasSensorArray {
+        port control : BidirectionalControlPort;
+        attribute hydrogenConcentrationAmbient : VolumeFraction;
+        attribute methaneConcentrationAmbient : VolumeFraction;
+        attribute alarmThreshold : VolumeFraction = 1.0;
+    }
+
+    part def PressureTemperatureSensor {
+        port control : BidirectionalControlPort;
+        attribute measuredPressure : Pressure;
+        attribute measuredTemperature : Temperature;
+    }
+
+    part def UserInterface {
+        port control : BidirectionalControlPort;
+        port payment : PaymentPort;
+        attribute selectedHydrogenFraction : VolumeFraction = 20.0;
+        attribute requestedFillMass : Real;
+        attribute displayMessage : String;
+    }
+
+    part def PaymentTerminal {
+        port payment : PaymentPort;
+        attribute online : Boolean = true;
+        attribute authorized : Boolean = false;
+    }
+
+    part def DispenserController {
+        port processControl : BidirectionalControlPort;
+        port userControl : BidirectionalControlPort;
+        port safetyControl : BidirectionalControlPort;
+        attribute requestedHydrogenFraction : VolumeFraction;
+        attribute fillActive : Boolean = false;
+        attribute emergencyStop : Boolean = false;
+        attribute totalDispensedMass : Real;
+    }
+
+    action def ValidateAuthorization {
+        in authorization : PaymentAuthorization;
+        out accepted : Boolean;
+    }
+
+    action def CalculateBlendSetpoints {
+        in requestedHydrogenFraction : VolumeFraction;
+        in requestedMassFlowRate : MassFlowRate;
+        out hydrogenFlowSetpoint : MassFlowRate;
+        out naturalGasFlowSetpoint : MassFlowRate;
+    }
+
+    action def PerformLeakCheck {
+        in nozzleLocked : Boolean;
+        in initialPressure : Pressure;
+        out passed : Boolean;
+    }
+
+    action def DispenseHCNG {
+        in blend : HCNGBlend;
+        in requestedMass : Real;
+        out actualMass : Real;
+    }
+
+    action def EmergencyShutdown {
+        out valvesClosed : Boolean;
+        out compressorStopped : Boolean;
+    }
+
+    state def DispenserOperatingState {
+        entry action initialize;
+        state idle;
+        state awaitingPayment;
+        state preparingBlend;
+        state leakChecking;
+        state dispensing;
+        state completingTransaction;
+        state faulted;
+        state emergencyStopped;
+
+        transition first idle;
+
+        transition idle_to_awaitingPayment
+            first idle
+            then awaitingPayment;
+
+        transition awaitingPayment_to_preparingBlend
+            first awaitingPayment
+            then preparingBlend
+            if authorizationApproved;
+
+        transition preparingBlend_to_leakChecking
+            first preparingBlend
+            then leakChecking
+            if blendReady;
+
+        transition leakChecking_to_dispensing
+            first leakChecking
+            then dispensing
+            if leakCheckPassed;
+
+        transition dispensing_to_completingTransaction
+            first dispensing
+            then completingTransaction
+            if requestedMassDelivered;
+
+        transition completingTransaction_to_idle
+            first completingTransaction
+            then idle;
+
+        transition any_to_faulted
+            first idle
+            then faulted
+            if processFaultDetected;
+
+        transition any_to_emergencyStopped
+            first dispensing
+            then emergencyStopped
+            if emergencyStopCommanded;
+
+        state idle {
+            entry action showReadyMessage;
+        }
+
+        state awaitingPayment {
+            entry action requestPaymentAuthorization;
+            do action ValidateAuthorization;
+        }
+
+        state preparingBlend {
+            entry action openSupplyIsolation;
+            do action CalculateBlendSetpoints;
+        }
+
+        state leakChecking {
+            do action PerformLeakCheck;
+        }
+
+        state dispensing {
+            entry action startCompressorAndFlowControllers;
+            do action DispenseHCNG;
+            exit action closeDispenseValve;
+        }
+
+        state completingTransaction {
+            entry action calculateCharge;
+            do action issueReceipt;
+        }
+
+        state faulted {
+            entry action closeAllValves;
+            do action displayFault;
+        }
+
+        state emergencyStopped {
+            entry action EmergencyShutdown;
+            do action requireManualReset;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject dispenser : HCNGDispenser;
+        doc /* The HCNG dispenser shall receive hydrogen and natural gas, blend them to a commanded hydrogen-enriched compressed natural gas ratio, pressurize and meter the blend, and safely dispense the HCNG fuel into a compatible vehicle tank. */
+    }
+
+    requirement def BlendAccuracyRequirement {
+        subject dispenser : HCNGDispenser;
+        attribute requiredTolerance : VolumeFraction = 1.0;
+        doc /* The dispenser shall maintain the delivered hydrogen fraction within plus or minus 1 percent by volume of the selected blend setpoint during steady dispensing. */
+    }
+
+    requirement def MaximumPressureRequirement {
+        subject dispenser : HCNGDispenser;
+        attribute maximumAllowedPressure : Pressure = 35.0;
+        doc /* The dispenser shall prevent delivery pressure from exceeding 35 MPa at the vehicle nozzle. */
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject dispenser : HCNGDispenser;
+        attribute shutdownTime : TimeDuration = 1.0;
+        doc /* The dispenser shall close fail-safe isolation valves and stop compression within 1 second after emergency stop activation or hazardous gas detection. */
+    }
+
+    requirement def LeakCheckRequirement {
+        subject dispenser : HCNGDispenser;
+        doc /* The dispenser shall perform a nozzle and hose leak check before opening the final dispense valve. */
+    }
+
+    part def HCNGDispenser {
+        port hydrogenSupplyPort : GasInletPort;
+        port naturalGasSupplyPort : GasInletPort;
+        port vehicleFuelPort : GasOutletPort;
+        port electricalSupplyPort : ElectricalPort;
+        port paymentInterface : PaymentPort;
+
+        part hydrogenFilter : FilterModule;
+        part naturalGasFilter : FilterModule;
+        part hydrogenRegulator : PressureRegulator;
+        part naturalGasRegulator : PressureRegulator;
+        part hydrogenFlowController : MassFlowController;
+        part naturalGasFlowController : MassFlowController;
+        part blendManifold : BlendManifold;
+        part compressor : CompressorModule;
+        part storageBuffer : StorageBuffer;
+        part inletIsolationValve : SafetyIsolationValve;
+        part outletIsolationValve : SafetyIsolationValve;
+        part hoseAssembly : DispenserHoseAssembly;
+        part nozzle : VehicleNozzle;
+        part gasSensors : GasSensorArray;
+        part pressureTemperatureSensor : PressureTemperatureSensor;
+        part controller : DispenserController;
+        part userInterface : UserInterface;
+        part paymentTerminal : PaymentTerminal;
+
+        attribute nominalHydrogenFraction : VolumeFraction = 20.0;
+        attribute minimumHydrogenFraction : VolumeFraction = 5.0;
+        attribute maximumHydrogenFraction : VolumeFraction = 30.0;
+        attribute nominalDispensePressure : Pressure = 35.0;
+        attribute maximumDispenseTemperature : Temperature = 85.0;
+        attribute nominalMassFlowRate : MassFlowRate = 8.0;
+
+        perform stateMachine : DispenserOperatingState;
+
+        connect hydrogenSupplyPort to hydrogenFilter.gasIn;
+        connect hydrogenFilter.gasOut to hydrogenRegulator.gasIn;
+        connect hydrogenRegulator.gasOut to hydrogenFlowController.gasIn;
+        connect hydrogenFlowController.gasOut to blendManifold.hydrogenIn;
+
+        connect naturalGasSupplyPort to naturalGasFilter.gasIn;
+        connect naturalGasFilter.gasOut to naturalGasRegulator.gasIn;
+        connect naturalGasRegulator.gasOut to naturalGasFlowController.gasIn;
+        connect naturalGasFlowController.gasOut to blendManifold.naturalGasIn;
+
+        connect blendManifold.blendOut to inletIsolationValve.gasIn;
+        connect inletIsolationValve.gasOut to compressor.gasIn;
+        connect compressor.gasOut to storageBuffer.gasIn;
+        connect storageBuffer.gasOut to outletIsolationValve.gasIn;
+        connect outletIsolationValve.gasOut to hoseAssembly.gasIn;
+        connect hoseAssembly.nozzleOut to nozzle.gasIn;
+        connect nozzle.gasIn to vehicleFuelPort;
+
+        connect electricalSupplyPort to compressor.electricalIn;
+        connect paymentInterface to paymentTerminal.payment;
+        connect paymentTerminal.payment to userInterface.payment;
+
+        connect controller.processControl to hydrogenFlowController.control;
+        connect controller.processControl to naturalGasFlowController.control;
+        connect controller.processControl to inletIsolationValve.control;
+        connect controller.processControl to outletIsolationValve.control;
+        connect controller.safetyControl to gasSensors.control;
+        connect controller.safetyControl to pressureTemperatureSensor.control;
+        connect controller.userControl to userInterface.control;
+    }
+
+    part hcngStationDispenser : HCNGDispenser {
+        attribute nominalHydrogenFraction = 20.0;
+        attribute nominalDispensePressure = 35.0;
+        attribute nominalMassFlowRate = 8.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by hcngStationDispenser;
+    satisfy BlendAccuracyRequirement by hcngStationDispenser.blendManifold;
+    satisfy MaximumPressureRequirement by hcngStationDispenser.pressureTemperatureSensor;
+    satisfy EmergencyStopRequirement by hcngStationDispenser.controller;
+    satisfy LeakCheckRequirement by hcngStationDispenser.nozzle;
+}

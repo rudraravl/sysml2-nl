@@ -1,0 +1,1315 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_tzihru_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4a2-c257-7262-ae31-34ec1d5bd191
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a pumping subsystem that moves fluid using a Hydraulic pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    item def HydraulicFluid {
+        attribute density : Real = 850.0;
+        attribute dynamicViscosity : Real = 0.046;
+        attribute bulkModulus : Pressure = 1.4e9;
+        attribute temperature : Temperature;
+        attribute contaminationLevel : Integer;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real { unit = "V"; }
+        attribute current : Real { unit = "A"; }
+        attribute frequency : Real { unit = "Hz"; }
+    }
+
+    item def MechanicalTorque {
+        attribute torque : Real { unit = "N*m"; }
+        attribute speed : RotationalSpeed;
+    }
+
+    port def FluidPort {
+        inout item fluid : HydraulicFluid;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+        attribute temperature : Temperature;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalEnergy;
+    }
+
+    port def ShaftPort {
+        inout item shaftPower : MechanicalTorque;
+    }
+
+    port def ControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        in attribute demandedFlow : FlowRate;
+        in attribute demandedPressure : Pressure;
+        out attribute runningStatus : Boolean;
+        out attribute faultStatus : Boolean;
+    }
+
+    port def SignalPort {
+        out attribute pressureSignal : Pressure;
+        out attribute flowSignal : FlowRate;
+        out attribute temperatureSignal : Temperature;
+    }
+
+    part def HydraulicPump {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port shaft : ShaftPort;
+        port command : ControlPort;
+
+        attribute displacement : Real { unit = "m^3/rev"; } = 4.5e-5;
+        attribute ratedSpeed : RotationalSpeed = 1800.0;
+        attribute ratedPressureRise : Pressure = 1.6e7;
+        attribute ratedFlow : FlowRate = 0.00125;
+        attribute volumetricEfficiency : Efficiency = 0.92;
+        attribute mechanicalEfficiency : Efficiency = 0.88;
+        attribute actualSpeed : RotationalSpeed;
+        attribute pressureRise : Pressure;
+        attribute hydraulicPower : Power;
+        attribute shaftPowerRequired : Power;
+
+        constraint pressureRiseDefinition {
+            pressureRise == discharge.pressure - suction.pressure;
+        }
+
+        constraint hydraulicPowerDefinition {
+            hydraulicPower == pressureRise * discharge.flowRate;
+        }
+
+        constraint shaftPowerDefinition {
+            shaftPowerRequired == hydraulicPower / mechanicalEfficiency;
+        }
+
+        constraint flowGeneration {
+            discharge.flowRate == displacement * actualSpeed / 60.0 * volumetricEfficiency;
+        }
+
+        state def PumpOperatingState {
+            entry action initializePump;
+            state off;
+            state starting;
+            state running;
+            state stopping;
+            state faulted;
+
+            transition first off;
+
+            transition startPump
+                first off
+                then starting
+                accept command.startCommand
+                if command.faultStatus == false;
+
+            transition reachOperatingSpeed
+                first starting
+                then running
+                if actualSpeed >= ratedSpeed * 0.95;
+
+            transition stopPump
+                first running
+                then stopping
+                accept command.stopCommand;
+
+            transition stopped
+                first stopping
+                then off
+                if actualSpeed <= 10.0;
+
+            transition lowSuctionFault
+                first running
+                then faulted
+                if suction.pressure < 1.0e5;
+
+            transition overPressureFault
+                first running
+                then faulted
+                if discharge.pressure > ratedPressureRise * 1.15;
+
+            transition resetFault
+                first faulted
+                then off
+                accept command.stopCommand;
+        }
+
+        action def accelerate {
+            in targetSpeed : RotationalSpeed;
+            out achievedSpeed : RotationalSpeed;
+        }
+
+        action def generateFlow {
+            in inletFluid : HydraulicFluid;
+            in speed : RotationalSpeed;
+            out outletFluid : HydraulicFluid;
+            out deliveredFlow : FlowRate;
+        }
+
+        action def protectPump {
+            in inletPressure : Pressure;
+            in outletPressure : Pressure;
+            out faultDetected : Boolean;
+        }
+    }
+
+    part def ElectricMotor {
+        port electricalInput : PowerPort;
+        port shaftOutput : ShaftPort;
+        port command : ControlPort;
+
+        attribute ratedPower : Power = 30000.0;
+        attribute ratedSpeed : RotationalSpeed = 1800.0;
+        attribute efficiency : Efficiency = 0.93;
+        attribute windingTemperature : Temperature;
+        attribute outputTorque : Real { unit = "N*m"; }
+
+        constraint motorPowerLimit {
+            electricalInput.powerIn.voltage * electricalInput.powerIn.current * efficiency <= ratedPower;
+        }
+
+        action def convertElectricalToMechanical {
+            in electrical : ElectricalEnergy;
+            out torque : MechanicalTorque;
+        }
+    }
+
+    part def SuctionReservoir {
+        port outlet : FluidPort;
+
+        attribute capacity : Real { unit = "m^3"; } = 0.35;
+        attribute fluidLevel : Real { unit = "m"; }
+        attribute nominalPressure : Pressure = 1.01325e5;
+        attribute fluidTemperature : Temperature = 298.15;
+
+        constraint outletConditions {
+            outlet.pressure == nominalPressure;
+            outlet.temperature == fluidTemperature;
+        }
+    }
+
+    part def DischargeManifold {
+        port inlet : FluidPort;
+        port serviceOutlet : FluidPort;
+        port reliefReturn : FluidPort;
+
+        attribute manifoldVolume : Real { unit = "m^3"; } = 0.015;
+        attribute operatingPressure : Pressure;
+        attribute pressureLossCoefficient : Real = 2.5e5;
+
+        constraint pressureDrop {
+            serviceOutlet.pressure == inlet.pressure - pressureLossCoefficient * inlet.flowRate;
+        }
+    }
+
+    part def ReliefValve {
+        port inlet : FluidPort;
+        port returnPort : FluidPort;
+
+        attribute crackingPressure : Pressure = 1.75e7;
+        attribute reseatPressure : Pressure = 1.55e7;
+        attribute maxBypassFlow : FlowRate = 0.0015;
+        attribute valveOpen : Boolean;
+
+        constraint opensAtCrackingPressure {
+            valveOpen == (inlet.pressure >= crackingPressure);
+        }
+
+        state def ReliefValveState {
+            state closed;
+            state opening;
+            state open;
+            state reseating;
+
+            transition first closed;
+
+            transition crack
+                first closed
+                then opening
+                if inlet.pressure >= crackingPressure;
+
+            transition fullyOpen
+                first opening
+                then open
+                if returnPort.flowRate >= maxBypassFlow * 0.9;
+
+            transition pressureRecovered
+                first open
+                then reseating
+                if inlet.pressure <= reseatPressure;
+
+            transition reseat
+                first reseating
+                then closed
+                if returnPort.flowRate <= 1.0e-5;
+        }
+    }
+
+    part def Filter {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute filtrationRating : Real { unit = "um"; } = 10.0;
+        attribute cleanPressureDrop : Pressure = 5.0e4;
+        attribute cloggedPressureDrop : Pressure = 3.0e5;
+        attribute elementContamination : Real { unit = "1"; }
+
+        constraint filterPressureDrop {
+            outlet.pressure == inlet.pressure - (cleanPressureDrop + elementContamination * (cloggedPressureDrop - cleanPressureDrop));
+        }
+    }
+
+    part def CheckValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute crackingPressure : Pressure = 2.0e4;
+        attribute reverseLeakageFlow : FlowRate = 1.0e-7;
+        attribute open : Boolean;
+
+        constraint forwardFlow {
+            open == (inlet.pressure > outlet.pressure + crackingPressure);
+        }
+    }
+
+    part def PressureSensor {
+        port sensedPort : FluidPort;
+        port signal : SignalPort;
+
+        attribute rangeMin : Pressure = 0.0;
+        attribute rangeMax : Pressure = 2.5e7;
+        attribute accuracy : Pressure = 2.5e4;
+
+        constraint pressureMeasurement {
+            signal.pressureSignal == sensedPort.pressure;
+        }
+    }
+
+    part def FlowSensor {
+        port sensedPort : FluidPort;
+        port signal : SignalPort;
+
+        attribute rangeMin : FlowRate = 0.0;
+        attribute rangeMax : FlowRate = 0.002;
+        attribute accuracy : FlowRate = 1.0e-5;
+
+        constraint flowMeasurement {
+            signal.flowSignal == sensedPort.flowRate;
+        }
+    }
+
+    part def TemperatureSensor {
+        port sensedPort : FluidPort;
+        port signal : SignalPort;
+
+        attribute rangeMin : Temperature = 253.15;
+        attribute rangeMax : Temperature = 373.15;
+        attribute accuracy : Temperature = 1.0;
+
+        constraint temperatureMeasurement {
+            signal.temperatureSignal == sensedPort.temperature;
+        }
+    }
+
+    part def PumpController {
+        port commandInterface : ControlPort;
+        port motorCommand : ControlPort;
+        port pumpCommand : ControlPort;
+        port pressureInput : SignalPort;
+        port flowInput : SignalPort;
+        port temperatureInput : SignalPort;
+
+        attribute pressureSetpoint : Pressure = 1.2e7;
+        attribute flowSetpoint : FlowRate = 0.001;
+        attribute overTemperatureLimit : Temperature = 353.15;
+        attribute lowFlowLimit : FlowRate = 0.0002;
+        attribute activeFault : Boolean;
+        attribute subsystemRunning : Boolean;
+
+        constraint commandPropagation {
+            motorCommand.startCommand == commandInterface.startCommand;
+            pumpCommand.startCommand == commandInterface.startCommand;
+            motorCommand.stopCommand == commandInterface.stopCommand;
+            pumpCommand.stopCommand == commandInterface.stopCommand;
+            pumpCommand.demandedFlow == flowSetpoint;
+            pumpCommand.demandedPressure == pressureSetpoint;
+        }
+
+        state def ControllerState {
+            state idle;
+            state starting;
+            state regulating;
+            state shutdown;
+            state fault;
+
+            transition first idle;
+
+            transition start
+                first idle
+                then starting
+                accept commandInterface.startCommand;
+
+            transition regulate
+                first starting
+                then regulating
+                if pressureInput.pressureSignal >= pressureSetpoint * 0.9;
+
+            transition commandedStop
+                first regulating
+                then shutdown
+                accept commandInterface.stopCommand;
+
+            transition stopped
+                first shutdown
+                then idle
+                if flowInput.flowSignal <= 1.0e-5;
+
+            transition overTemperature
+                first regulating
+                then fault
+                if temperatureInput.temperatureSignal >= overTemperatureLimit;
+
+            transition lowFlow
+                first regulating
+                then fault
+                if flowInput.flowSignal <= lowFlowLimit;
+
+            transition faultReset
+                first fault
+                then idle
+                accept commandInterface.stopCommand;
+        }
+
+        action def regulatePump {
+            in measuredPressure : Pressure;
+            in measuredFlow : FlowRate;
+            in requestedPressure : Pressure;
+            in requestedFlow : FlowRate;
+            out startMotor : Boolean;
+            out faultDetected : Boolean;
+        }
+    }
+
+    part def HydraulicLoad {
+        port inlet : FluidPort;
+        port returnOutlet : FluidPort;
+
+        attribute requiredPressure : Pressure = 1.0e7;
+        attribute nominalDemandFlow : FlowRate = 0.0009;
+        attribute loadRestriction : Real { unit = "Pa/(m^3/s)"; } = 1.1e10;
+
+        constraint demandPressure {
+            inlet.pressure - returnOutlet.pressure == loadRestriction * inlet.flowRate;
+        }
+    }
+
+    part def PumpingSubsystem {
+        port electricalSupply : PowerPort;
+        port command : ControlPort;
+        port processFluidOutlet : FluidPort;
+        port returnFluidInlet : FluidPort;
+
+        part reservoir : SuctionReservoir;
+        part inletFilter : Filter;
+        part driveMotor : ElectricMotor;
+        part pump : HydraulicPump;
+        part dischargeCheckValve : CheckValve;
+        part manifold : DischargeManifold;
+        part reliefValve : ReliefValve;
+        part pressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part temperatureSensor : TemperatureSensor;
+        part controller : PumpController;
+        part hydraulicLoad : HydraulicLoad;
+
+        attribute subsystemRatedPressure : Pressure = 1.6e7;
+        attribute subsystemRatedFlow : FlowRate = 0.00125;
+        attribute maximumAllowablePressure : Pressure = 1.84e7;
+        attribute minimumSuctionPressure : Pressure = 1.0e5;
+        attribute maximumFluidTemperature : Temperature = 353.15;
+        attribute normalElectricalVoltage : Real { unit = "V"; } = 480.0;
+
+        connect electricalSupply to driveMotor.electricalInput;
+        connect command to controller.commandInterface;
+        connect controller.motorCommand to driveMotor.command;
+        connect controller.pumpCommand to pump.command;
+        connect driveMotor.shaftOutput to pump.shaft;
+
+        connect reservoir.outlet to inletFilter.inlet;
+        connect inletFilter.outlet to pump.suction;
+        connect pump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to manifold.inlet;
+        connect manifold.serviceOutlet to processFluidOutlet;
+        connect manifold.serviceOutlet to hydraulicLoad.inlet;
+        connect hydraulicLoad.returnOutlet to returnFluidInlet;
+        connect manifold.reliefReturn to reliefValve.inlet;
+        connect reliefValve.returnPort to reservoir.outlet;
+
+        connect manifold.inlet to pressureSensor.sensedPort;
+        connect manifold.serviceOutlet to flowSensor.sensedPort;
+        connect pump.discharge to temperatureSensor.sensedPort;
+
+        connect pressureSensor.signal to controller.pressureInput;
+        connect flowSensor.signal to controller.flowInput;
+        connect temperatureSensor.signal to controller.temperatureInput;
+
+        constraint ratedPerformance {
+            pump.ratedFlow >= subsystemRatedFlow;
+            pump.ratedPressureRise >= subsystemRatedPressure;
+        }
+
+        constraint pressureProtection {
+            reliefValve.crackingPressure <= maximumAllowablePressure;
+        }
+
+        constraint suctionProtection {
+            pump.suction.pressure >= minimumSuctionPressure;
+        }
+
+        constraint temperatureProtection {
+            pump.discharge.temperature <= maximumFluidTemperature;
+        }
+
+        action def startSubsystem {
+            in startRequest : Boolean;
+            out running : Boolean;
+        }
+
+        action def stopSubsystem {
+            in stopRequest : Boolean;
+            out stopped : Boolean;
+        }
+
+        action def deliverHydraulicFlow {
+            in commandedFlow : FlowRate;
+            in commandedPressure : Pressure;
+            out deliveredFlow : FlowRate;
+            out deliveredPressure : Pressure;
+        }
+
+        state def PumpingSubsystemState {
+            state deenergized;
+            state standby;
+            state priming;
+            state pressurizing;
+            state deliveringFlow;
+            state controlledShutdown;
+            state protectiveTrip;
+
+            transition first deenergized;
+
+            transition powerAvailable
+                first deenergized
+                then standby
+                if electricalSupply.powerIn.voltage >= normalElectricalVoltage * 0.9;
+
+            transition startCommanded
+                first standby
+                then priming
+                accept command.startCommand;
+
+            transition primeComplete
+                first priming
+                then pressurizing
+                if pump.suction.pressure >= minimumSuctionPressure;
+
+            transition pressureAvailable
+                first pressurizing
+                then deliveringFlow
+                if manifold.serviceOutlet.pressure >= controller.pressureSetpoint * 0.9;
+
+            transition stopCommanded
+                first deliveringFlow
+                then controlledShutdown
+                accept command.stopCommand;
+
+            transition shutdownComplete
+                first controlledShutdown
+                then standby
+                if manifold.serviceOutlet.flowRate <= 1.0e-5;
+
+            transition tripOnOverpressure
+                first deliveringFlow
+                then protectiveTrip
+                if manifold.inlet.pressure >= maximumAllowablePressure;
+
+            transition tripOnHighTemperature
+                first deliveringFlow
+                then protectiveTrip
+                if pump.discharge.temperature >= maximumFluidTemperature;
+
+            transition tripOnLowSuction
+                first deliveringFlow
+                then protectiveTrip
+                if pump.suction.pressure < minimumSuctionPressure;
+
+            transition resetTrip
+                first protectiveTrip
+                then standby
+                accept command.stopCommand;
+        }
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.processFluidOutlet.flowRate >= 0.001;
+        }
+
+        require constraint {
+            subsystem.processFluidOutlet.pressure >= 1.0e7;
+        }
+    }
+
+    requirement def HydraulicPumpRequirement {
+        subject pump : HydraulicPump;
+
+        require constraint {
+            pump.ratedFlow >= 0.00125;
+        }
+
+        require constraint {
+            pump.ratedPressureRise >= 1.6e7;
+        }
+
+        require constraint {
+            pump.volumetricEfficiency >= 0.90;
+        }
+    }
+
+    requirement def SafetyProtectionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.reliefValve.crackingPressure <= subsystem.maximumAllowablePressure;
+        }
+
+        require constraint {
+            subsystem.pump.suction.pressure >= subsystem.minimumSuctionPressure;
+        }
+
+        require constraint {
+            subsystem.pump.discharge.temperature <= subsystem.maximumFluidTemperature;
+        }
+    }
+
+    requirement def ControlRequirement {
+        subject controller : PumpController;
+
+        require constraint {
+            controller.pressureSetpoint <= 1.6e7;
+        }
+
+        require constraint {
+            controller.flowSetpoint <= 0.00125;
+        }
+
+        require constraint {
+            controller.activeFault == true implies controller.subsystemRunning == false;
+        }
+    }
+
+    satisfy MoveFluidRequirement by PumpingSubsystem;
+    satisfy HydraulicPumpRequirement by HydraulicPump;
+    satisfy SafetyProtectionRequirement by PumpingSubsystem;
+    satisfy ControlRequirement by PumpController;
+
+    part pumpingSubsystem : PumpingSubsystem {
+        attribute subsystemRatedPressure = 1.6e7;
+        attribute subsystemRatedFlow = 0.00125;
+        attribute maximumAllowablePressure = 1.84e7;
+        attribute minimumSuctionPressure = 1.0e5;
+        attribute maximumFluidTemperature = 353.15;
+    }
+}
+tokens used
+5,391
+package PumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    item def HydraulicFluid {
+        attribute density : Real = 850.0;
+        attribute dynamicViscosity : Real = 0.046;
+        attribute bulkModulus : Pressure = 1.4e9;
+        attribute temperature : Temperature;
+        attribute contaminationLevel : Integer;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real { unit = "V"; }
+        attribute current : Real { unit = "A"; }
+        attribute frequency : Real { unit = "Hz"; }
+    }
+
+    item def MechanicalTorque {
+        attribute torque : Real { unit = "N*m"; }
+        attribute speed : RotationalSpeed;
+    }
+
+    port def FluidPort {
+        inout item fluid : HydraulicFluid;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+        attribute temperature : Temperature;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalEnergy;
+    }
+
+    port def ShaftPort {
+        inout item shaftPower : MechanicalTorque;
+    }
+
+    port def ControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        in attribute demandedFlow : FlowRate;
+        in attribute demandedPressure : Pressure;
+        out attribute runningStatus : Boolean;
+        out attribute faultStatus : Boolean;
+    }
+
+    port def SignalPort {
+        out attribute pressureSignal : Pressure;
+        out attribute flowSignal : FlowRate;
+        out attribute temperatureSignal : Temperature;
+    }
+
+    part def HydraulicPump {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port shaft : ShaftPort;
+        port command : ControlPort;
+
+        attribute displacement : Real { unit = "m^3/rev"; } = 4.5e-5;
+        attribute ratedSpeed : RotationalSpeed = 1800.0;
+        attribute ratedPressureRise : Pressure = 1.6e7;
+        attribute ratedFlow : FlowRate = 0.00125;
+        attribute volumetricEfficiency : Efficiency = 0.92;
+        attribute mechanicalEfficiency : Efficiency = 0.88;
+        attribute actualSpeed : RotationalSpeed;
+        attribute pressureRise : Pressure;
+        attribute hydraulicPower : Power;
+        attribute shaftPowerRequired : Power;
+
+        constraint pressureRiseDefinition {
+            pressureRise == discharge.pressure - suction.pressure;
+        }
+
+        constraint hydraulicPowerDefinition {
+            hydraulicPower == pressureRise * discharge.flowRate;
+        }
+
+        constraint shaftPowerDefinition {
+            shaftPowerRequired == hydraulicPower / mechanicalEfficiency;
+        }
+
+        constraint flowGeneration {
+            discharge.flowRate == displacement * actualSpeed / 60.0 * volumetricEfficiency;
+        }
+
+        state def PumpOperatingState {
+            entry action initializePump;
+            state off;
+            state starting;
+            state running;
+            state stopping;
+            state faulted;
+
+            transition first off;
+
+            transition startPump
+                first off
+                then starting
+                accept command.startCommand
+                if command.faultStatus == false;
+
+            transition reachOperatingSpeed
+                first starting
+                then running
+                if actualSpeed >= ratedSpeed * 0.95;
+
+            transition stopPump
+                first running
+                then stopping
+                accept command.stopCommand;
+
+            transition stopped
+                first stopping
+                then off
+                if actualSpeed <= 10.0;
+
+            transition lowSuctionFault
+                first running
+                then faulted
+                if suction.pressure < 1.0e5;
+
+            transition overPressureFault
+                first running
+                then faulted
+                if discharge.pressure > ratedPressureRise * 1.15;
+
+            transition resetFault
+                first faulted
+                then off
+                accept command.stopCommand;
+        }
+
+        action def accelerate {
+            in targetSpeed : RotationalSpeed;
+            out achievedSpeed : RotationalSpeed;
+        }
+
+        action def generateFlow {
+            in inletFluid : HydraulicFluid;
+            in speed : RotationalSpeed;
+            out outletFluid : HydraulicFluid;
+            out deliveredFlow : FlowRate;
+        }
+
+        action def protectPump {
+            in inletPressure : Pressure;
+            in outletPressure : Pressure;
+            out faultDetected : Boolean;
+        }
+    }
+
+    part def ElectricMotor {
+        port electricalInput : PowerPort;
+        port shaftOutput : ShaftPort;
+        port command : ControlPort;
+
+        attribute ratedPower : Power = 30000.0;
+        attribute ratedSpeed : RotationalSpeed = 1800.0;
+        attribute efficiency : Efficiency = 0.93;
+        attribute windingTemperature : Temperature;
+        attribute outputTorque : Real { unit = "N*m"; }
+
+        constraint motorPowerLimit {
+            electricalInput.powerIn.voltage * electricalInput.powerIn.current * efficiency <= ratedPower;
+        }
+
+        action def convertElectricalToMechanical {
+            in electrical : ElectricalEnergy;
+            out torque : MechanicalTorque;
+        }
+    }
+
+    part def SuctionReservoir {
+        port outlet : FluidPort;
+
+        attribute capacity : Real { unit = "m^3"; } = 0.35;
+        attribute fluidLevel : Real { unit = "m"; }
+        attribute nominalPressure : Pressure = 1.01325e5;
+        attribute fluidTemperature : Temperature = 298.15;
+
+        constraint outletConditions {
+            outlet.pressure == nominalPressure;
+            outlet.temperature == fluidTemperature;
+        }
+    }
+
+    part def DischargeManifold {
+        port inlet : FluidPort;
+        port serviceOutlet : FluidPort;
+        port reliefReturn : FluidPort;
+
+        attribute manifoldVolume : Real { unit = "m^3"; } = 0.015;
+        attribute operatingPressure : Pressure;
+        attribute pressureLossCoefficient : Real = 2.5e5;
+
+        constraint pressureDrop {
+            serviceOutlet.pressure == inlet.pressure - pressureLossCoefficient * inlet.flowRate;
+        }
+    }
+
+    part def ReliefValve {
+        port inlet : FluidPort;
+        port returnPort : FluidPort;
+
+        attribute crackingPressure : Pressure = 1.75e7;
+        attribute reseatPressure : Pressure = 1.55e7;
+        attribute maxBypassFlow : FlowRate = 0.0015;
+        attribute valveOpen : Boolean;
+
+        constraint opensAtCrackingPressure {
+            valveOpen == (inlet.pressure >= crackingPressure);
+        }
+
+        state def ReliefValveState {
+            state closed;
+            state opening;
+            state open;
+            state reseating;
+
+            transition first closed;
+
+            transition crack
+                first closed
+                then opening
+                if inlet.pressure >= crackingPressure;
+
+            transition fullyOpen
+                first opening
+                then open
+                if returnPort.flowRate >= maxBypassFlow * 0.9;
+
+            transition pressureRecovered
+                first open
+                then reseating
+                if inlet.pressure <= reseatPressure;
+
+            transition reseat
+                first reseating
+                then closed
+                if returnPort.flowRate <= 1.0e-5;
+        }
+    }
+
+    part def Filter {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute filtrationRating : Real { unit = "um"; } = 10.0;
+        attribute cleanPressureDrop : Pressure = 5.0e4;
+        attribute cloggedPressureDrop : Pressure = 3.0e5;
+        attribute elementContamination : Real { unit = "1"; }
+
+        constraint filterPressureDrop {
+            outlet.pressure == inlet.pressure - (cleanPressureDrop + elementContamination * (cloggedPressureDrop - cleanPressureDrop));
+        }
+    }
+
+    part def CheckValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute crackingPressure : Pressure = 2.0e4;
+        attribute reverseLeakageFlow : FlowRate = 1.0e-7;
+        attribute open : Boolean;
+
+        constraint forwardFlow {
+            open == (inlet.pressure > outlet.pressure + crackingPressure);
+        }
+    }
+
+    part def PressureSensor {
+        port sensedPort : FluidPort;
+        port signal : SignalPort;
+
+        attribute rangeMin : Pressure = 0.0;
+        attribute rangeMax : Pressure = 2.5e7;
+        attribute accuracy : Pressure = 2.5e4;
+
+        constraint pressureMeasurement {
+            signal.pressureSignal == sensedPort.pressure;
+        }
+    }
+
+    part def FlowSensor {
+        port sensedPort : FluidPort;
+        port signal : SignalPort;
+
+        attribute rangeMin : FlowRate = 0.0;
+        attribute rangeMax : FlowRate = 0.002;
+        attribute accuracy : FlowRate = 1.0e-5;
+
+        constraint flowMeasurement {
+            signal.flowSignal == sensedPort.flowRate;
+        }
+    }
+
+    part def TemperatureSensor {
+        port sensedPort : FluidPort;
+        port signal : SignalPort;
+
+        attribute rangeMin : Temperature = 253.15;
+        attribute rangeMax : Temperature = 373.15;
+        attribute accuracy : Temperature = 1.0;
+
+        constraint temperatureMeasurement {
+            signal.temperatureSignal == sensedPort.temperature;
+        }
+    }
+
+    part def PumpController {
+        port commandInterface : ControlPort;
+        port motorCommand : ControlPort;
+        port pumpCommand : ControlPort;
+        port pressureInput : SignalPort;
+        port flowInput : SignalPort;
+        port temperatureInput : SignalPort;
+
+        attribute pressureSetpoint : Pressure = 1.2e7;
+        attribute flowSetpoint : FlowRate = 0.001;
+        attribute overTemperatureLimit : Temperature = 353.15;
+        attribute lowFlowLimit : FlowRate = 0.0002;
+        attribute activeFault : Boolean;
+        attribute subsystemRunning : Boolean;
+
+        constraint commandPropagation {
+            motorCommand.startCommand == commandInterface.startCommand;
+            pumpCommand.startCommand == commandInterface.startCommand;
+            motorCommand.stopCommand == commandInterface.stopCommand;
+            pumpCommand.stopCommand == commandInterface.stopCommand;
+            pumpCommand.demandedFlow == flowSetpoint;
+            pumpCommand.demandedPressure == pressureSetpoint;
+        }
+
+        state def ControllerState {
+            state idle;
+            state starting;
+            state regulating;
+            state shutdown;
+            state fault;
+
+            transition first idle;
+
+            transition start
+                first idle
+                then starting
+                accept commandInterface.startCommand;
+
+            transition regulate
+                first starting
+                then regulating
+                if pressureInput.pressureSignal >= pressureSetpoint * 0.9;
+
+            transition commandedStop
+                first regulating
+                then shutdown
+                accept commandInterface.stopCommand;
+
+            transition stopped
+                first shutdown
+                then idle
+                if flowInput.flowSignal <= 1.0e-5;
+
+            transition overTemperature
+                first regulating
+                then fault
+                if temperatureInput.temperatureSignal >= overTemperatureLimit;
+
+            transition lowFlow
+                first regulating
+                then fault
+                if flowInput.flowSignal <= lowFlowLimit;
+
+            transition faultReset
+                first fault
+                then idle
+                accept commandInterface.stopCommand;
+        }
+
+        action def regulatePump {
+            in measuredPressure : Pressure;
+            in measuredFlow : FlowRate;
+            in requestedPressure : Pressure;
+            in requestedFlow : FlowRate;
+            out startMotor : Boolean;
+            out faultDetected : Boolean;
+        }
+    }
+
+    part def HydraulicLoad {
+        port inlet : FluidPort;
+        port returnOutlet : FluidPort;
+
+        attribute requiredPressure : Pressure = 1.0e7;
+        attribute nominalDemandFlow : FlowRate = 0.0009;
+        attribute loadRestriction : Real { unit = "Pa/(m^3/s)"; } = 1.1e10;
+
+        constraint demandPressure {
+            inlet.pressure - returnOutlet.pressure == loadRestriction * inlet.flowRate;
+        }
+    }
+
+    part def PumpingSubsystem {
+        port electricalSupply : PowerPort;
+        port command : ControlPort;
+        port processFluidOutlet : FluidPort;
+        port returnFluidInlet : FluidPort;
+
+        part reservoir : SuctionReservoir;
+        part inletFilter : Filter;
+        part driveMotor : ElectricMotor;
+        part pump : HydraulicPump;
+        part dischargeCheckValve : CheckValve;
+        part manifold : DischargeManifold;
+        part reliefValve : ReliefValve;
+        part pressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part temperatureSensor : TemperatureSensor;
+        part controller : PumpController;
+        part hydraulicLoad : HydraulicLoad;
+
+        attribute subsystemRatedPressure : Pressure = 1.6e7;
+        attribute subsystemRatedFlow : FlowRate = 0.00125;
+        attribute maximumAllowablePressure : Pressure = 1.84e7;
+        attribute minimumSuctionPressure : Pressure = 1.0e5;
+        attribute maximumFluidTemperature : Temperature = 353.15;
+        attribute normalElectricalVoltage : Real { unit = "V"; } = 480.0;
+
+        connect electricalSupply to driveMotor.electricalInput;
+        connect command to controller.commandInterface;
+        connect controller.motorCommand to driveMotor.command;
+        connect controller.pumpCommand to pump.command;
+        connect driveMotor.shaftOutput to pump.shaft;
+
+        connect reservoir.outlet to inletFilter.inlet;
+        connect inletFilter.outlet to pump.suction;
+        connect pump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to manifold.inlet;
+        connect manifold.serviceOutlet to processFluidOutlet;
+        connect manifold.serviceOutlet to hydraulicLoad.inlet;
+        connect hydraulicLoad.returnOutlet to returnFluidInlet;
+        connect manifold.reliefReturn to reliefValve.inlet;
+        connect reliefValve.returnPort to reservoir.outlet;
+
+        connect manifold.inlet to pressureSensor.sensedPort;
+        connect manifold.serviceOutlet to flowSensor.sensedPort;
+        connect pump.discharge to temperatureSensor.sensedPort;
+
+        connect pressureSensor.signal to controller.pressureInput;
+        connect flowSensor.signal to controller.flowInput;
+        connect temperatureSensor.signal to controller.temperatureInput;
+
+        constraint ratedPerformance {
+            pump.ratedFlow >= subsystemRatedFlow;
+            pump.ratedPressureRise >= subsystemRatedPressure;
+        }
+
+        constraint pressureProtection {
+            reliefValve.crackingPressure <= maximumAllowablePressure;
+        }
+
+        constraint suctionProtection {
+            pump.suction.pressure >= minimumSuctionPressure;
+        }
+
+        constraint temperatureProtection {
+            pump.discharge.temperature <= maximumFluidTemperature;
+        }
+
+        action def startSubsystem {
+            in startRequest : Boolean;
+            out running : Boolean;
+        }
+
+        action def stopSubsystem {
+            in stopRequest : Boolean;
+            out stopped : Boolean;
+        }
+
+        action def deliverHydraulicFlow {
+            in commandedFlow : FlowRate;
+            in commandedPressure : Pressure;
+            out deliveredFlow : FlowRate;
+            out deliveredPressure : Pressure;
+        }
+
+        state def PumpingSubsystemState {
+            state deenergized;
+            state standby;
+            state priming;
+            state pressurizing;
+            state deliveringFlow;
+            state controlledShutdown;
+            state protectiveTrip;
+
+            transition first deenergized;
+
+            transition powerAvailable
+                first deenergized
+                then standby
+                if electricalSupply.powerIn.voltage >= normalElectricalVoltage * 0.9;
+
+            transition startCommanded
+                first standby
+                then priming
+                accept command.startCommand;
+
+            transition primeComplete
+                first priming
+                then pressurizing
+                if pump.suction.pressure >= minimumSuctionPressure;
+
+            transition pressureAvailable
+                first pressurizing
+                then deliveringFlow
+                if manifold.serviceOutlet.pressure >= controller.pressureSetpoint * 0.9;
+
+            transition stopCommanded
+                first deliveringFlow
+                then controlledShutdown
+                accept command.stopCommand;
+
+            transition shutdownComplete
+                first controlledShutdown
+                then standby
+                if manifold.serviceOutlet.flowRate <= 1.0e-5;
+
+            transition tripOnOverpressure
+                first deliveringFlow
+                then protectiveTrip
+                if manifold.inlet.pressure >= maximumAllowablePressure;
+
+            transition tripOnHighTemperature
+                first deliveringFlow
+                then protectiveTrip
+                if pump.discharge.temperature >= maximumFluidTemperature;
+
+            transition tripOnLowSuction
+                first deliveringFlow
+                then protectiveTrip
+                if pump.suction.pressure < minimumSuctionPressure;
+
+            transition resetTrip
+                first protectiveTrip
+                then standby
+                accept command.stopCommand;
+        }
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.processFluidOutlet.flowRate >= 0.001;
+        }
+
+        require constraint {
+            subsystem.processFluidOutlet.pressure >= 1.0e7;
+        }
+    }
+
+    requirement def HydraulicPumpRequirement {
+        subject pump : HydraulicPump;
+
+        require constraint {
+            pump.ratedFlow >= 0.00125;
+        }
+
+        require constraint {
+            pump.ratedPressureRise >= 1.6e7;
+        }
+
+        require constraint {
+            pump.volumetricEfficiency >= 0.90;
+        }
+    }
+
+    requirement def SafetyProtectionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.reliefValve.crackingPressure <= subsystem.maximumAllowablePressure;
+        }
+
+        require constraint {
+            subsystem.pump.suction.pressure >= subsystem.minimumSuctionPressure;
+        }
+
+        require constraint {
+            subsystem.pump.discharge.temperature <= subsystem.maximumFluidTemperature;
+        }
+    }
+
+    requirement def ControlRequirement {
+        subject controller : PumpController;
+
+        require constraint {
+            controller.pressureSetpoint <= 1.6e7;
+        }
+
+        require constraint {
+            controller.flowSetpoint <= 0.00125;
+        }
+
+        require constraint {
+            controller.activeFault == true implies controller.subsystemRunning == false;
+        }
+    }
+
+    satisfy MoveFluidRequirement by PumpingSubsystem;
+    satisfy HydraulicPumpRequirement by HydraulicPump;
+    satisfy SafetyProtectionRequirement by PumpingSubsystem;
+    satisfy ControlRequirement by PumpController;
+
+    part pumpingSubsystem : PumpingSubsystem {
+        attribute subsystemRatedPressure = 1.6e7;
+        attribute subsystemRatedFlow = 0.00125;
+        attribute maximumAllowablePressure = 1.84e7;
+        attribute minimumSuctionPressure = 1.0e5;
+        attribute maximumFluidTemperature = 353.15;
+    }
+}

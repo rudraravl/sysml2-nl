@@ -1,0 +1,492 @@
+package FluorescenceImageGuidedSurgeryModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Wavelength :> Real {
+        unit = "nm";
+    }
+
+    attribute def OpticalPower :> Real {
+        unit = "mW";
+    }
+
+    attribute def Irradiance :> Real {
+        unit = "mW/cm^2";
+    }
+
+    attribute def ExposureTime :> Real {
+        unit = "ms";
+    }
+
+    attribute def FrameRate :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Latency :> Real {
+        unit = "ms";
+    }
+
+    attribute def Concentration :> Real {
+        unit = "mg/kg";
+    }
+
+    attribute def SignalToNoiseRatio :> Real {
+        unit = "dB";
+    }
+
+    item def ExcitationLight {
+        attribute centerWavelength : Wavelength;
+        attribute bandwidth : Wavelength;
+        attribute opticalPower : OpticalPower;
+        attribute irradianceAtTissue : Irradiance;
+    }
+
+    item def FluorescenceEmission {
+        attribute emissionWavelength : Wavelength;
+        attribute intensity : Real;
+        attribute exposureTime : ExposureTime;
+        attribute signalToNoiseRatio : SignalToNoiseRatio;
+    }
+
+    item def WhiteLightImageFrame {
+        attribute frameRate : FrameRate;
+        attribute exposureTime : ExposureTime;
+        attribute resolutionX : Integer;
+        attribute resolutionY : Integer;
+    }
+
+    item def FluorescenceImageFrame {
+        attribute frameRate : FrameRate;
+        attribute exposureTime : ExposureTime;
+        attribute resolutionX : Integer;
+        attribute resolutionY : Integer;
+        attribute normalizedIntensity : Real;
+    }
+
+    item def FusedSurgicalImage {
+        attribute frameRate : FrameRate;
+        attribute displayLatency : Latency;
+        attribute overlayOpacity : Real;
+        attribute fluorescenceThreshold : Real;
+    }
+
+    item def SurgeonCommand {
+        attribute requestedMode : ImagingMode;
+        attribute freezeFrame : Boolean;
+        attribute recordVideo : Boolean;
+        attribute adjustOverlayOpacity : Real;
+    }
+
+    item def PatientTissue {
+        attribute perfusionLevel : Real;
+        attribute fluorescentAgentConcentration : Concentration;
+        attribute surfaceTemperature : Temperature;
+    }
+
+    enum def ImagingMode {
+        enum visibleOnly;
+        enum fluorescenceOnly;
+        enum fusedOverlay;
+        enum calibration;
+        enum standby;
+    }
+
+    port def OpticalOutputPort {
+        out item excitation : ExcitationLight;
+    }
+
+    port def TissueOpticalInputPort {
+        in item excitation : ExcitationLight;
+    }
+
+    port def TissueEmissionPort {
+        out item emission : FluorescenceEmission;
+    }
+
+    port def EmissionInputPort {
+        in item emission : FluorescenceEmission;
+    }
+
+    port def VisibleImagePort {
+        out item visibleFrame : WhiteLightImageFrame;
+    }
+
+    port def FluorescenceImagePort {
+        out item fluorescenceFrame : FluorescenceImageFrame;
+    }
+
+    port def FusedImagePort {
+        out item fusedFrame : FusedSurgicalImage;
+    }
+
+    port def SurgeonControlPort {
+        in item command : SurgeonCommand;
+    }
+
+    port def DisplayInputPort {
+        in item fusedFrame : FusedSurgicalImage;
+    }
+
+    part def ExcitationLightSource {
+        attribute centerWavelength : Wavelength = 785;
+        attribute bandwidth : Wavelength = 30;
+        attribute maxOpticalPower : OpticalPower = 800;
+        attribute commandedPower : OpticalPower = 450;
+        attribute irradianceLimit : Irradiance = 40;
+
+        port opticalOut : OpticalOutputPort;
+
+        action emitExcitationLight {
+            out item excitation : ExcitationLight;
+        }
+
+        state def LightSourceStateMachine {
+            state off;
+            state warming;
+            state ready;
+            state emitting;
+            state fault;
+
+            entry action initializeDriver;
+            transition first off;
+            transition off_to_warming
+                first off then warming
+                accept SurgeonCommand
+                if command.requestedMode != ImagingMode::standby;
+
+            transition warming_to_ready
+                first warming then ready
+                if commandedPower <= maxOpticalPower;
+
+            transition ready_to_emitting
+                first ready then emitting
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::fluorescenceOnly or command.requestedMode == ImagingMode::fusedOverlay;
+
+            transition emitting_to_ready
+                first emitting then ready
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::visibleOnly or command.requestedMode == ImagingMode::standby;
+
+            transition any_to_fault
+                first ready then fault
+                if commandedPower > maxOpticalPower;
+        }
+
+        exhibit stateMachine : LightSourceStateMachine;
+    }
+
+    part def SurgicalCameraHead {
+        attribute visibleResolutionX : Integer = 1920;
+        attribute visibleResolutionY : Integer = 1080;
+        attribute fluorescenceResolutionX : Integer = 1280;
+        attribute fluorescenceResolutionY : Integer = 1024;
+        attribute nominalFrameRate : FrameRate = 30;
+        attribute visibleExposure : ExposureTime = 10;
+        attribute fluorescenceExposure : ExposureTime = 33;
+
+        port emissionIn : EmissionInputPort;
+        port visibleOut : VisibleImagePort;
+        port fluorescenceOut : FluorescenceImagePort;
+
+        action captureVisibleImage {
+            out item visibleFrame : WhiteLightImageFrame;
+        }
+
+        action captureFluorescenceImage {
+            in item emission : FluorescenceEmission;
+            out item fluorescenceFrame : FluorescenceImageFrame;
+        }
+    }
+
+    part def ImageProcessingUnit {
+        attribute fluorescenceThreshold : Real = 0.18;
+        attribute overlayOpacity : Real = 0.55;
+        attribute maximumProcessingLatency : Latency = 75;
+        attribute measuredProcessingLatency : Latency = 42;
+
+        port visibleIn : VisibleImagePort;
+        port fluorescenceIn : FluorescenceImagePort;
+        port commandIn : SurgeonControlPort;
+        port fusedOut : FusedImagePort;
+
+        action registerImageStreams {
+            in item visibleFrame : WhiteLightImageFrame;
+            in item fluorescenceFrame : FluorescenceImageFrame;
+        }
+
+        action suppressNoise {
+            in item fluorescenceFrame : FluorescenceImageFrame;
+            out item filteredFluorescenceFrame : FluorescenceImageFrame;
+        }
+
+        action generateOverlay {
+            in item visibleFrame : WhiteLightImageFrame;
+            in item filteredFluorescenceFrame : FluorescenceImageFrame;
+            out item fusedFrame : FusedSurgicalImage;
+        }
+
+        action processImages {
+            in item visibleFrame : WhiteLightImageFrame;
+            in item fluorescenceFrame : FluorescenceImageFrame;
+            out item fusedFrame : FusedSurgicalImage;
+
+            first start;
+            then registerImageStreams;
+            then suppressNoise;
+            then generateOverlay;
+            then done;
+        }
+    }
+
+    part def SurgicalDisplay {
+        attribute diagonalSize : Real = 32;
+        attribute refreshRate : FrameRate = 60;
+        attribute maximumDisplayLatency : Latency = 25;
+
+        port displayIn : DisplayInputPort;
+
+        action renderFusedImage {
+            in item fusedFrame : FusedSurgicalImage;
+        }
+    }
+
+    part def SurgeonConsole {
+        attribute selectedMode : ImagingMode = ImagingMode::fusedOverlay;
+        attribute overlayOpacitySetting : Real = 0.55;
+        attribute recordingEnabled : Boolean = true;
+
+        port commandOut : SurgeonControlPort;
+
+        action issueImagingCommand {
+            out item command : SurgeonCommand;
+        }
+    }
+
+    part def PatientSurgicalField {
+        attribute agentDose : Concentration = 0.5;
+        attribute tissueTemperature : Temperature = 36.8;
+        attribute fluorescenceYield : Real = 0.72;
+
+        port opticalIn : TissueOpticalInputPort;
+        port emissionOut : TissueEmissionPort;
+
+        action absorbExcitation {
+            in item excitation : ExcitationLight;
+        }
+
+        action emitFluorescence {
+            out item emission : FluorescenceEmission;
+        }
+    }
+
+    part def FluorescenceGuidedSurgerySystem {
+        attribute primaryFunction : String =
+            "Illuminate the surgical field with safe near-infrared excitation light, detect fluorescence emitted by contrast-agent-bearing tissue, and present a real-time fused visual overlay that helps the surgeon identify anatomical structures, perfusion, and lesion margins during surgery.";
+
+        attribute systemMode : ImagingMode = ImagingMode::standby;
+        attribute endToEndLatency : Latency = 67;
+        attribute requiredFrameRate : FrameRate = 25;
+        attribute requiredSNR : SignalToNoiseRatio = 20;
+
+        part lightSource : ExcitationLightSource;
+        part cameraHead : SurgicalCameraHead;
+        part processor : ImageProcessingUnit;
+        part display : SurgicalDisplay;
+        part console : SurgeonConsole;
+        part surgicalField : PatientSurgicalField;
+
+        connect lightSource.opticalOut to surgicalField.opticalIn;
+        connect surgicalField.emissionOut to cameraHead.emissionIn;
+        connect cameraHead.visibleOut to processor.visibleIn;
+        connect cameraHead.fluorescenceOut to processor.fluorescenceIn;
+        connect processor.fusedOut to display.displayIn;
+        connect console.commandOut to processor.commandIn;
+
+        action performFluorescenceGuidedImaging {
+            first receiveSurgeonCommand;
+            then emitExcitation;
+            then stimulateTissueFluorescence;
+            then captureVisibleAndFluorescenceFrames;
+            then registerAndFuseImages;
+            then displayGuidanceOverlay;
+            then done;
+
+            action receiveSurgeonCommand {
+                out item command : SurgeonCommand;
+            }
+
+            action emitExcitation {
+                in item command : SurgeonCommand;
+                out item excitation : ExcitationLight;
+            }
+
+            action stimulateTissueFluorescence {
+                in item excitation : ExcitationLight;
+                out item emission : FluorescenceEmission;
+            }
+
+            action captureVisibleAndFluorescenceFrames {
+                in item emission : FluorescenceEmission;
+                out item visibleFrame : WhiteLightImageFrame;
+                out item fluorescenceFrame : FluorescenceImageFrame;
+            }
+
+            action registerAndFuseImages {
+                in item visibleFrame : WhiteLightImageFrame;
+                in item fluorescenceFrame : FluorescenceImageFrame;
+                out item fusedFrame : FusedSurgicalImage;
+            }
+
+            action displayGuidanceOverlay {
+                in item fusedFrame : FusedSurgicalImage;
+            }
+        }
+
+        state def SystemOperationalStateMachine {
+            state poweredOff;
+            state selfTest;
+            state standby;
+            state calibrating;
+            state imagingVisibleOnly;
+            state imagingFluorescenceOnly;
+            state imagingFusedOverlay;
+            state alarm;
+            state shutdown;
+
+            transition initial_to_poweredOff first poweredOff;
+
+            transition powerOn
+                first poweredOff then selfTest;
+
+            transition selfTestPassed
+                first selfTest then standby
+                if endToEndLatency <= 100;
+
+            transition calibrationRequested
+                first standby then calibrating
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::calibration;
+
+            transition calibrationComplete
+                first calibrating then standby;
+
+            transition visibleModeSelected
+                first standby then imagingVisibleOnly
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::visibleOnly;
+
+            transition fluorescenceModeSelected
+                first standby then imagingFluorescenceOnly
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::fluorescenceOnly;
+
+            transition fusedModeSelected
+                first standby then imagingFusedOverlay
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::fusedOverlay;
+
+            transition returnToStandbyFromVisible
+                first imagingVisibleOnly then standby
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::standby;
+
+            transition returnToStandbyFromFluorescence
+                first imagingFluorescenceOnly then standby
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::standby;
+
+            transition returnToStandbyFromFused
+                first imagingFusedOverlay then standby
+                accept SurgeonCommand
+                if command.requestedMode == ImagingMode::standby;
+
+            transition latencyAlarm
+                first imagingFusedOverlay then alarm
+                if endToEndLatency > 100;
+
+            transition shutdownRequested
+                first standby then shutdown;
+        }
+
+        exhibit stateMachine : SystemOperationalStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+            /* The system shall provide real-time fluorescence image-guided surgical visualization by exciting fluorescent contrast agent in the surgical field, capturing visible and fluorescence image streams, fusing them into an intuitive overlay, and displaying the overlay to support intraoperative decision making. */
+    }
+
+    requirement def ExcitationSafetyRequirement {
+        attribute maximumTissueIrradiance : Irradiance = 40;
+        doc
+            /* The excitation light delivered to exposed tissue shall not exceed the configured irradiance safety limit during fluorescence or fused-overlay imaging. */
+    }
+
+    requirement def RealTimeDisplayRequirement {
+        attribute maximumEndToEndLatency : Latency = 100;
+        attribute minimumFrameRate : FrameRate = 25;
+        doc
+            /* The displayed fused image shall be updated at no less than the minimum frame rate and with end-to-end latency no greater than the maximum latency. */
+    }
+
+    requirement def FluorescenceDetectionRequirement {
+        attribute minimumSignalToNoiseRatio : SignalToNoiseRatio = 20;
+        doc
+            /* The fluorescence imaging chain shall detect clinically relevant fluorescence emission with signal-to-noise ratio sufficient for tissue discrimination. */
+    }
+
+    requirement def ImageFusionRequirement {
+        attribute maximumRegistrationErrorPixels : Real = 2.0;
+        doc
+            /* The visible and fluorescence image streams shall be spatially registered so that the fluorescence overlay aligns with anatomical structures in the visible image. */
+    }
+
+    requirement def SurgeonControlRequirement {
+        doc
+            /* The surgeon shall be able to select visible-only, fluorescence-only, fused-overlay, calibration, and standby imaging modes from the sterile or non-sterile control interface. */
+    }
+
+    requirement def ThermalManagementRequirement {
+        attribute maximumCameraHeadTemperature : Temperature = 42;
+        doc
+            /* Patient-facing and staff-handled surfaces of the imaging head shall remain below the maximum allowable temperature during normal operation. */
+    }
+
+    satisfy PrimaryFunctionRequirement by FluorescenceGuidedSurgerySystem;
+    satisfy ExcitationSafetyRequirement by FluorescenceGuidedSurgerySystem.lightSource;
+    satisfy RealTimeDisplayRequirement by FluorescenceGuidedSurgerySystem.processor;
+    satisfy RealTimeDisplayRequirement by FluorescenceGuidedSurgerySystem.display;
+    satisfy FluorescenceDetectionRequirement by FluorescenceGuidedSurgerySystem.cameraHead;
+    satisfy ImageFusionRequirement by FluorescenceGuidedSurgerySystem.processor;
+    satisfy SurgeonControlRequirement by FluorescenceGuidedSurgerySystem.console;
+    satisfy ThermalManagementRequirement by FluorescenceGuidedSurgerySystem.cameraHead;
+
+    constraint def EndToEndLatencyConstraint {
+        in processingLatency : Latency;
+        in displayLatency : Latency;
+        in cameraLatency : Latency;
+        in maximumLatency : Latency;
+        processingLatency + displayLatency + cameraLatency <= maximumLatency;
+    }
+
+    constraint def ExcitationIrradianceConstraint {
+        in deliveredIrradiance : Irradiance;
+        in maximumTissueIrradiance : Irradiance;
+        deliveredIrradiance <= maximumTissueIrradiance;
+    }
+
+    constraint def FluorescenceQualityConstraint {
+        in measuredSNR : SignalToNoiseRatio;
+        in minimumSNR : SignalToNoiseRatio;
+        measuredSNR >= minimumSNR;
+    }
+
+    part figSurgerySystem : FluorescenceGuidedSurgerySystem;
+
+}

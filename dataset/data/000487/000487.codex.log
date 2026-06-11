@@ -1,0 +1,635 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-xw57ket2
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb313-01f9-73c2-bf66-71440886534d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Penis clamp and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package UrinaryIncontinenceClampModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PressureValue :> ScalarValues::Real {
+        unit = "kPa";
+    }
+
+    attribute def ForceValue :> ScalarValues::Real {
+        unit = "N";
+    }
+
+    attribute def LengthValue :> ScalarValues::Real {
+        unit = "mm";
+    }
+
+    attribute def TimeValue :> ScalarValues::Real {
+        unit = "min";
+    }
+
+    attribute def FlowRateValue :> ScalarValues::Real {
+        unit = "mL/s";
+    }
+
+    item def Urine {
+        attribute flowRate : FlowRateValue;
+        attribute temperature : ScalarValues::Real;
+    }
+
+    item def TissueContactLoad {
+        attribute compressiveForce : ForceValue;
+        attribute contactPressure : PressureValue;
+        attribute contactArea : LengthValue;
+    }
+
+    item def UserAdjustmentCommand {
+        attribute requestedCompressionLevel : ScalarValues::Integer;
+        attribute releaseRequested : ScalarValues::Boolean;
+    }
+
+    port def UrethralCompressionPort {
+        out load : TissueContactLoad;
+        in urine : Urine;
+    }
+
+    port def UserInterfacePort {
+        in command : UserAdjustmentCommand;
+        out status : ClampStatus;
+    }
+
+    item def ClampStatus {
+        attribute isClosed : ScalarValues::Boolean;
+        attribute compressionLevel : ScalarValues::Integer;
+        attribute wearTime : TimeValue;
+        attribute releaseDue : ScalarValues::Boolean;
+    }
+
+    part def PenisClampSystem {
+        attribute primaryFunction : String = "Apply controlled external compression to reduce involuntary urinary leakage while allowing user-adjustable release.";
+        attribute maxRecommendedWearTime : TimeValue = 120.0;
+        attribute minimumEffectiveClosurePressure : PressureValue = 4.0;
+        attribute maximumAllowedContactPressure : PressureValue = 18.0;
+
+        port userPort : UserInterfacePort;
+        port urethralPort : UrethralCompressionPort;
+
+        part upperCompressionPad : CompressionPad {
+            attribute padRole = "dorsal stabilizing pad";
+            attribute padLength = 55.0;
+            attribute padWidth = 18.0;
+            attribute padCompliance = 0.65;
+        }
+
+        part lowerCompressionPad : CompressionPad {
+            attribute padRole = "ventral urethral compression pad";
+            attribute padLength = 55.0;
+            attribute padWidth = 14.0;
+            attribute padCompliance = 0.80;
+        }
+
+        part hinge : FlexibleHinge {
+            attribute cycleLife = 10000;
+            attribute openingAngle = 75.0;
+        }
+
+        part adjustmentLatch : RatchetLatch {
+            attribute numberOfLevels = 5;
+            attribute currentLevel = 0;
+            attribute releaseForce = 6.0;
+        }
+
+        part pressureLimiter : PressureLimitingFeature {
+            attribute reliefThreshold = 18.0;
+            attribute elasticDeflectionLimit = 4.0;
+        }
+
+        part timerIndicator : WearTimeIndicator {
+            attribute elapsedWearTime = 0.0;
+            attribute reminderThreshold = 120.0;
+        }
+
+        connect upperCompressionPad.mechanicalMount to hinge.upperArmMount;
+        connect lowerCompressionPad.mechanicalMount to hinge.lowerArmMount;
+        connect adjustmentLatch.closureInterface to hinge.closureInterface;
+        connect pressureLimiter.loadPath to lowerCompressionPad.loadInput;
+        connect timerIndicator.statusOutput to userPort.status;
+        connect userPort.command to adjustmentLatch.commandInput;
+        connect lowerCompressionPad.contactPort to urethralPort;
+
+        action adjustCompression {
+            in command : UserAdjustmentCommand;
+            out status : ClampStatus;
+
+            first start;
+            then evaluateCommand;
+
+            action evaluateCommand {
+                if command.releaseRequested {
+                    then releaseClamp;
+                } else {
+                    then setCompressionLevel;
+                }
+            }
+
+            action setCompressionLevel {
+                adjustmentLatch.currentLevel := command.requestedCompressionLevel;
+                status.compressionLevel := adjustmentLatch.currentLevel;
+                status.isClosed := adjustmentLatch.currentLevel > 0;
+            }
+
+            action releaseClamp {
+                adjustmentLatch.currentLevel := 0;
+                status.compressionLevel := 0;
+                status.isClosed := false;
+            }
+
+            then updateWearStatus;
+
+            action updateWearStatus {
+                status.wearTime := timerIndicator.elapsedWearTime;
+                status.releaseDue := timerIndicator.elapsedWearTime >= timerIndicator.reminderThreshold;
+            }
+
+            then done;
+        }
+
+        state def ClampOperatingState {
+            state Open;
+            state Positioning;
+            state Closed;
+            state PressureLimited;
+            state TimedReleaseRecommended;
+            state Released;
+
+            transition initial then Open;
+
+            transition Open_to_Positioning
+                first Open
+                accept UserAdjustmentCommand
+                if command.requestedCompressionLevel > 0
+                then Positioning;
+
+            transition Positioning_to_Closed
+                first Positioning
+                if adjustmentLatch.currentLevel > 0
+                then Closed;
+
+            transition Closed_to_PressureLimited
+                first Closed
+                if lowerCompressionPad.contactPressure >= pressureLimiter.reliefThreshold
+                then PressureLimited;
+
+            transition Closed_to_TimedReleaseRecommended
+                first Closed
+                if timerIndicator.elapsedWearTime >= timerIndicator.reminderThreshold
+                then TimedReleaseRecommended;
+
+            transition PressureLimited_to_Closed
+                first PressureLimited
+                if lowerCompressionPad.contactPressure < pressureLimiter.reliefThreshold
+                then Closed;
+
+            transition TimedReleaseRecommended_to_Released
+                first TimedReleaseRecommended
+                accept UserAdjustmentCommand
+                if command.releaseRequested
+                then Released;
+
+            transition Closed_to_Released
+                first Closed
+                accept UserAdjustmentCommand
+                if command.releaseRequested
+                then Released;
+
+            transition Released_to_Open
+                first Released
+                then Open;
+        }
+    }
+
+    part def CompressionPad {
+        attribute padRole : String;
+        attribute padLength : LengthValue;
+        attribute padWidth : LengthValue;
+        attribute padCompliance : ScalarValues::Real;
+        attribute contactPressure : PressureValue = 0.0;
+
+        port mechanicalMount : MechanicalMountPort;
+        port loadInput : LoadTransferPort;
+        port contactPort : UrethralCompressionPort;
+    }
+
+    part def FlexibleHinge {
+        attribute cycleLife : ScalarValues::Integer;
+        attribute openingAngle : ScalarValues::Real;
+
+        port upperArmMount : MechanicalMountPort;
+        port lowerArmMount : MechanicalMountPort;
+        port closureInterface : ClosureInterfacePort;
+    }
+
+    part def RatchetLatch {
+        attribute numberOfLevels : ScalarValues::Integer;
+        attribute currentLevel : ScalarValues::Integer;
+        attribute releaseForce : ForceValue;
+
+        port commandInput : UserInterfacePort;
+        port closureInterface : ClosureInterfacePort;
+    }
+
+    part def PressureLimitingFeature {
+        attribute reliefThreshold : PressureValue;
+        attribute elasticDeflectionLimit : LengthValue;
+
+        port loadPath : LoadTransferPort;
+    }
+
+    part def WearTimeIndicator {
+        attribute elapsedWearTime : TimeValue;
+        attribute reminderThreshold : TimeValue;
+
+        port statusOutput : UserInterfacePort;
+    }
+
+    port def MechanicalMountPort {
+        in transferredForce : ForceValue;
+        out reactionForce : ForceValue;
+    }
+
+    port def LoadTransferPort {
+        in appliedForce : ForceValue;
+        out limitedForce : ForceValue;
+    }
+
+    port def ClosureInterfacePort {
+        in closureForce : ForceValue;
+        out latchPosition : ScalarValues::Integer;
+    }
+
+    requirement def LeakageReductionRequirement {
+        doc "The device shall reduce involuntary urinary leakage by applying controlled external compression."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.minimumEffectiveClosurePressure <= clamp.lowerCompressionPad.contactPressure
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc "The device shall limit contact pressure to reduce risk of excessive localized compression."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.lowerCompressionPad.contactPressure <= clamp.maximumAllowedContactPressure
+        }
+    }
+
+    requirement def UserReleaseRequirement {
+        doc "The device shall allow the user to release compression without tools."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.adjustmentLatch.releaseForce <= 10.0
+        }
+    }
+
+    requirement def WearTimeReminderRequirement {
+        doc "The device shall indicate when the recommended continuous wear duration has been reached."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.timerIndicator.reminderThreshold == clamp.maxRecommendedWearTime
+        }
+    }
+
+    requirement def AdjustableFitRequirement {
+        doc "The device shall provide multiple discrete compression settings for fit and leakage-control adjustment."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.adjustmentLatch.numberOfLevels >= 4
+        }
+    }
+
+    satisfy LeakageReductionRequirement by PenisClampSystem;
+    satisfy PressureSafetyRequirement by PenisClampSystem;
+    satisfy UserReleaseRequirement by PenisClampSystem;
+    satisfy WearTimeReminderRequirement by PenisClampSystem;
+    satisfy AdjustableFitRequirement by PenisClampSystem;
+
+}
+tokens used
+3,569
+package UrinaryIncontinenceClampModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PressureValue :> ScalarValues::Real {
+        unit = "kPa";
+    }
+
+    attribute def ForceValue :> ScalarValues::Real {
+        unit = "N";
+    }
+
+    attribute def LengthValue :> ScalarValues::Real {
+        unit = "mm";
+    }
+
+    attribute def TimeValue :> ScalarValues::Real {
+        unit = "min";
+    }
+
+    attribute def FlowRateValue :> ScalarValues::Real {
+        unit = "mL/s";
+    }
+
+    item def Urine {
+        attribute flowRate : FlowRateValue;
+        attribute temperature : ScalarValues::Real;
+    }
+
+    item def TissueContactLoad {
+        attribute compressiveForce : ForceValue;
+        attribute contactPressure : PressureValue;
+        attribute contactArea : LengthValue;
+    }
+
+    item def UserAdjustmentCommand {
+        attribute requestedCompressionLevel : ScalarValues::Integer;
+        attribute releaseRequested : ScalarValues::Boolean;
+    }
+
+    port def UrethralCompressionPort {
+        out load : TissueContactLoad;
+        in urine : Urine;
+    }
+
+    port def UserInterfacePort {
+        in command : UserAdjustmentCommand;
+        out status : ClampStatus;
+    }
+
+    item def ClampStatus {
+        attribute isClosed : ScalarValues::Boolean;
+        attribute compressionLevel : ScalarValues::Integer;
+        attribute wearTime : TimeValue;
+        attribute releaseDue : ScalarValues::Boolean;
+    }
+
+    part def PenisClampSystem {
+        attribute primaryFunction : String = "Apply controlled external compression to reduce involuntary urinary leakage while allowing user-adjustable release.";
+        attribute maxRecommendedWearTime : TimeValue = 120.0;
+        attribute minimumEffectiveClosurePressure : PressureValue = 4.0;
+        attribute maximumAllowedContactPressure : PressureValue = 18.0;
+
+        port userPort : UserInterfacePort;
+        port urethralPort : UrethralCompressionPort;
+
+        part upperCompressionPad : CompressionPad {
+            attribute padRole = "dorsal stabilizing pad";
+            attribute padLength = 55.0;
+            attribute padWidth = 18.0;
+            attribute padCompliance = 0.65;
+        }
+
+        part lowerCompressionPad : CompressionPad {
+            attribute padRole = "ventral urethral compression pad";
+            attribute padLength = 55.0;
+            attribute padWidth = 14.0;
+            attribute padCompliance = 0.80;
+        }
+
+        part hinge : FlexibleHinge {
+            attribute cycleLife = 10000;
+            attribute openingAngle = 75.0;
+        }
+
+        part adjustmentLatch : RatchetLatch {
+            attribute numberOfLevels = 5;
+            attribute currentLevel = 0;
+            attribute releaseForce = 6.0;
+        }
+
+        part pressureLimiter : PressureLimitingFeature {
+            attribute reliefThreshold = 18.0;
+            attribute elasticDeflectionLimit = 4.0;
+        }
+
+        part timerIndicator : WearTimeIndicator {
+            attribute elapsedWearTime = 0.0;
+            attribute reminderThreshold = 120.0;
+        }
+
+        connect upperCompressionPad.mechanicalMount to hinge.upperArmMount;
+        connect lowerCompressionPad.mechanicalMount to hinge.lowerArmMount;
+        connect adjustmentLatch.closureInterface to hinge.closureInterface;
+        connect pressureLimiter.loadPath to lowerCompressionPad.loadInput;
+        connect timerIndicator.statusOutput to userPort.status;
+        connect userPort.command to adjustmentLatch.commandInput;
+        connect lowerCompressionPad.contactPort to urethralPort;
+
+        action adjustCompression {
+            in command : UserAdjustmentCommand;
+            out status : ClampStatus;
+
+            first start;
+            then evaluateCommand;
+
+            action evaluateCommand {
+                if command.releaseRequested {
+                    then releaseClamp;
+                } else {
+                    then setCompressionLevel;
+                }
+            }
+
+            action setCompressionLevel {
+                adjustmentLatch.currentLevel := command.requestedCompressionLevel;
+                status.compressionLevel := adjustmentLatch.currentLevel;
+                status.isClosed := adjustmentLatch.currentLevel > 0;
+            }
+
+            action releaseClamp {
+                adjustmentLatch.currentLevel := 0;
+                status.compressionLevel := 0;
+                status.isClosed := false;
+            }
+
+            then updateWearStatus;
+
+            action updateWearStatus {
+                status.wearTime := timerIndicator.elapsedWearTime;
+                status.releaseDue := timerIndicator.elapsedWearTime >= timerIndicator.reminderThreshold;
+            }
+
+            then done;
+        }
+
+        state def ClampOperatingState {
+            state Open;
+            state Positioning;
+            state Closed;
+            state PressureLimited;
+            state TimedReleaseRecommended;
+            state Released;
+
+            transition initial then Open;
+
+            transition Open_to_Positioning
+                first Open
+                accept UserAdjustmentCommand
+                if command.requestedCompressionLevel > 0
+                then Positioning;
+
+            transition Positioning_to_Closed
+                first Positioning
+                if adjustmentLatch.currentLevel > 0
+                then Closed;
+
+            transition Closed_to_PressureLimited
+                first Closed
+                if lowerCompressionPad.contactPressure >= pressureLimiter.reliefThreshold
+                then PressureLimited;
+
+            transition Closed_to_TimedReleaseRecommended
+                first Closed
+                if timerIndicator.elapsedWearTime >= timerIndicator.reminderThreshold
+                then TimedReleaseRecommended;
+
+            transition PressureLimited_to_Closed
+                first PressureLimited
+                if lowerCompressionPad.contactPressure < pressureLimiter.reliefThreshold
+                then Closed;
+
+            transition TimedReleaseRecommended_to_Released
+                first TimedReleaseRecommended
+                accept UserAdjustmentCommand
+                if command.releaseRequested
+                then Released;
+
+            transition Closed_to_Released
+                first Closed
+                accept UserAdjustmentCommand
+                if command.releaseRequested
+                then Released;
+
+            transition Released_to_Open
+                first Released
+                then Open;
+        }
+    }
+
+    part def CompressionPad {
+        attribute padRole : String;
+        attribute padLength : LengthValue;
+        attribute padWidth : LengthValue;
+        attribute padCompliance : ScalarValues::Real;
+        attribute contactPressure : PressureValue = 0.0;
+
+        port mechanicalMount : MechanicalMountPort;
+        port loadInput : LoadTransferPort;
+        port contactPort : UrethralCompressionPort;
+    }
+
+    part def FlexibleHinge {
+        attribute cycleLife : ScalarValues::Integer;
+        attribute openingAngle : ScalarValues::Real;
+
+        port upperArmMount : MechanicalMountPort;
+        port lowerArmMount : MechanicalMountPort;
+        port closureInterface : ClosureInterfacePort;
+    }
+
+    part def RatchetLatch {
+        attribute numberOfLevels : ScalarValues::Integer;
+        attribute currentLevel : ScalarValues::Integer;
+        attribute releaseForce : ForceValue;
+
+        port commandInput : UserInterfacePort;
+        port closureInterface : ClosureInterfacePort;
+    }
+
+    part def PressureLimitingFeature {
+        attribute reliefThreshold : PressureValue;
+        attribute elasticDeflectionLimit : LengthValue;
+
+        port loadPath : LoadTransferPort;
+    }
+
+    part def WearTimeIndicator {
+        attribute elapsedWearTime : TimeValue;
+        attribute reminderThreshold : TimeValue;
+
+        port statusOutput : UserInterfacePort;
+    }
+
+    port def MechanicalMountPort {
+        in transferredForce : ForceValue;
+        out reactionForce : ForceValue;
+    }
+
+    port def LoadTransferPort {
+        in appliedForce : ForceValue;
+        out limitedForce : ForceValue;
+    }
+
+    port def ClosureInterfacePort {
+        in closureForce : ForceValue;
+        out latchPosition : ScalarValues::Integer;
+    }
+
+    requirement def LeakageReductionRequirement {
+        doc "The device shall reduce involuntary urinary leakage by applying controlled external compression."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.minimumEffectiveClosurePressure <= clamp.lowerCompressionPad.contactPressure
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc "The device shall limit contact pressure to reduce risk of excessive localized compression."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.lowerCompressionPad.contactPressure <= clamp.maximumAllowedContactPressure
+        }
+    }
+
+    requirement def UserReleaseRequirement {
+        doc "The device shall allow the user to release compression without tools."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.adjustmentLatch.releaseForce <= 10.0
+        }
+    }
+
+    requirement def WearTimeReminderRequirement {
+        doc "The device shall indicate when the recommended continuous wear duration has been reached."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.timerIndicator.reminderThreshold == clamp.maxRecommendedWearTime
+        }
+    }
+
+    requirement def AdjustableFitRequirement {
+        doc "The device shall provide multiple discrete compression settings for fit and leakage-control adjustment."
+        subject clamp : PenisClampSystem;
+        require constraint {
+            clamp.adjustmentLatch.numberOfLevels >= 4
+        }
+    }
+
+    satisfy LeakageReductionRequirement by PenisClampSystem;
+    satisfy PressureSafetyRequirement by PenisClampSystem;
+    satisfy UserReleaseRequirement by PenisClampSystem;
+    satisfy WearTimeReminderRequirement by PenisClampSystem;
+    satisfy AdjustableFitRequirement by PenisClampSystem;
+
+}

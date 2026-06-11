@@ -1,0 +1,380 @@
+package CannulatedBarSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def millimeter :> ISQ::length;
+    attribute def megapascals :> ISQ::pressure;
+    attribute def newton :> ISQ::force;
+    attribute def newtonMeter :> ISQ::torque;
+    attribute def degreeCelsius :> ISQ::temperature;
+    attribute def gram :> ISQ::mass;
+    attribute def micrometer :> ISQ::length;
+
+    item def AxialLoad {
+        attribute magnitude : newton;
+        attribute directionAngle : ISQ::planeAngle;
+    }
+
+    item def TorqueLoad {
+        attribute magnitude : newtonMeter;
+        attribute clockwise : Boolean;
+    }
+
+    item def GuideWire {
+        attribute outerDiameter : millimeter;
+        attribute straightnessError : millimeter;
+        attribute materialName : String;
+    }
+
+    item def IrrigationFluid {
+        attribute flowRate : ISQ::volumeFlowRate;
+        attribute temperature : degreeCelsius;
+        attribute sterile : Boolean;
+    }
+
+    item def SurgicalDebris {
+        attribute particleSize : micrometer;
+        attribute mass : gram;
+    }
+
+    item def PositionReference {
+        attribute axialPosition : millimeter;
+        attribute radialRunout : millimeter;
+        attribute angularOrientation : ISQ::planeAngle;
+    }
+
+    port def MechanicalLoadPort {
+        in item axialLoad : AxialLoad;
+        in item torqueLoad : TorqueLoad;
+        out item reactionLoad : AxialLoad;
+    }
+
+    port def CannulationPort {
+        in item guideWire : GuideWire;
+        in item irrigationFluid : IrrigationFluid;
+        out item debris : SurgicalDebris;
+        out item positionReference : PositionReference;
+    }
+
+    port def InterfacePort {
+        in item axialLoad : AxialLoad;
+        in item torqueLoad : TorqueLoad;
+        out item positionReference : PositionReference;
+    }
+
+    part def CannulatedBar {
+        attribute totalLength : millimeter = 180 [millimeter];
+        attribute outsideDiameter : millimeter = 12 [millimeter];
+        attribute boreDiameter : millimeter = 4.2 [millimeter];
+        attribute wallThickness : millimeter = 3.9 [millimeter];
+        attribute straightnessTolerance : millimeter = 0.08 [millimeter];
+        attribute surfaceRoughnessRa : micrometer = 0.8 [micrometer];
+        attribute yieldStrength : megapascals = 860 [megapascals];
+        attribute mass : gram = 138 [gram];
+        attribute material : String = "17-4PH stainless steel";
+        attribute passivated : Boolean = true;
+
+        port proximalInterface : InterfacePort;
+        port distalInterface : InterfacePort;
+        port centralCannulation : CannulationPort;
+        port structuralLoadPath : MechanicalLoadPort;
+
+        part proximalDriveEnd {
+            attribute length : millimeter = 24 [millimeter];
+            attribute hexAcrossFlats : millimeter = 8 [millimeter];
+            attribute chamferAngle : ISQ::planeAngle = 45 [SI::degree];
+        }
+
+        part tubularShaft {
+            attribute length : millimeter = 132 [millimeter];
+            attribute outsideDiameter : millimeter = 12 [millimeter];
+            attribute boreDiameter : millimeter = 4.2 [millimeter];
+            attribute minimumWallThickness : millimeter = 3.8 [millimeter];
+        }
+
+        part distalWorkingEnd {
+            attribute length : millimeter = 24 [millimeter];
+            attribute roundedEdgeRadius : millimeter = 0.5 [millimeter];
+            attribute entryChamferDiameter : millimeter = 5.0 [millimeter];
+        }
+
+        part internalBore {
+            attribute diameter : millimeter = 4.2 [millimeter];
+            attribute fullLengthOpen : Boolean = true;
+            attribute maximumBurrHeight : micrometer = 25 [micrometer];
+            attribute cleanedForSterileUse : Boolean = true;
+        }
+
+        connection loadTransfer
+            connect proximalInterface to structuralLoadPath;
+
+        connection distalReaction
+            connect structuralLoadPath to distalInterface;
+
+        connection guidePath
+            connect centralCannulation to internalBore;
+    }
+
+    part def GuideWireAdapter {
+        attribute compatibleWireDiameter : millimeter = 3.2 [millimeter];
+        attribute clearance : millimeter = 0.5 [millimeter];
+
+        port wireEntry : CannulationPort;
+        port barInterface : CannulationPort;
+
+        connection guideWireContinuity
+            connect wireEntry to barInterface;
+    }
+
+    part def HandleAssembly {
+        attribute gripDiameter : millimeter = 32 [millimeter];
+        attribute usableGripLength : millimeter = 110 [millimeter];
+        attribute maximumAppliedTorque : newtonMeter = 18 [newtonMeter];
+
+        port operatorInterface : InterfacePort;
+        port barCoupling : InterfacePort;
+
+        connection handLoadPath
+            connect operatorInterface to barCoupling;
+    }
+
+    part def CannulatedBarInstrument {
+        attribute systemName : String = "Cannulated Bar Instrument";
+        attribute primaryFunction : String =
+            "Transmit controlled axial and torsional mechanical loads while maintaining an open central passage for a guide wire, fluid, and debris clearance.";
+
+        port operatorLoadInput : InterfacePort;
+        port guideWireInput : CannulationPort;
+        port workingEndOutput : InterfacePort;
+        port cannulationOutput : CannulationPort;
+
+        part handle : HandleAssembly;
+        part bar : CannulatedBar;
+        part adapter : GuideWireAdapter;
+
+        connection operatorToHandle
+            connect operatorLoadInput to handle.operatorInterface;
+
+        connection handleToBar
+            connect handle.barCoupling to bar.proximalInterface;
+
+        connection barToWorkingEnd
+            connect bar.distalInterface to workingEndOutput;
+
+        connection guideInputToAdapter
+            connect guideWireInput to adapter.wireEntry;
+
+        connection adapterToBarBore
+            connect adapter.barInterface to bar.centralCannulation;
+
+        connection barBoreToOutput
+            connect bar.centralCannulation to cannulationOutput;
+
+        action def AlignOnGuideWire {
+            in item wire : GuideWire;
+            out item reference : PositionReference;
+
+            first start;
+            then verifyWireDiameter;
+            then insertWireThroughAdapter;
+            then passWireThroughInternalBore;
+            then establishCoaxialReference;
+            then done;
+
+            action verifyWireDiameter {
+                assert constraint {
+                    wire.outerDiameter <= 3.5 [millimeter]
+                }
+            }
+
+            action insertWireThroughAdapter;
+            action passWireThroughInternalBore;
+            action establishCoaxialReference {
+                reference.axialPosition = 0 [millimeter];
+                reference.radialRunout = 0.05 [millimeter];
+                reference.angularOrientation = 0 [SI::degree];
+            }
+        }
+
+        action def TransferMechanicalLoad {
+            in item appliedAxialLoad : AxialLoad;
+            in item appliedTorque : TorqueLoad;
+            out item deliveredAxialLoad : AxialLoad;
+            out item deliveredTorque : TorqueLoad;
+
+            first receiveOperatorLoad;
+            then distributeThroughHandle;
+            then transmitThroughCannulatedBarWall;
+            then deliverAtDistalEnd;
+            then complete;
+
+            action receiveOperatorLoad;
+            action distributeThroughHandle;
+            action transmitThroughCannulatedBarWall {
+                assert constraint {
+                    appliedAxialLoad.magnitude <= 2500 [newton]
+                }
+                assert constraint {
+                    appliedTorque.magnitude <= 18 [newtonMeter]
+                }
+            }
+            action deliverAtDistalEnd {
+                deliveredAxialLoad = appliedAxialLoad;
+                deliveredTorque = appliedTorque;
+            }
+        }
+
+        action def FlushCannulation {
+            in item fluid : IrrigationFluid;
+            out item removedDebris : SurgicalDebris;
+
+            first introduceFluid;
+            then wetInternalBore;
+            then transportDebrisDistally;
+            then dischargeDebris;
+            then endFlush;
+
+            action introduceFluid {
+                assert constraint {
+                    fluid.sterile == true
+                }
+            }
+
+            action wetInternalBore;
+            action transportDebrisDistally;
+            action dischargeDebris {
+                removedDebris.particleSize <= 500 [micrometer];
+            }
+        }
+
+        state def OperationalStateMachine {
+            state idle;
+            state guideWireLoaded;
+            state aligned;
+            state loadTransferActive;
+            state flushing;
+            state complete;
+            state fault;
+
+            transition initial then idle;
+
+            transition idle_to_guideWireLoaded
+                first idle
+                accept guideWireInserted
+                then guideWireLoaded;
+
+            transition guideWireLoaded_to_aligned
+                first guideWireLoaded
+                accept alignmentConfirmed
+                then aligned;
+
+            transition aligned_to_loadTransferActive
+                first aligned
+                accept operatorAppliesLoad
+                then loadTransferActive;
+
+            transition loadTransferActive_to_flushing
+                first loadTransferActive
+                accept irrigationRequested
+                then flushing;
+
+            transition flushing_to_aligned
+                first flushing
+                accept flushComplete
+                then aligned;
+
+            transition aligned_to_complete
+                first aligned
+                accept procedureComplete
+                then complete;
+
+            transition overloadFault
+                first loadTransferActive
+                accept overloadDetected
+                then fault;
+
+            transition obstructionFault
+                first flushing
+                accept boreObstructed
+                then fault;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject instrument : CannulatedBarInstrument;
+
+        doc
+        /*
+         The system shall provide a rigid cannulated bar that supports controlled axial and torsional load transfer while preserving a continuous central passage for guide-wire alignment, irrigation flow, and debris evacuation.
+         */
+
+        require constraint {
+            instrument.bar.internalBore.fullLengthOpen == true
+        }
+    }
+
+    requirement def BoreCompatibilityRequirement {
+        subject bar : CannulatedBar;
+
+        doc
+        /*
+         The cannulated bar shall accept a guide wire with sufficient clearance to allow smooth insertion without compromising wall strength.
+         */
+
+        require constraint {
+            bar.boreDiameter >= 4.0 [millimeter] and
+            bar.wallThickness >= 3.5 [millimeter]
+        }
+    }
+
+    requirement def LoadCapacityRequirement {
+        subject bar : CannulatedBar;
+
+        doc
+        /*
+         The cannulated bar shall withstand normal operating axial and torsional loads without yielding.
+         */
+
+        require constraint {
+            bar.yieldStrength >= 800 [megapascals]
+        }
+    }
+
+    requirement def CleanabilityRequirement {
+        subject bar : CannulatedBar;
+
+        doc
+        /*
+         The internal bore shall be open, passivated, and finished to support cleaning and sterile fluid passage.
+         */
+
+        require constraint {
+            bar.passivated == true and
+            bar.surfaceRoughnessRa <= 1.0 [micrometer] and
+            bar.internalBore.cleanedForSterileUse == true
+        }
+    }
+
+    requirement def AlignmentAccuracyRequirement {
+        subject bar : CannulatedBar;
+
+        doc
+        /*
+         The cannulated bar shall maintain coaxial alignment between the external shaft and the internal bore.
+         */
+
+        require constraint {
+            bar.straightnessTolerance <= 0.10 [millimeter]
+        }
+    }
+
+    part instrument : CannulatedBarInstrument;
+
+    satisfy PrimaryFunctionRequirement by instrument;
+    satisfy BoreCompatibilityRequirement by instrument.bar;
+    satisfy LoadCapacityRequirement by instrument.bar;
+    satisfy CleanabilityRequirement by instrument.bar;
+    satisfy AlignmentAccuracyRequirement by instrument.bar;
+}

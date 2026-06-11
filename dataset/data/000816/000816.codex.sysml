@@ -1,0 +1,654 @@
+package VacuumExtractionSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure;
+    attribute def FlowRate {
+        :>> unit = "L/min";
+        attribute value : Real;
+    }
+    attribute def Volume {
+        :>> unit = "L";
+        attribute value : Real;
+    }
+    attribute def Power {
+        :>> unit = "W";
+        attribute value : Real;
+    }
+    attribute def Voltage {
+        :>> unit = "V";
+        attribute value : Real;
+    }
+    attribute def Current {
+        :>> unit = "A";
+        attribute value : Real;
+    }
+    attribute def Temperature {
+        :>> unit = "degC";
+        attribute value : Real;
+    }
+    attribute def Efficiency {
+        :>> unit = "%";
+        attribute value : Real;
+    }
+    attribute def Mass {
+        :>> unit = "kg";
+        attribute value : Real;
+    }
+    attribute def TimeDuration {
+        :>> unit = "s";
+        attribute value : Real;
+    }
+
+    item def AmbientAir {
+        attribute staticPressure : Pressure;
+        attribute temperature : Temperature;
+        attribute dustConcentration {
+            :>> unit = "mg/m^3";
+            attribute value : Real;
+        }
+    }
+
+    item def ContaminatedAir :> AmbientAir {
+        attribute particleLoad {
+            :>> unit = "g";
+            attribute value : Real;
+        }
+    }
+
+    item def FilteredAir :> AmbientAir {
+        attribute residualParticleConcentration {
+            :>> unit = "mg/m^3";
+            attribute value : Real;
+        }
+    }
+
+    item def ExtractedDebris {
+        attribute mass : Mass;
+        attribute particleSize {
+            :>> unit = "um";
+            attribute value : Real;
+        }
+        attribute moistureFraction : Efficiency;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def ControlCommand {
+        enum def CommandKind {
+            enum start;
+            enum stop;
+            enum increaseSuction;
+            enum decreaseSuction;
+            enum purgeFilter;
+            enum emergencyStop;
+        }
+        attribute command : CommandKind;
+    }
+
+    item def SystemStatus {
+        enum def OperatingMode {
+            enum off;
+            enum standby;
+            enum extracting;
+            enum blocked;
+            enum filterPurge;
+            enum fault;
+        }
+        attribute mode : OperatingMode;
+        attribute suctionPressure : Pressure;
+        attribute inletFlowRate : FlowRate;
+        attribute binFillLevel : Efficiency;
+        attribute filterDifferentialPressure : Pressure;
+    }
+
+    port def AirInletPort {
+        in item incomingAir : ContaminatedAir;
+    }
+
+    port def AirOutletPort {
+        out item exhaustAir : FilteredAir;
+    }
+
+    port def DebrisTransferPort {
+        out item debris : ExtractedDebris;
+    }
+
+    port def PowerInputPort {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusPort {
+        out item status : SystemStatus;
+    }
+
+    port def InternalAirPort {
+        inout item airStream : ContaminatedAir;
+    }
+
+    port def CleanAirPort {
+        inout item cleanAir : FilteredAir;
+    }
+
+    action def GenerateVacuum {
+        in supplyPower : ElectricalEnergy;
+        in requestedSuction : Pressure;
+        out vacuumPressure : Pressure;
+        out motorPower : Power;
+
+        constraint suctionPowerBalance {
+            motorPower.value >= 650.0;
+            motorPower.value <= 1400.0;
+        }
+    }
+
+    action def EntrapContaminatedAir {
+        in ambientAir : ContaminatedAir;
+        in vacuumPressure : Pressure;
+        out extractedAir : ContaminatedAir;
+        out capturedFlowRate : FlowRate;
+
+        constraint minimumExtractionFlow {
+            capturedFlowRate.value >= 80.0;
+        }
+    }
+
+    action def SeparateDebris {
+        in contaminatedAir : ContaminatedAir;
+        out debris : ExtractedDebris;
+        out partiallyCleanedAir : ContaminatedAir;
+
+        constraint separationEffectiveness {
+            debris.mass.value >= 0.0;
+        }
+    }
+
+    action def FilterAir {
+        in partiallyCleanedAir : ContaminatedAir;
+        out exhaustAir : FilteredAir;
+        out pressureDrop : Pressure;
+
+        constraint filtrationQuality {
+            exhaustAir.residualParticleConcentration.value <= 1.0;
+        }
+    }
+
+    action def StoreDebris {
+        in debris : ExtractedDebris;
+        out fillLevel : Efficiency;
+
+        constraint binLimit {
+            fillLevel.value >= 0.0;
+            fillLevel.value <= 100.0;
+        }
+    }
+
+    action def MonitorExtractionHealth {
+        in suctionPressure : Pressure;
+        in flowRate : FlowRate;
+        in filterDifferentialPressure : Pressure;
+        in binFillLevel : Efficiency;
+        out status : SystemStatus;
+    }
+
+    action def PerformVacuumExtraction {
+        in electricalSupply : ElectricalEnergy;
+        in sourceAir : ContaminatedAir;
+        in operatorCommand : ControlCommand;
+        out cleanedExhaust : FilteredAir;
+        out collectedDebris : ExtractedDebris;
+        out systemStatus : SystemStatus;
+
+        first startVacuum : GenerateVacuum;
+        then captureAir : EntrapContaminatedAir;
+        then separateMaterial : SeparateDebris;
+        then filterDischarge : FilterAir;
+        then collectDebris : StoreDebris;
+        then reportHealth : MonitorExtractionHealth;
+
+        flow electricalSupply to startVacuum.supplyPower;
+        flow sourceAir to captureAir.ambientAir;
+        flow startVacuum.vacuumPressure to captureAir.vacuumPressure;
+        flow captureAir.extractedAir to separateMaterial.contaminatedAir;
+        flow separateMaterial.partiallyCleanedAir to filterDischarge.partiallyCleanedAir;
+        flow separateMaterial.debris to collectDebris.debris;
+        flow filterDischarge.exhaustAir to cleanedExhaust;
+        flow separateMaterial.debris to collectedDebris;
+        flow collectDebris.fillLevel to reportHealth.binFillLevel;
+        flow reportHealth.status to systemStatus;
+    }
+
+    part def VacuumMotor {
+        port powerIn : PowerInputPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute ratedPower : Power = 1200.0 [W];
+        attribute nominalVoltage : Voltage = 120.0 [V];
+        attribute maximumCurrent : Current = 12.0 [A];
+        attribute rotationalSpeed {
+            :>> unit = "rpm";
+            attribute value : Real = 22000.0;
+        }
+        attribute windingTemperature : Temperature;
+        attribute efficiency : Efficiency = 82.0 [%];
+
+        perform action generateVacuum : GenerateVacuum;
+
+        state def MotorOperatingState {
+            state off;
+            state starting;
+            state running;
+            state cooling;
+            state fault;
+
+            transition off_to_starting
+                first off
+                accept ControlCommand
+                if command == ControlCommand::CommandKind::start
+                then starting;
+
+            transition starting_to_running
+                first starting
+                after 2.0 [s]
+                then running;
+
+            transition running_to_cooling
+                first running
+                if windingTemperature.value > 95.0
+                then cooling;
+
+            transition cooling_to_running
+                first cooling
+                if windingTemperature.value < 75.0
+                then running;
+
+            transition any_to_fault
+                first running
+                accept ControlCommand
+                if command == ControlCommand::CommandKind::emergencyStop
+                then fault;
+
+            transition fault_to_off
+                first fault
+                accept ControlCommand
+                if command == ControlCommand::CommandKind::stop
+                then off;
+        }
+
+        exhibit state motorState : MotorOperatingState;
+    }
+
+    part def VacuumPump {
+        port airIn : InternalAirPort;
+        port airOut : InternalAirPort;
+
+        attribute achievableVacuum : Pressure = -22.0 [kPa];
+        attribute nominalFlowRate : FlowRate = 150.0 [L/min];
+        attribute impellerDiameter {
+            :>> unit = "mm";
+            attribute value : Real = 110.0;
+        }
+        attribute leakageRate : FlowRate = 2.0 [L/min];
+    }
+
+    part def ExtractionNozzle {
+        port inlet : AirInletPort;
+        port outlet : InternalAirPort;
+
+        attribute nozzleWidth {
+            :>> unit = "mm";
+            attribute value : Real = 280.0;
+        }
+        attribute inletArea {
+            :>> unit = "cm^2";
+            attribute value : Real = 42.0;
+        }
+        attribute minimumSurfaceClearance {
+            :>> unit = "mm";
+            attribute value : Real = 3.0;
+        }
+
+        perform action entrapAir : EntrapContaminatedAir;
+    }
+
+    part def FlexibleHose {
+        port inlet : InternalAirPort;
+        port outlet : InternalAirPort;
+
+        attribute length {
+            :>> unit = "m";
+            attribute value : Real = 2.5;
+        }
+        attribute innerDiameter {
+            :>> unit = "mm";
+            attribute value : Real = 38.0;
+        }
+        attribute bendRadius {
+            :>> unit = "mm";
+            attribute value : Real = 120.0;
+        }
+        attribute pressureLoss : Pressure = 1.8 [kPa];
+    }
+
+    part def CycloneSeparator {
+        port inlet : InternalAirPort;
+        port airOutlet : InternalAirPort;
+        port debrisOutlet : DebrisTransferPort;
+
+        attribute separationEfficiency : Efficiency = 94.0 [%];
+        attribute coneAngle {
+            :>> unit = "deg";
+            attribute value : Real = 18.0;
+        }
+        attribute minimumParticleCaptured {
+            :>> unit = "um";
+            attribute value : Real = 20.0;
+        }
+
+        perform action separateDebris : SeparateDebris;
+    }
+
+    part def FilterAssembly {
+        port dirtyAirIn : InternalAirPort;
+        port cleanAirOut : CleanAirPort;
+        port statusOut : StatusPort;
+
+        attribute filtrationEfficiency : Efficiency = 99.5 [%];
+        attribute filterArea {
+            :>> unit = "m^2";
+            attribute value : Real = 0.75;
+        }
+        attribute differentialPressure : Pressure;
+        attribute replacementDifferentialPressure : Pressure = 8.0 [kPa];
+
+        perform action filterAir : FilterAir;
+
+        state def FilterState {
+            state clean;
+            state loaded;
+            state purgeRequired;
+            state purging;
+            state replaced;
+
+            transition clean_to_loaded
+                first clean
+                if differentialPressure.value > 3.0
+                then loaded;
+
+            transition loaded_to_purgeRequired
+                first loaded
+                if differentialPressure.value > 6.0
+                then purgeRequired;
+
+            transition purgeRequired_to_purging
+                first purgeRequired
+                accept ControlCommand
+                if command == ControlCommand::CommandKind::purgeFilter
+                then purging;
+
+            transition purging_to_loaded
+                first purging
+                after 10.0 [s]
+                then loaded;
+
+            transition loaded_to_replaced
+                first loaded
+                if differentialPressure.value <= 1.0
+                then replaced;
+        }
+
+        exhibit state filterState : FilterState;
+    }
+
+    part def DebrisCollectionBin {
+        port debrisIn : DebrisTransferPort;
+        port statusOut : StatusPort;
+
+        attribute capacity : Volume = 18.0 [L];
+        attribute fillLevel : Efficiency;
+        attribute retainedMass : Mass;
+        attribute maximumRetainedMass : Mass = 12.0 [kg];
+
+        perform action storeDebris : StoreDebris;
+
+        state def BinState {
+            state empty;
+            state available;
+            state nearlyFull;
+            state full;
+
+            transition empty_to_available
+                first empty
+                if fillLevel.value > 0.0
+                then available;
+
+            transition available_to_nearlyFull
+                first available
+                if fillLevel.value >= 80.0
+                then nearlyFull;
+
+            transition nearlyFull_to_full
+                first nearlyFull
+                if fillLevel.value >= 95.0
+                then full;
+
+            transition full_to_empty
+                first full
+                if fillLevel.value <= 5.0
+                then empty;
+        }
+
+        exhibit state binState : BinState;
+    }
+
+    part def ControlUnit {
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute requestedSuction : Pressure = -18.0 [kPa];
+        attribute controlCycle : TimeDuration = 0.1 [s];
+        attribute overloadTripCurrent : Current = 13.5 [A];
+
+        perform action monitorHealth : MonitorExtractionHealth;
+
+        state def ControllerState {
+            state off;
+            state standby;
+            state extracting;
+            state blocked;
+            state maintenanceRequired;
+            state emergencyStopped;
+
+            transition off_to_standby
+                first off
+                accept ControlCommand
+                if command == ControlCommand::CommandKind::start
+                then standby;
+
+            transition standby_to_extracting
+                first standby
+                after 1.0 [s]
+                then extracting;
+
+            transition extracting_to_blocked
+                first extracting
+                if monitorHealth.status.inletFlowRate.value < 40.0
+                then blocked;
+
+            transition extracting_to_maintenanceRequired
+                first extracting
+                if monitorHealth.status.binFillLevel.value >= 95.0
+                then maintenanceRequired;
+
+            transition blocked_to_extracting
+                first blocked
+                if monitorHealth.status.inletFlowRate.value >= 80.0
+                then extracting;
+
+            transition maintenanceRequired_to_standby
+                first maintenanceRequired
+                if monitorHealth.status.binFillLevel.value <= 10.0
+                then standby;
+
+            transition any_to_emergencyStopped
+                first extracting
+                accept ControlCommand
+                if command == ControlCommand::CommandKind::emergencyStop
+                then emergencyStopped;
+
+            transition emergencyStopped_to_off
+                first emergencyStopped
+                accept ControlCommand
+                if command == ControlCommand::CommandKind::stop
+                then off;
+        }
+
+        exhibit state controllerState : ControllerState;
+    }
+
+    part def ExhaustDiffuser {
+        port cleanAirIn : CleanAirPort;
+        port exhaustOut : AirOutletPort;
+
+        attribute outletArea {
+            :>> unit = "cm^2";
+            attribute value : Real = 65.0;
+        }
+        attribute soundPressureLevel {
+            :>> unit = "dBA";
+            attribute value : Real = 72.0;
+        }
+    }
+
+    part def VacuumExtractionSystem {
+        port contaminatedAirIn : AirInletPort;
+        port cleanAirOut : AirOutletPort;
+        port electricalPowerIn : PowerInputPort;
+        port operatorCommandIn : CommandPort;
+        port systemStatusOut : StatusPort;
+
+        part nozzle : ExtractionNozzle;
+        part hose : FlexibleHose;
+        part pump : VacuumPump;
+        part motor : VacuumMotor;
+        part separator : CycloneSeparator;
+        part filter : FilterAssembly;
+        part bin : DebrisCollectionBin;
+        part controller : ControlUnit;
+        part diffuser : ExhaustDiffuser;
+
+        attribute systemMass : Mass = 19.5 [kg];
+        attribute ratedInputPower : Power = 1200.0 [W];
+        attribute nominalVacuumPressure : Pressure = -18.0 [kPa];
+        attribute peakVacuumPressure : Pressure = -22.0 [kPa];
+        attribute nominalAirflow : FlowRate = 150.0 [L/min];
+        attribute minimumOperationalAirflow : FlowRate = 80.0 [L/min];
+        attribute collectionCapacity : Volume = 18.0 [L];
+        attribute airborneParticleRemovalEfficiency : Efficiency = 99.5 [%];
+
+        connect contaminatedAirIn to nozzle.inlet;
+        connect nozzle.outlet to hose.inlet;
+        connect hose.outlet to separator.inlet;
+        connect separator.airOutlet to pump.airIn;
+        connect pump.airOut to filter.dirtyAirIn;
+        connect filter.cleanAirOut to diffuser.cleanAirIn;
+        connect diffuser.exhaustOut to cleanAirOut;
+        connect separator.debrisOutlet to bin.debrisIn;
+        connect electricalPowerIn to motor.powerIn;
+        connect operatorCommandIn to controller.commandIn;
+        connect operatorCommandIn to motor.commandIn;
+        connect controller.statusOut to systemStatusOut;
+        connect filter.statusOut to systemStatusOut;
+        connect bin.statusOut to systemStatusOut;
+        connect motor.statusOut to systemStatusOut;
+
+        perform action primaryFunction : PerformVacuumExtraction;
+
+        doc /* 
+        The primary function of the VacuumExtractionSystem is to create a controlled negative pressure at the extraction nozzle, entrain contaminated air and loose debris from the source region, separate and retain extracted particulate matter, filter the remaining air stream, and discharge cleaned air while monitoring operating health and responding to operator commands.
+        */
+    }
+
+    requirement def ProvideVacuumExtraction {
+        doc /* The system shall extract contaminated air and loose debris by generating suction at the extraction inlet and conveying the resulting air stream through separation, filtration, and exhaust stages. */
+        subject system : VacuumExtractionSystem;
+        require constraint {
+            system.nominalVacuumPressure.value <= -18.0;
+            system.nominalAirflow.value >= 150.0;
+        }
+    }
+
+    requirement def MaintainMinimumAirflow {
+        doc /* The system shall maintain sufficient airflow for effective debris entrainment during normal extraction operation. */
+        subject system : VacuumExtractionSystem;
+        require constraint {
+            system.minimumOperationalAirflow.value >= 80.0;
+        }
+    }
+
+    requirement def RetainCollectedDebris {
+        doc /* The system shall retain separated debris in an internal collection bin without releasing it into the exhaust path during normal operation. */
+        subject system : VacuumExtractionSystem;
+        require constraint {
+            system.collectionCapacity.value >= 18.0;
+        }
+    }
+
+    requirement def FilterExhaustAir {
+        doc /* The system shall reduce particulate concentration in the exhaust air to protect operators and the surrounding environment. */
+        subject system : VacuumExtractionSystem;
+        require constraint {
+            system.airborneParticleRemovalEfficiency.value >= 99.5;
+        }
+    }
+
+    requirement def SupportOperatorControl {
+        doc /* The system shall accept operator commands for start, stop, suction adjustment, filter purge, and emergency stop. */
+        subject system : VacuumExtractionSystem;
+    }
+
+    requirement def DetectBlockedFlow {
+        doc /* The system shall report blocked-flow status when inlet airflow falls below the minimum operational threshold during extraction. */
+        subject system : VacuumExtractionSystem;
+        require constraint {
+            system.minimumOperationalAirflow.value >= 80.0;
+        }
+    }
+
+    requirement def LimitElectricalInput {
+        doc /* The system shall operate from a nominal 120 V electrical supply and limit current draw during normal extraction. */
+        subject system : VacuumExtractionSystem;
+        require constraint {
+            system.motor.nominalVoltage.value == 120.0;
+            system.motor.maximumCurrent.value <= 12.0;
+        }
+    }
+
+    requirement def PreventOverfilledBinOperation {
+        doc /* The system shall indicate maintenance-required status when collection bin fill level reaches the full threshold. */
+        subject system : VacuumExtractionSystem;
+        require constraint {
+            system.bin.fillLevel.value <= 100.0;
+        }
+    }
+
+    satisfy ProvideVacuumExtraction by VacuumExtractionSystem;
+    satisfy MaintainMinimumAirflow by VacuumExtractionSystem;
+    satisfy RetainCollectedDebris by VacuumExtractionSystem;
+    satisfy FilterExhaustAir by VacuumExtractionSystem;
+    satisfy SupportOperatorControl by VacuumExtractionSystem;
+    satisfy DetectBlockedFlow by VacuumExtractionSystem;
+    satisfy LimitElectricalInput by VacuumExtractionSystem;
+    satisfy PreventOverfilledBinOperation by VacuumExtractionSystem;
+}

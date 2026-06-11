@@ -1,0 +1,498 @@
+package OpticalCoherenceTomographySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def OpticalPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def OpticalWavelength :> ISQ::length {
+        unit = SI::nanometre;
+    }
+
+    attribute def OpticalBandwidth :> ISQ::length {
+        unit = SI::nanometre;
+    }
+
+    attribute def AxialResolution :> ISQ::length {
+        unit = SI::micrometre;
+    }
+
+    attribute def LateralResolution :> ISQ::length {
+        unit = SI::micrometre;
+    }
+
+    attribute def ScanRate :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def SignalToNoiseRatio {
+        attribute value : Real;
+        unit = "dB";
+    }
+
+    attribute def ImageDepth :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def DataRate {
+        attribute value : Real;
+        unit = "MB/s";
+    }
+
+    attribute def FrameRate :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    item def BroadbandLight {
+        attribute centerWavelength : OpticalWavelength;
+        attribute bandwidth : OpticalBandwidth;
+        attribute outputPower : OpticalPower;
+        attribute coherenceLength : ISQ::length;
+    }
+
+    item def SampleArmLight {
+        attribute wavelength : OpticalWavelength;
+        attribute opticalPower : OpticalPower;
+        attribute scanAngle : Real;
+    }
+
+    item def ReferenceArmLight {
+        attribute wavelength : OpticalWavelength;
+        attribute opticalPower : OpticalPower;
+        attribute pathLength : ISQ::length;
+    }
+
+    item def BackscatteredLight {
+        attribute opticalPower : OpticalPower;
+        attribute timeDelay : ISQ::time;
+        attribute scatteringDepth : ImageDepth;
+    }
+
+    item def InterferenceSignal {
+        attribute intensity : Real;
+        attribute phase : Real;
+        attribute spectralSamples : Integer;
+        attribute snr : SignalToNoiseRatio;
+    }
+
+    item def DigitizedSpectralData {
+        attribute sampleCount : Integer;
+        attribute bitDepth : Integer;
+        attribute acquisitionRate : DataRate;
+    }
+
+    item def OCTImageVolume {
+        attribute axialResolution : AxialResolution;
+        attribute lateralResolution : LateralResolution;
+        attribute imagingDepth : ImageDepth;
+        attribute frameRate : FrameRate;
+        attribute voxelCount : Integer;
+    }
+
+    item def PatientEyeRegion {
+        attribute permittedExposure : OpticalPower;
+        attribute targetDepth : ImageDepth;
+    }
+
+    item def ControlCommand {
+        attribute scanPattern : String;
+        attribute requestedFrameRate : FrameRate;
+        attribute laserEnable : Boolean;
+    }
+
+    port def OpticalOutputPort {
+        out item light : BroadbandLight;
+    }
+
+    port def OpticalInputPort {
+        in item light : BroadbandLight;
+    }
+
+    port def SampleLightPort {
+        out item light : SampleArmLight;
+    }
+
+    port def ReferenceLightPort {
+        out item light : ReferenceArmLight;
+    }
+
+    port def BackscatterInputPort {
+        in item light : BackscatteredLight;
+    }
+
+    port def InterferencePort {
+        out item signal : InterferenceSignal;
+    }
+
+    port def ElectricalSignalPort {
+        out item data : DigitizedSpectralData;
+    }
+
+    port def ImageDataPort {
+        out item image : OCTImageVolume;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusPort {
+        out item status : String;
+    }
+
+    port def PatientInterfacePort {
+        out item illumination : SampleArmLight;
+        in item returnLight : BackscatteredLight;
+    }
+
+    part def BroadbandLightSource {
+        attribute centerWavelength : OpticalWavelength = 840 [SI::nanometre];
+        attribute bandwidth : OpticalBandwidth = 55 [SI::nanometre];
+        attribute maximumOutputPower : OpticalPower = 20 [SI::milliwatt];
+        attribute operatingTemperature : Temperature = 25 [SI::degreeCelsius];
+
+        port opticalOut : OpticalOutputPort;
+
+        action emitBroadbandLight {
+            out item emitted : BroadbandLight;
+        }
+    }
+
+    part def FiberCoupler {
+        attribute splitRatioToSample : Real = 0.80;
+        attribute splitRatioToReference : Real = 0.20;
+        attribute insertionLoss : Real = 0.8;
+
+        port opticalIn : OpticalInputPort;
+        port sampleOut : SampleLightPort;
+        port referenceOut : ReferenceLightPort;
+        port interferenceOut : InterferencePort;
+
+        action splitBeam {
+            in item sourceLight : BroadbandLight;
+            out item sampleLight : SampleArmLight;
+            out item referenceLight : ReferenceArmLight;
+        }
+
+        action combineReturnedFields {
+            in item sampleReturn : BackscatteredLight;
+            in item referenceReturn : ReferenceArmLight;
+            out item interference : InterferenceSignal;
+        }
+    }
+
+    part def SampleArmScanner {
+        attribute scanRate : ScanRate = 70000 [SI::hertz];
+        attribute lateralResolution : LateralResolution = 15 [SI::micrometre];
+        attribute maxScanAngle : Real = 20.0;
+        attribute opticalThroughput : Real = 0.72;
+
+        port sampleLightIn : SampleLightPort;
+        port patientInterface : PatientInterfacePort;
+
+        action steerBeam {
+            in item sampleLight : SampleArmLight;
+            out item illumination : SampleArmLight;
+        }
+
+        action collectBackscatter {
+            in item patientReturn : BackscatteredLight;
+            out item collectedReturn : BackscatteredLight;
+        }
+    }
+
+    part def ReferenceArm {
+        attribute referencePathLength : ISQ::length = 25 [SI::millimetre];
+        attribute pathLengthAdjustmentRange : ISQ::length = 5 [SI::millimetre];
+        attribute reflectorEfficiency : Real = 0.95;
+
+        port referenceLightIn : ReferenceLightPort;
+        port referenceReturnOut : ReferenceLightPort;
+
+        action reflectReferenceBeam {
+            in item referenceLight : ReferenceArmLight;
+            out item returnedReference : ReferenceArmLight;
+        }
+    }
+
+    part def PatientInterfaceModule {
+        attribute workingDistance : ISQ::length = 18 [SI::millimetre];
+        attribute maxCornealExposure : OpticalPower = 1.8 [SI::milliwatt];
+        attribute focusDepth : ImageDepth = 2.5 [SI::millimetre];
+
+        port opticalInterface : PatientInterfacePort;
+
+        part imagedTissue : PatientEyeRegion {
+            attribute permittedExposure = 1.8 [SI::milliwatt];
+            attribute targetDepth = 2.5 [SI::millimetre];
+        }
+
+        action illuminateTissue {
+            in item illumination : SampleArmLight;
+            out item backscatter : BackscatteredLight;
+        }
+    }
+
+    part def SpectrometerDetector {
+        attribute detectorPixels : Integer = 2048;
+        attribute lineRate : ScanRate = 70000 [SI::hertz];
+        attribute detectorBitDepth : Integer = 12;
+        attribute darkNoise : Real = 65.0;
+
+        port interferenceIn : InterferencePort;
+        port digitizedOut : ElectricalSignalPort;
+
+        action detectInterference {
+            in item interference : InterferenceSignal;
+            out item spectralData : DigitizedSpectralData;
+        }
+    }
+
+    part def ImageProcessingUnit {
+        attribute axialResolution : AxialResolution = 6 [SI::micrometre];
+        attribute imagingDepth : ImageDepth = 2.8 [SI::millimetre];
+        attribute targetFrameRate : FrameRate = 60 [SI::hertz];
+        attribute minimumSnr : SignalToNoiseRatio {
+            value = 95.0;
+        }
+
+        port spectralDataIn : ElectricalSignalPort;
+        port imageOut : ImageDataPort;
+
+        action subtractBackground {
+            in item rawData : DigitizedSpectralData;
+            out item correctedData : DigitizedSpectralData;
+        }
+
+        action resampleWavenumber {
+            in item correctedData : DigitizedSpectralData;
+            out item linearKData : DigitizedSpectralData;
+        }
+
+        action reconstructDepthProfile {
+            in item linearKData : DigitizedSpectralData;
+            out item imageVolume : OCTImageVolume;
+        }
+    }
+
+    part def SystemController {
+        attribute commandedFrameRate : FrameRate = 60 [SI::hertz];
+        attribute laserEnabled : Boolean = false;
+        attribute scanMode : String = "retinal_volume";
+
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        action initializeSystem;
+        action validateExposureLimit;
+        action startScan;
+        action stopScan;
+        action reportStatus;
+    }
+
+    part def DisplayAndStorageUnit {
+        attribute displayRefreshRate : FrameRate = 60 [SI::hertz];
+        attribute storageThroughput : DataRate {
+            value = 480.0;
+        }
+
+        port imageIn : ImageDataPort;
+
+        action renderImage {
+            in item image : OCTImageVolume;
+        }
+
+        action storeImage {
+            in item image : OCTImageVolume;
+        }
+    }
+
+    part def OpticalCoherenceTomographySystem {
+        attribute primaryFunction : String = "Acquire depth-resolved cross-sectional and volumetric images of semi-transparent biological tissue by measuring low-coherence optical interference between reference light and tissue-backscattered light.";
+        attribute nominalWavelength : OpticalWavelength = 840 [SI::nanometre];
+        attribute nominalAxialResolution : AxialResolution = 6 [SI::micrometre];
+        attribute nominalLateralResolution : LateralResolution = 15 [SI::micrometre];
+        attribute nominalImagingDepth : ImageDepth = 2.8 [SI::millimetre];
+        attribute nominalFrameRate : FrameRate = 60 [SI::hertz];
+
+        port externalCommand : CommandPort;
+        port externalStatus : StatusPort;
+        port imageOutput : ImageDataPort;
+        port patientOpticalInterface : PatientInterfacePort;
+
+        part lightSource : BroadbandLightSource;
+        part coupler : FiberCoupler;
+        part sampleScanner : SampleArmScanner;
+        part referenceArm : ReferenceArm;
+        part patientInterface : PatientInterfaceModule;
+        part detector : SpectrometerDetector;
+        part processor : ImageProcessingUnit;
+        part controller : SystemController;
+        part displayStorage : DisplayAndStorageUnit;
+
+        connect lightSource.opticalOut to coupler.opticalIn;
+        connect coupler.sampleOut to sampleScanner.sampleLightIn;
+        connect sampleScanner.patientInterface to patientInterface.opticalInterface;
+        connect patientInterface.opticalInterface to patientOpticalInterface;
+        connect coupler.referenceOut to referenceArm.referenceLightIn;
+        connect referenceArm.referenceReturnOut to coupler.referenceOut;
+        connect coupler.interferenceOut to detector.interferenceIn;
+        connect detector.digitizedOut to processor.spectralDataIn;
+        connect processor.imageOut to displayStorage.imageIn;
+        connect processor.imageOut to imageOutput;
+        connect externalCommand to controller.commandIn;
+        connect controller.statusOut to externalStatus;
+
+        action performOCTImaging {
+            first start : controller.initializeSystem;
+            then validate : controller.validateExposureLimit;
+            then emit : lightSource.emitBroadbandLight;
+            then split : coupler.splitBeam;
+            then scan : sampleScanner.steerBeam;
+            then illuminate : patientInterface.illuminateTissue;
+            then collect : sampleScanner.collectBackscatter;
+            then reflect : referenceArm.reflectReferenceBeam;
+            then interfere : coupler.combineReturnedFields;
+            then detect : detector.detectInterference;
+            then background : processor.subtractBackground;
+            then resample : processor.resampleWavenumber;
+            then reconstruct : processor.reconstructDepthProfile;
+            then render : displayStorage.renderImage;
+            then store : displayStorage.storeImage;
+            then status : controller.reportStatus;
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state initializing;
+            state ready;
+            state scanning;
+            state processing;
+            state displaying;
+            state fault;
+
+            transition off_to_initializing
+                first off
+                accept ControlCommand
+                if command.laserEnable == true
+                then initializing;
+
+            transition initializing_to_ready
+                first initializing
+                if controller.laserEnabled == true
+                then ready;
+
+            transition ready_to_scanning
+                first ready
+                accept ControlCommand
+                if command.scanPattern == "retinal_volume"
+                then scanning;
+
+            transition scanning_to_processing
+                first scanning
+                if detector.lineRate >= 70000 [SI::hertz]
+                then processing;
+
+            transition processing_to_displaying
+                first processing
+                if processor.targetFrameRate >= 60 [SI::hertz]
+                then displaying;
+
+            transition displaying_to_ready
+                first displaying
+                then ready;
+
+            transition any_to_fault
+                first off
+                then fault
+                if patientInterface.maxCornealExposure > patientInterface.imagedTissue.permittedExposure;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The OCT system shall provide non-invasive, depth-resolved optical imaging of biological tissue using low-coherence interferometry. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.primaryFunction == "Acquire depth-resolved cross-sectional and volumetric images of semi-transparent biological tissue by measuring low-coherence optical interference between reference light and tissue-backscattered light."
+        }
+    }
+
+    requirement def AxialResolutionRequirement {
+        doc /* The OCT system shall achieve axial resolution of 10 micrometres or better in tissue-equivalent media. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.nominalAxialResolution <= 10 [SI::micrometre]
+        }
+    }
+
+    requirement def ImagingDepthRequirement {
+        doc /* The OCT system shall reconstruct image data to at least 2.5 millimetres depth. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.nominalImagingDepth >= 2.5 [SI::millimetre]
+        }
+    }
+
+    requirement def FrameRateRequirement {
+        doc /* The OCT system shall produce at least 30 reconstructed image frames per second for live alignment and review. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.nominalFrameRate >= 30 [SI::hertz]
+        }
+    }
+
+    requirement def OpticalSafetyRequirement {
+        doc /* The sample arm shall limit optical exposure at the patient interface below the permitted exposure for the imaged tissue. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.patientInterface.maxCornealExposure <= system.patientInterface.imagedTissue.permittedExposure
+        }
+    }
+
+    requirement def SpectralSamplingRequirement {
+        doc /* The detector shall sample at least 1024 spectral points per A-scan to support depth reconstruction. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.detector.detectorPixels >= 1024
+        }
+    }
+
+    requirement def ScanRateRequirement {
+        doc /* The scanning subsystem shall support at least 50000 A-scans per second for volumetric imaging. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.sampleScanner.scanRate >= 50000 [SI::hertz]
+        }
+    }
+
+    requirement def ProcessingPipelineRequirement {
+        doc /* The image processor shall perform background subtraction, wavenumber resampling, and depth-profile reconstruction before display or storage. */
+        subject system : OpticalCoherenceTomographySystem;
+        require constraint {
+            system.processor.axialResolution <= system.nominalAxialResolution
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by OpticalCoherenceTomographySystem;
+    satisfy AxialResolutionRequirement by OpticalCoherenceTomographySystem.processor;
+    satisfy ImagingDepthRequirement by OpticalCoherenceTomographySystem.processor;
+    satisfy FrameRateRequirement by OpticalCoherenceTomographySystem.processor;
+    satisfy OpticalSafetyRequirement by OpticalCoherenceTomographySystem.patientInterface;
+    satisfy SpectralSamplingRequirement by OpticalCoherenceTomographySystem.detector;
+    satisfy ScanRateRequirement by OpticalCoherenceTomographySystem.sampleScanner;
+    satisfy ProcessingPipelineRequirement by OpticalCoherenceTomographySystem.processor;
+
+    part octSystem : OpticalCoherenceTomographySystem;
+
+}

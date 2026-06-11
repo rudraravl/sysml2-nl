@@ -1,0 +1,292 @@
+package PunctalPlugModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Length_mm :> Real;
+  attribute def Volume_uL :> Real;
+  attribute def FlowRate_uL_per_min :> Real;
+  attribute def Force_mN :> Real;
+  attribute def Pressure_kPa :> Real;
+  attribute def Time_s :> Real;
+  attribute def Temperature_C :> Real;
+
+  enum def PlugMaterialKind {
+    enum silicone;
+    enum hydrogel;
+    enum collagen;
+    enum acrylic;
+  }
+
+  enum def PlugSizeKind {
+    enum extraSmall;
+    enum small;
+    enum medium;
+    enum large;
+  }
+
+  enum def PlugPlacementKind {
+    enum punctal;
+    enum intracanalicular;
+  }
+
+  item def TearFluid {
+    attribute volume : Volume_uL;
+    attribute osmolarity_mOsm_per_L : Real;
+    attribute containsMedication : Boolean;
+  }
+
+  item def InsertionForce {
+    attribute magnitude : Force_mN;
+    attribute direction : String;
+  }
+
+  item def DrainageFlow {
+    attribute rate : FlowRate_uL_per_min;
+    attribute pressure : Pressure_kPa;
+  }
+
+  item def BiocompatibleSurfaceContact {
+    attribute contactArea_mm2 : Real;
+    attribute irritationRiskIndex : Real;
+  }
+
+  port def TearFluidPort {
+    in item incomingTears : TearFluid;
+    out item outgoingTears : TearFluid;
+  }
+
+  port def CanalicularInterfacePort {
+    in item drainageAttempt : DrainageFlow;
+    out item restrictedDrainage : DrainageFlow;
+  }
+
+  port def TissueContactPort {
+    out item tissueContact : BiocompatibleSurfaceContact;
+    in item tissueReaction : BiocompatibleSurfaceContact;
+  }
+
+  port def ClinicianToolPort {
+    in item insertionLoad : InsertionForce;
+    out item seatingFeedback : InsertionForce;
+  }
+
+  part def TearFilm {
+    attribute retainedVolume : Volume_uL;
+    attribute basalProductionRate : FlowRate_uL_per_min;
+    attribute evaporationRate : FlowRate_uL_per_min;
+    port fluidExchange : TearFluidPort;
+  }
+
+  part def Punctum {
+    attribute openingDiameter : Length_mm;
+    attribute tissueComplianceIndex : Real;
+    port lumenInterface : CanalicularInterfacePort;
+    port tissueInterface : TissueContactPort;
+  }
+
+  part def Canaliculus {
+    attribute lumenDiameter : Length_mm;
+    attribute lumenLength : Length_mm;
+    attribute naturalDrainageRate : FlowRate_uL_per_min;
+    port proximalEnd : CanalicularInterfacePort;
+    port distalEnd : CanalicularInterfacePort;
+  }
+
+  part def OcularSurface {
+    attribute comfortIndex : Real;
+    attribute surfaceWetnessIndex : Real;
+    part tearFilm : TearFilm;
+    part punctum : Punctum;
+    part canaliculus : Canaliculus;
+
+    connect tearFilm.fluidExchange to punctum.lumenInterface;
+    connect punctum.lumenInterface to canaliculus.proximalEnd;
+  }
+
+  part def PlugHead {
+    attribute flangeDiameter : Length_mm;
+    attribute headHeight : Length_mm;
+    attribute visibleForRemoval : Boolean;
+    port tissueContact : TissueContactPort;
+  }
+
+  part def PlugShaft {
+    attribute shaftDiameter : Length_mm;
+    attribute shaftLength : Length_mm;
+    attribute taperAngle_deg : Real;
+    port canalicularContact : TissueContactPort;
+  }
+
+  part def RetentionFeature {
+    attribute barbHeight : Length_mm;
+    attribute retentionForce : Force_mN;
+    attribute atraumaticEdgeRadius : Length_mm;
+    port retentionContact : TissueContactPort;
+  }
+
+  part def OccludingCore {
+    attribute effectiveOcclusionDiameter : Length_mm;
+    attribute leakageRateWhenSeated : FlowRate_uL_per_min;
+    port proximalFluidSide : CanalicularInterfacePort;
+    port distalFluidSide : CanalicularInterfacePort;
+  }
+
+  part def PunctalPlug {
+    attribute material : PlugMaterialKind;
+    attribute size : PlugSizeKind;
+    attribute placement : PlugPlacementKind;
+    attribute sterile : Boolean;
+    attribute overallLength : Length_mm;
+    attribute maximumDiameter : Length_mm;
+    attribute nominalServiceLife_days : Real;
+    attribute operatingTemperature : Temperature_C;
+
+    port clinicianInterface : ClinicianToolPort;
+    port punctalInterface : CanalicularInterfacePort;
+    port tissueInterface : TissueContactPort;
+
+    part head : PlugHead;
+    part shaft : PlugShaft;
+    part retention : RetentionFeature;
+    part core : OccludingCore;
+
+    connect punctalInterface to core.proximalFluidSide;
+    connect tissueInterface to head.tissueContact;
+    connect tissueInterface to shaft.canalicularContact;
+    connect tissueInterface to retention.retentionContact;
+  }
+
+  part def InsertionTool {
+    attribute tipDiameter : Length_mm;
+    attribute maximumInsertionForce : Force_mN;
+    port toolTip : ClinicianToolPort;
+  }
+
+  part def PunctalPlugSystem {
+    attribute primaryFunction : String = "Partially or fully occlude the punctal drainage opening to reduce tear outflow and retain tear fluid on the ocular surface.";
+
+    part ocularSurface : OcularSurface;
+    part plug : PunctalPlug {
+      :>> material = PlugMaterialKind::silicone;
+      :>> size = PlugSizeKind::medium;
+      :>> placement = PlugPlacementKind::punctal;
+      :>> sterile = true;
+      :>> overallLength = 2.0;
+      :>> maximumDiameter = 0.8;
+      :>> nominalServiceLife_days = 180.0;
+      :>> operatingTemperature = 35.0;
+    }
+    part insertionTool : InsertionTool {
+      :>> tipDiameter = 0.45;
+      :>> maximumInsertionForce = 250.0;
+    }
+
+    connect insertionTool.toolTip to plug.clinicianInterface;
+    connect plug.punctalInterface to ocularSurface.punctum.lumenInterface;
+    connect plug.tissueInterface to ocularSurface.punctum.tissueInterface;
+  }
+
+  action def InsertPlug {
+    in part tool : InsertionTool;
+    in part plug : PunctalPlug;
+    in part punctum : Punctum;
+    out success : Boolean;
+
+    first start;
+    then alignTool;
+    then compressPlug;
+    then advancePlug;
+    then seatFlange;
+    then verifyRetention;
+    then done;
+
+    action alignTool;
+    action compressPlug;
+    action advancePlug;
+    action seatFlange;
+    action verifyRetention;
+  }
+
+  action def OccludeDrainage {
+    in part plug : PunctalPlug;
+    in item attemptedFlow : DrainageFlow;
+    out item remainingFlow : DrainageFlow;
+
+    attribute targetReductionPercent : Real = 85.0;
+
+    first receiveDrainage;
+    then blockLumen;
+    then allowResidualLeakage;
+    then reportRestrictedFlow;
+
+    action receiveDrainage;
+    action blockLumen;
+    action allowResidualLeakage;
+    action reportRestrictedFlow;
+  }
+
+  action def RemovePlug {
+    in part plug : PunctalPlug;
+    out removedIntact : Boolean;
+
+    first graspHead;
+    then applyWithdrawalForce;
+    then disengageRetention;
+    then extractPlug;
+
+    action graspHead;
+    action applyWithdrawalForce;
+    action disengageRetention;
+    action extractPlug;
+  }
+
+  state def PlugLifecycle {
+    state packaged;
+    state readyForInsertion;
+    state beingInserted;
+    state seated;
+    state retainingTears;
+    state displaced;
+    state removed;
+
+    transition packaged_to_ready first packaged then readyForInsertion;
+    transition ready_to_inserted first readyForInsertion then beingInserted;
+    transition inserted_to_seated first beingInserted then seated;
+    transition seated_to_retaining first seated then retainingTears;
+    transition retaining_to_displaced first retainingTears then displaced;
+    transition retaining_to_removed first retainingTears then removed;
+    transition displaced_to_removed first displaced then removed;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The punctal plug shall reduce tear drainage through the punctum to increase tear retention on the ocular surface. */
+    subject system : PunctalPlugSystem;
+    require constraint { system.plug.core.leakageRateWhenSeated <= 0.20 * system.ocularSurface.canaliculus.naturalDrainageRate }
+  }
+
+  requirement def BiocompatibilityRequirement {
+    doc /* Patient-contacting plug surfaces shall remain biocompatible and atraumatic during normal wear. */
+    subject plug : PunctalPlug;
+    require constraint { plug.retention.atraumaticEdgeRadius >= 0.05 }
+  }
+
+  requirement def RetentionRequirement {
+    doc /* The plug shall resist unintended migration while allowing clinical removal. */
+    subject plug : PunctalPlug;
+    require constraint { plug.retention.retentionForce >= 20.0 and plug.retention.retentionForce <= 150.0 }
+  }
+
+  requirement def FitRequirement {
+    doc /* The plug shall fit within the punctal opening without excessive dilation. */
+    subject system : PunctalPlugSystem;
+    require constraint { system.plug.maximumDiameter <= 1.25 * system.ocularSurface.punctum.openingDiameter }
+  }
+
+  requirement def InsertionForceRequirement {
+    doc /* The insertion tool shall not require excessive force to seat the plug. */
+    subject tool : InsertionTool;
+    require constraint { tool.maximumInsertionForce <= 250.0 }
+  }
+
+}

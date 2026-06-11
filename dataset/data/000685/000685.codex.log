@@ -1,0 +1,971 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-62rweeve
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3d3-0d8a-7d30-bfc8-313fc92c46d6
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Medrad Inc. and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MedradInjectorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Milliliter :> Real;
+    attribute def MilliliterPerSecond :> Real;
+    attribute def PoundPerSquareInch :> Real;
+    attribute def MilligramIodinePerMilliliter :> Real;
+    attribute def Second :> Real;
+    attribute def Volt :> Real;
+    attribute def Ampere :> Real;
+    attribute def Celsius :> Real;
+    attribute def Percent :> Real;
+
+    enum def InjectionPhaseKind {
+        enum contrast;
+        enum saline;
+        enum pause;
+    }
+
+    enum def InjectorOperatingMode {
+        enum poweredOff;
+        enum standby;
+        enum setup;
+        enum armed;
+        enum injecting;
+        enum paused;
+        enum completed;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    enum def FaultKind {
+        enum overPressure;
+        enum airDetected;
+        enum doorOpen;
+        enum syringeNotDetected;
+        enum motorEncoderMismatch;
+        enum communicationLoss;
+        enum powerFault;
+        enum emergencyStopPressed;
+    }
+
+    item def ContrastMedia {
+        attribute volume : Milliliter;
+        attribute iodineConcentration : MilligramIodinePerMilliliter;
+        attribute temperature : Celsius;
+    }
+
+    item def Saline {
+        attribute volume : Milliliter;
+        attribute temperature : Celsius;
+    }
+
+    item def Injectate {
+        attribute phase : InjectionPhaseKind;
+        attribute deliveredVolume : Milliliter;
+        attribute flowRate : MilliliterPerSecond;
+        attribute linePressure : PoundPerSquareInch;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+    }
+
+    item def OperatorCommand {
+        attribute requestedMode : InjectorOperatingMode;
+        attribute startRequested : Boolean;
+        attribute pauseRequested : Boolean;
+        attribute stopRequested : Boolean;
+        attribute acknowledgeFault : Boolean;
+    }
+
+    item def InjectionProtocol {
+        attribute contrastVolume : Milliliter;
+        attribute contrastFlowRate : MilliliterPerSecond;
+        attribute salineVolume : Milliliter;
+        attribute salineFlowRate : MilliliterPerSecond;
+        attribute pauseDuration : Second;
+        attribute maximumPressure : PoundPerSquareInch;
+    }
+
+    item def InjectionStatus {
+        attribute mode : InjectorOperatingMode;
+        attribute activePhase : InjectionPhaseKind;
+        attribute deliveredContrastVolume : Milliliter;
+        attribute deliveredSalineVolume : Milliliter;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute remainingTime : Second;
+        attribute faultPresent : Boolean;
+    }
+
+    item def FaultReport {
+        attribute fault : FaultKind;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute timestamp : Second;
+        attribute latched : Boolean;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+        in item protocol : InjectionProtocol;
+    }
+
+    port def StatusPort {
+        out item status : InjectionStatus;
+        out item faultReport : FaultReport;
+    }
+
+    port def FluidInletPort {
+        in item contrast : ContrastMedia;
+        in item saline : Saline;
+    }
+
+    port def FluidOutletPort {
+        out item injectate : Injectate;
+    }
+
+    port def SensorPort {
+        out item pressure : PoundPerSquareInch;
+        out item airDetected : Boolean;
+        out item syringePresent : Boolean;
+        out item doorClosed : Boolean;
+    }
+
+    port def MotorDrivePort {
+        out item commandedRate : MilliliterPerSecond;
+        out item commandedVolume : Milliliter;
+        in item actualRate : MilliliterPerSecond;
+    }
+
+    part def UserInterface {
+        port commandOutput : CommandPort;
+        port statusInput : StatusPort;
+
+        attribute displayBrightness : Percent;
+        attribute audibleAlarmEnabled : Boolean;
+        attribute lastDisplayedMode : InjectorOperatingMode;
+    }
+
+    part def ProtocolController {
+        port operatorInput : CommandPort;
+        port statusOutput : StatusPort;
+        port sensorInput : SensorPort;
+        port driveCommand : MotorDrivePort;
+
+        attribute currentMode : InjectorOperatingMode;
+        attribute activeProtocol : InjectionProtocol;
+        attribute deliveredContrast : Milliliter;
+        attribute deliveredSaline : Milliliter;
+        attribute activeFault : FaultKind;
+        attribute faultLatched : Boolean;
+
+        action def ValidateProtocol {
+            in item candidate : InjectionProtocol;
+            out item valid : Boolean;
+            out item reasonPressureLimitExceeded : Boolean;
+
+            assert candidate.contrastVolume >= 0.0;
+            assert candidate.salineVolume >= 0.0;
+            assert candidate.contrastFlowRate > 0.0;
+            assert candidate.salineFlowRate > 0.0;
+            assert candidate.maximumPressure <= 325.0;
+            assert candidate.maximumPressure >= 50.0;
+        }
+
+        action def ExecuteInjectionProtocol {
+            in item protocol : InjectionProtocol;
+            out item finalStatus : InjectionStatus;
+
+            first startContrast;
+            then flushSaline;
+            then finish;
+
+            action startContrast {
+                out item contrastDose : Injectate;
+                bind contrastDose.phase = InjectionPhaseKind::contrast;
+                bind contrastDose.deliveredVolume = protocol.contrastVolume;
+                bind contrastDose.flowRate = protocol.contrastFlowRate;
+                assert contrastDose.linePressure <= protocol.maximumPressure;
+            }
+
+            action flushSaline {
+                out item salineFlush : Injectate;
+                bind salineFlush.phase = InjectionPhaseKind::saline;
+                bind salineFlush.deliveredVolume = protocol.salineVolume;
+                bind salineFlush.flowRate = protocol.salineFlowRate;
+                assert salineFlush.linePressure <= protocol.maximumPressure;
+            }
+
+            action finish {
+                bind finalStatus.mode = InjectorOperatingMode::completed;
+                bind finalStatus.deliveredContrastVolume = protocol.contrastVolume;
+                bind finalStatus.deliveredSalineVolume = protocol.salineVolume;
+                bind finalStatus.faultPresent = false;
+            }
+        }
+
+        state def InjectorControlStateMachine {
+            entry; then Off;
+
+            state Off;
+            state Standby;
+            state Setup;
+            state Armed;
+            state Injecting;
+            state Paused;
+            state Completed;
+            state Faulted;
+            state EmergencyStopped;
+
+            transition Off_to_Standby
+                first Off
+                accept OperatorCommand
+                if command.requestedMode == InjectorOperatingMode::standby
+                then Standby;
+
+            transition Standby_to_Setup
+                first Standby
+                accept InjectionProtocol
+                if protocol.maximumPressure <= 325.0
+                then Setup;
+
+            transition Setup_to_Armed
+                first Setup
+                accept OperatorCommand
+                if command.requestedMode == InjectorOperatingMode::armed
+                then Armed;
+
+            transition Armed_to_Injecting
+                first Armed
+                accept OperatorCommand
+                if command.startRequested
+                then Injecting;
+
+            transition Injecting_to_Paused
+                first Injecting
+                accept OperatorCommand
+                if command.pauseRequested
+                then Paused;
+
+            transition Paused_to_Injecting
+                first Paused
+                accept OperatorCommand
+                if command.startRequested
+                then Injecting;
+
+            transition Injecting_to_Completed
+                first Injecting
+                if deliveredContrast >= activeProtocol.contrastVolume and deliveredSaline >= activeProtocol.salineVolume
+                then Completed;
+
+            transition Any_to_Faulted
+                first Standby or Setup or Armed or Injecting or Paused
+                if faultLatched
+                then Faulted;
+
+            transition Any_to_EmergencyStopped
+                first Standby or Setup or Armed or Injecting or Paused or Completed or Faulted
+                accept OperatorCommand
+                if command.stopRequested
+                then EmergencyStopped;
+
+            transition Faulted_to_Standby
+                first Faulted
+                accept OperatorCommand
+                if command.acknowledgeFault
+                then Standby;
+        }
+    }
+
+    part def DualSyringePump {
+        port fluidInput : FluidInletPort;
+        port patientOutput : FluidOutletPort;
+        port driveInput : MotorDrivePort;
+
+        part contrastSyringe {
+            attribute capacity : Milliliter = 200.0;
+            attribute remainingVolume : Milliliter;
+            attribute plungerPosition : Milliliter;
+        }
+
+        part salineSyringe {
+            attribute capacity : Milliliter = 200.0;
+            attribute remainingVolume : Milliliter;
+            attribute plungerPosition : Milliliter;
+        }
+
+        part motorAssembly {
+            attribute commandedFlowRate : MilliliterPerSecond;
+            attribute encoderFlowRate : MilliliterPerSecond;
+            attribute motorCurrent : Ampere;
+        }
+
+        action def MeterFluid {
+            in item selectedPhase : InjectionPhaseKind;
+            in item targetVolume : Milliliter;
+            in item targetFlowRate : MilliliterPerSecond;
+            out item delivered : Injectate;
+
+            bind delivered.phase = selectedPhase;
+            bind delivered.deliveredVolume = targetVolume;
+            bind delivered.flowRate = targetFlowRate;
+        }
+    }
+
+    part def FluidPathSet {
+        port pumpSide : FluidOutletPort;
+        port patientSide : FluidOutletPort;
+
+        attribute primed : Boolean;
+        attribute disposableInstalled : Boolean;
+        attribute airFree : Boolean;
+        attribute maximumRatedPressure : PoundPerSquareInch = 350.0;
+    }
+
+    part def SafetyMonitor {
+        port sensors : SensorPort;
+        port statusOutput : StatusPort;
+
+        attribute pressureLimit : PoundPerSquareInch;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute airDetected : Boolean;
+        attribute syringePresent : Boolean;
+        attribute doorClosed : Boolean;
+        attribute emergencyStopPressed : Boolean;
+
+        action def DetectHazard {
+            out item faultReport : FaultReport;
+
+            assert measuredPressure <= pressureLimit;
+            assert airDetected == false;
+            assert syringePresent == true;
+            assert doorClosed == true;
+            assert emergencyStopPressed == false;
+        }
+    }
+
+    part def PressureSensor {
+        port sensingOutput : SensorPort;
+        attribute pressureRangeMaximum : PoundPerSquareInch = 350.0;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute accuracy : Percent = 5.0;
+    }
+
+    part def AirDetector {
+        port sensingOutput : SensorPort;
+        attribute sensitivityThreshold : Milliliter = 0.1;
+        attribute airDetected : Boolean;
+    }
+
+    part def PowerSupply {
+        port acInput : PowerInPort;
+        attribute nominalVoltage : Volt = 120.0;
+        attribute outputVoltage : Volt = 24.0;
+        attribute outputCurrentLimit : Ampere = 8.0;
+        attribute batteryBackupAvailable : Boolean;
+    }
+
+    part def MedradHighPressureInjectorSystem {
+        doc /* High-level primary function: automatically deliver programmed volumes of radiographic contrast media and saline into a patient fluid path at controlled flow rates and within pressure limits to support diagnostic imaging procedures. */
+
+        port powerInput : PowerInPort;
+        port operatorPort : CommandPort;
+        port systemStatus : StatusPort;
+        port contrastAndSalineInput : FluidInletPort;
+        port patientFluidOutput : FluidOutletPort;
+
+        part ui : UserInterface;
+        part controller : ProtocolController;
+        part pump : DualSyringePump;
+        part disposableFluidPath : FluidPathSet;
+        part safetyMonitor : SafetyMonitor;
+        part pressureSensor : PressureSensor;
+        part airDetector : AirDetector;
+        part powerSupply : PowerSupply;
+
+        connect powerInput to powerSupply.acInput;
+        connect operatorPort to ui.commandOutput;
+        connect ui.commandOutput to controller.operatorInput;
+        connect controller.statusOutput to ui.statusInput;
+        connect controller.statusOutput to systemStatus;
+        connect contrastAndSalineInput to pump.fluidInput;
+        connect controller.driveCommand to pump.driveInput;
+        connect pump.patientOutput to disposableFluidPath.pumpSide;
+        connect disposableFluidPath.patientSide to patientFluidOutput;
+        connect pressureSensor.sensingOutput to safetyMonitor.sensors;
+        connect airDetector.sensingOutput to safetyMonitor.sensors;
+        connect safetyMonitor.statusOutput to controller.statusOutput;
+
+        attribute intendedUseEnvironment : String = "Radiology imaging suite";
+        attribute maximumSystemPressure : PoundPerSquareInch = 325.0;
+        attribute maximumContrastVolume : Milliliter = 200.0;
+        attribute maximumSalineVolume : Milliliter = 200.0;
+        attribute minimumProgrammableFlowRate : MilliliterPerSecond = 0.1;
+        attribute maximumProgrammableFlowRate : MilliliterPerSecond = 10.0;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall deliver radiographic contrast media and saline according to an operator-selected injection protocol for imaging support. */
+        subject injector : MedradHighPressureInjectorSystem;
+
+        require constraint {
+            injector.maximumContrastVolume >= 100.0 and
+            injector.maximumSalineVolume >= 50.0 and
+            injector.maximumProgrammableFlowRate >= 5.0
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* The system shall prevent injection when measured fluid pressure exceeds the programmed maximum pressure. */
+        subject injector : MedradHighPressureInjectorSystem;
+
+        require constraint {
+            injector.maximumSystemPressure <= 325.0
+        }
+    }
+
+    requirement def AirDetectionRequirement {
+        doc /* The system shall stop or inhibit injection when air is detected in the disposable fluid path. */
+        subject detector : AirDetector;
+
+        require constraint {
+            detector.sensitivityThreshold <= 0.1
+        }
+    }
+
+    requirement def ProtocolValidationRequirement {
+        doc /* The system shall reject protocols with nonpositive flow rates, negative volumes, or pressure limits above the system maximum. */
+        subject controller : ProtocolController;
+
+        require constraint {
+            controller.activeProtocol.contrastVolume >= 0.0 and
+            controller.activeProtocol.salineVolume >= 0.0 and
+            controller.activeProtocol.contrastFlowRate > 0.0 and
+            controller.activeProtocol.salineFlowRate > 0.0 and
+            controller.activeProtocol.maximumPressure <= 325.0
+        }
+    }
+
+    requirement def OperatorStatusRequirement {
+        doc /* The system shall provide operating mode, active injection phase, delivered volumes, pressure, remaining time, and fault status to the operator. */
+        subject status : InjectionStatus;
+
+        require constraint {
+            status.deliveredContrastVolume >= 0.0 and
+            status.deliveredSalineVolume >= 0.0 and
+            status.measuredPressure >= 0.0
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        doc /* The system shall transition to emergency stopped mode when the operator requests an immediate stop. */
+        subject controller : ProtocolController;
+
+        require constraint {
+            controller.currentMode != InjectorOperatingMode::injecting or
+            controller.faultLatched == false
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MedradHighPressureInjectorSystem;
+    satisfy PressureSafetyRequirement by MedradHighPressureInjectorSystem;
+    satisfy AirDetectionRequirement by AirDetector;
+    satisfy ProtocolValidationRequirement by ProtocolController;
+    satisfy OperatorStatusRequirement by InjectionStatus;
+    satisfy EmergencyStopRequirement by ProtocolController;
+
+}
+tokens used
+4,735
+package MedradInjectorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Milliliter :> Real;
+    attribute def MilliliterPerSecond :> Real;
+    attribute def PoundPerSquareInch :> Real;
+    attribute def MilligramIodinePerMilliliter :> Real;
+    attribute def Second :> Real;
+    attribute def Volt :> Real;
+    attribute def Ampere :> Real;
+    attribute def Celsius :> Real;
+    attribute def Percent :> Real;
+
+    enum def InjectionPhaseKind {
+        enum contrast;
+        enum saline;
+        enum pause;
+    }
+
+    enum def InjectorOperatingMode {
+        enum poweredOff;
+        enum standby;
+        enum setup;
+        enum armed;
+        enum injecting;
+        enum paused;
+        enum completed;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    enum def FaultKind {
+        enum overPressure;
+        enum airDetected;
+        enum doorOpen;
+        enum syringeNotDetected;
+        enum motorEncoderMismatch;
+        enum communicationLoss;
+        enum powerFault;
+        enum emergencyStopPressed;
+    }
+
+    item def ContrastMedia {
+        attribute volume : Milliliter;
+        attribute iodineConcentration : MilligramIodinePerMilliliter;
+        attribute temperature : Celsius;
+    }
+
+    item def Saline {
+        attribute volume : Milliliter;
+        attribute temperature : Celsius;
+    }
+
+    item def Injectate {
+        attribute phase : InjectionPhaseKind;
+        attribute deliveredVolume : Milliliter;
+        attribute flowRate : MilliliterPerSecond;
+        attribute linePressure : PoundPerSquareInch;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+    }
+
+    item def OperatorCommand {
+        attribute requestedMode : InjectorOperatingMode;
+        attribute startRequested : Boolean;
+        attribute pauseRequested : Boolean;
+        attribute stopRequested : Boolean;
+        attribute acknowledgeFault : Boolean;
+    }
+
+    item def InjectionProtocol {
+        attribute contrastVolume : Milliliter;
+        attribute contrastFlowRate : MilliliterPerSecond;
+        attribute salineVolume : Milliliter;
+        attribute salineFlowRate : MilliliterPerSecond;
+        attribute pauseDuration : Second;
+        attribute maximumPressure : PoundPerSquareInch;
+    }
+
+    item def InjectionStatus {
+        attribute mode : InjectorOperatingMode;
+        attribute activePhase : InjectionPhaseKind;
+        attribute deliveredContrastVolume : Milliliter;
+        attribute deliveredSalineVolume : Milliliter;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute remainingTime : Second;
+        attribute faultPresent : Boolean;
+    }
+
+    item def FaultReport {
+        attribute fault : FaultKind;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute timestamp : Second;
+        attribute latched : Boolean;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+        in item protocol : InjectionProtocol;
+    }
+
+    port def StatusPort {
+        out item status : InjectionStatus;
+        out item faultReport : FaultReport;
+    }
+
+    port def FluidInletPort {
+        in item contrast : ContrastMedia;
+        in item saline : Saline;
+    }
+
+    port def FluidOutletPort {
+        out item injectate : Injectate;
+    }
+
+    port def SensorPort {
+        out item pressure : PoundPerSquareInch;
+        out item airDetected : Boolean;
+        out item syringePresent : Boolean;
+        out item doorClosed : Boolean;
+    }
+
+    port def MotorDrivePort {
+        out item commandedRate : MilliliterPerSecond;
+        out item commandedVolume : Milliliter;
+        in item actualRate : MilliliterPerSecond;
+    }
+
+    part def UserInterface {
+        port commandOutput : CommandPort;
+        port statusInput : StatusPort;
+
+        attribute displayBrightness : Percent;
+        attribute audibleAlarmEnabled : Boolean;
+        attribute lastDisplayedMode : InjectorOperatingMode;
+    }
+
+    part def ProtocolController {
+        port operatorInput : CommandPort;
+        port statusOutput : StatusPort;
+        port sensorInput : SensorPort;
+        port driveCommand : MotorDrivePort;
+
+        attribute currentMode : InjectorOperatingMode;
+        attribute activeProtocol : InjectionProtocol;
+        attribute deliveredContrast : Milliliter;
+        attribute deliveredSaline : Milliliter;
+        attribute activeFault : FaultKind;
+        attribute faultLatched : Boolean;
+
+        action def ValidateProtocol {
+            in item candidate : InjectionProtocol;
+            out item valid : Boolean;
+            out item reasonPressureLimitExceeded : Boolean;
+
+            assert candidate.contrastVolume >= 0.0;
+            assert candidate.salineVolume >= 0.0;
+            assert candidate.contrastFlowRate > 0.0;
+            assert candidate.salineFlowRate > 0.0;
+            assert candidate.maximumPressure <= 325.0;
+            assert candidate.maximumPressure >= 50.0;
+        }
+
+        action def ExecuteInjectionProtocol {
+            in item protocol : InjectionProtocol;
+            out item finalStatus : InjectionStatus;
+
+            first startContrast;
+            then flushSaline;
+            then finish;
+
+            action startContrast {
+                out item contrastDose : Injectate;
+                bind contrastDose.phase = InjectionPhaseKind::contrast;
+                bind contrastDose.deliveredVolume = protocol.contrastVolume;
+                bind contrastDose.flowRate = protocol.contrastFlowRate;
+                assert contrastDose.linePressure <= protocol.maximumPressure;
+            }
+
+            action flushSaline {
+                out item salineFlush : Injectate;
+                bind salineFlush.phase = InjectionPhaseKind::saline;
+                bind salineFlush.deliveredVolume = protocol.salineVolume;
+                bind salineFlush.flowRate = protocol.salineFlowRate;
+                assert salineFlush.linePressure <= protocol.maximumPressure;
+            }
+
+            action finish {
+                bind finalStatus.mode = InjectorOperatingMode::completed;
+                bind finalStatus.deliveredContrastVolume = protocol.contrastVolume;
+                bind finalStatus.deliveredSalineVolume = protocol.salineVolume;
+                bind finalStatus.faultPresent = false;
+            }
+        }
+
+        state def InjectorControlStateMachine {
+            entry; then Off;
+
+            state Off;
+            state Standby;
+            state Setup;
+            state Armed;
+            state Injecting;
+            state Paused;
+            state Completed;
+            state Faulted;
+            state EmergencyStopped;
+
+            transition Off_to_Standby
+                first Off
+                accept OperatorCommand
+                if command.requestedMode == InjectorOperatingMode::standby
+                then Standby;
+
+            transition Standby_to_Setup
+                first Standby
+                accept InjectionProtocol
+                if protocol.maximumPressure <= 325.0
+                then Setup;
+
+            transition Setup_to_Armed
+                first Setup
+                accept OperatorCommand
+                if command.requestedMode == InjectorOperatingMode::armed
+                then Armed;
+
+            transition Armed_to_Injecting
+                first Armed
+                accept OperatorCommand
+                if command.startRequested
+                then Injecting;
+
+            transition Injecting_to_Paused
+                first Injecting
+                accept OperatorCommand
+                if command.pauseRequested
+                then Paused;
+
+            transition Paused_to_Injecting
+                first Paused
+                accept OperatorCommand
+                if command.startRequested
+                then Injecting;
+
+            transition Injecting_to_Completed
+                first Injecting
+                if deliveredContrast >= activeProtocol.contrastVolume and deliveredSaline >= activeProtocol.salineVolume
+                then Completed;
+
+            transition Any_to_Faulted
+                first Standby or Setup or Armed or Injecting or Paused
+                if faultLatched
+                then Faulted;
+
+            transition Any_to_EmergencyStopped
+                first Standby or Setup or Armed or Injecting or Paused or Completed or Faulted
+                accept OperatorCommand
+                if command.stopRequested
+                then EmergencyStopped;
+
+            transition Faulted_to_Standby
+                first Faulted
+                accept OperatorCommand
+                if command.acknowledgeFault
+                then Standby;
+        }
+    }
+
+    part def DualSyringePump {
+        port fluidInput : FluidInletPort;
+        port patientOutput : FluidOutletPort;
+        port driveInput : MotorDrivePort;
+
+        part contrastSyringe {
+            attribute capacity : Milliliter = 200.0;
+            attribute remainingVolume : Milliliter;
+            attribute plungerPosition : Milliliter;
+        }
+
+        part salineSyringe {
+            attribute capacity : Milliliter = 200.0;
+            attribute remainingVolume : Milliliter;
+            attribute plungerPosition : Milliliter;
+        }
+
+        part motorAssembly {
+            attribute commandedFlowRate : MilliliterPerSecond;
+            attribute encoderFlowRate : MilliliterPerSecond;
+            attribute motorCurrent : Ampere;
+        }
+
+        action def MeterFluid {
+            in item selectedPhase : InjectionPhaseKind;
+            in item targetVolume : Milliliter;
+            in item targetFlowRate : MilliliterPerSecond;
+            out item delivered : Injectate;
+
+            bind delivered.phase = selectedPhase;
+            bind delivered.deliveredVolume = targetVolume;
+            bind delivered.flowRate = targetFlowRate;
+        }
+    }
+
+    part def FluidPathSet {
+        port pumpSide : FluidOutletPort;
+        port patientSide : FluidOutletPort;
+
+        attribute primed : Boolean;
+        attribute disposableInstalled : Boolean;
+        attribute airFree : Boolean;
+        attribute maximumRatedPressure : PoundPerSquareInch = 350.0;
+    }
+
+    part def SafetyMonitor {
+        port sensors : SensorPort;
+        port statusOutput : StatusPort;
+
+        attribute pressureLimit : PoundPerSquareInch;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute airDetected : Boolean;
+        attribute syringePresent : Boolean;
+        attribute doorClosed : Boolean;
+        attribute emergencyStopPressed : Boolean;
+
+        action def DetectHazard {
+            out item faultReport : FaultReport;
+
+            assert measuredPressure <= pressureLimit;
+            assert airDetected == false;
+            assert syringePresent == true;
+            assert doorClosed == true;
+            assert emergencyStopPressed == false;
+        }
+    }
+
+    part def PressureSensor {
+        port sensingOutput : SensorPort;
+        attribute pressureRangeMaximum : PoundPerSquareInch = 350.0;
+        attribute measuredPressure : PoundPerSquareInch;
+        attribute accuracy : Percent = 5.0;
+    }
+
+    part def AirDetector {
+        port sensingOutput : SensorPort;
+        attribute sensitivityThreshold : Milliliter = 0.1;
+        attribute airDetected : Boolean;
+    }
+
+    part def PowerSupply {
+        port acInput : PowerInPort;
+        attribute nominalVoltage : Volt = 120.0;
+        attribute outputVoltage : Volt = 24.0;
+        attribute outputCurrentLimit : Ampere = 8.0;
+        attribute batteryBackupAvailable : Boolean;
+    }
+
+    part def MedradHighPressureInjectorSystem {
+        doc /* High-level primary function: automatically deliver programmed volumes of radiographic contrast media and saline into a patient fluid path at controlled flow rates and within pressure limits to support diagnostic imaging procedures. */
+
+        port powerInput : PowerInPort;
+        port operatorPort : CommandPort;
+        port systemStatus : StatusPort;
+        port contrastAndSalineInput : FluidInletPort;
+        port patientFluidOutput : FluidOutletPort;
+
+        part ui : UserInterface;
+        part controller : ProtocolController;
+        part pump : DualSyringePump;
+        part disposableFluidPath : FluidPathSet;
+        part safetyMonitor : SafetyMonitor;
+        part pressureSensor : PressureSensor;
+        part airDetector : AirDetector;
+        part powerSupply : PowerSupply;
+
+        connect powerInput to powerSupply.acInput;
+        connect operatorPort to ui.commandOutput;
+        connect ui.commandOutput to controller.operatorInput;
+        connect controller.statusOutput to ui.statusInput;
+        connect controller.statusOutput to systemStatus;
+        connect contrastAndSalineInput to pump.fluidInput;
+        connect controller.driveCommand to pump.driveInput;
+        connect pump.patientOutput to disposableFluidPath.pumpSide;
+        connect disposableFluidPath.patientSide to patientFluidOutput;
+        connect pressureSensor.sensingOutput to safetyMonitor.sensors;
+        connect airDetector.sensingOutput to safetyMonitor.sensors;
+        connect safetyMonitor.statusOutput to controller.statusOutput;
+
+        attribute intendedUseEnvironment : String = "Radiology imaging suite";
+        attribute maximumSystemPressure : PoundPerSquareInch = 325.0;
+        attribute maximumContrastVolume : Milliliter = 200.0;
+        attribute maximumSalineVolume : Milliliter = 200.0;
+        attribute minimumProgrammableFlowRate : MilliliterPerSecond = 0.1;
+        attribute maximumProgrammableFlowRate : MilliliterPerSecond = 10.0;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall deliver radiographic contrast media and saline according to an operator-selected injection protocol for imaging support. */
+        subject injector : MedradHighPressureInjectorSystem;
+
+        require constraint {
+            injector.maximumContrastVolume >= 100.0 and
+            injector.maximumSalineVolume >= 50.0 and
+            injector.maximumProgrammableFlowRate >= 5.0
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* The system shall prevent injection when measured fluid pressure exceeds the programmed maximum pressure. */
+        subject injector : MedradHighPressureInjectorSystem;
+
+        require constraint {
+            injector.maximumSystemPressure <= 325.0
+        }
+    }
+
+    requirement def AirDetectionRequirement {
+        doc /* The system shall stop or inhibit injection when air is detected in the disposable fluid path. */
+        subject detector : AirDetector;
+
+        require constraint {
+            detector.sensitivityThreshold <= 0.1
+        }
+    }
+
+    requirement def ProtocolValidationRequirement {
+        doc /* The system shall reject protocols with nonpositive flow rates, negative volumes, or pressure limits above the system maximum. */
+        subject controller : ProtocolController;
+
+        require constraint {
+            controller.activeProtocol.contrastVolume >= 0.0 and
+            controller.activeProtocol.salineVolume >= 0.0 and
+            controller.activeProtocol.contrastFlowRate > 0.0 and
+            controller.activeProtocol.salineFlowRate > 0.0 and
+            controller.activeProtocol.maximumPressure <= 325.0
+        }
+    }
+
+    requirement def OperatorStatusRequirement {
+        doc /* The system shall provide operating mode, active injection phase, delivered volumes, pressure, remaining time, and fault status to the operator. */
+        subject status : InjectionStatus;
+
+        require constraint {
+            status.deliveredContrastVolume >= 0.0 and
+            status.deliveredSalineVolume >= 0.0 and
+            status.measuredPressure >= 0.0
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        doc /* The system shall transition to emergency stopped mode when the operator requests an immediate stop. */
+        subject controller : ProtocolController;
+
+        require constraint {
+            controller.currentMode != InjectorOperatingMode::injecting or
+            controller.faultLatched == false
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MedradHighPressureInjectorSystem;
+    satisfy PressureSafetyRequirement by MedradHighPressureInjectorSystem;
+    satisfy AirDetectionRequirement by AirDetector;
+    satisfy ProtocolValidationRequirement by ProtocolController;
+    satisfy OperatorStatusRequirement by InjectionStatus;
+    satisfy EmergencyStopRequirement by ProtocolController;
+
+}

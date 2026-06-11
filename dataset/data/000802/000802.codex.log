@@ -1,0 +1,639 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-cufdm3zl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb442-693a-79d1-ab9d-fca9ea1dea68
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Trimprob and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TrimprobHighLevelModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Millimeter :> Real;
+    attribute def Millisecond :> Real;
+    attribute def Volt :> Real;
+    attribute def Ampere :> Real;
+    attribute def Watt :> Real;
+    attribute def DegreeCelsius :> Real;
+    attribute def Percent :> Real;
+
+    item def WebMaterial {
+        attribute width : Millimeter;
+        attribute speed : Real;
+        attribute edgeContrast : Percent;
+    }
+
+    item def TrimmedWebMaterial :> WebMaterial {
+        attribute achievedTrimWidth : Millimeter;
+        attribute edgeDeviation : Millimeter;
+    }
+
+    item def EdgeMeasurement {
+        attribute measuredEdgePosition : Millimeter;
+        attribute confidence : Percent;
+        attribute timestamp : Millisecond;
+    }
+
+    item def TrimCommand {
+        attribute targetTrimPosition : Millimeter;
+        attribute actuatorVelocity : Real;
+        attribute validityDuration : Millisecond;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute power : Watt;
+    }
+
+    item def DiagnosticMessage {
+        attribute severity : String;
+        attribute code : String;
+        attribute description : String;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def WebInputPort {
+        in item incomingWeb : WebMaterial;
+    }
+
+    port def WebOutputPort {
+        out item outgoingWeb : TrimmedWebMaterial;
+    }
+
+    port def MeasurementPort {
+        out item measurement : EdgeMeasurement;
+    }
+
+    port def CommandPort {
+        out item command : TrimCommand;
+    }
+
+    port def ActuatorCommandPort {
+        in item command : TrimCommand;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticMessage;
+    }
+
+    part def OpticalEdgeSensor {
+        attribute resolution : Millimeter = 0.05;
+        attribute samplePeriod : Millisecond = 5.0;
+        attribute minimumContrast : Percent = 12.0;
+        attribute operatingTemperatureMin : DegreeCelsius = -10.0;
+        attribute operatingTemperatureMax : DegreeCelsius = 55.0;
+
+        port webIn : WebInputPort;
+        port measurementOut : MeasurementPort;
+        port diagnosticsOut : DiagnosticPort;
+    }
+
+    part def TrimController {
+        attribute controlCycle : Millisecond = 10.0;
+        attribute targetTrimWidth : Millimeter = 8.0;
+        attribute allowableEdgeError : Millimeter = 0.25;
+        attribute lastEdgeError : Millimeter;
+        attribute closedLoopEnabled : Boolean;
+
+        port measurementIn : MeasurementPort;
+        port commandOut : CommandPort;
+        port diagnosticsOut : DiagnosticPort;
+    }
+
+    part def LinearTrimActuator {
+        attribute stroke : Millimeter = 75.0;
+        attribute positionResolution : Millimeter = 0.02;
+        attribute maximumVelocity : Real = 30.0;
+        attribute currentPosition : Millimeter;
+
+        port commandIn : ActuatorCommandPort;
+        port diagnosticsOut : DiagnosticPort;
+    }
+
+    part def TrimKnifeAssembly {
+        attribute bladeWidth : Millimeter = 1.2;
+        attribute nominalTrimPosition : Millimeter;
+        attribute bladeEngaged : Boolean;
+
+        part actuator : LinearTrimActuator;
+    }
+
+    part def OperatorInterface {
+        attribute displayedTrimWidth : Millimeter;
+        attribute displayedEdgeError : Millimeter;
+        attribute alarmActive : Boolean;
+
+        port diagnosticsIn : DiagnosticPort;
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltage : Volt = 24.0;
+        attribute maximumOutputPower : Watt = 120.0;
+
+        port powerIn : PowerPort;
+    }
+
+    action def AcquireEdge {
+        in item web : WebMaterial;
+        out item measurement : EdgeMeasurement;
+    }
+
+    action def ComputeTrimCorrection {
+        in item measurement : EdgeMeasurement;
+        in targetTrimWidth : Millimeter;
+        out item command : TrimCommand;
+    }
+
+    action def PositionTrimKnife {
+        in item command : TrimCommand;
+        out actualPosition : Millimeter;
+    }
+
+    action def CutTrim {
+        in item incomingWeb : WebMaterial;
+        in knifePosition : Millimeter;
+        out item outgoingWeb : TrimmedWebMaterial;
+    }
+
+    action def PerformPrimaryTrimprobFunction {
+        in item untrimmedWeb : WebMaterial;
+        out item trimmedWeb : TrimmedWebMaterial;
+
+        action acquire : AcquireEdge {
+            in web = untrimmedWeb;
+        }
+
+        action compute : ComputeTrimCorrection {
+            in measurement = acquire.measurement;
+            in targetTrimWidth = 8.0;
+        }
+
+        action position : PositionTrimKnife {
+            in command = compute.command;
+        }
+
+        action cut : CutTrim {
+            in incomingWeb = untrimmedWeb;
+            in knifePosition = position.actualPosition;
+            out outgoingWeb = trimmedWeb;
+        }
+
+        flow acquire.measurement to compute.measurement;
+        flow compute.command to position.command;
+        flow position.actualPosition to cut.knifePosition;
+    }
+
+    state def TrimprobOperatingStateMachine {
+        state off;
+        state initializing;
+        state ready;
+        state tracking;
+        state trimming;
+        state fault;
+        state maintenance;
+
+        transition first off;
+        transition off then initializing accept PowerApplied;
+        transition initializing then ready accept SelfTestPassed;
+        transition initializing then fault accept SelfTestFailed;
+        transition ready then tracking accept WebDetected;
+        transition tracking then trimming accept EdgeLocked;
+        transition trimming then tracking accept TrimCommandCompleted;
+        transition tracking then fault accept EdgeLost;
+        transition trimming then fault accept ActuatorFault;
+        transition fault then maintenance accept OperatorAcknowledge;
+        transition maintenance then initializing accept ResetRequested;
+        transition ready then off accept PowerRemoved;
+        transition tracking then off accept PowerRemoved;
+        transition trimming then off accept PowerRemoved;
+    }
+
+    part def TrimprobSystem {
+        attribute primaryFunction : String =
+            "Detect the moving web edge, calculate trim-position error, and command the trim actuator so the web is cut to the required trim width.";
+
+        attribute nominalSupplyVoltage : Volt = 24.0;
+        attribute maximumPowerDraw : Watt = 95.0;
+        attribute requiredTrimWidth : Millimeter = 8.0;
+        attribute maximumAllowedTrimError : Millimeter = 0.25;
+        attribute responseTime : Millisecond = 50.0;
+
+        port power : PowerPort;
+        port webInput : WebInputPort;
+        port webOutput : WebOutputPort;
+        port diagnostics : DiagnosticPort;
+
+        part powerConditioner : PowerConditioner;
+        part sensor : OpticalEdgeSensor;
+        part controller : TrimController;
+        part knifeAssembly : TrimKnifeAssembly;
+        part operatorInterface : OperatorInterface;
+
+        perform action primaryBehavior : PerformPrimaryTrimprobFunction;
+
+        exhibit state behavior : TrimprobOperatingStateMachine;
+
+        connect power to powerConditioner.powerIn;
+        connect webInput to sensor.webIn;
+        connect sensor.measurementOut to controller.measurementIn;
+        connect controller.commandOut to knifeAssembly.actuator.commandIn;
+        connect sensor.diagnosticsOut to diagnostics;
+        connect controller.diagnosticsOut to diagnostics;
+        connect knifeAssembly.actuator.diagnosticsOut to diagnostics;
+        connect diagnostics to operatorInterface.diagnosticsIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall continuously maintain the specified trim width by sensing the web edge and positioning the trim knife. */
+
+        require constraint {
+            trimprob.requiredTrimWidth == 8.0
+        }
+    }
+
+    requirement def TrimAccuracyRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall maintain trim error within 0.25 mm during closed-loop operation. */
+
+        require constraint {
+            trimprob.maximumAllowedTrimError <= 0.25
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall issue a corrected trim command within 50 ms of receiving a valid edge measurement. */
+
+        require constraint {
+            trimprob.responseTime <= 50.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall operate from a nominal 24 VDC supply and draw no more than 95 W during normal trimming. */
+
+        require constraint {
+            trimprob.nominalSupplyVoltage == 24.0 and trimprob.maximumPowerDraw <= 95.0
+        }
+    }
+
+    requirement def SensorContrastRequirement {
+        subject sensor : OpticalEdgeSensor;
+
+        doc /* The optical edge sensor shall detect the web edge when edge contrast is at least 12 percent. */
+
+        require constraint {
+            sensor.minimumContrast <= 12.0
+        }
+    }
+
+    requirement def SafeFaultRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* Upon loss of edge lock or actuator fault, the Trimprob shall enter the fault state and inhibit further trim movement. */
+
+        require constraint {
+            trimprob.controller.closedLoopEnabled == false
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TrimprobSystem::primaryBehavior;
+    satisfy TrimAccuracyRequirement by TrimprobSystem::controller;
+    satisfy ResponseTimeRequirement by TrimprobSystem::controller;
+    satisfy PowerRequirement by TrimprobSystem::powerConditioner;
+    satisfy SensorContrastRequirement by TrimprobSystem::sensor;
+    satisfy SafeFaultRequirement by TrimprobSystem::behavior;
+}
+tokens used
+2,896
+package TrimprobHighLevelModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Millimeter :> Real;
+    attribute def Millisecond :> Real;
+    attribute def Volt :> Real;
+    attribute def Ampere :> Real;
+    attribute def Watt :> Real;
+    attribute def DegreeCelsius :> Real;
+    attribute def Percent :> Real;
+
+    item def WebMaterial {
+        attribute width : Millimeter;
+        attribute speed : Real;
+        attribute edgeContrast : Percent;
+    }
+
+    item def TrimmedWebMaterial :> WebMaterial {
+        attribute achievedTrimWidth : Millimeter;
+        attribute edgeDeviation : Millimeter;
+    }
+
+    item def EdgeMeasurement {
+        attribute measuredEdgePosition : Millimeter;
+        attribute confidence : Percent;
+        attribute timestamp : Millisecond;
+    }
+
+    item def TrimCommand {
+        attribute targetTrimPosition : Millimeter;
+        attribute actuatorVelocity : Real;
+        attribute validityDuration : Millisecond;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute power : Watt;
+    }
+
+    item def DiagnosticMessage {
+        attribute severity : String;
+        attribute code : String;
+        attribute description : String;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def WebInputPort {
+        in item incomingWeb : WebMaterial;
+    }
+
+    port def WebOutputPort {
+        out item outgoingWeb : TrimmedWebMaterial;
+    }
+
+    port def MeasurementPort {
+        out item measurement : EdgeMeasurement;
+    }
+
+    port def CommandPort {
+        out item command : TrimCommand;
+    }
+
+    port def ActuatorCommandPort {
+        in item command : TrimCommand;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticMessage;
+    }
+
+    part def OpticalEdgeSensor {
+        attribute resolution : Millimeter = 0.05;
+        attribute samplePeriod : Millisecond = 5.0;
+        attribute minimumContrast : Percent = 12.0;
+        attribute operatingTemperatureMin : DegreeCelsius = -10.0;
+        attribute operatingTemperatureMax : DegreeCelsius = 55.0;
+
+        port webIn : WebInputPort;
+        port measurementOut : MeasurementPort;
+        port diagnosticsOut : DiagnosticPort;
+    }
+
+    part def TrimController {
+        attribute controlCycle : Millisecond = 10.0;
+        attribute targetTrimWidth : Millimeter = 8.0;
+        attribute allowableEdgeError : Millimeter = 0.25;
+        attribute lastEdgeError : Millimeter;
+        attribute closedLoopEnabled : Boolean;
+
+        port measurementIn : MeasurementPort;
+        port commandOut : CommandPort;
+        port diagnosticsOut : DiagnosticPort;
+    }
+
+    part def LinearTrimActuator {
+        attribute stroke : Millimeter = 75.0;
+        attribute positionResolution : Millimeter = 0.02;
+        attribute maximumVelocity : Real = 30.0;
+        attribute currentPosition : Millimeter;
+
+        port commandIn : ActuatorCommandPort;
+        port diagnosticsOut : DiagnosticPort;
+    }
+
+    part def TrimKnifeAssembly {
+        attribute bladeWidth : Millimeter = 1.2;
+        attribute nominalTrimPosition : Millimeter;
+        attribute bladeEngaged : Boolean;
+
+        part actuator : LinearTrimActuator;
+    }
+
+    part def OperatorInterface {
+        attribute displayedTrimWidth : Millimeter;
+        attribute displayedEdgeError : Millimeter;
+        attribute alarmActive : Boolean;
+
+        port diagnosticsIn : DiagnosticPort;
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltage : Volt = 24.0;
+        attribute maximumOutputPower : Watt = 120.0;
+
+        port powerIn : PowerPort;
+    }
+
+    action def AcquireEdge {
+        in item web : WebMaterial;
+        out item measurement : EdgeMeasurement;
+    }
+
+    action def ComputeTrimCorrection {
+        in item measurement : EdgeMeasurement;
+        in targetTrimWidth : Millimeter;
+        out item command : TrimCommand;
+    }
+
+    action def PositionTrimKnife {
+        in item command : TrimCommand;
+        out actualPosition : Millimeter;
+    }
+
+    action def CutTrim {
+        in item incomingWeb : WebMaterial;
+        in knifePosition : Millimeter;
+        out item outgoingWeb : TrimmedWebMaterial;
+    }
+
+    action def PerformPrimaryTrimprobFunction {
+        in item untrimmedWeb : WebMaterial;
+        out item trimmedWeb : TrimmedWebMaterial;
+
+        action acquire : AcquireEdge {
+            in web = untrimmedWeb;
+        }
+
+        action compute : ComputeTrimCorrection {
+            in measurement = acquire.measurement;
+            in targetTrimWidth = 8.0;
+        }
+
+        action position : PositionTrimKnife {
+            in command = compute.command;
+        }
+
+        action cut : CutTrim {
+            in incomingWeb = untrimmedWeb;
+            in knifePosition = position.actualPosition;
+            out outgoingWeb = trimmedWeb;
+        }
+
+        flow acquire.measurement to compute.measurement;
+        flow compute.command to position.command;
+        flow position.actualPosition to cut.knifePosition;
+    }
+
+    state def TrimprobOperatingStateMachine {
+        state off;
+        state initializing;
+        state ready;
+        state tracking;
+        state trimming;
+        state fault;
+        state maintenance;
+
+        transition first off;
+        transition off then initializing accept PowerApplied;
+        transition initializing then ready accept SelfTestPassed;
+        transition initializing then fault accept SelfTestFailed;
+        transition ready then tracking accept WebDetected;
+        transition tracking then trimming accept EdgeLocked;
+        transition trimming then tracking accept TrimCommandCompleted;
+        transition tracking then fault accept EdgeLost;
+        transition trimming then fault accept ActuatorFault;
+        transition fault then maintenance accept OperatorAcknowledge;
+        transition maintenance then initializing accept ResetRequested;
+        transition ready then off accept PowerRemoved;
+        transition tracking then off accept PowerRemoved;
+        transition trimming then off accept PowerRemoved;
+    }
+
+    part def TrimprobSystem {
+        attribute primaryFunction : String =
+            "Detect the moving web edge, calculate trim-position error, and command the trim actuator so the web is cut to the required trim width.";
+
+        attribute nominalSupplyVoltage : Volt = 24.0;
+        attribute maximumPowerDraw : Watt = 95.0;
+        attribute requiredTrimWidth : Millimeter = 8.0;
+        attribute maximumAllowedTrimError : Millimeter = 0.25;
+        attribute responseTime : Millisecond = 50.0;
+
+        port power : PowerPort;
+        port webInput : WebInputPort;
+        port webOutput : WebOutputPort;
+        port diagnostics : DiagnosticPort;
+
+        part powerConditioner : PowerConditioner;
+        part sensor : OpticalEdgeSensor;
+        part controller : TrimController;
+        part knifeAssembly : TrimKnifeAssembly;
+        part operatorInterface : OperatorInterface;
+
+        perform action primaryBehavior : PerformPrimaryTrimprobFunction;
+
+        exhibit state behavior : TrimprobOperatingStateMachine;
+
+        connect power to powerConditioner.powerIn;
+        connect webInput to sensor.webIn;
+        connect sensor.measurementOut to controller.measurementIn;
+        connect controller.commandOut to knifeAssembly.actuator.commandIn;
+        connect sensor.diagnosticsOut to diagnostics;
+        connect controller.diagnosticsOut to diagnostics;
+        connect knifeAssembly.actuator.diagnosticsOut to diagnostics;
+        connect diagnostics to operatorInterface.diagnosticsIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall continuously maintain the specified trim width by sensing the web edge and positioning the trim knife. */
+
+        require constraint {
+            trimprob.requiredTrimWidth == 8.0
+        }
+    }
+
+    requirement def TrimAccuracyRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall maintain trim error within 0.25 mm during closed-loop operation. */
+
+        require constraint {
+            trimprob.maximumAllowedTrimError <= 0.25
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall issue a corrected trim command within 50 ms of receiving a valid edge measurement. */
+
+        require constraint {
+            trimprob.responseTime <= 50.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* The Trimprob shall operate from a nominal 24 VDC supply and draw no more than 95 W during normal trimming. */
+
+        require constraint {
+            trimprob.nominalSupplyVoltage == 24.0 and trimprob.maximumPowerDraw <= 95.0
+        }
+    }
+
+    requirement def SensorContrastRequirement {
+        subject sensor : OpticalEdgeSensor;
+
+        doc /* The optical edge sensor shall detect the web edge when edge contrast is at least 12 percent. */
+
+        require constraint {
+            sensor.minimumContrast <= 12.0
+        }
+    }
+
+    requirement def SafeFaultRequirement {
+        subject trimprob : TrimprobSystem;
+
+        doc /* Upon loss of edge lock or actuator fault, the Trimprob shall enter the fault state and inhibit further trim movement. */
+
+        require constraint {
+            trimprob.controller.closedLoopEnabled == false
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TrimprobSystem::primaryBehavior;
+    satisfy TrimAccuracyRequirement by TrimprobSystem::controller;
+    satisfy ResponseTimeRequirement by TrimprobSystem::controller;
+    satisfy PowerRequirement by TrimprobSystem::powerConditioner;
+    satisfy SensorContrastRequirement by TrimprobSystem::sensor;
+    satisfy SafeFaultRequirement by TrimprobSystem::behavior;
+}

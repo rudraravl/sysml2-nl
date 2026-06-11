@@ -1,0 +1,1027 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7xefrh32
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2c8-8d94-7d41-a18c-0abc30f6d9e5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Taurob Inspector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TaurobInspectorSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    doc /* Percentage ratio from 0 to 100. */
+  }
+
+  attribute def TemperatureCelsius :> Real {
+    doc /* Temperature in degree Celsius. */
+  }
+
+  attribute def PressureBar :> Real {
+    doc /* Pressure in bar. */
+  }
+
+  attribute def GasConcentrationPpm :> Real {
+    doc /* Gas concentration in parts per million. */
+  }
+
+  attribute def RadiationMicroSvPerHour :> Real {
+    doc /* Ionizing radiation dose rate in microsievert per hour. */
+  }
+
+  attribute def ImageResolutionPixels :> Integer {
+    doc /* Image sensor resolution in pixels. */
+  }
+
+  attribute def InspectionConfidence :> Percent {
+    doc /* Confidence value assigned to interpreted inspection findings. */
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute frequency : Frequency;
+  }
+
+  item def CommandMessage {
+    attribute commandId : String;
+    attribute priority : Integer;
+    attribute issuedAt : Time;
+  }
+
+  item def MissionPlan {
+    attribute missionId : String;
+    attribute targetFacilityArea : String;
+    attribute inspectionRouteId : String;
+    attribute maximumMissionDuration : Time;
+    attribute minimumReturnBattery : Percent;
+  }
+
+  item def TelemetryFrame {
+    attribute robotId : String;
+    attribute timestamp : Time;
+    attribute batteryStateOfCharge : Percent;
+    attribute positionX : Length;
+    attribute positionY : Length;
+    attribute heading : PlaneAngle;
+    attribute communicationQuality : Percent;
+    attribute operatingMode : String;
+  }
+
+  item def ThermalImage {
+    attribute timestamp : Time;
+    attribute horizontalPixels : ImageResolutionPixels;
+    attribute verticalPixels : ImageResolutionPixels;
+    attribute minimumTemperature : TemperatureCelsius;
+    attribute maximumTemperature : TemperatureCelsius;
+  }
+
+  item def VisualImage {
+    attribute timestamp : Time;
+    attribute horizontalPixels : ImageResolutionPixels;
+    attribute verticalPixels : ImageResolutionPixels;
+    attribute illuminationLevel : Illuminance;
+  }
+
+  item def GasReading {
+    attribute timestamp : Time;
+    attribute methane : GasConcentrationPpm;
+    attribute carbonMonoxide : GasConcentrationPpm;
+    attribute hydrogenSulfide : GasConcentrationPpm;
+    attribute oxygen : Percent;
+  }
+
+  item def RadiationReading {
+    attribute timestamp : Time;
+    attribute doseRate : RadiationMicroSvPerHour;
+  }
+
+  item def AcousticReading {
+    attribute timestamp : Time;
+    attribute soundPressureLevel : Real;
+    attribute dominantFrequency : Frequency;
+  }
+
+  item def InspectionFinding {
+    attribute findingId : String;
+    attribute locationDescription : String;
+    attribute severity : Integer;
+    attribute confidence : InspectionConfidence;
+    attribute findingType : String;
+    attribute recommendedAction : String;
+  }
+
+  part def OperatorStation {
+    doc /* Human-operated mission control station for supervising the Taurob Inspector, receiving inspection data, and sending commands. */
+
+    port commandOut : out CommandMessage;
+    port missionPlanOut : out MissionPlan;
+    port telemetryIn : in TelemetryFrame;
+    port visualDataIn : in VisualImage;
+    port thermalDataIn : in ThermalImage;
+    port gasDataIn : in GasReading;
+    port radiationDataIn : in RadiationReading;
+    port acousticDataIn : in AcousticReading;
+    port findingsIn : in InspectionFinding;
+
+    attribute operatorName : String;
+    attribute displayRefreshRate : Frequency;
+    attribute commandLatencyLimit : Time;
+  }
+
+  part def WirelessLink {
+    doc /* Bidirectional communication channel between the operator station and the unmanned ground inspection robot. */
+
+    port groundCommandIn : in CommandMessage;
+    port groundMissionPlanIn : in MissionPlan;
+    port robotCommandOut : out CommandMessage;
+    port robotMissionPlanOut : out MissionPlan;
+    port robotTelemetryIn : in TelemetryFrame;
+    port robotFindingIn : in InspectionFinding;
+    port robotVisualIn : in VisualImage;
+    port robotThermalIn : in ThermalImage;
+    port robotGasIn : in GasReading;
+    port robotRadiationIn : in RadiationReading;
+    port robotAcousticIn : in AcousticReading;
+    port groundTelemetryOut : out TelemetryFrame;
+    port groundFindingOut : out InspectionFinding;
+    port groundVisualOut : out VisualImage;
+    port groundThermalOut : out ThermalImage;
+    port groundGasOut : out GasReading;
+    port groundRadiationOut : out RadiationReading;
+    port groundAcousticOut : out AcousticReading;
+
+    attribute nominalRange : Length = 1000 [m];
+    attribute minimumAvailability : Percent = 95.0;
+    attribute nominalBandwidth : Real;
+  }
+
+  part def BatteryPack {
+    port powerOut : out ElectricalPower;
+
+    attribute stateOfCharge : Percent;
+    attribute capacity : Energy;
+    attribute nominalVoltage : ElectricPotential;
+    attribute maximumDischargeCurrent : ElectricCurrent;
+    attribute minimumReserveForReturn : Percent = 20.0;
+  }
+
+  part def DriveBase {
+    doc /* Rugged tracked mobility subsystem for traversing industrial terrain, stairs, gratings, and debris. */
+
+    port powerIn : in ElectricalPower;
+    port motionCommandIn : in CommandMessage;
+    port odometryOut : out TelemetryFrame;
+
+    attribute maximumSpeed : Speed = 1.5 [m / s];
+    attribute obstacleClimbHeight : Length = 0.25 [m];
+    attribute slopeCapability : PlaneAngle;
+    attribute trackWidth : Length;
+    attribute groundClearance : Length;
+  }
+
+  part def PanTiltSensorMast {
+    port powerIn : in ElectricalPower;
+    port pointingCommandIn : in CommandMessage;
+    port visualOut : out VisualImage;
+    port thermalOut : out ThermalImage;
+
+    attribute mastHeight : Length = 1.2 [m];
+    attribute panRange : PlaneAngle;
+    attribute tiltRange : PlaneAngle;
+    attribute stabilizationError : PlaneAngle;
+  }
+
+  part def EnvironmentalSensorSuite {
+    port powerIn : in ElectricalPower;
+    port gasOut : out GasReading;
+    port radiationOut : out RadiationReading;
+    port acousticOut : out AcousticReading;
+
+    attribute gasSensorWarmupTime : Time;
+    attribute gasDetectionThreshold : GasConcentrationPpm;
+    attribute radiationMeasurementRange : RadiationMicroSvPerHour;
+    attribute acousticSampleRate : Frequency;
+  }
+
+  part def OnboardComputer {
+    port powerIn : in ElectricalPower;
+    port commandIn : in CommandMessage;
+    port missionPlanIn : in MissionPlan;
+    port odometryIn : in TelemetryFrame;
+    port visualIn : in VisualImage;
+    port thermalIn : in ThermalImage;
+    port gasIn : in GasReading;
+    port radiationIn : in RadiationReading;
+    port acousticIn : in AcousticReading;
+
+    port motionCommandOut : out CommandMessage;
+    port sensorPointingCommandOut : out CommandMessage;
+    port telemetryOut : out TelemetryFrame;
+    port findingOut : out InspectionFinding;
+    port visualOut : out VisualImage;
+    port thermalOut : out ThermalImage;
+    port gasOut : out GasReading;
+    port radiationOut : out RadiationReading;
+    port acousticOut : out AcousticReading;
+
+    attribute processorLoad : Percent;
+    attribute storageRemaining : Real;
+    attribute autonomyLevel : Integer;
+    attribute localizationError : Length;
+  }
+
+  part def EmergencyStopModule {
+    port commandIn : in CommandMessage;
+    port safetyCommandOut : out CommandMessage;
+
+    attribute stopResponseTime : Time;
+    attribute safetyState : String;
+  }
+
+  part def TaurobInspector {
+    doc /* Mobile, rugged, remotely supervised inspection robot whose primary function is to enter hazardous or hard-to-access industrial areas, collect visual, thermal, gas, radiation, acoustic, and positional data, and report actionable inspection findings while reducing human exposure. */
+
+    port commandIn : in CommandMessage;
+    port missionPlanIn : in MissionPlan;
+    port telemetryOut : out TelemetryFrame;
+    port visualOut : out VisualImage;
+    port thermalOut : out ThermalImage;
+    port gasOut : out GasReading;
+    port radiationOut : out RadiationReading;
+    port acousticOut : out AcousticReading;
+    port findingOut : out InspectionFinding;
+
+    part battery : BatteryPack;
+    part driveBase : DriveBase;
+    part sensorMast : PanTiltSensorMast;
+    part sensorSuite : EnvironmentalSensorSuite;
+    part computer : OnboardComputer;
+    part emergencyStop : EmergencyStopModule;
+
+    attribute robotIdentifier : String = "Taurob-Inspector-UGV-01";
+    attribute ingressProtectionRating : String = "IP65";
+    attribute operatingTemperatureMin : TemperatureCelsius = -20.0;
+    attribute operatingTemperatureMax : TemperatureCelsius = 50.0;
+    attribute nominalMissionEndurance : Time;
+    attribute payloadMassCapacity : Mass;
+    attribute primaryFunction : String = "Remote hazardous-area inspection and condition assessment";
+
+    connect commandIn to emergencyStop.commandIn;
+    connect missionPlanIn to computer.missionPlanIn;
+    connect emergencyStop.safetyCommandOut to computer.commandIn;
+    connect battery.powerOut to driveBase.powerIn;
+    connect battery.powerOut to sensorMast.powerIn;
+    connect battery.powerOut to sensorSuite.powerIn;
+    connect battery.powerOut to computer.powerIn;
+    connect computer.motionCommandOut to driveBase.motionCommandIn;
+    connect computer.sensorPointingCommandOut to sensorMast.pointingCommandIn;
+    connect driveBase.odometryOut to computer.odometryIn;
+    connect sensorMast.visualOut to computer.visualIn;
+    connect sensorMast.thermalOut to computer.thermalIn;
+    connect sensorSuite.gasOut to computer.gasIn;
+    connect sensorSuite.radiationOut to computer.radiationIn;
+    connect sensorSuite.acousticOut to computer.acousticIn;
+    connect computer.telemetryOut to telemetryOut;
+    connect computer.visualOut to visualOut;
+    connect computer.thermalOut to thermalOut;
+    connect computer.gasOut to gasOut;
+    connect computer.radiationOut to radiationOut;
+    connect computer.acousticOut to acousticOut;
+    connect computer.findingOut to findingOut;
+  }
+
+  part def IndustrialInspectionSystem {
+    doc /* Complete supervised inspection system centered on a Taurob Inspector unmanned ground robot. */
+
+    part operatorStation : OperatorStation;
+    part wirelessLink : WirelessLink;
+    part inspector : TaurobInspector;
+
+    connect operatorStation.commandOut to wirelessLink.groundCommandIn;
+    connect operatorStation.missionPlanOut to wirelessLink.groundMissionPlanIn;
+    connect wirelessLink.robotCommandOut to inspector.commandIn;
+    connect wirelessLink.robotMissionPlanOut to inspector.missionPlanIn;
+    connect inspector.telemetryOut to wirelessLink.robotTelemetryIn;
+    connect inspector.findingOut to wirelessLink.robotFindingIn;
+    connect inspector.visualOut to wirelessLink.robotVisualIn;
+    connect inspector.thermalOut to wirelessLink.robotThermalIn;
+    connect inspector.gasOut to wirelessLink.robotGasIn;
+    connect inspector.radiationOut to wirelessLink.robotRadiationIn;
+    connect inspector.acousticOut to wirelessLink.robotAcousticIn;
+    connect wirelessLink.groundTelemetryOut to operatorStation.telemetryIn;
+    connect wirelessLink.groundFindingOut to operatorStation.findingsIn;
+    connect wirelessLink.groundVisualOut to operatorStation.visualDataIn;
+    connect wirelessLink.groundThermalOut to operatorStation.thermalDataIn;
+    connect wirelessLink.groundGasOut to operatorStation.gasDataIn;
+    connect wirelessLink.groundRadiationOut to operatorStation.radiationDataIn;
+    connect wirelessLink.groundAcousticOut to operatorStation.acousticDataIn;
+  }
+
+  action def ExecuteInspectionMission {
+    in missionPlan : MissionPlan;
+    in command : CommandMessage;
+    out telemetry : TelemetryFrame;
+    out finding : InspectionFinding;
+
+    action initializeRobot;
+    action validateMissionPlan;
+    action navigateToInspectionArea;
+    action scanAssetWithVisualCamera;
+    action scanAssetWithThermalCamera;
+    action sampleAtmosphere;
+    action measureRadiation;
+    action listenForAbnormalAcoustics;
+    action classifyInspectionResults;
+    action transmitTelemetryAndFindings;
+    action returnToSafeLocation;
+
+    first start then initializeRobot;
+    then validateMissionPlan;
+    then navigateToInspectionArea;
+    then scanAssetWithVisualCamera;
+    fork;
+      then scanAssetWithThermalCamera;
+      then sampleAtmosphere;
+      then measureRadiation;
+      then listenForAbnormalAcoustics;
+    join;
+    then classifyInspectionResults;
+    then transmitTelemetryAndFindings;
+    then returnToSafeLocation;
+    then done;
+  }
+
+  state def InspectorOperationalState {
+    entry action powerOnSelfTest;
+    exit action persistMissionLog;
+
+    state PoweredOff;
+    state Standby;
+    state MissionReady;
+    state TeleoperatedInspection;
+    state AutonomousInspection;
+    state DataTransmission;
+    state ReturnToBase;
+    state EmergencyStop;
+    state FaultRecovery;
+
+    transition initial then PoweredOff;
+    transition PoweredOff then Standby
+      accept CommandMessage
+      if commandId == "POWER_ON";
+
+    transition Standby then MissionReady
+      accept MissionPlan
+      if minimumReturnBattery >= 20.0;
+
+    transition MissionReady then TeleoperatedInspection
+      accept CommandMessage
+      if commandId == "START_TELEOP";
+
+    transition MissionReady then AutonomousInspection
+      accept CommandMessage
+      if commandId == "START_AUTONOMOUS_INSPECTION";
+
+    transition TeleoperatedInspection then DataTransmission
+      accept CommandMessage
+      if commandId == "CAPTURE_AND_REPORT";
+
+    transition AutonomousInspection then DataTransmission
+      accept CommandMessage
+      if commandId == "INSPECTION_POINT_COMPLETE";
+
+    transition DataTransmission then AutonomousInspection
+      accept CommandMessage
+      if commandId == "CONTINUE_ROUTE";
+
+    transition DataTransmission then ReturnToBase
+      accept CommandMessage
+      if commandId == "MISSION_COMPLETE";
+
+    transition TeleoperatedInspection then ReturnToBase
+      accept CommandMessage
+      if commandId == "RETURN_HOME";
+
+    transition AutonomousInspection then ReturnToBase
+      accept CommandMessage
+      if commandId == "RETURN_HOME";
+
+    transition ReturnToBase then Standby
+      accept CommandMessage
+      if commandId == "ARRIVED_HOME";
+
+    transition Standby then PoweredOff
+      accept CommandMessage
+      if commandId == "POWER_OFF";
+
+    transition MissionReady then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition TeleoperatedInspection then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition AutonomousInspection then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition ReturnToBase then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition EmergencyStop then FaultRecovery
+      accept CommandMessage
+      if commandId == "RESET_E_STOP";
+
+    transition FaultRecovery then Standby
+      accept CommandMessage
+      if commandId == "RECOVERY_COMPLETE";
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall provide remote inspection of hazardous or hard-to-access industrial environments using the Taurob Inspector robot. */
+    subject system : IndustrialInspectionSystem;
+    require constraint {
+      system.inspector.primaryFunction == "Remote hazardous-area inspection and condition assessment"
+    }
+  }
+
+  requirement def HumanExposureReductionRequirement {
+    doc /* The Taurob Inspector shall collect inspection evidence without requiring a human inspector to enter the hazardous area during normal mission execution. */
+    subject robot : TaurobInspector;
+    require constraint {
+      robot.nominalMissionEndurance > 0 [s]
+    }
+  }
+
+  requirement def MultiSensorInspectionRequirement {
+    doc /* The robot shall provide visual, thermal, gas, radiation, acoustic, and telemetry data to the operator station. */
+    subject system : IndustrialInspectionSystem;
+    require constraint {
+      system.wirelessLink.minimumAvailability >= 95.0
+    }
+  }
+
+  requirement def MobilityRequirement {
+    doc /* The tracked drive base shall support rugged industrial traversal at a useful inspection speed. */
+    subject base : DriveBase;
+    require constraint {
+      base.maximumSpeed >= 1.0 [m / s] and base.obstacleClimbHeight >= 0.20 [m]
+    }
+  }
+
+  requirement def BatteryReserveRequirement {
+    doc /* The battery management strategy shall preserve energy for safe return at the end of the mission. */
+    subject battery : BatteryPack;
+    require constraint {
+      battery.minimumReserveForReturn >= 20.0
+    }
+  }
+
+  requirement def CommunicationRequirement {
+    doc /* The communication system shall provide bidirectional command, telemetry, sensor-data, and finding exchange between the operator station and the robot. */
+    subject link : WirelessLink;
+    require constraint {
+      link.nominalRange >= 500 [m] and link.minimumAvailability >= 95.0
+    }
+  }
+
+  requirement def EmergencyStopRequirement {
+    doc /* The robot shall enter an emergency stopped state when an emergency stop command is received. */
+    subject robot : TaurobInspector;
+    require constraint {
+      robot.emergencyStop.stopResponseTime <= 1 [s]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by IndustrialInspectionSystem;
+  satisfy HumanExposureReductionRequirement by TaurobInspector;
+  satisfy MultiSensorInspectionRequirement by IndustrialInspectionSystem;
+  satisfy MobilityRequirement by DriveBase;
+  satisfy BatteryReserveRequirement by BatteryPack;
+  satisfy CommunicationRequirement by WirelessLink;
+  satisfy EmergencyStopRequirement by EmergencyStopModule;
+
+  exhibit state InspectorOperationalState by TaurobInspector;
+  perform action ExecuteInspectionMission by TaurobInspector;
+}
+tokens used
+5,360
+package TaurobInspectorSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    doc /* Percentage ratio from 0 to 100. */
+  }
+
+  attribute def TemperatureCelsius :> Real {
+    doc /* Temperature in degree Celsius. */
+  }
+
+  attribute def PressureBar :> Real {
+    doc /* Pressure in bar. */
+  }
+
+  attribute def GasConcentrationPpm :> Real {
+    doc /* Gas concentration in parts per million. */
+  }
+
+  attribute def RadiationMicroSvPerHour :> Real {
+    doc /* Ionizing radiation dose rate in microsievert per hour. */
+  }
+
+  attribute def ImageResolutionPixels :> Integer {
+    doc /* Image sensor resolution in pixels. */
+  }
+
+  attribute def InspectionConfidence :> Percent {
+    doc /* Confidence value assigned to interpreted inspection findings. */
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute frequency : Frequency;
+  }
+
+  item def CommandMessage {
+    attribute commandId : String;
+    attribute priority : Integer;
+    attribute issuedAt : Time;
+  }
+
+  item def MissionPlan {
+    attribute missionId : String;
+    attribute targetFacilityArea : String;
+    attribute inspectionRouteId : String;
+    attribute maximumMissionDuration : Time;
+    attribute minimumReturnBattery : Percent;
+  }
+
+  item def TelemetryFrame {
+    attribute robotId : String;
+    attribute timestamp : Time;
+    attribute batteryStateOfCharge : Percent;
+    attribute positionX : Length;
+    attribute positionY : Length;
+    attribute heading : PlaneAngle;
+    attribute communicationQuality : Percent;
+    attribute operatingMode : String;
+  }
+
+  item def ThermalImage {
+    attribute timestamp : Time;
+    attribute horizontalPixels : ImageResolutionPixels;
+    attribute verticalPixels : ImageResolutionPixels;
+    attribute minimumTemperature : TemperatureCelsius;
+    attribute maximumTemperature : TemperatureCelsius;
+  }
+
+  item def VisualImage {
+    attribute timestamp : Time;
+    attribute horizontalPixels : ImageResolutionPixels;
+    attribute verticalPixels : ImageResolutionPixels;
+    attribute illuminationLevel : Illuminance;
+  }
+
+  item def GasReading {
+    attribute timestamp : Time;
+    attribute methane : GasConcentrationPpm;
+    attribute carbonMonoxide : GasConcentrationPpm;
+    attribute hydrogenSulfide : GasConcentrationPpm;
+    attribute oxygen : Percent;
+  }
+
+  item def RadiationReading {
+    attribute timestamp : Time;
+    attribute doseRate : RadiationMicroSvPerHour;
+  }
+
+  item def AcousticReading {
+    attribute timestamp : Time;
+    attribute soundPressureLevel : Real;
+    attribute dominantFrequency : Frequency;
+  }
+
+  item def InspectionFinding {
+    attribute findingId : String;
+    attribute locationDescription : String;
+    attribute severity : Integer;
+    attribute confidence : InspectionConfidence;
+    attribute findingType : String;
+    attribute recommendedAction : String;
+  }
+
+  part def OperatorStation {
+    doc /* Human-operated mission control station for supervising the Taurob Inspector, receiving inspection data, and sending commands. */
+
+    port commandOut : out CommandMessage;
+    port missionPlanOut : out MissionPlan;
+    port telemetryIn : in TelemetryFrame;
+    port visualDataIn : in VisualImage;
+    port thermalDataIn : in ThermalImage;
+    port gasDataIn : in GasReading;
+    port radiationDataIn : in RadiationReading;
+    port acousticDataIn : in AcousticReading;
+    port findingsIn : in InspectionFinding;
+
+    attribute operatorName : String;
+    attribute displayRefreshRate : Frequency;
+    attribute commandLatencyLimit : Time;
+  }
+
+  part def WirelessLink {
+    doc /* Bidirectional communication channel between the operator station and the unmanned ground inspection robot. */
+
+    port groundCommandIn : in CommandMessage;
+    port groundMissionPlanIn : in MissionPlan;
+    port robotCommandOut : out CommandMessage;
+    port robotMissionPlanOut : out MissionPlan;
+    port robotTelemetryIn : in TelemetryFrame;
+    port robotFindingIn : in InspectionFinding;
+    port robotVisualIn : in VisualImage;
+    port robotThermalIn : in ThermalImage;
+    port robotGasIn : in GasReading;
+    port robotRadiationIn : in RadiationReading;
+    port robotAcousticIn : in AcousticReading;
+    port groundTelemetryOut : out TelemetryFrame;
+    port groundFindingOut : out InspectionFinding;
+    port groundVisualOut : out VisualImage;
+    port groundThermalOut : out ThermalImage;
+    port groundGasOut : out GasReading;
+    port groundRadiationOut : out RadiationReading;
+    port groundAcousticOut : out AcousticReading;
+
+    attribute nominalRange : Length = 1000 [m];
+    attribute minimumAvailability : Percent = 95.0;
+    attribute nominalBandwidth : Real;
+  }
+
+  part def BatteryPack {
+    port powerOut : out ElectricalPower;
+
+    attribute stateOfCharge : Percent;
+    attribute capacity : Energy;
+    attribute nominalVoltage : ElectricPotential;
+    attribute maximumDischargeCurrent : ElectricCurrent;
+    attribute minimumReserveForReturn : Percent = 20.0;
+  }
+
+  part def DriveBase {
+    doc /* Rugged tracked mobility subsystem for traversing industrial terrain, stairs, gratings, and debris. */
+
+    port powerIn : in ElectricalPower;
+    port motionCommandIn : in CommandMessage;
+    port odometryOut : out TelemetryFrame;
+
+    attribute maximumSpeed : Speed = 1.5 [m / s];
+    attribute obstacleClimbHeight : Length = 0.25 [m];
+    attribute slopeCapability : PlaneAngle;
+    attribute trackWidth : Length;
+    attribute groundClearance : Length;
+  }
+
+  part def PanTiltSensorMast {
+    port powerIn : in ElectricalPower;
+    port pointingCommandIn : in CommandMessage;
+    port visualOut : out VisualImage;
+    port thermalOut : out ThermalImage;
+
+    attribute mastHeight : Length = 1.2 [m];
+    attribute panRange : PlaneAngle;
+    attribute tiltRange : PlaneAngle;
+    attribute stabilizationError : PlaneAngle;
+  }
+
+  part def EnvironmentalSensorSuite {
+    port powerIn : in ElectricalPower;
+    port gasOut : out GasReading;
+    port radiationOut : out RadiationReading;
+    port acousticOut : out AcousticReading;
+
+    attribute gasSensorWarmupTime : Time;
+    attribute gasDetectionThreshold : GasConcentrationPpm;
+    attribute radiationMeasurementRange : RadiationMicroSvPerHour;
+    attribute acousticSampleRate : Frequency;
+  }
+
+  part def OnboardComputer {
+    port powerIn : in ElectricalPower;
+    port commandIn : in CommandMessage;
+    port missionPlanIn : in MissionPlan;
+    port odometryIn : in TelemetryFrame;
+    port visualIn : in VisualImage;
+    port thermalIn : in ThermalImage;
+    port gasIn : in GasReading;
+    port radiationIn : in RadiationReading;
+    port acousticIn : in AcousticReading;
+
+    port motionCommandOut : out CommandMessage;
+    port sensorPointingCommandOut : out CommandMessage;
+    port telemetryOut : out TelemetryFrame;
+    port findingOut : out InspectionFinding;
+    port visualOut : out VisualImage;
+    port thermalOut : out ThermalImage;
+    port gasOut : out GasReading;
+    port radiationOut : out RadiationReading;
+    port acousticOut : out AcousticReading;
+
+    attribute processorLoad : Percent;
+    attribute storageRemaining : Real;
+    attribute autonomyLevel : Integer;
+    attribute localizationError : Length;
+  }
+
+  part def EmergencyStopModule {
+    port commandIn : in CommandMessage;
+    port safetyCommandOut : out CommandMessage;
+
+    attribute stopResponseTime : Time;
+    attribute safetyState : String;
+  }
+
+  part def TaurobInspector {
+    doc /* Mobile, rugged, remotely supervised inspection robot whose primary function is to enter hazardous or hard-to-access industrial areas, collect visual, thermal, gas, radiation, acoustic, and positional data, and report actionable inspection findings while reducing human exposure. */
+
+    port commandIn : in CommandMessage;
+    port missionPlanIn : in MissionPlan;
+    port telemetryOut : out TelemetryFrame;
+    port visualOut : out VisualImage;
+    port thermalOut : out ThermalImage;
+    port gasOut : out GasReading;
+    port radiationOut : out RadiationReading;
+    port acousticOut : out AcousticReading;
+    port findingOut : out InspectionFinding;
+
+    part battery : BatteryPack;
+    part driveBase : DriveBase;
+    part sensorMast : PanTiltSensorMast;
+    part sensorSuite : EnvironmentalSensorSuite;
+    part computer : OnboardComputer;
+    part emergencyStop : EmergencyStopModule;
+
+    attribute robotIdentifier : String = "Taurob-Inspector-UGV-01";
+    attribute ingressProtectionRating : String = "IP65";
+    attribute operatingTemperatureMin : TemperatureCelsius = -20.0;
+    attribute operatingTemperatureMax : TemperatureCelsius = 50.0;
+    attribute nominalMissionEndurance : Time;
+    attribute payloadMassCapacity : Mass;
+    attribute primaryFunction : String = "Remote hazardous-area inspection and condition assessment";
+
+    connect commandIn to emergencyStop.commandIn;
+    connect missionPlanIn to computer.missionPlanIn;
+    connect emergencyStop.safetyCommandOut to computer.commandIn;
+    connect battery.powerOut to driveBase.powerIn;
+    connect battery.powerOut to sensorMast.powerIn;
+    connect battery.powerOut to sensorSuite.powerIn;
+    connect battery.powerOut to computer.powerIn;
+    connect computer.motionCommandOut to driveBase.motionCommandIn;
+    connect computer.sensorPointingCommandOut to sensorMast.pointingCommandIn;
+    connect driveBase.odometryOut to computer.odometryIn;
+    connect sensorMast.visualOut to computer.visualIn;
+    connect sensorMast.thermalOut to computer.thermalIn;
+    connect sensorSuite.gasOut to computer.gasIn;
+    connect sensorSuite.radiationOut to computer.radiationIn;
+    connect sensorSuite.acousticOut to computer.acousticIn;
+    connect computer.telemetryOut to telemetryOut;
+    connect computer.visualOut to visualOut;
+    connect computer.thermalOut to thermalOut;
+    connect computer.gasOut to gasOut;
+    connect computer.radiationOut to radiationOut;
+    connect computer.acousticOut to acousticOut;
+    connect computer.findingOut to findingOut;
+  }
+
+  part def IndustrialInspectionSystem {
+    doc /* Complete supervised inspection system centered on a Taurob Inspector unmanned ground robot. */
+
+    part operatorStation : OperatorStation;
+    part wirelessLink : WirelessLink;
+    part inspector : TaurobInspector;
+
+    connect operatorStation.commandOut to wirelessLink.groundCommandIn;
+    connect operatorStation.missionPlanOut to wirelessLink.groundMissionPlanIn;
+    connect wirelessLink.robotCommandOut to inspector.commandIn;
+    connect wirelessLink.robotMissionPlanOut to inspector.missionPlanIn;
+    connect inspector.telemetryOut to wirelessLink.robotTelemetryIn;
+    connect inspector.findingOut to wirelessLink.robotFindingIn;
+    connect inspector.visualOut to wirelessLink.robotVisualIn;
+    connect inspector.thermalOut to wirelessLink.robotThermalIn;
+    connect inspector.gasOut to wirelessLink.robotGasIn;
+    connect inspector.radiationOut to wirelessLink.robotRadiationIn;
+    connect inspector.acousticOut to wirelessLink.robotAcousticIn;
+    connect wirelessLink.groundTelemetryOut to operatorStation.telemetryIn;
+    connect wirelessLink.groundFindingOut to operatorStation.findingsIn;
+    connect wirelessLink.groundVisualOut to operatorStation.visualDataIn;
+    connect wirelessLink.groundThermalOut to operatorStation.thermalDataIn;
+    connect wirelessLink.groundGasOut to operatorStation.gasDataIn;
+    connect wirelessLink.groundRadiationOut to operatorStation.radiationDataIn;
+    connect wirelessLink.groundAcousticOut to operatorStation.acousticDataIn;
+  }
+
+  action def ExecuteInspectionMission {
+    in missionPlan : MissionPlan;
+    in command : CommandMessage;
+    out telemetry : TelemetryFrame;
+    out finding : InspectionFinding;
+
+    action initializeRobot;
+    action validateMissionPlan;
+    action navigateToInspectionArea;
+    action scanAssetWithVisualCamera;
+    action scanAssetWithThermalCamera;
+    action sampleAtmosphere;
+    action measureRadiation;
+    action listenForAbnormalAcoustics;
+    action classifyInspectionResults;
+    action transmitTelemetryAndFindings;
+    action returnToSafeLocation;
+
+    first start then initializeRobot;
+    then validateMissionPlan;
+    then navigateToInspectionArea;
+    then scanAssetWithVisualCamera;
+    fork;
+      then scanAssetWithThermalCamera;
+      then sampleAtmosphere;
+      then measureRadiation;
+      then listenForAbnormalAcoustics;
+    join;
+    then classifyInspectionResults;
+    then transmitTelemetryAndFindings;
+    then returnToSafeLocation;
+    then done;
+  }
+
+  state def InspectorOperationalState {
+    entry action powerOnSelfTest;
+    exit action persistMissionLog;
+
+    state PoweredOff;
+    state Standby;
+    state MissionReady;
+    state TeleoperatedInspection;
+    state AutonomousInspection;
+    state DataTransmission;
+    state ReturnToBase;
+    state EmergencyStop;
+    state FaultRecovery;
+
+    transition initial then PoweredOff;
+    transition PoweredOff then Standby
+      accept CommandMessage
+      if commandId == "POWER_ON";
+
+    transition Standby then MissionReady
+      accept MissionPlan
+      if minimumReturnBattery >= 20.0;
+
+    transition MissionReady then TeleoperatedInspection
+      accept CommandMessage
+      if commandId == "START_TELEOP";
+
+    transition MissionReady then AutonomousInspection
+      accept CommandMessage
+      if commandId == "START_AUTONOMOUS_INSPECTION";
+
+    transition TeleoperatedInspection then DataTransmission
+      accept CommandMessage
+      if commandId == "CAPTURE_AND_REPORT";
+
+    transition AutonomousInspection then DataTransmission
+      accept CommandMessage
+      if commandId == "INSPECTION_POINT_COMPLETE";
+
+    transition DataTransmission then AutonomousInspection
+      accept CommandMessage
+      if commandId == "CONTINUE_ROUTE";
+
+    transition DataTransmission then ReturnToBase
+      accept CommandMessage
+      if commandId == "MISSION_COMPLETE";
+
+    transition TeleoperatedInspection then ReturnToBase
+      accept CommandMessage
+      if commandId == "RETURN_HOME";
+
+    transition AutonomousInspection then ReturnToBase
+      accept CommandMessage
+      if commandId == "RETURN_HOME";
+
+    transition ReturnToBase then Standby
+      accept CommandMessage
+      if commandId == "ARRIVED_HOME";
+
+    transition Standby then PoweredOff
+      accept CommandMessage
+      if commandId == "POWER_OFF";
+
+    transition MissionReady then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition TeleoperatedInspection then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition AutonomousInspection then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition ReturnToBase then EmergencyStop
+      accept CommandMessage
+      if commandId == "E_STOP";
+
+    transition EmergencyStop then FaultRecovery
+      accept CommandMessage
+      if commandId == "RESET_E_STOP";
+
+    transition FaultRecovery then Standby
+      accept CommandMessage
+      if commandId == "RECOVERY_COMPLETE";
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall provide remote inspection of hazardous or hard-to-access industrial environments using the Taurob Inspector robot. */
+    subject system : IndustrialInspectionSystem;
+    require constraint {
+      system.inspector.primaryFunction == "Remote hazardous-area inspection and condition assessment"
+    }
+  }
+
+  requirement def HumanExposureReductionRequirement {
+    doc /* The Taurob Inspector shall collect inspection evidence without requiring a human inspector to enter the hazardous area during normal mission execution. */
+    subject robot : TaurobInspector;
+    require constraint {
+      robot.nominalMissionEndurance > 0 [s]
+    }
+  }
+
+  requirement def MultiSensorInspectionRequirement {
+    doc /* The robot shall provide visual, thermal, gas, radiation, acoustic, and telemetry data to the operator station. */
+    subject system : IndustrialInspectionSystem;
+    require constraint {
+      system.wirelessLink.minimumAvailability >= 95.0
+    }
+  }
+
+  requirement def MobilityRequirement {
+    doc /* The tracked drive base shall support rugged industrial traversal at a useful inspection speed. */
+    subject base : DriveBase;
+    require constraint {
+      base.maximumSpeed >= 1.0 [m / s] and base.obstacleClimbHeight >= 0.20 [m]
+    }
+  }
+
+  requirement def BatteryReserveRequirement {
+    doc /* The battery management strategy shall preserve energy for safe return at the end of the mission. */
+    subject battery : BatteryPack;
+    require constraint {
+      battery.minimumReserveForReturn >= 20.0
+    }
+  }
+
+  requirement def CommunicationRequirement {
+    doc /* The communication system shall provide bidirectional command, telemetry, sensor-data, and finding exchange between the operator station and the robot. */
+    subject link : WirelessLink;
+    require constraint {
+      link.nominalRange >= 500 [m] and link.minimumAvailability >= 95.0
+    }
+  }
+
+  requirement def EmergencyStopRequirement {
+    doc /* The robot shall enter an emergency stopped state when an emergency stop command is received. */
+    subject robot : TaurobInspector;
+    require constraint {
+      robot.emergencyStop.stopResponseTime <= 1 [s]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by IndustrialInspectionSystem;
+  satisfy HumanExposureReductionRequirement by TaurobInspector;
+  satisfy MultiSensorInspectionRequirement by IndustrialInspectionSystem;
+  satisfy MobilityRequirement by DriveBase;
+  satisfy BatteryReserveRequirement by BatteryPack;
+  satisfy CommunicationRequirement by WirelessLink;
+  satisfy EmergencyStopRequirement by EmergencyStopModule;
+
+  exhibit state InspectorOperationalState by TaurobInspector;
+  perform action ExecuteInspectionMission by TaurobInspector;
+}

@@ -1,0 +1,510 @@
+package PumpAsTurbineSubsystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def FlowRate :> ISQ::volumeFlowRate {
+    unit = SI::cubicMetrePerSecond;
+  }
+
+  attribute def Head :> ISQ::length {
+    unit = SI::metre;
+  }
+
+  attribute def RotationalSpeed :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Torque :> ISQ::torque {
+    unit = SI::newtonMetre;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Efficiency :> ScalarValues::Real {
+    unit = one;
+  }
+
+  attribute def ValvePosition :> ScalarValues::Real {
+    unit = one;
+  }
+
+  attribute def VibrationLevel :> ISQ::acceleration {
+    unit = SI::metrePerSecondSquared;
+  }
+
+  attribute def FluidDensity :> ISQ::density {
+    unit = SI::kilogramPerCubicMetre;
+  }
+
+  attribute def ElectricalVoltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def ElectricalCurrent :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def ElectricalFrequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  item def WorkingFluid {
+    attribute density : FluidDensity;
+    attribute temperature : Temperature;
+    attribute absolutePressure : Pressure;
+    attribute volumetricFlow : FlowRate;
+  }
+
+  item def RotationalEnergy {
+    attribute shaftSpeed : RotationalSpeed;
+    attribute shaftTorque : Torque;
+    attribute mechanicalPower : Power;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : ElectricalVoltage;
+    attribute current : ElectricalCurrent;
+    attribute frequency : ElectricalFrequency;
+    attribute activePower : Power;
+  }
+
+  port def FluidPort {
+    inout item fluid : WorkingFluid;
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+  }
+
+  port def ShaftPort {
+    inout item energy : RotationalEnergy;
+    attribute speed : RotationalSpeed;
+    attribute torque : Torque;
+    attribute power : Power;
+  }
+
+  port def ElectricalPort {
+    out item energy : ElectricalEnergy;
+    attribute voltage : ElectricalVoltage;
+    attribute current : ElectricalCurrent;
+    attribute frequency : ElectricalFrequency;
+    attribute power : Power;
+  }
+
+  port def SignalPort {
+    inout attribute value : ScalarValues::Real;
+  }
+
+  part def IsolationValve {
+    port upstream : FluidPort;
+    port downstream : FluidPort;
+    port command : SignalPort;
+    attribute position : ValvePosition;
+    attribute maximumFlow : FlowRate;
+    attribute pressureDrop : Pressure;
+
+    action openValve {
+      in attribute requestedPosition : ValvePosition;
+      out attribute achievedPosition : ValvePosition;
+      bind achievedPosition = requestedPosition;
+    }
+
+    action closeValve {
+      out attribute achievedPosition : ValvePosition;
+      bind achievedPosition = 0.0;
+    }
+  }
+
+  part def Strainer {
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+    attribute cleanPressureDrop : Pressure = 12000 [SI::pascal];
+    attribute fouledPressureDropLimit : Pressure = 60000 [SI::pascal];
+    attribute differentialPressure : Pressure;
+  }
+
+  part def PumpAsTurbine {
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+    port shaft : ShaftPort;
+
+    attribute ratedHead : Head = 42 [SI::metre];
+    attribute ratedFlow : FlowRate = 0.085 [SI::cubicMetrePerSecond];
+    attribute ratedSpeed : RotationalSpeed = 25 [SI::hertz];
+    attribute hydraulicEfficiency : Efficiency = 0.72;
+    attribute minimumOperatingFlow : FlowRate = 0.035 [SI::cubicMetrePerSecond];
+    attribute maximumOperatingFlow : FlowRate = 0.125 [SI::cubicMetrePerSecond];
+    attribute minimumInletPressure : Pressure = 180000 [SI::pascal];
+    attribute maximumCasePressure : Pressure = 1600000 [SI::pascal];
+    attribute vibrationTripLimit : VibrationLevel = 12 [SI::metrePerSecondSquared];
+    attribute bearingTemperatureTripLimit : Temperature = 363 [SI::kelvin];
+    attribute currentHead : Head;
+    attribute currentFlow : FlowRate;
+    attribute producedMechanicalPower : Power;
+    attribute vibration : VibrationLevel;
+    attribute bearingTemperature : Temperature;
+
+    action convertHydraulicToMechanical {
+      in item water : WorkingFluid;
+      in attribute netHead : Head;
+      in attribute flow : FlowRate;
+      out item shaftEnergy : RotationalEnergy;
+      out attribute powerOut : Power;
+    }
+
+    state machine operatingMode {
+      state stopped;
+      state filling;
+      state synchronizedIdle;
+      state generating;
+      state bypassed;
+      state tripped;
+
+      initial then stopped;
+
+      transition stopped_to_filling
+        first stopped
+        accept StartCommand
+        then filling;
+
+      transition filling_to_idle
+        first filling
+        if inlet.pressure >= minimumInletPressure
+        then synchronizedIdle;
+
+      transition idle_to_generating
+        first synchronizedIdle
+        if currentFlow >= minimumOperatingFlow and currentFlow <= maximumOperatingFlow
+        then generating;
+
+      transition generating_to_bypassed
+        first generating
+        accept BypassCommand
+        then bypassed;
+
+      transition generating_to_tripped
+        first generating
+        if inlet.pressure < minimumInletPressure or
+           outlet.pressure > maximumCasePressure or
+           vibration > vibrationTripLimit or
+           bearingTemperature > bearingTemperatureTripLimit
+        then tripped;
+
+      transition bypassed_to_idle
+        first bypassed
+        accept ResetBypassCommand
+        then synchronizedIdle;
+
+      transition tripped_to_stopped
+        first tripped
+        accept ResetCommand
+        then stopped;
+    }
+  }
+
+  part def FlexibleCoupling {
+    port turbineSide : ShaftPort;
+    port generatorSide : ShaftPort;
+    attribute nominalTorque : Torque = 950 [SI::newtonMetre];
+    attribute torsionalEfficiency : Efficiency = 0.985;
+  }
+
+  part def Generator {
+    port shaftInput : ShaftPort;
+    port electricalOutput : ElectricalPort;
+
+    attribute ratedMechanicalPower : Power = 250000 [SI::watt];
+    attribute ratedElectricalPower : Power = 225000 [SI::watt];
+    attribute ratedVoltage : ElectricalVoltage = 480 [SI::volt];
+    attribute ratedFrequency : ElectricalFrequency = 60 [SI::hertz];
+    attribute conversionEfficiency : Efficiency = 0.93;
+    attribute windingTemperature : Temperature;
+    attribute electricalPower : Power;
+
+    action generateElectricity {
+      in item mechanicalInput : RotationalEnergy;
+      out item electricalOutputEnergy : ElectricalEnergy;
+    }
+  }
+
+  part def BypassLine {
+    part bypassValve : IsolationValve {
+      attribute maximumFlow = 0.15 [SI::cubicMetrePerSecond];
+    }
+
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+
+    connect inlet to bypassValve.upstream;
+    connect bypassValve.downstream to outlet;
+  }
+
+  part def InstrumentationSkid {
+    port inletPressureSignal : SignalPort;
+    port outletPressureSignal : SignalPort;
+    port flowSignal : SignalPort;
+    port speedSignal : SignalPort;
+    port vibrationSignal : SignalPort;
+    port temperatureSignal : SignalPort;
+
+    attribute measuredInletPressure : Pressure;
+    attribute measuredOutletPressure : Pressure;
+    attribute measuredFlow : FlowRate;
+    attribute measuredSpeed : RotationalSpeed;
+    attribute measuredVibration : VibrationLevel;
+    attribute measuredBearingTemperature : Temperature;
+  }
+
+  part def TurbineController {
+    port startInput : SignalPort;
+    port stopInput : SignalPort;
+    port bypassCommand : SignalPort;
+    port inletValveCommand : SignalPort;
+    port outletValveCommand : SignalPort;
+    port generatorBreakerCommand : SignalPort;
+    port flowMeasurement : SignalPort;
+    port speedMeasurement : SignalPort;
+    port vibrationMeasurement : SignalPort;
+
+    attribute targetFlow : FlowRate = 0.085 [SI::cubicMetrePerSecond];
+    attribute targetSpeed : RotationalSpeed = 25 [SI::hertz];
+    attribute overspeedTrip : RotationalSpeed = 30 [SI::hertz];
+    attribute lowFlowTrip : FlowRate = 0.025 [SI::cubicMetrePerSecond];
+
+    action regulateFlow {
+      in attribute measuredFlow : FlowRate;
+      in attribute setpointFlow : FlowRate;
+      out attribute valveDemand : ValvePosition;
+    }
+
+    state machine controllerState {
+      state off;
+      state permissiveCheck;
+      state ramping;
+      state online;
+      state controlledShutdown;
+      state emergencyTrip;
+
+      initial then off;
+
+      transition off_to_permissiveCheck
+        first off
+        accept StartCommand
+        then permissiveCheck;
+
+      transition permissiveCheck_to_ramping
+        first permissiveCheck
+        if flowMeasurement.value > 0.0
+        then ramping;
+
+      transition ramping_to_online
+        first ramping
+        if speedMeasurement.value >= 25.0
+        then online;
+
+      transition online_to_shutdown
+        first online
+        accept StopCommand
+        then controlledShutdown;
+
+      transition online_to_trip
+        first online
+        if speedMeasurement.value > 30.0 or vibrationMeasurement.value > 12.0
+        then emergencyTrip;
+
+      transition shutdown_to_off
+        first controlledShutdown
+        then off;
+
+      transition trip_to_off
+        first emergencyTrip
+        accept ResetCommand
+        then off;
+    }
+  }
+
+  part def PumpAsTurbinePumpingSubsystem {
+    port sourceConnection : FluidPort;
+    port dischargeConnection : FluidPort;
+    port electricalExport : ElectricalPort;
+
+    item workingFluid : WorkingFluid {
+      attribute density = 998 [SI::kilogramPerCubicMetre];
+      attribute temperature = 293 [SI::kelvin];
+      attribute absolutePressure = 450000 [SI::pascal];
+      attribute volumetricFlow = 0.085 [SI::cubicMetrePerSecond];
+    }
+
+    part inletValve : IsolationValve {
+      attribute maximumFlow = 0.14 [SI::cubicMetrePerSecond];
+    }
+
+    part inletStrainer : Strainer;
+
+    part turbine : PumpAsTurbine;
+
+    part coupling : FlexibleCoupling;
+
+    part generator : Generator;
+
+    part outletValve : IsolationValve {
+      attribute maximumFlow = 0.14 [SI::cubicMetrePerSecond];
+    }
+
+    part bypass : BypassLine;
+
+    part instruments : InstrumentationSkid;
+
+    part controller : TurbineController;
+
+    connect sourceConnection to inletValve.upstream;
+    connect inletValve.downstream to inletStrainer.inlet;
+    connect inletStrainer.outlet to turbine.inlet;
+    connect turbine.outlet to outletValve.upstream;
+    connect outletValve.downstream to dischargeConnection;
+
+    connect sourceConnection to bypass.inlet;
+    connect bypass.outlet to dischargeConnection;
+
+    connect turbine.shaft to coupling.turbineSide;
+    connect coupling.generatorSide to generator.shaftInput;
+    connect generator.electricalOutput to electricalExport;
+
+    connect instruments.flowSignal to controller.flowMeasurement;
+    connect instruments.speedSignal to controller.speedMeasurement;
+    connect instruments.vibrationSignal to controller.vibrationMeasurement;
+    connect controller.inletValveCommand to inletValve.command;
+    connect controller.outletValveCommand to outletValve.command;
+    connect controller.bypassCommand to bypass.bypassValve.command;
+
+    assert constraint pressureEnergyAvailable {
+      turbine.inlet.pressure > turbine.outlet.pressure;
+    }
+
+    assert constraint flowWithinTurbineEnvelope {
+      turbine.currentFlow >= turbine.minimumOperatingFlow and
+      turbine.currentFlow <= turbine.maximumOperatingFlow;
+    }
+
+    assert constraint mechanicalPowerBalance {
+      turbine.producedMechanicalPower <=
+      workingFluid.density * 9.80665 [SI::metrePerSecondSquared] *
+      turbine.currentFlow * turbine.currentHead * turbine.hydraulicEfficiency;
+    }
+
+    assert constraint generatorPowerLimit {
+      generator.electricalPower <= generator.ratedElectricalPower;
+    }
+  }
+
+  requirement def MoveFluidByPumpAsTurbine {
+    subject subsystem : PumpAsTurbinePumpingSubsystem;
+
+    require constraint {
+      subsystem.turbine.currentFlow >= 0.035 [SI::cubicMetrePerSecond] and
+      subsystem.turbine.currentFlow <= 0.125 [SI::cubicMetrePerSecond];
+    }
+
+    require constraint {
+      subsystem.turbine.inlet.pressure > subsystem.turbine.outlet.pressure;
+    }
+
+    doc
+    /*
+     The subsystem shall route working fluid through a centrifugal pump operated
+     in reverse as a turbine, converting available hydraulic head into shaft
+     power while maintaining continuous controlled fluid transfer from source
+     to discharge.
+    */
+  }
+
+  requirement def HydraulicOperatingEnvelope {
+    subject turbine : PumpAsTurbine;
+
+    require constraint {
+      turbine.inlet.pressure >= turbine.minimumInletPressure;
+    }
+
+    require constraint {
+      turbine.outlet.pressure <= turbine.maximumCasePressure;
+    }
+
+    require constraint {
+      turbine.currentFlow >= turbine.minimumOperatingFlow and
+      turbine.currentFlow <= turbine.maximumOperatingFlow;
+    }
+  }
+
+  requirement def EnergyRecoveryPerformance {
+    subject subsystem : PumpAsTurbinePumpingSubsystem;
+
+    require constraint {
+      subsystem.turbine.hydraulicEfficiency >= 0.68;
+    }
+
+    require constraint {
+      subsystem.generator.conversionEfficiency >= 0.90;
+    }
+
+    require constraint {
+      subsystem.generator.electricalPower >= 150000 [SI::watt]
+      implies subsystem.turbine.currentFlow >= 0.07 [SI::cubicMetrePerSecond];
+    }
+  }
+
+  requirement def ProtectionAndShutdown {
+    subject subsystem : PumpAsTurbinePumpingSubsystem;
+
+    require constraint {
+      subsystem.turbine.vibration <= subsystem.turbine.vibrationTripLimit;
+    }
+
+    require constraint {
+      subsystem.turbine.bearingTemperature <= subsystem.turbine.bearingTemperatureTripLimit;
+    }
+
+    require constraint {
+      subsystem.controller.overspeedTrip <= 30 [SI::hertz];
+    }
+
+    doc
+    /*
+     The controller shall isolate the inlet and outlet valves, open the bypass
+     path when commanded, and trip the generator breaker when overspeed,
+     low inlet pressure, excessive vibration, or high bearing temperature is
+     detected.
+    */
+  }
+
+  requirement def MaintainBypassAvailability {
+    subject subsystem : PumpAsTurbinePumpingSubsystem;
+
+    require constraint {
+      subsystem.bypass.bypassValve.maximumFlow >= subsystem.turbine.maximumOperatingFlow;
+    }
+
+    doc
+    /*
+     The bypass line shall be sized to pass the maximum permitted turbine flow
+     so that fluid movement can continue when the pump-as-turbine unit is
+     unavailable or isolated.
+    */
+  }
+
+  satisfy MoveFluidByPumpAsTurbine by PumpAsTurbinePumpingSubsystem;
+  satisfy HydraulicOperatingEnvelope by PumpAsTurbinePumpingSubsystem::turbine;
+  satisfy EnergyRecoveryPerformance by PumpAsTurbinePumpingSubsystem;
+  satisfy ProtectionAndShutdown by PumpAsTurbinePumpingSubsystem;
+  satisfy MaintainBypassAvailability by PumpAsTurbinePumpingSubsystem;
+
+}

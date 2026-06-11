@@ -1,0 +1,307 @@
+package HighEmissivityAluminiferousLuminescentSubstrateSystem {
+
+  attribute def Temperature_K :> Real;
+  attribute def Power_W :> Real;
+  attribute def HeatFlux_W_per_m2 :> Real;
+  attribute def Wavelength_nm :> Real;
+  attribute def Emissivity :> Real;
+  attribute def Luminance_cd_per_m2 :> Real;
+  attribute def Thickness_um :> Real;
+  attribute def Voltage_V :> Real;
+  attribute def Current_A :> Real;
+  attribute def Time_s :> Real;
+
+  item def RadiantHeat {
+    attribute heatFlux : HeatFlux_W_per_m2;
+    attribute sourceTemperature : Temperature_K;
+  }
+
+  item def ExcitationEnergy {
+    attribute opticalPower : Power_W;
+    attribute electricalPower : Power_W;
+    attribute wavelength : Wavelength_nm;
+  }
+
+  item def LuminescentEmission {
+    attribute peakWavelength : Wavelength_nm;
+    attribute luminance : Luminance_cd_per_m2;
+    attribute emittedPower : Power_W;
+  }
+
+  item def ThermalEmission {
+    attribute emissivePower : Power_W;
+    attribute effectiveEmissivity : Emissivity;
+    attribute surfaceTemperature : Temperature_K;
+  }
+
+  port def RadiantHeatPort {
+    in item heatIn : RadiantHeat;
+    out item heatOut : ThermalEmission;
+  }
+
+  port def ExcitationPort {
+    in item excitation : ExcitationEnergy;
+  }
+
+  port def LuminescencePort {
+    out item visibleEmission : LuminescentEmission;
+  }
+
+  port def ElectricalPort {
+    in attribute voltage : Voltage_V;
+    in attribute current : Current_A;
+  }
+
+  part def AluminiferousLuminescentLayer {
+    attribute aluminumOxideFraction : Real;
+    attribute phosphorFraction : Real;
+    attribute thickness : Thickness_um;
+    attribute quantumYield : Real;
+    attribute peakEmissionWavelength : Wavelength_nm;
+
+    port excitationPort : ExcitationPort;
+    port luminescencePort : LuminescencePort;
+  }
+
+  part def HighEmissivitySurfaceCoating {
+    attribute hemisphericalEmissivity : Emissivity;
+    attribute spectralAbsorptance : Real;
+    attribute coatingThickness : Thickness_um;
+    attribute maximumServiceTemperature : Temperature_K;
+
+    port thermalPort : RadiantHeatPort;
+  }
+
+  part def StructuralSubstrate {
+    attribute aluminumMassFraction : Real;
+    attribute ceramicBinderFraction : Real;
+    attribute thickness : Thickness_um;
+    attribute operatingTemperature : Temperature_K;
+    attribute thermalConductivity_W_per_mK : Real;
+
+    port thermalPort : RadiantHeatPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measuredTemperature : Temperature_K;
+    attribute responseTime : Time_s;
+
+    port sensePort : RadiantHeatPort;
+  }
+
+  part def ExcitationDriver {
+    attribute commandedVoltage : Voltage_V;
+    attribute commandedCurrent : Current_A;
+    attribute outputPower : Power_W;
+
+    port electricalInput : ElectricalPort;
+    port excitationOutput : ExcitationPort;
+  }
+
+  part def EmissionController {
+    attribute targetTemperature : Temperature_K;
+    attribute targetLuminance : Luminance_cd_per_m2;
+    attribute controlPeriod : Time_s;
+    attribute driveEnable : Boolean;
+
+    port electricalCommand : ElectricalPort;
+  }
+
+  part def HighEmissivityAluminiferousLuminescentSubstrate {
+    attribute totalThickness : Thickness_um;
+    attribute nominalEmissivity : Emissivity;
+    attribute nominalPeakWavelength : Wavelength_nm;
+    attribute nominalOperatingTemperature : Temperature_K;
+
+    part base : StructuralSubstrate;
+    part emissiveCoating : HighEmissivitySurfaceCoating;
+    part luminescentLayer : AluminiferousLuminescentLayer;
+
+    port heatInterface : RadiantHeatPort;
+    port excitationInterface : ExcitationPort;
+    port opticalOutput : LuminescencePort;
+
+    connect heatInterface to emissiveCoating.thermalPort;
+    connect emissiveCoating.thermalPort to base.thermalPort;
+    connect excitationInterface to luminescentLayer.excitationPort;
+    connect luminescentLayer.luminescencePort to opticalOutput;
+  }
+
+  part def HEALSAssembly {
+    attribute ambientTemperature : Temperature_K;
+    attribute emittedThermalPower : Power_W;
+    attribute emittedVisiblePower : Power_W;
+
+    part substrate : HighEmissivityAluminiferousLuminescentSubstrate;
+    part controller : EmissionController;
+    part driver : ExcitationDriver;
+    part sensor : TemperatureSensor;
+
+    port radiantInput : RadiantHeatPort;
+    port visibleOutput : LuminescencePort;
+    port powerInput : ElectricalPort;
+
+    connect radiantInput to substrate.heatInterface;
+    connect powerInput to driver.electricalInput;
+    connect controller.electricalCommand to driver.electricalInput;
+    connect driver.excitationOutput to substrate.excitationInterface;
+    connect substrate.opticalOutput to visibleOutput;
+    connect substrate.heatInterface to sensor.sensePort;
+  }
+
+  action def AbsorbIncidentHeat {
+    in item incidentHeat : RadiantHeat;
+    out item storedThermalEnergy : RadiantHeat;
+  }
+
+  action def EmitThermalRadiation {
+    in item storedThermalEnergy : RadiantHeat;
+    out item thermalEmission : ThermalEmission;
+  }
+
+  action def GenerateLuminescence {
+    in item excitation : ExcitationEnergy;
+    out item opticalEmission : LuminescentEmission;
+  }
+
+  action def RegulateEmission {
+    in attribute measuredTemperature : Temperature_K;
+    in attribute targetTemperature : Temperature_K;
+    in attribute targetLuminance : Luminance_cd_per_m2;
+    out attribute commandedVoltage : Voltage_V;
+    out attribute commandedCurrent : Current_A;
+  }
+
+  state def HEALSOperationalStates {
+    state Off;
+    state Standby;
+    state Exciting;
+    state Radiating;
+    state StabilizedEmission;
+    state OverTemperatureProtection;
+
+    transition initial then Off;
+    transition Off then Standby;
+    transition Standby then Exciting;
+    transition Exciting then Radiating;
+    transition Radiating then StabilizedEmission;
+    transition StabilizedEmission then OverTemperatureProtection
+      if measuredTemperature > 900.0;
+    transition OverTemperatureProtection then Standby
+      if measuredTemperature < 750.0;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject assembly : HEALSAssembly;
+
+    doc
+    /* The system shall provide a high-emissivity aluminiferous luminescent substrate whose primary high-level function is to absorb incident thermal or excitation energy and convert it into controlled thermal radiation and visible luminescent emission for passive heat rejection, surface identification, and operational indication. */
+
+    require constraint {
+      assembly.substrate.nominalEmissivity >= 0.88
+    }
+
+    require constraint {
+      assembly.substrate.nominalPeakWavelength >= 430.0 and
+      assembly.substrate.nominalPeakWavelength <= 620.0
+    }
+  }
+
+  requirement def ThermalEmissionRequirement {
+    subject substrate : HighEmissivityAluminiferousLuminescentSubstrate;
+
+    require constraint {
+      substrate.nominalOperatingTemperature <= 850.0
+    }
+
+    require constraint {
+      substrate.emissiveCoating.hemisphericalEmissivity >= 0.90
+    }
+  }
+
+  requirement def LuminescentResponseRequirement {
+    subject layer : AluminiferousLuminescentLayer;
+
+    require constraint {
+      layer.quantumYield >= 0.35
+    }
+
+    require constraint {
+      layer.peakEmissionWavelength >= 430.0 and
+      layer.peakEmissionWavelength <= 620.0
+    }
+  }
+
+  requirement def StructuralCompositionRequirement {
+    subject base : StructuralSubstrate;
+
+    require constraint {
+      base.aluminumMassFraction >= 0.20
+    }
+
+    require constraint {
+      base.thickness >= 250.0
+    }
+  }
+
+  part healsSystem : HEALSAssembly {
+    attribute ambientTemperature = 298.15;
+    attribute emittedThermalPower = 120.0;
+    attribute emittedVisiblePower = 2.5;
+
+    part substrate {
+      attribute totalThickness = 520.0;
+      attribute nominalEmissivity = 0.92;
+      attribute nominalPeakWavelength = 525.0;
+      attribute nominalOperatingTemperature = 650.0;
+
+      part base {
+        attribute aluminumMassFraction = 0.35;
+        attribute ceramicBinderFraction = 0.55;
+        attribute thickness = 400.0;
+        attribute operatingTemperature = 650.0;
+        attribute thermalConductivity_W_per_mK = 18.0;
+      }
+
+      part emissiveCoating {
+        attribute hemisphericalEmissivity = 0.94;
+        attribute spectralAbsorptance = 0.87;
+        attribute coatingThickness = 45.0;
+        attribute maximumServiceTemperature = 950.0;
+      }
+
+      part luminescentLayer {
+        attribute aluminumOxideFraction = 0.62;
+        attribute phosphorFraction = 0.28;
+        attribute thickness = 75.0;
+        attribute quantumYield = 0.42;
+        attribute peakEmissionWavelength = 525.0;
+      }
+    }
+
+    part controller {
+      attribute targetTemperature = 650.0;
+      attribute targetLuminance = 1500.0;
+      attribute controlPeriod = 0.05;
+      attribute driveEnable = true;
+    }
+
+    part driver {
+      attribute commandedVoltage = 24.0;
+      attribute commandedCurrent = 1.8;
+      attribute outputPower = 43.2;
+    }
+
+    part sensor {
+      attribute measuredTemperature = 650.0;
+      attribute responseTime = 0.2;
+    }
+
+    perform action AbsorbIncidentHeat;
+    perform action EmitThermalRadiation;
+    perform action GenerateLuminescence;
+    perform action RegulateEmission;
+    exhibit state HEALSOperationalStates;
+  }
+
+}

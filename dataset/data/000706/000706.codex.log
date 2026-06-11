@@ -1,0 +1,879 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-98rjeepg
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3e5-d839-77b2-ba81-6b7e44cf0771
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Nd:YAG laser and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NdYAGLaserSystemSpecification {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def OpticalPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def PulseEnergy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def Wavelength :> ISQ::length {
+        unit = SI::nanometre;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def FlowRate {
+        :>> scalar : Real;
+        unit = "L/min";
+    }
+
+    attribute def BeamDiameter :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def BeamDivergence {
+        :>> scalar : Real;
+        unit = "mrad";
+    }
+
+    enum def LaserMode {
+        enum continuousWave;
+        enum pulsed;
+        enum qSwitched;
+        enum standby;
+        enum disabled;
+    }
+
+    enum def SafetyStatus {
+        enum safe;
+        enum warning;
+        enum fault;
+        enum interlocked;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute frequency : Frequency;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flowRate : FlowRate;
+    }
+
+    item def PumpLight {
+        attribute wavelength : Wavelength;
+        attribute opticalPower : OpticalPower;
+    }
+
+    item def LaserBeam {
+        attribute wavelength : Wavelength = 1064 [SI::nanometre];
+        attribute averagePower : OpticalPower;
+        attribute pulseEnergy : PulseEnergy;
+        attribute repetitionRate : Frequency;
+        attribute beamDiameter : BeamDiameter;
+        attribute divergence : BeamDivergence;
+        attribute modeQualityM2 : Real;
+    }
+
+    item def ControlCommand {
+        attribute enableRequested : Boolean;
+        attribute selectedMode : LaserMode;
+        attribute requestedPulseEnergy : PulseEnergy;
+        attribute requestedRepetitionRate : Frequency;
+    }
+
+    item def StatusReport {
+        attribute enabled : Boolean;
+        attribute operatingMode : LaserMode;
+        attribute safetyStatus : SafetyStatus;
+        attribute measuredOutputPower : OpticalPower;
+        attribute crystalTemperature : Temperature;
+    }
+
+    port def ElectricalInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def CoolingPort {
+        in item coolantIn : CoolingFluid;
+        out item coolantOut : CoolingFluid;
+    }
+
+    port def OpticalPumpPort {
+        in item pumpEmission : PumpLight;
+    }
+
+    port def OpticalOutputPort {
+        out item beamOut : LaserBeam;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        out item status : StatusReport;
+    }
+
+    port def SafetyInterlockPort {
+        in item interlockClosed : Boolean;
+        out item emissionPermitted : Boolean;
+    }
+
+    part def PowerSupply {
+        port acInput : ElectricalInputPort;
+        port dcOutput : ElectricalInputPort;
+        attribute inputVoltage : Voltage = 230 [SI::volt];
+        attribute dcBusVoltage : Voltage = 400 [SI::volt];
+        attribute maxCurrent : Current = 30 [SI::ampere];
+
+        action rectifyAndRegulate {
+            in item inputPower : ElectricalPower;
+            out item regulatedPower : ElectricalPower;
+        }
+    }
+
+    part def PumpDiodeArray {
+        port electricalInput : ElectricalInputPort;
+        port opticalPumpOutput : OpticalPumpPort;
+        attribute pumpWavelength : Wavelength = 808 [SI::nanometre];
+        attribute ratedPumpPower : OpticalPower = 500 [SI::watt];
+        attribute conversionEfficiency : Real = 0.52;
+
+        action convertElectricalEnergyToPumpLight {
+            in item regulatedPower : ElectricalPower;
+            out item pumpLight : PumpLight;
+        }
+    }
+
+    part def NdYAGGainMedium {
+        port pumpInput : OpticalPumpPort;
+        port heatSink : CoolingPort;
+        attribute lasingWavelength : Wavelength = 1064 [SI::nanometre];
+        attribute neodymiumDopingFraction : Real = 0.011;
+        attribute crystalLength : ISQ::length = 100 [SI::millimetre];
+        attribute crystalTemperature : Temperature = 293 [SI::kelvin];
+
+        action absorbPumpAndStoreEnergy {
+            in item pumpLight : PumpLight;
+            out item storedInversion : Real;
+        }
+    }
+
+    part def OpticalResonator {
+        port gainInput : OpticalPumpPort;
+        port beamOutput : OpticalOutputPort;
+        attribute highReflectorReflectance : Real = 0.999;
+        attribute outputCouplerReflectance : Real = 0.85;
+        attribute resonatorLength : ISQ::length = 500 [SI::millimetre];
+
+        action amplifyStimulatedEmission {
+            in item storedInversion : Real;
+            out item intracavityBeam : LaserBeam;
+        }
+    }
+
+    part def QSwitch {
+        attribute enabled : Boolean = true;
+        attribute holdOffVoltage : Voltage = 3500 [SI::volt];
+        attribute switchingTime : ISQ::time = 20 [SI::nanosecond];
+
+        action releasePulse {
+            in item storedInversion : Real;
+            out item pulse : LaserBeam;
+        }
+    }
+
+    part def BeamDeliveryOptics {
+        port opticalInput : OpticalOutputPort;
+        port opticalOutput : OpticalOutputPort;
+        attribute outputBeamDiameter : BeamDiameter = 6 [SI::millimetre];
+        attribute outputDivergence : BeamDivergence = 1.5;
+        attribute transmissionEfficiency : Real = 0.92;
+
+        action conditionBeam {
+            in item rawBeam : LaserBeam;
+            out item deliveredBeam : LaserBeam;
+        }
+    }
+
+    part def CoolingSubsystem {
+        port coolingInterface : CoolingPort;
+        attribute nominalFlowRate : FlowRate = 4.0;
+        attribute inletSetpoint : Temperature = 293 [SI::kelvin];
+        attribute maximumOutletTemperature : Temperature = 308 [SI::kelvin];
+
+        action removeWasteHeat {
+            in item heatLoad : ISQ::power;
+            out item stabilizedTemperature : Temperature;
+        }
+    }
+
+    part def SafetyController {
+        port interlock : SafetyInterlockPort;
+        port telemetry : TelemetryPort;
+        attribute shutterClosed : Boolean = true;
+        attribute faultLatched : Boolean = false;
+        attribute maximumPermittedPower : OpticalPower = 120 [SI::watt];
+        attribute maximumCrystalTemperature : Temperature = 315 [SI::kelvin];
+
+        action evaluateEmissionPermission {
+            in item interlockClosed : Boolean;
+            in item measuredPower : OpticalPower;
+            in item measuredTemperature : Temperature;
+            out item emissionPermitted : Boolean;
+            out item safetyStatus : SafetyStatus;
+        }
+    }
+
+    part def ControlUnit {
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port safetyInterface : SafetyInterlockPort;
+        attribute activeMode : LaserMode = LaserMode::disabled;
+        attribute enabled : Boolean = false;
+        attribute requestedPulseEnergy : PulseEnergy = 0.2 [SI::joule];
+        attribute requestedRepetitionRate : Frequency = 20 [SI::hertz];
+
+        action configureLaserOperation {
+            in item command : ControlCommand;
+            in item emissionPermitted : Boolean;
+            out item selectedMode : LaserMode;
+        }
+    }
+
+    part def NdYAGLaserSystem {
+        port mainsPower : ElectricalInputPort;
+        port coolingService : CoolingPort;
+        port operatorCommand : CommandPort;
+        port operatorTelemetry : TelemetryPort;
+        port externalInterlock : SafetyInterlockPort;
+        port opticalEmission : OpticalOutputPort;
+
+        attribute nominalOutputWavelength : Wavelength = 1064 [SI::nanometre];
+        attribute nominalPulseEnergy : PulseEnergy = 0.2 [SI::joule];
+        attribute nominalRepetitionRate : Frequency = 20 [SI::hertz];
+        attribute nominalAveragePower : OpticalPower = 4 [SI::watt];
+        attribute operatingMode : LaserMode = LaserMode::qSwitched;
+
+        part powerSupply : PowerSupply;
+        part pumpSource : PumpDiodeArray;
+        part gainMedium : NdYAGGainMedium;
+        part resonator : OpticalResonator;
+        part qSwitch : QSwitch;
+        part beamDelivery : BeamDeliveryOptics;
+        part cooling : CoolingSubsystem;
+        part safety : SafetyController;
+        part controller : ControlUnit;
+
+        connect mainsPower to powerSupply.acInput;
+        connect powerSupply.dcOutput to pumpSource.electricalInput;
+        connect pumpSource.opticalPumpOutput to gainMedium.pumpInput;
+        connect gainMedium.heatSink to cooling.coolingInterface;
+        connect coolingService to cooling.coolingInterface;
+        connect resonator.beamOutput to beamDelivery.opticalInput;
+        connect beamDelivery.opticalOutput to opticalEmission;
+        connect operatorCommand to controller.commandInput;
+        connect controller.telemetryOutput to operatorTelemetry;
+        connect externalInterlock to safety.interlock;
+        connect controller.safetyInterface to safety.interlock;
+        connect safety.telemetry to operatorTelemetry;
+
+        action produceCoherentInfraredBeam {
+            in item electricalPower : ElectricalPower;
+            in item coolingFluid : CoolingFluid;
+            in item command : ControlCommand;
+            out item outputBeam : LaserBeam;
+
+            first start;
+            then rectify : powerSupply.rectifyAndRegulate;
+            then pump : pumpSource.convertElectricalEnergyToPumpLight;
+            then store : gainMedium.absorbPumpAndStoreEnergy;
+            then lase : resonator.amplifyStimulatedEmission;
+            then pulse : qSwitch.releasePulse;
+            then deliver : beamDelivery.conditionBeam;
+            then done;
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state selfTest;
+            state standby;
+            state ready;
+            state emitting;
+            state fault;
+
+            initial then off;
+
+            transition off_to_selfTest
+                first off
+                accept ControlCommand
+                if command.enableRequested
+                then selfTest;
+
+            transition selfTest_to_standby
+                first selfTest
+                if safety.interlock.emissionPermitted
+                then standby;
+
+            transition selfTest_to_fault
+                first selfTest
+                if not safety.interlock.emissionPermitted
+                then fault;
+
+            transition standby_to_ready
+                first standby
+                accept ControlCommand
+                if command.selectedMode != LaserMode::disabled
+                then ready;
+
+            transition ready_to_emitting
+                first ready
+                accept ControlCommand
+                if command.enableRequested and safety.interlock.emissionPermitted
+                then emitting;
+
+            transition emitting_to_standby
+                first emitting
+                accept ControlCommand
+                if not command.enableRequested
+                then standby;
+
+            transition any_to_fault
+                first emitting
+                if safety.faultLatched
+                then fault;
+
+            transition fault_to_off
+                first fault
+                accept ControlCommand
+                if not command.enableRequested
+                then off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject laserSystem : NdYAGLaserSystem;
+
+        doc /* The system shall convert supplied electrical power into a controlled, coherent, near-infrared Nd:YAG laser beam at 1064 nm for downstream material processing, alignment, measurement, or scientific use. */
+
+        require constraint {
+            laserSystem.nominalOutputWavelength == 1064 [SI::nanometre]
+        }
+    }
+
+    requirement def OpticalOutputRequirement {
+        subject beam : LaserBeam;
+
+        doc /* The emitted beam shall have stable wavelength, bounded divergence, and operator-selectable pulsed operation. */
+
+        require constraint {
+            beam.wavelength == 1064 [SI::nanometre] and
+            beam.pulseEnergy >= 0.05 [SI::joule] and
+            beam.pulseEnergy <= 0.5 [SI::joule] and
+            beam.repetitionRate >= 1 [SI::hertz] and
+            beam.repetitionRate <= 100 [SI::hertz] and
+            beam.divergence <= 2.0
+        }
+    }
+
+    requirement def CoolingRequirement {
+        subject coolingSystem : CoolingSubsystem;
+
+        doc /* The cooling subsystem shall maintain the gain medium below its maximum operating temperature during enabled laser operation. */
+
+        require constraint {
+            coolingSystem.nominalFlowRate >= 3.0 and
+            coolingSystem.maximumOutletTemperature <= 308 [SI::kelvin]
+        }
+    }
+
+    requirement def SafetyInterlockRequirement {
+        subject safetyController : SafetyController;
+
+        doc /* Laser emission shall be inhibited whenever the external interlock is open, measured output power exceeds the permitted limit, or gain-medium temperature exceeds the permitted limit. */
+
+        require constraint {
+            safetyController.maximumPermittedPower <= 120 [SI::watt] and
+            safetyController.maximumCrystalTemperature <= 315 [SI::kelvin]
+        }
+    }
+
+    requirement def ControlRequirement {
+        subject controller : ControlUnit;
+
+        doc /* The control unit shall accept operator commands, select operating mode, and report enabled state, safety state, measured output power, and gain-medium temperature. */
+
+        require constraint {
+            controller.requestedRepetitionRate >= 1 [SI::hertz] and
+            controller.requestedRepetitionRate <= 100 [SI::hertz]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NdYAGLaserSystem;
+    satisfy CoolingRequirement by CoolingSubsystem;
+    satisfy SafetyInterlockRequirement by SafetyController;
+    satisfy ControlRequirement by ControlUnit;
+}
+tokens used
+4,451
+package NdYAGLaserSystemSpecification {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def OpticalPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def PulseEnergy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def Wavelength :> ISQ::length {
+        unit = SI::nanometre;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def FlowRate {
+        :>> scalar : Real;
+        unit = "L/min";
+    }
+
+    attribute def BeamDiameter :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def BeamDivergence {
+        :>> scalar : Real;
+        unit = "mrad";
+    }
+
+    enum def LaserMode {
+        enum continuousWave;
+        enum pulsed;
+        enum qSwitched;
+        enum standby;
+        enum disabled;
+    }
+
+    enum def SafetyStatus {
+        enum safe;
+        enum warning;
+        enum fault;
+        enum interlocked;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute frequency : Frequency;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flowRate : FlowRate;
+    }
+
+    item def PumpLight {
+        attribute wavelength : Wavelength;
+        attribute opticalPower : OpticalPower;
+    }
+
+    item def LaserBeam {
+        attribute wavelength : Wavelength = 1064 [SI::nanometre];
+        attribute averagePower : OpticalPower;
+        attribute pulseEnergy : PulseEnergy;
+        attribute repetitionRate : Frequency;
+        attribute beamDiameter : BeamDiameter;
+        attribute divergence : BeamDivergence;
+        attribute modeQualityM2 : Real;
+    }
+
+    item def ControlCommand {
+        attribute enableRequested : Boolean;
+        attribute selectedMode : LaserMode;
+        attribute requestedPulseEnergy : PulseEnergy;
+        attribute requestedRepetitionRate : Frequency;
+    }
+
+    item def StatusReport {
+        attribute enabled : Boolean;
+        attribute operatingMode : LaserMode;
+        attribute safetyStatus : SafetyStatus;
+        attribute measuredOutputPower : OpticalPower;
+        attribute crystalTemperature : Temperature;
+    }
+
+    port def ElectricalInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def CoolingPort {
+        in item coolantIn : CoolingFluid;
+        out item coolantOut : CoolingFluid;
+    }
+
+    port def OpticalPumpPort {
+        in item pumpEmission : PumpLight;
+    }
+
+    port def OpticalOutputPort {
+        out item beamOut : LaserBeam;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        out item status : StatusReport;
+    }
+
+    port def SafetyInterlockPort {
+        in item interlockClosed : Boolean;
+        out item emissionPermitted : Boolean;
+    }
+
+    part def PowerSupply {
+        port acInput : ElectricalInputPort;
+        port dcOutput : ElectricalInputPort;
+        attribute inputVoltage : Voltage = 230 [SI::volt];
+        attribute dcBusVoltage : Voltage = 400 [SI::volt];
+        attribute maxCurrent : Current = 30 [SI::ampere];
+
+        action rectifyAndRegulate {
+            in item inputPower : ElectricalPower;
+            out item regulatedPower : ElectricalPower;
+        }
+    }
+
+    part def PumpDiodeArray {
+        port electricalInput : ElectricalInputPort;
+        port opticalPumpOutput : OpticalPumpPort;
+        attribute pumpWavelength : Wavelength = 808 [SI::nanometre];
+        attribute ratedPumpPower : OpticalPower = 500 [SI::watt];
+        attribute conversionEfficiency : Real = 0.52;
+
+        action convertElectricalEnergyToPumpLight {
+            in item regulatedPower : ElectricalPower;
+            out item pumpLight : PumpLight;
+        }
+    }
+
+    part def NdYAGGainMedium {
+        port pumpInput : OpticalPumpPort;
+        port heatSink : CoolingPort;
+        attribute lasingWavelength : Wavelength = 1064 [SI::nanometre];
+        attribute neodymiumDopingFraction : Real = 0.011;
+        attribute crystalLength : ISQ::length = 100 [SI::millimetre];
+        attribute crystalTemperature : Temperature = 293 [SI::kelvin];
+
+        action absorbPumpAndStoreEnergy {
+            in item pumpLight : PumpLight;
+            out item storedInversion : Real;
+        }
+    }
+
+    part def OpticalResonator {
+        port gainInput : OpticalPumpPort;
+        port beamOutput : OpticalOutputPort;
+        attribute highReflectorReflectance : Real = 0.999;
+        attribute outputCouplerReflectance : Real = 0.85;
+        attribute resonatorLength : ISQ::length = 500 [SI::millimetre];
+
+        action amplifyStimulatedEmission {
+            in item storedInversion : Real;
+            out item intracavityBeam : LaserBeam;
+        }
+    }
+
+    part def QSwitch {
+        attribute enabled : Boolean = true;
+        attribute holdOffVoltage : Voltage = 3500 [SI::volt];
+        attribute switchingTime : ISQ::time = 20 [SI::nanosecond];
+
+        action releasePulse {
+            in item storedInversion : Real;
+            out item pulse : LaserBeam;
+        }
+    }
+
+    part def BeamDeliveryOptics {
+        port opticalInput : OpticalOutputPort;
+        port opticalOutput : OpticalOutputPort;
+        attribute outputBeamDiameter : BeamDiameter = 6 [SI::millimetre];
+        attribute outputDivergence : BeamDivergence = 1.5;
+        attribute transmissionEfficiency : Real = 0.92;
+
+        action conditionBeam {
+            in item rawBeam : LaserBeam;
+            out item deliveredBeam : LaserBeam;
+        }
+    }
+
+    part def CoolingSubsystem {
+        port coolingInterface : CoolingPort;
+        attribute nominalFlowRate : FlowRate = 4.0;
+        attribute inletSetpoint : Temperature = 293 [SI::kelvin];
+        attribute maximumOutletTemperature : Temperature = 308 [SI::kelvin];
+
+        action removeWasteHeat {
+            in item heatLoad : ISQ::power;
+            out item stabilizedTemperature : Temperature;
+        }
+    }
+
+    part def SafetyController {
+        port interlock : SafetyInterlockPort;
+        port telemetry : TelemetryPort;
+        attribute shutterClosed : Boolean = true;
+        attribute faultLatched : Boolean = false;
+        attribute maximumPermittedPower : OpticalPower = 120 [SI::watt];
+        attribute maximumCrystalTemperature : Temperature = 315 [SI::kelvin];
+
+        action evaluateEmissionPermission {
+            in item interlockClosed : Boolean;
+            in item measuredPower : OpticalPower;
+            in item measuredTemperature : Temperature;
+            out item emissionPermitted : Boolean;
+            out item safetyStatus : SafetyStatus;
+        }
+    }
+
+    part def ControlUnit {
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port safetyInterface : SafetyInterlockPort;
+        attribute activeMode : LaserMode = LaserMode::disabled;
+        attribute enabled : Boolean = false;
+        attribute requestedPulseEnergy : PulseEnergy = 0.2 [SI::joule];
+        attribute requestedRepetitionRate : Frequency = 20 [SI::hertz];
+
+        action configureLaserOperation {
+            in item command : ControlCommand;
+            in item emissionPermitted : Boolean;
+            out item selectedMode : LaserMode;
+        }
+    }
+
+    part def NdYAGLaserSystem {
+        port mainsPower : ElectricalInputPort;
+        port coolingService : CoolingPort;
+        port operatorCommand : CommandPort;
+        port operatorTelemetry : TelemetryPort;
+        port externalInterlock : SafetyInterlockPort;
+        port opticalEmission : OpticalOutputPort;
+
+        attribute nominalOutputWavelength : Wavelength = 1064 [SI::nanometre];
+        attribute nominalPulseEnergy : PulseEnergy = 0.2 [SI::joule];
+        attribute nominalRepetitionRate : Frequency = 20 [SI::hertz];
+        attribute nominalAveragePower : OpticalPower = 4 [SI::watt];
+        attribute operatingMode : LaserMode = LaserMode::qSwitched;
+
+        part powerSupply : PowerSupply;
+        part pumpSource : PumpDiodeArray;
+        part gainMedium : NdYAGGainMedium;
+        part resonator : OpticalResonator;
+        part qSwitch : QSwitch;
+        part beamDelivery : BeamDeliveryOptics;
+        part cooling : CoolingSubsystem;
+        part safety : SafetyController;
+        part controller : ControlUnit;
+
+        connect mainsPower to powerSupply.acInput;
+        connect powerSupply.dcOutput to pumpSource.electricalInput;
+        connect pumpSource.opticalPumpOutput to gainMedium.pumpInput;
+        connect gainMedium.heatSink to cooling.coolingInterface;
+        connect coolingService to cooling.coolingInterface;
+        connect resonator.beamOutput to beamDelivery.opticalInput;
+        connect beamDelivery.opticalOutput to opticalEmission;
+        connect operatorCommand to controller.commandInput;
+        connect controller.telemetryOutput to operatorTelemetry;
+        connect externalInterlock to safety.interlock;
+        connect controller.safetyInterface to safety.interlock;
+        connect safety.telemetry to operatorTelemetry;
+
+        action produceCoherentInfraredBeam {
+            in item electricalPower : ElectricalPower;
+            in item coolingFluid : CoolingFluid;
+            in item command : ControlCommand;
+            out item outputBeam : LaserBeam;
+
+            first start;
+            then rectify : powerSupply.rectifyAndRegulate;
+            then pump : pumpSource.convertElectricalEnergyToPumpLight;
+            then store : gainMedium.absorbPumpAndStoreEnergy;
+            then lase : resonator.amplifyStimulatedEmission;
+            then pulse : qSwitch.releasePulse;
+            then deliver : beamDelivery.conditionBeam;
+            then done;
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state selfTest;
+            state standby;
+            state ready;
+            state emitting;
+            state fault;
+
+            initial then off;
+
+            transition off_to_selfTest
+                first off
+                accept ControlCommand
+                if command.enableRequested
+                then selfTest;
+
+            transition selfTest_to_standby
+                first selfTest
+                if safety.interlock.emissionPermitted
+                then standby;
+
+            transition selfTest_to_fault
+                first selfTest
+                if not safety.interlock.emissionPermitted
+                then fault;
+
+            transition standby_to_ready
+                first standby
+                accept ControlCommand
+                if command.selectedMode != LaserMode::disabled
+                then ready;
+
+            transition ready_to_emitting
+                first ready
+                accept ControlCommand
+                if command.enableRequested and safety.interlock.emissionPermitted
+                then emitting;
+
+            transition emitting_to_standby
+                first emitting
+                accept ControlCommand
+                if not command.enableRequested
+                then standby;
+
+            transition any_to_fault
+                first emitting
+                if safety.faultLatched
+                then fault;
+
+            transition fault_to_off
+                first fault
+                accept ControlCommand
+                if not command.enableRequested
+                then off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject laserSystem : NdYAGLaserSystem;
+
+        doc /* The system shall convert supplied electrical power into a controlled, coherent, near-infrared Nd:YAG laser beam at 1064 nm for downstream material processing, alignment, measurement, or scientific use. */
+
+        require constraint {
+            laserSystem.nominalOutputWavelength == 1064 [SI::nanometre]
+        }
+    }
+
+    requirement def OpticalOutputRequirement {
+        subject beam : LaserBeam;
+
+        doc /* The emitted beam shall have stable wavelength, bounded divergence, and operator-selectable pulsed operation. */
+
+        require constraint {
+            beam.wavelength == 1064 [SI::nanometre] and
+            beam.pulseEnergy >= 0.05 [SI::joule] and
+            beam.pulseEnergy <= 0.5 [SI::joule] and
+            beam.repetitionRate >= 1 [SI::hertz] and
+            beam.repetitionRate <= 100 [SI::hertz] and
+            beam.divergence <= 2.0
+        }
+    }
+
+    requirement def CoolingRequirement {
+        subject coolingSystem : CoolingSubsystem;
+
+        doc /* The cooling subsystem shall maintain the gain medium below its maximum operating temperature during enabled laser operation. */
+
+        require constraint {
+            coolingSystem.nominalFlowRate >= 3.0 and
+            coolingSystem.maximumOutletTemperature <= 308 [SI::kelvin]
+        }
+    }
+
+    requirement def SafetyInterlockRequirement {
+        subject safetyController : SafetyController;
+
+        doc /* Laser emission shall be inhibited whenever the external interlock is open, measured output power exceeds the permitted limit, or gain-medium temperature exceeds the permitted limit. */
+
+        require constraint {
+            safetyController.maximumPermittedPower <= 120 [SI::watt] and
+            safetyController.maximumCrystalTemperature <= 315 [SI::kelvin]
+        }
+    }
+
+    requirement def ControlRequirement {
+        subject controller : ControlUnit;
+
+        doc /* The control unit shall accept operator commands, select operating mode, and report enabled state, safety state, measured output power, and gain-medium temperature. */
+
+        require constraint {
+            controller.requestedRepetitionRate >= 1 [SI::hertz] and
+            controller.requestedRepetitionRate <= 100 [SI::hertz]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NdYAGLaserSystem;
+    satisfy CoolingRequirement by CoolingSubsystem;
+    satisfy SafetyInterlockRequirement by SafetyController;
+    satisfy ControlRequirement by ControlUnit;
+}

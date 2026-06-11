@@ -1,0 +1,560 @@
+package MicrobiologyInstrumentSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "min";
+    }
+
+    attribute def Volume :> Real {
+        unit = "mL";
+    }
+
+    attribute def Speed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def OpticalDensity :> Real;
+    attribute def SterilityLevel :> Real;
+    attribute def ContaminationRisk :> Real;
+
+    item def BiologicalSample {
+        attribute sampleId : String;
+        attribute volume : Volume;
+        attribute organismClass : String;
+        attribute contaminationRisk : ContaminationRisk;
+        attribute isSterile : Boolean;
+    }
+
+    item def CulturePlate :> BiologicalSample {
+        attribute mediumType : String;
+        attribute incubationTemperature : Temperature;
+        attribute incubationTime : TimeDuration;
+    }
+
+    item def LiquidCulture :> BiologicalSample {
+        attribute opticalDensity600 : OpticalDensity;
+        attribute vesselType : String;
+    }
+
+    item def SterileConsumable {
+        attribute consumableId : String;
+        attribute sterilityLevel : SterilityLevel;
+        attribute packageIntegrity : Boolean;
+    }
+
+    item def WasteMaterial {
+        attribute biohazardClass : String;
+        attribute volume : Volume;
+        attribute decontaminated : Boolean;
+    }
+
+    item def MeasurementResult {
+        attribute resultId : String;
+        attribute measuredValue : Real;
+        attribute measurementUnit : String;
+        attribute timestamp : String;
+        attribute valid : Boolean;
+    }
+
+    port def SampleInputPort {
+        in item sample : BiologicalSample;
+    }
+
+    port def SampleOutputPort {
+        out item sample : BiologicalSample;
+    }
+
+    port def ConsumableInputPort {
+        in item consumable : SterileConsumable;
+    }
+
+    port def WasteOutputPort {
+        out item waste : WasteMaterial;
+    }
+
+    port def MeasurementOutputPort {
+        out item result : MeasurementResult;
+    }
+
+    port def PowerPort {
+        in attribute voltage : Real;
+        in attribute frequency : Real;
+    }
+
+    port def ControlPort {
+        in attribute command : String;
+        out attribute status : String;
+    }
+
+    part def MicrobiologyInstrument {
+        attribute instrumentId : String;
+        attribute manufacturer : String;
+        attribute operational : Boolean;
+        attribute clean : Boolean;
+
+        port power : PowerPort;
+        port control : ControlPort;
+
+        action calibrate;
+        action selfTest;
+        action cleanSurface;
+    }
+
+    part def CompoundMicroscope :> MicrobiologyInstrument {
+        attribute magnification : Real;
+        attribute illuminationIntensity : Real;
+
+        port sampleIn : SampleInputPort;
+        port sampleOut : SampleOutputPort;
+        port imageResult : MeasurementOutputPort;
+
+        action focusSample {
+            in item sample : BiologicalSample;
+            out item focusedSample : BiologicalSample;
+        }
+
+        action observeMorphology {
+            in item sample : BiologicalSample;
+            out item result : MeasurementResult;
+        }
+
+        state def MicroscopeOperatingState {
+            state off;
+            state standby;
+            state sampleLoaded;
+            state focused;
+            state observing;
+            state complete;
+
+            transition first off then standby;
+            transition standby then sampleLoaded;
+            transition sampleLoaded then focused;
+            transition focused then observing;
+            transition observing then complete;
+            transition complete then standby;
+        }
+    }
+
+    part def Incubator :> MicrobiologyInstrument {
+        attribute setTemperature : Temperature;
+        attribute actualTemperature : Temperature;
+        attribute humidityPercent : Real;
+        attribute timer : TimeDuration;
+
+        port sampleIn : SampleInputPort;
+        port sampleOut : SampleOutputPort;
+
+        action loadCulture {
+            in item culture : CulturePlate;
+        }
+
+        action regulateTemperature {
+            in attribute target : Temperature;
+            out attribute actual : Temperature;
+        }
+
+        action incubateCulture {
+            in item culture : CulturePlate;
+            in attribute duration : TimeDuration;
+            out item incubatedCulture : CulturePlate;
+        }
+
+        state def IncubatorState {
+            state idle;
+            state preHeating;
+            state stable;
+            state incubating;
+            state alarm;
+            state complete;
+
+            transition first idle then preHeating;
+            transition preHeating then stable;
+            transition stable then incubating;
+            transition incubating then complete;
+            transition incubating then alarm;
+            transition alarm then idle;
+            transition complete then idle;
+        }
+    }
+
+    part def Autoclave :> MicrobiologyInstrument {
+        attribute chamberTemperature : Temperature;
+        attribute chamberPressure : Real;
+        attribute sterilizationTime : TimeDuration;
+
+        port consumableIn : ConsumableInputPort;
+        port wasteOut : WasteOutputPort;
+
+        action loadMaterials {
+            in item consumable : SterileConsumable;
+        }
+
+        action sterilize {
+            in attribute temperature : Temperature;
+            in attribute duration : TimeDuration;
+            out item sterileConsumable : SterileConsumable;
+        }
+
+        action decontaminateWaste {
+            in item waste : WasteMaterial;
+            out item treatedWaste : WasteMaterial;
+        }
+
+        state def AutoclaveCycleState {
+            state open;
+            state sealed;
+            state heating;
+            state sterilizing;
+            state depressurizing;
+            state cooling;
+            state safeToOpen;
+
+            transition first open then sealed;
+            transition sealed then heating;
+            transition heating then sterilizing;
+            transition sterilizing then depressurizing;
+            transition depressurizing then cooling;
+            transition cooling then safeToOpen;
+            transition safeToOpen then open;
+        }
+    }
+
+    part def BiosafetyCabinet :> MicrobiologyInstrument {
+        attribute airflowVelocity : Real;
+        attribute uvLampEnabled : Boolean;
+        attribute sashHeight : Real;
+
+        port sampleIn : SampleInputPort;
+        port sampleOut : SampleOutputPort;
+        port wasteOut : WasteOutputPort;
+
+        action establishLaminarFlow;
+        action containAerosols {
+            in item sample : BiologicalSample;
+            out attribute reducedRisk : ContaminationRisk;
+        }
+
+        action supportAsepticTransfer {
+            in item sample : BiologicalSample;
+            out item handledSample : BiologicalSample;
+        }
+
+        state def CabinetState {
+            state off;
+            state airflowStarting;
+            state ready;
+            state handlingSample;
+            state decontaminating;
+            state shutdown;
+
+            transition first off then airflowStarting;
+            transition airflowStarting then ready;
+            transition ready then handlingSample;
+            transition handlingSample then decontaminating;
+            transition decontaminating then shutdown;
+            transition shutdown then off;
+        }
+    }
+
+    part def Centrifuge :> MicrobiologyInstrument {
+        attribute rotorSpeed : Speed;
+        attribute runTime : TimeDuration;
+        attribute balanced : Boolean;
+
+        port sampleIn : SampleInputPort;
+        port sampleOut : SampleOutputPort;
+
+        action verifyBalance {
+            in item sample : LiquidCulture;
+            out attribute balanceOk : Boolean;
+        }
+
+        action separateComponents {
+            in item sample : LiquidCulture;
+            in attribute speed : Speed;
+            in attribute duration : TimeDuration;
+            out item separatedSample : LiquidCulture;
+        }
+
+        state def CentrifugeState {
+            state idle;
+            state loaded;
+            state balanceCheck;
+            state accelerating;
+            state spinning;
+            state braking;
+            state complete;
+            state fault;
+
+            transition first idle then loaded;
+            transition loaded then balanceCheck;
+            transition balanceCheck then accelerating;
+            transition balanceCheck then fault;
+            transition accelerating then spinning;
+            transition spinning then braking;
+            transition braking then complete;
+            transition complete then idle;
+            transition fault then idle;
+        }
+    }
+
+    part def Spectrophotometer :> MicrobiologyInstrument {
+        attribute wavelength : Real;
+        attribute blankCalibrated : Boolean;
+
+        port sampleIn : SampleInputPort;
+        port sampleOut : SampleOutputPort;
+        port absorbanceResult : MeasurementOutputPort;
+
+        action blankInstrument {
+            in item blankSample : LiquidCulture;
+        }
+
+        action measureOpticalDensity {
+            in item sample : LiquidCulture;
+            out item result : MeasurementResult;
+        }
+
+        state def SpectrophotometerState {
+            state idle;
+            state blanking;
+            state ready;
+            state measuring;
+            state reporting;
+
+            transition first idle then blanking;
+            transition blanking then ready;
+            transition ready then measuring;
+            transition measuring then reporting;
+            transition reporting then idle;
+        }
+    }
+
+    part def MicrobiologyInstrumentSuite {
+        attribute suiteId : String;
+        attribute primaryFunction : String =
+            "Prepare, protect, grow, observe, separate, sterilize, and measure microbiological samples in a controlled laboratory workflow.";
+
+        part cabinet : BiosafetyCabinet {
+            instrumentId = "BSC-01";
+            manufacturer = "LabContainment";
+            operational = true;
+            clean = true;
+            airflowVelocity = 0.45;
+            uvLampEnabled = false;
+            sashHeight = 200.0;
+        }
+
+        part incubator : Incubator {
+            instrumentId = "INC-01";
+            manufacturer = "ThermoControl";
+            operational = true;
+            clean = true;
+            setTemperature = 37.0;
+            actualTemperature = 37.0;
+            humidityPercent = 70.0;
+            timer = 1440.0;
+        }
+
+        part microscope : CompoundMicroscope {
+            instrumentId = "MIC-01";
+            manufacturer = "OptiLab";
+            operational = true;
+            clean = true;
+            magnification = 1000.0;
+            illuminationIntensity = 75.0;
+        }
+
+        part centrifuge : Centrifuge {
+            instrumentId = "CEN-01";
+            manufacturer = "SpinLab";
+            operational = true;
+            clean = true;
+            rotorSpeed = 6000.0;
+            runTime = 10.0;
+            balanced = true;
+        }
+
+        part spectrophotometer : Spectrophotometer {
+            instrumentId = "SPEC-01";
+            manufacturer = "AbsorbanceTech";
+            operational = true;
+            clean = true;
+            wavelength = 600.0;
+            blankCalibrated = true;
+        }
+
+        part autoclave : Autoclave {
+            instrumentId = "AUTO-01";
+            manufacturer = "SterileCycle";
+            operational = true;
+            clean = true;
+            chamberTemperature = 121.0;
+            chamberPressure = 103.0;
+            sterilizationTime = 15.0;
+        }
+
+        item cultureA : CulturePlate {
+            sampleId = "CP-001";
+            volume = 0.5;
+            organismClass = "bacteria";
+            contaminationRisk = 0.2;
+            isSterile = false;
+            mediumType = "nutrient agar";
+            incubationTemperature = 37.0;
+            incubationTime = 1440.0;
+        }
+
+        item brothA : LiquidCulture {
+            sampleId = "LC-001";
+            volume = 5.0;
+            organismClass = "bacteria";
+            contaminationRisk = 0.3;
+            isSterile = false;
+            opticalDensity600 = 0.8;
+            vesselType = "cuvette";
+        }
+
+        connection asepticTransfer
+            connect cabinet.sampleOut to incubator.sampleIn;
+
+        connection incubatedObservation
+            connect incubator.sampleOut to microscope.sampleIn;
+
+        connection incubatedMeasurement
+            connect incubator.sampleOut to spectrophotometer.sampleIn;
+
+        connection liquidSeparation
+            connect cabinet.sampleOut to centrifuge.sampleIn;
+
+        connection separatedMeasurement
+            connect centrifuge.sampleOut to spectrophotometer.sampleIn;
+
+        connection wasteSterilization
+            connect cabinet.wasteOut to autoclave.wasteOut;
+
+        action performMicrobiologyWorkflow {
+            first start;
+            then prepareCabinet;
+            then transferSample;
+            then growCulture;
+            then inspectCulture;
+            then quantifyGrowth;
+            then sterilizeWaste;
+            then finish;
+
+            action start {
+                out attribute workflowReady : Boolean;
+            }
+
+            action prepareCabinet {
+                perform cabinet.establishLaminarFlow;
+            }
+
+            action transferSample {
+                in item sample : BiologicalSample;
+                perform cabinet.supportAsepticTransfer;
+            }
+
+            action growCulture {
+                perform incubator.incubateCulture;
+            }
+
+            action inspectCulture {
+                perform microscope.observeMorphology;
+            }
+
+            action quantifyGrowth {
+                perform spectrophotometer.measureOpticalDensity;
+            }
+
+            action sterilizeWaste {
+                perform autoclave.decontaminateWaste;
+            }
+
+            action finish {
+                out attribute workflowComplete : Boolean;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The microbiology instrument suite shall provide a coordinated high-level capability to prepare, handle, incubate, observe, separate, measure, and sterilize microbiological samples. */
+    }
+
+    requirement def AsepticHandlingRequirement {
+        doc /* Biological samples shall be handled in a containment device that reduces contamination risk during transfer and preparation. */
+        attribute maximumAllowedContaminationRisk : ContaminationRisk = 0.1;
+    }
+
+    requirement def IncubationRequirement {
+        doc /* The incubator shall maintain a controlled temperature suitable for growth of common bacterial cultures. */
+        attribute targetTemperature : Temperature = 37.0;
+        attribute allowableTemperatureError : Temperature = 1.0;
+    }
+
+    requirement def SterilizationRequirement {
+        doc /* The autoclave shall expose waste or consumables to saturated steam conditions sufficient for sterilization. */
+        attribute minimumTemperature : Temperature = 121.0;
+        attribute minimumDuration : TimeDuration = 15.0;
+    }
+
+    requirement def ObservationRequirement {
+        doc /* The microscope shall provide magnified visual observation of microbiological samples for morphology assessment. */
+        attribute minimumMagnification : Real = 400.0;
+    }
+
+    requirement def QuantificationRequirement {
+        doc /* The spectrophotometer shall quantify microbial growth by measuring optical density at 600 nm for liquid cultures. */
+        attribute requiredWavelength : Real = 600.0;
+    }
+
+    requirement def SeparationRequirement {
+        doc /* The centrifuge shall separate components of liquid microbiological samples using controlled rotational speed and duration. */
+        attribute minimumRotorSpeed : Speed = 3000.0;
+        attribute maximumRunTime : TimeDuration = 30.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by MicrobiologyInstrumentSuite;
+    satisfy AsepticHandlingRequirement by BiosafetyCabinet;
+    satisfy IncubationRequirement by Incubator;
+    satisfy SterilizationRequirement by Autoclave;
+    satisfy ObservationRequirement by CompoundMicroscope;
+    satisfy QuantificationRequirement by Spectrophotometer;
+    satisfy SeparationRequirement by Centrifuge;
+
+    constraint def IncubatorTemperatureConstraint {
+        in attribute actual : Temperature;
+        in attribute target : Temperature;
+        in attribute tolerance : Temperature;
+        actual >= target - tolerance and actual <= target + tolerance;
+    }
+
+    constraint def AutoclaveSterilizationConstraint {
+        in attribute actualTemperature : Temperature;
+        in attribute actualDuration : TimeDuration;
+        in attribute requiredTemperature : Temperature;
+        in attribute requiredDuration : TimeDuration;
+        actualTemperature >= requiredTemperature and actualDuration >= requiredDuration;
+    }
+
+    constraint def CentrifugeSafetyConstraint {
+        in attribute balanced : Boolean;
+        in attribute speed : Speed;
+        balanced == true and speed <= 15000.0;
+    }
+
+    constraint def SpectrophotometerWavelengthConstraint {
+        in attribute selectedWavelength : Real;
+        in attribute requiredWavelength : Real;
+        selectedWavelength == requiredWavelength;
+    }
+
+}

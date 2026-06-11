@@ -1,0 +1,755 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-zxiukutx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3a9-3430-7491-90c1-268a776d2793
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Inhaler spacer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package InhalerSpacerSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def PositiveReal :> Real {
+        constraint nonNegative { value >= 0.0 }
+    }
+
+    attribute def Volume_ml :> PositiveReal {
+        unit = "mL";
+    }
+
+    attribute def Pressure_kPa :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate_L_per_min :> Real {
+        unit = "L/min";
+    }
+
+    attribute def ParticleDiameter_um :> PositiveReal {
+        unit = "um";
+    }
+
+    attribute def Time_s :> PositiveReal {
+        unit = "s";
+    }
+
+    attribute def Fraction :> PositiveReal {
+        constraint range { value >= 0.0 and value <= 1.0 }
+    }
+
+    attribute def Dose_ug :> PositiveReal {
+        unit = "ug";
+    }
+
+    item def MeteredMedicationDose {
+        attribute nominalDose : Dose_ug;
+        attribute aerosolParticleDiameter : ParticleDiameter_um;
+        attribute propellantFraction : Fraction;
+        attribute medicationFraction : Fraction;
+    }
+
+    item def AerosolCloud {
+        attribute suspendedDose : Dose_ug;
+        attribute meanParticleDiameter : ParticleDiameter_um;
+        attribute velocity : FlowRate_L_per_min;
+        attribute residenceTime : Time_s;
+    }
+
+    item def InhaledMedicationAerosol {
+        attribute deliveredDose : Dose_ug;
+        attribute respirableFraction : Fraction;
+        attribute meanParticleDiameter : ParticleDiameter_um;
+    }
+
+    item def ExhaledAir {
+        attribute reverseFlowRate : FlowRate_L_per_min;
+        attribute humidityFraction : Fraction;
+    }
+
+    item def AmbientAir {
+        attribute pressure : Pressure_kPa;
+        attribute flowRate : FlowRate_L_per_min;
+    }
+
+    port def AerosolInletPort {
+        in item dose : MeteredMedicationDose;
+    }
+
+    port def MouthpiecePort {
+        out item inhaledAerosol : InhaledMedicationAerosol;
+        in item exhaledAir : ExhaledAir;
+    }
+
+    port def AmbientAirPort {
+        in item air : AmbientAir;
+    }
+
+    port def ChamberFlowPort {
+        inout item cloud : AerosolCloud;
+    }
+
+    port def OneWayValvePort {
+        in item upstreamCloud : AerosolCloud;
+        out item downstreamAerosol : InhaledMedicationAerosol;
+        in item reverseAir : ExhaledAir;
+    }
+
+    action def ReceiveMeteredDose {
+        in item dose : MeteredMedicationDose;
+        out item initialCloud : AerosolCloud;
+
+        attribute fillTime : Time_s = 0.15;
+        attribute injectedVelocity : FlowRate_L_per_min = 60.0;
+    }
+
+    action def DecelerateAndMixAerosol {
+        in item initialCloud : AerosolCloud;
+        in item air : AmbientAir;
+        out item stabilizedCloud : AerosolCloud;
+
+        attribute targetVelocity : FlowRate_L_per_min = 18.0;
+        attribute mixingTime : Time_s = 1.0;
+    }
+
+    action def RemoveLargeParticles {
+        in item stabilizedCloud : AerosolCloud;
+        out item respirableCloud : AerosolCloud;
+
+        attribute retainedWallFraction : Fraction = 0.22;
+        attribute maximumRespirableDiameter : ParticleDiameter_um = 5.0;
+    }
+
+    action def DeliverInhaledAerosol {
+        in item respirableCloud : AerosolCloud;
+        out item patientAerosol : InhaledMedicationAerosol;
+
+        attribute valveOpeningPressure : Pressure_kPa = -0.05;
+        attribute expectedDeliveredFraction : Fraction = 0.65;
+    }
+
+    action def BlockExhalationBackflow {
+        in item exhaledAir : ExhaledAir;
+        out item blockedFlow : ExhaledAir;
+
+        attribute permittedReverseLeakage : Fraction = 0.02;
+    }
+
+    state def SpacerOperatingState {
+        entry action initialize {
+            attribute chamberPressure : Pressure_kPa = 101.325;
+        }
+
+        state Idle;
+        state DoseInjected;
+        state AerosolStabilizing;
+        state ReadyForInhalation;
+        state DeliveringDose;
+        state ExhalationBlocked;
+        state DoseComplete;
+
+        transition first Idle;
+
+        transition injectDose
+            first Idle
+            then DoseInjected;
+
+        transition beginMixing
+            first DoseInjected
+            then AerosolStabilizing;
+
+        transition cloudReady
+            first AerosolStabilizing
+            then ReadyForInhalation;
+
+        transition inhale
+            first ReadyForInhalation
+            then DeliveringDose;
+
+        transition completeInhalation
+            first DeliveringDose
+            then DoseComplete;
+
+        transition exhaleIntoMouthpiece
+            first ReadyForInhalation
+            then ExhalationBlocked;
+
+        transition resetAfterBlockedExhalation
+            first ExhalationBlocked
+            then ReadyForInhalation;
+
+        transition resetAfterDose
+            first DoseComplete
+            then Idle;
+    }
+
+    part def CanisterAdapter {
+        port inhalerInterface : AerosolInletPort;
+
+        attribute compatibleActuatorNozzleDiameter : PositiveReal {
+            unit = "mm";
+            default = 3.2;
+        }
+
+        attribute insertionDepth : PositiveReal {
+            unit = "mm";
+            default = 14.0;
+        }
+
+        requirement adapterSealRequirement {
+            doc /* The adapter shall accept a standard pressurized metered dose inhaler actuator and limit visible aerosol leakage during actuation. */
+        }
+    }
+
+    part def SpacerChamber {
+        port inlet : ChamberFlowPort;
+        port outlet : ChamberFlowPort;
+        port ambientPort : AmbientAirPort;
+
+        attribute internalVolume : Volume_ml = 160.0;
+        attribute length : PositiveReal {
+            unit = "mm";
+            default = 145.0;
+        }
+        attribute meanDiameter : PositiveReal {
+            unit = "mm";
+            default = 42.0;
+        }
+        attribute wallDepositionFraction : Fraction = 0.22;
+        attribute staticDissipationTime : Time_s = 30.0;
+
+        perform action receiveDose : ReceiveMeteredDose;
+        perform action mixAerosol : DecelerateAndMixAerosol;
+        perform action classifyParticles : RemoveLargeParticles;
+    }
+
+    part def InhalationValve {
+        port valvePort : OneWayValvePort;
+
+        attribute openingPressure : Pressure_kPa = -0.05;
+        attribute closingPressure : Pressure_kPa = 0.01;
+        attribute flowResistance : PositiveReal {
+            unit = "kPa/(L/min)";
+            default = 0.004;
+        }
+        attribute reverseLeakageFraction : Fraction = 0.02;
+
+        perform action deliver : DeliverInhaledAerosol;
+        perform action blockReverseFlow : BlockExhalationBackflow;
+    }
+
+    part def Mouthpiece {
+        port patientInterface : MouthpiecePort;
+
+        attribute ovalMajorAxis : PositiveReal {
+            unit = "mm";
+            default = 28.0;
+        }
+        attribute ovalMinorAxis : PositiveReal {
+            unit = "mm";
+            default = 16.0;
+        }
+        attribute deadSpaceVolume : Volume_ml = 8.0;
+
+        requirement mouthpieceFitRequirement {
+            doc /* The mouthpiece shall provide a comfortable patient interface and guide inhaled aerosol from the valve to the patient's mouth. */
+        }
+    }
+
+    part def ProtectiveCap {
+        attribute retained : Boolean = true;
+        attribute contaminationBarrierArea : PositiveReal {
+            unit = "mm^2";
+            default = 520.0;
+        }
+
+        requirement capRequirement {
+            doc /* The cap shall cover the mouthpiece when the spacer is not in use to reduce contamination of the patient interface. */
+        }
+    }
+
+    part def InhalerSpacer {
+        port doseInput : AerosolInletPort;
+        port patientPort : MouthpiecePort;
+        port ambientInput : AmbientAirPort;
+
+        part adapter : CanisterAdapter;
+        part chamber : SpacerChamber;
+        part valve : InhalationValve;
+        part mouthpiece : Mouthpiece;
+        part cap : ProtectiveCap;
+
+        attribute nominalChamberVolume : Volume_ml = 160.0;
+        attribute minimumDeliveredRespirableFraction : Fraction = 0.50;
+        attribute maximumRecommendedDelayAfterActuation : Time_s = 5.0;
+        attribute operatingState : SpacerOperatingState;
+
+        connect doseInput to adapter.inhalerInterface;
+        connect adapter.inhalerInterface to chamber.inlet;
+        connect ambientInput to chamber.ambientPort;
+        connect chamber.outlet to valve.valvePort;
+        connect valve.valvePort to mouthpiece.patientInterface;
+        connect mouthpiece.patientInterface to patientPort;
+
+        perform action doseReception : ReceiveMeteredDose;
+        perform action aerosolConditioning : DecelerateAndMixAerosol;
+        perform action particleFiltering : RemoveLargeParticles;
+        perform action doseDelivery : DeliverInhaledAerosol;
+        perform action exhalationProtection : BlockExhalationBackflow;
+
+        requirement primaryFunctionRequirement {
+            doc /* The inhaler spacer shall receive a metered medication aerosol dose from an inhaler, temporarily hold and slow the aerosol cloud, reduce large-particle deposition in the mouth and throat, and deliver a respirable aerosol dose to the patient during inhalation. */
+        }
+
+        requirement chamberVolumeRequirement {
+            subject spacer : InhalerSpacer;
+            doc /* The spacer chamber volume shall be sufficient to hold a single metered dose aerosol cloud while allowing the patient to inhale it over one or more breaths. */
+            require constraint { spacer.nominalChamberVolume >= 120.0 and spacer.nominalChamberVolume <= 250.0 }
+        }
+
+        requirement flowDirectionRequirement {
+            doc /* The inhalation valve shall permit flow from the chamber to the mouthpiece during inhalation and shall limit reverse flow from the patient into the chamber during exhalation. */
+        }
+
+        requirement particleConditioningRequirement {
+            subject spacer : InhalerSpacer;
+            doc /* The spacer shall reduce aerosol velocity and preferentially retain larger particles before delivery to the patient. */
+            require constraint { spacer.minimumDeliveredRespirableFraction >= 0.50 }
+        }
+
+        requirement timelyUseRequirement {
+            subject spacer : InhalerSpacer;
+            doc /* The patient should inhale through the spacer soon after actuation to limit aerosol settling losses. */
+            require constraint { spacer.maximumRecommendedDelayAfterActuation <= 5.0 }
+        }
+    }
+
+    part def Patient {
+        port mouth : MouthpiecePort;
+
+        attribute targetInspiratoryFlow : FlowRate_L_per_min = 30.0;
+        attribute minimumEffectiveInspiratoryFlow : FlowRate_L_per_min = 10.0;
+        attribute inhalationDuration : Time_s = 3.0;
+    }
+
+    part def PressurizedMeteredDoseInhaler {
+        port actuatorOutlet : AerosolInletPort;
+
+        attribute nominalDosePerActuation : Dose_ug = 100.0;
+        attribute emittedParticleDiameter : ParticleDiameter_um = 3.5;
+        attribute actuationPulseDuration : Time_s = 0.15;
+    }
+
+    part def SpacerUseScenario {
+        part inhaler : PressurizedMeteredDoseInhaler;
+        part spacer : InhalerSpacer;
+        part patient : Patient;
+
+        item dose : MeteredMedicationDose {
+            attribute nominalDose = 100.0;
+            attribute aerosolParticleDiameter = 3.5;
+            attribute propellantFraction = 0.70;
+            attribute medicationFraction = 0.30;
+        }
+
+        item conditionedCloud : AerosolCloud {
+            attribute suspendedDose = 78.0;
+            attribute meanParticleDiameter = 3.0;
+            attribute velocity = 18.0;
+            attribute residenceTime = 1.0;
+        }
+
+        item deliveredAerosol : InhaledMedicationAerosol {
+            attribute deliveredDose = 65.0;
+            attribute respirableFraction = 0.65;
+            attribute meanParticleDiameter = 3.0;
+        }
+
+        connect inhaler.actuatorOutlet to spacer.doseInput;
+        connect spacer.patientPort to patient.mouth;
+
+        objective primaryObjective {
+            doc /* Demonstrate the high-level function: an inhaler spacer improves medication delivery by acting as an intermediate holding chamber between a metered dose inhaler and the patient, coordinating dose capture, aerosol slowing, particle conditioning, one-way inhalation delivery, and exhalation backflow prevention. */
+        }
+    }
+}
+tokens used
+4,116
+package InhalerSpacerSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def PositiveReal :> Real {
+        constraint nonNegative { value >= 0.0 }
+    }
+
+    attribute def Volume_ml :> PositiveReal {
+        unit = "mL";
+    }
+
+    attribute def Pressure_kPa :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate_L_per_min :> Real {
+        unit = "L/min";
+    }
+
+    attribute def ParticleDiameter_um :> PositiveReal {
+        unit = "um";
+    }
+
+    attribute def Time_s :> PositiveReal {
+        unit = "s";
+    }
+
+    attribute def Fraction :> PositiveReal {
+        constraint range { value >= 0.0 and value <= 1.0 }
+    }
+
+    attribute def Dose_ug :> PositiveReal {
+        unit = "ug";
+    }
+
+    item def MeteredMedicationDose {
+        attribute nominalDose : Dose_ug;
+        attribute aerosolParticleDiameter : ParticleDiameter_um;
+        attribute propellantFraction : Fraction;
+        attribute medicationFraction : Fraction;
+    }
+
+    item def AerosolCloud {
+        attribute suspendedDose : Dose_ug;
+        attribute meanParticleDiameter : ParticleDiameter_um;
+        attribute velocity : FlowRate_L_per_min;
+        attribute residenceTime : Time_s;
+    }
+
+    item def InhaledMedicationAerosol {
+        attribute deliveredDose : Dose_ug;
+        attribute respirableFraction : Fraction;
+        attribute meanParticleDiameter : ParticleDiameter_um;
+    }
+
+    item def ExhaledAir {
+        attribute reverseFlowRate : FlowRate_L_per_min;
+        attribute humidityFraction : Fraction;
+    }
+
+    item def AmbientAir {
+        attribute pressure : Pressure_kPa;
+        attribute flowRate : FlowRate_L_per_min;
+    }
+
+    port def AerosolInletPort {
+        in item dose : MeteredMedicationDose;
+    }
+
+    port def MouthpiecePort {
+        out item inhaledAerosol : InhaledMedicationAerosol;
+        in item exhaledAir : ExhaledAir;
+    }
+
+    port def AmbientAirPort {
+        in item air : AmbientAir;
+    }
+
+    port def ChamberFlowPort {
+        inout item cloud : AerosolCloud;
+    }
+
+    port def OneWayValvePort {
+        in item upstreamCloud : AerosolCloud;
+        out item downstreamAerosol : InhaledMedicationAerosol;
+        in item reverseAir : ExhaledAir;
+    }
+
+    action def ReceiveMeteredDose {
+        in item dose : MeteredMedicationDose;
+        out item initialCloud : AerosolCloud;
+
+        attribute fillTime : Time_s = 0.15;
+        attribute injectedVelocity : FlowRate_L_per_min = 60.0;
+    }
+
+    action def DecelerateAndMixAerosol {
+        in item initialCloud : AerosolCloud;
+        in item air : AmbientAir;
+        out item stabilizedCloud : AerosolCloud;
+
+        attribute targetVelocity : FlowRate_L_per_min = 18.0;
+        attribute mixingTime : Time_s = 1.0;
+    }
+
+    action def RemoveLargeParticles {
+        in item stabilizedCloud : AerosolCloud;
+        out item respirableCloud : AerosolCloud;
+
+        attribute retainedWallFraction : Fraction = 0.22;
+        attribute maximumRespirableDiameter : ParticleDiameter_um = 5.0;
+    }
+
+    action def DeliverInhaledAerosol {
+        in item respirableCloud : AerosolCloud;
+        out item patientAerosol : InhaledMedicationAerosol;
+
+        attribute valveOpeningPressure : Pressure_kPa = -0.05;
+        attribute expectedDeliveredFraction : Fraction = 0.65;
+    }
+
+    action def BlockExhalationBackflow {
+        in item exhaledAir : ExhaledAir;
+        out item blockedFlow : ExhaledAir;
+
+        attribute permittedReverseLeakage : Fraction = 0.02;
+    }
+
+    state def SpacerOperatingState {
+        entry action initialize {
+            attribute chamberPressure : Pressure_kPa = 101.325;
+        }
+
+        state Idle;
+        state DoseInjected;
+        state AerosolStabilizing;
+        state ReadyForInhalation;
+        state DeliveringDose;
+        state ExhalationBlocked;
+        state DoseComplete;
+
+        transition first Idle;
+
+        transition injectDose
+            first Idle
+            then DoseInjected;
+
+        transition beginMixing
+            first DoseInjected
+            then AerosolStabilizing;
+
+        transition cloudReady
+            first AerosolStabilizing
+            then ReadyForInhalation;
+
+        transition inhale
+            first ReadyForInhalation
+            then DeliveringDose;
+
+        transition completeInhalation
+            first DeliveringDose
+            then DoseComplete;
+
+        transition exhaleIntoMouthpiece
+            first ReadyForInhalation
+            then ExhalationBlocked;
+
+        transition resetAfterBlockedExhalation
+            first ExhalationBlocked
+            then ReadyForInhalation;
+
+        transition resetAfterDose
+            first DoseComplete
+            then Idle;
+    }
+
+    part def CanisterAdapter {
+        port inhalerInterface : AerosolInletPort;
+
+        attribute compatibleActuatorNozzleDiameter : PositiveReal {
+            unit = "mm";
+            default = 3.2;
+        }
+
+        attribute insertionDepth : PositiveReal {
+            unit = "mm";
+            default = 14.0;
+        }
+
+        requirement adapterSealRequirement {
+            doc /* The adapter shall accept a standard pressurized metered dose inhaler actuator and limit visible aerosol leakage during actuation. */
+        }
+    }
+
+    part def SpacerChamber {
+        port inlet : ChamberFlowPort;
+        port outlet : ChamberFlowPort;
+        port ambientPort : AmbientAirPort;
+
+        attribute internalVolume : Volume_ml = 160.0;
+        attribute length : PositiveReal {
+            unit = "mm";
+            default = 145.0;
+        }
+        attribute meanDiameter : PositiveReal {
+            unit = "mm";
+            default = 42.0;
+        }
+        attribute wallDepositionFraction : Fraction = 0.22;
+        attribute staticDissipationTime : Time_s = 30.0;
+
+        perform action receiveDose : ReceiveMeteredDose;
+        perform action mixAerosol : DecelerateAndMixAerosol;
+        perform action classifyParticles : RemoveLargeParticles;
+    }
+
+    part def InhalationValve {
+        port valvePort : OneWayValvePort;
+
+        attribute openingPressure : Pressure_kPa = -0.05;
+        attribute closingPressure : Pressure_kPa = 0.01;
+        attribute flowResistance : PositiveReal {
+            unit = "kPa/(L/min)";
+            default = 0.004;
+        }
+        attribute reverseLeakageFraction : Fraction = 0.02;
+
+        perform action deliver : DeliverInhaledAerosol;
+        perform action blockReverseFlow : BlockExhalationBackflow;
+    }
+
+    part def Mouthpiece {
+        port patientInterface : MouthpiecePort;
+
+        attribute ovalMajorAxis : PositiveReal {
+            unit = "mm";
+            default = 28.0;
+        }
+        attribute ovalMinorAxis : PositiveReal {
+            unit = "mm";
+            default = 16.0;
+        }
+        attribute deadSpaceVolume : Volume_ml = 8.0;
+
+        requirement mouthpieceFitRequirement {
+            doc /* The mouthpiece shall provide a comfortable patient interface and guide inhaled aerosol from the valve to the patient's mouth. */
+        }
+    }
+
+    part def ProtectiveCap {
+        attribute retained : Boolean = true;
+        attribute contaminationBarrierArea : PositiveReal {
+            unit = "mm^2";
+            default = 520.0;
+        }
+
+        requirement capRequirement {
+            doc /* The cap shall cover the mouthpiece when the spacer is not in use to reduce contamination of the patient interface. */
+        }
+    }
+
+    part def InhalerSpacer {
+        port doseInput : AerosolInletPort;
+        port patientPort : MouthpiecePort;
+        port ambientInput : AmbientAirPort;
+
+        part adapter : CanisterAdapter;
+        part chamber : SpacerChamber;
+        part valve : InhalationValve;
+        part mouthpiece : Mouthpiece;
+        part cap : ProtectiveCap;
+
+        attribute nominalChamberVolume : Volume_ml = 160.0;
+        attribute minimumDeliveredRespirableFraction : Fraction = 0.50;
+        attribute maximumRecommendedDelayAfterActuation : Time_s = 5.0;
+        attribute operatingState : SpacerOperatingState;
+
+        connect doseInput to adapter.inhalerInterface;
+        connect adapter.inhalerInterface to chamber.inlet;
+        connect ambientInput to chamber.ambientPort;
+        connect chamber.outlet to valve.valvePort;
+        connect valve.valvePort to mouthpiece.patientInterface;
+        connect mouthpiece.patientInterface to patientPort;
+
+        perform action doseReception : ReceiveMeteredDose;
+        perform action aerosolConditioning : DecelerateAndMixAerosol;
+        perform action particleFiltering : RemoveLargeParticles;
+        perform action doseDelivery : DeliverInhaledAerosol;
+        perform action exhalationProtection : BlockExhalationBackflow;
+
+        requirement primaryFunctionRequirement {
+            doc /* The inhaler spacer shall receive a metered medication aerosol dose from an inhaler, temporarily hold and slow the aerosol cloud, reduce large-particle deposition in the mouth and throat, and deliver a respirable aerosol dose to the patient during inhalation. */
+        }
+
+        requirement chamberVolumeRequirement {
+            subject spacer : InhalerSpacer;
+            doc /* The spacer chamber volume shall be sufficient to hold a single metered dose aerosol cloud while allowing the patient to inhale it over one or more breaths. */
+            require constraint { spacer.nominalChamberVolume >= 120.0 and spacer.nominalChamberVolume <= 250.0 }
+        }
+
+        requirement flowDirectionRequirement {
+            doc /* The inhalation valve shall permit flow from the chamber to the mouthpiece during inhalation and shall limit reverse flow from the patient into the chamber during exhalation. */
+        }
+
+        requirement particleConditioningRequirement {
+            subject spacer : InhalerSpacer;
+            doc /* The spacer shall reduce aerosol velocity and preferentially retain larger particles before delivery to the patient. */
+            require constraint { spacer.minimumDeliveredRespirableFraction >= 0.50 }
+        }
+
+        requirement timelyUseRequirement {
+            subject spacer : InhalerSpacer;
+            doc /* The patient should inhale through the spacer soon after actuation to limit aerosol settling losses. */
+            require constraint { spacer.maximumRecommendedDelayAfterActuation <= 5.0 }
+        }
+    }
+
+    part def Patient {
+        port mouth : MouthpiecePort;
+
+        attribute targetInspiratoryFlow : FlowRate_L_per_min = 30.0;
+        attribute minimumEffectiveInspiratoryFlow : FlowRate_L_per_min = 10.0;
+        attribute inhalationDuration : Time_s = 3.0;
+    }
+
+    part def PressurizedMeteredDoseInhaler {
+        port actuatorOutlet : AerosolInletPort;
+
+        attribute nominalDosePerActuation : Dose_ug = 100.0;
+        attribute emittedParticleDiameter : ParticleDiameter_um = 3.5;
+        attribute actuationPulseDuration : Time_s = 0.15;
+    }
+
+    part def SpacerUseScenario {
+        part inhaler : PressurizedMeteredDoseInhaler;
+        part spacer : InhalerSpacer;
+        part patient : Patient;
+
+        item dose : MeteredMedicationDose {
+            attribute nominalDose = 100.0;
+            attribute aerosolParticleDiameter = 3.5;
+            attribute propellantFraction = 0.70;
+            attribute medicationFraction = 0.30;
+        }
+
+        item conditionedCloud : AerosolCloud {
+            attribute suspendedDose = 78.0;
+            attribute meanParticleDiameter = 3.0;
+            attribute velocity = 18.0;
+            attribute residenceTime = 1.0;
+        }
+
+        item deliveredAerosol : InhaledMedicationAerosol {
+            attribute deliveredDose = 65.0;
+            attribute respirableFraction = 0.65;
+            attribute meanParticleDiameter = 3.0;
+        }
+
+        connect inhaler.actuatorOutlet to spacer.doseInput;
+        connect spacer.patientPort to patient.mouth;
+
+        objective primaryObjective {
+            doc /* Demonstrate the high-level function: an inhaler spacer improves medication delivery by acting as an intermediate holding chamber between a metered dose inhaler and the patient, coordinating dose capture, aerosol slowing, particle conditioning, one-way inhalation delivery, and exhalation backflow prevention. */
+        }
+    }
+}

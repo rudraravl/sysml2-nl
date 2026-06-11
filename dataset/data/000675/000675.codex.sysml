@@ -1,0 +1,377 @@
+package MechanicalPowerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Torque :> Real {
+    unit = "N*m";
+  }
+
+  attribute def AngularVelocity :> Real {
+    unit = "rad/s";
+  }
+
+  attribute def MechanicalPower :> Real {
+    unit = "W";
+  }
+
+  attribute def RotationalEnergy :> Real {
+    unit = "J";
+  }
+
+  attribute def Efficiency :> Real {
+    unit = "1";
+    range = "0..1";
+  }
+
+  attribute def Temperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def Pressure :> Real {
+    unit = "kPa";
+  }
+
+  attribute def LubricantFlowRate :> Real {
+    unit = "L/min";
+  }
+
+  item def RotationalPower {
+    attribute torque : Torque;
+    attribute speed : AngularVelocity;
+    attribute power : MechanicalPower;
+  }
+
+  item def ThermalLoss {
+    attribute heatRate : MechanicalPower;
+    attribute sourceTemperature : Temperature;
+  }
+
+  item def ControlCommand {
+    attribute requestedSpeed : AngularVelocity;
+    attribute requestedTorqueLimit : Torque;
+    attribute enableDrive : Boolean;
+  }
+
+  item def HealthStatus {
+    attribute oilPressure : Pressure;
+    attribute bearingTemperature : Temperature;
+    attribute vibrationLevel : Real;
+    attribute driveAvailable : Boolean;
+  }
+
+  port def RotationalPowerPort {
+    out item powerFlow : RotationalPower;
+  }
+
+  port def RotationalLoadPort {
+    in item powerFlow : RotationalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def StatusPort {
+    out item status : HealthStatus;
+  }
+
+  port def HeatRejectionPort {
+    out item rejectedHeat : ThermalLoss;
+  }
+
+  action def ConvertFuelEnergyToRotation {
+    in attribute demandedSpeed : AngularVelocity;
+    in attribute demandedTorque : Torque;
+    out item shaftPower : RotationalPower;
+  }
+
+  action def RegulateMechanicalOutput {
+    in item command : ControlCommand;
+    in item measuredStatus : HealthStatus;
+    out attribute targetSpeed : AngularVelocity;
+    out attribute torqueLimit : Torque;
+  }
+
+  action def TransmitTorque {
+    in item inputPower : RotationalPower;
+    out item outputPower : RotationalPower;
+  }
+
+  action def RejectWasteHeat {
+    in attribute lossPower : MechanicalPower;
+    out item heat : ThermalLoss;
+  }
+
+  state def DriveOperatingState {
+    entry action initializeMonitoring;
+
+    state Off;
+    state Standby;
+    state Starting;
+    state Running;
+    state OverloadLimited;
+    state Faulted;
+    state Shutdown;
+
+    transition first Off;
+
+    transition Off_to_Standby
+      first Off
+      accept EnableCommand
+      then Standby;
+
+    transition Standby_to_Starting
+      first Standby
+      accept StartCommand
+      then Starting;
+
+    transition Starting_to_Running
+      first Starting
+      accept RatedSpeedReached
+      then Running;
+
+    transition Running_to_OverloadLimited
+      first Running
+      accept TorqueLimitExceeded
+      then OverloadLimited;
+
+    transition OverloadLimited_to_Running
+      first OverloadLimited
+      accept LoadRecovered
+      then Running;
+
+    transition Running_to_Faulted
+      first Running
+      accept UnsafeTemperatureOrPressure
+      then Faulted;
+
+    transition OverloadLimited_to_Faulted
+      first OverloadLimited
+      accept UnsafeTemperatureOrPressure
+      then Faulted;
+
+    transition Faulted_to_Shutdown
+      first Faulted
+      accept StopCommand
+      then Shutdown;
+
+    transition Shutdown_to_Off
+      first Shutdown
+      accept RotationStopped
+      then Off;
+  }
+
+  part def PrimeMover {
+    attribute ratedMechanicalPower : MechanicalPower = 75000;
+    attribute ratedSpeed : AngularVelocity = 188.5;
+    attribute peakTorque : Torque = 520;
+    attribute conversionEfficiency : Efficiency = 0.34;
+    attribute coolantOutletTemperature : Temperature;
+
+    port commandIn : CommandPort;
+    port shaftOut : RotationalPowerPort;
+    port heatOut : HeatRejectionPort;
+    port statusOut : StatusPort;
+
+    perform action convert : ConvertFuelEnergyToRotation;
+    perform action rejectHeat : RejectWasteHeat;
+  }
+
+  part def Coupling {
+    attribute torsionalStiffness : Real {
+      unit = "N*m/rad";
+    }
+    attribute maximumTorque : Torque = 650;
+    attribute transmittedEfficiency : Efficiency = 0.985;
+
+    port input : RotationalLoadPort;
+    port output : RotationalPowerPort;
+
+    perform action transmit : TransmitTorque;
+  }
+
+  part def Gearbox {
+    attribute gearRatio : Real = 3.5;
+    attribute inputSpeed : AngularVelocity;
+    attribute outputSpeed : AngularVelocity;
+    attribute ratedInputTorque : Torque = 600;
+    attribute mechanicalEfficiency : Efficiency = 0.96;
+    attribute oilPressure : Pressure;
+    attribute oilFlowRate : LubricantFlowRate;
+
+    port input : RotationalLoadPort;
+    port output : RotationalPowerPort;
+    port heatOut : HeatRejectionPort;
+    port statusOut : StatusPort;
+
+    perform action transmit : TransmitTorque;
+    perform action rejectHeat : RejectWasteHeat;
+  }
+
+  part def DrivenMachine {
+    attribute requiredOperatingPower : MechanicalPower = 50000;
+    attribute nominalLoadTorque : Torque = 900;
+    attribute nominalSpeed : AngularVelocity = 53.9;
+    attribute absorbedPower : MechanicalPower;
+
+    port shaftIn : RotationalLoadPort;
+    port statusOut : StatusPort;
+  }
+
+  part def LubricationSubsystem {
+    attribute reservoirTemperature : Temperature;
+    attribute supplyPressure : Pressure = 420;
+    attribute flowRate : LubricantFlowRate = 12;
+    attribute minimumSafePressure : Pressure = 250;
+
+    port gearboxStatusOut : StatusPort;
+  }
+
+  part def SupervisoryController {
+    attribute commandedSpeed : AngularVelocity = 188.5;
+    attribute commandedTorqueLimit : Torque = 500;
+    attribute enabled : Boolean;
+
+    port commandOut : CommandPort;
+    port primeMoverStatusIn : StatusPort;
+    port gearboxStatusIn : StatusPort;
+
+    perform action regulate : RegulateMechanicalOutput;
+  }
+
+  part def MechanicalPowerSystem {
+    attribute ratedOutputPower : MechanicalPower = 69000;
+    attribute continuousOutputTorque : Torque = 1280;
+    attribute continuousOutputSpeed : AngularVelocity = 53.9;
+    attribute systemEfficiency : Efficiency = 0.945;
+    attribute totalLossPower : MechanicalPower;
+
+    port controlInput : CommandPort;
+    port mechanicalOutput : RotationalPowerPort;
+    port healthOutput : StatusPort;
+    port heatOutput : HeatRejectionPort;
+
+    part controller : SupervisoryController;
+    part primeMover : PrimeMover;
+    part flexibleCoupling : Coupling;
+    part reductionGearbox : Gearbox;
+    part load : DrivenMachine;
+    part lubrication : LubricationSubsystem;
+
+    connection controlToPrimeMover
+      connect controller.commandOut to primeMover.commandIn;
+
+    connection externalCommand
+      connect controlInput to controller.commandOut;
+
+    connection primeMoverToCoupling
+      connect primeMover.shaftOut to flexibleCoupling.input;
+
+    connection couplingToGearbox
+      connect flexibleCoupling.output to reductionGearbox.input;
+
+    connection gearboxToLoad
+      connect reductionGearbox.output to load.shaftIn;
+
+    connection gearboxToExternalOutput
+      connect reductionGearbox.output to mechanicalOutput;
+
+    connection primeMoverHeat
+      connect primeMover.heatOut to heatOutput;
+
+    connection gearboxHeat
+      connect reductionGearbox.heatOut to heatOutput;
+
+    connection primeMoverStatus
+      connect primeMover.statusOut to controller.primeMoverStatusIn;
+
+    connection gearboxStatus
+      connect reductionGearbox.statusOut to controller.gearboxStatusIn;
+
+    connection lubricationStatus
+      connect lubrication.gearboxStatusOut to controller.gearboxStatusIn;
+
+    exhibit state driveState : DriveOperatingState;
+
+    perform action regulateOutput : RegulateMechanicalOutput;
+    perform action transmitPower : TransmitTorque;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The mechanical power system shall convert input energy into controlled rotary mechanical power and deliver it through a shaft interface to a driven machine. */
+    subject system : MechanicalPowerSystem;
+    require constraint {
+      system.ratedOutputPower >= 69000
+    }
+  }
+
+  requirement def TorqueDeliveryRequirement {
+    doc /* The system shall provide sufficient continuous torque at the gearbox output to operate the driven machine at nominal speed. */
+    subject system : MechanicalPowerSystem;
+    require constraint {
+      system.continuousOutputTorque >= system.load.nominalLoadTorque
+    }
+  }
+
+  requirement def EfficiencyRequirement {
+    doc /* The mechanical transmission path shall maintain high efficiency during continuous operation. */
+    subject system : MechanicalPowerSystem;
+    require constraint {
+      system.systemEfficiency >= 0.90
+    }
+  }
+
+  requirement def ThermalProtectionRequirement {
+    doc /* The system shall reject mechanical losses as heat and transition to a faulted state when lubrication pressure or bearing temperature exceeds safe limits. */
+    subject system : MechanicalPowerSystem;
+    require constraint {
+      system.lubrication.supplyPressure >= system.lubrication.minimumSafePressure
+    }
+  }
+
+  requirement def OverloadProtectionRequirement {
+    doc /* The controller shall limit delivered torque when commanded or measured torque exceeds the allowable continuous value. */
+    subject system : MechanicalPowerSystem;
+    require constraint {
+      system.controller.commandedTorqueLimit <= system.primeMover.peakTorque
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by MechanicalPowerSystem;
+  satisfy TorqueDeliveryRequirement by MechanicalPowerSystem;
+  satisfy EfficiencyRequirement by MechanicalPowerSystem;
+  satisfy ThermalProtectionRequirement by MechanicalPowerSystem;
+  satisfy OverloadProtectionRequirement by MechanicalPowerSystem;
+
+  package UsageScenario {
+    part operationalSystem : MechanicalPowerSystem {
+      attribute ratedOutputPower = 69000;
+      attribute continuousOutputTorque = 1280;
+      attribute continuousOutputSpeed = 53.9;
+      attribute systemEfficiency = 0.945;
+
+      part primeMover {
+        attribute ratedMechanicalPower = 75000;
+        attribute ratedSpeed = 188.5;
+        attribute peakTorque = 520;
+        attribute conversionEfficiency = 0.34;
+      }
+
+      part reductionGearbox {
+        attribute gearRatio = 3.5;
+        attribute ratedInputTorque = 600;
+        attribute mechanicalEfficiency = 0.96;
+        attribute oilPressure = 420;
+        attribute oilFlowRate = 12;
+      }
+
+      part load {
+        attribute requiredOperatingPower = 50000;
+        attribute nominalLoadTorque = 900;
+        attribute nominalSpeed = 53.9;
+      }
+    }
+  }
+}

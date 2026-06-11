@@ -1,0 +1,711 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-cfjgyaai
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3b7-0b63-7653-bd17-a935a5d40846
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Intubation and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IntubationSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Time_s :> Real {
+    unit = "s";
+  }
+
+  attribute def Pressure_cmH2O :> Real {
+    unit = "cmH2O";
+  }
+
+  attribute def Flow_L_per_min :> Real {
+    unit = "L/min";
+  }
+
+  attribute def Volume_mL :> Real {
+    unit = "mL";
+  }
+
+  attribute def Length_mm :> Real {
+    unit = "mm";
+  }
+
+  attribute def Fraction :> Real {
+    unit = "1";
+  }
+
+  item def Oxygen;
+  item def CarbonDioxide;
+  item def AirwayGas;
+  item def VentilationGas;
+  item def ExhaledGas;
+  item def VisualSignal;
+  item def AudioSignal;
+  item def ClinicalCommand;
+  item def AirwayTube;
+  item def ConfirmationSignal;
+  item def PatientAirway;
+  item def AirwaySecretion;
+
+  port def GasInletPort {
+    in item gas : VentilationGas;
+  }
+
+  port def GasOutletPort {
+    out item gas : VentilationGas;
+  }
+
+  port def ExhalationPort {
+    in item gas : ExhaledGas;
+  }
+
+  port def AirwayAccessPort {
+    out item tube : AirwayTube;
+    in item secretion : AirwaySecretion;
+  }
+
+  port def SensorPort {
+    out item confirmation : ConfirmationSignal;
+  }
+
+  port def UserCommandPort {
+    in item command : ClinicalCommand;
+  }
+
+  port def DisplayPort {
+    out item visual : VisualSignal;
+    out item audio : AudioSignal;
+  }
+
+  part def Patient {
+    attribute airwayDiameter : Length_mm;
+    attribute oxygenSaturation : Fraction;
+    attribute endTidalCO2 : Pressure_cmH2O;
+
+    port airway : AirwayAccessPort;
+    port lungsIn : GasInletPort;
+    port lungsOut : ExhalationPort;
+  }
+
+  part def Laryngoscope {
+    attribute lightIntensity : Real;
+    attribute bladeLength : Length_mm;
+
+    port commandIn : UserCommandPort;
+    port viewOut : DisplayPort;
+  }
+
+  part def EndotrachealTube {
+    attribute innerDiameter : Length_mm;
+    attribute outerDiameter : Length_mm;
+    attribute insertedDepth : Length_mm;
+    attribute cuffPressure : Pressure_cmH2O;
+
+    port proximalGasIn : GasInletPort;
+    port distalGasOut : GasOutletPort;
+    port airwayInterface : AirwayAccessPort;
+  }
+
+  part def CuffInflationSubsystem {
+    attribute targetCuffPressure : Pressure_cmH2O = 25.0;
+    attribute maximumCuffPressure : Pressure_cmH2O = 30.0;
+
+    port commandIn : UserCommandPort;
+    port tubeInterface : AirwayAccessPort;
+  }
+
+  part def VentilationSubsystem {
+    attribute tidalVolume : Volume_mL = 500.0;
+    attribute respiratoryRate : Real = 12.0;
+    attribute peakInspiratoryPressure : Pressure_cmH2O;
+    attribute oxygenFraction : Fraction = 1.0;
+    attribute gasFlow : Flow_L_per_min = 15.0;
+
+    port freshGasIn : GasInletPort;
+    port patientGasOut : GasOutletPort;
+    port exhaledGasIn : ExhalationPort;
+  }
+
+  part def CapnographySubsystem {
+    attribute measuredEtCO2 : Pressure_cmH2O;
+    attribute detectionDelay : Time_s;
+    attribute waveformQuality : Fraction;
+
+    port sampleIn : ExhalationPort;
+    port confirmationOut : SensorPort;
+  }
+
+  part def MonitoringDisplay {
+    port confirmationIn : SensorPort;
+    port operatorOut : DisplayPort;
+  }
+
+  part def Clinician {
+    port commandOut : UserCommandPort;
+    port viewIn : DisplayPort;
+  }
+
+  action def PrepareEquipment {
+    in item selectedTube : AirwayTube;
+    out item preparedTube : AirwayTube;
+  }
+
+  action def VisualizeAirway {
+    in item command : ClinicalCommand;
+    out item visualCue : VisualSignal;
+  }
+
+  action def InsertTube {
+    in item preparedTube : AirwayTube;
+    out item positionedTube : AirwayTube;
+  }
+
+  action def InflateCuff {
+    in item positionedTube : AirwayTube;
+    in attribute targetPressure : Pressure_cmH2O;
+    out item sealedTube : AirwayTube;
+  }
+
+  action def VentilatePatient {
+    in item sealedTube : AirwayTube;
+    in item gas : VentilationGas;
+    out item exhaledGas : ExhaledGas;
+  }
+
+  action def ConfirmPlacement {
+    in item exhaledGas : ExhaledGas;
+    out item confirmation : ConfirmationSignal;
+  }
+
+  action def IntubationWorkflow {
+    first start;
+    then prepare : PrepareEquipment;
+    then visualize : VisualizeAirway;
+    then insert : InsertTube;
+    then inflate : InflateCuff;
+    then ventilate : VentilatePatient;
+    then confirm : ConfirmPlacement;
+    then done;
+
+    flow prepare.preparedTube to insert.preparedTube;
+    flow insert.positionedTube to inflate.positionedTube;
+    flow inflate.sealedTube to ventilate.sealedTube;
+    flow ventilate.exhaledGas to confirm.exhaledGas;
+  }
+
+  state def IntubationStateMachine {
+    state Ready;
+    state AirwayVisualized;
+    state TubeInserted;
+    state CuffSealed;
+    state Ventilating;
+    state PlacementConfirmed;
+    state FailedPlacement;
+    state Secured;
+
+    entry; then Ready;
+
+    transition Ready_to_AirwayVisualized
+      first Ready
+      accept ClinicalCommand
+      then AirwayVisualized;
+
+    transition AirwayVisualized_to_TubeInserted
+      first AirwayVisualized
+      accept ClinicalCommand
+      then TubeInserted;
+
+    transition TubeInserted_to_CuffSealed
+      first TubeInserted
+      accept ClinicalCommand
+      then CuffSealed;
+
+    transition CuffSealed_to_Ventilating
+      first CuffSealed
+      accept ClinicalCommand
+      then Ventilating;
+
+    transition Ventilating_to_PlacementConfirmed
+      first Ventilating
+      accept ConfirmationSignal
+      then PlacementConfirmed;
+
+    transition Ventilating_to_FailedPlacement
+      first Ventilating
+      accept ConfirmationSignal
+      then FailedPlacement;
+
+    transition PlacementConfirmed_to_Secured
+      first PlacementConfirmed
+      accept ClinicalCommand
+      then Secured;
+  }
+
+  part def IntubationSystem {
+    doc
+    /* The IntubationSystem establishes and maintains a protected artificial airway by placing an endotracheal tube into the trachea, sealing the airway, enabling controlled ventilation, and confirming tube placement. */
+
+    attribute maximumInsertionTime : Time_s = 60.0;
+    attribute targetOxygenSaturation : Fraction = 0.94;
+    attribute minimumEtCO2ForConfirmation : Pressure_cmH2O = 4.0;
+    attribute targetCuffPressure : Pressure_cmH2O = 25.0;
+    attribute maximumCuffPressure : Pressure_cmH2O = 30.0;
+    attribute nominalTubeInnerDiameter : Length_mm = 7.5;
+    attribute nominalTidalVolume : Volume_mL = 500.0;
+    attribute nominalOxygenFlow : Flow_L_per_min = 15.0;
+
+    part patient : Patient;
+    part clinician : Clinician;
+    part laryngoscope : Laryngoscope;
+    part tube : EndotrachealTube;
+    part cuffSubsystem : CuffInflationSubsystem;
+    part ventilator : VentilationSubsystem;
+    part capnograph : CapnographySubsystem;
+    part display : MonitoringDisplay;
+
+    port oxygenSource : GasInletPort;
+    port operatorCommand : UserCommandPort;
+    port operatorDisplay : DisplayPort;
+
+    connection clinician.commandOut to operatorCommand;
+    connection operatorCommand to laryngoscope.commandIn;
+    connection operatorCommand to cuffSubsystem.commandIn;
+    connection laryngoscope.viewOut to clinician.viewIn;
+    connection oxygenSource to ventilator.freshGasIn;
+    connection ventilator.patientGasOut to tube.proximalGasIn;
+    connection tube.distalGasOut to patient.lungsIn;
+    connection patient.lungsOut to ventilator.exhaledGasIn;
+    connection patient.lungsOut to capnograph.sampleIn;
+    connection capnograph.confirmationOut to display.confirmationIn;
+    connection display.operatorOut to clinician.viewIn;
+    connection tube.airwayInterface to patient.airway;
+    connection cuffSubsystem.tubeInterface to tube.airwayInterface;
+    connection display.operatorOut to operatorDisplay;
+
+    perform intubationBehavior : IntubationWorkflow;
+    exhibit intubationStates : IntubationStateMachine;
+  }
+
+  requirement def EstablishArtificialAirwayRequirement {
+    doc
+    /* The system shall establish a patent artificial airway through tracheal placement of an endotracheal tube. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.tube.insertedDepth > 0.0
+    }
+  }
+
+  requirement def MaintainVentilationRequirement {
+    doc
+    /* The system shall enable delivery of ventilation gas to the patient after tube placement. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.ventilator.tidalVolume >= 300.0 and
+      system.ventilator.tidalVolume <= 800.0
+    }
+  }
+
+  requirement def SealAirwayRequirement {
+    doc
+    /* The system shall seal the airway with cuff pressure high enough for ventilation and low enough to reduce tracheal injury risk. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.tube.cuffPressure >= 20.0 and
+      system.tube.cuffPressure <= system.maximumCuffPressure
+    }
+  }
+
+  requirement def ConfirmPlacementRequirement {
+    doc
+    /* The system shall confirm tracheal placement using exhaled carbon dioxide detection after ventilation begins. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.capnograph.measuredEtCO2 >= system.minimumEtCO2ForConfirmation
+    }
+  }
+
+  requirement def TimelyAirwayRequirement {
+    doc
+    /* The system shall complete primary tube placement within the maximum allowed insertion time. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.maximumInsertionTime <= 60.0
+    }
+  }
+
+  requirement def OxygenationRequirement {
+    doc
+    /* The system shall support oxygenation by delivering oxygen-enriched ventilation gas during the intubation process. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.ventilator.oxygenFraction >= 0.85 and
+      system.patient.oxygenSaturation >= system.targetOxygenSaturation
+    }
+  }
+
+  satisfy EstablishArtificialAirwayRequirement by IntubationSystem;
+  satisfy MaintainVentilationRequirement by IntubationSystem;
+  satisfy SealAirwayRequirement by IntubationSystem;
+  satisfy ConfirmPlacementRequirement by IntubationSystem;
+  satisfy TimelyAirwayRequirement by IntubationSystem;
+  satisfy OxygenationRequirement by IntubationSystem;
+
+}
+tokens used
+3,911
+package IntubationSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Time_s :> Real {
+    unit = "s";
+  }
+
+  attribute def Pressure_cmH2O :> Real {
+    unit = "cmH2O";
+  }
+
+  attribute def Flow_L_per_min :> Real {
+    unit = "L/min";
+  }
+
+  attribute def Volume_mL :> Real {
+    unit = "mL";
+  }
+
+  attribute def Length_mm :> Real {
+    unit = "mm";
+  }
+
+  attribute def Fraction :> Real {
+    unit = "1";
+  }
+
+  item def Oxygen;
+  item def CarbonDioxide;
+  item def AirwayGas;
+  item def VentilationGas;
+  item def ExhaledGas;
+  item def VisualSignal;
+  item def AudioSignal;
+  item def ClinicalCommand;
+  item def AirwayTube;
+  item def ConfirmationSignal;
+  item def PatientAirway;
+  item def AirwaySecretion;
+
+  port def GasInletPort {
+    in item gas : VentilationGas;
+  }
+
+  port def GasOutletPort {
+    out item gas : VentilationGas;
+  }
+
+  port def ExhalationPort {
+    in item gas : ExhaledGas;
+  }
+
+  port def AirwayAccessPort {
+    out item tube : AirwayTube;
+    in item secretion : AirwaySecretion;
+  }
+
+  port def SensorPort {
+    out item confirmation : ConfirmationSignal;
+  }
+
+  port def UserCommandPort {
+    in item command : ClinicalCommand;
+  }
+
+  port def DisplayPort {
+    out item visual : VisualSignal;
+    out item audio : AudioSignal;
+  }
+
+  part def Patient {
+    attribute airwayDiameter : Length_mm;
+    attribute oxygenSaturation : Fraction;
+    attribute endTidalCO2 : Pressure_cmH2O;
+
+    port airway : AirwayAccessPort;
+    port lungsIn : GasInletPort;
+    port lungsOut : ExhalationPort;
+  }
+
+  part def Laryngoscope {
+    attribute lightIntensity : Real;
+    attribute bladeLength : Length_mm;
+
+    port commandIn : UserCommandPort;
+    port viewOut : DisplayPort;
+  }
+
+  part def EndotrachealTube {
+    attribute innerDiameter : Length_mm;
+    attribute outerDiameter : Length_mm;
+    attribute insertedDepth : Length_mm;
+    attribute cuffPressure : Pressure_cmH2O;
+
+    port proximalGasIn : GasInletPort;
+    port distalGasOut : GasOutletPort;
+    port airwayInterface : AirwayAccessPort;
+  }
+
+  part def CuffInflationSubsystem {
+    attribute targetCuffPressure : Pressure_cmH2O = 25.0;
+    attribute maximumCuffPressure : Pressure_cmH2O = 30.0;
+
+    port commandIn : UserCommandPort;
+    port tubeInterface : AirwayAccessPort;
+  }
+
+  part def VentilationSubsystem {
+    attribute tidalVolume : Volume_mL = 500.0;
+    attribute respiratoryRate : Real = 12.0;
+    attribute peakInspiratoryPressure : Pressure_cmH2O;
+    attribute oxygenFraction : Fraction = 1.0;
+    attribute gasFlow : Flow_L_per_min = 15.0;
+
+    port freshGasIn : GasInletPort;
+    port patientGasOut : GasOutletPort;
+    port exhaledGasIn : ExhalationPort;
+  }
+
+  part def CapnographySubsystem {
+    attribute measuredEtCO2 : Pressure_cmH2O;
+    attribute detectionDelay : Time_s;
+    attribute waveformQuality : Fraction;
+
+    port sampleIn : ExhalationPort;
+    port confirmationOut : SensorPort;
+  }
+
+  part def MonitoringDisplay {
+    port confirmationIn : SensorPort;
+    port operatorOut : DisplayPort;
+  }
+
+  part def Clinician {
+    port commandOut : UserCommandPort;
+    port viewIn : DisplayPort;
+  }
+
+  action def PrepareEquipment {
+    in item selectedTube : AirwayTube;
+    out item preparedTube : AirwayTube;
+  }
+
+  action def VisualizeAirway {
+    in item command : ClinicalCommand;
+    out item visualCue : VisualSignal;
+  }
+
+  action def InsertTube {
+    in item preparedTube : AirwayTube;
+    out item positionedTube : AirwayTube;
+  }
+
+  action def InflateCuff {
+    in item positionedTube : AirwayTube;
+    in attribute targetPressure : Pressure_cmH2O;
+    out item sealedTube : AirwayTube;
+  }
+
+  action def VentilatePatient {
+    in item sealedTube : AirwayTube;
+    in item gas : VentilationGas;
+    out item exhaledGas : ExhaledGas;
+  }
+
+  action def ConfirmPlacement {
+    in item exhaledGas : ExhaledGas;
+    out item confirmation : ConfirmationSignal;
+  }
+
+  action def IntubationWorkflow {
+    first start;
+    then prepare : PrepareEquipment;
+    then visualize : VisualizeAirway;
+    then insert : InsertTube;
+    then inflate : InflateCuff;
+    then ventilate : VentilatePatient;
+    then confirm : ConfirmPlacement;
+    then done;
+
+    flow prepare.preparedTube to insert.preparedTube;
+    flow insert.positionedTube to inflate.positionedTube;
+    flow inflate.sealedTube to ventilate.sealedTube;
+    flow ventilate.exhaledGas to confirm.exhaledGas;
+  }
+
+  state def IntubationStateMachine {
+    state Ready;
+    state AirwayVisualized;
+    state TubeInserted;
+    state CuffSealed;
+    state Ventilating;
+    state PlacementConfirmed;
+    state FailedPlacement;
+    state Secured;
+
+    entry; then Ready;
+
+    transition Ready_to_AirwayVisualized
+      first Ready
+      accept ClinicalCommand
+      then AirwayVisualized;
+
+    transition AirwayVisualized_to_TubeInserted
+      first AirwayVisualized
+      accept ClinicalCommand
+      then TubeInserted;
+
+    transition TubeInserted_to_CuffSealed
+      first TubeInserted
+      accept ClinicalCommand
+      then CuffSealed;
+
+    transition CuffSealed_to_Ventilating
+      first CuffSealed
+      accept ClinicalCommand
+      then Ventilating;
+
+    transition Ventilating_to_PlacementConfirmed
+      first Ventilating
+      accept ConfirmationSignal
+      then PlacementConfirmed;
+
+    transition Ventilating_to_FailedPlacement
+      first Ventilating
+      accept ConfirmationSignal
+      then FailedPlacement;
+
+    transition PlacementConfirmed_to_Secured
+      first PlacementConfirmed
+      accept ClinicalCommand
+      then Secured;
+  }
+
+  part def IntubationSystem {
+    doc
+    /* The IntubationSystem establishes and maintains a protected artificial airway by placing an endotracheal tube into the trachea, sealing the airway, enabling controlled ventilation, and confirming tube placement. */
+
+    attribute maximumInsertionTime : Time_s = 60.0;
+    attribute targetOxygenSaturation : Fraction = 0.94;
+    attribute minimumEtCO2ForConfirmation : Pressure_cmH2O = 4.0;
+    attribute targetCuffPressure : Pressure_cmH2O = 25.0;
+    attribute maximumCuffPressure : Pressure_cmH2O = 30.0;
+    attribute nominalTubeInnerDiameter : Length_mm = 7.5;
+    attribute nominalTidalVolume : Volume_mL = 500.0;
+    attribute nominalOxygenFlow : Flow_L_per_min = 15.0;
+
+    part patient : Patient;
+    part clinician : Clinician;
+    part laryngoscope : Laryngoscope;
+    part tube : EndotrachealTube;
+    part cuffSubsystem : CuffInflationSubsystem;
+    part ventilator : VentilationSubsystem;
+    part capnograph : CapnographySubsystem;
+    part display : MonitoringDisplay;
+
+    port oxygenSource : GasInletPort;
+    port operatorCommand : UserCommandPort;
+    port operatorDisplay : DisplayPort;
+
+    connection clinician.commandOut to operatorCommand;
+    connection operatorCommand to laryngoscope.commandIn;
+    connection operatorCommand to cuffSubsystem.commandIn;
+    connection laryngoscope.viewOut to clinician.viewIn;
+    connection oxygenSource to ventilator.freshGasIn;
+    connection ventilator.patientGasOut to tube.proximalGasIn;
+    connection tube.distalGasOut to patient.lungsIn;
+    connection patient.lungsOut to ventilator.exhaledGasIn;
+    connection patient.lungsOut to capnograph.sampleIn;
+    connection capnograph.confirmationOut to display.confirmationIn;
+    connection display.operatorOut to clinician.viewIn;
+    connection tube.airwayInterface to patient.airway;
+    connection cuffSubsystem.tubeInterface to tube.airwayInterface;
+    connection display.operatorOut to operatorDisplay;
+
+    perform intubationBehavior : IntubationWorkflow;
+    exhibit intubationStates : IntubationStateMachine;
+  }
+
+  requirement def EstablishArtificialAirwayRequirement {
+    doc
+    /* The system shall establish a patent artificial airway through tracheal placement of an endotracheal tube. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.tube.insertedDepth > 0.0
+    }
+  }
+
+  requirement def MaintainVentilationRequirement {
+    doc
+    /* The system shall enable delivery of ventilation gas to the patient after tube placement. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.ventilator.tidalVolume >= 300.0 and
+      system.ventilator.tidalVolume <= 800.0
+    }
+  }
+
+  requirement def SealAirwayRequirement {
+    doc
+    /* The system shall seal the airway with cuff pressure high enough for ventilation and low enough to reduce tracheal injury risk. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.tube.cuffPressure >= 20.0 and
+      system.tube.cuffPressure <= system.maximumCuffPressure
+    }
+  }
+
+  requirement def ConfirmPlacementRequirement {
+    doc
+    /* The system shall confirm tracheal placement using exhaled carbon dioxide detection after ventilation begins. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.capnograph.measuredEtCO2 >= system.minimumEtCO2ForConfirmation
+    }
+  }
+
+  requirement def TimelyAirwayRequirement {
+    doc
+    /* The system shall complete primary tube placement within the maximum allowed insertion time. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.maximumInsertionTime <= 60.0
+    }
+  }
+
+  requirement def OxygenationRequirement {
+    doc
+    /* The system shall support oxygenation by delivering oxygen-enriched ventilation gas during the intubation process. */
+    subject system : IntubationSystem;
+    require constraint {
+      system.ventilator.oxygenFraction >= 0.85 and
+      system.patient.oxygenSaturation >= system.targetOxygenSaturation
+    }
+  }
+
+  satisfy EstablishArtificialAirwayRequirement by IntubationSystem;
+  satisfy MaintainVentilationRequirement by IntubationSystem;
+  satisfy SealAirwayRequirement by IntubationSystem;
+  satisfy ConfirmPlacementRequirement by IntubationSystem;
+  satisfy TimelyAirwayRequirement by IntubationSystem;
+  satisfy OxygenationRequirement by IntubationSystem;
+
+}

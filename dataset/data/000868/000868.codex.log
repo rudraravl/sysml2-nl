@@ -1,0 +1,955 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-w_8tbgcm
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb484-a1e5-7ca2-a9f5-b053870a42c8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Dry running protection and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DryRunningProtectionSystemModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Level :> Real {
+        unit = "%";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    enum def PumpOperatingMode {
+        enum idle;
+        enum priming;
+        enum running;
+        enum dryRunSuspected;
+        enum protectedShutdown;
+        enum lockedOut;
+        enum manualReset;
+    }
+
+    enum def ProtectionCommand {
+        enum startAllowed;
+        enum stopPump;
+        enum alarm;
+        enum lockout;
+        enum resetAccepted;
+    }
+
+    item def Liquid {
+        attribute density : Real = 997.0;
+        attribute temperature : Temperature;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def PumpTelemetry {
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute flowRate : FlowRate;
+        attribute motorCurrent : Current;
+        attribute motorSpeed : RotationalSpeed;
+        attribute liquidLevel : Level;
+    }
+
+    item def ProtectionStatus {
+        attribute mode : PumpOperatingMode;
+        attribute command : ProtectionCommand;
+        attribute dryRunDetected : Boolean;
+        attribute alarmActive : Boolean;
+        attribute tripCounter : Integer;
+    }
+
+    port def LiquidInletPort {
+        in item liquid : Liquid;
+        out item suctionTelemetry : PumpTelemetry;
+    }
+
+    port def LiquidOutletPort {
+        out item liquid : Liquid;
+        out item dischargeTelemetry : PumpTelemetry;
+    }
+
+    port def PowerInputPort {
+        in item supply : ElectricalPower;
+    }
+
+    port def MotorDrivePort {
+        out item commandedPower : ElectricalPower;
+        in item motorFeedback : PumpTelemetry;
+    }
+
+    port def SensorPort {
+        out item telemetry : PumpTelemetry;
+    }
+
+    port def ControlPort {
+        in item telemetry : PumpTelemetry;
+        out item status : ProtectionStatus;
+        out item command : ProtectionCommand;
+    }
+
+    port def AlarmPort {
+        in item status : ProtectionStatus;
+        out item audibleAlarm : ProtectionCommand;
+        out item visualAlarm : ProtectionCommand;
+    }
+
+    part def PressureSensor {
+        port sensedMedium : LiquidInletPort;
+        port signal : SensorPort;
+
+        attribute measurementRangeMin : Pressure = 0.0;
+        attribute measurementRangeMax : Pressure = 1000.0;
+        attribute accuracy : Pressure = 5.0;
+        attribute samplePeriod : TimeDuration = 0.1;
+    }
+
+    part def FlowSensor {
+        port sensedMedium : LiquidOutletPort;
+        port signal : SensorPort;
+
+        attribute measurementRangeMin : FlowRate = 0.0;
+        attribute measurementRangeMax : FlowRate = 500.0;
+        attribute lowFlowThreshold : FlowRate = 5.0;
+        attribute samplePeriod : TimeDuration = 0.1;
+    }
+
+    part def LevelSensor {
+        port sensedReservoir : LiquidInletPort;
+        port signal : SensorPort;
+
+        attribute emptyLevelThreshold : Level = 8.0;
+        attribute lowLevelWarningThreshold : Level = 15.0;
+        attribute samplePeriod : TimeDuration = 0.25;
+    }
+
+    part def MotorCurrentSensor {
+        port sensedPower : PowerInputPort;
+        port signal : SensorPort;
+
+        attribute nominalCurrent : Current = 12.0;
+        attribute dryRunCurrentThreshold : Current = 7.0;
+        attribute overloadCurrentThreshold : Current = 18.0;
+        attribute samplePeriod : TimeDuration = 0.05;
+    }
+
+    part def Pump {
+        port inlet : LiquidInletPort;
+        port outlet : LiquidOutletPort;
+        port drive : MotorDrivePort;
+
+        attribute nominalFlow : FlowRate = 120.0;
+        attribute minimumSafeFlow : FlowRate = 10.0;
+        attribute nominalDischargePressure : Pressure = 350.0;
+        attribute maximumDischargePressure : Pressure = 600.0;
+        attribute nominalSpeed : RotationalSpeed = 2900.0;
+        attribute casingTemperatureLimit : Temperature = 80.0;
+    }
+
+    part def MotorDrive {
+        port powerInput : PowerInputPort;
+        port motorOutput : MotorDrivePort;
+        port controlInput : ControlPort;
+
+        attribute ratedVoltage : Voltage = 230.0;
+        attribute ratedCurrent : Current = 14.0;
+        attribute stopResponseTime : TimeDuration = 0.5;
+    }
+
+    part def ProtectionController {
+        port pressureInput : SensorPort;
+        port flowInput : SensorPort;
+        port levelInput : SensorPort;
+        port currentInput : SensorPort;
+        port driveControl : ControlPort;
+        port alarmOutput : AlarmPort;
+
+        attribute minimumFlowThreshold : FlowRate = 5.0;
+        attribute minimumSuctionPressure : Pressure = 20.0;
+        attribute minimumLiquidLevel : Level = 8.0;
+        attribute maximumDryRunCurrent : Current = 7.0;
+        attribute dryRunConfirmationTime : TimeDuration = 3.0;
+        attribute restartDelay : TimeDuration = 60.0;
+        attribute maximumTripAttempts : Integer = 3;
+        attribute currentMode : PumpOperatingMode = PumpOperatingMode::idle;
+        attribute dryRunTimer : TimeDuration = 0.0;
+        attribute tripCounter : Integer = 0;
+
+        action def EvaluateDryRunCondition {
+            in telemetry : PumpTelemetry;
+            out dryRunSuspected : Boolean;
+
+            assert dryRunSuspected ==
+                telemetry.flowRate < minimumFlowThreshold and
+                telemetry.suctionPressure < minimumSuctionPressure and
+                telemetry.motorCurrent < maximumDryRunCurrent;
+        }
+
+        action def IssueProtectiveShutdown {
+            in confirmedDryRun : Boolean;
+            out command : ProtectionCommand;
+
+            assert command == ProtectionCommand::stopPump;
+        }
+
+        state def DryRunProtectionStateMachine {
+            state idle;
+            state priming;
+            state normalRunning;
+            state monitoring;
+            state dryRunSuspected;
+            state protectedShutdown;
+            state restartDelayActive;
+            state lockedOut;
+
+            entry action idle {
+                currentMode = PumpOperatingMode::idle;
+                dryRunTimer = 0.0;
+            }
+
+            transition idle_to_priming
+                first idle
+                then priming
+                accept ProtectionCommand::startAllowed;
+
+            entry action priming {
+                currentMode = PumpOperatingMode::priming;
+                dryRunTimer = 0.0;
+            }
+
+            transition priming_to_running
+                first priming
+                then normalRunning
+                if levelInput.telemetry.liquidLevel >= minimumLiquidLevel and
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            transition priming_to_shutdown
+                first priming
+                then protectedShutdown
+                if levelInput.telemetry.liquidLevel < minimumLiquidLevel;
+
+            entry action normalRunning {
+                currentMode = PumpOperatingMode::running;
+            }
+
+            transition running_to_monitoring
+                first normalRunning
+                then monitoring;
+
+            entry action monitoring {
+                currentMode = PumpOperatingMode::running;
+            }
+
+            transition monitoring_to_suspected
+                first monitoring
+                then dryRunSuspected
+                if flowInput.telemetry.flowRate < minimumFlowThreshold and
+                   pressureInput.telemetry.suctionPressure < minimumSuctionPressure and
+                   currentInput.telemetry.motorCurrent < maximumDryRunCurrent;
+
+            transition monitoring_to_running
+                first monitoring
+                then normalRunning
+                if flowInput.telemetry.flowRate >= minimumFlowThreshold or
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            entry action dryRunSuspected {
+                currentMode = PumpOperatingMode::dryRunSuspected;
+            }
+
+            transition suspected_to_running
+                first dryRunSuspected
+                then normalRunning
+                if flowInput.telemetry.flowRate >= minimumFlowThreshold and
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            transition suspected_to_shutdown
+                first dryRunSuspected
+                then protectedShutdown
+                if dryRunTimer >= dryRunConfirmationTime;
+
+            entry action protectedShutdown {
+                currentMode = PumpOperatingMode::protectedShutdown;
+                tripCounter = tripCounter + 1;
+                driveControl.command = ProtectionCommand::stopPump;
+                alarmOutput.audibleAlarm = ProtectionCommand::alarm;
+                alarmOutput.visualAlarm = ProtectionCommand::alarm;
+            }
+
+            transition shutdown_to_delay
+                first protectedShutdown
+                then restartDelayActive
+                if tripCounter < maximumTripAttempts;
+
+            transition shutdown_to_lockout
+                first protectedShutdown
+                then lockedOut
+                if tripCounter >= maximumTripAttempts;
+
+            entry action restartDelayActive {
+                currentMode = PumpOperatingMode::protectedShutdown;
+            }
+
+            transition delay_to_priming
+                first restartDelayActive
+                then priming
+                if levelInput.telemetry.liquidLevel >= minimumLiquidLevel and
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            entry action lockedOut {
+                currentMode = PumpOperatingMode::lockedOut;
+                driveControl.command = ProtectionCommand::lockout;
+            }
+
+            transition lockout_to_idle
+                first lockedOut
+                then idle
+                accept ProtectionCommand::resetAccepted;
+        }
+    }
+
+    part def AlarmAnnunciator {
+        port alarmInput : AlarmPort;
+
+        attribute audibleLevel : Real = 85.0;
+        attribute visualIndicatorActive : Boolean = false;
+        attribute alarmLatchEnabled : Boolean = true;
+    }
+
+    part def DryRunningProtectionSystem {
+        doc /* 
+         * Primary function: monitor hydraulic and electrical evidence of liquid starvation,
+         * detect dry running before pump damage occurs, stop the pump automatically,
+         * annunciate the fault, and permit restart only after safe liquid conditions return.
+         */
+
+        port liquidSupply : LiquidInletPort;
+        port liquidDelivery : LiquidOutletPort;
+        port electricalSupply : PowerInputPort;
+        port operatorAlarm : AlarmPort;
+
+        part protectedPump : Pump;
+        part motorDrive : MotorDrive;
+        part suctionPressureSensor : PressureSensor;
+        part dischargeFlowSensor : FlowSensor;
+        part reservoirLevelSensor : LevelSensor;
+        part motorCurrentSensor : MotorCurrentSensor;
+        part controller : ProtectionController;
+        part annunciator : AlarmAnnunciator;
+
+        attribute requiredMinimumSupplyLevel : Level = 8.0;
+        attribute allowedDryRunExposure : TimeDuration = 3.0;
+        attribute automaticRestartEnabled : Boolean = true;
+        attribute manualResetRequiredAfterLockout : Boolean = true;
+
+        connect liquidSupply to protectedPump.inlet;
+        connect protectedPump.outlet to liquidDelivery;
+        connect electricalSupply to motorDrive.powerInput;
+        connect motorDrive.motorOutput to protectedPump.drive;
+
+        connect protectedPump.inlet to suctionPressureSensor.sensedMedium;
+        connect protectedPump.outlet to dischargeFlowSensor.sensedMedium;
+        connect liquidSupply to reservoirLevelSensor.sensedReservoir;
+        connect electricalSupply to motorCurrentSensor.sensedPower;
+
+        connect suctionPressureSensor.signal to controller.pressureInput;
+        connect dischargeFlowSensor.signal to controller.flowInput;
+        connect reservoirLevelSensor.signal to controller.levelInput;
+        connect motorCurrentSensor.signal to controller.currentInput;
+
+        connect controller.driveControl to motorDrive.controlInput;
+        connect controller.alarmOutput to annunciator.alarmInput;
+        connect controller.alarmOutput to operatorAlarm;
+    }
+
+    requirement def DetectDryRunning {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall detect dry running using at least flow, suction pressure, liquid level, and motor current evidence. */
+
+        require constraint {
+            system.controller.minimumFlowThreshold == 5.0 and
+            system.controller.minimumSuctionPressure == 20.0 and
+            system.controller.minimumLiquidLevel == 8.0 and
+            system.controller.maximumDryRunCurrent == 7.0;
+        }
+    }
+
+    requirement def StopPumpOnConfirmedDryRun {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall command the motor drive to stop the pump when dry running remains confirmed for the allowed confirmation interval. */
+
+        require constraint {
+            system.controller.dryRunConfirmationTime <= system.allowedDryRunExposure;
+        }
+    }
+
+    requirement def PreventImmediateRestart {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall prevent immediate restart after a protective shutdown until the restart delay has elapsed and safe liquid conditions are restored. */
+
+        require constraint {
+            system.controller.restartDelay >= 60.0 and
+            system.controller.minimumLiquidLevel >= system.requiredMinimumSupplyLevel;
+        }
+    }
+
+    requirement def LockoutAfterRepeatedTrips {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall enter lockout after repeated dry-run trips and require a manual reset before further operation. */
+
+        require constraint {
+            system.controller.maximumTripAttempts == 3 and
+            system.manualResetRequiredAfterLockout == true;
+        }
+    }
+
+    requirement def AnnunciateDryRunFault {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall provide local audible and visual dry-run alarm indication whenever protective shutdown or lockout is active. */
+
+        require constraint {
+            system.annunciator.alarmLatchEnabled == true and
+            system.annunciator.audibleLevel >= 80.0;
+        }
+    }
+
+    requirement def FailSafeStop {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* Loss of valid sensor evidence for liquid presence shall result in a stop command rather than continued pump operation. */
+
+        require constraint {
+            system.motorDrive.stopResponseTime <= 0.5;
+        }
+    }
+
+    part dryRunningProtectionInstallation : DryRunningProtectionSystem {
+        attribute siteSupplyVoltage : Voltage = 230.0;
+        attribute normalOperatingFlow : FlowRate = 120.0;
+        attribute normalSuctionPressure : Pressure = 80.0;
+        attribute dryRunTripFlow : FlowRate = 5.0;
+        attribute dryRunTripPressure : Pressure = 20.0;
+        attribute dryRunTripCurrent : Current = 7.0;
+    }
+
+    satisfy DetectDryRunning by dryRunningProtectionInstallation;
+    satisfy StopPumpOnConfirmedDryRun by dryRunningProtectionInstallation;
+    satisfy PreventImmediateRestart by dryRunningProtectionInstallation;
+    satisfy LockoutAfterRepeatedTrips by dryRunningProtectionInstallation;
+    satisfy AnnunciateDryRunFault by dryRunningProtectionInstallation;
+    satisfy FailSafeStop by dryRunningProtectionInstallation;
+}
+tokens used
+4,648
+package DryRunningProtectionSystemModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Level :> Real {
+        unit = "%";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    enum def PumpOperatingMode {
+        enum idle;
+        enum priming;
+        enum running;
+        enum dryRunSuspected;
+        enum protectedShutdown;
+        enum lockedOut;
+        enum manualReset;
+    }
+
+    enum def ProtectionCommand {
+        enum startAllowed;
+        enum stopPump;
+        enum alarm;
+        enum lockout;
+        enum resetAccepted;
+    }
+
+    item def Liquid {
+        attribute density : Real = 997.0;
+        attribute temperature : Temperature;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def PumpTelemetry {
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute flowRate : FlowRate;
+        attribute motorCurrent : Current;
+        attribute motorSpeed : RotationalSpeed;
+        attribute liquidLevel : Level;
+    }
+
+    item def ProtectionStatus {
+        attribute mode : PumpOperatingMode;
+        attribute command : ProtectionCommand;
+        attribute dryRunDetected : Boolean;
+        attribute alarmActive : Boolean;
+        attribute tripCounter : Integer;
+    }
+
+    port def LiquidInletPort {
+        in item liquid : Liquid;
+        out item suctionTelemetry : PumpTelemetry;
+    }
+
+    port def LiquidOutletPort {
+        out item liquid : Liquid;
+        out item dischargeTelemetry : PumpTelemetry;
+    }
+
+    port def PowerInputPort {
+        in item supply : ElectricalPower;
+    }
+
+    port def MotorDrivePort {
+        out item commandedPower : ElectricalPower;
+        in item motorFeedback : PumpTelemetry;
+    }
+
+    port def SensorPort {
+        out item telemetry : PumpTelemetry;
+    }
+
+    port def ControlPort {
+        in item telemetry : PumpTelemetry;
+        out item status : ProtectionStatus;
+        out item command : ProtectionCommand;
+    }
+
+    port def AlarmPort {
+        in item status : ProtectionStatus;
+        out item audibleAlarm : ProtectionCommand;
+        out item visualAlarm : ProtectionCommand;
+    }
+
+    part def PressureSensor {
+        port sensedMedium : LiquidInletPort;
+        port signal : SensorPort;
+
+        attribute measurementRangeMin : Pressure = 0.0;
+        attribute measurementRangeMax : Pressure = 1000.0;
+        attribute accuracy : Pressure = 5.0;
+        attribute samplePeriod : TimeDuration = 0.1;
+    }
+
+    part def FlowSensor {
+        port sensedMedium : LiquidOutletPort;
+        port signal : SensorPort;
+
+        attribute measurementRangeMin : FlowRate = 0.0;
+        attribute measurementRangeMax : FlowRate = 500.0;
+        attribute lowFlowThreshold : FlowRate = 5.0;
+        attribute samplePeriod : TimeDuration = 0.1;
+    }
+
+    part def LevelSensor {
+        port sensedReservoir : LiquidInletPort;
+        port signal : SensorPort;
+
+        attribute emptyLevelThreshold : Level = 8.0;
+        attribute lowLevelWarningThreshold : Level = 15.0;
+        attribute samplePeriod : TimeDuration = 0.25;
+    }
+
+    part def MotorCurrentSensor {
+        port sensedPower : PowerInputPort;
+        port signal : SensorPort;
+
+        attribute nominalCurrent : Current = 12.0;
+        attribute dryRunCurrentThreshold : Current = 7.0;
+        attribute overloadCurrentThreshold : Current = 18.0;
+        attribute samplePeriod : TimeDuration = 0.05;
+    }
+
+    part def Pump {
+        port inlet : LiquidInletPort;
+        port outlet : LiquidOutletPort;
+        port drive : MotorDrivePort;
+
+        attribute nominalFlow : FlowRate = 120.0;
+        attribute minimumSafeFlow : FlowRate = 10.0;
+        attribute nominalDischargePressure : Pressure = 350.0;
+        attribute maximumDischargePressure : Pressure = 600.0;
+        attribute nominalSpeed : RotationalSpeed = 2900.0;
+        attribute casingTemperatureLimit : Temperature = 80.0;
+    }
+
+    part def MotorDrive {
+        port powerInput : PowerInputPort;
+        port motorOutput : MotorDrivePort;
+        port controlInput : ControlPort;
+
+        attribute ratedVoltage : Voltage = 230.0;
+        attribute ratedCurrent : Current = 14.0;
+        attribute stopResponseTime : TimeDuration = 0.5;
+    }
+
+    part def ProtectionController {
+        port pressureInput : SensorPort;
+        port flowInput : SensorPort;
+        port levelInput : SensorPort;
+        port currentInput : SensorPort;
+        port driveControl : ControlPort;
+        port alarmOutput : AlarmPort;
+
+        attribute minimumFlowThreshold : FlowRate = 5.0;
+        attribute minimumSuctionPressure : Pressure = 20.0;
+        attribute minimumLiquidLevel : Level = 8.0;
+        attribute maximumDryRunCurrent : Current = 7.0;
+        attribute dryRunConfirmationTime : TimeDuration = 3.0;
+        attribute restartDelay : TimeDuration = 60.0;
+        attribute maximumTripAttempts : Integer = 3;
+        attribute currentMode : PumpOperatingMode = PumpOperatingMode::idle;
+        attribute dryRunTimer : TimeDuration = 0.0;
+        attribute tripCounter : Integer = 0;
+
+        action def EvaluateDryRunCondition {
+            in telemetry : PumpTelemetry;
+            out dryRunSuspected : Boolean;
+
+            assert dryRunSuspected ==
+                telemetry.flowRate < minimumFlowThreshold and
+                telemetry.suctionPressure < minimumSuctionPressure and
+                telemetry.motorCurrent < maximumDryRunCurrent;
+        }
+
+        action def IssueProtectiveShutdown {
+            in confirmedDryRun : Boolean;
+            out command : ProtectionCommand;
+
+            assert command == ProtectionCommand::stopPump;
+        }
+
+        state def DryRunProtectionStateMachine {
+            state idle;
+            state priming;
+            state normalRunning;
+            state monitoring;
+            state dryRunSuspected;
+            state protectedShutdown;
+            state restartDelayActive;
+            state lockedOut;
+
+            entry action idle {
+                currentMode = PumpOperatingMode::idle;
+                dryRunTimer = 0.0;
+            }
+
+            transition idle_to_priming
+                first idle
+                then priming
+                accept ProtectionCommand::startAllowed;
+
+            entry action priming {
+                currentMode = PumpOperatingMode::priming;
+                dryRunTimer = 0.0;
+            }
+
+            transition priming_to_running
+                first priming
+                then normalRunning
+                if levelInput.telemetry.liquidLevel >= minimumLiquidLevel and
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            transition priming_to_shutdown
+                first priming
+                then protectedShutdown
+                if levelInput.telemetry.liquidLevel < minimumLiquidLevel;
+
+            entry action normalRunning {
+                currentMode = PumpOperatingMode::running;
+            }
+
+            transition running_to_monitoring
+                first normalRunning
+                then monitoring;
+
+            entry action monitoring {
+                currentMode = PumpOperatingMode::running;
+            }
+
+            transition monitoring_to_suspected
+                first monitoring
+                then dryRunSuspected
+                if flowInput.telemetry.flowRate < minimumFlowThreshold and
+                   pressureInput.telemetry.suctionPressure < minimumSuctionPressure and
+                   currentInput.telemetry.motorCurrent < maximumDryRunCurrent;
+
+            transition monitoring_to_running
+                first monitoring
+                then normalRunning
+                if flowInput.telemetry.flowRate >= minimumFlowThreshold or
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            entry action dryRunSuspected {
+                currentMode = PumpOperatingMode::dryRunSuspected;
+            }
+
+            transition suspected_to_running
+                first dryRunSuspected
+                then normalRunning
+                if flowInput.telemetry.flowRate >= minimumFlowThreshold and
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            transition suspected_to_shutdown
+                first dryRunSuspected
+                then protectedShutdown
+                if dryRunTimer >= dryRunConfirmationTime;
+
+            entry action protectedShutdown {
+                currentMode = PumpOperatingMode::protectedShutdown;
+                tripCounter = tripCounter + 1;
+                driveControl.command = ProtectionCommand::stopPump;
+                alarmOutput.audibleAlarm = ProtectionCommand::alarm;
+                alarmOutput.visualAlarm = ProtectionCommand::alarm;
+            }
+
+            transition shutdown_to_delay
+                first protectedShutdown
+                then restartDelayActive
+                if tripCounter < maximumTripAttempts;
+
+            transition shutdown_to_lockout
+                first protectedShutdown
+                then lockedOut
+                if tripCounter >= maximumTripAttempts;
+
+            entry action restartDelayActive {
+                currentMode = PumpOperatingMode::protectedShutdown;
+            }
+
+            transition delay_to_priming
+                first restartDelayActive
+                then priming
+                if levelInput.telemetry.liquidLevel >= minimumLiquidLevel and
+                   pressureInput.telemetry.suctionPressure >= minimumSuctionPressure;
+
+            entry action lockedOut {
+                currentMode = PumpOperatingMode::lockedOut;
+                driveControl.command = ProtectionCommand::lockout;
+            }
+
+            transition lockout_to_idle
+                first lockedOut
+                then idle
+                accept ProtectionCommand::resetAccepted;
+        }
+    }
+
+    part def AlarmAnnunciator {
+        port alarmInput : AlarmPort;
+
+        attribute audibleLevel : Real = 85.0;
+        attribute visualIndicatorActive : Boolean = false;
+        attribute alarmLatchEnabled : Boolean = true;
+    }
+
+    part def DryRunningProtectionSystem {
+        doc /* 
+         * Primary function: monitor hydraulic and electrical evidence of liquid starvation,
+         * detect dry running before pump damage occurs, stop the pump automatically,
+         * annunciate the fault, and permit restart only after safe liquid conditions return.
+         */
+
+        port liquidSupply : LiquidInletPort;
+        port liquidDelivery : LiquidOutletPort;
+        port electricalSupply : PowerInputPort;
+        port operatorAlarm : AlarmPort;
+
+        part protectedPump : Pump;
+        part motorDrive : MotorDrive;
+        part suctionPressureSensor : PressureSensor;
+        part dischargeFlowSensor : FlowSensor;
+        part reservoirLevelSensor : LevelSensor;
+        part motorCurrentSensor : MotorCurrentSensor;
+        part controller : ProtectionController;
+        part annunciator : AlarmAnnunciator;
+
+        attribute requiredMinimumSupplyLevel : Level = 8.0;
+        attribute allowedDryRunExposure : TimeDuration = 3.0;
+        attribute automaticRestartEnabled : Boolean = true;
+        attribute manualResetRequiredAfterLockout : Boolean = true;
+
+        connect liquidSupply to protectedPump.inlet;
+        connect protectedPump.outlet to liquidDelivery;
+        connect electricalSupply to motorDrive.powerInput;
+        connect motorDrive.motorOutput to protectedPump.drive;
+
+        connect protectedPump.inlet to suctionPressureSensor.sensedMedium;
+        connect protectedPump.outlet to dischargeFlowSensor.sensedMedium;
+        connect liquidSupply to reservoirLevelSensor.sensedReservoir;
+        connect electricalSupply to motorCurrentSensor.sensedPower;
+
+        connect suctionPressureSensor.signal to controller.pressureInput;
+        connect dischargeFlowSensor.signal to controller.flowInput;
+        connect reservoirLevelSensor.signal to controller.levelInput;
+        connect motorCurrentSensor.signal to controller.currentInput;
+
+        connect controller.driveControl to motorDrive.controlInput;
+        connect controller.alarmOutput to annunciator.alarmInput;
+        connect controller.alarmOutput to operatorAlarm;
+    }
+
+    requirement def DetectDryRunning {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall detect dry running using at least flow, suction pressure, liquid level, and motor current evidence. */
+
+        require constraint {
+            system.controller.minimumFlowThreshold == 5.0 and
+            system.controller.minimumSuctionPressure == 20.0 and
+            system.controller.minimumLiquidLevel == 8.0 and
+            system.controller.maximumDryRunCurrent == 7.0;
+        }
+    }
+
+    requirement def StopPumpOnConfirmedDryRun {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall command the motor drive to stop the pump when dry running remains confirmed for the allowed confirmation interval. */
+
+        require constraint {
+            system.controller.dryRunConfirmationTime <= system.allowedDryRunExposure;
+        }
+    }
+
+    requirement def PreventImmediateRestart {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall prevent immediate restart after a protective shutdown until the restart delay has elapsed and safe liquid conditions are restored. */
+
+        require constraint {
+            system.controller.restartDelay >= 60.0 and
+            system.controller.minimumLiquidLevel >= system.requiredMinimumSupplyLevel;
+        }
+    }
+
+    requirement def LockoutAfterRepeatedTrips {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall enter lockout after repeated dry-run trips and require a manual reset before further operation. */
+
+        require constraint {
+            system.controller.maximumTripAttempts == 3 and
+            system.manualResetRequiredAfterLockout == true;
+        }
+    }
+
+    requirement def AnnunciateDryRunFault {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* The system shall provide local audible and visual dry-run alarm indication whenever protective shutdown or lockout is active. */
+
+        require constraint {
+            system.annunciator.alarmLatchEnabled == true and
+            system.annunciator.audibleLevel >= 80.0;
+        }
+    }
+
+    requirement def FailSafeStop {
+        subject system : DryRunningProtectionSystem;
+
+        doc /* Loss of valid sensor evidence for liquid presence shall result in a stop command rather than continued pump operation. */
+
+        require constraint {
+            system.motorDrive.stopResponseTime <= 0.5;
+        }
+    }
+
+    part dryRunningProtectionInstallation : DryRunningProtectionSystem {
+        attribute siteSupplyVoltage : Voltage = 230.0;
+        attribute normalOperatingFlow : FlowRate = 120.0;
+        attribute normalSuctionPressure : Pressure = 80.0;
+        attribute dryRunTripFlow : FlowRate = 5.0;
+        attribute dryRunTripPressure : Pressure = 20.0;
+        attribute dryRunTripCurrent : Current = 7.0;
+    }
+
+    satisfy DetectDryRunning by dryRunningProtectionInstallation;
+    satisfy StopPumpOnConfirmedDryRun by dryRunningProtectionInstallation;
+    satisfy PreventImmediateRestart by dryRunningProtectionInstallation;
+    satisfy LockoutAfterRepeatedTrips by dryRunningProtectionInstallation;
+    satisfy AnnunciateDryRunFault by dryRunningProtectionInstallation;
+    satisfy FailSafeStop by dryRunningProtectionInstallation;
+}

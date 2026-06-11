@@ -1,0 +1,357 @@
+package BodokSealSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  enum def SealMode {
+    enum standby;
+    enum sensing;
+    enum conforming;
+    enum sealing;
+    enum shedding;
+    enum faulted;
+  }
+
+  enum def SurfaceCondition {
+    enum dry;
+    enum wet;
+    enum icy;
+    enum abrasive;
+    enum fouled;
+  }
+
+  item def Water;
+  item def Air;
+  item def Debris;
+  item def ControlSignal;
+  item def DiagnosticReport;
+  item def SealHealthData;
+  item def ContactPressureMap;
+
+  attribute def Pressure_kPa :> pressure {
+    unit :>> kPa;
+  }
+
+  attribute def Force_N :> force {
+    unit :>> N;
+  }
+
+  attribute def Length_mm :> length {
+    unit :>> mm;
+  }
+
+  attribute def FlowRate_Lpm :> volumeFlowRate {
+    unit :>> L/min;
+  }
+
+  attribute def Temperature_C :> temperature {
+    unit :>> degC;
+  }
+
+  attribute def Time_ms :> time {
+    unit :>> ms;
+  }
+
+  attribute def ElectricPower_W :> power {
+    unit :>> W;
+  }
+
+  attribute def Percent :> Real {
+    range :>> 0.0 .. 100.0;
+  }
+
+  port def FluidBoundaryPort {
+    in item externalWater : Water;
+    in item externalAir : Air;
+    in item contaminants : Debris;
+    out item leakage : Water;
+  }
+
+  port def ControlPort {
+    in item command : ControlSignal;
+    out item status : DiagnosticReport;
+  }
+
+  port def HealthPort {
+    out item health : SealHealthData;
+    out item pressureMap : ContactPressureMap;
+  }
+
+  port def PowerPort {
+    in attribute supplyVoltage : Real;
+    in attribute availablePower : ElectricPower_W;
+  }
+
+  part def BodokInspiredAdaptiveSeal {
+
+    doc /* Primary high-level function: create and maintain a watertight, pressure-tolerant boundary across an uneven moving interface by sensing surface conditions, conforming a compliant sealing lip, regulating contact pressure, and shedding debris before leakage can propagate. */
+
+    attribute mode : SealMode = SealMode::standby;
+    attribute nominalSealPressure : Pressure_kPa = 65 [kPa];
+    attribute maximumSealPressure : Pressure_kPa = 140 [kPa];
+    attribute allowableLeakRate : FlowRate_Lpm = 0.05 [L/min];
+    attribute lipDeflectionLimit : Length_mm = 18 [mm];
+    attribute operatingTemperatureMin : Temperature_C = -30 [degC];
+    attribute operatingTemperatureMax : Temperature_C = 80 [degC];
+    attribute responseTimeLimit : Time_ms = 250 [ms];
+    attribute sealAvailability : Percent = 99.5;
+
+    port environment : FluidBoundaryPort;
+    port controller : ControlPort;
+    port healthOut : HealthPort;
+    port power : PowerPort;
+
+    part bodokSurfaceSensor : SurfaceSensingArray {
+      attribute sensingResolution : Length_mm = 2 [mm];
+      attribute contaminationSensitivity : Percent = 95.0;
+    }
+
+    part compliantLip : BioInspiredSealLip {
+      attribute ridgeSpacing : Length_mm = 4 [mm];
+      attribute nominalLipHeight : Length_mm = 22 [mm];
+      attribute elasticRecovery : Percent = 98.0;
+    }
+
+    part pressureRegulator : ContactPressureRegulator {
+      attribute minimumAppliedPressure : Pressure_kPa = 20 [kPa];
+      attribute maximumAppliedPressure : Pressure_kPa = 140 [kPa];
+      attribute regulationAccuracy : Percent = 97.0;
+    }
+
+    part debrisShedder : DebrisSheddingRibArray {
+      attribute ribPitch : Length_mm = 6 [mm];
+      attribute sheddingEfficiency : Percent = 90.0;
+    }
+
+    part leakageCollector : LeakageDetectionChannel {
+      attribute detectionThreshold : FlowRate_Lpm = 0.01 [L/min];
+      attribute drainCapacity : FlowRate_Lpm = 1.5 [L/min];
+    }
+
+    part embeddedController : SealControlComputer {
+      attribute controlLoopPeriod : Time_ms = 20 [ms];
+      attribute faultReactionTime : Time_ms = 100 [ms];
+    }
+
+    connect controller to embeddedController.commandPort;
+    connect embeddedController.actuatorCommandPort to pressureRegulator.controlIn;
+    connect bodokSurfaceSensor.mapOut to embeddedController.surfaceMapIn;
+    connect pressureRegulator.pressureMapOut to healthOut;
+    connect leakageCollector.healthOut to embeddedController.leakageIn;
+    connect embeddedController.diagnosticOut to controller;
+    connect power to embeddedController.powerIn;
+    connect power to pressureRegulator.powerIn;
+    connect environment to compliantLip.boundary;
+    connect environment to debrisShedder.boundary;
+    connect environment to leakageCollector.boundary;
+
+    action maintainSeal {
+      in item command : ControlSignal;
+      in item water : Water;
+      in item debris : Debris;
+      out item status : DiagnosticReport;
+
+      first start;
+      then senseSurface;
+      then calculateContactPressure;
+      then conformLip;
+      then shedDebris;
+      then verifyLeakage;
+      then reportStatus;
+
+      action start;
+      action senseSurface {
+        out item pressureMap : ContactPressureMap;
+      }
+      action calculateContactPressure {
+        in item pressureMap : ContactPressureMap;
+      }
+      action conformLip;
+      action shedDebris;
+      action verifyLeakage;
+      action reportStatus {
+        out item status : DiagnosticReport;
+      }
+    }
+
+    state def SealLifecycle {
+      entry action initializeSeal;
+      state Standby;
+      state Sensing;
+      state Conforming;
+      state Sealing;
+      state Shedding;
+      state Faulted;
+
+      transition first Standby;
+
+      transition Standby_to_Sensing
+        first Standby
+        then Sensing
+        accept item command : ControlSignal
+        if power.availablePower >= 8 [W];
+
+      transition Sensing_to_Conforming
+        first Sensing
+        then Conforming
+        if bodokSurfaceSensor.surfaceConfidence >= 90.0;
+
+      transition Conforming_to_Sealing
+        first Conforming
+        then Sealing
+        if compliantLip.currentDeflection <= lipDeflectionLimit;
+
+      transition Sealing_to_Shedding
+        first Sealing
+        then Shedding
+        if bodokSurfaceSensor.detectedSurfaceCondition == SurfaceCondition::fouled;
+
+      transition Shedding_to_Sealing
+        first Shedding
+        then Sealing
+        if debrisShedder.remainingDebrisLoad <= 10.0;
+
+      transition Sealing_to_Faulted
+        first Sealing
+        then Faulted
+        if leakageCollector.measuredLeakRate > allowableLeakRate;
+
+      transition Faulted_to_Standby
+        first Faulted
+        then Standby
+        accept item command : ControlSignal;
+
+      action initializeSeal;
+    }
+  }
+
+  part def SurfaceSensingArray {
+    attribute surfaceConfidence : Percent;
+    attribute measuredGap : Length_mm;
+    attribute detectedSurfaceCondition : SurfaceCondition;
+
+    port boundary : FluidBoundaryPort;
+    port mapOut : HealthPort;
+  }
+
+  part def BioInspiredSealLip {
+    attribute currentDeflection : Length_mm;
+    attribute contactWidth : Length_mm = 12 [mm];
+    attribute compressionForce : Force_N;
+    attribute materialHardnessShoreA : Real = 55.0;
+
+    port boundary : FluidBoundaryPort;
+  }
+
+  part def ContactPressureRegulator {
+    attribute commandedPressure : Pressure_kPa;
+    attribute actualPressure : Pressure_kPa;
+    attribute actuatorForce : Force_N;
+
+    port controlIn : ControlPort;
+    port pressureMapOut : HealthPort;
+    port powerIn : PowerPort;
+  }
+
+  part def DebrisSheddingRibArray {
+    attribute remainingDebrisLoad : Percent;
+    attribute purgePulsePressure : Pressure_kPa = 90 [kPa];
+
+    port boundary : FluidBoundaryPort;
+  }
+
+  part def LeakageDetectionChannel {
+    attribute measuredLeakRate : FlowRate_Lpm;
+    attribute collectedWaterVolume : Real;
+
+    port boundary : FluidBoundaryPort;
+    port healthOut : HealthPort;
+  }
+
+  part def SealControlComputer {
+    port commandPort : ControlPort;
+    port actuatorCommandPort : ControlPort;
+    port surfaceMapIn : HealthPort;
+    port leakageIn : HealthPort;
+    port diagnosticOut : ControlPort;
+    port powerIn : PowerPort;
+
+    attribute processorLoad : Percent;
+    attribute activeMode : SealMode;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject seal : BodokInspiredAdaptiveSeal;
+
+    doc /* The Bodok-inspired adaptive seal shall maintain a watertight boundary across uneven wet interfaces by conforming its seal lip and regulating contact pressure. */
+
+    require constraint {
+      seal.leakageCollector.measuredLeakRate <= seal.allowableLeakRate
+    }
+  }
+
+  requirement def ContactPressureRequirement {
+    subject seal : BodokInspiredAdaptiveSeal;
+
+    require constraint {
+      seal.pressureRegulator.actualPressure >= 20 [kPa] and
+      seal.pressureRegulator.actualPressure <= seal.maximumSealPressure
+    }
+  }
+
+  requirement def ResponseRequirement {
+    subject seal : BodokInspiredAdaptiveSeal;
+
+    doc /* The seal shall transition from sensing to active sealing within the defined response time after receiving a valid closure command. */
+
+    require constraint {
+      seal.responseTimeLimit <= 250 [ms]
+    }
+  }
+
+  requirement def SurfaceAdaptationRequirement {
+    subject seal : BodokInspiredAdaptiveSeal;
+
+    require constraint {
+      seal.compliantLip.currentDeflection <= seal.lipDeflectionLimit
+    }
+  }
+
+  requirement def DebrisToleranceRequirement {
+    subject seal : BodokInspiredAdaptiveSeal;
+
+    doc /* The seal shall reduce fouling at the sealing interface before returning to normal sealing operation. */
+
+    require constraint {
+      seal.debrisShedder.sheddingEfficiency >= 85.0
+    }
+  }
+
+  requirement def OperatingTemperatureRequirement {
+    subject seal : BodokInspiredAdaptiveSeal;
+
+    require constraint {
+      seal.operatingTemperatureMin <= -30 [degC] and
+      seal.operatingTemperatureMax >= 80 [degC]
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject seal : BodokInspiredAdaptiveSeal;
+
+    require constraint {
+      seal.sealAvailability >= 99.0
+    }
+  }
+
+  part bodokSealAssembly : BodokInspiredAdaptiveSeal;
+
+  satisfy PrimaryFunctionRequirement by bodokSealAssembly;
+  satisfy ContactPressureRequirement by bodokSealAssembly.pressureRegulator;
+  satisfy ResponseRequirement by bodokSealAssembly.embeddedController;
+  satisfy SurfaceAdaptationRequirement by bodokSealAssembly.compliantLip;
+  satisfy DebrisToleranceRequirement by bodokSealAssembly.debrisShedder;
+  satisfy OperatingTemperatureRequirement by bodokSealAssembly;
+  satisfy AvailabilityRequirement by bodokSealAssembly;
+}

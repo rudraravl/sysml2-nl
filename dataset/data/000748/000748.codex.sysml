@@ -1,0 +1,399 @@
+package RheotraumaSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> scalarValues::Real;
+    unit = "cmH2O";
+  }
+
+  attribute def FlowRate {
+    :> scalarValues::Real;
+    unit = "L/min";
+  }
+
+  attribute def Volume {
+    :> scalarValues::Real;
+    unit = "mL";
+  }
+
+  attribute def TimeDuration {
+    :> scalarValues::Real;
+    unit = "s";
+  }
+
+  attribute def Frequency {
+    :> scalarValues::Real;
+    unit = "Hz";
+  }
+
+  attribute def Ratio {
+    :> scalarValues::Real;
+    unit = "1";
+  }
+
+  item def GasMixture {
+    attribute oxygenFraction : Ratio;
+    attribute carbonDioxideFraction : Ratio;
+    attribute humidity : Ratio;
+    attribute temperature : Real;
+  }
+
+  item def VentilationCommand {
+    attribute targetTidalVolume : Volume;
+    attribute targetInspiratoryFlow : FlowRate;
+    attribute maxAirwayPressure : Pressure;
+    attribute inspirationTime : TimeDuration;
+    attribute expirationTime : TimeDuration;
+  }
+
+  item def LungStressSample {
+    attribute airwayPressure : Pressure;
+    attribute alveolarPressure : Pressure;
+    attribute inspiratoryFlow : FlowRate;
+    attribute expiratoryFlow : FlowRate;
+    attribute tidalVolume : Volume;
+    attribute shearStressIndex : Ratio;
+    attribute timestamp : TimeDuration;
+  }
+
+  item def TherapyStatus {
+    attribute rheotraumaRisk : Ratio;
+    attribute flowLimited : Boolean;
+    attribute pressureLimited : Boolean;
+    attribute alarmActive : Boolean;
+  }
+
+  port def GasInletPort {
+    in item suppliedGas : GasMixture;
+  }
+
+  port def GasDeliveryPort {
+    out item deliveredGas : GasMixture;
+    out item command : VentilationCommand;
+  }
+
+  port def PatientInterfacePort {
+    out item inspiredGas : GasMixture;
+    in item expiredGas : GasMixture;
+    in item lungStress : LungStressSample;
+  }
+
+  port def SensorPort {
+    in item sample : LungStressSample;
+  }
+
+  port def ControlPort {
+    in item sample : LungStressSample;
+    out item command : VentilationCommand;
+    out item status : TherapyStatus;
+  }
+
+  port def ClinicianPort {
+    in item status : TherapyStatus;
+    out item prescribedCommand : VentilationCommand;
+  }
+
+  part def RheotraumaMitigationSystem {
+    attribute nominalTidalVolume : Volume = 420;
+    attribute maximumSafeAirwayPressure : Pressure = 30;
+    attribute maximumSafeInspiratoryFlow : FlowRate = 45;
+    attribute shearStressThreshold : Ratio = 0.70;
+    attribute minimumOxygenFraction : Ratio = 0.21;
+    attribute maximumOxygenFraction : Ratio = 1.00;
+
+    port gasSupply : GasInletPort;
+    port patientInterface : PatientInterfacePort;
+    port clinicianInterface : ClinicianPort;
+
+    part gasConditioner : GasConditioningUnit;
+    part flowGenerator : AdaptiveFlowGenerator;
+    part airwaySensor : AirwaySensorSuite;
+    part lungModelEstimator : LungMechanicalEstimator;
+    part rheotraumaController : RheotraumaControlUnit;
+    part alarmManager : AlarmManager;
+
+    connect gasSupply.suppliedGas to gasConditioner.rawGas;
+    connect gasConditioner.conditionedGas to flowGenerator.sourceGas;
+    connect flowGenerator.deliveredGas to patientInterface.inspiredGas;
+    connect patientInterface.lungStress to airwaySensor.measuredSample;
+    connect airwaySensor.validatedSample to lungModelEstimator.inputSample;
+    connect lungModelEstimator.estimatedSample to rheotraumaController.sample;
+    connect clinicianInterface.prescribedCommand to rheotraumaController.prescription;
+    connect rheotraumaController.command to flowGenerator.command;
+    connect rheotraumaController.status to alarmManager.status;
+    connect alarmManager.presentedStatus to clinicianInterface.status;
+
+    perform action ProvideFlowRegulatedVentilation;
+  }
+
+  part def GasConditioningUnit {
+    port rawGas : GasInletPort;
+    out item conditionedGas : GasMixture;
+
+    attribute targetHumidity : Ratio = 0.95;
+    attribute targetTemperature : Real = 37.0;
+
+    action conditionGas {
+      in item input : GasMixture;
+      out item output : GasMixture;
+      first start;
+      then setHumidity;
+      then setTemperature;
+      then verifyOxygenRange;
+      then done;
+    }
+  }
+
+  part def AdaptiveFlowGenerator {
+    in item sourceGas : GasMixture;
+    in item command : VentilationCommand;
+    out item deliveredGas : GasMixture;
+
+    attribute currentInspiratoryFlow : FlowRate;
+    attribute currentAirwayPressure : Pressure;
+    attribute deliveredTidalVolume : Volume;
+
+    state def FlowGeneratorState {
+      state standby;
+      state inspiration;
+      state expiration;
+      state pressureLimited;
+      state fault;
+
+      initial then standby;
+
+      transition standby_to_inspiration
+        first standby
+        accept command
+        then inspiration;
+
+      transition inspiration_to_expiration
+        first inspiration
+        if deliveredTidalVolume >= command.targetTidalVolume
+        then expiration;
+
+      transition inspiration_to_pressureLimited
+        first inspiration
+        if currentAirwayPressure > command.maxAirwayPressure
+        then pressureLimited;
+
+      transition pressureLimited_to_expiration
+        first pressureLimited
+        then expiration;
+
+      transition expiration_to_inspiration
+        first expiration
+        accept command
+        then inspiration;
+    }
+  }
+
+  part def AirwaySensorSuite {
+    in item measuredSample : LungStressSample;
+    out item validatedSample : LungStressSample;
+
+    attribute pressureSensorAccuracy : Pressure = 1.0;
+    attribute flowSensorAccuracy : FlowRate = 2.0;
+    attribute sampleFrequency : Frequency = 100;
+
+    action validateSample {
+      in item raw : LungStressSample;
+      out item checked : LungStressSample;
+      first receiveRawSample;
+      then rejectImplausiblePressure;
+      then rejectImplausibleFlow;
+      then timestampSample;
+      then publishCheckedSample;
+    }
+  }
+
+  part def LungMechanicalEstimator {
+    in item inputSample : LungStressSample;
+    out item estimatedSample : LungStressSample;
+
+    attribute estimatedCompliance : Real;
+    attribute estimatedResistance : Real;
+    attribute estimatedShearStressIndex : Ratio;
+
+    action estimateRheotraumaRisk {
+      in item sample : LungStressSample;
+      out item estimate : LungStressSample;
+      first computeDynamicCompliance;
+      then computeAirwayResistance;
+      then computeFlowGradient;
+      then computeShearStressIndex;
+      then publishEstimate;
+    }
+  }
+
+  part def RheotraumaControlUnit {
+    in item sample : LungStressSample;
+    in item prescription : VentilationCommand;
+    out item command : VentilationCommand;
+    out item status : TherapyStatus;
+
+    attribute riskLimit : Ratio = 0.70;
+    attribute flowReductionStep : FlowRate = 5;
+    attribute pressureMargin : Pressure = 2;
+
+    action adaptVentilation {
+      in item currentSample : LungStressSample;
+      in item requestedCommand : VentilationCommand;
+      out item adaptedCommand : VentilationCommand;
+      out item therapyStatus : TherapyStatus;
+
+      first readPrescription;
+      then evaluateRheotraumaRisk;
+
+      if currentSample.shearStressIndex > riskLimit then reduceInspiratoryFlow;
+      else maintainPrescribedFlow;
+
+      then constrainAirwayPressure;
+      then preserveMinuteVentilation;
+      then publishCommand;
+      then publishStatus;
+    }
+
+    state def ControllerState {
+      state initialization;
+      state monitoring;
+      state adaptiveControl;
+      state alarmResponse;
+      state degradedMode;
+
+      initial then initialization;
+
+      transition initialization_to_monitoring
+        first initialization
+        then monitoring;
+
+      transition monitoring_to_adaptiveControl
+        first monitoring
+        if sample.shearStressIndex > riskLimit
+        then adaptiveControl;
+
+      transition adaptiveControl_to_monitoring
+        first adaptiveControl
+        if sample.shearStressIndex <= riskLimit
+        then monitoring;
+
+      transition monitoring_to_alarmResponse
+        first monitoring
+        if sample.airwayPressure > prescription.maxAirwayPressure
+        then alarmResponse;
+
+      transition alarmResponse_to_degradedMode
+        first alarmResponse
+        if status.alarmActive
+        then degradedMode;
+    }
+  }
+
+  part def AlarmManager {
+    in item status : TherapyStatus;
+    out item presentedStatus : TherapyStatus;
+
+    attribute highRiskAlarmThreshold : Ratio = 0.85;
+    attribute alarmDelay : TimeDuration = 2.0;
+
+    action classifyAlarm {
+      in item incomingStatus : TherapyStatus;
+      out item outgoingStatus : TherapyStatus;
+      first readStatus;
+      then classifyRheotraumaRisk;
+      then latchAlarmWhenPersistent;
+      then publishClinicianStatus;
+    }
+  }
+
+  action def ProvideFlowRegulatedVentilation {
+    in item prescribedTherapy : VentilationCommand;
+    in item suppliedGas : GasMixture;
+    out item deliveredTherapy : TherapyStatus;
+
+    first conditionRespiratoryGas;
+    then deliverControlledInspiratoryFlow;
+    then measureAirwayPressureAndFlow;
+    then estimateAlveolarShearStress;
+    then adaptFlowToReduceRheotrauma;
+    then reportTherapyStatus;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     * The Rheotrauma Mitigation System shall provide respiratory support by
+     * delivering conditioned breathing gas while continuously limiting harmful
+     * flow-driven shear stress in the patient airway and alveolar region.
+     */
+  }
+
+  requirement def FlowLimitingRequirement {
+    doc
+    /*
+     * The system shall reduce commanded inspiratory flow when the estimated
+     * shear stress index exceeds 0.70.
+     */
+    subject system : RheotraumaMitigationSystem;
+    require constraint { system.rheotraumaController.riskLimit == 0.70 }
+  }
+
+  requirement def PressureProtectionRequirement {
+    doc
+    /*
+     * The system shall prevent delivered airway pressure from exceeding
+     * 30 cmH2O during controlled ventilation.
+     */
+    subject system : RheotraumaMitigationSystem;
+    require constraint { system.maximumSafeAirwayPressure <= 30 }
+  }
+
+  requirement def GasConditioningRequirement {
+    doc
+    /*
+     * The system shall deliver gas with oxygen fraction between 0.21 and 1.00
+     * and target relative humidity of at least 0.95.
+     */
+    subject system : RheotraumaMitigationSystem;
+    require constraint { system.minimumOxygenFraction >= 0.21 and system.maximumOxygenFraction <= 1.00 }
+    require constraint { system.gasConditioner.targetHumidity >= 0.95 }
+  }
+
+  requirement def MonitoringRequirement {
+    doc
+    /*
+     * The system shall sample airway pressure and flow at no less than 100 Hz
+     * to support near-real-time rheotrauma risk estimation.
+     */
+    subject system : RheotraumaMitigationSystem;
+    require constraint { system.airwaySensor.sampleFrequency >= 100 }
+  }
+
+  requirement def AlarmRequirement {
+    doc
+    /*
+     * The system shall alert the clinician when rheotrauma risk remains above
+     * 0.85 for longer than 2 seconds.
+     */
+    subject system : RheotraumaMitigationSystem;
+    require constraint { system.alarmManager.highRiskAlarmThreshold == 0.85 }
+    require constraint { system.alarmManager.alarmDelay <= 2.0 }
+  }
+
+  satisfy PrimaryFunctionRequirement by RheotraumaMitigationSystem;
+  satisfy FlowLimitingRequirement by RheotraumaControlUnit;
+  satisfy PressureProtectionRequirement by AdaptiveFlowGenerator;
+  satisfy GasConditioningRequirement by GasConditioningUnit;
+  satisfy MonitoringRequirement by AirwaySensorSuite;
+  satisfy AlarmRequirement by AlarmManager;
+
+  part rheotraumaVentilationSystem : RheotraumaMitigationSystem {
+    attribute nominalTidalVolume = 420;
+    attribute maximumSafeAirwayPressure = 30;
+    attribute maximumSafeInspiratoryFlow = 45;
+    attribute shearStressThreshold = 0.70;
+  }
+}

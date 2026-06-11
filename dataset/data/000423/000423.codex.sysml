@@ -1,0 +1,476 @@
+package AngelLiftModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  enum def LiftMode {
+    enum manual;
+    enum powered;
+    enum emergencyLower;
+    enum standby;
+  }
+
+  enum def LiftStateKind {
+    enum stowed;
+    enum ready;
+    enum attached;
+    enum lifting;
+    enum holding;
+    enum lowering;
+    enum faulted;
+  }
+
+  item def HumanPassenger {
+    attribute mass : Real;
+    attribute seatedHeight : Real;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : Real;
+    attribute current : Real;
+  }
+
+  item def MechanicalLoad {
+    attribute force : Real;
+    attribute verticalSpeed : Real;
+  }
+
+  item def OperatorCommand {
+    attribute requestedMode : LiftMode;
+    attribute targetHeight : Real;
+  }
+
+  item def SafetySignal {
+    attribute overloadDetected : Boolean;
+    attribute emergencyStopPressed : Boolean;
+    attribute slingLatched : Boolean;
+    attribute batteryLow : Boolean;
+  }
+
+  port def PowerPort {
+    out item power : ElectricalEnergy;
+  }
+
+  port def CommandPort {
+    in item command : OperatorCommand;
+  }
+
+  port def SafetyPort {
+    out item signal : SafetySignal;
+  }
+
+  port def LoadPort {
+    inout item load : MechanicalLoad;
+  }
+
+  part def AngelLiftSystem {
+    doc /* Primary function: safely lift, support, lower, and reposition a human passenger with controlled vertical motion while preventing overload, uncontrolled descent, and unsafe operation. */
+
+    attribute ratedLoad_kg : Real = 160.0;
+    attribute maxLiftHeight_m : Real = 1.85;
+    attribute minLiftHeight_m : Real = 0.42;
+    attribute nominalLiftSpeed_mps : Real = 0.045;
+    attribute emergencyLowerSpeed_mps : Real = 0.025;
+    attribute systemMass_kg : Real = 38.0;
+    attribute currentHeight_m : Real;
+    attribute commandedHeight_m : Real;
+    attribute mode : LiftMode = LiftMode::standby;
+    attribute state : LiftStateKind = LiftStateKind::stowed;
+
+    port powerIn : PowerPort;
+    port operatorInput : CommandPort;
+    port safetyStatus : SafetyPort;
+    port passengerLoad : LoadPort;
+
+    part base : MobileBase;
+    part mast : LiftMast;
+    part actuator : LinearLiftActuator;
+    part sling : PatientSlingAssembly;
+    part controller : LiftController;
+    part battery : BatteryPack;
+    part userPanel : OperatorPanel;
+    part safety : SafetySubsystem;
+
+    connection batteryToController connect battery.powerOut to controller.powerIn;
+    connection controllerToActuator connect controller.actuatorPower to actuator.powerIn;
+    connection panelToController connect userPanel.commandOut to controller.commandIn;
+    connection safetyToController connect safety.safetyOut to controller.safetyIn;
+    connection actuatorToMast connect actuator.loadOut to mast.liftLoad;
+    connection mastToSling connect mast.suspendedLoad to sling.supportedLoad;
+    connection slingToPassenger connect sling.passengerInterface to passengerLoad;
+
+    action def PerformAssistedLift {
+      in item passenger : HumanPassenger;
+      in item command : OperatorCommand;
+      out item resultingLoad : MechanicalLoad;
+
+      first start;
+      then verifySlingLatch;
+      then verifyLoadWithinCapacity;
+      then raisePassenger;
+      then holdAtTargetHeight;
+      then lowerPassenger;
+      then complete;
+
+      action start;
+      action verifySlingLatch;
+      action verifyLoadWithinCapacity;
+      action raisePassenger;
+      action holdAtTargetHeight;
+      action lowerPassenger;
+      action complete;
+    }
+
+    state def OperatingStates {
+      entry action initializeController;
+
+      state stowed;
+      state ready;
+      state attached;
+      state lifting;
+      state holding;
+      state lowering;
+      state faulted;
+
+      transition stowed_to_ready
+        first stowed
+        then ready;
+
+      transition ready_to_attached
+        first ready
+        then attached;
+
+      transition attached_to_lifting
+        first attached
+        then lifting;
+
+      transition lifting_to_holding
+        first lifting
+        then holding;
+
+      transition holding_to_lowering
+        first holding
+        then lowering;
+
+      transition lowering_to_ready
+        first lowering
+        then ready;
+
+      transition any_to_faulted
+        first ready
+        then faulted;
+
+      transition faulted_to_ready
+        first faulted
+        then ready;
+
+      action initializeController;
+    }
+  }
+
+  part def MobileBase {
+    attribute width_m : Real = 0.72;
+    attribute length_m : Real = 1.08;
+    attribute wheelDiameter_m : Real = 0.10;
+    attribute brakeEngaged : Boolean = true;
+    attribute tipOverAngle_deg : Real = 12.0;
+
+    part leftFrontCaster : LockingCaster;
+    part rightFrontCaster : LockingCaster;
+    part leftRearCaster : LockingCaster;
+    part rightRearCaster : LockingCaster;
+  }
+
+  part def LockingCaster {
+    attribute diameter_m : Real = 0.10;
+    attribute locked : Boolean;
+    attribute loadRating_kg : Real = 80.0;
+  }
+
+  part def LiftMast {
+    attribute height_m : Real = 1.95;
+    attribute boomReach_m : Real = 0.62;
+    attribute structuralLoadLimit_kg : Real = 220.0;
+
+    port liftLoad : LoadPort;
+    port suspendedLoad : LoadPort;
+
+    part mastColumn : StructuralColumn;
+    part boomArm : BoomArm;
+    part pivotJoint : PivotJoint;
+  }
+
+  part def StructuralColumn {
+    attribute material : String = "powder coated aluminum";
+    attribute bucklingLoad_N : Real = 3200.0;
+  }
+
+  part def BoomArm {
+    attribute reach_m : Real = 0.62;
+    attribute safeWorkingLoad_kg : Real = 180.0;
+  }
+
+  part def PivotJoint {
+    attribute rotationLimit_deg : Real = 45.0;
+    attribute locked : Boolean;
+  }
+
+  part def LinearLiftActuator {
+    attribute stroke_m : Real = 1.25;
+    attribute maxForce_N : Real = 2200.0;
+    attribute nominalSpeed_mps : Real = 0.045;
+    attribute position_m : Real;
+    attribute thermalLimit_C : Real = 70.0;
+
+    port powerIn : PowerPort;
+    port loadOut : LoadPort;
+
+    part motor : ElectricMotor;
+    part gearbox : Gearbox;
+    part screwDrive : ScrewDrive;
+    part positionSensor : PositionSensor;
+  }
+
+  part def ElectricMotor {
+    attribute nominalVoltage_V : Real = 24.0;
+    attribute peakCurrent_A : Real = 18.0;
+    attribute ratedPower_W : Real = 240.0;
+  }
+
+  part def Gearbox {
+    attribute reductionRatio : Real = 28.0;
+    attribute efficiency : Real = 0.82;
+  }
+
+  part def ScrewDrive {
+    attribute lead_m : Real = 0.006;
+    attribute backdriveResistant : Boolean = true;
+  }
+
+  part def PositionSensor {
+    attribute resolution_m : Real = 0.002;
+    attribute measuredHeight_m : Real;
+  }
+
+  part def PatientSlingAssembly {
+    attribute slingSize : String = "medium";
+    attribute safeWorkingLoad_kg : Real = 160.0;
+    attribute latchCount : Integer = 4;
+    attribute allLatchesClosed : Boolean;
+
+    port supportedLoad : LoadPort;
+    port passengerInterface : LoadPort;
+
+    part fabricSling : LoadBearingSling;
+    part spreaderBar : SpreaderBar;
+    part latchSet : SlingLatchSet;
+  }
+
+  part def LoadBearingSling {
+    attribute material : String = "reinforced polyester mesh";
+    attribute tearStrength_N : Real = 2600.0;
+  }
+
+  part def SpreaderBar {
+    attribute width_m : Real = 0.48;
+    attribute ratedLoad_kg : Real = 180.0;
+  }
+
+  part def SlingLatchSet {
+    attribute latchQuantity : Integer = 4;
+    attribute closedQuantity : Integer;
+    attribute latchIntegrityOk : Boolean;
+  }
+
+  part def LiftController {
+    attribute softwareVersion : String = "2.4.1";
+    attribute commandedHeight_m : Real;
+    attribute measuredHeight_m : Real;
+    attribute overload : Boolean;
+    attribute motionEnabled : Boolean;
+
+    port powerIn : PowerPort;
+    port actuatorPower : PowerPort;
+    port commandIn : CommandPort;
+    port safetyIn : SafetyPort;
+
+    action def ControlLiftMotion {
+      in item command : OperatorCommand;
+      in item safetySignal : SafetySignal;
+      out item actuatorPowerCommand : ElectricalEnergy;
+
+      first readInputs;
+      then evaluateSafety;
+      then computeMotionProfile;
+      then driveActuator;
+      then monitorFeedback;
+
+      action readInputs;
+      action evaluateSafety;
+      action computeMotionProfile;
+      action driveActuator;
+      action monitorFeedback;
+    }
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage_V : Real = 24.0;
+    attribute capacity_Ah : Real = 5.0;
+    attribute stateOfCharge_percent : Real;
+    attribute lowChargeThreshold_percent : Real = 20.0;
+
+    port powerOut : PowerPort;
+
+    part cells : BatteryCell[12];
+    part chargerInterface : ChargerInterface;
+  }
+
+  part def BatteryCell {
+    attribute nominalVoltage_V : Real = 2.0;
+    attribute capacity_Ah : Real = 5.0;
+  }
+
+  part def ChargerInterface {
+    attribute inputVoltage_V : Real = 120.0;
+    attribute chargeCurrent_A : Real = 1.5;
+  }
+
+  part def OperatorPanel {
+    attribute upButtonPressed : Boolean;
+    attribute downButtonPressed : Boolean;
+    attribute stopButtonPressed : Boolean;
+    attribute displayHeight_m : Real;
+
+    port commandOut : CommandPort;
+
+    part upButton : MomentaryButton;
+    part downButton : MomentaryButton;
+    part stopButton : EmergencyStopButton;
+    part heightDisplay : HeightDisplay;
+  }
+
+  part def MomentaryButton {
+    attribute pressed : Boolean;
+    attribute debounceTime_ms : Real = 25.0;
+  }
+
+  part def EmergencyStopButton {
+    attribute pressed : Boolean;
+    attribute mechanicallyLatching : Boolean = true;
+  }
+
+  part def HeightDisplay {
+    attribute displayedHeight_m : Real;
+    attribute updateRate_Hz : Real = 5.0;
+  }
+
+  part def SafetySubsystem {
+    attribute overloadDetected : Boolean;
+    attribute emergencyStopPressed : Boolean;
+    attribute slingLatched : Boolean;
+    attribute batteryLow : Boolean;
+
+    port safetyOut : SafetyPort;
+
+    part loadSensor : LoadSensor;
+    part latchSensors : LatchSensor[4];
+    part emergencyStopCircuit : EmergencyStopCircuit;
+    part descentBrake : DescentBrake;
+  }
+
+  part def LoadSensor {
+    attribute measuredLoad_kg : Real;
+    attribute accuracy_kg : Real = 2.0;
+    attribute overloadThreshold_kg : Real = 165.0;
+  }
+
+  part def LatchSensor {
+    attribute latched : Boolean;
+    attribute faultDetected : Boolean;
+  }
+
+  part def EmergencyStopCircuit {
+    attribute stopRequested : Boolean;
+    attribute normallyClosedLoopHealthy : Boolean;
+  }
+
+  part def DescentBrake {
+    attribute engaged : Boolean;
+    attribute holdingForce_N : Real = 2500.0;
+    attribute releaseCommanded : Boolean;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The AngelLift system shall lift, support, lower, and reposition one human passenger using controlled powered vertical motion. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.ratedLoad_kg >= 150.0
+    }
+  }
+
+  requirement def LiftHeightRequirement {
+    doc /* The AngelLift system shall provide a vertical lift range suitable for transfer between seated, bed, and standing-assist positions. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.maxLiftHeight_m >= 1.75 and system.minLiftHeight_m <= 0.50
+    }
+  }
+
+  requirement def ControlledSpeedRequirement {
+    doc /* The AngelLift system shall limit powered lifting and lowering speed to support stable passenger handling. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.nominalLiftSpeed_mps <= 0.06
+    }
+  }
+
+  requirement def EmergencyLowerRequirement {
+    doc /* The AngelLift system shall provide a slower emergency lowering mode when normal powered control is unavailable. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.emergencyLowerSpeed_mps > 0.0 and system.emergencyLowerSpeed_mps < system.nominalLiftSpeed_mps
+    }
+  }
+
+  requirement def OverloadProtectionRequirement {
+    doc /* The AngelLift system shall inhibit lifting motion when sensed passenger load exceeds rated load. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.safety.loadSensor.overloadThreshold_kg <= system.ratedLoad_kg + 5.0
+    }
+  }
+
+  requirement def SlingLatchRequirement {
+    doc /* The AngelLift system shall permit lift motion only when all sling latches are closed and verified. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.sling.latchSet.latchQuantity == 4
+    }
+  }
+
+  requirement def StabilityRequirement {
+    doc /* The AngelLift base shall provide stable support for the rated passenger load during vertical motion. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.base.tipOverAngle_deg >= 10.0
+    }
+  }
+
+  requirement def BatteryRequirement {
+    doc /* The AngelLift battery shall provide nominal 24 volt power for the controller and actuator. */
+    subject system : AngelLiftSystem;
+    require constraint {
+      system.battery.nominalVoltage_V == 24.0 and system.battery.capacity_Ah >= 5.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by AngelLiftSystem;
+  satisfy LiftHeightRequirement by AngelLiftSystem;
+  satisfy ControlledSpeedRequirement by AngelLiftSystem;
+  satisfy EmergencyLowerRequirement by AngelLiftSystem;
+  satisfy OverloadProtectionRequirement by SafetySubsystem;
+  satisfy SlingLatchRequirement by PatientSlingAssembly;
+  satisfy StabilityRequirement by MobileBase;
+  satisfy BatteryRequirement by BatteryPack;
+
+}

@@ -1,0 +1,422 @@
+package ForcedAirPatientWarmingSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature {
+        unit : String = "degC";
+        quantityKind : String = "thermodynamic temperature";
+    }
+
+    attribute def AirFlowRate {
+        unit : String = "L/min";
+        quantityKind : String = "volumetric flow rate";
+    }
+
+    attribute def ElectricalPower {
+        unit : String = "W";
+        quantityKind : String = "power";
+    }
+
+    attribute def Voltage {
+        unit : String = "V";
+        quantityKind : String = "electric potential";
+    }
+
+    attribute def TimeDuration {
+        unit : String = "s";
+        quantityKind : String = "time";
+    }
+
+    attribute def SoundPressureLevel {
+        unit : String = "dBA";
+        quantityKind : String = "sound pressure level";
+    }
+
+    attribute def Mass {
+        unit : String = "kg";
+        quantityKind : String = "mass";
+    }
+
+    enum def OperatingMode {
+        enum idle;
+        enum preheat;
+        enum lowWarming;
+        enum mediumWarming;
+        enum highWarming;
+        enum cooldown;
+        enum fault;
+    }
+
+    enum def AlarmSeverity {
+        enum advisory;
+        enum caution;
+        enum critical;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute power : ElectricalPower;
+    }
+
+    item def AirStream {
+        attribute temperature : Temperature;
+        attribute flowRate : AirFlowRate;
+        attribute filtered : Boolean;
+    }
+
+    item def TemperatureMeasurement {
+        attribute measuredTemperature : Temperature;
+        attribute valid : Boolean;
+        attribute sampleAge : TimeDuration;
+    }
+
+    item def ControlCommand {
+        attribute requestedMode : OperatingMode;
+        attribute heaterEnabled : Boolean;
+        attribute blowerEnabled : Boolean;
+        attribute targetTemperature : Temperature;
+    }
+
+    item def AlarmSignal {
+        attribute severity : AlarmSeverity;
+        attribute message : String;
+        attribute latched : Boolean;
+    }
+
+    item def PatientThermalState {
+        attribute skinTemperature : Temperature;
+        attribute estimatedCoreTemperature : Temperature;
+        attribute warmingActive : Boolean;
+    }
+
+    port def ElectricalPowerInput {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def AirInlet {
+        in item ambientAir : AirStream;
+    }
+
+    port def AirOutlet {
+        out item conditionedAir : AirStream;
+    }
+
+    port def BlanketAirInterface {
+        in item suppliedAir : AirStream;
+        out item returnLeakageAir : AirStream;
+    }
+
+    port def TemperatureSensorInterface {
+        out item temperatureReading : TemperatureMeasurement;
+    }
+
+    port def ControllerCommandInterface {
+        in item command : ControlCommand;
+    }
+
+    port def ControllerFeedbackInterface {
+        out item measurement : TemperatureMeasurement;
+    }
+
+    port def AlarmOutput {
+        out item alarm : AlarmSignal;
+    }
+
+    port def PatientHeatInterface {
+        in item warmingAir : AirStream;
+        out item thermalState : PatientThermalState;
+    }
+
+    part def ForcedAirWarmingSystem {
+        attribute primaryFunction : String =
+            "Provide controlled forced-air convective warming to help maintain or raise a patient's body temperature during clinical care.";
+        attribute nominalMass : Mass = 6.2;
+        attribute maxAcPower : ElectricalPower = 1400.0;
+        attribute nominalSupplyVoltage : Voltage = 120.0;
+        attribute maxSoundLevel : SoundPressureLevel = 53.0;
+
+        port acPower : ElectricalPowerInput;
+        port ambientAir : AirInlet;
+        port warmedAirOutlet : AirOutlet;
+        port alarmPort : AlarmOutput;
+
+        part powerSupply : PowerSupply;
+        part airFilter : AirFilter;
+        part blower : Blower;
+        part heater : ResistiveHeater;
+        part temperatureSensor : OutletTemperatureSensor;
+        part controller : WarmingController;
+        part userInterface : ClinicalUserInterface;
+        part safetyMonitor : ThermalSafetyMonitor;
+        part warmingBlanket : DisposableForcedAirBlanket;
+
+        connect acPower to powerSupply.acInput;
+        connect ambientAir to airFilter.airIn;
+        connect airFilter.airOut to blower.airIn;
+        connect blower.airOut to heater.airIn;
+        connect heater.airOut to temperatureSensor.sensedAir;
+        connect temperatureSensor.airOut to warmedAirOutlet;
+        connect warmedAirOutlet to warmingBlanket.airSupply;
+        connect temperatureSensor.sensorOut to controller.temperatureFeedback;
+        connect userInterface.commandOut to controller.clinicianCommand;
+        connect controller.heaterCommand to heater.controlIn;
+        connect controller.blowerCommand to blower.controlIn;
+        connect temperatureSensor.sensorOut to safetyMonitor.temperatureFeedback;
+        connect safetyMonitor.alarmOut to alarmPort;
+        connect controller.alarmOut to alarmPort;
+    }
+
+    part def PowerSupply {
+        attribute acceptedVoltageMin : Voltage = 108.0;
+        attribute acceptedVoltageMax : Voltage = 132.0;
+        attribute outputPowerLimit : ElectricalPower = 1500.0;
+
+        port acInput : ElectricalPowerInput;
+        port dcOutput : ElectricalPowerInput;
+    }
+
+    part def AirFilter {
+        attribute filtrationEfficiency : Real = 0.95;
+        attribute replacementInterval : TimeDuration = 144000.0;
+
+        port airIn : AirInlet;
+        port airOut : AirOutlet;
+    }
+
+    part def Blower {
+        attribute minimumFlowRate : AirFlowRate = 25.0;
+        attribute nominalFlowRate : AirFlowRate = 42.0;
+        attribute maximumFlowRate : AirFlowRate = 55.0;
+
+        port airIn : AirInlet;
+        port airOut : AirOutlet;
+        port controlIn : ControllerCommandInterface;
+    }
+
+    part def ResistiveHeater {
+        attribute maximumHeaterPower : ElectricalPower = 1200.0;
+        attribute lowSetpoint : Temperature = 32.0;
+        attribute mediumSetpoint : Temperature = 38.0;
+        attribute highSetpoint : Temperature = 43.0;
+        attribute absoluteOutletLimit : Temperature = 46.0;
+
+        port airIn : AirInlet;
+        port airOut : AirOutlet;
+        port controlIn : ControllerCommandInterface;
+    }
+
+    part def OutletTemperatureSensor {
+        attribute accuracy : Temperature = 0.5;
+        attribute samplePeriod : TimeDuration = 0.25;
+
+        port sensedAir : AirInlet;
+        port airOut : AirOutlet;
+        port sensorOut : TemperatureSensorInterface;
+    }
+
+    part def ClinicalUserInterface {
+        attribute hasModeSelector : Boolean = true;
+        attribute hasAudibleAlarm : Boolean = true;
+        attribute hasVisualAlarm : Boolean = true;
+
+        port commandOut : ControllerCommandInterface;
+        port alarmIn : AlarmOutput;
+    }
+
+    part def ThermalSafetyMonitor {
+        attribute warningThreshold : Temperature = 44.0;
+        attribute shutdownThreshold : Temperature = 46.0;
+        attribute sensorTimeout : TimeDuration = 2.0;
+
+        port temperatureFeedback : TemperatureSensorInterface;
+        port alarmOut : AlarmOutput;
+
+        state def SafetyMonitoring {
+            state normal;
+            state elevatedTemperature;
+            state thermalShutdown;
+            state sensorFault;
+
+            transition first normal;
+            transition normal to elevatedTemperature
+                if temperatureFeedback.temperatureReading.measuredTemperature >= warningThreshold;
+            transition elevatedTemperature to normal
+                if temperatureFeedback.temperatureReading.measuredTemperature < warningThreshold;
+            transition elevatedTemperature to thermalShutdown
+                if temperatureFeedback.temperatureReading.measuredTemperature >= shutdownThreshold;
+            transition normal to sensorFault
+                if not temperatureFeedback.temperatureReading.valid;
+            transition elevatedTemperature to sensorFault
+                if not temperatureFeedback.temperatureReading.valid;
+        }
+    }
+
+    part def WarmingController {
+        attribute currentMode : OperatingMode = OperatingMode::idle;
+        attribute selectedTargetTemperature : Temperature = 38.0;
+        attribute controlLoopPeriod : TimeDuration = 0.5;
+        attribute outletTemperatureTolerance : Temperature = 1.5;
+
+        port clinicianCommand : ControllerCommandInterface;
+        port temperatureFeedback : TemperatureSensorInterface;
+        port heaterCommand : ControllerCommandInterface;
+        port blowerCommand : ControllerCommandInterface;
+        port alarmOut : AlarmOutput;
+
+        action def RegulateOutletAirTemperature {
+            in targetTemperature : Temperature;
+            in measuredOutletTemperature : Temperature;
+            out heaterDutyCommand : Real;
+            out blowerEnableCommand : Boolean;
+        }
+
+        action def EnterCooldown {
+            in measuredOutletTemperature : Temperature;
+            out heaterEnableCommand : Boolean;
+            out blowerEnableCommand : Boolean;
+        }
+
+        state def ControllerBehavior {
+            state off;
+            state idle;
+            state preheating;
+            state warmingLow;
+            state warmingMedium;
+            state warmingHigh;
+            state cooldown;
+            state fault;
+
+            transition first off;
+            transition off to idle
+                if clinicianCommand.command.blowerEnabled;
+            transition idle to preheating
+                if clinicianCommand.command.requestedMode != OperatingMode::idle;
+            transition preheating to warmingLow
+                if clinicianCommand.command.requestedMode == OperatingMode::lowWarming;
+            transition preheating to warmingMedium
+                if clinicianCommand.command.requestedMode == OperatingMode::mediumWarming;
+            transition preheating to warmingHigh
+                if clinicianCommand.command.requestedMode == OperatingMode::highWarming;
+            transition warmingLow to warmingMedium
+                if clinicianCommand.command.requestedMode == OperatingMode::mediumWarming;
+            transition warmingMedium to warmingHigh
+                if clinicianCommand.command.requestedMode == OperatingMode::highWarming;
+            transition warmingHigh to warmingMedium
+                if clinicianCommand.command.requestedMode == OperatingMode::mediumWarming;
+            transition warmingMedium to warmingLow
+                if clinicianCommand.command.requestedMode == OperatingMode::lowWarming;
+            transition warmingLow to cooldown
+                if clinicianCommand.command.requestedMode == OperatingMode::idle;
+            transition warmingMedium to cooldown
+                if clinicianCommand.command.requestedMode == OperatingMode::idle;
+            transition warmingHigh to cooldown
+                if clinicianCommand.command.requestedMode == OperatingMode::idle;
+            transition preheating to fault
+                if not temperatureFeedback.temperatureReading.valid;
+            transition warmingLow to fault
+                if temperatureFeedback.temperatureReading.measuredTemperature > 46.0;
+            transition warmingMedium to fault
+                if temperatureFeedback.temperatureReading.measuredTemperature > 46.0;
+            transition warmingHigh to fault
+                if temperatureFeedback.temperatureReading.measuredTemperature > 46.0;
+            transition cooldown to idle
+                if temperatureFeedback.temperatureReading.measuredTemperature < 32.0;
+        }
+    }
+
+    part def DisposableForcedAirBlanket {
+        attribute blanketType : String = "perforated forced-air warming blanket";
+        attribute maximumPatientContactTemperature : Temperature = 43.0;
+        attribute intendedUseSinglePatient : Boolean = true;
+
+        port airSupply : BlanketAirInterface;
+        port patientInterface : PatientHeatInterface;
+    }
+
+    part def Patient {
+        attribute initialCoreTemperature : Temperature = 35.8;
+        attribute targetCoreTemperature : Temperature = 36.5;
+
+        port heatExchange : PatientHeatInterface;
+    }
+
+    action def ProvideForcedAirPatientWarming {
+        in ambientAir : AirStream;
+        in electricalEnergy : ElectricalEnergy;
+        in selectedMode : OperatingMode;
+        out warmedAir : AirStream;
+        out patientThermalState : PatientThermalState;
+
+        objective {
+            warmedAir.temperature >= 32.0 and warmedAir.temperature <= 43.0;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ForcedAirWarmingSystem;
+
+        require constraint {
+            system.primaryFunction ==
+            "Provide controlled forced-air convective warming to help maintain or raise a patient's body temperature during clinical care."
+        }
+    }
+
+    requirement def ControlledOutletTemperatureRequirement {
+        subject system : ForcedAirWarmingSystem;
+
+        require constraint {
+            system.heater.lowSetpoint == 32.0 and
+            system.heater.mediumSetpoint == 38.0 and
+            system.heater.highSetpoint == 43.0 and
+            system.heater.absoluteOutletLimit <= 46.0
+        }
+    }
+
+    requirement def AirflowRequirement {
+        subject system : ForcedAirWarmingSystem;
+
+        require constraint {
+            system.blower.nominalFlowRate >= 40.0 and
+            system.blower.maximumFlowRate <= 60.0
+        }
+    }
+
+    requirement def OverTemperatureProtectionRequirement {
+        subject system : ForcedAirWarmingSystem;
+
+        require constraint {
+            system.safetyMonitor.shutdownThreshold <= 46.0
+        }
+    }
+
+    requirement def PatientInterfaceRequirement {
+        subject blanket : DisposableForcedAirBlanket;
+
+        require constraint {
+            blanket.maximumPatientContactTemperature <= 43.0 and
+            blanket.intendedUseSinglePatient == true
+        }
+    }
+
+    requirement def UsabilityRequirement {
+        subject interface : ClinicalUserInterface;
+
+        require constraint {
+            interface.hasModeSelector == true and
+            interface.hasAudibleAlarm == true and
+            interface.hasVisualAlarm == true
+        }
+    }
+
+    part forcedAirPatientWarmingSystem : ForcedAirWarmingSystem;
+    part patient : Patient;
+
+    connect forcedAirPatientWarmingSystem.warmingBlanket.patientInterface to patient.heatExchange;
+
+    satisfy PrimaryFunctionRequirement by forcedAirPatientWarmingSystem;
+    satisfy ControlledOutletTemperatureRequirement by forcedAirPatientWarmingSystem;
+    satisfy AirflowRequirement by forcedAirPatientWarmingSystem;
+    satisfy OverTemperatureProtectionRequirement by forcedAirPatientWarmingSystem;
+    satisfy PatientInterfaceRequirement by forcedAirPatientWarmingSystem.warmingBlanket;
+    satisfy UsabilityRequirement by forcedAirPatientWarmingSystem.userInterface;
+}

@@ -1,0 +1,312 @@
+package LiftwareStabilizingUtensilSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent :> Real;
+  attribute def FrequencyHz :> Real {
+    unit = "Hz";
+  }
+  attribute def AngleDeg :> Real {
+    unit = "deg";
+  }
+  attribute def AngularRateDegPerSec :> Real {
+    unit = "deg/s";
+  }
+  attribute def TorqueMilliNewtonMeter :> Real {
+    unit = "mN*m";
+  }
+  attribute def TimeSecond :> Real {
+    unit = "s";
+  }
+  attribute def MassGram :> Real {
+    unit = "g";
+  }
+  attribute def CurrentMilliAmpere :> Real {
+    unit = "mA";
+  }
+  attribute def VoltageVolt :> Real {
+    unit = "V";
+  }
+
+  item def TremorMotion {
+    attribute rollAngle : AngleDeg;
+    attribute pitchAngle : AngleDeg;
+    attribute yawAngle : AngleDeg;
+    attribute rollRate : AngularRateDegPerSec;
+    attribute pitchRate : AngularRateDegPerSec;
+    attribute yawRate : AngularRateDegPerSec;
+    attribute dominantFrequency : FrequencyHz;
+  }
+
+  item def StabilizationCommand {
+    attribute rollCompensation : AngleDeg;
+    attribute pitchCompensation : AngleDeg;
+    attribute yawCompensation : AngleDeg;
+    attribute targetLatency : TimeSecond;
+  }
+
+  item def MotorDriveSignal {
+    attribute axisId : Integer;
+    attribute requestedTorque : TorqueMilliNewtonMeter;
+    attribute dutyCycle : Percent;
+  }
+
+  item def BatteryPower {
+    attribute voltage : VoltageVolt;
+    attribute currentLimit : CurrentMilliAmpere;
+    attribute chargeRemaining : Percent;
+  }
+
+  item def UtensilLoad {
+    attribute payloadMass : MassGram;
+    attribute offsetFromJoint : LengthValue;
+  }
+
+  item def UserGripForce {
+    attribute magnitude : ForceValue;
+  }
+
+  port def MotionSensingPort {
+    out item measuredMotion : TremorMotion;
+  }
+
+  port def StabilizationCommandPort {
+    out item command : StabilizationCommand;
+  }
+
+  port def MotorControlPort {
+    in item signal : MotorDriveSignal;
+  }
+
+  port def PowerPort {
+    in item power : BatteryPower;
+  }
+
+  port def MechanicalAttachmentPort {
+    in item load : UtensilLoad;
+  }
+
+  port def GripInterfacePort {
+    in item grip : UserGripForce;
+  }
+
+  action def SenseHandMotion {
+    out item measuredMotion : TremorMotion;
+  }
+
+  action def EstimateTremor {
+    in item measuredMotion : TremorMotion;
+    out item estimatedTremor : TremorMotion;
+  }
+
+  action def ComputeStabilization {
+    in item estimatedTremor : TremorMotion;
+    out item command : StabilizationCommand;
+  }
+
+  action def DriveStabilizingMotors {
+    in item command : StabilizationCommand;
+    in item power : BatteryPower;
+    out item rollDrive : MotorDriveSignal;
+    out item pitchDrive : MotorDriveSignal;
+  }
+
+  action def MaintainUtensilOrientation {
+    in item handMotion : TremorMotion;
+    in item utensilLoad : UtensilLoad;
+    out item stabilizationCommand : StabilizationCommand;
+
+    first start;
+    then sense : SenseHandMotion;
+    then estimate : EstimateTremor {
+      in measuredMotion = sense.measuredMotion;
+    }
+    then compute : ComputeStabilization {
+      in estimatedTremor = estimate.estimatedTremor;
+    }
+    then done;
+
+    bind stabilizationCommand = compute.command;
+  }
+
+  state def LiftwareOperatingState {
+    entry action initializeElectronics;
+    state Off;
+    state Standby;
+    state Calibrating;
+    state Stabilizing;
+    state LowBattery;
+    state Fault;
+
+    transition first Off;
+    transition Off_to_Standby
+      first Off
+      then Standby
+      accept PowerButtonPressed;
+
+    transition Standby_to_Calibrating
+      first Standby
+      then Calibrating
+      accept UtensilAttached;
+
+    transition Calibrating_to_Stabilizing
+      first Calibrating
+      then Stabilizing
+      accept CalibrationComplete;
+
+    transition Stabilizing_to_LowBattery
+      first Stabilizing
+      then LowBattery
+      accept BatteryBelowThreshold;
+
+    transition LowBattery_to_Off
+      first LowBattery
+      then Off
+      accept PowerButtonPressed;
+
+    transition Any_to_Fault
+      first Stabilizing
+      then Fault
+      accept SensorOrMotorFault;
+
+    transition Fault_to_Standby
+      first Fault
+      then Standby
+      accept FaultCleared;
+  }
+
+  part def InertialMeasurementUnit {
+    attribute sampleRate : FrequencyHz = 200.0;
+    attribute angularResolution : AngleDeg = 0.1;
+    port motionPort : MotionSensingPort;
+  }
+
+  part def TremorEstimator {
+    attribute minimumTrackedFrequency : FrequencyHz = 2.0;
+    attribute maximumTrackedFrequency : FrequencyHz = 12.0;
+    attribute filterLatency : TimeSecond = 0.015;
+    port inputMotion : MotionSensingPort;
+    port outputCommand : StabilizationCommandPort;
+  }
+
+  part def StabilizationController {
+    attribute controlLoopFrequency : FrequencyHz = 100.0;
+    attribute maximumCompensationAngle : AngleDeg = 12.0;
+    attribute maximumCommandLatency : TimeSecond = 0.030;
+    port commandOut : StabilizationCommandPort;
+  }
+
+  part def BrushlessMotor {
+    attribute stallTorque : TorqueMilliNewtonMeter = 24.0;
+    attribute nominalCurrent : CurrentMilliAmpere = 180.0;
+    port control : MotorControlPort;
+    port electricalPower : PowerPort;
+  }
+
+  part def TwoAxisGimbal {
+    part rollMotor : BrushlessMotor;
+    part pitchMotor : BrushlessMotor;
+    attribute rollTravelLimit : AngleDeg = 15.0;
+    attribute pitchTravelLimit : AngleDeg = 15.0;
+    port attachment : MechanicalAttachmentPort;
+  }
+
+  part def RechargeableBattery {
+    attribute nominalVoltage : VoltageVolt = 3.7;
+    attribute capacity : CurrentMilliAmpere = 900.0;
+    attribute lowBatteryThreshold : Percent = 15.0;
+    port powerOut : PowerPort;
+  }
+
+  part def UtensilAttachment {
+    attribute supportedPayloadMassMin : MassGram = 10.0;
+    attribute supportedPayloadMassMax : MassGram = 80.0;
+    attribute attachmentLocked : Boolean;
+    port mechanicalInterface : MechanicalAttachmentPort;
+  }
+
+  part def StabilizingHandle {
+    attribute handleMass : MassGram = 120.0;
+    attribute ergonomicDiameter : LengthValue = 32.0 [mm];
+    port gripPort : GripInterfacePort;
+
+    part imu : InertialMeasurementUnit;
+    part estimator : TremorEstimator;
+    part controller : StabilizationController;
+    part gimbal : TwoAxisGimbal;
+    part battery : RechargeableBattery;
+  }
+
+  part def LiftwareStabilizingUtensil {
+    doc /* Primary function: reduce the effect of involuntary hand tremor by sensing handle motion, estimating tremor components, and actively moving the utensil attachment in the opposite direction so food remains steadier during eating. */
+
+    attribute systemMass : MassGram = 180.0;
+    attribute stabilizationEffectiveness : Percent = 70.0;
+    attribute maximumSupportedTremorFrequency : FrequencyHz = 12.0;
+    attribute responseLatency : TimeSecond = 0.030;
+
+    port userGrip : GripInterfacePort;
+    port utensilLoad : MechanicalAttachmentPort;
+
+    part handle : StabilizingHandle;
+    part attachment : UtensilAttachment;
+
+    connect userGrip to handle.gripPort;
+    connect utensilLoad to attachment.mechanicalInterface;
+    connect attachment.mechanicalInterface to handle.gimbal.attachment;
+    connect handle.imu.motionPort to handle.estimator.inputMotion;
+    connect handle.estimator.outputCommand to handle.controller.commandOut;
+    connect handle.battery.powerOut to handle.gimbal.rollMotor.electricalPower;
+    connect handle.battery.powerOut to handle.gimbal.pitchMotor.electricalPower;
+
+    perform action stabilizeEating : MaintainUtensilOrientation;
+    exhibit state operatingState : LiftwareOperatingState;
+  }
+
+  requirement def PrimaryStabilizationRequirement {
+    subject system : LiftwareStabilizingUtensil;
+    doc /* The system shall actively stabilize an attached eating utensil against involuntary hand tremor while held by a user. */
+    require constraint {
+      system.stabilizationEffectiveness >= 70.0
+    }
+  }
+
+  requirement def TremorFrequencyRequirement {
+    subject system : LiftwareStabilizingUtensil;
+    doc /* The system shall compensate tremor motion over the common eating tremor frequency range. */
+    require constraint {
+      system.maximumSupportedTremorFrequency >= 12.0
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject system : LiftwareStabilizingUtensil;
+    doc /* The system shall compute and apply stabilization commands quickly enough for closed-loop tremor cancellation. */
+    require constraint {
+      system.responseLatency <= 0.030
+    }
+  }
+
+  requirement def PortableUseRequirement {
+    subject system : LiftwareStabilizingUtensil;
+    doc /* The system shall remain lightweight enough for handheld meal use. */
+    require constraint {
+      system.systemMass <= 200.0
+    }
+  }
+
+  requirement def UtensilAttachmentRequirement {
+    subject attachment : UtensilAttachment;
+    doc /* The utensil attachment shall support interchangeable eating implements within the expected payload range. */
+    require constraint {
+      attachment.supportedPayloadMassMin <= 10.0 and attachment.supportedPayloadMassMax >= 80.0
+    }
+  }
+
+  satisfy PrimaryStabilizationRequirement by LiftwareStabilizingUtensil;
+  satisfy TremorFrequencyRequirement by LiftwareStabilizingUtensil;
+  satisfy LatencyRequirement by LiftwareStabilizingUtensil;
+  satisfy PortableUseRequirement by LiftwareStabilizingUtensil;
+  satisfy UtensilAttachmentRequirement by UtensilAttachment;
+}

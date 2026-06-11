@@ -1,0 +1,518 @@
+package WaterWellPumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Volume :> Real {
+        unit = "L";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Depth :> Real {
+        unit = "m";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "percent";
+    }
+
+    item def GroundWater {
+        attribute temperature : Temperature;
+        attribute dissolvedSolids : Real;
+    }
+
+    item def PressurizedWater :> GroundWater {
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+        attribute frequency : Real;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : Integer;
+        attribute commandedOn : Boolean;
+    }
+
+    item def StatusSignal {
+        attribute available : Boolean;
+        attribute running : Boolean;
+        attribute faulted : Boolean;
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : FlowRate;
+    }
+
+    item def SensorSignal {
+        attribute measuredValue : Real;
+        attribute valid : Boolean;
+        attribute timestamp : TimeDuration;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : GroundWater;
+    }
+
+    port def WaterOutletPort {
+        out item waterOut : PressurizedWater;
+    }
+
+    port def ElectricalPowerPort {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def ControlInputPort {
+        in item control : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item status : StatusSignal;
+    }
+
+    port def SensorOutputPort {
+        out item reading : SensorSignal;
+    }
+
+    part def WellBore {
+        attribute staticWaterLevel : Depth = 18.0;
+        attribute pumpSettingDepth : Depth = 42.0;
+        attribute casingDiameter : Real = 150.0;
+        attribute availableDrawdown : Depth = 14.0;
+
+        port aquiferInterface : WaterInletPort;
+        port pumpInterface : WaterOutletPort;
+    }
+
+    part def IntakeScreen {
+        attribute meshOpening : Real = 1.0;
+        attribute cloggingFraction : Real = 0.0;
+        attribute maximumInletFlow : FlowRate = 95.0;
+
+        port rawWaterInlet : WaterInletPort;
+        port filteredWaterOutlet : WaterOutletPort;
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 12.0;
+        attribute reverseLeakageFlow : FlowRate = 0.05;
+        attribute open : Boolean = false;
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def PressureTank {
+        attribute totalVolume : Volume = 180.0;
+        attribute drawdownVolume : Volume = 58.0;
+        attribute prechargePressure : Pressure = 240.0;
+        attribute currentPressure : Pressure = 310.0;
+        attribute minimumOperatingPressure : Pressure = 275.0;
+        attribute maximumOperatingPressure : Pressure = 415.0;
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+        port pressureSignal : SensorOutputPort;
+    }
+
+    part def PressureSensor {
+        attribute sensingRangeMin : Pressure = 0.0;
+        attribute sensingRangeMax : Pressure = 700.0;
+        attribute accuracy : Pressure = 3.5;
+        attribute measuredPressure : Pressure;
+
+        port processTap : WaterInletPort;
+        port signalOut : SensorOutputPort;
+    }
+
+    part def FlowSensor {
+        attribute sensingRangeMin : FlowRate = 0.0;
+        attribute sensingRangeMax : FlowRate = 120.0;
+        attribute accuracy : FlowRate = 1.5;
+        attribute measuredFlow : FlowRate;
+
+        port processTap : WaterInletPort;
+        port signalOut : SensorOutputPort;
+    }
+
+    part def MotorController {
+        attribute nominalVoltage : Voltage = 240.0;
+        attribute overloadCurrentLimit : Current = 14.0;
+        attribute dryRunFlowThreshold : FlowRate = 2.0;
+        attribute restartDelay : TimeDuration = 90.0;
+        attribute commandedRun : Boolean = false;
+        attribute faultLatched : Boolean = false;
+
+        port linePowerIn : ElectricalPowerPort;
+        port motorPowerOut : ElectricalPowerPort;
+        port commandIn : ControlInputPort;
+        port pressureFeedback : SensorOutputPort;
+        port flowFeedback : SensorOutputPort;
+        port statusOut : StatusOutputPort;
+    }
+
+    part def SubmersibleMotor {
+        attribute ratedPower : Power = 1100.0;
+        attribute ratedVoltage : Voltage = 240.0;
+        attribute ratedCurrent : Current = 8.2;
+        attribute ratedSpeed : RotationalSpeed = 3450.0;
+        attribute windingTemperature : Temperature = 55.0;
+        attribute maximumWindingTemperature : Temperature = 120.0;
+        attribute running : Boolean = false;
+
+        port electricalInput : ElectricalPowerPort;
+        port shaftOutput : ControlInputPort;
+    }
+
+    part def CentrifugalPumpHydraulics {
+        attribute designFlow : FlowRate = 45.0;
+        attribute shutoffHeadPressure : Pressure = 520.0;
+        attribute ratedDischargePressure : Pressure = 380.0;
+        attribute hydraulicEfficiency : Efficiency = 62.0;
+        attribute impellerSpeed : RotationalSpeed = 3450.0;
+
+        port suction : WaterInletPort;
+        port discharge : WaterOutletPort;
+        port shaftInput : ControlInputPort;
+    }
+
+    part def WaterWellPump {
+        attribute installationDepth : Depth = 42.0;
+        attribute minimumSubmergence : Depth = 3.0;
+        attribute nominalFlow : FlowRate = 45.0;
+        attribute nominalDischargePressure : Pressure = 380.0;
+        attribute maximumStartFrequency : Real = 20.0;
+
+        port suctionPort : WaterInletPort;
+        port dischargePort : WaterOutletPort;
+        port powerPort : ElectricalPowerPort;
+        port commandPort : ControlInputPort;
+        port statusPort : StatusOutputPort;
+
+        part intake : IntakeScreen;
+        part motor : SubmersibleMotor;
+        part pumpHydraulics : CentrifugalPumpHydraulics;
+        part dischargeCheckValve : CheckValve;
+
+        connect suctionPort to intake.rawWaterInlet;
+        connect intake.filteredWaterOutlet to pumpHydraulics.suction;
+        connect pumpHydraulics.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargePort;
+        connect powerPort to motor.electricalInput;
+        connect commandPort to motor.shaftOutput;
+        connect motor.shaftOutput to pumpHydraulics.shaftInput;
+    }
+
+    part def DischargePiping {
+        attribute insideDiameter : Real = 32.0;
+        attribute pipeLength : Real = 52.0;
+        attribute maximumWorkingPressure : Pressure = 690.0;
+        attribute frictionLossAtRatedFlow : Pressure = 35.0;
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+    }
+
+    part def HouseholdDistributionHeader {
+        attribute minimumServicePressure : Pressure = 275.0;
+        attribute maximumServicePressure : Pressure = 415.0;
+        attribute peakDemandFlow : FlowRate = 38.0;
+
+        port supplyIn : WaterInletPort;
+        port serviceOut : WaterOutletPort;
+    }
+
+    action def StartPump {
+        in command : ControlSignal;
+        out status : StatusSignal;
+
+        first start;
+        then energizeMotor;
+        then verifyFlow;
+        then reportRunning;
+
+        action start;
+        action energizeMotor;
+        action verifyFlow;
+        action reportRunning;
+    }
+
+    action def StopPump {
+        in command : ControlSignal;
+        out status : StatusSignal;
+
+        first removeMotorPower;
+        then closeCheckValve;
+        then reportStopped;
+
+        action removeMotorPower;
+        action closeCheckValve;
+        action reportStopped;
+    }
+
+    action def MoveWater {
+        in sourceWater : GroundWater;
+        in electricalPower : ElectricalEnergy;
+        out deliveredWater : PressurizedWater;
+
+        attribute requiredPressureRise : Pressure = 345.0;
+        attribute requiredFlow : FlowRate = 45.0;
+
+        first drawFromWell;
+        then addHydraulicEnergy;
+        then preventBackflow;
+        then deliverToTank;
+
+        action drawFromWell;
+        action addHydraulicEnergy;
+        action preventBackflow;
+        action deliverToTank;
+    }
+
+    action def ProtectPump {
+        in pressureReading : SensorSignal;
+        in flowReading : SensorSignal;
+        out status : StatusSignal;
+
+        attribute lowFlowTripDelay : TimeDuration = 15.0;
+        attribute overPressureLimit : Pressure = 520.0;
+
+        first evaluateSignals;
+        then decideTrip;
+        then latchFaultIfNeeded;
+
+        action evaluateSignals;
+        action decideTrip;
+        action latchFaultIfNeeded;
+    }
+
+    state def PumpOperatingState {
+        entry action initializeStatus;
+
+        state Off;
+        state Starting;
+        state Running;
+        state Stopping;
+        state Faulted;
+        state RestartDelay;
+
+        transition initial then Off;
+
+        transition Off_to_Starting
+            first Off
+            accept ControlSignal
+            if commandedOn == true
+            then Starting;
+
+        transition Starting_to_Running
+            first Starting
+            if measuredFlow >= 2.0
+            then Running;
+
+        transition Starting_to_Faulted
+            first Starting
+            if measuredFlow < 2.0
+            then Faulted;
+
+        transition Running_to_Stopping
+            first Running
+            accept ControlSignal
+            if commandedOn == false
+            then Stopping;
+
+        transition Running_to_Faulted
+            first Running
+            if measuredPressure > 520.0
+            then Faulted;
+
+        transition Stopping_to_Off
+            first Stopping
+            then Off;
+
+        transition Faulted_to_RestartDelay
+            first Faulted
+            accept ControlSignal
+            if commandedOn == false
+            then RestartDelay;
+
+        transition RestartDelay_to_Off
+            first RestartDelay
+            after 90.0
+            then Off;
+    }
+
+    part def PumpingSubsystem {
+        attribute cutInPressure : Pressure = 275.0;
+        attribute cutOutPressure : Pressure = 415.0;
+        attribute ratedSystemFlow : FlowRate = 45.0;
+        attribute maximumSystemPressure : Pressure = 520.0;
+        attribute minimumPumpSubmergence : Depth = 3.0;
+        attribute availableSupplyVoltage : Voltage = 240.0;
+
+        port aquiferWaterIn : WaterInletPort;
+        port electricalSupplyIn : ElectricalPowerPort;
+        port userCommandIn : ControlInputPort;
+        port potableWaterOut : WaterOutletPort;
+        port subsystemStatusOut : StatusOutputPort;
+
+        part well : WellBore;
+        part pump : WaterWellPump;
+        part riserPipe : DischargePiping;
+        part tank : PressureTank;
+        part pressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part controller : MotorController;
+        part distributionHeader : HouseholdDistributionHeader;
+
+        perform action moveWater : MoveWater;
+        perform action protectPump : ProtectPump;
+        exhibit state operatingState : PumpOperatingState;
+
+        connect aquiferWaterIn to well.aquiferInterface;
+        connect well.pumpInterface to pump.suctionPort;
+        connect pump.dischargePort to riserPipe.inlet;
+        connect riserPipe.outlet to flowSensor.processTap;
+        connect flowSensor.processTap to tank.inlet;
+        connect tank.outlet to pressureSensor.processTap;
+        connect pressureSensor.processTap to distributionHeader.supplyIn;
+        connect distributionHeader.serviceOut to potableWaterOut;
+
+        connect electricalSupplyIn to controller.linePowerIn;
+        connect controller.motorPowerOut to pump.powerPort;
+        connect userCommandIn to controller.commandIn;
+        connect controller.statusOut to subsystemStatusOut;
+        connect pressureSensor.signalOut to controller.pressureFeedback;
+        connect flowSensor.signalOut to controller.flowFeedback;
+        connect controller.commandIn to pump.commandPort;
+        connect pump.statusPort to subsystemStatusOut;
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        doc
+        /*
+         * The pumping subsystem shall move groundwater from the well bore to the distribution header
+         * using a water well pump whenever commanded and when protection limits are not exceeded.
+         */
+
+        require constraint {
+            subsystem.ratedSystemFlow >= 38.0
+        }
+    }
+
+    requirement def PressureRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        doc
+        /*
+         * The pumping subsystem shall maintain outlet pressure between cut-in and cut-out pressure
+         * during normal operation.
+         */
+
+        require constraint {
+            subsystem.cutInPressure >= 275.0 and subsystem.cutOutPressure <= 415.0
+        }
+    }
+
+    requirement def BackflowPreventionRequirement {
+        subject pump : WaterWellPump;
+
+        doc
+        /*
+         * The pump assembly shall prevent reverse flow from the pressure tank and riser pipe into
+         * the well when the motor is not energized.
+         */
+
+        require constraint {
+            pump.dischargeCheckValve.reverseLeakageFlow <= 0.05
+        }
+    }
+
+    requirement def DryRunProtectionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        doc
+        /*
+         * The controller shall detect low-flow operation and place the pump in a faulted state to
+         * protect the motor and hydraulic assembly from dry running.
+         */
+
+        require constraint {
+            subsystem.controller.dryRunFlowThreshold >= 2.0
+        }
+    }
+
+    requirement def ElectricalCompatibilityRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        doc
+        /*
+         * The pumping subsystem shall operate from a nominal 240 volt electrical supply and limit
+         * motor current to the configured overload threshold.
+         */
+
+        require constraint {
+            subsystem.availableSupplyVoltage == 240.0 and
+            subsystem.controller.overloadCurrentLimit <= 14.0
+        }
+    }
+
+    requirement def SubmergenceRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        doc
+        /*
+         * The installed pump shall maintain minimum submergence below the dynamic water level during
+         * rated flow operation.
+         */
+
+        require constraint {
+            subsystem.minimumPumpSubmergence >= 3.0 and
+            subsystem.well.pumpSettingDepth > subsystem.well.staticWaterLevel
+        }
+    }
+
+    satisfy MoveFluidRequirement by PumpingSubsystem::moveWater;
+    satisfy PressureRequirement by PumpingSubsystem::tank;
+    satisfy BackflowPreventionRequirement by WaterWellPump::dischargeCheckValve;
+    satisfy DryRunProtectionRequirement by PumpingSubsystem::protectPump;
+    satisfy ElectricalCompatibilityRequirement by PumpingSubsystem::controller;
+    satisfy SubmergenceRequirement by PumpingSubsystem::well;
+
+    part pumpingSubsystem : PumpingSubsystem;
+
+}

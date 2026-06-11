@@ -1,0 +1,612 @@
+package IntermittentPneumaticCompressionModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PressureValue {
+        :> scalarValue;
+        unit : PressureUnit;
+    }
+
+    attribute def TimeValue {
+        :> scalarValue;
+        unit : TimeUnit;
+    }
+
+    attribute def FlowRateValue {
+        :> scalarValue;
+        unit : Unit;
+    }
+
+    attribute def VolumeValue {
+        :> scalarValue;
+        unit : VolumeUnit;
+    }
+
+    attribute def VoltageValue {
+        :> scalarValue;
+        unit : ElectricPotentialUnit;
+    }
+
+    attribute def CurrentValue {
+        :> scalarValue;
+        unit : ElectricCurrentUnit;
+    }
+
+    attribute def TemperatureValue {
+        :> scalarValue;
+        unit : ThermodynamicTemperatureUnit;
+    }
+
+    attribute def BatteryChargeValue {
+        :> scalarValue;
+        unit : Unit;
+    }
+
+    item def CompressedAir {
+        attribute pressure : PressureValue;
+        attribute flowRate : FlowRateValue;
+        attribute temperature : TemperatureValue;
+    }
+
+    item def AmbientAir {
+        attribute pressure : PressureValue;
+        attribute temperature : TemperatureValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+    }
+
+    item def ControlSignal {
+        attribute commandCode : String;
+        attribute requestedPressure : PressureValue;
+        attribute requestedDuration : TimeValue;
+    }
+
+    item def PressureMeasurement {
+        attribute measuredPressure : PressureValue;
+        attribute sampleTime : TimeValue;
+        attribute valid : Boolean;
+    }
+
+    item def UserTherapySettings {
+        attribute targetPressure : PressureValue;
+        attribute inflationDuration : TimeValue;
+        attribute deflationDuration : TimeValue;
+        attribute therapyDuration : TimeValue;
+        attribute chamberSequence : String;
+    }
+
+    item def AlarmNotification {
+        attribute alarmCode : String;
+        attribute priority : String;
+        attribute message : String;
+    }
+
+    port def AirInletPort {
+        in item airIn : AmbientAir;
+    }
+
+    port def AirOutletPort {
+        out item airOut : CompressedAir;
+    }
+
+    port def AirChamberPort {
+        inout item chamberAir : CompressedAir;
+    }
+
+    port def ExhaustPort {
+        out item exhaustAir : CompressedAir;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item feedback : PressureMeasurement;
+    }
+
+    port def SensorPort {
+        out item measurement : PressureMeasurement;
+    }
+
+    port def UserInterfacePort {
+        in item settings : UserTherapySettings;
+        out item alarm : AlarmNotification;
+    }
+
+    part def IntermittentPneumaticCompressionSystem {
+        attribute deviceMass : MassValue = 2.5 [kg];
+        attribute nominalTargetPressure : PressureValue = 45 [kPa];
+        attribute maximumTherapyPressure : PressureValue = 60 [kPa];
+        attribute minimumTherapyPressure : PressureValue = 20 [kPa];
+        attribute inflationTime : TimeValue = 12 [s];
+        attribute deflationTime : TimeValue = 48 [s];
+
+        port powerPort : PowerInputPort;
+        port userPort : UserInterfacePort;
+        port leftCuffPort : AirChamberPort;
+        port rightCuffPort : AirChamberPort;
+        port ventPort : ExhaustPort;
+
+        part controller : CompressionController;
+        part pump : PneumaticPump;
+        part manifold : ValveManifold;
+        part reservoir : AirReservoir;
+        part pressureSensors : PressureSensorAssembly;
+        part userInterface : OperatorInterface;
+        part powerSubsystem : PowerSubsystem;
+        part leftLegCuff : MultiChamberCompressionCuff;
+        part rightLegCuff : MultiChamberCompressionCuff;
+        part alarmSubsystem : AlarmSubsystem;
+
+        connect powerPort.powerIn to powerSubsystem.externalPower.powerIn;
+        connect powerSubsystem.controlPower.powerOut to controller.power.powerIn;
+        connect powerSubsystem.pumpPower.powerOut to pump.power.powerIn;
+        connect userPort.settings to userInterface.operatorPort.settings;
+        connect userInterface.controllerPort.command to controller.uiControl.command;
+        connect controller.uiControl.feedback to userInterface.controllerPort.feedback;
+        connect controller.pumpControl.command to pump.control.command;
+        connect pump.control.feedback to controller.pumpControl.feedback;
+        connect pump.airOutlet.airOut to reservoir.airInput.chamberAir;
+        connect reservoir.airOutput.chamberAir to manifold.supplyPort.chamberAir;
+        connect manifold.leftDistalPort.chamberAir to leftLegCuff.distalChamberPort.chamberAir;
+        connect manifold.leftMiddlePort.chamberAir to leftLegCuff.middleChamberPort.chamberAir;
+        connect manifold.leftProximalPort.chamberAir to leftLegCuff.proximalChamberPort.chamberAir;
+        connect manifold.rightDistalPort.chamberAir to rightLegCuff.distalChamberPort.chamberAir;
+        connect manifold.rightMiddlePort.chamberAir to rightLegCuff.middleChamberPort.chamberAir;
+        connect manifold.rightProximalPort.chamberAir to rightLegCuff.proximalChamberPort.chamberAir;
+        connect manifold.exhaustPort.exhaustAir to ventPort.exhaustAir;
+        connect pressureSensors.leftDistalSensor.measurement to controller.leftDistalPressure.measurement;
+        connect pressureSensors.leftMiddleSensor.measurement to controller.leftMiddlePressure.measurement;
+        connect pressureSensors.leftProximalSensor.measurement to controller.leftProximalPressure.measurement;
+        connect pressureSensors.rightDistalSensor.measurement to controller.rightDistalPressure.measurement;
+        connect pressureSensors.rightMiddleSensor.measurement to controller.rightMiddlePressure.measurement;
+        connect pressureSensors.rightProximalSensor.measurement to controller.rightProximalPressure.measurement;
+        connect controller.alarmOutput.alarm to alarmSubsystem.alarmInput.alarm;
+        connect alarmSubsystem.operatorAlarm.alarm to userPort.alarm;
+
+        perform action therapyCycle : DeliverIntermittentCompression;
+    }
+
+    part def CompressionController {
+        attribute activeTargetPressure : PressureValue = 45 [kPa];
+        attribute pressureTolerance : PressureValue = 5 [kPa];
+        attribute maximumPressureLimit : PressureValue = 65 [kPa];
+        attribute cycleCounter : Integer;
+        attribute therapyEnabled : Boolean;
+
+        port power : PowerInputPort;
+        port uiControl : ControlPort;
+        port pumpControl : ControlPort;
+        port manifoldControl : ControlPort;
+        port alarmOutput : UserInterfacePort;
+        port leftDistalPressure : SensorPort;
+        port leftMiddlePressure : SensorPort;
+        port leftProximalPressure : SensorPort;
+        port rightDistalPressure : SensorPort;
+        port rightMiddlePressure : SensorPort;
+        port rightProximalPressure : SensorPort;
+
+        perform action regulateTherapy : RegulateCompressionTherapy;
+
+        state def ControllerStateMachine {
+            entry action initializeController;
+
+            state Off;
+            state Standby;
+            state SelfTest;
+            state Ready;
+            state InflatingDistal;
+            state InflatingMiddle;
+            state InflatingProximal;
+            state HoldCompression;
+            state Deflating;
+            state Paused;
+            state Alarmed;
+            state Completed;
+
+            transition first Off then Standby
+                accept PowerAvailable;
+
+            transition Standby then SelfTest
+                accept StartSelfTest;
+
+            transition SelfTest then Ready
+                if selfTestPassed;
+
+            transition SelfTest then Alarmed
+                if not selfTestPassed;
+
+            transition Ready then InflatingDistal
+                accept StartTherapy
+                do startPump;
+
+            transition InflatingDistal then InflatingMiddle
+                if distalPressureAtTarget
+                do openMiddleValve;
+
+            transition InflatingMiddle then InflatingProximal
+                if middlePressureAtTarget
+                do openProximalValve;
+
+            transition InflatingProximal then HoldCompression
+                if proximalPressureAtTarget
+                do closeInflationValves;
+
+            transition HoldCompression then Deflating
+                after 8 [s]
+                do openExhaustValves;
+
+            transition Deflating then InflatingDistal
+                after 48 [s]
+                if therapyTimeRemaining
+                do beginNextCycle;
+
+            transition Deflating then Completed
+                if not therapyTimeRemaining
+                do stopPump;
+
+            transition Ready then Paused
+                accept PauseTherapy;
+
+            transition InflatingDistal then Paused
+                accept PauseTherapy
+                do closeAllValves;
+
+            transition InflatingMiddle then Paused
+                accept PauseTherapy
+                do closeAllValves;
+
+            transition InflatingProximal then Paused
+                accept PauseTherapy
+                do closeAllValves;
+
+            transition HoldCompression then Paused
+                accept PauseTherapy
+                do closeAllValves;
+
+            transition Paused then InflatingDistal
+                accept ResumeTherapy;
+
+            transition InflatingDistal then Alarmed
+                if overPressureDetected
+                do stopPumpAndVent;
+
+            transition InflatingMiddle then Alarmed
+                if overPressureDetected
+                do stopPumpAndVent;
+
+            transition InflatingProximal then Alarmed
+                if overPressureDetected
+                do stopPumpAndVent;
+
+            transition HoldCompression then Alarmed
+                if pressureLeakDetected
+                do stopPumpAndVent;
+
+            transition Alarmed then Standby
+                accept AlarmAcknowledged
+                do clearAlarm;
+        }
+    }
+
+    part def PneumaticPump {
+        attribute maximumOutletPressure : PressureValue = 80 [kPa];
+        attribute nominalFlowRate : FlowRateValue = 8 [l/min];
+        attribute motorVoltage : VoltageValue = 12 [V];
+        attribute running : Boolean;
+
+        port power : PowerInputPort;
+        port airInlet : AirInletPort;
+        port airOutlet : AirOutletPort;
+        port control : ControlPort;
+
+        perform action compressAir : CompressAmbientAir;
+    }
+
+    part def ValveManifold {
+        attribute valveResponseTime : TimeValue = 150 [ms];
+        attribute leakageRateLimit : FlowRateValue = 0.05 [l/min];
+
+        port supplyPort : AirChamberPort;
+        port leftDistalPort : AirChamberPort;
+        port leftMiddlePort : AirChamberPort;
+        port leftProximalPort : AirChamberPort;
+        port rightDistalPort : AirChamberPort;
+        port rightMiddlePort : AirChamberPort;
+        port rightProximalPort : AirChamberPort;
+        port exhaustPort : ExhaustPort;
+        port control : ControlPort;
+
+        part leftDistalValve : SolenoidValve;
+        part leftMiddleValve : SolenoidValve;
+        part leftProximalValve : SolenoidValve;
+        part rightDistalValve : SolenoidValve;
+        part rightMiddleValve : SolenoidValve;
+        part rightProximalValve : SolenoidValve;
+        part exhaustValve : SolenoidValve;
+    }
+
+    part def SolenoidValve {
+        attribute normallyClosed : Boolean = true;
+        attribute open : Boolean;
+        attribute ratedPressure : PressureValue = 100 [kPa];
+        attribute actuationTime : TimeValue = 100 [ms];
+
+        port inlet : AirChamberPort;
+        port outlet : AirChamberPort;
+        port control : ControlPort;
+    }
+
+    part def AirReservoir {
+        attribute internalVolume : VolumeValue = 0.25 [l];
+        attribute pressureReliefSetpoint : PressureValue = 70 [kPa];
+
+        port airInput : AirChamberPort;
+        port airOutput : AirChamberPort;
+        port reliefVent : ExhaustPort;
+
+        part reliefValve : MechanicalPressureReliefValve;
+    }
+
+    part def MechanicalPressureReliefValve {
+        attribute crackingPressure : PressureValue = 70 [kPa];
+        attribute reseatPressure : PressureValue = 55 [kPa];
+
+        port inlet : AirChamberPort;
+        port outlet : ExhaustPort;
+    }
+
+    part def PressureSensorAssembly {
+        attribute sensorAccuracy : PressureValue = 1 [kPa];
+        attribute samplingPeriod : TimeValue = 50 [ms];
+
+        part leftDistalSensor : PressureSensor;
+        part leftMiddleSensor : PressureSensor;
+        part leftProximalSensor : PressureSensor;
+        part rightDistalSensor : PressureSensor;
+        part rightMiddleSensor : PressureSensor;
+        part rightProximalSensor : PressureSensor;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeLow : PressureValue = 0 [kPa];
+        attribute measurementRangeHigh : PressureValue = 100 [kPa];
+        attribute accuracy : PressureValue = 1 [kPa];
+
+        port pneumaticTap : AirChamberPort;
+        port measurement : SensorPort;
+
+        perform action samplePressure : MeasureCuffPressure;
+    }
+
+    part def MultiChamberCompressionCuff {
+        attribute cuffSize : String;
+        attribute limbCircumferenceMinimum : LengthValue = 25 [cm];
+        attribute limbCircumferenceMaximum : LengthValue = 65 [cm];
+        attribute chamberBurstPressure : PressureValue = 120 [kPa];
+
+        port distalChamberPort : AirChamberPort;
+        port middleChamberPort : AirChamberPort;
+        port proximalChamberPort : AirChamberPort;
+
+        part distalChamber : InflatableChamber {
+            attribute chamberVolume = 0.18 [l];
+        }
+
+        part middleChamber : InflatableChamber {
+            attribute chamberVolume = 0.20 [l];
+        }
+
+        part proximalChamber : InflatableChamber {
+            attribute chamberVolume = 0.22 [l];
+        }
+    }
+
+    part def InflatableChamber {
+        attribute chamberVolume : VolumeValue;
+        attribute currentPressure : PressureValue;
+        attribute contactArea : AreaValue;
+        attribute appliedLimbPressure : PressureValue;
+
+        port airPort : AirChamberPort;
+    }
+
+    part def OperatorInterface {
+        attribute displayEnabled : Boolean;
+        attribute selectedTargetPressure : PressureValue = 45 [kPa];
+        attribute selectedTherapyDuration : TimeValue = 1800 [s];
+
+        port operatorPort : UserInterfacePort;
+        port controllerPort : ControlPort;
+
+        perform action captureTherapySettings : CaptureUserSettings;
+        perform action displayTherapyStatus : DisplayStatus;
+    }
+
+    part def AlarmSubsystem {
+        attribute audibleLevel : ScalarValues::Real = 65;
+        attribute visualIndicatorEnabled : Boolean;
+
+        port alarmInput : UserInterfacePort;
+        port operatorAlarm : UserInterfacePort;
+
+        perform action emitAlarm : AnnunciateAlarm;
+    }
+
+    part def PowerSubsystem {
+        attribute nominalInputVoltage : VoltageValue = 120 [V];
+        attribute internalBusVoltage : VoltageValue = 12 [V];
+        attribute batteryCapacity : BatteryChargeValue = 4.0 [A*h];
+        attribute estimatedRuntime : TimeValue = 240 [min];
+
+        port externalPower : PowerInputPort;
+        port controlPower : PowerOutputPort;
+        port pumpPower : PowerOutputPort;
+
+        part acDcSupply : PowerConverter;
+        part rechargeableBattery : BatteryPack;
+    }
+
+    port def PowerOutputPort {
+        out item powerOut : ElectricalPower;
+    }
+
+    part def PowerConverter {
+        attribute inputVoltage : VoltageValue = 120 [V];
+        attribute outputVoltage : VoltageValue = 12 [V];
+        attribute maximumOutputCurrent : CurrentValue = 5 [A];
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : VoltageValue = 12 [V];
+        attribute capacity : BatteryChargeValue = 4.0 [A*h];
+        attribute stateOfCharge : BatteryChargeValue;
+    }
+
+    action def DeliverIntermittentCompression {
+        in item therapySettings : UserTherapySettings;
+        out item therapyStatus : ControlSignal;
+
+        first startTherapySession;
+        then repeatCompressionCycle;
+        then endTherapySession;
+
+        action startTherapySession {
+            out item command : ControlSignal;
+        }
+
+        action repeatCompressionCycle {
+            action inflateDistalChambers;
+            then action inflateMiddleChambers;
+            then action inflateProximalChambers;
+            then action holdTherapeuticPressure;
+            then action ventAllChambers;
+        }
+
+        action endTherapySession {
+            out item completionStatus : ControlSignal;
+        }
+    }
+
+    action def RegulateCompressionTherapy {
+        in item leftDistal : PressureMeasurement;
+        in item leftMiddle : PressureMeasurement;
+        in item leftProximal : PressureMeasurement;
+        in item rightDistal : PressureMeasurement;
+        in item rightMiddle : PressureMeasurement;
+        in item rightProximal : PressureMeasurement;
+        in item settings : UserTherapySettings;
+        out item pumpCommand : ControlSignal;
+        out item valveCommand : ControlSignal;
+        out item alarm : AlarmNotification;
+
+        action validateSettings;
+        then action compareMeasuredPressureToTarget;
+        then action commandPumpAndValves;
+        then action detectFaultConditions;
+    }
+
+    action def CompressAmbientAir {
+        in item inletAir : AmbientAir;
+        in item electricalPower : ElectricalPower;
+        out item compressedAir : CompressedAir;
+    }
+
+    action def MeasureCuffPressure {
+        in item chamberAir : CompressedAir;
+        out item pressureMeasurement : PressureMeasurement;
+    }
+
+    action def CaptureUserSettings {
+        out item settings : UserTherapySettings;
+    }
+
+    action def DisplayStatus {
+        in item status : ControlSignal;
+        in item alarm : AlarmNotification;
+    }
+
+    action def AnnunciateAlarm {
+        in item alarm : AlarmNotification;
+        out item visibleAndAudibleAlarm : AlarmNotification;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The intermittent pneumatic compression system shall cyclically inflate and deflate limb cuffs to apply controlled external pressure that supports venous blood flow and reduces venous stasis during prescribed therapy. */
+    }
+
+    requirement def TherapyPressureRequirement {
+        subject ipc : IntermittentPneumaticCompressionSystem;
+        attribute minimumPressure : PressureValue = 20 [kPa];
+        attribute maximumPressure : PressureValue = 60 [kPa];
+
+        require constraint {
+            ipc.nominalTargetPressure >= minimumPressure and
+            ipc.nominalTargetPressure <= maximumPressure
+        }
+    }
+
+    requirement def SequentialCompressionRequirement {
+        subject cuff : MultiChamberCompressionCuff;
+
+        doc /* Each therapy cycle shall inflate distal chambers before middle chambers and middle chambers before proximal chambers to promote directional venous return. */
+    }
+
+    requirement def PressureLimitSafetyRequirement {
+        subject ipc : IntermittentPneumaticCompressionSystem;
+        attribute absolutePressureLimit : PressureValue = 70 [kPa];
+
+        require constraint {
+            ipc.maximumTherapyPressure < absolutePressureLimit
+        }
+    }
+
+    requirement def DeflationRequirement {
+        subject ipc : IntermittentPneumaticCompressionSystem;
+        attribute maximumDeflationTime : TimeValue = 60 [s];
+
+        require constraint {
+            ipc.deflationTime <= maximumDeflationTime
+        }
+    }
+
+    requirement def AlarmRequirement {
+        subject controller : CompressionController;
+
+        doc /* The controller shall command an alarm and vent the cuffs when overpressure, sensor failure, blocked tubing, leak, or power fault is detected. */
+    }
+
+    requirement def PowerContinuityRequirement {
+        subject power : PowerSubsystem;
+        attribute minimumBatteryRuntime : TimeValue = 120 [min];
+
+        require constraint {
+            power.estimatedRuntime >= minimumBatteryRuntime
+        }
+    }
+
+    requirement def PressureSensorAccuracyRequirement {
+        subject sensors : PressureSensorAssembly;
+        attribute maximumAllowedError : PressureValue = 2 [kPa];
+
+        require constraint {
+            sensors.sensorAccuracy <= maximumAllowedError
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by IntermittentPneumaticCompressionSystem;
+    satisfy TherapyPressureRequirement by CompressionController;
+    satisfy SequentialCompressionRequirement by ValveManifold;
+    satisfy PressureLimitSafetyRequirement by AirReservoir;
+    satisfy DeflationRequirement by ValveManifold;
+    satisfy AlarmRequirement by AlarmSubsystem;
+    satisfy PowerContinuityRequirement by PowerSubsystem;
+    satisfy PressureSensorAccuracyRequirement by PressureSensorAssembly;
+}

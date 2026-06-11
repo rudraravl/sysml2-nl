@@ -1,0 +1,829 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-hvpk8edh
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb358-0f52-7092-bbec-e7c946fd453d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Bubble oxygenator and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package BubbleOxygenatorSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def VolumeFlowRate :> ISQ::volumeFlowRate;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Concentration :> ISQ::amountOfSubstanceConcentration;
+    attribute def SaturationPercent :> ScalarValues::Real;
+    attribute def GasFraction :> ScalarValues::Real;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def Volume :> ISQ::volume;
+
+    item def VenousBlood {
+        attribute flowRate : VolumeFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute oxygenSaturation : SaturationPercent;
+        attribute carbonDioxidePartialPressure : Pressure;
+        attribute hematocrit : ScalarValues::Real;
+    }
+
+    item def ArterializedBlood {
+        attribute flowRate : VolumeFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute oxygenSaturation : SaturationPercent;
+        attribute carbonDioxidePartialPressure : Pressure;
+        attribute residualGasVolumeFraction : GasFraction;
+    }
+
+    item def OxygenGas {
+        attribute flowRate : VolumeFlowRate;
+        attribute pressure : Pressure;
+        attribute oxygenFraction : GasFraction;
+        attribute temperature : Temperature;
+    }
+
+    item def ExhaustGas {
+        attribute flowRate : VolumeFlowRate;
+        attribute oxygenFraction : GasFraction;
+        attribute carbonDioxideFraction : GasFraction;
+        attribute humidityFraction : GasFraction;
+    }
+
+    item def Foam {
+        attribute gasVolumeFraction : GasFraction;
+        attribute liquidCarryoverFlowRate : VolumeFlowRate;
+    }
+
+    port def BloodInletPort {
+        in item blood : VenousBlood;
+    }
+
+    port def BloodOutletPort {
+        out item blood : ArterializedBlood;
+    }
+
+    port def GasInletPort {
+        in item gas : OxygenGas;
+    }
+
+    port def GasOutletPort {
+        out item gas : ExhaustGas;
+    }
+
+    port def FoamTransferPort {
+        out item foam : Foam;
+    }
+
+    port def ControlSignalPort {
+        in attribute commandFlowRate : VolumeFlowRate;
+        in attribute commandGasFlowRate : VolumeFlowRate;
+        out attribute measuredOxygenSaturation : SaturationPercent;
+        out attribute measuredPressure : Pressure;
+    }
+
+    part def BubbleOxygenator {
+        attribute primingVolume : Volume = 1200 [mL];
+        attribute nominalBloodFlowRate : VolumeFlowRate = 4.5 [L/min];
+        attribute nominalOxygenFlowRate : VolumeFlowRate = 5.0 [L/min];
+        attribute maximumOperatingPressure : Pressure = 40 [kPa];
+        attribute targetOutletOxygenSaturation : SaturationPercent = 95.0;
+        attribute maximumResidualGasFraction : GasFraction = 0.002;
+
+        port venousBloodIn : BloodInletPort;
+        port arterialBloodOut : BloodOutletPort;
+        port oxygenIn : GasInletPort;
+        port exhaustOut : GasOutletPort;
+        port control : ControlSignalPort;
+
+        part venousReservoir : VenousReservoir;
+        part bubbleColumn : BubbleColumn;
+        part gasDistributor : GasDistributor;
+        part heatExchangeCoil : HeatExchangeCoil;
+        part defoamer : Defoamer;
+        part bubbleTrap : BubbleTrap;
+        part outletReservoir : OutletReservoir;
+        part saturationSensor : OxygenSaturationSensor;
+        part pressureSensor : PressureSensor;
+        part controller : FlowController;
+
+        connect venousBloodIn.blood to venousReservoir.inlet.blood;
+        connect venousReservoir.outlet.blood to heatExchangeCoil.inlet.blood;
+        connect heatExchangeCoil.outlet.blood to bubbleColumn.bloodIn.blood;
+        connect oxygenIn.gas to gasDistributor.gasIn.gas;
+        connect gasDistributor.gasOut.gas to bubbleColumn.gasIn.gas;
+        connect bubbleColumn.bloodFoamOut.foam to defoamer.foamIn.foam;
+        connect defoamer.bloodOut.blood to bubbleTrap.inlet.blood;
+        connect bubbleTrap.outlet.blood to outletReservoir.inlet.blood;
+        connect outletReservoir.outlet.blood to arterialBloodOut.blood;
+        connect bubbleColumn.exhaustOut.gas to exhaustOut.gas;
+
+        connect outletReservoir.sensorBlood.blood to saturationSensor.sampleIn.blood;
+        connect outletReservoir.pressureTap.blood to pressureSensor.sampleIn.blood;
+        connect saturationSensor.signal.measuredOxygenSaturation to control.measuredOxygenSaturation;
+        connect pressureSensor.signal.measuredPressure to control.measuredPressure;
+        connect control.commandFlowRate to controller.commandBloodFlowRate;
+        connect control.commandGasFlowRate to controller.commandGasFlowRate;
+
+        perform action oxygenateAndDecarbonateBlood : OxygenateBloodAction;
+        exhibit state oxygenatorOperatingState : OxygenatorOperatingStateMachine;
+    }
+
+    part def VenousReservoir {
+        attribute capacity : Volume = 1500 [mL];
+        attribute minimumSafeVolume : Volume = 250 [mL];
+
+        port inlet : BloodInletPort;
+        port outlet : BloodInletPort;
+    }
+
+    part def HeatExchangeCoil {
+        attribute targetBloodTemperature : Temperature = 310.15 [K];
+        attribute heatTransferArea : ScalarValues::Real = 0.35;
+
+        port inlet : BloodInletPort;
+        port outlet : BloodInletPort;
+    }
+
+    part def GasDistributor {
+        attribute bubbleOrificeCount : ScalarValues::Integer = 420;
+        attribute nominalBubbleDiameter : ScalarValues::Real = 1.2;
+
+        port gasIn : GasInletPort;
+        port gasOut : GasInletPort;
+    }
+
+    part def BubbleColumn {
+        attribute contactVolume : Volume = 850 [mL];
+        attribute nominalResidenceTime : TimeDuration = 8 [s];
+        attribute gasLiquidContactArea : ScalarValues::Real = 2.8;
+
+        port bloodIn : BloodInletPort;
+        port gasIn : GasInletPort;
+        port bloodFoamOut : FoamTransferPort;
+        port exhaustOut : GasOutletPort;
+    }
+
+    part def Defoamer {
+        attribute siliconeCoatedMeshArea : ScalarValues::Real = 0.18;
+        attribute maximumFoamGasFractionAtOutlet : GasFraction = 0.01;
+
+        port foamIn : FoamTransferPort;
+        port bloodOut : BloodOutletPort;
+    }
+
+    part def BubbleTrap {
+        attribute trapVolume : Volume = 300 [mL];
+        attribute removalEfficiency : ScalarValues::Real = 0.995;
+
+        port inlet : BloodOutletPort;
+        port outlet : BloodOutletPort;
+    }
+
+    part def OutletReservoir {
+        attribute capacity : Volume = 750 [mL];
+        attribute minimumSafeVolume : Volume = 150 [mL];
+
+        port inlet : BloodOutletPort;
+        port outlet : BloodOutletPort;
+        port sensorBlood : BloodOutletPort;
+        port pressureTap : BloodOutletPort;
+    }
+
+    part def OxygenSaturationSensor {
+        attribute measurementRangeMinimum : SaturationPercent = 50.0;
+        attribute measurementRangeMaximum : SaturationPercent = 100.0;
+        attribute accuracy : SaturationPercent = 2.0;
+
+        port sampleIn : BloodOutletPort;
+        port signal : ControlSignalPort;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeMaximum : Pressure = 60 [kPa];
+        attribute accuracy : Pressure = 1 [kPa];
+
+        port sampleIn : BloodOutletPort;
+        port signal : ControlSignalPort;
+    }
+
+    part def FlowController {
+        attribute commandBloodFlowRate : VolumeFlowRate;
+        attribute commandGasFlowRate : VolumeFlowRate;
+        attribute lowSaturationAlarmThreshold : SaturationPercent = 92.0;
+        attribute highPressureAlarmThreshold : Pressure = 35 [kPa];
+    }
+
+    action def OxygenateBloodAction {
+        in item venousBlood : VenousBlood;
+        in item oxygenGas : OxygenGas;
+        out item arterializedBlood : ArterializedBlood;
+        out item exhaustGas : ExhaustGas;
+
+        first start;
+        then disperseOxygenGas;
+        then exchangeRespiratoryGases;
+        then collapseFoam;
+        then removeResidualBubbles;
+        then deliverArterializedBlood;
+        then done;
+
+        action disperseOxygenGas {
+            in item oxygenGas : OxygenGas;
+            out item microBubbles : OxygenGas;
+        }
+
+        action exchangeRespiratoryGases {
+            in item venousBlood : VenousBlood;
+            in item microBubbles : OxygenGas;
+            out item oxygenEnrichedBloodFoam : Foam;
+            out item carbonDioxideRichExhaust : ExhaustGas;
+        }
+
+        action collapseFoam {
+            in item oxygenEnrichedBloodFoam : Foam;
+            out item liquidBlood : ArterializedBlood;
+        }
+
+        action removeResidualBubbles {
+            in item liquidBlood : ArterializedBlood;
+            out item debubbledBlood : ArterializedBlood;
+        }
+
+        action deliverArterializedBlood {
+            in item debubbledBlood : ArterializedBlood;
+            out item arterializedBlood : ArterializedBlood;
+        }
+    }
+
+    state def OxygenatorOperatingStateMachine {
+        entry action initializeSensors;
+        exit action closeGasSupply;
+
+        state Off;
+        state Priming;
+        state Standby;
+        state Oxygenating;
+        state Alarm;
+        state Shutdown;
+
+        initial then Off;
+
+        transition Off_to_Priming
+            first Off
+            accept StartPrime
+            then Priming;
+
+        transition Priming_to_Standby
+            first Priming
+            accept PrimeComplete
+            then Standby;
+
+        transition Standby_to_Oxygenating
+            first Standby
+            accept StartBypass
+            then Oxygenating;
+
+        transition Oxygenating_to_Alarm_LowSaturation
+            first Oxygenating
+            if measuredOxygenSaturation < 92.0
+            then Alarm;
+
+        transition Oxygenating_to_Alarm_HighPressure
+            first Oxygenating
+            if measuredPressure > 35 [kPa]
+            then Alarm;
+
+        transition Alarm_to_Oxygenating
+            first Alarm
+            accept AlarmCleared
+            then Oxygenating;
+
+        transition Oxygenating_to_Shutdown
+            first Oxygenating
+            accept StopBypass
+            then Shutdown;
+
+        transition Standby_to_Shutdown
+            first Standby
+            accept StopSystem
+            then Shutdown;
+
+        transition Shutdown_to_Off
+            first Shutdown
+            accept SafeOff
+            then Off;
+
+        state Oxygenating {
+            entry action openOxygenSupply;
+            do action regulateBloodAndGasFlow;
+            do action monitorOutletSaturation;
+            do action monitorOutletPressure;
+            exit action reduceGasFlowToSafeIdle;
+        }
+
+        state Alarm {
+            entry action triggerAudibleVisualAlarm;
+            do action maintainMinimumSafeOxygenFlow;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The bubble oxygenator shall provide extracorporeal gas exchange by directly contacting venous blood with dispersed oxygen bubbles, increasing blood oxygen saturation and removing carbon dioxide before returning arterialized blood to the patient circuit. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.oxygenSaturation >= 95.0 and
+            oxygenator.arterialBloodOut.blood.carbonDioxidePartialPressure <= 6.0 [kPa]
+        }
+    }
+
+    requirement def BloodFlowRequirement {
+        doc /* The bubble oxygenator shall support adult cardiopulmonary bypass blood flow over the normal operating range. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.venousBloodIn.blood.flowRate >= 1.0 [L/min] and
+            oxygenator.venousBloodIn.blood.flowRate <= 6.0 [L/min]
+        }
+    }
+
+    requirement def GasFlowRequirement {
+        doc /* The oxygen gas supply shall provide sufficient gas flow for bubble formation and respiratory gas exchange. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.oxygenIn.gas.flowRate >= 0.5 [L/min] and
+            oxygenator.oxygenIn.gas.flowRate <= 8.0 [L/min] and
+            oxygenator.oxygenIn.gas.oxygenFraction >= 0.95
+        }
+    }
+
+    requirement def DebubblingRequirement {
+        doc /* The outlet blood path shall reduce entrained gas to a clinically controlled residual level before blood leaves the oxygenator. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.residualGasVolumeFraction <= 0.002
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* The oxygenator shall remain below its maximum operating pressure during oxygenation. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.pressure <= 40 [kPa]
+        }
+    }
+
+    requirement def ThermalConditioningRequirement {
+        doc /* The heat exchange coil shall maintain blood near physiologic temperature during operation. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.temperature >= 308.15 [K] and
+            oxygenator.arterialBloodOut.blood.temperature <= 312.15 [K]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by BubbleOxygenator::oxygenateAndDecarbonateBlood;
+    satisfy BloodFlowRequirement by BubbleOxygenator::venousReservoir;
+    satisfy GasFlowRequirement by BubbleOxygenator::gasDistributor;
+    satisfy DebubblingRequirement by BubbleOxygenator::defoamer;
+    satisfy DebubblingRequirement by BubbleOxygenator::bubbleTrap;
+    satisfy PressureSafetyRequirement by BubbleOxygenator::pressureSensor;
+    satisfy ThermalConditioningRequirement by BubbleOxygenator::heatExchangeCoil;
+
+    part bubbleOxygenatorSystem : BubbleOxygenator {
+        attribute primingVolume = 1200 [mL];
+        attribute nominalBloodFlowRate = 4.5 [L/min];
+        attribute nominalOxygenFlowRate = 5.0 [L/min];
+        attribute targetOutletOxygenSaturation = 95.0;
+    }
+}
+tokens used
+4,783
+package BubbleOxygenatorSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def VolumeFlowRate :> ISQ::volumeFlowRate;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Concentration :> ISQ::amountOfSubstanceConcentration;
+    attribute def SaturationPercent :> ScalarValues::Real;
+    attribute def GasFraction :> ScalarValues::Real;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def Volume :> ISQ::volume;
+
+    item def VenousBlood {
+        attribute flowRate : VolumeFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute oxygenSaturation : SaturationPercent;
+        attribute carbonDioxidePartialPressure : Pressure;
+        attribute hematocrit : ScalarValues::Real;
+    }
+
+    item def ArterializedBlood {
+        attribute flowRate : VolumeFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute oxygenSaturation : SaturationPercent;
+        attribute carbonDioxidePartialPressure : Pressure;
+        attribute residualGasVolumeFraction : GasFraction;
+    }
+
+    item def OxygenGas {
+        attribute flowRate : VolumeFlowRate;
+        attribute pressure : Pressure;
+        attribute oxygenFraction : GasFraction;
+        attribute temperature : Temperature;
+    }
+
+    item def ExhaustGas {
+        attribute flowRate : VolumeFlowRate;
+        attribute oxygenFraction : GasFraction;
+        attribute carbonDioxideFraction : GasFraction;
+        attribute humidityFraction : GasFraction;
+    }
+
+    item def Foam {
+        attribute gasVolumeFraction : GasFraction;
+        attribute liquidCarryoverFlowRate : VolumeFlowRate;
+    }
+
+    port def BloodInletPort {
+        in item blood : VenousBlood;
+    }
+
+    port def BloodOutletPort {
+        out item blood : ArterializedBlood;
+    }
+
+    port def GasInletPort {
+        in item gas : OxygenGas;
+    }
+
+    port def GasOutletPort {
+        out item gas : ExhaustGas;
+    }
+
+    port def FoamTransferPort {
+        out item foam : Foam;
+    }
+
+    port def ControlSignalPort {
+        in attribute commandFlowRate : VolumeFlowRate;
+        in attribute commandGasFlowRate : VolumeFlowRate;
+        out attribute measuredOxygenSaturation : SaturationPercent;
+        out attribute measuredPressure : Pressure;
+    }
+
+    part def BubbleOxygenator {
+        attribute primingVolume : Volume = 1200 [mL];
+        attribute nominalBloodFlowRate : VolumeFlowRate = 4.5 [L/min];
+        attribute nominalOxygenFlowRate : VolumeFlowRate = 5.0 [L/min];
+        attribute maximumOperatingPressure : Pressure = 40 [kPa];
+        attribute targetOutletOxygenSaturation : SaturationPercent = 95.0;
+        attribute maximumResidualGasFraction : GasFraction = 0.002;
+
+        port venousBloodIn : BloodInletPort;
+        port arterialBloodOut : BloodOutletPort;
+        port oxygenIn : GasInletPort;
+        port exhaustOut : GasOutletPort;
+        port control : ControlSignalPort;
+
+        part venousReservoir : VenousReservoir;
+        part bubbleColumn : BubbleColumn;
+        part gasDistributor : GasDistributor;
+        part heatExchangeCoil : HeatExchangeCoil;
+        part defoamer : Defoamer;
+        part bubbleTrap : BubbleTrap;
+        part outletReservoir : OutletReservoir;
+        part saturationSensor : OxygenSaturationSensor;
+        part pressureSensor : PressureSensor;
+        part controller : FlowController;
+
+        connect venousBloodIn.blood to venousReservoir.inlet.blood;
+        connect venousReservoir.outlet.blood to heatExchangeCoil.inlet.blood;
+        connect heatExchangeCoil.outlet.blood to bubbleColumn.bloodIn.blood;
+        connect oxygenIn.gas to gasDistributor.gasIn.gas;
+        connect gasDistributor.gasOut.gas to bubbleColumn.gasIn.gas;
+        connect bubbleColumn.bloodFoamOut.foam to defoamer.foamIn.foam;
+        connect defoamer.bloodOut.blood to bubbleTrap.inlet.blood;
+        connect bubbleTrap.outlet.blood to outletReservoir.inlet.blood;
+        connect outletReservoir.outlet.blood to arterialBloodOut.blood;
+        connect bubbleColumn.exhaustOut.gas to exhaustOut.gas;
+
+        connect outletReservoir.sensorBlood.blood to saturationSensor.sampleIn.blood;
+        connect outletReservoir.pressureTap.blood to pressureSensor.sampleIn.blood;
+        connect saturationSensor.signal.measuredOxygenSaturation to control.measuredOxygenSaturation;
+        connect pressureSensor.signal.measuredPressure to control.measuredPressure;
+        connect control.commandFlowRate to controller.commandBloodFlowRate;
+        connect control.commandGasFlowRate to controller.commandGasFlowRate;
+
+        perform action oxygenateAndDecarbonateBlood : OxygenateBloodAction;
+        exhibit state oxygenatorOperatingState : OxygenatorOperatingStateMachine;
+    }
+
+    part def VenousReservoir {
+        attribute capacity : Volume = 1500 [mL];
+        attribute minimumSafeVolume : Volume = 250 [mL];
+
+        port inlet : BloodInletPort;
+        port outlet : BloodInletPort;
+    }
+
+    part def HeatExchangeCoil {
+        attribute targetBloodTemperature : Temperature = 310.15 [K];
+        attribute heatTransferArea : ScalarValues::Real = 0.35;
+
+        port inlet : BloodInletPort;
+        port outlet : BloodInletPort;
+    }
+
+    part def GasDistributor {
+        attribute bubbleOrificeCount : ScalarValues::Integer = 420;
+        attribute nominalBubbleDiameter : ScalarValues::Real = 1.2;
+
+        port gasIn : GasInletPort;
+        port gasOut : GasInletPort;
+    }
+
+    part def BubbleColumn {
+        attribute contactVolume : Volume = 850 [mL];
+        attribute nominalResidenceTime : TimeDuration = 8 [s];
+        attribute gasLiquidContactArea : ScalarValues::Real = 2.8;
+
+        port bloodIn : BloodInletPort;
+        port gasIn : GasInletPort;
+        port bloodFoamOut : FoamTransferPort;
+        port exhaustOut : GasOutletPort;
+    }
+
+    part def Defoamer {
+        attribute siliconeCoatedMeshArea : ScalarValues::Real = 0.18;
+        attribute maximumFoamGasFractionAtOutlet : GasFraction = 0.01;
+
+        port foamIn : FoamTransferPort;
+        port bloodOut : BloodOutletPort;
+    }
+
+    part def BubbleTrap {
+        attribute trapVolume : Volume = 300 [mL];
+        attribute removalEfficiency : ScalarValues::Real = 0.995;
+
+        port inlet : BloodOutletPort;
+        port outlet : BloodOutletPort;
+    }
+
+    part def OutletReservoir {
+        attribute capacity : Volume = 750 [mL];
+        attribute minimumSafeVolume : Volume = 150 [mL];
+
+        port inlet : BloodOutletPort;
+        port outlet : BloodOutletPort;
+        port sensorBlood : BloodOutletPort;
+        port pressureTap : BloodOutletPort;
+    }
+
+    part def OxygenSaturationSensor {
+        attribute measurementRangeMinimum : SaturationPercent = 50.0;
+        attribute measurementRangeMaximum : SaturationPercent = 100.0;
+        attribute accuracy : SaturationPercent = 2.0;
+
+        port sampleIn : BloodOutletPort;
+        port signal : ControlSignalPort;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeMaximum : Pressure = 60 [kPa];
+        attribute accuracy : Pressure = 1 [kPa];
+
+        port sampleIn : BloodOutletPort;
+        port signal : ControlSignalPort;
+    }
+
+    part def FlowController {
+        attribute commandBloodFlowRate : VolumeFlowRate;
+        attribute commandGasFlowRate : VolumeFlowRate;
+        attribute lowSaturationAlarmThreshold : SaturationPercent = 92.0;
+        attribute highPressureAlarmThreshold : Pressure = 35 [kPa];
+    }
+
+    action def OxygenateBloodAction {
+        in item venousBlood : VenousBlood;
+        in item oxygenGas : OxygenGas;
+        out item arterializedBlood : ArterializedBlood;
+        out item exhaustGas : ExhaustGas;
+
+        first start;
+        then disperseOxygenGas;
+        then exchangeRespiratoryGases;
+        then collapseFoam;
+        then removeResidualBubbles;
+        then deliverArterializedBlood;
+        then done;
+
+        action disperseOxygenGas {
+            in item oxygenGas : OxygenGas;
+            out item microBubbles : OxygenGas;
+        }
+
+        action exchangeRespiratoryGases {
+            in item venousBlood : VenousBlood;
+            in item microBubbles : OxygenGas;
+            out item oxygenEnrichedBloodFoam : Foam;
+            out item carbonDioxideRichExhaust : ExhaustGas;
+        }
+
+        action collapseFoam {
+            in item oxygenEnrichedBloodFoam : Foam;
+            out item liquidBlood : ArterializedBlood;
+        }
+
+        action removeResidualBubbles {
+            in item liquidBlood : ArterializedBlood;
+            out item debubbledBlood : ArterializedBlood;
+        }
+
+        action deliverArterializedBlood {
+            in item debubbledBlood : ArterializedBlood;
+            out item arterializedBlood : ArterializedBlood;
+        }
+    }
+
+    state def OxygenatorOperatingStateMachine {
+        entry action initializeSensors;
+        exit action closeGasSupply;
+
+        state Off;
+        state Priming;
+        state Standby;
+        state Oxygenating;
+        state Alarm;
+        state Shutdown;
+
+        initial then Off;
+
+        transition Off_to_Priming
+            first Off
+            accept StartPrime
+            then Priming;
+
+        transition Priming_to_Standby
+            first Priming
+            accept PrimeComplete
+            then Standby;
+
+        transition Standby_to_Oxygenating
+            first Standby
+            accept StartBypass
+            then Oxygenating;
+
+        transition Oxygenating_to_Alarm_LowSaturation
+            first Oxygenating
+            if measuredOxygenSaturation < 92.0
+            then Alarm;
+
+        transition Oxygenating_to_Alarm_HighPressure
+            first Oxygenating
+            if measuredPressure > 35 [kPa]
+            then Alarm;
+
+        transition Alarm_to_Oxygenating
+            first Alarm
+            accept AlarmCleared
+            then Oxygenating;
+
+        transition Oxygenating_to_Shutdown
+            first Oxygenating
+            accept StopBypass
+            then Shutdown;
+
+        transition Standby_to_Shutdown
+            first Standby
+            accept StopSystem
+            then Shutdown;
+
+        transition Shutdown_to_Off
+            first Shutdown
+            accept SafeOff
+            then Off;
+
+        state Oxygenating {
+            entry action openOxygenSupply;
+            do action regulateBloodAndGasFlow;
+            do action monitorOutletSaturation;
+            do action monitorOutletPressure;
+            exit action reduceGasFlowToSafeIdle;
+        }
+
+        state Alarm {
+            entry action triggerAudibleVisualAlarm;
+            do action maintainMinimumSafeOxygenFlow;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The bubble oxygenator shall provide extracorporeal gas exchange by directly contacting venous blood with dispersed oxygen bubbles, increasing blood oxygen saturation and removing carbon dioxide before returning arterialized blood to the patient circuit. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.oxygenSaturation >= 95.0 and
+            oxygenator.arterialBloodOut.blood.carbonDioxidePartialPressure <= 6.0 [kPa]
+        }
+    }
+
+    requirement def BloodFlowRequirement {
+        doc /* The bubble oxygenator shall support adult cardiopulmonary bypass blood flow over the normal operating range. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.venousBloodIn.blood.flowRate >= 1.0 [L/min] and
+            oxygenator.venousBloodIn.blood.flowRate <= 6.0 [L/min]
+        }
+    }
+
+    requirement def GasFlowRequirement {
+        doc /* The oxygen gas supply shall provide sufficient gas flow for bubble formation and respiratory gas exchange. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.oxygenIn.gas.flowRate >= 0.5 [L/min] and
+            oxygenator.oxygenIn.gas.flowRate <= 8.0 [L/min] and
+            oxygenator.oxygenIn.gas.oxygenFraction >= 0.95
+        }
+    }
+
+    requirement def DebubblingRequirement {
+        doc /* The outlet blood path shall reduce entrained gas to a clinically controlled residual level before blood leaves the oxygenator. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.residualGasVolumeFraction <= 0.002
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* The oxygenator shall remain below its maximum operating pressure during oxygenation. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.pressure <= 40 [kPa]
+        }
+    }
+
+    requirement def ThermalConditioningRequirement {
+        doc /* The heat exchange coil shall maintain blood near physiologic temperature during operation. */
+
+        subject oxygenator : BubbleOxygenator;
+
+        require constraint {
+            oxygenator.arterialBloodOut.blood.temperature >= 308.15 [K] and
+            oxygenator.arterialBloodOut.blood.temperature <= 312.15 [K]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by BubbleOxygenator::oxygenateAndDecarbonateBlood;
+    satisfy BloodFlowRequirement by BubbleOxygenator::venousReservoir;
+    satisfy GasFlowRequirement by BubbleOxygenator::gasDistributor;
+    satisfy DebubblingRequirement by BubbleOxygenator::defoamer;
+    satisfy DebubblingRequirement by BubbleOxygenator::bubbleTrap;
+    satisfy PressureSafetyRequirement by BubbleOxygenator::pressureSensor;
+    satisfy ThermalConditioningRequirement by BubbleOxygenator::heatExchangeCoil;
+
+    part bubbleOxygenatorSystem : BubbleOxygenator {
+        attribute primingVolume = 1200 [mL];
+        attribute nominalBloodFlowRate = 4.5 [L/min];
+        attribute nominalOxygenFlowRate = 5.0 [L/min];
+        attribute targetOutletOxygenSaturation = 95.0;
+    }
+}

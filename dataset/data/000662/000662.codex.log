@@ -1,0 +1,1157 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-t1z2f7dz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3bd-8748-73c0-bf5a-258d7a340e0a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Laser scalpel and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LaserScalpelSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Power {
+        :>> scalar : Real;
+        unit = W;
+    }
+
+    attribute def Energy {
+        :>> scalar : Real;
+        unit = J;
+    }
+
+    attribute def TimeDuration {
+        :>> scalar : Real;
+        unit = s;
+    }
+
+    attribute def Temperature {
+        :>> scalar : Real;
+        unit = K;
+    }
+
+    attribute def Wavelength {
+        :>> scalar : Real;
+        unit = nm;
+    }
+
+    attribute def FlowRate {
+        :>> scalar : Real;
+        unit = L/min;
+    }
+
+    attribute def Percent {
+        :>> scalar : Real;
+        unit = one;
+    }
+
+    attribute def Distance {
+        :>> scalar : Real;
+        unit = mm;
+    }
+
+    enum def SystemMode {
+        enum idle;
+        enum armed;
+        enum emissionEnabled;
+        enum cutting;
+        enum coagulating;
+        enum fault;
+        enum shutdown;
+    }
+
+    enum def BeamProfile {
+        enum continuousWave;
+        enum pulsed;
+        enum superPulsed;
+    }
+
+    enum def FootswitchCommand {
+        enum released;
+        enum halfPressed;
+        enum pressed;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+    }
+
+    item def ControlSignal {
+        attribute commandId : String;
+        attribute valid : Boolean;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def LaserBeam {
+        attribute opticalPower : Power;
+        attribute wavelength : Wavelength;
+        attribute pulseDuration : TimeDuration;
+        attribute repetitionRate : Real;
+        attribute beamDiameter : Distance;
+        attribute profile : BeamProfile;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flowRate : FlowRate;
+        attribute pressure : Real;
+    }
+
+    item def SmokeAndVapor {
+        attribute particulateLoad : Percent;
+        attribute temperature : Temperature;
+        attribute evacuationFlow : FlowRate;
+    }
+
+    item def TissueInteractionResult {
+        attribute incisionDepth : Distance;
+        attribute thermalMargin : Distance;
+        attribute hemostasisAchieved : Boolean;
+        attribute deliveredEnergy : Energy;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def ControlOutputPort {
+        out item status : ControlSignal;
+    }
+
+    port def OpticalOutputPort {
+        out item beam : LaserBeam;
+    }
+
+    port def OpticalInputPort {
+        in item beam : LaserBeam;
+    }
+
+    port def CoolingInletPort {
+        in item coolantIn : CoolingFluid;
+    }
+
+    port def CoolingOutletPort {
+        out item coolantOut : CoolingFluid;
+    }
+
+    port def EvacuationPort {
+        in item plume : SmokeAndVapor;
+    }
+
+    port def FootswitchPort {
+        in attribute footswitch : FootswitchCommand;
+    }
+
+    port def SensorPort {
+        out item measurement : ControlSignal;
+    }
+
+    part def PowerSupply {
+        port acInput : ElectricalPowerPort;
+        port regulatedOutput : ElectricalPowerPort;
+        attribute maximumOutputPower : Power = 1200 [W];
+        attribute efficiency : Percent = 0.92;
+        attribute isolationVerified : Boolean;
+    }
+
+    part def LaserSource {
+        port electricalInput : ElectricalPowerPort;
+        port opticalOutput : OpticalOutputPort;
+        port coolingIn : CoolingInletPort;
+        port coolingOut : CoolingOutletPort;
+
+        attribute nominalWavelength : Wavelength = 10640 [nm];
+        attribute maximumOpticalPower : Power = 60 [W];
+        attribute minimumStablePower : Power = 1 [W];
+        attribute selectedPower : Power = 15 [W];
+        attribute selectedPulseDuration : TimeDuration = 0.05 [s];
+        attribute selectedProfile : BeamProfile = BeamProfile::pulsed;
+    }
+
+    part def BeamDeliveryHandpiece {
+        port beamInput : OpticalInputPort;
+        port beamOutput : OpticalOutputPort;
+
+        attribute focalLength : Distance = 50 [mm];
+        attribute spotDiameterAtFocus : Distance = 0.25 [mm];
+        attribute workingDistance : Distance = 2 [mm];
+        attribute sterileBarrierInstalled : Boolean;
+    }
+
+    part def CoolingSubsystem {
+        port coolantSupply : CoolingOutletPort;
+        port coolantReturn : CoolingInletPort;
+
+        attribute reservoirTemperature : Temperature = 293.15 [K];
+        attribute nominalFlowRate : FlowRate = 1.8 [L/min];
+        attribute minimumSafeFlowRate : FlowRate = 1.2 [L/min];
+        attribute pumpEnabled : Boolean;
+    }
+
+    part def PlumeEvacuationSubsystem {
+        port intake : EvacuationPort;
+
+        attribute nominalEvacuationFlow : FlowRate = 35 [L/min];
+        attribute filterRemainingLife : Percent = 0.80;
+        attribute active : Boolean;
+    }
+
+    part def UserInterface {
+        port commandOutput : ControlOutputPort;
+        port statusInput : ControlInputPort;
+
+        attribute requestedPower : Power = 15 [W];
+        attribute requestedProfile : BeamProfile = BeamProfile::pulsed;
+        attribute requestedPulseDuration : TimeDuration = 0.05 [s];
+        attribute displayedMode : SystemMode;
+        attribute alarmVisible : Boolean;
+    }
+
+    part def SafetyController {
+        port uiCommandInput : ControlInputPort;
+        port sourceCommandOutput : ControlOutputPort;
+        port statusOutput : ControlOutputPort;
+        port footswitchInput : FootswitchPort;
+        port coolingSensorInput : ControlInputPort;
+        port beamSensorInput : ControlInputPort;
+
+        attribute keySwitchEnabled : Boolean;
+        attribute emergencyStopPressed : Boolean;
+        attribute interlockClosed : Boolean;
+        attribute coolingFlowVerified : Boolean;
+        attribute handpieceReady : Boolean;
+        attribute measuredOpticalPower : Power;
+        attribute mode : SystemMode = SystemMode::idle;
+    }
+
+    part def BeamPowerSensor {
+        port sensorOutput : SensorPort;
+        port sampledBeamInput : OpticalInputPort;
+
+        attribute measuredPower : Power;
+        attribute calibrationDue : Boolean;
+        attribute maximumAllowedDeviation : Percent = 0.10;
+    }
+
+    part def TreatmentSite {
+        port appliedBeam : OpticalInputPort;
+        port plumeOutput : EvacuationPort;
+
+        attribute targetTissueTemperature : Temperature = 310.15 [K];
+        attribute vaporizationThreshold : Temperature = 373.15 [K];
+        attribute carbonizationLimit : Temperature = 473.15 [K];
+        attribute intendedIncisionDepth : Distance = 1.5 [mm];
+    }
+
+    action def InitializeScalpel {
+        in keySwitchEnabled : Boolean;
+        in interlockClosed : Boolean;
+        in coolingFlowVerified : Boolean;
+        out ready : Boolean;
+
+        first start;
+        then verifyInterlocks;
+        then verifyCooling;
+        then reportReady;
+        then done;
+
+        action verifyInterlocks {
+            in keySwitchEnabled;
+            in interlockClosed;
+            out interlocksOk : Boolean;
+        }
+
+        action verifyCooling {
+            in coolingFlowVerified;
+            out coolingOk : Boolean;
+        }
+
+        action reportReady {
+            in interlocksOk;
+            in coolingOk;
+            out ready;
+        }
+    }
+
+    action def DeliverLaserIncision {
+        in selectedPower : Power;
+        in exposureTime : TimeDuration;
+        in beamDiameter : Distance;
+        in wavelength : Wavelength;
+        out result : TissueInteractionResult;
+
+        first aimBeam;
+        then enableEmission;
+        then maintainDose;
+        then terminateEmission;
+        then assessTissueEffect;
+        then done;
+
+        action aimBeam {
+            in beamDiameter;
+            in wavelength;
+        }
+
+        action enableEmission {
+            in selectedPower;
+        }
+
+        action maintainDose {
+            in selectedPower;
+            in exposureTime;
+            out deliveredEnergy : Energy;
+        }
+
+        action terminateEmission;
+
+        action assessTissueEffect {
+            in deliveredEnergy;
+            out result;
+        }
+    }
+
+    action def StopEmission {
+        out emissionDisabled : Boolean;
+
+        first disableLaserDrive;
+        then closeShutter;
+        then reportSafe;
+        then done;
+
+        action disableLaserDrive;
+        action closeShutter;
+        action reportSafe {
+            out emissionDisabled;
+        }
+    }
+
+    state def LaserScalpelOperationalStates {
+        entry action InitializeScalpel;
+
+        state off;
+        state selfTest;
+        state idle;
+        state armed;
+        state readyToEmit;
+        state emitting;
+        state cutting;
+        state coagulating;
+        state fault;
+        state shutdown;
+
+        transition first off;
+        transition off_to_selfTest
+            first off
+            accept ControlSignal
+            if keySwitchEnabled
+            then selfTest;
+
+        transition selfTest_to_idle
+            first selfTest
+            if interlockClosed and coolingFlowVerified
+            then idle;
+
+        transition selfTest_to_fault
+            first selfTest
+            if not interlockClosed or not coolingFlowVerified
+            then fault;
+
+        transition idle_to_armed
+            first idle
+            accept ControlSignal
+            if handpieceReady and sterileBarrierInstalled
+            then armed;
+
+        transition armed_to_ready
+            first armed
+            accept FootswitchCommand
+            if footswitch == FootswitchCommand::halfPressed
+            then readyToEmit;
+
+        transition ready_to_emitting
+            first readyToEmit
+            accept FootswitchCommand
+            if footswitch == FootswitchCommand::pressed and interlockClosed and coolingFlowVerified
+            then emitting;
+
+        transition emitting_to_cutting
+            first emitting
+            if selectedProfile == BeamProfile::continuousWave or selectedProfile == BeamProfile::pulsed
+            then cutting;
+
+        transition emitting_to_coagulating
+            first emitting
+            if selectedPower < 8 [W]
+            then coagulating;
+
+        transition cutting_to_ready
+            first cutting
+            accept FootswitchCommand
+            if footswitch != FootswitchCommand::pressed
+            do StopEmission
+            then readyToEmit;
+
+        transition coagulating_to_ready
+            first coagulating
+            accept FootswitchCommand
+            if footswitch != FootswitchCommand::pressed
+            do StopEmission
+            then readyToEmit;
+
+        transition any_to_fault
+            first idle
+            accept ControlSignal
+            if emergencyStopPressed or not interlockClosed or not coolingFlowVerified
+            do StopEmission
+            then fault;
+
+        transition fault_to_shutdown
+            first fault
+            accept ControlSignal
+            then shutdown;
+    }
+
+    part def LaserScalpelSystem {
+        port mainsPower : ElectricalPowerPort;
+        port clinicianCommand : ControlInputPort;
+        port clinicianStatus : ControlOutputPort;
+        port treatmentBeam : OpticalOutputPort;
+        port plumeIntake : EvacuationPort;
+
+        attribute systemMode : SystemMode = SystemMode::idle;
+        attribute primaryFunction : String = "Generate, control, and deliver a focused surgical laser beam to cut or coagulate biological tissue while limiting unintended thermal injury.";
+        attribute maximumTreatmentPower : Power = 60 [W];
+        attribute nominalTreatmentWavelength : Wavelength = 10640 [nm];
+        attribute maximumContinuousExposure : TimeDuration = 10 [s];
+        attribute maximumPermittedHandpieceTemperature : Temperature = 318.15 [K];
+
+        part powerSupply : PowerSupply;
+        part laserSource : LaserSource;
+        part handpiece : BeamDeliveryHandpiece;
+        part cooling : CoolingSubsystem;
+        part plumeEvacuation : PlumeEvacuationSubsystem;
+        part userInterface : UserInterface;
+        part safetyController : SafetyController;
+        part beamPowerSensor : BeamPowerSensor;
+        part treatmentSite : TreatmentSite;
+
+        connect mainsPower to powerSupply.acInput;
+        connect powerSupply.regulatedOutput to laserSource.electricalInput;
+        connect laserSource.opticalOutput to handpiece.beamInput;
+        connect handpiece.beamOutput to treatmentBeam;
+        connect handpiece.beamOutput to beamPowerSensor.sampledBeamInput;
+        connect treatmentBeam to treatmentSite.appliedBeam;
+        connect treatmentSite.plumeOutput to plumeIntake;
+        connect plumeIntake to plumeEvacuation.intake;
+
+        connect cooling.coolantSupply to laserSource.coolingIn;
+        connect laserSource.coolingOut to cooling.coolantReturn;
+
+        connect clinicianCommand to userInterface.statusInput;
+        connect userInterface.commandOutput to safetyController.uiCommandInput;
+        connect safetyController.sourceCommandOutput to laserSource.electricalInput;
+        connect beamPowerSensor.sensorOutput to safetyController.beamSensorInput;
+        connect safetyController.statusOutput to clinicianStatus;
+
+        perform action initialize : InitializeScalpel {
+            in keySwitchEnabled = safetyController.keySwitchEnabled;
+            in interlockClosed = safetyController.interlockClosed;
+            in coolingFlowVerified = safetyController.coolingFlowVerified;
+            out ready;
+        }
+
+        perform action treatmentDelivery : DeliverLaserIncision {
+            in selectedPower = laserSource.selectedPower;
+            in exposureTime = 2 [s];
+            in beamDiameter = handpiece.spotDiameterAtFocus;
+            in wavelength = laserSource.nominalWavelength;
+            out result;
+        }
+
+        exhibit state operationalBehavior : LaserScalpelOperationalStates;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.primaryFunction ==
+            "Generate, control, and deliver a focused surgical laser beam to cut or coagulate biological tissue while limiting unintended thermal injury."
+        }
+    }
+
+    requirement def ControlledEmissionRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        doc /* Laser emission shall occur only when the system is armed, safety interlocks are closed, cooling flow is verified, and the clinician intentionally commands emission through the footswitch. */
+
+        require constraint {
+            scalpel.safetyController.interlockClosed and
+            scalpel.safetyController.coolingFlowVerified and
+            scalpel.safetyController.handpieceReady
+        }
+    }
+
+    requirement def OpticalPowerLimitRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.laserSource.selectedPower <= scalpel.maximumTreatmentPower
+        }
+    }
+
+    requirement def WavelengthRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.laserSource.nominalWavelength == scalpel.nominalTreatmentWavelength
+        }
+    }
+
+    requirement def CoolingProtectionRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.cooling.nominalFlowRate >= scalpel.cooling.minimumSafeFlowRate
+        }
+    }
+
+    requirement def BeamAccuracyRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        doc /* Measured optical power shall remain within ten percent of the commanded optical power during enabled emission. */
+
+        require constraint {
+            abs(
+                scalpel.beamPowerSensor.measuredPower -
+                scalpel.laserSource.selectedPower
+            ) <= scalpel.laserSource.selectedPower * scalpel.beamPowerSensor.maximumAllowedDeviation
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.treatmentSite.carbonizationLimit >
+            scalpel.treatmentSite.vaporizationThreshold
+        }
+    }
+
+    requirement def PlumeEvacuationRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.plumeEvacuation.nominalEvacuationFlow >= 30 [L/min]
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        doc /* Activation of emergency stop shall disable laser emission and place the system in a fault state. */
+
+        require constraint {
+            scalpel.safetyController.emergencyStopPressed implies
+            scalpel.safetyController.mode == SystemMode::fault
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by LaserScalpelSystem;
+    satisfy ControlledEmissionRequirement by LaserScalpelSystem::safetyController;
+    satisfy OpticalPowerLimitRequirement by LaserScalpelSystem::laserSource;
+    satisfy WavelengthRequirement by LaserScalpelSystem::laserSource;
+    satisfy CoolingProtectionRequirement by LaserScalpelSystem::cooling;
+    satisfy BeamAccuracyRequirement by LaserScalpelSystem::beamPowerSensor;
+    satisfy ThermalSafetyRequirement by LaserScalpelSystem::treatmentSite;
+    satisfy PlumeEvacuationRequirement by LaserScalpelSystem::plumeEvacuation;
+    satisfy EmergencyStopRequirement by LaserScalpelSystem::safetyController;
+}
+tokens used
+5,000
+package LaserScalpelSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Power {
+        :>> scalar : Real;
+        unit = W;
+    }
+
+    attribute def Energy {
+        :>> scalar : Real;
+        unit = J;
+    }
+
+    attribute def TimeDuration {
+        :>> scalar : Real;
+        unit = s;
+    }
+
+    attribute def Temperature {
+        :>> scalar : Real;
+        unit = K;
+    }
+
+    attribute def Wavelength {
+        :>> scalar : Real;
+        unit = nm;
+    }
+
+    attribute def FlowRate {
+        :>> scalar : Real;
+        unit = L/min;
+    }
+
+    attribute def Percent {
+        :>> scalar : Real;
+        unit = one;
+    }
+
+    attribute def Distance {
+        :>> scalar : Real;
+        unit = mm;
+    }
+
+    enum def SystemMode {
+        enum idle;
+        enum armed;
+        enum emissionEnabled;
+        enum cutting;
+        enum coagulating;
+        enum fault;
+        enum shutdown;
+    }
+
+    enum def BeamProfile {
+        enum continuousWave;
+        enum pulsed;
+        enum superPulsed;
+    }
+
+    enum def FootswitchCommand {
+        enum released;
+        enum halfPressed;
+        enum pressed;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+    }
+
+    item def ControlSignal {
+        attribute commandId : String;
+        attribute valid : Boolean;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def LaserBeam {
+        attribute opticalPower : Power;
+        attribute wavelength : Wavelength;
+        attribute pulseDuration : TimeDuration;
+        attribute repetitionRate : Real;
+        attribute beamDiameter : Distance;
+        attribute profile : BeamProfile;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flowRate : FlowRate;
+        attribute pressure : Real;
+    }
+
+    item def SmokeAndVapor {
+        attribute particulateLoad : Percent;
+        attribute temperature : Temperature;
+        attribute evacuationFlow : FlowRate;
+    }
+
+    item def TissueInteractionResult {
+        attribute incisionDepth : Distance;
+        attribute thermalMargin : Distance;
+        attribute hemostasisAchieved : Boolean;
+        attribute deliveredEnergy : Energy;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def ControlOutputPort {
+        out item status : ControlSignal;
+    }
+
+    port def OpticalOutputPort {
+        out item beam : LaserBeam;
+    }
+
+    port def OpticalInputPort {
+        in item beam : LaserBeam;
+    }
+
+    port def CoolingInletPort {
+        in item coolantIn : CoolingFluid;
+    }
+
+    port def CoolingOutletPort {
+        out item coolantOut : CoolingFluid;
+    }
+
+    port def EvacuationPort {
+        in item plume : SmokeAndVapor;
+    }
+
+    port def FootswitchPort {
+        in attribute footswitch : FootswitchCommand;
+    }
+
+    port def SensorPort {
+        out item measurement : ControlSignal;
+    }
+
+    part def PowerSupply {
+        port acInput : ElectricalPowerPort;
+        port regulatedOutput : ElectricalPowerPort;
+        attribute maximumOutputPower : Power = 1200 [W];
+        attribute efficiency : Percent = 0.92;
+        attribute isolationVerified : Boolean;
+    }
+
+    part def LaserSource {
+        port electricalInput : ElectricalPowerPort;
+        port opticalOutput : OpticalOutputPort;
+        port coolingIn : CoolingInletPort;
+        port coolingOut : CoolingOutletPort;
+
+        attribute nominalWavelength : Wavelength = 10640 [nm];
+        attribute maximumOpticalPower : Power = 60 [W];
+        attribute minimumStablePower : Power = 1 [W];
+        attribute selectedPower : Power = 15 [W];
+        attribute selectedPulseDuration : TimeDuration = 0.05 [s];
+        attribute selectedProfile : BeamProfile = BeamProfile::pulsed;
+    }
+
+    part def BeamDeliveryHandpiece {
+        port beamInput : OpticalInputPort;
+        port beamOutput : OpticalOutputPort;
+
+        attribute focalLength : Distance = 50 [mm];
+        attribute spotDiameterAtFocus : Distance = 0.25 [mm];
+        attribute workingDistance : Distance = 2 [mm];
+        attribute sterileBarrierInstalled : Boolean;
+    }
+
+    part def CoolingSubsystem {
+        port coolantSupply : CoolingOutletPort;
+        port coolantReturn : CoolingInletPort;
+
+        attribute reservoirTemperature : Temperature = 293.15 [K];
+        attribute nominalFlowRate : FlowRate = 1.8 [L/min];
+        attribute minimumSafeFlowRate : FlowRate = 1.2 [L/min];
+        attribute pumpEnabled : Boolean;
+    }
+
+    part def PlumeEvacuationSubsystem {
+        port intake : EvacuationPort;
+
+        attribute nominalEvacuationFlow : FlowRate = 35 [L/min];
+        attribute filterRemainingLife : Percent = 0.80;
+        attribute active : Boolean;
+    }
+
+    part def UserInterface {
+        port commandOutput : ControlOutputPort;
+        port statusInput : ControlInputPort;
+
+        attribute requestedPower : Power = 15 [W];
+        attribute requestedProfile : BeamProfile = BeamProfile::pulsed;
+        attribute requestedPulseDuration : TimeDuration = 0.05 [s];
+        attribute displayedMode : SystemMode;
+        attribute alarmVisible : Boolean;
+    }
+
+    part def SafetyController {
+        port uiCommandInput : ControlInputPort;
+        port sourceCommandOutput : ControlOutputPort;
+        port statusOutput : ControlOutputPort;
+        port footswitchInput : FootswitchPort;
+        port coolingSensorInput : ControlInputPort;
+        port beamSensorInput : ControlInputPort;
+
+        attribute keySwitchEnabled : Boolean;
+        attribute emergencyStopPressed : Boolean;
+        attribute interlockClosed : Boolean;
+        attribute coolingFlowVerified : Boolean;
+        attribute handpieceReady : Boolean;
+        attribute measuredOpticalPower : Power;
+        attribute mode : SystemMode = SystemMode::idle;
+    }
+
+    part def BeamPowerSensor {
+        port sensorOutput : SensorPort;
+        port sampledBeamInput : OpticalInputPort;
+
+        attribute measuredPower : Power;
+        attribute calibrationDue : Boolean;
+        attribute maximumAllowedDeviation : Percent = 0.10;
+    }
+
+    part def TreatmentSite {
+        port appliedBeam : OpticalInputPort;
+        port plumeOutput : EvacuationPort;
+
+        attribute targetTissueTemperature : Temperature = 310.15 [K];
+        attribute vaporizationThreshold : Temperature = 373.15 [K];
+        attribute carbonizationLimit : Temperature = 473.15 [K];
+        attribute intendedIncisionDepth : Distance = 1.5 [mm];
+    }
+
+    action def InitializeScalpel {
+        in keySwitchEnabled : Boolean;
+        in interlockClosed : Boolean;
+        in coolingFlowVerified : Boolean;
+        out ready : Boolean;
+
+        first start;
+        then verifyInterlocks;
+        then verifyCooling;
+        then reportReady;
+        then done;
+
+        action verifyInterlocks {
+            in keySwitchEnabled;
+            in interlockClosed;
+            out interlocksOk : Boolean;
+        }
+
+        action verifyCooling {
+            in coolingFlowVerified;
+            out coolingOk : Boolean;
+        }
+
+        action reportReady {
+            in interlocksOk;
+            in coolingOk;
+            out ready;
+        }
+    }
+
+    action def DeliverLaserIncision {
+        in selectedPower : Power;
+        in exposureTime : TimeDuration;
+        in beamDiameter : Distance;
+        in wavelength : Wavelength;
+        out result : TissueInteractionResult;
+
+        first aimBeam;
+        then enableEmission;
+        then maintainDose;
+        then terminateEmission;
+        then assessTissueEffect;
+        then done;
+
+        action aimBeam {
+            in beamDiameter;
+            in wavelength;
+        }
+
+        action enableEmission {
+            in selectedPower;
+        }
+
+        action maintainDose {
+            in selectedPower;
+            in exposureTime;
+            out deliveredEnergy : Energy;
+        }
+
+        action terminateEmission;
+
+        action assessTissueEffect {
+            in deliveredEnergy;
+            out result;
+        }
+    }
+
+    action def StopEmission {
+        out emissionDisabled : Boolean;
+
+        first disableLaserDrive;
+        then closeShutter;
+        then reportSafe;
+        then done;
+
+        action disableLaserDrive;
+        action closeShutter;
+        action reportSafe {
+            out emissionDisabled;
+        }
+    }
+
+    state def LaserScalpelOperationalStates {
+        entry action InitializeScalpel;
+
+        state off;
+        state selfTest;
+        state idle;
+        state armed;
+        state readyToEmit;
+        state emitting;
+        state cutting;
+        state coagulating;
+        state fault;
+        state shutdown;
+
+        transition first off;
+        transition off_to_selfTest
+            first off
+            accept ControlSignal
+            if keySwitchEnabled
+            then selfTest;
+
+        transition selfTest_to_idle
+            first selfTest
+            if interlockClosed and coolingFlowVerified
+            then idle;
+
+        transition selfTest_to_fault
+            first selfTest
+            if not interlockClosed or not coolingFlowVerified
+            then fault;
+
+        transition idle_to_armed
+            first idle
+            accept ControlSignal
+            if handpieceReady and sterileBarrierInstalled
+            then armed;
+
+        transition armed_to_ready
+            first armed
+            accept FootswitchCommand
+            if footswitch == FootswitchCommand::halfPressed
+            then readyToEmit;
+
+        transition ready_to_emitting
+            first readyToEmit
+            accept FootswitchCommand
+            if footswitch == FootswitchCommand::pressed and interlockClosed and coolingFlowVerified
+            then emitting;
+
+        transition emitting_to_cutting
+            first emitting
+            if selectedProfile == BeamProfile::continuousWave or selectedProfile == BeamProfile::pulsed
+            then cutting;
+
+        transition emitting_to_coagulating
+            first emitting
+            if selectedPower < 8 [W]
+            then coagulating;
+
+        transition cutting_to_ready
+            first cutting
+            accept FootswitchCommand
+            if footswitch != FootswitchCommand::pressed
+            do StopEmission
+            then readyToEmit;
+
+        transition coagulating_to_ready
+            first coagulating
+            accept FootswitchCommand
+            if footswitch != FootswitchCommand::pressed
+            do StopEmission
+            then readyToEmit;
+
+        transition any_to_fault
+            first idle
+            accept ControlSignal
+            if emergencyStopPressed or not interlockClosed or not coolingFlowVerified
+            do StopEmission
+            then fault;
+
+        transition fault_to_shutdown
+            first fault
+            accept ControlSignal
+            then shutdown;
+    }
+
+    part def LaserScalpelSystem {
+        port mainsPower : ElectricalPowerPort;
+        port clinicianCommand : ControlInputPort;
+        port clinicianStatus : ControlOutputPort;
+        port treatmentBeam : OpticalOutputPort;
+        port plumeIntake : EvacuationPort;
+
+        attribute systemMode : SystemMode = SystemMode::idle;
+        attribute primaryFunction : String = "Generate, control, and deliver a focused surgical laser beam to cut or coagulate biological tissue while limiting unintended thermal injury.";
+        attribute maximumTreatmentPower : Power = 60 [W];
+        attribute nominalTreatmentWavelength : Wavelength = 10640 [nm];
+        attribute maximumContinuousExposure : TimeDuration = 10 [s];
+        attribute maximumPermittedHandpieceTemperature : Temperature = 318.15 [K];
+
+        part powerSupply : PowerSupply;
+        part laserSource : LaserSource;
+        part handpiece : BeamDeliveryHandpiece;
+        part cooling : CoolingSubsystem;
+        part plumeEvacuation : PlumeEvacuationSubsystem;
+        part userInterface : UserInterface;
+        part safetyController : SafetyController;
+        part beamPowerSensor : BeamPowerSensor;
+        part treatmentSite : TreatmentSite;
+
+        connect mainsPower to powerSupply.acInput;
+        connect powerSupply.regulatedOutput to laserSource.electricalInput;
+        connect laserSource.opticalOutput to handpiece.beamInput;
+        connect handpiece.beamOutput to treatmentBeam;
+        connect handpiece.beamOutput to beamPowerSensor.sampledBeamInput;
+        connect treatmentBeam to treatmentSite.appliedBeam;
+        connect treatmentSite.plumeOutput to plumeIntake;
+        connect plumeIntake to plumeEvacuation.intake;
+
+        connect cooling.coolantSupply to laserSource.coolingIn;
+        connect laserSource.coolingOut to cooling.coolantReturn;
+
+        connect clinicianCommand to userInterface.statusInput;
+        connect userInterface.commandOutput to safetyController.uiCommandInput;
+        connect safetyController.sourceCommandOutput to laserSource.electricalInput;
+        connect beamPowerSensor.sensorOutput to safetyController.beamSensorInput;
+        connect safetyController.statusOutput to clinicianStatus;
+
+        perform action initialize : InitializeScalpel {
+            in keySwitchEnabled = safetyController.keySwitchEnabled;
+            in interlockClosed = safetyController.interlockClosed;
+            in coolingFlowVerified = safetyController.coolingFlowVerified;
+            out ready;
+        }
+
+        perform action treatmentDelivery : DeliverLaserIncision {
+            in selectedPower = laserSource.selectedPower;
+            in exposureTime = 2 [s];
+            in beamDiameter = handpiece.spotDiameterAtFocus;
+            in wavelength = laserSource.nominalWavelength;
+            out result;
+        }
+
+        exhibit state operationalBehavior : LaserScalpelOperationalStates;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.primaryFunction ==
+            "Generate, control, and deliver a focused surgical laser beam to cut or coagulate biological tissue while limiting unintended thermal injury."
+        }
+    }
+
+    requirement def ControlledEmissionRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        doc /* Laser emission shall occur only when the system is armed, safety interlocks are closed, cooling flow is verified, and the clinician intentionally commands emission through the footswitch. */
+
+        require constraint {
+            scalpel.safetyController.interlockClosed and
+            scalpel.safetyController.coolingFlowVerified and
+            scalpel.safetyController.handpieceReady
+        }
+    }
+
+    requirement def OpticalPowerLimitRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.laserSource.selectedPower <= scalpel.maximumTreatmentPower
+        }
+    }
+
+    requirement def WavelengthRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.laserSource.nominalWavelength == scalpel.nominalTreatmentWavelength
+        }
+    }
+
+    requirement def CoolingProtectionRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.cooling.nominalFlowRate >= scalpel.cooling.minimumSafeFlowRate
+        }
+    }
+
+    requirement def BeamAccuracyRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        doc /* Measured optical power shall remain within ten percent of the commanded optical power during enabled emission. */
+
+        require constraint {
+            abs(
+                scalpel.beamPowerSensor.measuredPower -
+                scalpel.laserSource.selectedPower
+            ) <= scalpel.laserSource.selectedPower * scalpel.beamPowerSensor.maximumAllowedDeviation
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.treatmentSite.carbonizationLimit >
+            scalpel.treatmentSite.vaporizationThreshold
+        }
+    }
+
+    requirement def PlumeEvacuationRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        require constraint {
+            scalpel.plumeEvacuation.nominalEvacuationFlow >= 30 [L/min]
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject scalpel : LaserScalpelSystem;
+
+        doc /* Activation of emergency stop shall disable laser emission and place the system in a fault state. */
+
+        require constraint {
+            scalpel.safetyController.emergencyStopPressed implies
+            scalpel.safetyController.mode == SystemMode::fault
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by LaserScalpelSystem;
+    satisfy ControlledEmissionRequirement by LaserScalpelSystem::safetyController;
+    satisfy OpticalPowerLimitRequirement by LaserScalpelSystem::laserSource;
+    satisfy WavelengthRequirement by LaserScalpelSystem::laserSource;
+    satisfy CoolingProtectionRequirement by LaserScalpelSystem::cooling;
+    satisfy BeamAccuracyRequirement by LaserScalpelSystem::beamPowerSensor;
+    satisfy ThermalSafetyRequirement by LaserScalpelSystem::treatmentSite;
+    satisfy PlumeEvacuationRequirement by LaserScalpelSystem::plumeEvacuation;
+    satisfy EmergencyStopRequirement by LaserScalpelSystem::safetyController;
+}

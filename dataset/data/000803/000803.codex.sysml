@@ -1,0 +1,484 @@
+package TrocarSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Millimeter :> Length;
+    attribute def Newton :> Force;
+    attribute def Kilopascal :> Pressure;
+    attribute def MilliliterPerSecond :> VolumeFlowRate;
+    attribute def DegreeCelsius :> Temperature;
+    attribute def Second :> Time;
+
+    enum def TrocarInsertionState {
+        enum idle;
+        enum armed;
+        enum penetrating;
+        enum obturatorRetracted;
+        enum cannulaSeated;
+        enum insufflationEnabled;
+        enum instrumentAccess;
+        enum removal;
+        enum disposed;
+    }
+
+    enum def SealCondition {
+        enum open;
+        enum closed;
+        enum instrumentSealed;
+        enum leaking;
+    }
+
+    enum def SterilityCondition {
+        enum sterile;
+        enum contaminated;
+        enum discarded;
+    }
+
+    item def SurgicalInstrument {
+        attribute shaftDiameter : Millimeter;
+        attribute shaftLength : Millimeter;
+        attribute tipProfile : String;
+    }
+
+    item def InsufflationGas {
+        attribute gasType : String = "CO2";
+        attribute supplyPressure : Kilopascal;
+        attribute flowRate : MilliliterPerSecond;
+        attribute temperature : DegreeCelsius;
+    }
+
+    item def TissueContact {
+        attribute contactForce : Newton;
+        attribute penetrationDepth : Millimeter;
+        attribute tissueLayer : String;
+    }
+
+    item def AccessChannel {
+        attribute innerDiameter : Millimeter;
+        attribute usableLength : Millimeter;
+        attribute sealed : Boolean;
+    }
+
+    port def InstrumentPort {
+        in item instrumentIn : SurgicalInstrument;
+        out item instrumentOut : SurgicalInstrument;
+    }
+
+    port def GasPort {
+        in item gasIn : InsufflationGas;
+        out item gasOut : InsufflationGas;
+    }
+
+    port def TissueInterfacePort {
+        in item tissueLoad : TissueContact;
+        out item tissueResponse : TissueContact;
+    }
+
+    port def AccessPort {
+        in item insertedInstrument : SurgicalInstrument;
+        out item removedInstrument : SurgicalInstrument;
+        out item channel : AccessChannel;
+    }
+
+    part def TrocarSystem {
+        attribute nominalDiameter : Millimeter = 12.0 [mm];
+        attribute workingLength : Millimeter = 100.0 [mm];
+        attribute maximumInsertionForce : Newton = 45.0 [N];
+        attribute maximumLeakRate : MilliliterPerSecond = 2.0;
+        attribute sterility : SterilityCondition = SterilityCondition::sterile;
+        attribute currentState : TrocarInsertionState = TrocarInsertionState::idle;
+
+        port proximalAccess : AccessPort;
+        port distalTissueInterface : TissueInterfacePort;
+        port gasSupply : GasPort;
+        port instrumentInterface : InstrumentPort;
+
+        part cannula : Cannula {
+            attribute innerDiameter = nominalDiameter;
+            attribute length = workingLength;
+        }
+
+        part obturator : Obturator {
+            attribute shaftDiameter = 11.5 [mm];
+            attribute exposedTipLength = 8.0 [mm];
+        }
+
+        part valveAssembly : ValveAssembly {
+            attribute leakRateLimit = maximumLeakRate;
+        }
+
+        part insufflationStopcock : InsufflationStopcock;
+
+        part depthStabilizer : DepthStabilizer {
+            attribute minimumClampDiameter = 8.0 [mm];
+            attribute maximumClampDiameter = 16.0 [mm];
+        }
+
+        part ergonomicHousing : ErgonomicHousing {
+            attribute gripDiameter = 34.0 [mm];
+        }
+
+        connection cannulaToValve connect cannula.proximalChannel to valveAssembly.distalChannel;
+        connection valveToHousing connect valveAssembly.proximalChannel to ergonomicHousing.accessChannel;
+        connection stopcockToCannula connect insufflationStopcock.gasOutlet to cannula.gasInlet;
+        connection obturatorThroughCannula connect obturator.shaftPort to cannula.lumenPort;
+        connection externalInstrumentAccess connect proximalAccess to valveAssembly.instrumentAccess;
+        connection distalTissueContact connect distalTissueInterface to obturator.tissueInterface;
+        connection gasConnection connect gasSupply to insufflationStopcock.gasInlet;
+        connection instrumentConnection connect instrumentInterface to valveAssembly.instrumentPort;
+
+        action def EstablishLaparoscopicAccess {
+            in item targetTissue : TissueContact;
+            out item accessPath : AccessChannel;
+
+            first start;
+            then verifySterile;
+            then alignTip;
+            then applyControlledInsertionForce;
+            then penetrateTissueLayers;
+            then retractObturator;
+            then seatCannula;
+            then closeSeal;
+            then enableInsufflation;
+            then allowInstrumentExchange;
+            then done;
+
+            action verifySterile {
+                assert constraint { sterility == SterilityCondition::sterile }
+            }
+
+            action alignTip {
+                targetTissue.tissueLayer = "abdominal wall";
+            }
+
+            action applyControlledInsertionForce {
+                assert constraint { targetTissue.contactForce <= maximumInsertionForce }
+            }
+
+            action penetrateTissueLayers {
+                targetTissue.penetrationDepth = workingLength;
+            }
+
+            action retractObturator {
+                currentState = TrocarInsertionState::obturatorRetracted;
+            }
+
+            action seatCannula {
+                accessPath.innerDiameter = nominalDiameter;
+                accessPath.usableLength = workingLength;
+                accessPath.sealed = false;
+                currentState = TrocarInsertionState::cannulaSeated;
+            }
+
+            action closeSeal {
+                valveAssembly.sealCondition = SealCondition::closed;
+                accessPath.sealed = true;
+            }
+
+            action enableInsufflation {
+                insufflationStopcock.open = true;
+                currentState = TrocarInsertionState::insufflationEnabled;
+            }
+
+            action allowInstrumentExchange {
+                valveAssembly.sealCondition = SealCondition::instrumentSealed;
+                currentState = TrocarInsertionState::instrumentAccess;
+            }
+        }
+
+        state def TrocarLifecycle {
+            entry action initialize {
+                currentState = TrocarInsertionState::idle;
+                sterility = SterilityCondition::sterile;
+            }
+
+            state Idle;
+            state Armed;
+            state Penetrating;
+            state ObturatorRetracted;
+            state CannulaSeated;
+            state InsufflationEnabled;
+            state InstrumentAccess;
+            state Removal;
+            state Disposed;
+
+            transition first Idle;
+            transition Idle_to_Armed
+                first Idle
+                accept when sterility == SterilityCondition::sterile
+                then Armed;
+
+            transition Armed_to_Penetrating
+                first Armed
+                accept item tissueLoad via distalTissueInterface.tissueLoad
+                if tissueLoad.contactForce <= maximumInsertionForce
+                then Penetrating;
+
+            transition Penetrating_to_ObturatorRetracted
+                first Penetrating
+                accept after 3.0 [s]
+                then ObturatorRetracted;
+
+            transition ObturatorRetracted_to_CannulaSeated
+                first ObturatorRetracted
+                accept when cannula.positionStable
+                then CannulaSeated;
+
+            transition CannulaSeated_to_InsufflationEnabled
+                first CannulaSeated
+                accept when valveAssembly.sealCondition == SealCondition::closed
+                then InsufflationEnabled;
+
+            transition InsufflationEnabled_to_InstrumentAccess
+                first InsufflationEnabled
+                accept item insertedInstrument via proximalAccess.insertedInstrument
+                if insertedInstrument.shaftDiameter <= cannula.innerDiameter
+                then InstrumentAccess;
+
+            transition InstrumentAccess_to_Removal
+                first InstrumentAccess
+                accept when insufflationStopcock.open == false
+                then Removal;
+
+            transition Removal_to_Disposed
+                first Removal
+                accept when sterility == SterilityCondition::contaminated
+                then Disposed;
+        }
+    }
+
+    part def Cannula {
+        attribute innerDiameter : Millimeter;
+        attribute outerDiameter : Millimeter = 13.2 [mm];
+        attribute length : Millimeter;
+        attribute bevelLength : Millimeter = 4.0 [mm];
+        attribute radiopaqueMarker : Boolean = true;
+        attribute positionStable : Boolean = false;
+
+        port proximalChannel : AccessPort;
+        port distalOpening : AccessPort;
+        port lumenPort : InstrumentPort;
+        port gasInlet : GasPort;
+
+        item channel : AccessChannel {
+            attribute innerDiameter = innerDiameter;
+            attribute usableLength = length;
+            attribute sealed = false;
+        }
+    }
+
+    part def Obturator {
+        attribute shaftDiameter : Millimeter;
+        attribute exposedTipLength : Millimeter;
+        attribute tipAngle : Real = 45.0;
+        attribute shieldedTip : Boolean = true;
+        attribute fullyRetracted : Boolean = false;
+
+        port shaftPort : InstrumentPort;
+        port tissueInterface : TissueInterfacePort;
+
+        action def Retract {
+            out done : Boolean;
+            fullyRetracted = true;
+            done = true;
+        }
+    }
+
+    part def ValveAssembly {
+        attribute sealCondition : SealCondition = SealCondition::closed;
+        attribute leakRateLimit : MilliliterPerSecond;
+        attribute sealDiameterRangeMin : Millimeter = 5.0 [mm];
+        attribute sealDiameterRangeMax : Millimeter = 12.0 [mm];
+
+        port proximalChannel : AccessPort;
+        port distalChannel : AccessPort;
+        port instrumentAccess : AccessPort;
+        port instrumentPort : InstrumentPort;
+
+        part duckbillSeal : PrimarySeal;
+        part wiperSeal : SecondarySeal;
+        part capSeal : CapSeal;
+
+        connection primaryToSecondary connect duckbillSeal.channelPort to wiperSeal.channelPort;
+        connection secondaryToCap connect wiperSeal.channelPort to capSeal.channelPort;
+
+        action def SealAroundInstrument {
+            in item instrument : SurgicalInstrument;
+            out sealed : Boolean;
+
+            assert constraint {
+                instrument.shaftDiameter >= sealDiameterRangeMin and
+                instrument.shaftDiameter <= sealDiameterRangeMax
+            }
+
+            sealCondition = SealCondition::instrumentSealed;
+            sealed = true;
+        }
+    }
+
+    part def PrimarySeal {
+        attribute closingPressure : Kilopascal = 1.5 [kPa];
+        attribute condition : SealCondition = SealCondition::closed;
+        port channelPort : AccessPort;
+    }
+
+    part def SecondarySeal {
+        attribute wipingForce : Newton = 2.0 [N];
+        attribute condition : SealCondition = SealCondition::closed;
+        port channelPort : AccessPort;
+    }
+
+    part def CapSeal {
+        attribute removable : Boolean = true;
+        attribute condition : SealCondition = SealCondition::closed;
+        port channelPort : AccessPort;
+    }
+
+    part def InsufflationStopcock {
+        attribute open : Boolean = false;
+        attribute maximumPressure : Kilopascal = 20.0 [kPa];
+        attribute nominalFlowRate : MilliliterPerSecond = 80.0;
+        attribute luerCompatible : Boolean = true;
+
+        port gasInlet : GasPort;
+        port gasOutlet : GasPort;
+
+        action def OpenGasPath {
+            in item gas : InsufflationGas;
+            out enabled : Boolean;
+
+            assert constraint { gas.supplyPressure <= maximumPressure }
+            open = true;
+            enabled = true;
+        }
+
+        action def CloseGasPath {
+            out closed : Boolean;
+            open = false;
+            closed = true;
+        }
+    }
+
+    part def DepthStabilizer {
+        attribute minimumClampDiameter : Millimeter;
+        attribute maximumClampDiameter : Millimeter;
+        attribute locked : Boolean = false;
+        attribute skinContactForceLimit : Newton = 12.0 [N];
+
+        port tissueContact : TissueInterfacePort;
+
+        action def LockAtDepth {
+            in depth : Millimeter;
+            out lockedAtDepth : Boolean;
+
+            assert constraint { depth > 0.0 [mm] }
+            locked = true;
+            lockedAtDepth = true;
+        }
+    }
+
+    part def ErgonomicHousing {
+        attribute gripDiameter : Millimeter;
+        attribute gripLength : Millimeter = 58.0 [mm];
+        attribute oneHandOperable : Boolean = true;
+
+        port accessChannel : AccessPort;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The trocar system shall create and maintain a sealed percutaneous access channel through tissue so that surgical instruments and insufflation gas can pass into a body cavity while limiting leakage and insertion force. */
+        subject trocar : TrocarSystem;
+
+        require constraint {
+            trocar.cannula.innerDiameter >= 5.0 [mm] and
+            trocar.cannula.innerDiameter <= 15.0 [mm]
+        }
+
+        require constraint {
+            trocar.maximumInsertionForce <= 45.0 [N]
+        }
+
+        require constraint {
+            trocar.valveAssembly.leakRateLimit <= 2.0
+        }
+    }
+
+    requirement def SterilityRequirement {
+        doc /* The trocar system shall be sterile before patient contact and shall be considered contaminated after removal from the sterile field. */
+        subject trocar : TrocarSystem;
+
+        require constraint {
+            trocar.sterility == SterilityCondition::sterile
+        }
+    }
+
+    requirement def InstrumentCompatibilityRequirement {
+        doc /* The access channel and seal assembly shall support repeated insertion and removal of compatible laparoscopic instruments without loss of sealing function. */
+        subject trocar : TrocarSystem;
+        subject instrument : SurgicalInstrument;
+
+        require constraint {
+            instrument.shaftDiameter <= trocar.cannula.innerDiameter
+        }
+
+        require constraint {
+            instrument.shaftDiameter >= trocar.valveAssembly.sealDiameterRangeMin and
+            instrument.shaftDiameter <= trocar.valveAssembly.sealDiameterRangeMax
+        }
+    }
+
+    requirement def InsufflationControlRequirement {
+        doc /* The stopcock shall provide operator-controlled gas flow into the cannula and shall prevent flow when closed. */
+        subject stopcock : InsufflationStopcock;
+        subject gas : InsufflationGas;
+
+        require constraint {
+            gas.gasType == "CO2"
+        }
+
+        require constraint {
+            gas.supplyPressure <= stopcock.maximumPressure
+        }
+    }
+
+    requirement def TissueSafetyRequirement {
+        doc /* The obturator and cannula assembly shall limit uncontrolled penetration by using a controlled tip profile, bounded force, and stable seating feature. */
+        subject trocar : TrocarSystem;
+
+        require constraint {
+            trocar.obturator.exposedTipLength <= 10.0 [mm]
+        }
+
+        require constraint {
+            trocar.maximumInsertionForce <= 45.0 [N]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TrocarSystem;
+    satisfy SterilityRequirement by TrocarSystem;
+    satisfy InstrumentCompatibilityRequirement by TrocarSystem;
+    satisfy InsufflationControlRequirement by InsufflationStopcock;
+    satisfy TissueSafetyRequirement by TrocarSystem;
+
+    part trocar : TrocarSystem;
+
+    item standardLaparoscope : SurgicalInstrument {
+        attribute shaftDiameter = 10.0 [mm];
+        attribute shaftLength = 330.0 [mm];
+        attribute tipProfile = "blunt rounded optical tip";
+    }
+
+    item carbonDioxideSupply : InsufflationGas {
+        attribute gasType = "CO2";
+        attribute supplyPressure = 15.0 [kPa];
+        attribute flowRate = 60.0;
+        attribute temperature = 22.0 [degC];
+    }
+
+    item abdominalWallContact : TissueContact {
+        attribute contactForce = 30.0 [N];
+        attribute penetrationDepth = 0.0 [mm];
+        attribute tissueLayer = "skin, fascia, peritoneum";
+    }
+}

@@ -1,0 +1,428 @@
+package BronchitisKettleSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Temperature {
+    :>> unit = "degC";
+  }
+
+  attribute def Volume {
+    :>> unit = "L";
+  }
+
+  attribute def MassFlowRate {
+    :>> unit = "g/min";
+  }
+
+  attribute def Power {
+    :>> unit = "W";
+  }
+
+  attribute def TimeDuration {
+    :>> unit = "min";
+  }
+
+  attribute def Pressure {
+    :>> unit = "kPa";
+  }
+
+  attribute def RelativeHumidity {
+    :>> unit = "%";
+  }
+
+  item def Water {
+    attribute volume : Volume;
+    attribute temperature : Temperature;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage = 120 [V];
+    attribute frequency = 60 [Hz];
+    attribute availablePower : Power;
+  }
+
+  item def TherapeuticSteam {
+    attribute temperature : Temperature;
+    attribute flowRate : MassFlowRate;
+    attribute humidity : RelativeHumidity;
+  }
+
+  item def UserCommand {
+    attribute startRequested : Boolean;
+    attribute stopRequested : Boolean;
+    attribute therapyDuration : TimeDuration;
+    attribute targetSteamTemperature : Temperature;
+  }
+
+  item def StatusSignal {
+    attribute ready : Boolean;
+    attribute heating : Boolean;
+    attribute steaming : Boolean;
+    attribute faultActive : Boolean;
+    attribute remainingTime : TimeDuration;
+  }
+
+  item def TemperatureSignal {
+    attribute measuredTemperature : Temperature;
+  }
+
+  item def LevelSignal {
+    attribute measuredVolume : Volume;
+  }
+
+  item def SafetyVentFlow {
+    attribute pressure : Pressure;
+    attribute flowRate : MassFlowRate;
+  }
+
+  port def WaterFillPort {
+    in item waterIn : Water;
+  }
+
+  port def SteamOutletPort {
+    out item steamOut : TherapeuticSteam;
+  }
+
+  port def PowerInputPort {
+    in item powerIn : ElectricalEnergy;
+  }
+
+  port def CommandPort {
+    in item commandIn : UserCommand;
+  }
+
+  port def StatusPort {
+    out item statusOut : StatusSignal;
+  }
+
+  port def TemperatureMeasurementPort {
+    out item tempSignal : TemperatureSignal;
+  }
+
+  port def LevelMeasurementPort {
+    out item levelSignal : LevelSignal;
+  }
+
+  port def HeaterControlPort {
+    in item heaterEnable : Boolean;
+    in item requestedPower : Power;
+  }
+
+  port def VentPort {
+    out item ventFlow : SafetyVentFlow;
+  }
+
+  part def HeatingElement {
+    port powerPort : PowerInputPort;
+    port controlPort : HeaterControlPort;
+
+    attribute ratedPower : Power = 850 [W];
+    attribute minimumPower : Power = 0 [W];
+    attribute maximumSurfaceTemperature : Temperature = 130 [degC];
+
+    action heatWater {
+      in item suppliedPower : ElectricalEnergy;
+      in item enable : Boolean;
+      out item heatRate : Power;
+    }
+  }
+
+  part def WaterReservoir {
+    port fillPort : WaterFillPort;
+
+    attribute capacity : Volume = 1.2 [L];
+    attribute minimumOperatingVolume : Volume = 0.25 [L];
+    attribute maximumFillVolume : Volume = 1.0 [L];
+    attribute currentWaterVolume : Volume;
+    attribute waterTemperature : Temperature;
+  }
+
+  part def TemperatureSensor {
+    port measurementPort : TemperatureMeasurementPort;
+
+    attribute measurementRangeMin : Temperature = 0 [degC];
+    attribute measurementRangeMax : Temperature = 120 [degC];
+    attribute accuracy : Temperature = 1.5 [degC];
+  }
+
+  part def WaterLevelSensor {
+    port measurementPort : LevelMeasurementPort;
+
+    attribute lowLevelThreshold : Volume = 0.25 [L];
+    attribute fullLevelThreshold : Volume = 1.0 [L];
+  }
+
+  part def SteamNozzle {
+    port outlet : SteamOutletPort;
+
+    attribute nominalSteamFlow : MassFlowRate = 18 [g/min];
+    attribute maximumOutletTemperature : Temperature = 55 [degC];
+    attribute outletDiameter = 12 [mm];
+  }
+
+  part def SafetyReliefVent {
+    port ventPort : VentPort;
+
+    attribute openingPressure : Pressure = 115 [kPa];
+    attribute reseatPressure : Pressure = 105 [kPa];
+  }
+
+  part def UserInterface {
+    port commandPort : CommandPort;
+    port statusPort : StatusPort;
+
+    attribute defaultTherapyDuration : TimeDuration = 12 [min];
+    attribute maximumTherapyDuration : TimeDuration = 20 [min];
+    attribute defaultTargetSteamTemperature : Temperature = 45 [degC];
+  }
+
+  part def Controller {
+    port commandPort : CommandPort;
+    port statusPort : StatusPort;
+    port temperatureInput : TemperatureMeasurementPort;
+    port levelInput : LevelMeasurementPort;
+    port heaterOutput : HeaterControlPort;
+
+    attribute targetSteamTemperature : Temperature = 45 [degC];
+    attribute preheatTemperature : Temperature = 80 [degC];
+    attribute maximumWaterTemperature : Temperature = 98 [degC];
+    attribute therapyTimer : TimeDuration;
+    attribute faultLatched : Boolean;
+
+    action evaluateSafety {
+      in item waterLevel : LevelSignal;
+      in item temperature : TemperatureSignal;
+      out item safeToHeat : Boolean;
+      out item faultActive : Boolean;
+    }
+
+    action regulateHeating {
+      in item measuredTemperature : TemperatureSignal;
+      in item targetTemperature : Temperature;
+      out item heaterEnable : Boolean;
+      out item requestedPower : Power;
+    }
+
+    state def OperatingStateMachine {
+      state Off;
+      state Standby;
+      state Filling;
+      state Preheating;
+      state SteamReady;
+      state TherapyDelivery;
+      state Cooldown;
+      state Fault;
+
+      transition initial then Off;
+
+      transition Off_to_Standby
+        first Off
+        accept UserCommand
+        if commandIn.startRequested
+        then Standby;
+
+      transition Standby_to_Filling
+        first Standby
+        if levelSignal.measuredVolume < 0.25 [L]
+        then Filling;
+
+      transition Filling_to_Standby
+        first Filling
+        if levelSignal.measuredVolume >= 0.25 [L]
+        then Standby;
+
+      transition Standby_to_Preheating
+        first Standby
+        accept UserCommand
+        if commandIn.startRequested and levelSignal.measuredVolume >= 0.25 [L]
+        then Preheating;
+
+      transition Preheating_to_SteamReady
+        first Preheating
+        if tempSignal.measuredTemperature >= 80 [degC]
+        then SteamReady;
+
+      transition SteamReady_to_TherapyDelivery
+        first SteamReady
+        then TherapyDelivery;
+
+      transition TherapyDelivery_to_Cooldown
+        first TherapyDelivery
+        if therapyTimer <= 0 [min] or commandIn.stopRequested
+        then Cooldown;
+
+      transition Cooldown_to_Standby
+        first Cooldown
+        if tempSignal.measuredTemperature <= 45 [degC]
+        then Standby;
+
+      transition Any_to_Fault
+        first Off, Standby, Filling, Preheating, SteamReady, TherapyDelivery, Cooldown
+        if faultLatched
+        then Fault;
+
+      transition Fault_to_Off
+        first Fault
+        accept UserCommand
+        if commandIn.stopRequested
+        then Off;
+    }
+  }
+
+  action def GenerateHumidifiedTherapeuticSteam {
+    in item sourceWater : Water;
+    in item electricalEnergy : ElectricalEnergy;
+    in item userCommand : UserCommand;
+    out item therapeuticSteam : TherapeuticSteam;
+    out item status : StatusSignal;
+
+    action validateWaterLevel {
+      in item sourceWater : Water;
+      out item levelAcceptable : Boolean;
+    }
+
+    action preheatWater {
+      in item sourceWater : Water;
+      in item electricalEnergy : ElectricalEnergy;
+      out item heatedWater : Water;
+    }
+
+    action boilAndVaporize {
+      in item heatedWater : Water;
+      out item rawSteam : TherapeuticSteam;
+    }
+
+    action temperSteamForInhalation {
+      in item rawSteam : TherapeuticSteam;
+      out item therapeuticSteam : TherapeuticSteam;
+    }
+
+    action reportOperatingStatus {
+      in item therapeuticSteam : TherapeuticSteam;
+      out item status : StatusSignal;
+    }
+
+    first start;
+    then validateWaterLevel;
+    then preheatWater;
+    then boilAndVaporize;
+    then temperSteamForInhalation;
+    then reportOperatingStatus;
+    then done;
+  }
+
+  part def BronchitisKettle {
+    port waterFill : WaterFillPort;
+    port steamOutlet : SteamOutletPort;
+    port electricalInput : PowerInputPort;
+    port userCommand : CommandPort;
+    port userStatus : StatusPort;
+    port pressureVent : VentPort;
+
+    part reservoir : WaterReservoir;
+    part heater : HeatingElement;
+    part temperatureSensor : TemperatureSensor;
+    part levelSensor : WaterLevelSensor;
+    part nozzle : SteamNozzle;
+    part reliefVent : SafetyReliefVent;
+    part interface : UserInterface;
+    part controller : Controller;
+
+    attribute nominalWaterCapacity : Volume = 1.0 [L];
+    attribute normalSteamTemperature : Temperature = 45 [degC];
+    attribute safeOutletTemperatureLimit : Temperature = 55 [degC];
+    attribute nominalTherapyDuration : TimeDuration = 12 [min];
+    attribute nominalSteamFlow : MassFlowRate = 18 [g/min];
+
+    connect waterFill to reservoir.fillPort;
+    connect electricalInput to heater.powerPort;
+    connect userCommand to interface.commandPort;
+    connect interface.commandPort to controller.commandPort;
+    connect controller.statusPort to interface.statusPort;
+    connect interface.statusPort to userStatus;
+    connect temperatureSensor.measurementPort to controller.temperatureInput;
+    connect levelSensor.measurementPort to controller.levelInput;
+    connect controller.heaterOutput to heater.controlPort;
+    connect nozzle.outlet to steamOutlet;
+    connect reliefVent.ventPort to pressureVent;
+
+    perform action primaryFunction : GenerateHumidifiedTherapeuticSteam {
+      in sourceWater = reservoir.fillPort.waterIn;
+      in electricalEnergy = electricalInput.powerIn;
+      in userCommand = userCommand.commandIn;
+      out therapeuticSteam = steamOutlet.steamOut;
+      out status = userStatus.statusOut;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject kettle : BronchitisKettle;
+
+    doc /* The Bronchitis Kettle shall convert clean water and household electrical power into a controlled stream of warm humidified vapor suitable for short-duration bronchial steam inhalation support. */
+
+    require constraint {
+      kettle.steamOutlet.steamOut.temperature >= 40 [degC] and
+      kettle.steamOutlet.steamOut.temperature <= 55 [degC] and
+      kettle.steamOutlet.steamOut.humidity >= 95 [%] and
+      kettle.steamOutlet.steamOut.flowRate >= 10 [g/min]
+    }
+  }
+
+  requirement def WaterCapacityRequirement {
+    subject kettle : BronchitisKettle;
+
+    require constraint {
+      kettle.nominalWaterCapacity >= 1.0 [L]
+    }
+  }
+
+  requirement def LowWaterProtectionRequirement {
+    subject kettle : BronchitisKettle;
+
+    require constraint {
+      kettle.reservoir.currentWaterVolume < kettle.reservoir.minimumOperatingVolume implies
+      kettle.controller.faultLatched == true
+    }
+  }
+
+  requirement def OutletTemperatureSafetyRequirement {
+    subject kettle : BronchitisKettle;
+
+    require constraint {
+      kettle.steamOutlet.steamOut.temperature <= kettle.safeOutletTemperatureLimit
+    }
+  }
+
+  requirement def PressureReliefRequirement {
+    subject kettle : BronchitisKettle;
+
+    require constraint {
+      kettle.pressureVent.ventFlow.pressure <= 115 [kPa]
+    }
+  }
+
+  requirement def TherapyDurationRequirement {
+    subject kettle : BronchitisKettle;
+
+    require constraint {
+      kettle.nominalTherapyDuration >= 5 [min] and
+      kettle.nominalTherapyDuration <= 20 [min]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by BronchitisKettle;
+  satisfy WaterCapacityRequirement by BronchitisKettle;
+  satisfy LowWaterProtectionRequirement by BronchitisKettle;
+  satisfy OutletTemperatureSafetyRequirement by BronchitisKettle;
+  satisfy PressureReliefRequirement by BronchitisKettle;
+  satisfy TherapyDurationRequirement by BronchitisKettle;
+
+  part bronchitisKettleSystem : BronchitisKettle {
+    attribute nominalWaterCapacity = 1.0 [L];
+    attribute normalSteamTemperature = 45 [degC];
+    attribute safeOutletTemperatureLimit = 55 [degC];
+    attribute nominalTherapyDuration = 12 [min];
+    attribute nominalSteamFlow = 18 [g/min];
+  }
+}

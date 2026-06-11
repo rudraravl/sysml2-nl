@@ -1,0 +1,651 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-t2idfq0k
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4a8-5cdd-77c3-b5d7-67a2773a9a85
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a India Mark II and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IndiaMarkIIHandPumpSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def VolumeFlowRate :> ISQ::volumeFlowRate;
+  attribute def StrokeRate :> ISQ::frequency;
+  attribute def PumpStrokeLength :> ISQ::length;
+  attribute def HydraulicHead :> ISQ::length;
+  attribute def Force :> ISQ::force;
+  attribute def Pressure :> ISQ::pressure;
+
+  item def GroundWater {
+    attribute turbidity : Real;
+    attribute temperature : ISQ::temperature;
+    attribute volume : ISQ::volume;
+  }
+
+  item def PotableWater :> GroundWater {
+    attribute meetsLocalDrinkingStandard : Boolean;
+  }
+
+  item def MechanicalEnergy {
+    attribute inputForce : Force;
+    attribute strokeRate : StrokeRate;
+  }
+
+  item def ReciprocatingMotion {
+    attribute strokeLength : PumpStrokeLength;
+    attribute strokeRate : StrokeRate;
+  }
+
+  port def HandleInputPort {
+    in item appliedHumanEnergy : MechanicalEnergy;
+  }
+
+  port def WaterIntakePort {
+    in item rawWater : GroundWater;
+  }
+
+  port def WaterDischargePort {
+    out item deliveredWater : PotableWater;
+  }
+
+  port def MotionTransferPort {
+    out item pumpRodMotion : ReciprocatingMotion;
+  }
+
+  port def CylinderDrivePort {
+    in item driveMotion : ReciprocatingMotion;
+  }
+
+  part def HandPumpHandleAssembly {
+    attribute leverRatio : Real = 4.2;
+    attribute maximumOperatorForce : Force = 180 [N];
+    attribute nominalStrokeLength : PumpStrokeLength = 0.125 [m];
+
+    port operatorInput : HandleInputPort;
+    port rodOutput : MotionTransferPort;
+
+    action def ConvertHumanForceToRodMotion {
+      in item appliedHumanEnergy : MechanicalEnergy;
+      out item pumpRodMotion : ReciprocatingMotion;
+
+      first start;
+      then amplifyForce;
+      then createReciprocatingStroke;
+      then done;
+
+      action amplifyForce;
+      action createReciprocatingStroke;
+    }
+  }
+
+  part def PumpHead {
+    attribute material : String = "galvanized steel";
+    attribute spoutHeightAboveGround : ISQ::length = 0.85 [m];
+
+    port discharge : WaterDischargePort;
+  }
+
+  part def PumpRodAssembly {
+    attribute rodDiameter : ISQ::length = 0.012 [m];
+    attribute maximumRodLength : ISQ::length = 45 [m];
+
+    port motionIn : CylinderDrivePort;
+    port motionOut : MotionTransferPort;
+  }
+
+  part def RiserPipe {
+    attribute nominalDiameter : ISQ::length = 0.032 [m];
+    attribute installedDepth : ISQ::length = 30 [m];
+    attribute material : String = "galvanized iron";
+
+    port intake : WaterIntakePort;
+    port outlet : WaterDischargePort;
+  }
+
+  part def PumpCylinder {
+    attribute boreDiameter : ISQ::length = 0.0635 [m];
+    attribute maximumOperatingDepth : HydraulicHead = 50 [m];
+    attribute nominalFlowPerStroke : ISQ::volume = 0.00035 [m^3];
+
+    port drive : CylinderDrivePort;
+    port suction : WaterIntakePort;
+    port delivery : WaterDischargePort;
+
+    part piston {
+      attribute sealMaterial : String = "nitrile rubber";
+      attribute diameter : ISQ::length = 0.063 [m];
+    }
+
+    part footValve {
+      attribute normallyClosed : Boolean = true;
+      attribute crackingPressure : Pressure = 700 [Pa];
+    }
+
+    part checkValve {
+      attribute normallyClosed : Boolean = true;
+      attribute crackingPressure : Pressure = 900 [Pa];
+    }
+
+    action def LiftWater {
+      in item driveMotion : ReciprocatingMotion;
+      in item rawWater : GroundWater;
+      out item deliveredWater : PotableWater;
+
+      first beginStrokeCycle;
+      then upStroke;
+      then drawWaterThroughFootValve;
+      then downStroke;
+      then closeFootValveAndOpenCheckValve;
+      then raiseWaterColumn;
+      then dischargePreparedWater;
+      then completeCycle;
+
+      action beginStrokeCycle;
+      action upStroke;
+      action drawWaterThroughFootValve;
+      action downStroke;
+      action closeFootValveAndOpenCheckValve;
+      action raiseWaterColumn;
+      action dischargePreparedWater;
+    }
+  }
+
+  part def BoreholeInterface {
+    attribute staticWaterLevel : ISQ::length = 18 [m];
+    attribute boreholeDepth : ISQ::length = 42 [m];
+    attribute casingDiameter : ISQ::length = 0.150 [m];
+
+    port aquiferSupply : WaterIntakePort;
+  }
+
+  part def ConcretePlatform {
+    attribute platformDiameter : ISQ::length = 1.2 [m];
+    attribute apronSlope : Real = 0.03;
+    attribute drainChannelLength : ISQ::length = 2.0 [m];
+  }
+
+  part def IndiaMarkIIHandPump {
+    attribute designFlowRate : VolumeFlowRate = 0.00025 [m^3/s];
+    attribute nominalStrokeRate : StrokeRate = 0.67 [Hz];
+    attribute maximumLiftHead : HydraulicHead = 45 [m];
+    attribute primaryFunction : String = "Manually lift groundwater from a borehole and discharge it above ground for community water collection.";
+
+    port humanPowerInput : HandleInputPort;
+    port groundwaterInput : WaterIntakePort;
+    port potableWaterOutput : WaterDischargePort;
+
+    part handleAssembly : HandPumpHandleAssembly;
+    part pumpHead : PumpHead;
+    part pumpRods : PumpRodAssembly;
+    part riserPipe : RiserPipe;
+    part cylinder : PumpCylinder;
+    part borehole : BoreholeInterface;
+    part platform : ConcretePlatform;
+
+    connect humanPowerInput to handleAssembly.operatorInput;
+    connect handleAssembly.rodOutput to pumpRods.motionIn;
+    connect pumpRods.motionOut to cylinder.drive;
+    connect borehole.aquiferSupply to groundwaterInput;
+    connect groundwaterInput to cylinder.suction;
+    connect cylinder.delivery to riserPipe.intake;
+    connect riserPipe.outlet to pumpHead.discharge;
+    connect pumpHead.discharge to potableWaterOutput;
+
+    state def OperationalStates {
+      entry; then idle;
+
+      state idle;
+      state priming;
+      state pumping;
+      state deliveringWater;
+      state stopped;
+      state maintenanceRequired;
+
+      transition idle_to_priming
+        first idle
+        accept operatorBeginsStroke
+        then priming;
+
+      transition priming_to_pumping
+        first priming
+        accept waterColumnEstablished
+        then pumping;
+
+      transition pumping_to_delivering
+        first pumping
+        accept dischargeFlowDetected
+        then deliveringWater;
+
+      transition delivering_to_pumping
+        first deliveringWater
+        accept nextStrokeRequested
+        then pumping;
+
+      transition pumping_to_stopped
+        first pumping
+        accept operatorStops
+        then stopped;
+
+      transition stopped_to_idle
+        first stopped
+        accept handleReleased
+        then idle;
+
+      transition pumping_to_maintenance
+        first pumping
+        accept abnormalResistanceDetected
+        then maintenanceRequired;
+    }
+
+    action def ProvideWater {
+      in item humanEnergy : MechanicalEnergy;
+      in item aquiferWater : GroundWater;
+      out item collectedWater : PotableWater;
+
+      first receiveManualHandleInput;
+      then convertHandleMotionToRodMotion;
+      then actuateDownholeCylinder;
+      then liftWaterThroughRiserPipe;
+      then dischargeWaterAtSpout;
+      then availableForCollection;
+
+      action receiveManualHandleInput;
+      action convertHandleMotionToRodMotion;
+      action actuateDownholeCylinder;
+      action liftWaterThroughRiserPipe;
+      action dischargeWaterAtSpout;
+      action availableForCollection;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject pump : IndiaMarkIIHandPump;
+
+    doc /* The system shall provide a manually operated India Mark II hand pump that lifts groundwater from a borehole and delivers it above ground through a spout for user collection. */
+
+    require constraint {
+      pump.designFlowRate >= 0.00020 [m^3/s]
+    }
+
+    require constraint {
+      pump.maximumLiftHead >= 40 [m]
+    }
+  }
+
+  requirement def ManualOperationRequirement {
+    subject pump : IndiaMarkIIHandPump;
+
+    doc /* The hand pump shall operate using human-applied force at the handle without requiring electrical power or fuel. */
+
+    require constraint {
+      pump.handleAssembly.maximumOperatorForce <= 200 [N]
+    }
+  }
+
+  requirement def CylinderLiftRequirement {
+    subject cylinder : PumpCylinder;
+
+    doc /* The downhole cylinder shall convert reciprocating rod motion into suction and delivery cycles that raise groundwater through the riser pipe. */
+
+    require constraint {
+      cylinder.maximumOperatingDepth >= 45 [m]
+    }
+  }
+
+  requirement def CommunityCollectionRequirement {
+    subject head : PumpHead;
+
+    doc /* The pump head shall discharge lifted water at a height suitable for filling household containers. */
+
+    require constraint {
+      head.spoutHeightAboveGround >= 0.75 [m] and head.spoutHeightAboveGround <= 1.0 [m]
+    }
+  }
+
+  requirement def DrainageRequirement {
+    subject platform : ConcretePlatform;
+
+    doc /* The platform shall direct spilled water away from the borehole to reduce contamination risk. */
+
+    require constraint {
+      platform.apronSlope >= 0.02
+    }
+  }
+
+  part indiaMarkIICommunityPump : IndiaMarkIIHandPump;
+
+  satisfy PrimaryFunctionRequirement by indiaMarkIICommunityPump;
+  satisfy ManualOperationRequirement by indiaMarkIICommunityPump;
+  satisfy CylinderLiftRequirement by indiaMarkIICommunityPump.cylinder;
+  satisfy CommunityCollectionRequirement by indiaMarkIICommunityPump.pumpHead;
+  satisfy DrainageRequirement by indiaMarkIICommunityPump.platform;
+}
+tokens used
+3,601
+package IndiaMarkIIHandPumpSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def VolumeFlowRate :> ISQ::volumeFlowRate;
+  attribute def StrokeRate :> ISQ::frequency;
+  attribute def PumpStrokeLength :> ISQ::length;
+  attribute def HydraulicHead :> ISQ::length;
+  attribute def Force :> ISQ::force;
+  attribute def Pressure :> ISQ::pressure;
+
+  item def GroundWater {
+    attribute turbidity : Real;
+    attribute temperature : ISQ::temperature;
+    attribute volume : ISQ::volume;
+  }
+
+  item def PotableWater :> GroundWater {
+    attribute meetsLocalDrinkingStandard : Boolean;
+  }
+
+  item def MechanicalEnergy {
+    attribute inputForce : Force;
+    attribute strokeRate : StrokeRate;
+  }
+
+  item def ReciprocatingMotion {
+    attribute strokeLength : PumpStrokeLength;
+    attribute strokeRate : StrokeRate;
+  }
+
+  port def HandleInputPort {
+    in item appliedHumanEnergy : MechanicalEnergy;
+  }
+
+  port def WaterIntakePort {
+    in item rawWater : GroundWater;
+  }
+
+  port def WaterDischargePort {
+    out item deliveredWater : PotableWater;
+  }
+
+  port def MotionTransferPort {
+    out item pumpRodMotion : ReciprocatingMotion;
+  }
+
+  port def CylinderDrivePort {
+    in item driveMotion : ReciprocatingMotion;
+  }
+
+  part def HandPumpHandleAssembly {
+    attribute leverRatio : Real = 4.2;
+    attribute maximumOperatorForce : Force = 180 [N];
+    attribute nominalStrokeLength : PumpStrokeLength = 0.125 [m];
+
+    port operatorInput : HandleInputPort;
+    port rodOutput : MotionTransferPort;
+
+    action def ConvertHumanForceToRodMotion {
+      in item appliedHumanEnergy : MechanicalEnergy;
+      out item pumpRodMotion : ReciprocatingMotion;
+
+      first start;
+      then amplifyForce;
+      then createReciprocatingStroke;
+      then done;
+
+      action amplifyForce;
+      action createReciprocatingStroke;
+    }
+  }
+
+  part def PumpHead {
+    attribute material : String = "galvanized steel";
+    attribute spoutHeightAboveGround : ISQ::length = 0.85 [m];
+
+    port discharge : WaterDischargePort;
+  }
+
+  part def PumpRodAssembly {
+    attribute rodDiameter : ISQ::length = 0.012 [m];
+    attribute maximumRodLength : ISQ::length = 45 [m];
+
+    port motionIn : CylinderDrivePort;
+    port motionOut : MotionTransferPort;
+  }
+
+  part def RiserPipe {
+    attribute nominalDiameter : ISQ::length = 0.032 [m];
+    attribute installedDepth : ISQ::length = 30 [m];
+    attribute material : String = "galvanized iron";
+
+    port intake : WaterIntakePort;
+    port outlet : WaterDischargePort;
+  }
+
+  part def PumpCylinder {
+    attribute boreDiameter : ISQ::length = 0.0635 [m];
+    attribute maximumOperatingDepth : HydraulicHead = 50 [m];
+    attribute nominalFlowPerStroke : ISQ::volume = 0.00035 [m^3];
+
+    port drive : CylinderDrivePort;
+    port suction : WaterIntakePort;
+    port delivery : WaterDischargePort;
+
+    part piston {
+      attribute sealMaterial : String = "nitrile rubber";
+      attribute diameter : ISQ::length = 0.063 [m];
+    }
+
+    part footValve {
+      attribute normallyClosed : Boolean = true;
+      attribute crackingPressure : Pressure = 700 [Pa];
+    }
+
+    part checkValve {
+      attribute normallyClosed : Boolean = true;
+      attribute crackingPressure : Pressure = 900 [Pa];
+    }
+
+    action def LiftWater {
+      in item driveMotion : ReciprocatingMotion;
+      in item rawWater : GroundWater;
+      out item deliveredWater : PotableWater;
+
+      first beginStrokeCycle;
+      then upStroke;
+      then drawWaterThroughFootValve;
+      then downStroke;
+      then closeFootValveAndOpenCheckValve;
+      then raiseWaterColumn;
+      then dischargePreparedWater;
+      then completeCycle;
+
+      action beginStrokeCycle;
+      action upStroke;
+      action drawWaterThroughFootValve;
+      action downStroke;
+      action closeFootValveAndOpenCheckValve;
+      action raiseWaterColumn;
+      action dischargePreparedWater;
+    }
+  }
+
+  part def BoreholeInterface {
+    attribute staticWaterLevel : ISQ::length = 18 [m];
+    attribute boreholeDepth : ISQ::length = 42 [m];
+    attribute casingDiameter : ISQ::length = 0.150 [m];
+
+    port aquiferSupply : WaterIntakePort;
+  }
+
+  part def ConcretePlatform {
+    attribute platformDiameter : ISQ::length = 1.2 [m];
+    attribute apronSlope : Real = 0.03;
+    attribute drainChannelLength : ISQ::length = 2.0 [m];
+  }
+
+  part def IndiaMarkIIHandPump {
+    attribute designFlowRate : VolumeFlowRate = 0.00025 [m^3/s];
+    attribute nominalStrokeRate : StrokeRate = 0.67 [Hz];
+    attribute maximumLiftHead : HydraulicHead = 45 [m];
+    attribute primaryFunction : String = "Manually lift groundwater from a borehole and discharge it above ground for community water collection.";
+
+    port humanPowerInput : HandleInputPort;
+    port groundwaterInput : WaterIntakePort;
+    port potableWaterOutput : WaterDischargePort;
+
+    part handleAssembly : HandPumpHandleAssembly;
+    part pumpHead : PumpHead;
+    part pumpRods : PumpRodAssembly;
+    part riserPipe : RiserPipe;
+    part cylinder : PumpCylinder;
+    part borehole : BoreholeInterface;
+    part platform : ConcretePlatform;
+
+    connect humanPowerInput to handleAssembly.operatorInput;
+    connect handleAssembly.rodOutput to pumpRods.motionIn;
+    connect pumpRods.motionOut to cylinder.drive;
+    connect borehole.aquiferSupply to groundwaterInput;
+    connect groundwaterInput to cylinder.suction;
+    connect cylinder.delivery to riserPipe.intake;
+    connect riserPipe.outlet to pumpHead.discharge;
+    connect pumpHead.discharge to potableWaterOutput;
+
+    state def OperationalStates {
+      entry; then idle;
+
+      state idle;
+      state priming;
+      state pumping;
+      state deliveringWater;
+      state stopped;
+      state maintenanceRequired;
+
+      transition idle_to_priming
+        first idle
+        accept operatorBeginsStroke
+        then priming;
+
+      transition priming_to_pumping
+        first priming
+        accept waterColumnEstablished
+        then pumping;
+
+      transition pumping_to_delivering
+        first pumping
+        accept dischargeFlowDetected
+        then deliveringWater;
+
+      transition delivering_to_pumping
+        first deliveringWater
+        accept nextStrokeRequested
+        then pumping;
+
+      transition pumping_to_stopped
+        first pumping
+        accept operatorStops
+        then stopped;
+
+      transition stopped_to_idle
+        first stopped
+        accept handleReleased
+        then idle;
+
+      transition pumping_to_maintenance
+        first pumping
+        accept abnormalResistanceDetected
+        then maintenanceRequired;
+    }
+
+    action def ProvideWater {
+      in item humanEnergy : MechanicalEnergy;
+      in item aquiferWater : GroundWater;
+      out item collectedWater : PotableWater;
+
+      first receiveManualHandleInput;
+      then convertHandleMotionToRodMotion;
+      then actuateDownholeCylinder;
+      then liftWaterThroughRiserPipe;
+      then dischargeWaterAtSpout;
+      then availableForCollection;
+
+      action receiveManualHandleInput;
+      action convertHandleMotionToRodMotion;
+      action actuateDownholeCylinder;
+      action liftWaterThroughRiserPipe;
+      action dischargeWaterAtSpout;
+      action availableForCollection;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject pump : IndiaMarkIIHandPump;
+
+    doc /* The system shall provide a manually operated India Mark II hand pump that lifts groundwater from a borehole and delivers it above ground through a spout for user collection. */
+
+    require constraint {
+      pump.designFlowRate >= 0.00020 [m^3/s]
+    }
+
+    require constraint {
+      pump.maximumLiftHead >= 40 [m]
+    }
+  }
+
+  requirement def ManualOperationRequirement {
+    subject pump : IndiaMarkIIHandPump;
+
+    doc /* The hand pump shall operate using human-applied force at the handle without requiring electrical power or fuel. */
+
+    require constraint {
+      pump.handleAssembly.maximumOperatorForce <= 200 [N]
+    }
+  }
+
+  requirement def CylinderLiftRequirement {
+    subject cylinder : PumpCylinder;
+
+    doc /* The downhole cylinder shall convert reciprocating rod motion into suction and delivery cycles that raise groundwater through the riser pipe. */
+
+    require constraint {
+      cylinder.maximumOperatingDepth >= 45 [m]
+    }
+  }
+
+  requirement def CommunityCollectionRequirement {
+    subject head : PumpHead;
+
+    doc /* The pump head shall discharge lifted water at a height suitable for filling household containers. */
+
+    require constraint {
+      head.spoutHeightAboveGround >= 0.75 [m] and head.spoutHeightAboveGround <= 1.0 [m]
+    }
+  }
+
+  requirement def DrainageRequirement {
+    subject platform : ConcretePlatform;
+
+    doc /* The platform shall direct spilled water away from the borehole to reduce contamination risk. */
+
+    require constraint {
+      platform.apronSlope >= 0.02
+    }
+  }
+
+  part indiaMarkIICommunityPump : IndiaMarkIIHandPump;
+
+  satisfy PrimaryFunctionRequirement by indiaMarkIICommunityPump;
+  satisfy ManualOperationRequirement by indiaMarkIICommunityPump;
+  satisfy CylinderLiftRequirement by indiaMarkIICommunityPump.cylinder;
+  satisfy CommunityCollectionRequirement by indiaMarkIICommunityPump.pumpHead;
+  satisfy DrainageRequirement by indiaMarkIICommunityPump.platform;
+}

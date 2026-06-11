@@ -1,0 +1,460 @@
+package AutonomousRoboticSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percentage {
+    :> Real;
+    unit = "%";
+  }
+
+  attribute def Confidence {
+    :> Real;
+    unit = "%";
+  }
+
+  attribute def BatteryEnergy {
+    :> Real;
+    unit = "Wh";
+  }
+
+  attribute def LinearVelocity {
+    :> Real;
+    unit = "m/s";
+  }
+
+  attribute def AngularVelocity {
+    :> Real;
+    unit = "rad/s";
+  }
+
+  attribute def Distance {
+    :> Real;
+    unit = "m";
+  }
+
+  attribute def Duration {
+    :> Real;
+    unit = "s";
+  }
+
+  attribute def Mass {
+    :> Real;
+    unit = "kg";
+  }
+
+  attribute def DataRate {
+    :> Real;
+    unit = "Mb/s";
+  }
+
+  attribute def ElectricalPower {
+    :> Real;
+    unit = "W";
+  }
+
+  item def Power {
+    attribute voltage : Real = 24.0;
+    attribute current : Real;
+    attribute power : ElectricalPower;
+  }
+
+  item def Command {
+    attribute commandId : String;
+    attribute priority : Integer;
+    attribute issuedTime : Duration;
+  }
+
+  item def MissionCommand :> Command {
+    attribute missionAreaId : String;
+    attribute taskType : String = "autonomous inspection and transport";
+    attribute completionDeadline : Duration;
+  }
+
+  item def MotionCommand :> Command {
+    attribute targetSpeed : LinearVelocity;
+    attribute targetTurnRate : AngularVelocity;
+  }
+
+  item def NavigationGoal {
+    attribute x : Distance;
+    attribute y : Distance;
+    attribute heading : AngularVelocity;
+    attribute tolerance : Distance = 0.20;
+  }
+
+  item def PoseEstimate {
+    attribute x : Distance;
+    attribute y : Distance;
+    attribute heading : AngularVelocity;
+    attribute covariance : Real;
+    attribute confidence : Confidence;
+  }
+
+  item def ObstacleReport {
+    attribute obstacleId : String;
+    attribute range : Distance;
+    attribute bearing : AngularVelocity;
+    attribute relativeSpeed : LinearVelocity;
+    attribute collisionRisk : Percentage;
+  }
+
+  item def SensorFrame {
+    attribute frameId : String;
+    attribute timestamp : Duration;
+    attribute quality : Percentage;
+  }
+
+  item def MapUpdate {
+    attribute mapId : String;
+    attribute updatedCells : Integer;
+    attribute confidence : Confidence;
+  }
+
+  item def TaskResult {
+    attribute missionId : String;
+    attribute completed : Boolean;
+    attribute inspectedLocations : Integer;
+    attribute transportedPayloadMass : Mass;
+    attribute elapsedTime : Duration;
+  }
+
+  port def PowerPort {
+    out item powerOut : Power;
+    in item powerIn : Power;
+  }
+
+  port def CommandPort {
+    in item missionCommand : MissionCommand;
+    in item navigationGoal : NavigationGoal;
+    out item taskResult : TaskResult;
+  }
+
+  port def MotionPort {
+    out item motionCommand : MotionCommand;
+    in item poseEstimate : PoseEstimate;
+  }
+
+  port def SensorPort {
+    out item sensorFrame : SensorFrame;
+    out item obstacleReport : ObstacleReport;
+  }
+
+  port def DataPort {
+    in item mapUpdateIn : MapUpdate;
+    out item mapUpdateOut : MapUpdate;
+    out item poseOut : PoseEstimate;
+  }
+
+  port def PayloadPort {
+    in item pickupCommand : Command;
+    out item payloadStatus : TaskResult;
+  }
+
+  action def InitializeRobot {
+    in item mission : MissionCommand;
+    out item ready : Boolean;
+  }
+
+  action def BuildLocalMap {
+    in item sensorFrame : SensorFrame;
+    in item pose : PoseEstimate;
+    out item mapUpdate : MapUpdate;
+  }
+
+  action def PlanPath {
+    in item goal : NavigationGoal;
+    in item map : MapUpdate;
+    out item motionCommand : MotionCommand;
+  }
+
+  action def AvoidObstacle {
+    in item obstacle : ObstacleReport;
+    in item currentMotion : MotionCommand;
+    out item safeMotion : MotionCommand;
+  }
+
+  action def ExecuteMotion {
+    in item command : MotionCommand;
+    out item pose : PoseEstimate;
+  }
+
+  action def PerformPrimaryTask {
+    in item mission : MissionCommand;
+    in item pose : PoseEstimate;
+    out item result : TaskResult;
+  }
+
+  action def ReturnToDock {
+    in item pose : PoseEstimate;
+    out item docked : Boolean;
+  }
+
+  state def AutonomousMissionStateMachine {
+    entry action initialize : InitializeRobot;
+
+    state idle;
+    state receivingMission;
+    state localizing;
+    state mapping;
+    state planning;
+    state navigating;
+    state avoidingObstacle;
+    state performingTask;
+    state returningToDock;
+    state charging;
+    state fault;
+
+    transition first idle;
+
+    transition idle_to_receiving
+      first idle
+      then receivingMission;
+
+    transition receiving_to_localizing
+      first receivingMission
+      then localizing;
+
+    transition localizing_to_mapping
+      first localizing
+      then mapping;
+
+    transition mapping_to_planning
+      first mapping
+      then planning;
+
+    transition planning_to_navigating
+      first planning
+      then navigating;
+
+    transition navigating_to_avoiding
+      first navigating
+      then avoidingObstacle;
+
+    transition avoiding_to_navigating
+      first avoidingObstacle
+      then navigating;
+
+    transition navigating_to_task
+      first navigating
+      then performingTask;
+
+    transition task_to_planning
+      first performingTask
+      then planning;
+
+    transition task_to_return
+      first performingTask
+      then returningToDock;
+
+    transition return_to_charging
+      first returningToDock
+      then charging;
+
+    transition charging_to_idle
+      first charging
+      then idle;
+
+    transition any_to_fault
+      first idle
+      then fault;
+  }
+
+  part def BatteryModule {
+    attribute nominalVoltage : Real = 24.0;
+    attribute capacity : BatteryEnergy = 960.0;
+    attribute stateOfCharge : Percentage;
+    attribute minimumMissionReserve : Percentage = 20.0;
+    attribute maximumContinuousPower : ElectricalPower = 650.0;
+
+    port powerPort : PowerPort;
+  }
+
+  part def DriveBase {
+    attribute maximumForwardSpeed : LinearVelocity = 1.5;
+    attribute maximumReverseSpeed : LinearVelocity = 0.5;
+    attribute maximumTurnRate : AngularVelocity = 1.2;
+    attribute wheelDiameter : Distance = 0.18;
+    attribute trackWidth : Distance = 0.52;
+
+    port powerPort : PowerPort;
+    port motionPort : MotionPort;
+  }
+
+  part def SensorSuite {
+    attribute lidarRange : Distance = 30.0;
+    attribute cameraRange : Distance = 12.0;
+    attribute ultrasonicRange : Distance = 4.0;
+    attribute minimumObstacleDetectionRange : Distance = 0.15;
+    attribute sensorDataRate : DataRate = 80.0;
+
+    port powerPort : PowerPort;
+    port sensorPort : SensorPort;
+  }
+
+  part def NavigationComputer {
+    attribute processorPower : ElectricalPower = 45.0;
+    attribute localizationUpdatePeriod : Duration = 0.05;
+    attribute mapResolution : Distance = 0.05;
+    attribute pathReplanPeriod : Duration = 0.25;
+    attribute minimumLocalizationConfidence : Confidence = 85.0;
+
+    port powerPort : PowerPort;
+    port commandPort : CommandPort;
+    port sensorInput : SensorPort;
+    port dataPort : DataPort;
+    port motionPort : MotionPort;
+
+    action buildMap : BuildLocalMap;
+    action planPath : PlanPath;
+    action avoidObstacle : AvoidObstacle;
+  }
+
+  part def TaskManipulator {
+    attribute payloadCapacity : Mass = 8.0;
+    attribute gripperOpening : Distance = 0.16;
+    attribute placementTolerance : Distance = 0.03;
+    attribute operatingPower : ElectricalPower = 120.0;
+
+    port powerPort : PowerPort;
+    port payloadPort : PayloadPort;
+  }
+
+  part def CommunicationsModule {
+    attribute radioRange : Distance = 150.0;
+    attribute telemetryRate : DataRate = 10.0;
+    attribute commandLatencyLimit : Duration = 0.5;
+
+    port powerPort : PowerPort;
+    port commandPort : CommandPort;
+    port dataPort : DataPort;
+  }
+
+  part def DockingStation {
+    attribute chargerPower : ElectricalPower = 400.0;
+    attribute dockingTolerance : Distance = 0.08;
+    attribute rechargeTimeFromReserve : Duration = 7200.0;
+
+    port powerPort : PowerPort;
+    port commandPort : CommandPort;
+  }
+
+  part def AutonomousRobot {
+    attribute robotMass : Mass = 42.0;
+    attribute operationalEndurance : Duration = 14400.0;
+    attribute safeStoppingDistance : Distance = 0.45;
+    attribute minimumObstacleClearance : Distance = 0.35;
+    attribute missionCompletionThreshold : Percentage = 100.0;
+
+    port missionPort : CommandPort;
+    port externalDataPort : DataPort;
+
+    part battery : BatteryModule;
+    part driveBase : DriveBase;
+    part sensors : SensorSuite;
+    part computer : NavigationComputer;
+    part manipulator : TaskManipulator;
+    part radio : CommunicationsModule;
+
+    state missionState : AutonomousMissionStateMachine;
+
+    action initializeRobot : InitializeRobot;
+    action executeMotion : ExecuteMotion;
+    action performPrimaryTask : PerformPrimaryTask;
+    action returnToDock : ReturnToDock;
+
+    connect battery.powerPort to driveBase.powerPort;
+    connect battery.powerPort to sensors.powerPort;
+    connect battery.powerPort to computer.powerPort;
+    connect battery.powerPort to manipulator.powerPort;
+    connect battery.powerPort to radio.powerPort;
+
+    connect sensors.sensorPort to computer.sensorInput;
+    connect computer.motionPort to driveBase.motionPort;
+    connect radio.commandPort to computer.commandPort;
+    connect radio.dataPort to computer.dataPort;
+    connect computer.dataPort to externalDataPort;
+    connect missionPort to radio.commandPort;
+  }
+
+  part def RoboticOperatingEnvironment {
+    attribute floorFrictionCoefficient : Real = 0.75;
+    attribute maximumRampGrade : Percentage = 8.0;
+    attribute nominalAisleWidth : Distance = 1.8;
+    attribute minimumLightingLevel : Real = 120.0;
+  }
+
+  part def RoboticSystem {
+    attribute systemAvailability : Percentage = 99.0;
+    attribute maximumMissionDuration : Duration = 10800.0;
+
+    part robot : AutonomousRobot;
+    part dock : DockingStation;
+    part environment : RoboticOperatingEnvironment;
+
+    port operatorCommandPort : CommandPort;
+    port systemDataPort : DataPort;
+
+    connect operatorCommandPort to robot.missionPort;
+    connect robot.externalDataPort to systemDataPort;
+    connect dock.commandPort to robot.missionPort;
+    connect dock.powerPort to robot.battery.powerPort;
+  }
+
+  requirement def PrimaryAutonomyRequirement {
+    doc /* The robotic system shall perform its primary inspection and transport task using an autonomous robot without continuous operator control. */
+    subject system : RoboticSystem;
+  }
+
+  requirement def MissionExecutionRequirement {
+    doc /* The autonomous robot shall accept a mission command, generate a path, navigate to each assigned goal, perform the task, and report a task result. */
+    subject robot : AutonomousRobot;
+  }
+
+  requirement def ObstacleAvoidanceRequirement {
+    doc /* The autonomous robot shall detect obstacles within 0.35 m of its planned path and command an avoidance maneuver before collision risk exceeds 20 percent. */
+    subject robot : AutonomousRobot;
+    attribute requiredClearance : Distance = 0.35;
+    attribute maximumCollisionRisk : Percentage = 20.0;
+  }
+
+  requirement def LocalizationRequirement {
+    doc /* The autonomous robot shall maintain localization confidence of at least 85 percent during autonomous navigation. */
+    subject computer : NavigationComputer;
+    attribute minimumConfidence : Confidence = 85.0;
+  }
+
+  requirement def EnergyReserveRequirement {
+    doc /* The autonomous robot shall preserve at least 20 percent battery state of charge before starting return-to-dock behavior. */
+    subject battery : BatteryModule;
+    attribute reserve : Percentage = 20.0;
+  }
+
+  requirement def PayloadRequirement {
+    doc /* The autonomous robot shall pick, carry, and place payloads up to 8 kg within 0.03 m placement tolerance. */
+    subject manipulator : TaskManipulator;
+    attribute maximumPayload : Mass = 8.0;
+    attribute placementTolerance : Distance = 0.03;
+  }
+
+  requirement def CommunicationRequirement {
+    doc /* The robotic system shall exchange mission commands, map updates, telemetry, and task results through defined command and data ports. */
+    subject system : RoboticSystem;
+  }
+
+  satisfy PrimaryAutonomyRequirement by RoboticSystem;
+  satisfy MissionExecutionRequirement by AutonomousRobot;
+  satisfy ObstacleAvoidanceRequirement by AutonomousRobot;
+  satisfy LocalizationRequirement by NavigationComputer;
+  satisfy EnergyReserveRequirement by BatteryModule;
+  satisfy PayloadRequirement by TaskManipulator;
+  satisfy CommunicationRequirement by RoboticSystem;
+
+  exhibit state AutonomousRobot.missionState by AutonomousRobot;
+
+  perform action AutonomousRobot.initializeRobot by AutonomousRobot;
+  perform action AutonomousRobot.executeMotion by DriveBase;
+  perform action AutonomousRobot.performPrimaryTask by TaskManipulator;
+  perform action AutonomousRobot.returnToDock by AutonomousRobot;
+}

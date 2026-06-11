@@ -1,0 +1,563 @@
+package CrashCartSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent :> Real;
+  attribute def Count :> Integer;
+  attribute def BooleanFlag :> Boolean;
+  attribute def ExpirationDate :> String;
+  attribute def Identifier :> String;
+
+  attribute def LengthValue :> Real {
+    unit = "cm";
+  }
+
+  attribute def MassValue :> Real {
+    unit = "kg";
+  }
+
+  attribute def TimeValue :> Real {
+    unit = "s";
+  }
+
+  attribute def VoltageValue :> Real {
+    unit = "V";
+  }
+
+  attribute def EnergyValue :> Real {
+    unit = "J";
+  }
+
+  attribute def TemperatureValue :> Real {
+    unit = "degC";
+  }
+
+  attribute def PressureValue :> Real {
+    unit = "kPa";
+  }
+
+  item def MedicationDose {
+    attribute medicationName : String;
+    attribute concentration : String;
+    attribute amount : String;
+    attribute route : String;
+    attribute expiration : ExpirationDate;
+    attribute lotNumber : Identifier;
+  }
+
+  item def AirwaySupply {
+    attribute supplyName : String;
+    attribute size : String;
+    attribute sterile : BooleanFlag;
+    attribute expiration : ExpirationDate;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : VoltageValue;
+    attribute availableEnergy : EnergyValue;
+  }
+
+  item def DefibrillationShock {
+    attribute selectedEnergy : EnergyValue;
+    attribute deliveredEnergy : EnergyValue;
+    attribute synchronized : BooleanFlag;
+    attribute timestamp : String;
+  }
+
+  item def OxygenFlow {
+    attribute flowRate : Real {
+      unit = "L/min";
+    }
+    attribute pressure : PressureValue;
+  }
+
+  item def ClinicalCommand {
+    attribute commandName : String;
+    attribute priority : String;
+    attribute issuedBy : String;
+  }
+
+  item def PatientStatus {
+    attribute heartRhythm : String;
+    attribute pulsePresent : BooleanFlag;
+    attribute oxygenSaturation : Percent;
+    attribute systolicPressure : PressureValue;
+    attribute consciousnessLevel : String;
+  }
+
+  item def InventoryStatus {
+    attribute sealed : BooleanFlag;
+    attribute criticalMedicationCount : Count;
+    attribute airwayKitComplete : BooleanFlag;
+    attribute defibrillatorReady : BooleanFlag;
+    attribute oxygenAvailable : BooleanFlag;
+  }
+
+  port def ElectricalInputPort {
+    in item powerIn : ElectricalEnergy;
+  }
+
+  port def DefibTherapyPort {
+    out item shockOut : DefibrillationShock;
+  }
+
+  port def OxygenOutputPort {
+    out item oxygenOut : OxygenFlow;
+  }
+
+  port def MedicationAccessPort {
+    out item medicationOut : MedicationDose;
+  }
+
+  port def AirwayAccessPort {
+    out item airwaySupplyOut : AirwaySupply;
+  }
+
+  port def CommandPort {
+    in item commandIn : ClinicalCommand;
+  }
+
+  port def StatusPort {
+    out item statusOut : InventoryStatus;
+  }
+
+  port def PatientMonitoringPort {
+    in item patientIn : PatientStatus;
+  }
+
+  part def LockingDrawer {
+    attribute drawerId : Identifier;
+    attribute sealed : BooleanFlag;
+    attribute tamperEvident : BooleanFlag;
+    attribute maxLoad : MassValue;
+
+    port commandPort : CommandPort;
+    port medicationAccess : MedicationAccessPort;
+    port airwayAccess : AirwayAccessPort;
+
+    action unlock {
+      in item command : ClinicalCommand;
+      out attribute isUnlocked : BooleanFlag;
+    }
+
+    action reseal {
+      in attribute sealId : Identifier;
+      out attribute sealedAfterRestock : BooleanFlag;
+    }
+  }
+
+  part def MedicationModule {
+    attribute epinephrineSyringes : Count;
+    attribute amiodaroneVials : Count;
+    attribute atropineSyringes : Count;
+    attribute sodiumBicarbonateSyringes : Count;
+    attribute dextroseSyringes : Count;
+    attribute naloxoneDoses : Count;
+    attribute earliestExpiration : ExpirationDate;
+    attribute controlledStorageTemperature : TemperatureValue;
+
+    port medicationPort : MedicationAccessPort;
+    port statusPort : StatusPort;
+
+    item epiDose : MedicationDose {
+      medicationName = "Epinephrine";
+      concentration = "1 mg/10 mL";
+      amount = "1 mg";
+      route = "IV/IO";
+    }
+
+    item amiodaroneDose : MedicationDose {
+      medicationName = "Amiodarone";
+      concentration = "150 mg/3 mL";
+      amount = "300 mg initial arrest dose";
+      route = "IV/IO";
+    }
+
+    action dispenseMedication {
+      in item orderedDose : MedicationDose;
+      out item dispensedDose : MedicationDose;
+    }
+
+    action checkExpiration {
+      out attribute allCriticalMedicationInDate : BooleanFlag;
+    }
+  }
+
+  part def AirwayModule {
+    attribute bagValveMaskCount : Count;
+    attribute adultMaskCount : Count;
+    attribute pediatricMaskCount : Count;
+    attribute endotrachealTubeCount : Count;
+    attribute laryngoscopeHandleCount : Count;
+    attribute bladeCount : Count;
+    attribute suctionCatheterCount : Count;
+    attribute oralAirwayCount : Count;
+    attribute nasalAirwayCount : Count;
+
+    port airwayPort : AirwayAccessPort;
+    port oxygenPort : OxygenOutputPort;
+    port statusPort : StatusPort;
+
+    action prepareVentilation {
+      out item selectedSupply : AirwaySupply;
+      out item oxygenFlow : OxygenFlow;
+    }
+
+    action verifyAirwayKit {
+      out attribute airwayKitComplete : BooleanFlag;
+    }
+  }
+
+  part def DefibrillatorMonitor {
+    attribute batteryCharge : Percent;
+    attribute maxShockEnergy : EnergyValue;
+    attribute selectedShockEnergy : EnergyValue;
+    attribute padsConnected : BooleanFlag;
+    attribute selfTestPassed : BooleanFlag;
+    attribute synchronizedMode : BooleanFlag;
+    attribute ecgDisplayActive : BooleanFlag;
+
+    port electricalInput : ElectricalInputPort;
+    port therapyPort : DefibTherapyPort;
+    port patientMonitorPort : PatientMonitoringPort;
+    port statusPort : StatusPort;
+    port commandPort : CommandPort;
+
+    action performSelfTest {
+      out attribute passed : BooleanFlag;
+    }
+
+    action analyzeRhythm {
+      in item patient : PatientStatus;
+      out attribute shockRecommended : BooleanFlag;
+    }
+
+    action chargeCapacitor {
+      in attribute requestedEnergy : EnergyValue;
+      out attribute charged : BooleanFlag;
+    }
+
+    action deliverShock {
+      in attribute energySetting : EnergyValue;
+      out item shock : DefibrillationShock;
+    }
+
+    state def DefibrillatorOperationalStates {
+      state off;
+      state standby;
+      state monitoring;
+      state charging;
+      state charged;
+      state shockDelivered;
+      state fault;
+
+      transition initial then off;
+      transition off_to_standby first off then standby
+        accept ClinicalCommand
+        if commandName == "PowerOn";
+      transition standby_to_monitoring first standby then monitoring
+        if selfTestPassed == true;
+      transition monitoring_to_charging first monitoring then charging
+        accept ClinicalCommand
+        if commandName == "Charge";
+      transition charging_to_charged first charging then charged
+        if batteryCharge > 20.0;
+      transition charged_to_shockDelivered first charged then shockDelivered
+        accept ClinicalCommand
+        if commandName == "Shock";
+      transition shockDelivered_to_monitoring first shockDelivered then monitoring;
+      transition monitoring_to_fault first monitoring then fault
+        if selfTestPassed == false;
+      transition charging_to_fault first charging then fault
+        if batteryCharge <= 5.0;
+    }
+
+    exhibit stateMachine : DefibrillatorOperationalStates;
+  }
+
+  part def OxygenCylinderAssembly {
+    attribute cylinderPressure : PressureValue;
+    attribute regulatorAttached : BooleanFlag;
+    attribute flowMeterSetpoint : Real {
+      unit = "L/min";
+    }
+    attribute cylinderVolume : Real {
+      unit = "L";
+    }
+
+    port oxygenOutput : OxygenOutputPort;
+    port statusPort : StatusPort;
+
+    action openCylinder {
+      out attribute oxygenAvailable : BooleanFlag;
+    }
+
+    action setFlowRate {
+      in attribute requestedFlow : Real {
+        unit = "L/min";
+      }
+      out item deliveredFlow : OxygenFlow;
+    }
+  }
+
+  part def SuctionUnit {
+    attribute batteryCharge : Percent;
+    attribute canisterCapacity : Real {
+      unit = "mL";
+    }
+    attribute vacuumPressure : PressureValue;
+    attribute tubingConnected : BooleanFlag;
+
+    port electricalInput : ElectricalInputPort;
+    port commandPort : CommandPort;
+
+    action startSuction {
+      out attribute suctionActive : BooleanFlag;
+    }
+
+    action stopSuction {
+      out attribute suctionActive : BooleanFlag;
+    }
+  }
+
+  part def CartChassis {
+    attribute height : LengthValue;
+    attribute width : LengthValue;
+    attribute depth : LengthValue;
+    attribute massEmpty : MassValue;
+    attribute maxGrossMass : MassValue;
+    attribute wheelCount : Count;
+    attribute brakeEngaged : BooleanFlag;
+    attribute location : String;
+
+    action moveToEmergencyLocation {
+      in attribute destination : String;
+      out attribute arrivalConfirmed : BooleanFlag;
+    }
+
+    action engageBrake {
+      out attribute stabilized : BooleanFlag;
+    }
+  }
+
+  part def CrashCart {
+    attribute cartId : Identifier;
+    attribute primaryFunction : String = "Provide immediately accessible resuscitation equipment, medications, airway supplies, oxygen delivery, suction, and defibrillation capability at the point of care during cardiopulmonary or respiratory emergencies.";
+    attribute responseReady : BooleanFlag;
+    attribute lastDailyCheck : String;
+    attribute lastRestockTime : String;
+    attribute maximumDeploymentTime : TimeValue = 60.0;
+
+    port commandPort : CommandPort;
+    port patientStatusPort : PatientMonitoringPort;
+    port cartStatusPort : StatusPort;
+    port wallPowerPort : ElectricalInputPort;
+    port therapyPort : DefibTherapyPort;
+    port oxygenDeliveryPort : OxygenOutputPort;
+    port medicationPort : MedicationAccessPort;
+    port airwayPort : AirwayAccessPort;
+
+    part chassis : CartChassis {
+      height = 100.0;
+      width = 76.0;
+      depth = 56.0;
+      massEmpty = 62.0;
+      maxGrossMass = 120.0;
+      wheelCount = 4;
+    }
+
+    part medicationDrawer : LockingDrawer {
+      drawerId = "MED-1";
+      maxLoad = 12.0;
+      tamperEvident = true;
+    }
+
+    part airwayDrawer : LockingDrawer {
+      drawerId = "AIR-1";
+      maxLoad = 10.0;
+      tamperEvident = true;
+    }
+
+    part medicationModule : MedicationModule {
+      epinephrineSyringes = 10;
+      amiodaroneVials = 4;
+      atropineSyringes = 6;
+      sodiumBicarbonateSyringes = 6;
+      dextroseSyringes = 4;
+      naloxoneDoses = 4;
+      controlledStorageTemperature = 22.0;
+    }
+
+    part airwayModule : AirwayModule {
+      bagValveMaskCount = 2;
+      adultMaskCount = 2;
+      pediatricMaskCount = 1;
+      endotrachealTubeCount = 8;
+      laryngoscopeHandleCount = 2;
+      bladeCount = 6;
+      suctionCatheterCount = 6;
+      oralAirwayCount = 6;
+      nasalAirwayCount = 4;
+    }
+
+    part defibrillator : DefibrillatorMonitor {
+      batteryCharge = 100.0;
+      maxShockEnergy = 360.0;
+      selectedShockEnergy = 200.0;
+      padsConnected = true;
+      selfTestPassed = true;
+      ecgDisplayActive = true;
+    }
+
+    part oxygenAssembly : OxygenCylinderAssembly {
+      cylinderPressure = 13790.0;
+      regulatorAttached = true;
+      flowMeterSetpoint = 15.0;
+      cylinderVolume = 680.0;
+    }
+
+    part suctionUnit : SuctionUnit {
+      batteryCharge = 100.0;
+      canisterCapacity = 800.0;
+      vacuumPressure = 80.0;
+      tubingConnected = true;
+    }
+
+    connection cartPowerToDefibrillator connect wallPowerPort to defibrillator.electricalInput;
+    connection cartPowerToSuction connect wallPowerPort to suctionUnit.electricalInput;
+    connection defibPatientStatus connect patientStatusPort to defibrillator.patientMonitorPort;
+    connection defibShockOutput connect defibrillator.therapyPort to therapyPort;
+    connection oxygenToExternalPort connect oxygenAssembly.oxygenOutput to oxygenDeliveryPort;
+    connection airwayOxygenUse connect oxygenAssembly.oxygenOutput to airwayModule.oxygenPort;
+    connection medicationAccessExternal connect medicationModule.medicationPort to medicationPort;
+    connection airwayAccessExternal connect airwayModule.airwayPort to airwayPort;
+    connection commandToDefibrillator connect commandPort to defibrillator.commandPort;
+    connection commandToMedicationDrawer connect commandPort to medicationDrawer.commandPort;
+    connection commandToAirwayDrawer connect commandPort to airwayDrawer.commandPort;
+
+    action deployCart {
+      in item emergencyCommand : ClinicalCommand;
+      in attribute destination : String;
+      out attribute deployedWithinLimit : BooleanFlag;
+      first start;
+      then move : chassis.moveToEmergencyLocation(destination = destination);
+      then brake : chassis.engageBrake;
+      then verify : performReadinessCheck;
+      then done;
+    }
+
+    action performReadinessCheck {
+      out item inventory : InventoryStatus;
+      first checkDefib;
+      then checkMedications : medicationModule.checkExpiration;
+      then checkAirway : airwayModule.verifyAirwayKit;
+      then checkOxygen : oxygenAssembly.openCylinder;
+      then publishStatus;
+    }
+
+    action supportCardiacArrestResponse {
+      in item patient : PatientStatus;
+      out item deliveredShock : DefibrillationShock;
+      first activate;
+      then monitor : defibrillator.analyzeRhythm(patient = patient);
+      then prepareAirway : airwayModule.prepareVentilation;
+      then charge : defibrillator.chargeCapacitor(requestedEnergy = defibrillator.selectedShockEnergy);
+      then shock : defibrillator.deliverShock(energySetting = defibrillator.selectedShockEnergy);
+      then medication : medicationModule.dispenseMedication(orderedDose = medicationModule.epiDose);
+      then reassess;
+    }
+
+    state def CartOperationalStates {
+      state stockedAndSealed;
+      state deployed;
+      state inUse;
+      state partiallyDepleted;
+      state outOfService;
+      state restocking;
+      state readyForService;
+
+      transition initial then stockedAndSealed;
+      transition stockedAndSealed_to_deployed first stockedAndSealed then deployed
+        accept ClinicalCommand
+        if commandName == "EmergencyDeploy";
+      transition deployed_to_inUse first deployed then inUse
+        accept ClinicalCommand
+        if commandName == "BeginResuscitation";
+      transition inUse_to_partiallyDepleted first inUse then partiallyDepleted
+        if medicationModule.epinephrineSyringes < 10 or oxygenAssembly.cylinderPressure < 5000.0;
+      transition partiallyDepleted_to_outOfService first partiallyDepleted then outOfService
+        if medicationModule.epinephrineSyringes < 2 or defibrillator.selfTestPassed == false;
+      transition partiallyDepleted_to_restocking first partiallyDepleted then restocking
+        accept ClinicalCommand
+        if commandName == "Restock";
+      transition outOfService_to_restocking first outOfService then restocking
+        accept ClinicalCommand
+        if commandName == "Restock";
+      transition restocking_to_readyForService first restocking then readyForService
+        if medicationModule.epinephrineSyringes >= 10 and airwayModule.bagValveMaskCount >= 2 and defibrillator.selfTestPassed == true and oxygenAssembly.cylinderPressure >= 10000.0;
+      transition readyForService_to_stockedAndSealed first readyForService then stockedAndSealed
+        accept ClinicalCommand
+        if commandName == "SealCart";
+    }
+
+    exhibit stateMachine : CartOperationalStates;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject cart : CrashCart;
+    doc /* The crash cart shall provide a mobile, immediately accessible collection of resuscitation equipment, medications, oxygen delivery, suction, monitoring, and defibrillation capability to support emergency response to cardiopulmonary arrest, respiratory failure, shock, and other life-threatening deterioration at the point of care. */
+  }
+
+  requirement def DeploymentTimeRequirement {
+    subject cart : CrashCart;
+    attribute requiredDeploymentTime : TimeValue = 60.0;
+    doc /* The crash cart shall be capable of being moved from its parked clinical location to the emergency bedside and stabilized for use within 60 seconds under normal unit conditions. */
+  }
+
+  requirement def DefibrillationRequirement {
+    subject defibrillator : DefibrillatorMonitor;
+    attribute minimumBatteryCharge : Percent = 20.0;
+    attribute maximumEnergy : EnergyValue = 360.0;
+    doc /* The defibrillator-monitor shall support ECG monitoring and deliver operator-selected unsynchronized or synchronized shocks up to 360 J when pads are connected and the battery charge is sufficient. */
+  }
+
+  requirement def MedicationAvailabilityRequirement {
+    subject medicationModule : MedicationModule;
+    attribute minimumEpinephrineSyringes : Count = 10;
+    attribute minimumAmiodaroneVials : Count = 4;
+    doc /* The medication module shall maintain critical arrest medications in labeled, unexpired, rapidly accessible locations. */
+  }
+
+  requirement def AirwaySupportRequirement {
+    subject airwayModule : AirwayModule;
+    doc /* The airway module shall provide supplies for basic ventilation, oxygen connection, suction-assisted airway clearance, and endotracheal intubation for adult and pediatric emergency response. */
+  }
+
+  requirement def OxygenSupportRequirement {
+    subject oxygenAssembly : OxygenCylinderAssembly;
+    attribute minimumReadyPressure : PressureValue = 10000.0;
+    doc /* The oxygen cylinder assembly shall provide regulated oxygen flow for bag-valve-mask ventilation and supplemental oxygen delivery during emergency treatment. */
+  }
+
+  requirement def ReadinessRequirement {
+    subject cart : CrashCart;
+    doc /* The crash cart shall expose readiness status indicating seal integrity, medication availability, airway kit completeness, defibrillator readiness, and oxygen availability. */
+  }
+
+  satisfy PrimaryFunctionRequirement by CrashCart;
+  satisfy DeploymentTimeRequirement by CrashCart::deployCart;
+  satisfy DefibrillationRequirement by CrashCart::defibrillator;
+  satisfy MedicationAvailabilityRequirement by CrashCart::medicationModule;
+  satisfy AirwaySupportRequirement by CrashCart::airwayModule;
+  satisfy OxygenSupportRequirement by CrashCart::oxygenAssembly;
+  satisfy ReadinessRequirement by CrashCart::performReadinessCheck;
+
+  part hospitalCrashCart : CrashCart {
+    cartId = "ED-CRASH-CART-01";
+    responseReady = true;
+    lastDailyCheck = "2026-06-10T07:00:00-05:00";
+    lastRestockTime = "2026-06-10T07:15:00-05:00";
+  }
+}

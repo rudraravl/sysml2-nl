@@ -1,0 +1,987 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ze4jp35n
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb402-e7d1-7c80-bfe9-9ddb8122a558
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Plague doctor costume and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PlagueDoctorCostumeSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def AirFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::litre / SI::minute;
+    }
+
+    attribute def VisibilityAngle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def FiltrationEfficiency :> ScalarValues::Real {
+        unit = SI::percent;
+    }
+
+    attribute def FabricThickness :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = SI::minute;
+    }
+
+    attribute def SoundLevel :> ISQ::soundPressureLevel {
+        unit = SI::decibel;
+    }
+
+    item def AmbientAir;
+    item def FilteredAir;
+    item def ExhaledAir;
+    item def Light;
+    item def VoiceSound;
+    item def BodyHeat;
+    item def UserMotion;
+    item def BiologicalDroplet;
+    item def CostumeStatusSignal;
+
+    port def AirIntakePort {
+        in item ambientAir : AmbientAir;
+        out item rejectedDroplets : BiologicalDroplet;
+    }
+
+    port def BreathingPort {
+        out item filteredAir : FilteredAir;
+        in item exhaledAir : ExhaledAir;
+    }
+
+    port def VisionPort {
+        in item externalLight : Light;
+    }
+
+    port def VoicePort {
+        out item spokenSound : VoiceSound;
+    }
+
+    port def ThermalPort {
+        out item bodyHeat : BodyHeat;
+    }
+
+    port def MotionPort {
+        in item movement : UserMotion;
+    }
+
+    port def StatusPort {
+        out item status : CostumeStatusSignal;
+    }
+
+    part def PlagueDoctorCostume {
+        doc
+        /*
+         * High-level primary function:
+         * A plague doctor costume encloses the wearer in a recognizable historical protective ensemble,
+         * supporting ceremonial identification, partial physical separation from the environment,
+         * filtered breathing through a beaked mask, basic splash shielding, visibility, mobility,
+         * and controlled communication.
+         */
+
+        attribute totalMass : Mass = 4.8 [SI::kilogram];
+        attribute nominalUseDuration : Duration = 180 [SI::minute];
+
+        port airIntake : AirIntakePort;
+        port breathing : BreathingPort;
+        port vision : VisionPort;
+        port voice : VoicePort;
+        port heatRelease : ThermalPort;
+        port mobility : MotionPort;
+        port statusOut : StatusPort;
+
+        part mask : BeakedMask;
+        part hood : ProtectiveHood;
+        part robe : OuterRobe;
+        part gloves : ProtectiveGloves;
+        part boots : ProtectiveBoots;
+        part hat : WideBrimHat;
+        part belt : UtilityBelt;
+        part cane : DistanceCane;
+        part wearerInterface : WearerInterface;
+        part monitoring : CostumeMonitoringModule;
+
+        connect airIntake to mask.externalAirPort;
+        connect mask.filteredBreathPort to breathing;
+        connect vision to mask.eyeLensPort;
+        connect voice to mask.voiceOutletPort;
+        connect heatRelease to robe.thermalVentPort;
+        connect mobility to wearerInterface.motionInputPort;
+        connect monitoring.statusPort to statusOut;
+
+        connect hood.neckSealPort to mask.neckSealPort;
+        connect hood.shoulderSealPort to robe.collarSealPort;
+        connect robe.handSealPort to gloves.wristSealPort;
+        connect robe.footSealPort to boots.ankleSealPort;
+        connect belt.supportPort to robe.waistSupportPort;
+        connect hat.headSupportPort to hood.hatSupportPort;
+        connect cane.userGripPort to gloves.gripPort;
+
+        perform action provideCostumeProtection;
+        exhibit state costumeOperationalState;
+    }
+
+    part def BeakedMask {
+        attribute beakLength : ISQ::length = 320 [SI::millimetre];
+        attribute inhalationFlowCapacity : AirFlowRate = 45 [SI::litre / SI::minute];
+        attribute filterEfficiency : FiltrationEfficiency = 92 [SI::percent];
+        attribute lensVisibilityAngle : VisibilityAngle = 95 [SI::degree];
+        attribute maskMass : Mass = 0.9 [SI::kilogram];
+
+        port externalAirPort : AirIntakePort;
+        port filteredBreathPort : BreathingPort;
+        port eyeLensPort : VisionPort;
+        port voiceOutletPort : VoicePort;
+        port neckSealPort : SealPort;
+
+        part beakShell : RigidBeakShell;
+        part herbFilterCartridge : AromaticFilterCartridge;
+        part inletGrille : AirInletGrille;
+        part eyeLenses : GlassEyeLenses;
+        part speechVent : SpeechVent;
+        part faceSeal : FaceSeal;
+
+        connect externalAirPort to inletGrille.intakePort;
+        connect inletGrille.outletPort to herbFilterCartridge.unfilteredAirPort;
+        connect herbFilterCartridge.filteredAirPort to filteredBreathPort;
+        connect eyeLensPort to eyeLenses.lightPort;
+        connect speechVent.soundPort to voiceOutletPort;
+        connect faceSeal.sealPort to neckSealPort;
+    }
+
+    part def RigidBeakShell {
+        attribute shellThickness : FabricThickness = 2.5 [SI::millimetre];
+        attribute shellMass : Mass = 0.35 [SI::kilogram];
+    }
+
+    part def AromaticFilterCartridge {
+        attribute cartridgeMass : Mass = 0.18 [SI::kilogram];
+        attribute particulateEfficiency : FiltrationEfficiency = 92 [SI::percent];
+        attribute odorReductionEfficiency : FiltrationEfficiency = 65 [SI::percent];
+        attribute serviceDuration : Duration = 120 [SI::minute];
+
+        port unfilteredAirPort : AirIntakePort;
+        port filteredAirPort : BreathingPort;
+    }
+
+    part def AirInletGrille {
+        attribute grilleOpeningArea : ISQ::area = 1600 [SI::millimetre * SI::millimetre];
+        port intakePort : AirIntakePort;
+        port outletPort : AirIntakePort;
+    }
+
+    part def GlassEyeLenses {
+        attribute lensThickness : FabricThickness = 3.0 [SI::millimetre];
+        attribute transmissivity : ScalarValues::Real = 0.82;
+        port lightPort : VisionPort;
+    }
+
+    part def SpeechVent {
+        attribute speechAttenuation : SoundLevel = 8 [SI::decibel];
+        port soundPort : VoicePort;
+    }
+
+    part def FaceSeal {
+        attribute compressionAllowance : ISQ::length = 8 [SI::millimetre];
+        port sealPort : SealPort;
+    }
+
+    port def SealPort {
+        in item compression : UserMotion;
+    }
+
+    part def ProtectiveHood {
+        attribute fabricThickness : FabricThickness = 1.2 [SI::millimetre];
+        attribute coverageArea : ISQ::area = 0.42 [SI::metre * SI::metre];
+
+        port neckSealPort : SealPort;
+        port shoulderSealPort : SealPort;
+        port hatSupportPort : MechanicalSupportPort;
+    }
+
+    part def OuterRobe {
+        attribute robeMass : Mass = 2.1 [SI::kilogram];
+        attribute fabricThickness : FabricThickness = 1.6 [SI::millimetre];
+        attribute dropletRepellency : FiltrationEfficiency = 88 [SI::percent];
+
+        port collarSealPort : SealPort;
+        port handSealPort : SealPort;
+        port footSealPort : SealPort;
+        port waistSupportPort : MechanicalSupportPort;
+        port thermalVentPort : ThermalPort;
+
+        part closureFlap : OverlapClosure;
+        part ventilationSlits : PassiveVentilationSlits;
+    }
+
+    part def OverlapClosure {
+        attribute overlapWidth : ISQ::length = 90 [SI::millimetre];
+    }
+
+    part def PassiveVentilationSlits {
+        attribute heatRejectionCapacity : ISQ::power = 45 [SI::watt];
+        port heatPort : ThermalPort;
+    }
+
+    part def ProtectiveGloves {
+        attribute gloveMass : Mass = 0.35 [SI::kilogram];
+        attribute cuffOverlap : ISQ::length = 120 [SI::millimetre];
+
+        port wristSealPort : SealPort;
+        port gripPort : GripPort;
+    }
+
+    part def ProtectiveBoots {
+        attribute bootMass : Mass = 0.85 [SI::kilogram];
+        attribute shaftHeight : ISQ::length = 380 [SI::millimetre];
+
+        port ankleSealPort : SealPort;
+    }
+
+    part def WideBrimHat {
+        attribute brimRadius : ISQ::length = 220 [SI::millimetre];
+        attribute hatMass : Mass = 0.4 [SI::kilogram];
+
+        port headSupportPort : MechanicalSupportPort;
+    }
+
+    part def UtilityBelt {
+        attribute beltMass : Mass = 0.25 [SI::kilogram];
+        attribute pouchCount : ScalarValues::Integer = 3;
+
+        port supportPort : MechanicalSupportPort;
+    }
+
+    part def DistanceCane {
+        attribute caneLength : ISQ::length = 1.2 [SI::metre];
+        attribute caneMass : Mass = 0.55 [SI::kilogram];
+
+        port userGripPort : GripPort;
+        port contactTipPort : ContactPort;
+    }
+
+    part def WearerInterface {
+        attribute minimumStrideAllowance : ISQ::length = 650 [SI::millimetre];
+        attribute maximumHeadRotation : VisibilityAngle = 70 [SI::degree];
+
+        port motionInputPort : MotionPort;
+    }
+
+    part def CostumeMonitoringModule {
+        attribute batteryDuration : Duration = 240 [SI::minute];
+        attribute filterRemainingTime : Duration = 120 [SI::minute];
+
+        port statusPort : StatusPort;
+
+        perform action assessReadiness;
+    }
+
+    port def MechanicalSupportPort {
+        in item supportLoad : UserMotion;
+    }
+
+    port def GripPort {
+        in item handForce : UserMotion;
+    }
+
+    port def ContactPort {
+        out item surfaceContact : UserMotion;
+    }
+
+    action def ProvideCostumeProtection {
+        in item ambientAir : AmbientAir;
+        in item wearerMotion : UserMotion;
+        out item filteredAir : FilteredAir;
+        out item exhaledAir : ExhaledAir;
+        out item costumeStatus : CostumeStatusSignal;
+
+        action filterInhaledAir;
+        action shieldBodyFromDroplets;
+        action preserveFieldOfView;
+        action supportHistoricalIdentification;
+        action allowSpeechTransmission;
+        action permitWalkingAndHandling;
+
+        first start;
+        then filterInhaledAir;
+        then shieldBodyFromDroplets;
+        then preserveFieldOfView;
+        then supportHistoricalIdentification;
+        then allowSpeechTransmission;
+        then permitWalkingAndHandling;
+        then done;
+    }
+
+    action provideCostumeProtection : ProvideCostumeProtection;
+
+    action def AssessReadiness {
+        out item readyStatus : CostumeStatusSignal;
+
+        action inspectMaskSeal;
+        action inspectRobeClosure;
+        action checkFilterRemainingTime;
+        action confirmLensClarity;
+
+        first start;
+        then inspectMaskSeal;
+        then inspectRobeClosure;
+        then checkFilterRemainingTime;
+        then confirmLensClarity;
+        then done;
+    }
+
+    action assessReadiness : AssessReadiness;
+
+    state def CostumeOperationalState {
+        entry action assessReadiness;
+
+        state Stored;
+        state Donning;
+        state Ready;
+        state InUse;
+        state Ventilating;
+        state FilterServiceRequired;
+        state Doffing;
+        state Cleaning;
+        state OutOfService;
+
+        initial then Stored;
+
+        transition Stored_to_Donning
+            first Stored
+            accept item wearerMotion : UserMotion
+            then Donning;
+
+        transition Donning_to_Ready
+            first Donning
+            accept item status : CostumeStatusSignal
+            then Ready;
+
+        transition Ready_to_InUse
+            first Ready
+            accept item movement : UserMotion
+            then InUse;
+
+        transition InUse_to_Ventilating
+            first InUse
+            accept item heat : BodyHeat
+            then Ventilating;
+
+        transition Ventilating_to_InUse
+            first Ventilating
+            accept item movement : UserMotion
+            then InUse;
+
+        transition InUse_to_FilterServiceRequired
+            first InUse
+            accept item status : CostumeStatusSignal
+            then FilterServiceRequired;
+
+        transition FilterServiceRequired_to_OutOfService
+            first FilterServiceRequired
+            accept item status : CostumeStatusSignal
+            then OutOfService;
+
+        transition InUse_to_Doffing
+            first InUse
+            accept item wearerMotion : UserMotion
+            then Doffing;
+
+        transition Doffing_to_Cleaning
+            first Doffing
+            accept item status : CostumeStatusSignal
+            then Cleaning;
+
+        transition Cleaning_to_Stored
+            first Cleaning
+            accept item status : CostumeStatusSignal
+            then Stored;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The plague doctor costume shall provide a recognizable historical protective ensemble
+         * that supports filtered breathing, body coverage, basic droplet shielding, visibility,
+         * mobility, and communication for a wearer.
+         */
+
+        subject costume : PlagueDoctorCostume;
+
+        require constraint {
+            costume.mask.filterEfficiency >= 90 [SI::percent]
+        }
+
+        require constraint {
+            costume.mask.lensVisibilityAngle >= 90 [SI::degree]
+        }
+
+        require constraint {
+            costume.totalMass <= 6.0 [SI::kilogram]
+        }
+
+        require constraint {
+            costume.nominalUseDuration >= 120 [SI::minute]
+        }
+    }
+
+    requirement def BreathingProtectionRequirement {
+        subject mask : BeakedMask;
+
+        require constraint {
+            mask.inhalationFlowCapacity >= 40 [SI::litre / SI::minute]
+        }
+
+        require constraint {
+            mask.filterEfficiency >= 90 [SI::percent]
+        }
+    }
+
+    requirement def MobilityRequirement {
+        subject interface : WearerInterface;
+
+        require constraint {
+            interface.minimumStrideAllowance >= 600 [SI::millimetre]
+        }
+
+        require constraint {
+            interface.maximumHeadRotation >= 60 [SI::degree]
+        }
+    }
+
+    requirement def CoverageRequirement {
+        subject robe : OuterRobe;
+
+        require constraint {
+            robe.dropletRepellency >= 85 [SI::percent]
+        }
+
+        require constraint {
+            robe.fabricThickness >= 1.0 [SI::millimetre]
+        }
+    }
+
+    requirement def UseDurationRequirement {
+        subject monitoring : CostumeMonitoringModule;
+
+        require constraint {
+            monitoring.batteryDuration >= 180 [SI::minute]
+        }
+
+        require constraint {
+            monitoring.filterRemainingTime >= 90 [SI::minute]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PlagueDoctorCostume;
+    satisfy BreathingProtectionRequirement by BeakedMask;
+    satisfy MobilityRequirement by WearerInterface;
+    satisfy CoverageRequirement by OuterRobe;
+    satisfy UseDurationRequirement by CostumeMonitoringModule;
+}
+tokens used
+3,723
+package PlagueDoctorCostumeSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def AirFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::litre / SI::minute;
+    }
+
+    attribute def VisibilityAngle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def FiltrationEfficiency :> ScalarValues::Real {
+        unit = SI::percent;
+    }
+
+    attribute def FabricThickness :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = SI::minute;
+    }
+
+    attribute def SoundLevel :> ISQ::soundPressureLevel {
+        unit = SI::decibel;
+    }
+
+    item def AmbientAir;
+    item def FilteredAir;
+    item def ExhaledAir;
+    item def Light;
+    item def VoiceSound;
+    item def BodyHeat;
+    item def UserMotion;
+    item def BiologicalDroplet;
+    item def CostumeStatusSignal;
+
+    port def AirIntakePort {
+        in item ambientAir : AmbientAir;
+        out item rejectedDroplets : BiologicalDroplet;
+    }
+
+    port def BreathingPort {
+        out item filteredAir : FilteredAir;
+        in item exhaledAir : ExhaledAir;
+    }
+
+    port def VisionPort {
+        in item externalLight : Light;
+    }
+
+    port def VoicePort {
+        out item spokenSound : VoiceSound;
+    }
+
+    port def ThermalPort {
+        out item bodyHeat : BodyHeat;
+    }
+
+    port def MotionPort {
+        in item movement : UserMotion;
+    }
+
+    port def StatusPort {
+        out item status : CostumeStatusSignal;
+    }
+
+    part def PlagueDoctorCostume {
+        doc
+        /*
+         * High-level primary function:
+         * A plague doctor costume encloses the wearer in a recognizable historical protective ensemble,
+         * supporting ceremonial identification, partial physical separation from the environment,
+         * filtered breathing through a beaked mask, basic splash shielding, visibility, mobility,
+         * and controlled communication.
+         */
+
+        attribute totalMass : Mass = 4.8 [SI::kilogram];
+        attribute nominalUseDuration : Duration = 180 [SI::minute];
+
+        port airIntake : AirIntakePort;
+        port breathing : BreathingPort;
+        port vision : VisionPort;
+        port voice : VoicePort;
+        port heatRelease : ThermalPort;
+        port mobility : MotionPort;
+        port statusOut : StatusPort;
+
+        part mask : BeakedMask;
+        part hood : ProtectiveHood;
+        part robe : OuterRobe;
+        part gloves : ProtectiveGloves;
+        part boots : ProtectiveBoots;
+        part hat : WideBrimHat;
+        part belt : UtilityBelt;
+        part cane : DistanceCane;
+        part wearerInterface : WearerInterface;
+        part monitoring : CostumeMonitoringModule;
+
+        connect airIntake to mask.externalAirPort;
+        connect mask.filteredBreathPort to breathing;
+        connect vision to mask.eyeLensPort;
+        connect voice to mask.voiceOutletPort;
+        connect heatRelease to robe.thermalVentPort;
+        connect mobility to wearerInterface.motionInputPort;
+        connect monitoring.statusPort to statusOut;
+
+        connect hood.neckSealPort to mask.neckSealPort;
+        connect hood.shoulderSealPort to robe.collarSealPort;
+        connect robe.handSealPort to gloves.wristSealPort;
+        connect robe.footSealPort to boots.ankleSealPort;
+        connect belt.supportPort to robe.waistSupportPort;
+        connect hat.headSupportPort to hood.hatSupportPort;
+        connect cane.userGripPort to gloves.gripPort;
+
+        perform action provideCostumeProtection;
+        exhibit state costumeOperationalState;
+    }
+
+    part def BeakedMask {
+        attribute beakLength : ISQ::length = 320 [SI::millimetre];
+        attribute inhalationFlowCapacity : AirFlowRate = 45 [SI::litre / SI::minute];
+        attribute filterEfficiency : FiltrationEfficiency = 92 [SI::percent];
+        attribute lensVisibilityAngle : VisibilityAngle = 95 [SI::degree];
+        attribute maskMass : Mass = 0.9 [SI::kilogram];
+
+        port externalAirPort : AirIntakePort;
+        port filteredBreathPort : BreathingPort;
+        port eyeLensPort : VisionPort;
+        port voiceOutletPort : VoicePort;
+        port neckSealPort : SealPort;
+
+        part beakShell : RigidBeakShell;
+        part herbFilterCartridge : AromaticFilterCartridge;
+        part inletGrille : AirInletGrille;
+        part eyeLenses : GlassEyeLenses;
+        part speechVent : SpeechVent;
+        part faceSeal : FaceSeal;
+
+        connect externalAirPort to inletGrille.intakePort;
+        connect inletGrille.outletPort to herbFilterCartridge.unfilteredAirPort;
+        connect herbFilterCartridge.filteredAirPort to filteredBreathPort;
+        connect eyeLensPort to eyeLenses.lightPort;
+        connect speechVent.soundPort to voiceOutletPort;
+        connect faceSeal.sealPort to neckSealPort;
+    }
+
+    part def RigidBeakShell {
+        attribute shellThickness : FabricThickness = 2.5 [SI::millimetre];
+        attribute shellMass : Mass = 0.35 [SI::kilogram];
+    }
+
+    part def AromaticFilterCartridge {
+        attribute cartridgeMass : Mass = 0.18 [SI::kilogram];
+        attribute particulateEfficiency : FiltrationEfficiency = 92 [SI::percent];
+        attribute odorReductionEfficiency : FiltrationEfficiency = 65 [SI::percent];
+        attribute serviceDuration : Duration = 120 [SI::minute];
+
+        port unfilteredAirPort : AirIntakePort;
+        port filteredAirPort : BreathingPort;
+    }
+
+    part def AirInletGrille {
+        attribute grilleOpeningArea : ISQ::area = 1600 [SI::millimetre * SI::millimetre];
+        port intakePort : AirIntakePort;
+        port outletPort : AirIntakePort;
+    }
+
+    part def GlassEyeLenses {
+        attribute lensThickness : FabricThickness = 3.0 [SI::millimetre];
+        attribute transmissivity : ScalarValues::Real = 0.82;
+        port lightPort : VisionPort;
+    }
+
+    part def SpeechVent {
+        attribute speechAttenuation : SoundLevel = 8 [SI::decibel];
+        port soundPort : VoicePort;
+    }
+
+    part def FaceSeal {
+        attribute compressionAllowance : ISQ::length = 8 [SI::millimetre];
+        port sealPort : SealPort;
+    }
+
+    port def SealPort {
+        in item compression : UserMotion;
+    }
+
+    part def ProtectiveHood {
+        attribute fabricThickness : FabricThickness = 1.2 [SI::millimetre];
+        attribute coverageArea : ISQ::area = 0.42 [SI::metre * SI::metre];
+
+        port neckSealPort : SealPort;
+        port shoulderSealPort : SealPort;
+        port hatSupportPort : MechanicalSupportPort;
+    }
+
+    part def OuterRobe {
+        attribute robeMass : Mass = 2.1 [SI::kilogram];
+        attribute fabricThickness : FabricThickness = 1.6 [SI::millimetre];
+        attribute dropletRepellency : FiltrationEfficiency = 88 [SI::percent];
+
+        port collarSealPort : SealPort;
+        port handSealPort : SealPort;
+        port footSealPort : SealPort;
+        port waistSupportPort : MechanicalSupportPort;
+        port thermalVentPort : ThermalPort;
+
+        part closureFlap : OverlapClosure;
+        part ventilationSlits : PassiveVentilationSlits;
+    }
+
+    part def OverlapClosure {
+        attribute overlapWidth : ISQ::length = 90 [SI::millimetre];
+    }
+
+    part def PassiveVentilationSlits {
+        attribute heatRejectionCapacity : ISQ::power = 45 [SI::watt];
+        port heatPort : ThermalPort;
+    }
+
+    part def ProtectiveGloves {
+        attribute gloveMass : Mass = 0.35 [SI::kilogram];
+        attribute cuffOverlap : ISQ::length = 120 [SI::millimetre];
+
+        port wristSealPort : SealPort;
+        port gripPort : GripPort;
+    }
+
+    part def ProtectiveBoots {
+        attribute bootMass : Mass = 0.85 [SI::kilogram];
+        attribute shaftHeight : ISQ::length = 380 [SI::millimetre];
+
+        port ankleSealPort : SealPort;
+    }
+
+    part def WideBrimHat {
+        attribute brimRadius : ISQ::length = 220 [SI::millimetre];
+        attribute hatMass : Mass = 0.4 [SI::kilogram];
+
+        port headSupportPort : MechanicalSupportPort;
+    }
+
+    part def UtilityBelt {
+        attribute beltMass : Mass = 0.25 [SI::kilogram];
+        attribute pouchCount : ScalarValues::Integer = 3;
+
+        port supportPort : MechanicalSupportPort;
+    }
+
+    part def DistanceCane {
+        attribute caneLength : ISQ::length = 1.2 [SI::metre];
+        attribute caneMass : Mass = 0.55 [SI::kilogram];
+
+        port userGripPort : GripPort;
+        port contactTipPort : ContactPort;
+    }
+
+    part def WearerInterface {
+        attribute minimumStrideAllowance : ISQ::length = 650 [SI::millimetre];
+        attribute maximumHeadRotation : VisibilityAngle = 70 [SI::degree];
+
+        port motionInputPort : MotionPort;
+    }
+
+    part def CostumeMonitoringModule {
+        attribute batteryDuration : Duration = 240 [SI::minute];
+        attribute filterRemainingTime : Duration = 120 [SI::minute];
+
+        port statusPort : StatusPort;
+
+        perform action assessReadiness;
+    }
+
+    port def MechanicalSupportPort {
+        in item supportLoad : UserMotion;
+    }
+
+    port def GripPort {
+        in item handForce : UserMotion;
+    }
+
+    port def ContactPort {
+        out item surfaceContact : UserMotion;
+    }
+
+    action def ProvideCostumeProtection {
+        in item ambientAir : AmbientAir;
+        in item wearerMotion : UserMotion;
+        out item filteredAir : FilteredAir;
+        out item exhaledAir : ExhaledAir;
+        out item costumeStatus : CostumeStatusSignal;
+
+        action filterInhaledAir;
+        action shieldBodyFromDroplets;
+        action preserveFieldOfView;
+        action supportHistoricalIdentification;
+        action allowSpeechTransmission;
+        action permitWalkingAndHandling;
+
+        first start;
+        then filterInhaledAir;
+        then shieldBodyFromDroplets;
+        then preserveFieldOfView;
+        then supportHistoricalIdentification;
+        then allowSpeechTransmission;
+        then permitWalkingAndHandling;
+        then done;
+    }
+
+    action provideCostumeProtection : ProvideCostumeProtection;
+
+    action def AssessReadiness {
+        out item readyStatus : CostumeStatusSignal;
+
+        action inspectMaskSeal;
+        action inspectRobeClosure;
+        action checkFilterRemainingTime;
+        action confirmLensClarity;
+
+        first start;
+        then inspectMaskSeal;
+        then inspectRobeClosure;
+        then checkFilterRemainingTime;
+        then confirmLensClarity;
+        then done;
+    }
+
+    action assessReadiness : AssessReadiness;
+
+    state def CostumeOperationalState {
+        entry action assessReadiness;
+
+        state Stored;
+        state Donning;
+        state Ready;
+        state InUse;
+        state Ventilating;
+        state FilterServiceRequired;
+        state Doffing;
+        state Cleaning;
+        state OutOfService;
+
+        initial then Stored;
+
+        transition Stored_to_Donning
+            first Stored
+            accept item wearerMotion : UserMotion
+            then Donning;
+
+        transition Donning_to_Ready
+            first Donning
+            accept item status : CostumeStatusSignal
+            then Ready;
+
+        transition Ready_to_InUse
+            first Ready
+            accept item movement : UserMotion
+            then InUse;
+
+        transition InUse_to_Ventilating
+            first InUse
+            accept item heat : BodyHeat
+            then Ventilating;
+
+        transition Ventilating_to_InUse
+            first Ventilating
+            accept item movement : UserMotion
+            then InUse;
+
+        transition InUse_to_FilterServiceRequired
+            first InUse
+            accept item status : CostumeStatusSignal
+            then FilterServiceRequired;
+
+        transition FilterServiceRequired_to_OutOfService
+            first FilterServiceRequired
+            accept item status : CostumeStatusSignal
+            then OutOfService;
+
+        transition InUse_to_Doffing
+            first InUse
+            accept item wearerMotion : UserMotion
+            then Doffing;
+
+        transition Doffing_to_Cleaning
+            first Doffing
+            accept item status : CostumeStatusSignal
+            then Cleaning;
+
+        transition Cleaning_to_Stored
+            first Cleaning
+            accept item status : CostumeStatusSignal
+            then Stored;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The plague doctor costume shall provide a recognizable historical protective ensemble
+         * that supports filtered breathing, body coverage, basic droplet shielding, visibility,
+         * mobility, and communication for a wearer.
+         */
+
+        subject costume : PlagueDoctorCostume;
+
+        require constraint {
+            costume.mask.filterEfficiency >= 90 [SI::percent]
+        }
+
+        require constraint {
+            costume.mask.lensVisibilityAngle >= 90 [SI::degree]
+        }
+
+        require constraint {
+            costume.totalMass <= 6.0 [SI::kilogram]
+        }
+
+        require constraint {
+            costume.nominalUseDuration >= 120 [SI::minute]
+        }
+    }
+
+    requirement def BreathingProtectionRequirement {
+        subject mask : BeakedMask;
+
+        require constraint {
+            mask.inhalationFlowCapacity >= 40 [SI::litre / SI::minute]
+        }
+
+        require constraint {
+            mask.filterEfficiency >= 90 [SI::percent]
+        }
+    }
+
+    requirement def MobilityRequirement {
+        subject interface : WearerInterface;
+
+        require constraint {
+            interface.minimumStrideAllowance >= 600 [SI::millimetre]
+        }
+
+        require constraint {
+            interface.maximumHeadRotation >= 60 [SI::degree]
+        }
+    }
+
+    requirement def CoverageRequirement {
+        subject robe : OuterRobe;
+
+        require constraint {
+            robe.dropletRepellency >= 85 [SI::percent]
+        }
+
+        require constraint {
+            robe.fabricThickness >= 1.0 [SI::millimetre]
+        }
+    }
+
+    requirement def UseDurationRequirement {
+        subject monitoring : CostumeMonitoringModule;
+
+        require constraint {
+            monitoring.batteryDuration >= 180 [SI::minute]
+        }
+
+        require constraint {
+            monitoring.filterRemainingTime >= 90 [SI::minute]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PlagueDoctorCostume;
+    satisfy BreathingProtectionRequirement by BeakedMask;
+    satisfy MobilityRequirement by WearerInterface;
+    satisfy CoverageRequirement by OuterRobe;
+    satisfy UseDurationRequirement by CostumeMonitoringModule;
+}

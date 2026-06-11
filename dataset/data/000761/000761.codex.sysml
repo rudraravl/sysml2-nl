@@ -1,0 +1,306 @@
+package SensorMedicsHFOVModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Pressure_cmH2O :> Real {
+        doc /* Airway pressure in centimeters of water. */
+    }
+
+    attribute def Flow_L_per_min :> Real {
+        doc /* Gas flow in liters per minute. */
+    }
+
+    attribute def Frequency_Hz :> Real {
+        doc /* Oscillation frequency in hertz. */
+    }
+
+    attribute def Volume_mL :> Real {
+        doc /* Gas volume in milliliters. */
+    }
+
+    attribute def OxygenFraction :> Real {
+        doc /* Fraction of inspired oxygen, range 0.21 to 1.0. */
+    }
+
+    item def BreathingGas {
+        attribute oxygenConcentration : OxygenFraction;
+        attribute pressure : Pressure_cmH2O;
+        attribute flowRate : Flow_L_per_min;
+        attribute temperature_C : Real;
+        attribute humidity_percent : Real;
+    }
+
+    item def PatientBreathExchange {
+        attribute meanAirwayPressure : Pressure_cmH2O;
+        attribute oscillatoryPressureAmplitude : Pressure_cmH2O;
+        attribute oscillationFrequency : Frequency_Hz;
+        attribute deliveredBiasFlow : Flow_L_per_min;
+        attribute estimatedTidalVolume : Volume_mL;
+        attribute oxygenConcentration : OxygenFraction;
+    }
+
+    item def AlarmSignal {
+        attribute priority : String;
+        attribute message : String;
+        attribute active : Boolean;
+    }
+
+    port def GasSupplyPort {
+        in item suppliedGas : BreathingGas;
+    }
+
+    port def PatientCircuitPort {
+        out item inspiratoryGas : BreathingGas;
+        in item expiratoryGas : BreathingGas;
+        out item breathExchange : PatientBreathExchange;
+    }
+
+    port def ExhaustPort {
+        out item exhaustGas : BreathingGas;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    part def GasBlender {
+        port airIn : GasSupplyPort;
+        port oxygenIn : GasSupplyPort;
+        port blendedGasOut : PatientCircuitPort;
+
+        attribute setFiO2 : OxygenFraction = 0.60;
+        attribute deliveredFiO2 : OxygenFraction;
+    }
+
+    part def BiasFlowController {
+        port gasIn : GasSupplyPort;
+        port gasOut : PatientCircuitPort;
+
+        attribute setBiasFlow : Flow_L_per_min = 20.0;
+        attribute measuredBiasFlow : Flow_L_per_min;
+    }
+
+    part def OscillatorDriver {
+        port gasInterface : PatientCircuitPort;
+
+        attribute setFrequency : Frequency_Hz = 10.0;
+        attribute setAmplitude : Pressure_cmH2O = 55.0;
+        attribute measuredFrequency : Frequency_Hz;
+        attribute measuredAmplitude : Pressure_cmH2O;
+    }
+
+    part def MeanAirwayPressureRegulator {
+        port patientCircuit : PatientCircuitPort;
+        port exhaust : ExhaustPort;
+
+        attribute setMeanAirwayPressure : Pressure_cmH2O = 25.0;
+        attribute measuredMeanAirwayPressure : Pressure_cmH2O;
+        attribute pressureControlValvePosition_percent : Real;
+    }
+
+    part def Humidifier {
+        port dryGasIn : GasSupplyPort;
+        port conditionedGasOut : PatientCircuitPort;
+
+        attribute chamberTemperature_C : Real = 37.0;
+        attribute deliveredHumidity_percent : Real = 95.0;
+    }
+
+    part def PatientCircuit {
+        port ventilatorSide : PatientCircuitPort;
+        port patientSide : PatientCircuitPort;
+        port exhaustSide : ExhaustPort;
+
+        attribute circuitLeakFlow : Flow_L_per_min;
+        attribute proximalAirwayPressure : Pressure_cmH2O;
+    }
+
+    part def ControlConsole {
+        port alarmOut : AlarmPort;
+
+        attribute powerAvailable : Boolean;
+        attribute therapyEnabled : Boolean;
+        attribute selectedFrequency : Frequency_Hz = 10.0;
+        attribute selectedMeanAirwayPressure : Pressure_cmH2O = 25.0;
+        attribute selectedAmplitude : Pressure_cmH2O = 55.0;
+        attribute selectedFiO2 : OxygenFraction = 0.60;
+        attribute selectedBiasFlow : Flow_L_per_min = 20.0;
+    }
+
+    part def MonitoringSubsystem {
+        port patientCircuit : PatientCircuitPort;
+        port alarmOut : AlarmPort;
+
+        attribute sensedMeanAirwayPressure : Pressure_cmH2O;
+        attribute sensedAmplitude : Pressure_cmH2O;
+        attribute sensedFrequency : Frequency_Hz;
+        attribute sensedFiO2 : OxygenFraction;
+        attribute highPressureLimit : Pressure_cmH2O = 45.0;
+        attribute lowPressureLimit : Pressure_cmH2O = 10.0;
+    }
+
+    action def StartVentilation {
+        in selectedMeanAirwayPressure : Pressure_cmH2O;
+        in selectedAmplitude : Pressure_cmH2O;
+        in selectedFrequency : Frequency_Hz;
+        in selectedFiO2 : OxygenFraction;
+        in selectedBiasFlow : Flow_L_per_min;
+        out therapyEnabled : Boolean;
+    }
+
+    action def MaintainHighFrequencyOscillation {
+        in setMeanAirwayPressure : Pressure_cmH2O;
+        in setAmplitude : Pressure_cmH2O;
+        in setFrequency : Frequency_Hz;
+        in setFiO2 : OxygenFraction;
+        in setBiasFlow : Flow_L_per_min;
+        out exchange : PatientBreathExchange;
+    }
+
+    action def MonitorAndAlarm {
+        in measuredMeanAirwayPressure : Pressure_cmH2O;
+        in measuredAmplitude : Pressure_cmH2O;
+        in measuredFrequency : Frequency_Hz;
+        in measuredFiO2 : OxygenFraction;
+        out alarm : AlarmSignal;
+    }
+
+    state def HFOVOperatingState {
+        entry action initialize;
+
+        state Off;
+        state Standby;
+        state PreOperationalCheck;
+        state Ventilating;
+        state AlarmActive;
+        state Shutdown;
+
+        transition first Off;
+        transition Off_to_Standby
+            first Off
+            then Standby;
+
+        transition Standby_to_PreOperationalCheck
+            first Standby
+            then PreOperationalCheck;
+
+        transition PreOperationalCheck_to_Ventilating
+            first PreOperationalCheck
+            then Ventilating;
+
+        transition Ventilating_to_AlarmActive
+            first Ventilating
+            then AlarmActive;
+
+        transition AlarmActive_to_Ventilating
+            first AlarmActive
+            then Ventilating;
+
+        transition Ventilating_to_Shutdown
+            first Ventilating
+            then Shutdown;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject ventilator : SensorMedicsHighFrequencyOscillatoryVentilator;
+
+        require constraint {
+            ventilator.providedBreathExchange.oscillationFrequency >= 3.0 and
+            ventilator.providedBreathExchange.oscillationFrequency <= 15.0 and
+            ventilator.providedBreathExchange.meanAirwayPressure > 0.0 and
+            ventilator.providedBreathExchange.deliveredBiasFlow > 0.0
+        }
+
+        doc /*
+        The ventilator shall provide high-frequency oscillatory ventilation by maintaining
+        a controlled mean airway pressure while superimposing rapid pressure oscillations
+        on conditioned breathing gas delivered through the patient circuit.
+        */
+    }
+
+    requirement def OxygenDeliveryRequirement {
+        subject ventilator : SensorMedicsHighFrequencyOscillatoryVentilator;
+
+        require constraint {
+            ventilator.providedBreathExchange.oxygenConcentration >= 0.21 and
+            ventilator.providedBreathExchange.oxygenConcentration <= 1.0
+        }
+    }
+
+    requirement def PressureMonitoringRequirement {
+        subject ventilator : SensorMedicsHighFrequencyOscillatoryVentilator;
+
+        require constraint {
+            ventilator.monitoringSubsystem.sensedMeanAirwayPressure >= ventilator.monitoringSubsystem.lowPressureLimit and
+            ventilator.monitoringSubsystem.sensedMeanAirwayPressure <= ventilator.monitoringSubsystem.highPressureLimit
+        }
+    }
+
+    part def SensorMedicsHighFrequencyOscillatoryVentilator {
+        port compressedAirSupply : GasSupplyPort;
+        port oxygenSupply : GasSupplyPort;
+        port patientConnection : PatientCircuitPort;
+        port exhaustOutlet : ExhaustPort;
+        port alarmOutput : AlarmPort;
+
+        part gasBlender : GasBlender;
+        part biasFlowController : BiasFlowController;
+        part humidifier : Humidifier;
+        part oscillatorDriver : OscillatorDriver;
+        part meanAirwayPressureRegulator : MeanAirwayPressureRegulator;
+        part patientCircuit : PatientCircuit;
+        part controlConsole : ControlConsole;
+        part monitoringSubsystem : MonitoringSubsystem;
+
+        attribute modelFamily : String = "SensorMedics high-frequency oscillatory ventilator";
+        attribute primaryFunction : String =
+            "Support oxygenation and carbon dioxide removal by delivering heated, humidified breathing gas at a controlled mean airway pressure with superimposed high-frequency oscillatory pressure pulses.";
+        attribute providedBreathExchange : PatientBreathExchange;
+
+        connect compressedAirSupply to gasBlender.airIn;
+        connect oxygenSupply to gasBlender.oxygenIn;
+        connect gasBlender.blendedGasOut to biasFlowController.gasIn;
+        connect biasFlowController.gasOut to humidifier.dryGasIn;
+        connect humidifier.conditionedGasOut to patientCircuit.ventilatorSide;
+        connect oscillatorDriver.gasInterface to patientCircuit.ventilatorSide;
+        connect meanAirwayPressureRegulator.patientCircuit to patientCircuit.ventilatorSide;
+        connect meanAirwayPressureRegulator.exhaust to patientCircuit.exhaustSide;
+        connect patientCircuit.patientSide to patientConnection;
+        connect patientCircuit.exhaustSide to exhaustOutlet;
+        connect monitoringSubsystem.patientCircuit to patientCircuit.patientSide;
+        connect controlConsole.alarmOut to alarmOutput;
+        connect monitoringSubsystem.alarmOut to alarmOutput;
+
+        perform action start : StartVentilation {
+            in selectedMeanAirwayPressure = controlConsole.selectedMeanAirwayPressure;
+            in selectedAmplitude = controlConsole.selectedAmplitude;
+            in selectedFrequency = controlConsole.selectedFrequency;
+            in selectedFiO2 = controlConsole.selectedFiO2;
+            in selectedBiasFlow = controlConsole.selectedBiasFlow;
+            out therapyEnabled = controlConsole.therapyEnabled;
+        }
+
+        perform action ventilate : MaintainHighFrequencyOscillation {
+            in setMeanAirwayPressure = controlConsole.selectedMeanAirwayPressure;
+            in setAmplitude = controlConsole.selectedAmplitude;
+            in setFrequency = controlConsole.selectedFrequency;
+            in setFiO2 = controlConsole.selectedFiO2;
+            in setBiasFlow = controlConsole.selectedBiasFlow;
+            out exchange = providedBreathExchange;
+        }
+
+        perform action monitor : MonitorAndAlarm {
+            in measuredMeanAirwayPressure = monitoringSubsystem.sensedMeanAirwayPressure;
+            in measuredAmplitude = monitoringSubsystem.sensedAmplitude;
+            in measuredFrequency = monitoringSubsystem.sensedFrequency;
+            in measuredFiO2 = monitoringSubsystem.sensedFiO2;
+            out alarm = alarmOutput.alarm;
+        }
+
+        exhibit state operatingState : HFOVOperatingState;
+
+        satisfy PrimaryFunctionRequirement;
+        satisfy OxygenDeliveryRequirement;
+        satisfy PressureMonitoringRequirement;
+    }
+}

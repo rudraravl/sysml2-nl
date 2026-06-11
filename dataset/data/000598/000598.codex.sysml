@@ -1,0 +1,333 @@
+package ErGlassLaserSystemModel {
+    import ScalarValues::*;
+
+    attribute def Voltage_V { :>> unit = "V"; }
+    attribute def Current_A { :>> unit = "A"; }
+    attribute def Power_W { :>> unit = "W"; }
+    attribute def Energy_J { :>> unit = "J"; }
+    attribute def PulseEnergy_mJ { :>> unit = "mJ"; }
+    attribute def Wavelength_nm { :>> unit = "nm"; }
+    attribute def Duration_ms { :>> unit = "ms"; }
+    attribute def Frequency_Hz { :>> unit = "Hz"; }
+    attribute def Temperature_C { :>> unit = "degC"; }
+    attribute def FlowRate_Lpm { :>> unit = "L/min"; }
+
+    enum def LaserMode {
+        enum idle;
+        enum standby;
+        enum armed;
+        enum emitting;
+        enum fault;
+        enum shutdown;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage_V;
+        attribute current : Current_A;
+        attribute power : Power_W;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : Temperature_C;
+        attribute outletTemperature : Temperature_C;
+        attribute flowRate : FlowRate_Lpm;
+    }
+
+    item def ControlCommand {
+        attribute requestedMode : LaserMode;
+        attribute requestedPulseEnergy : PulseEnergy_mJ;
+        attribute requestedPulseDuration : Duration_ms;
+        attribute requestedRepetitionRate : Frequency_Hz;
+    }
+
+    item def LaserStatus {
+        attribute currentMode : LaserMode;
+        attribute measuredPulseEnergy : PulseEnergy_mJ;
+        attribute resonatorTemperature : Temperature_C;
+        attribute coolantFlow : FlowRate_Lpm;
+        attribute interlockClosed : Boolean;
+        attribute emissionEnabled : Boolean;
+    }
+
+    item def InfraredLaserPulse {
+        attribute centerWavelength : Wavelength_nm;
+        attribute pulseEnergy : PulseEnergy_mJ;
+        attribute pulseDuration : Duration_ms;
+        attribute repetitionRate : Frequency_Hz;
+        attribute beamAvailable : Boolean;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def CoolingPort {
+        in item coolantIn : CoolingFluid;
+        out item coolantOut : CoolingFluid;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusPort {
+        out item status : LaserStatus;
+    }
+
+    port def OpticalOutputPort {
+        out item opticalPulse : InfraredLaserPulse;
+    }
+
+    part def PowerSupply {
+        port acInput : ElectricalPowerPort;
+        port pumpOutput : ElectricalPowerPort;
+
+        attribute inputVoltage : Voltage_V = 120;
+        attribute maximumOutputPower : Power_W = 900;
+        attribute enabled : Boolean;
+    }
+
+    part def ErGlassGainMedium {
+        attribute erbiumDopedGlassLength_mm : Real = 65;
+        attribute nominalWavelength : Wavelength_nm = 1540;
+        attribute storedEnergy : Energy_J;
+        attribute temperature : Temperature_C;
+
+        port pumpPowerInput : ElectricalPowerPort;
+        port opticalOutput : OpticalOutputPort;
+        port thermalInterface : CoolingPort;
+    }
+
+    part def PumpModule {
+        port electricalInput : ElectricalPowerPort;
+        port pumpEmissionOutput : OpticalOutputPort;
+
+        attribute pumpElectricalPower : Power_W;
+        attribute pumpEnabled : Boolean;
+    }
+
+    part def OpticalResonator {
+        part gainMedium : ErGlassGainMedium;
+
+        attribute rearMirrorReflectivity : Real = 0.995;
+        attribute outputCouplerReflectivity : Real = 0.88;
+        attribute aligned : Boolean;
+
+        port resonatorOutput : OpticalOutputPort;
+    }
+
+    part def QSwitch {
+        attribute active : Boolean;
+        attribute switchingDelay : Duration_ms = 0.15;
+
+        port controlInput : CommandPort;
+    }
+
+    part def BeamDeliveryAssembly {
+        port laserInput : OpticalOutputPort;
+        port treatmentOutput : OpticalOutputPort;
+
+        attribute beamDiameter_mm : Real = 6.0;
+        attribute transmissionEfficiency : Real = 0.82;
+        attribute shutterOpen : Boolean;
+    }
+
+    part def CoolingSubsystem {
+        port coolingInterface : CoolingPort;
+
+        attribute nominalFlowRate : FlowRate_Lpm = 2.5;
+        attribute maximumResonatorTemperature : Temperature_C = 38;
+        attribute pumpRunning : Boolean;
+    }
+
+    part def SafetyInterlockSubsystem {
+        port statusOutput : StatusPort;
+
+        attribute keySwitchClosed : Boolean;
+        attribute enclosureClosed : Boolean;
+        attribute emergencyStopReleased : Boolean;
+        attribute footswitchPressed : Boolean;
+        attribute interlockClosed : Boolean;
+    }
+
+    part def UserControlInterface {
+        port commandOutput : CommandPort;
+        port statusInput : StatusPort;
+
+        attribute selectedPulseEnergy : PulseEnergy_mJ;
+        attribute selectedPulseDuration : Duration_ms;
+        attribute selectedRepetitionRate : Frequency_Hz;
+        attribute requestedMode : LaserMode;
+    }
+
+    action def ConvertElectricalEnergyToOpticalPulse {
+        in item pumpPower : ElectricalPower;
+        in item command : ControlCommand;
+        out item pulse : InfraredLaserPulse;
+
+        attribute conversionEnabled : Boolean;
+        attribute pulseWavelength : Wavelength_nm = 1540;
+    }
+
+    action def MaintainThermalStability {
+        in item coolant : CoolingFluid;
+        in item status : LaserStatus;
+        out item regulatedCoolant : CoolingFluid;
+
+        attribute coolingDemand : Real;
+    }
+
+    action def EvaluateEmissionPermission {
+        in item command : ControlCommand;
+        in item status : LaserStatus;
+        out attribute emissionPermitted : Boolean;
+    }
+
+    state def LaserControllerStateMachine {
+        attribute mode : LaserMode;
+
+        state off;
+        state standby;
+        state armed;
+        state emitting;
+        state fault;
+        state shutdown;
+
+        transition initial then off;
+
+        transition off_to_standby
+            first off
+            accept ControlCommand
+            if command.requestedMode == LaserMode::standby
+            then standby;
+
+        transition standby_to_armed
+            first standby
+            accept ControlCommand
+            if command.requestedMode == LaserMode::armed
+            then armed;
+
+        transition armed_to_emitting
+            first armed
+            accept ControlCommand
+            if command.requestedMode == LaserMode::emitting
+            then emitting;
+
+        transition emitting_to_armed
+            first emitting
+            accept ControlCommand
+            if command.requestedMode == LaserMode::armed
+            then armed;
+
+        transition any_to_fault
+            first off
+            then fault;
+
+        transition fault_to_shutdown
+            first fault
+            accept ControlCommand
+            if command.requestedMode == LaserMode::shutdown
+            then shutdown;
+    }
+
+    part def ErGlassLaserSystem {
+        part powerSupply : PowerSupply;
+        part pumpModule : PumpModule;
+        part resonator : OpticalResonator;
+        part qSwitch : QSwitch;
+        part beamDelivery : BeamDeliveryAssembly;
+        part cooling : CoolingSubsystem;
+        part safety : SafetyInterlockSubsystem;
+        part userInterface : UserControlInterface;
+
+        port mainsPower : ElectricalPowerPort;
+        port operatorCommand : CommandPort;
+        port operatorStatus : StatusPort;
+        port laserOutput : OpticalOutputPort;
+
+        attribute primaryFunction : String =
+            "Convert controlled electrical pump energy into safe, regulated, pulsed 1540 nm infrared Er:glass laser output.";
+        attribute nominalCenterWavelength : Wavelength_nm = 1540;
+        attribute maximumPulseEnergy : PulseEnergy_mJ = 120;
+        attribute minimumPulseDuration : Duration_ms = 0.5;
+        attribute maximumPulseDuration : Duration_ms = 20.0;
+        attribute maximumRepetitionRate : Frequency_Hz = 10;
+        attribute currentMode : LaserMode;
+
+        connection mains_to_supply connect mainsPower to powerSupply.acInput;
+        connection supply_to_pump connect powerSupply.pumpOutput to pumpModule.electricalInput;
+        connection pump_to_gain_medium connect pumpModule.pumpEmissionOutput to resonator.gainMedium.opticalOutput;
+        connection resonator_to_delivery connect resonator.resonatorOutput to beamDelivery.laserInput;
+        connection delivery_to_system_output connect beamDelivery.treatmentOutput to laserOutput;
+        connection cooling_to_gain_medium connect cooling.coolingInterface to resonator.gainMedium.thermalInterface;
+        connection command_to_ui connect operatorCommand to userInterface.commandOutput;
+        connection ui_to_qswitch connect userInterface.commandOutput to qSwitch.controlInput;
+        connection status_to_operator connect safety.statusOutput to operatorStatus;
+
+        perform action convertEnergy : ConvertElectricalEnergyToOpticalPulse;
+        perform action regulateCooling : MaintainThermalStability;
+        perform action checkEmission : EvaluateEmissionPermission;
+
+        exhibit state controller : LaserControllerStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject laser : ErGlassLaserSystem;
+
+        require constraint {
+            laser.primaryFunction ==
+            "Convert controlled electrical pump energy into safe, regulated, pulsed 1540 nm infrared Er:glass laser output."
+        }
+    }
+
+    requirement def WavelengthRequirement {
+        subject pulse : InfraredLaserPulse;
+
+        require constraint {
+            pulse.centerWavelength >= 1530 and pulse.centerWavelength <= 1565
+        }
+    }
+
+    requirement def PulseEnergyLimitRequirement {
+        subject laser : ErGlassLaserSystem;
+        subject pulse : InfraredLaserPulse;
+
+        require constraint {
+            pulse.pulseEnergy <= laser.maximumPulseEnergy
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject laser : ErGlassLaserSystem;
+
+        require constraint {
+            laser.resonator.gainMedium.temperature <= laser.cooling.maximumResonatorTemperature
+        }
+    }
+
+    requirement def InterlockEmissionRequirement {
+        subject laser : ErGlassLaserSystem;
+
+        require constraint {
+            laser.safety.interlockClosed == true implies
+            laser.beamDelivery.shutterOpen == true
+        }
+    }
+
+    requirement def FaultDisablesEmissionRequirement {
+        subject laser : ErGlassLaserSystem;
+
+        require constraint {
+            laser.currentMode == LaserMode::fault implies
+            laser.beamDelivery.shutterOpen == false
+        }
+    }
+
+    part erGlassLaserSystem : ErGlassLaserSystem {
+        :>> nominalCenterWavelength = 1540;
+        :>> maximumPulseEnergy = 120;
+        :>> minimumPulseDuration = 0.5;
+        :>> maximumPulseDuration = 20.0;
+        :>> maximumRepetitionRate = 10;
+    }
+}

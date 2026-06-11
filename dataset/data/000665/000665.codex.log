@@ -1,0 +1,691 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-re9n5j4_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3c0-8c9a-79e2-89a2-8ecccdb530fc
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Lift chair and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LiftChairModel {
+
+  attribute def Voltage { attribute value : Real; attribute unit : String = "V"; }
+  attribute def Current { attribute value : Real; attribute unit : String = "A"; }
+  attribute def Power { attribute value : Real; attribute unit : String = "W"; }
+  attribute def Force { attribute value : Real; attribute unit : String = "N"; }
+  attribute def Mass { attribute value : Real; attribute unit : String = "kg"; }
+  attribute def Angle { attribute value : Real; attribute unit : String = "deg"; }
+  attribute def Time { attribute value : Real; attribute unit : String = "s"; }
+  attribute def Speed { attribute value : Real; attribute unit : String = "mm/s"; }
+
+  item def ElectricalEnergy {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute availablePower : Power;
+  }
+
+  item def MotionCommand {
+    attribute targetBackAngle : Angle;
+    attribute targetSeatLiftAngle : Angle;
+    attribute targetFootrestAngle : Angle;
+    attribute commandedSpeed : Speed;
+  }
+
+  item def OccupantLoad {
+    attribute occupantMass : Mass;
+    attribute seated : Boolean;
+  }
+
+  item def PositionFeedback {
+    attribute backAngle : Angle;
+    attribute seatLiftAngle : Angle;
+    attribute footrestAngle : Angle;
+    attribute motionComplete : Boolean;
+  }
+
+  item def UserCommand {
+    attribute raiseRequested : Boolean;
+    attribute reclineRequested : Boolean;
+    attribute sitRequested : Boolean;
+    attribute stopRequested : Boolean;
+  }
+
+  item def SafetyStatus {
+    attribute overloadDetected : Boolean;
+    attribute obstructionDetected : Boolean;
+    attribute actuatorFaultDetected : Boolean;
+    attribute emergencyStopActive : Boolean;
+  }
+
+  port def PowerInPort {
+    in item power : ElectricalEnergy;
+  }
+
+  port def PowerOutPort {
+    out item power : ElectricalEnergy;
+  }
+
+  port def CommandInPort {
+    in item command : UserCommand;
+  }
+
+  port def MotionCommandPort {
+    out item command : MotionCommand;
+  }
+
+  port def FeedbackPort {
+    in item feedback : PositionFeedback;
+  }
+
+  port def SafetyPort {
+    in item status : SafetyStatus;
+  }
+
+  port def LoadPort {
+    in item load : OccupantLoad;
+  }
+
+  part def LiftChair {
+    attribute ratedOccupantMass : Mass = (value = 160.0, unit = "kg");
+    attribute maximumSeatLiftAngle : Angle = (value = 42.0, unit = "deg");
+    attribute maximumBackReclineAngle : Angle = (value = 145.0, unit = "deg");
+    attribute maximumFootrestAngle : Angle = (value = 72.0, unit = "deg");
+    attribute nominalLiftTime : Time = (value = 18.0, unit = "s");
+
+    port powerInput : PowerInPort;
+    port userInput : CommandInPort;
+
+    part frame : ChairFrame;
+    part seatAssembly : SeatAssembly;
+    part backRest : BackRest;
+    part footRest : FootRest;
+    part liftMechanism : LiftMechanism;
+    part actuatorSet : ActuatorSet;
+    part controller : LiftChairController;
+    part handPendant : HandPendant;
+    part safetySystem : SafetySystem;
+    part powerSupply : PowerSupply;
+
+    connection userSignal connect handPendant.commandOut to controller.userCommandIn;
+    connection supplyToController connect powerSupply.powerOut to controller.powerIn;
+    connection controllerToActuators connect controller.motionCommandOut to actuatorSet.commandIn;
+    connection actuatorFeedback connect actuatorSet.feedbackOut to controller.positionFeedbackIn;
+    connection loadToSafety connect seatAssembly.loadOut to safetySystem.loadIn;
+    connection safetyToController connect safetySystem.safetyOut to controller.safetyIn;
+    connection actuatorToLiftMechanism connect actuatorSet.liftDrive to liftMechanism.driveInput;
+    connection actuatorToBackRest connect actuatorSet.backDrive to backRest.driveInput;
+    connection actuatorToFootRest connect actuatorSet.footrestDrive to footRest.driveInput;
+
+    perform action provideAssistedSitStandSupport;
+    exhibit state liftChairOperationalStates;
+  }
+
+  part def ChairFrame {
+    attribute structuralCapacity : Mass = (value = 180.0, unit = "kg");
+    attribute baseWidth : Real = 780.0;
+    attribute baseDepth : Real = 920.0;
+  }
+
+  part def SeatAssembly {
+    attribute cushionCompressionLimit : Real = 45.0;
+    port loadOut : LoadPort;
+  }
+
+  part def BackRest {
+    attribute currentBackAngle : Angle;
+    port driveInput : MotionCommandPort;
+  }
+
+  part def FootRest {
+    attribute currentFootrestAngle : Angle;
+    port driveInput : MotionCommandPort;
+  }
+
+  part def LiftMechanism {
+    attribute currentSeatLiftAngle : Angle;
+    attribute liftForceCapacity : Force = (value = 2200.0, unit = "N");
+    port driveInput : MotionCommandPort;
+  }
+
+  part def ActuatorSet {
+    attribute liftActuatorRatedForce : Force = (value = 2200.0, unit = "N");
+    attribute backActuatorRatedForce : Force = (value = 900.0, unit = "N");
+    attribute footrestActuatorRatedForce : Force = (value = 700.0, unit = "N");
+    attribute nominalExtensionSpeed : Speed = (value = 7.5, unit = "mm/s");
+
+    port commandIn : MotionCommandPort;
+    port feedbackOut : FeedbackPort;
+    port liftDrive : MotionCommandPort;
+    port backDrive : MotionCommandPort;
+    port footrestDrive : MotionCommandPort;
+  }
+
+  part def LiftChairController {
+    attribute controlVoltage : Voltage = (value = 24.0, unit = "V");
+    attribute softStartDuration : Time = (value = 0.8, unit = "s");
+
+    port powerIn : PowerInPort;
+    port userCommandIn : CommandInPort;
+    port safetyIn : SafetyPort;
+    port positionFeedbackIn : FeedbackPort;
+    port motionCommandOut : MotionCommandPort;
+
+    perform action interpretUserCommand;
+    perform action coordinateActuators;
+    perform action stopMotionOnFault;
+  }
+
+  part def HandPendant {
+    attribute cableLength : Real = 1500.0;
+    port commandOut : CommandInPort;
+  }
+
+  part def SafetySystem {
+    attribute overloadThreshold : Mass = (value = 170.0, unit = "kg");
+    attribute obstructionStopTime : Time = (value = 0.2, unit = "s");
+
+    port loadIn : LoadPort;
+    port safetyOut : SafetyPort;
+
+    perform action monitorOccupantAndObstructions;
+  }
+
+  part def PowerSupply {
+    attribute inputVoltage : Voltage = (value = 120.0, unit = "V");
+    attribute outputVoltage : Voltage = (value = 24.0, unit = "V");
+    attribute outputPower : Power = (value = 180.0, unit = "W");
+
+    port powerOut : PowerOutPort;
+  }
+
+  action def ProvideAssistedSitStandSupport {
+    in item userCommand : UserCommand;
+    in item occupantLoad : OccupantLoad;
+    in item safetyStatus : SafetyStatus;
+    out item chairPosition : PositionFeedback;
+
+    action receiveUserIntent;
+    action validateSafeOperation;
+    action moveSeatBackAndFootrest;
+    action stabilizeAtTargetPosition;
+
+    flow receiveUserIntent then validateSafeOperation;
+    flow validateSafeOperation then moveSeatBackAndFootrest;
+    flow moveSeatBackAndFootrest then stabilizeAtTargetPosition;
+  }
+
+  action def InterpretUserCommand {
+    in item command : UserCommand;
+    out item motionCommand : MotionCommand;
+  }
+
+  action def CoordinateActuators {
+    in item motionCommand : MotionCommand;
+    in item feedback : PositionFeedback;
+    out item updatedCommand : MotionCommand;
+  }
+
+  action def StopMotionOnFault {
+    in item safetyStatus : SafetyStatus;
+    out item stopCommand : MotionCommand;
+  }
+
+  action def MonitorOccupantAndObstructions {
+    in item occupantLoad : OccupantLoad;
+    out item safetyStatus : SafetyStatus;
+  }
+
+  state def LiftChairOperationalStates {
+    entry; then poweredOff;
+
+    state poweredOff;
+    state ready;
+    state sittingPosition;
+    state reclining;
+    state liftingToStand;
+    state loweringToSit;
+    state stopped;
+    state fault;
+
+    transition powerApplied first poweredOff then ready;
+    transition initialize first ready then sittingPosition;
+
+    transition reclineCommand first sittingPosition then reclining
+      accept UserCommand
+      if command.reclineRequested == true;
+
+    transition returnToSit first reclining then sittingPosition
+      accept UserCommand
+      if command.sitRequested == true;
+
+    transition raiseCommand first sittingPosition then liftingToStand
+      accept UserCommand
+      if command.raiseRequested == true;
+
+    transition standComplete first liftingToStand then ready
+      accept PositionFeedback
+      if feedback.motionComplete == true;
+
+    transition lowerCommand first ready then loweringToSit
+      accept UserCommand
+      if command.sitRequested == true;
+
+    transition sitComplete first loweringToSit then sittingPosition
+      accept PositionFeedback
+      if feedback.motionComplete == true;
+
+    transition userStop first sittingPosition then stopped
+      accept UserCommand
+      if command.stopRequested == true;
+
+    transition userStopWhileMoving first reclining then stopped
+      accept UserCommand
+      if command.stopRequested == true;
+
+    transition restartAfterStop first stopped then ready;
+
+    transition safetyFaultFromReady first ready then fault
+      accept SafetyStatus
+      if status.overloadDetected == true or status.obstructionDetected == true or status.actuatorFaultDetected == true or status.emergencyStopActive == true;
+
+    transition safetyFaultWhileMoving first liftingToStand then fault
+      accept SafetyStatus
+      if status.overloadDetected == true or status.obstructionDetected == true or status.actuatorFaultDetected == true or status.emergencyStopActive == true;
+
+    transition faultCleared first fault then ready
+      accept SafetyStatus
+      if status.overloadDetected == false and status.obstructionDetected == false and status.actuatorFaultDetected == false and status.emergencyStopActive == false;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall provide powered assistance that moves an occupied chair between seated, reclined, and raised standing-assist positions while maintaining occupant support and stability.";
+  }
+
+  requirement def OccupantSupportRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall support an occupant mass up to 160 kg during sitting, reclining, lifting, and lowering motions.";
+  }
+
+  requirement def ControlledMotionRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall coordinate the back rest, seat lift mechanism, and foot rest so transitions occur smoothly without abrupt motion.";
+  }
+
+  requirement def SafetyStopRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall stop powered motion within 0.2 s when overload, obstruction, actuator fault, or emergency stop is detected.";
+  }
+
+  requirement def UserCommandRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall accept user commands for raise, recline, sit, and stop through a hand pendant interface.";
+  }
+
+  requirement primaryFunction : PrimaryFunctionRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement occupantSupport : OccupantSupportRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement controlledMotion : ControlledMotionRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement safetyStop : SafetyStopRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement userCommandAccess : UserCommandRequirement {
+    subject chair = LiftChair;
+  }
+
+}
+tokens used
+4,361
+package LiftChairModel {
+
+  attribute def Voltage { attribute value : Real; attribute unit : String = "V"; }
+  attribute def Current { attribute value : Real; attribute unit : String = "A"; }
+  attribute def Power { attribute value : Real; attribute unit : String = "W"; }
+  attribute def Force { attribute value : Real; attribute unit : String = "N"; }
+  attribute def Mass { attribute value : Real; attribute unit : String = "kg"; }
+  attribute def Angle { attribute value : Real; attribute unit : String = "deg"; }
+  attribute def Time { attribute value : Real; attribute unit : String = "s"; }
+  attribute def Speed { attribute value : Real; attribute unit : String = "mm/s"; }
+
+  item def ElectricalEnergy {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute availablePower : Power;
+  }
+
+  item def MotionCommand {
+    attribute targetBackAngle : Angle;
+    attribute targetSeatLiftAngle : Angle;
+    attribute targetFootrestAngle : Angle;
+    attribute commandedSpeed : Speed;
+  }
+
+  item def OccupantLoad {
+    attribute occupantMass : Mass;
+    attribute seated : Boolean;
+  }
+
+  item def PositionFeedback {
+    attribute backAngle : Angle;
+    attribute seatLiftAngle : Angle;
+    attribute footrestAngle : Angle;
+    attribute motionComplete : Boolean;
+  }
+
+  item def UserCommand {
+    attribute raiseRequested : Boolean;
+    attribute reclineRequested : Boolean;
+    attribute sitRequested : Boolean;
+    attribute stopRequested : Boolean;
+  }
+
+  item def SafetyStatus {
+    attribute overloadDetected : Boolean;
+    attribute obstructionDetected : Boolean;
+    attribute actuatorFaultDetected : Boolean;
+    attribute emergencyStopActive : Boolean;
+  }
+
+  port def PowerInPort {
+    in item power : ElectricalEnergy;
+  }
+
+  port def PowerOutPort {
+    out item power : ElectricalEnergy;
+  }
+
+  port def CommandInPort {
+    in item command : UserCommand;
+  }
+
+  port def MotionCommandPort {
+    out item command : MotionCommand;
+  }
+
+  port def FeedbackPort {
+    in item feedback : PositionFeedback;
+  }
+
+  port def SafetyPort {
+    in item status : SafetyStatus;
+  }
+
+  port def LoadPort {
+    in item load : OccupantLoad;
+  }
+
+  part def LiftChair {
+    attribute ratedOccupantMass : Mass = (value = 160.0, unit = "kg");
+    attribute maximumSeatLiftAngle : Angle = (value = 42.0, unit = "deg");
+    attribute maximumBackReclineAngle : Angle = (value = 145.0, unit = "deg");
+    attribute maximumFootrestAngle : Angle = (value = 72.0, unit = "deg");
+    attribute nominalLiftTime : Time = (value = 18.0, unit = "s");
+
+    port powerInput : PowerInPort;
+    port userInput : CommandInPort;
+
+    part frame : ChairFrame;
+    part seatAssembly : SeatAssembly;
+    part backRest : BackRest;
+    part footRest : FootRest;
+    part liftMechanism : LiftMechanism;
+    part actuatorSet : ActuatorSet;
+    part controller : LiftChairController;
+    part handPendant : HandPendant;
+    part safetySystem : SafetySystem;
+    part powerSupply : PowerSupply;
+
+    connection userSignal connect handPendant.commandOut to controller.userCommandIn;
+    connection supplyToController connect powerSupply.powerOut to controller.powerIn;
+    connection controllerToActuators connect controller.motionCommandOut to actuatorSet.commandIn;
+    connection actuatorFeedback connect actuatorSet.feedbackOut to controller.positionFeedbackIn;
+    connection loadToSafety connect seatAssembly.loadOut to safetySystem.loadIn;
+    connection safetyToController connect safetySystem.safetyOut to controller.safetyIn;
+    connection actuatorToLiftMechanism connect actuatorSet.liftDrive to liftMechanism.driveInput;
+    connection actuatorToBackRest connect actuatorSet.backDrive to backRest.driveInput;
+    connection actuatorToFootRest connect actuatorSet.footrestDrive to footRest.driveInput;
+
+    perform action provideAssistedSitStandSupport;
+    exhibit state liftChairOperationalStates;
+  }
+
+  part def ChairFrame {
+    attribute structuralCapacity : Mass = (value = 180.0, unit = "kg");
+    attribute baseWidth : Real = 780.0;
+    attribute baseDepth : Real = 920.0;
+  }
+
+  part def SeatAssembly {
+    attribute cushionCompressionLimit : Real = 45.0;
+    port loadOut : LoadPort;
+  }
+
+  part def BackRest {
+    attribute currentBackAngle : Angle;
+    port driveInput : MotionCommandPort;
+  }
+
+  part def FootRest {
+    attribute currentFootrestAngle : Angle;
+    port driveInput : MotionCommandPort;
+  }
+
+  part def LiftMechanism {
+    attribute currentSeatLiftAngle : Angle;
+    attribute liftForceCapacity : Force = (value = 2200.0, unit = "N");
+    port driveInput : MotionCommandPort;
+  }
+
+  part def ActuatorSet {
+    attribute liftActuatorRatedForce : Force = (value = 2200.0, unit = "N");
+    attribute backActuatorRatedForce : Force = (value = 900.0, unit = "N");
+    attribute footrestActuatorRatedForce : Force = (value = 700.0, unit = "N");
+    attribute nominalExtensionSpeed : Speed = (value = 7.5, unit = "mm/s");
+
+    port commandIn : MotionCommandPort;
+    port feedbackOut : FeedbackPort;
+    port liftDrive : MotionCommandPort;
+    port backDrive : MotionCommandPort;
+    port footrestDrive : MotionCommandPort;
+  }
+
+  part def LiftChairController {
+    attribute controlVoltage : Voltage = (value = 24.0, unit = "V");
+    attribute softStartDuration : Time = (value = 0.8, unit = "s");
+
+    port powerIn : PowerInPort;
+    port userCommandIn : CommandInPort;
+    port safetyIn : SafetyPort;
+    port positionFeedbackIn : FeedbackPort;
+    port motionCommandOut : MotionCommandPort;
+
+    perform action interpretUserCommand;
+    perform action coordinateActuators;
+    perform action stopMotionOnFault;
+  }
+
+  part def HandPendant {
+    attribute cableLength : Real = 1500.0;
+    port commandOut : CommandInPort;
+  }
+
+  part def SafetySystem {
+    attribute overloadThreshold : Mass = (value = 170.0, unit = "kg");
+    attribute obstructionStopTime : Time = (value = 0.2, unit = "s");
+
+    port loadIn : LoadPort;
+    port safetyOut : SafetyPort;
+
+    perform action monitorOccupantAndObstructions;
+  }
+
+  part def PowerSupply {
+    attribute inputVoltage : Voltage = (value = 120.0, unit = "V");
+    attribute outputVoltage : Voltage = (value = 24.0, unit = "V");
+    attribute outputPower : Power = (value = 180.0, unit = "W");
+
+    port powerOut : PowerOutPort;
+  }
+
+  action def ProvideAssistedSitStandSupport {
+    in item userCommand : UserCommand;
+    in item occupantLoad : OccupantLoad;
+    in item safetyStatus : SafetyStatus;
+    out item chairPosition : PositionFeedback;
+
+    action receiveUserIntent;
+    action validateSafeOperation;
+    action moveSeatBackAndFootrest;
+    action stabilizeAtTargetPosition;
+
+    flow receiveUserIntent then validateSafeOperation;
+    flow validateSafeOperation then moveSeatBackAndFootrest;
+    flow moveSeatBackAndFootrest then stabilizeAtTargetPosition;
+  }
+
+  action def InterpretUserCommand {
+    in item command : UserCommand;
+    out item motionCommand : MotionCommand;
+  }
+
+  action def CoordinateActuators {
+    in item motionCommand : MotionCommand;
+    in item feedback : PositionFeedback;
+    out item updatedCommand : MotionCommand;
+  }
+
+  action def StopMotionOnFault {
+    in item safetyStatus : SafetyStatus;
+    out item stopCommand : MotionCommand;
+  }
+
+  action def MonitorOccupantAndObstructions {
+    in item occupantLoad : OccupantLoad;
+    out item safetyStatus : SafetyStatus;
+  }
+
+  state def LiftChairOperationalStates {
+    entry; then poweredOff;
+
+    state poweredOff;
+    state ready;
+    state sittingPosition;
+    state reclining;
+    state liftingToStand;
+    state loweringToSit;
+    state stopped;
+    state fault;
+
+    transition powerApplied first poweredOff then ready;
+    transition initialize first ready then sittingPosition;
+
+    transition reclineCommand first sittingPosition then reclining
+      accept UserCommand
+      if command.reclineRequested == true;
+
+    transition returnToSit first reclining then sittingPosition
+      accept UserCommand
+      if command.sitRequested == true;
+
+    transition raiseCommand first sittingPosition then liftingToStand
+      accept UserCommand
+      if command.raiseRequested == true;
+
+    transition standComplete first liftingToStand then ready
+      accept PositionFeedback
+      if feedback.motionComplete == true;
+
+    transition lowerCommand first ready then loweringToSit
+      accept UserCommand
+      if command.sitRequested == true;
+
+    transition sitComplete first loweringToSit then sittingPosition
+      accept PositionFeedback
+      if feedback.motionComplete == true;
+
+    transition userStop first sittingPosition then stopped
+      accept UserCommand
+      if command.stopRequested == true;
+
+    transition userStopWhileMoving first reclining then stopped
+      accept UserCommand
+      if command.stopRequested == true;
+
+    transition restartAfterStop first stopped then ready;
+
+    transition safetyFaultFromReady first ready then fault
+      accept SafetyStatus
+      if status.overloadDetected == true or status.obstructionDetected == true or status.actuatorFaultDetected == true or status.emergencyStopActive == true;
+
+    transition safetyFaultWhileMoving first liftingToStand then fault
+      accept SafetyStatus
+      if status.overloadDetected == true or status.obstructionDetected == true or status.actuatorFaultDetected == true or status.emergencyStopActive == true;
+
+    transition faultCleared first fault then ready
+      accept SafetyStatus
+      if status.overloadDetected == false and status.obstructionDetected == false and status.actuatorFaultDetected == false and status.emergencyStopActive == false;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall provide powered assistance that moves an occupied chair between seated, reclined, and raised standing-assist positions while maintaining occupant support and stability.";
+  }
+
+  requirement def OccupantSupportRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall support an occupant mass up to 160 kg during sitting, reclining, lifting, and lowering motions.";
+  }
+
+  requirement def ControlledMotionRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall coordinate the back rest, seat lift mechanism, and foot rest so transitions occur smoothly without abrupt motion.";
+  }
+
+  requirement def SafetyStopRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall stop powered motion within 0.2 s when overload, obstruction, actuator fault, or emergency stop is detected.";
+  }
+
+  requirement def UserCommandRequirement {
+    subject chair : LiftChair;
+    doc "The lift chair shall accept user commands for raise, recline, sit, and stop through a hand pendant interface.";
+  }
+
+  requirement primaryFunction : PrimaryFunctionRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement occupantSupport : OccupantSupportRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement controlledMotion : ControlledMotionRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement safetyStop : SafetyStopRequirement {
+    subject chair = LiftChair;
+  }
+
+  requirement userCommandAccess : UserCommandRequirement {
+    subject chair = LiftChair;
+  }
+
+}

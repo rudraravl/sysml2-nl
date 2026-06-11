@@ -1,0 +1,771 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-5cmhkqg0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb336-cda1-7413-8784-6b57bd959ac8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Air purifier and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AirPurifierSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Concentration {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def AirFlowRate {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def Efficiency {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def SoundPressureLevel {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def ElectricPower {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def FilterLife {
+        value : Real;
+        unit : Unit;
+    }
+
+    item def IndoorAir {
+        attribute particulateMatterPM25 : Concentration;
+        attribute volatileOrganicCompounds : Concentration;
+        attribute temperature : Real;
+        attribute relativeHumidity : Real;
+    }
+
+    item def PurifiedAir {
+        attribute particulateMatterPM25 : Concentration;
+        attribute volatileOrganicCompounds : Concentration;
+        attribute outletFlowRate : AirFlowRate;
+    }
+
+    item def DustParticles {
+        attribute meanParticleDiameter : Real;
+        attribute capturedMass : Real;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+    }
+
+    item def UserCommand {
+        attribute requestedMode : PurificationMode;
+        attribute targetAirQualityIndex : Integer;
+    }
+
+    item def AirQualityReading {
+        attribute pm25 : Concentration;
+        attribute voc : Concentration;
+        attribute airQualityIndex : Integer;
+    }
+
+    enum def PurificationMode {
+        enum off;
+        enum sleep;
+        enum automatic;
+        enum high;
+        enum turbo;
+    }
+
+    enum def FilterCondition {
+        enum clean;
+        enum usable;
+        enum replaceSoon;
+        enum exhausted;
+    }
+
+    port def AirInletPort {
+        in item incomingAir : IndoorAir;
+    }
+
+    port def AirOutletPort {
+        out item cleanAir : PurifiedAir;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def ReadingPort {
+        out item reading : AirQualityReading;
+    }
+
+    part def FanAssembly {
+        attribute commandedSpeedRpm : Real;
+        attribute maximumFlowRate : AirFlowRate = (value = 350.0, unit = "m^3/h");
+        attribute ratedPower : ElectricPower = (value = 45.0, unit = "W");
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+        port powerIn : PowerInputPort;
+
+        action moveAir {
+            in item unfilteredAir : IndoorAir;
+            out item pressurizedAir : IndoorAir;
+        }
+    }
+
+    part def PreFilter {
+        attribute largeParticleEfficiency : Efficiency = (value = 85.0, unit = "%");
+        attribute serviceIntervalDays : Real = 30.0;
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+
+        action removeLargeParticles {
+            in item roomAir : IndoorAir;
+            out item partiallyFilteredAir : IndoorAir;
+            out item retainedDust : DustParticles;
+        }
+    }
+
+    part def HepaFilter {
+        attribute pm25RemovalEfficiency : Efficiency = (value = 99.97, unit = "%");
+        attribute remainingLife : FilterLife = (value = 180.0, unit = "d");
+        attribute condition : FilterCondition;
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+
+        action removeFineParticles {
+            in item partiallyFilteredAir : IndoorAir;
+            out item particleReducedAir : IndoorAir;
+            out item retainedFineDust : DustParticles;
+        }
+    }
+
+    part def ActivatedCarbonFilter {
+        attribute vocRemovalEfficiency : Efficiency = (value = 80.0, unit = "%");
+        attribute adsorptionCapacity : Real = 250.0;
+        attribute remainingLife : FilterLife = (value = 120.0, unit = "d");
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+
+        action adsorbChemicalPollutants {
+            in item particleReducedAir : IndoorAir;
+            out item purifiedAir : PurifiedAir;
+        }
+    }
+
+    part def AirQualitySensor {
+        attribute pm25MeasurementRange : Concentration = (value = 500.0, unit = "ug/m^3");
+        attribute vocMeasurementRange : Concentration = (value = 1000.0, unit = "ppb");
+        attribute samplePeriod : Real = 5.0;
+
+        port sampledAir : AirInletPort;
+        port readingOut : ReadingPort;
+
+        action measureAirQuality {
+            in item sampledIndoorAir : IndoorAir;
+            out item measuredReading : AirQualityReading;
+        }
+    }
+
+    part def ControlUnit {
+        attribute currentMode : PurificationMode;
+        attribute targetAirQualityIndex : Integer = 50;
+        attribute commandedFanSpeedRpm : Real;
+        attribute filterCondition : FilterCondition;
+
+        port commandIn : CommandPort;
+        port sensorReadingIn : ReadingPort;
+        port powerIn : PowerInputPort;
+
+        action selectOperatingMode {
+            in item userCommand : UserCommand;
+            in item airReading : AirQualityReading;
+            out mode : PurificationMode;
+            out fanSpeedRpm : Real;
+        }
+
+        state def OperatingStateMachine {
+            entry action initializeController;
+            state Off;
+            state Sleep;
+            state Automatic;
+            state High;
+            state Turbo;
+            state FilterServiceRequired;
+
+            transition initial then Off;
+
+            transition Off_to_Automatic
+                first Off
+                accept UserCommand
+                if command.requestedMode == PurificationMode::automatic
+                then Automatic;
+
+            transition Automatic_to_Sleep
+                first Automatic
+                accept UserCommand
+                if command.requestedMode == PurificationMode::sleep
+                then Sleep;
+
+            transition Automatic_to_High
+                first Automatic
+                accept AirQualityReading
+                if reading.airQualityIndex > 100
+                then High;
+
+            transition High_to_Turbo
+                first High
+                accept AirQualityReading
+                if reading.airQualityIndex > 150
+                then Turbo;
+
+            transition Turbo_to_Automatic
+                first Turbo
+                accept AirQualityReading
+                if reading.airQualityIndex <= 75
+                then Automatic;
+
+            transition Any_to_Service
+                first Automatic
+                accept AirQualityReading
+                if filterCondition == FilterCondition::exhausted
+                then FilterServiceRequired;
+
+            transition Service_to_Off
+                first FilterServiceRequired
+                accept UserCommand
+                if command.requestedMode == PurificationMode::off
+                then Off;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayedAirQualityIndex : Integer;
+        attribute displayedMode : PurificationMode;
+        attribute filterReplacementAlert : Boolean;
+
+        port commandOut : CommandPort;
+        port readingIn : ReadingPort;
+
+        action displayStatus {
+            in item reading : AirQualityReading;
+            in mode : PurificationMode;
+            in filterCondition : FilterCondition;
+        }
+    }
+
+    part def AirPurifier {
+        attribute cleanAirDeliveryRate : AirFlowRate = (value = 280.0, unit = "m^3/h");
+        attribute ratedInputPower : ElectricPower = (value = 55.0, unit = "W");
+        attribute maximumNoiseLevel : SoundPressureLevel = (value = 52.0, unit = "dBA");
+        attribute standbyPower : ElectricPower = (value = 0.8, unit = "W");
+
+        port roomAirIn : AirInletPort;
+        port purifiedAirOut : AirOutletPort;
+        port mainsPowerIn : PowerInputPort;
+        port userCommandIn : CommandPort;
+        port airQualityOut : ReadingPort;
+
+        part fan : FanAssembly;
+        part preFilter : PreFilter;
+        part hepaFilter : HepaFilter;
+        part carbonFilter : ActivatedCarbonFilter;
+        part airQualitySensor : AirQualitySensor;
+        part controller : ControlUnit;
+        part userInterface : UserInterface;
+
+        connect roomAirIn to preFilter.airIn;
+        connect preFilter.airOut to hepaFilter.airIn;
+        connect hepaFilter.airOut to carbonFilter.airIn;
+        connect carbonFilter.airOut to fan.airIn;
+        connect fan.airOut to purifiedAirOut;
+
+        connect roomAirIn to airQualitySensor.sampledAir;
+        connect airQualitySensor.readingOut to controller.sensorReadingIn;
+        connect airQualitySensor.readingOut to userInterface.readingIn;
+        connect airQualitySensor.readingOut to airQualityOut;
+
+        connect userCommandIn to controller.commandIn;
+        connect userCommandIn to userInterface.commandOut;
+
+        connect mainsPowerIn to controller.powerIn;
+        connect mainsPowerIn to fan.powerIn;
+
+        action purifyIndoorAir {
+            in item contaminatedAir : IndoorAir;
+            out item cleanedAir : PurifiedAir;
+
+            first start;
+            then action senseAirQuality : airQualitySensor.measureAirQuality;
+            then action determineMode : controller.selectOperatingMode;
+            then action captureLargeParticles : preFilter.removeLargeParticles;
+            then action captureFineParticles : hepaFilter.removeFineParticles;
+            then action removeOdorsAndVocs : carbonFilter.adsorbChemicalPollutants;
+            then action circulateCleanAir : fan.moveAir;
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier shall draw indoor air through filtration stages and deliver purified air back to the room to reduce airborne particulate and chemical pollutants.
+        }
+    }
+
+    requirement def ParticleRemovalRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.hepaFilter.pm25RemovalEfficiency.value >= 99.97
+        }
+    }
+
+    requirement def AirDeliveryRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.cleanAirDeliveryRate.value >= 250.0
+        }
+    }
+
+    requirement def NoiseRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.maximumNoiseLevel.value <= 55.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.ratedInputPower.value <= 60.0
+        }
+    }
+
+    requirement def AutomaticControlRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.controller shall increase fan speed when measured air quality worsens and reduce fan speed when measured air quality improves.
+        }
+    }
+
+    requirement def FilterServiceRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.userInterface shall alert the user when either the HEPA filter or activated carbon filter reaches exhausted condition.
+        }
+    }
+
+    part householdAirPurifier : AirPurifier;
+
+    satisfy PrimaryFunctionRequirement by householdAirPurifier;
+    satisfy ParticleRemovalRequirement by householdAirPurifier;
+    satisfy AirDeliveryRequirement by householdAirPurifier;
+    satisfy NoiseRequirement by householdAirPurifier;
+    satisfy PowerRequirement by householdAirPurifier;
+    satisfy AutomaticControlRequirement by householdAirPurifier;
+    satisfy FilterServiceRequirement by householdAirPurifier;
+}
+tokens used
+4,013
+package AirPurifierSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Concentration {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def AirFlowRate {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def Efficiency {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def SoundPressureLevel {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def ElectricPower {
+        value : Real;
+        unit : Unit;
+    }
+
+    attribute def FilterLife {
+        value : Real;
+        unit : Unit;
+    }
+
+    item def IndoorAir {
+        attribute particulateMatterPM25 : Concentration;
+        attribute volatileOrganicCompounds : Concentration;
+        attribute temperature : Real;
+        attribute relativeHumidity : Real;
+    }
+
+    item def PurifiedAir {
+        attribute particulateMatterPM25 : Concentration;
+        attribute volatileOrganicCompounds : Concentration;
+        attribute outletFlowRate : AirFlowRate;
+    }
+
+    item def DustParticles {
+        attribute meanParticleDiameter : Real;
+        attribute capturedMass : Real;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+    }
+
+    item def UserCommand {
+        attribute requestedMode : PurificationMode;
+        attribute targetAirQualityIndex : Integer;
+    }
+
+    item def AirQualityReading {
+        attribute pm25 : Concentration;
+        attribute voc : Concentration;
+        attribute airQualityIndex : Integer;
+    }
+
+    enum def PurificationMode {
+        enum off;
+        enum sleep;
+        enum automatic;
+        enum high;
+        enum turbo;
+    }
+
+    enum def FilterCondition {
+        enum clean;
+        enum usable;
+        enum replaceSoon;
+        enum exhausted;
+    }
+
+    port def AirInletPort {
+        in item incomingAir : IndoorAir;
+    }
+
+    port def AirOutletPort {
+        out item cleanAir : PurifiedAir;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def ReadingPort {
+        out item reading : AirQualityReading;
+    }
+
+    part def FanAssembly {
+        attribute commandedSpeedRpm : Real;
+        attribute maximumFlowRate : AirFlowRate = (value = 350.0, unit = "m^3/h");
+        attribute ratedPower : ElectricPower = (value = 45.0, unit = "W");
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+        port powerIn : PowerInputPort;
+
+        action moveAir {
+            in item unfilteredAir : IndoorAir;
+            out item pressurizedAir : IndoorAir;
+        }
+    }
+
+    part def PreFilter {
+        attribute largeParticleEfficiency : Efficiency = (value = 85.0, unit = "%");
+        attribute serviceIntervalDays : Real = 30.0;
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+
+        action removeLargeParticles {
+            in item roomAir : IndoorAir;
+            out item partiallyFilteredAir : IndoorAir;
+            out item retainedDust : DustParticles;
+        }
+    }
+
+    part def HepaFilter {
+        attribute pm25RemovalEfficiency : Efficiency = (value = 99.97, unit = "%");
+        attribute remainingLife : FilterLife = (value = 180.0, unit = "d");
+        attribute condition : FilterCondition;
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+
+        action removeFineParticles {
+            in item partiallyFilteredAir : IndoorAir;
+            out item particleReducedAir : IndoorAir;
+            out item retainedFineDust : DustParticles;
+        }
+    }
+
+    part def ActivatedCarbonFilter {
+        attribute vocRemovalEfficiency : Efficiency = (value = 80.0, unit = "%");
+        attribute adsorptionCapacity : Real = 250.0;
+        attribute remainingLife : FilterLife = (value = 120.0, unit = "d");
+
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+
+        action adsorbChemicalPollutants {
+            in item particleReducedAir : IndoorAir;
+            out item purifiedAir : PurifiedAir;
+        }
+    }
+
+    part def AirQualitySensor {
+        attribute pm25MeasurementRange : Concentration = (value = 500.0, unit = "ug/m^3");
+        attribute vocMeasurementRange : Concentration = (value = 1000.0, unit = "ppb");
+        attribute samplePeriod : Real = 5.0;
+
+        port sampledAir : AirInletPort;
+        port readingOut : ReadingPort;
+
+        action measureAirQuality {
+            in item sampledIndoorAir : IndoorAir;
+            out item measuredReading : AirQualityReading;
+        }
+    }
+
+    part def ControlUnit {
+        attribute currentMode : PurificationMode;
+        attribute targetAirQualityIndex : Integer = 50;
+        attribute commandedFanSpeedRpm : Real;
+        attribute filterCondition : FilterCondition;
+
+        port commandIn : CommandPort;
+        port sensorReadingIn : ReadingPort;
+        port powerIn : PowerInputPort;
+
+        action selectOperatingMode {
+            in item userCommand : UserCommand;
+            in item airReading : AirQualityReading;
+            out mode : PurificationMode;
+            out fanSpeedRpm : Real;
+        }
+
+        state def OperatingStateMachine {
+            entry action initializeController;
+            state Off;
+            state Sleep;
+            state Automatic;
+            state High;
+            state Turbo;
+            state FilterServiceRequired;
+
+            transition initial then Off;
+
+            transition Off_to_Automatic
+                first Off
+                accept UserCommand
+                if command.requestedMode == PurificationMode::automatic
+                then Automatic;
+
+            transition Automatic_to_Sleep
+                first Automatic
+                accept UserCommand
+                if command.requestedMode == PurificationMode::sleep
+                then Sleep;
+
+            transition Automatic_to_High
+                first Automatic
+                accept AirQualityReading
+                if reading.airQualityIndex > 100
+                then High;
+
+            transition High_to_Turbo
+                first High
+                accept AirQualityReading
+                if reading.airQualityIndex > 150
+                then Turbo;
+
+            transition Turbo_to_Automatic
+                first Turbo
+                accept AirQualityReading
+                if reading.airQualityIndex <= 75
+                then Automatic;
+
+            transition Any_to_Service
+                first Automatic
+                accept AirQualityReading
+                if filterCondition == FilterCondition::exhausted
+                then FilterServiceRequired;
+
+            transition Service_to_Off
+                first FilterServiceRequired
+                accept UserCommand
+                if command.requestedMode == PurificationMode::off
+                then Off;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayedAirQualityIndex : Integer;
+        attribute displayedMode : PurificationMode;
+        attribute filterReplacementAlert : Boolean;
+
+        port commandOut : CommandPort;
+        port readingIn : ReadingPort;
+
+        action displayStatus {
+            in item reading : AirQualityReading;
+            in mode : PurificationMode;
+            in filterCondition : FilterCondition;
+        }
+    }
+
+    part def AirPurifier {
+        attribute cleanAirDeliveryRate : AirFlowRate = (value = 280.0, unit = "m^3/h");
+        attribute ratedInputPower : ElectricPower = (value = 55.0, unit = "W");
+        attribute maximumNoiseLevel : SoundPressureLevel = (value = 52.0, unit = "dBA");
+        attribute standbyPower : ElectricPower = (value = 0.8, unit = "W");
+
+        port roomAirIn : AirInletPort;
+        port purifiedAirOut : AirOutletPort;
+        port mainsPowerIn : PowerInputPort;
+        port userCommandIn : CommandPort;
+        port airQualityOut : ReadingPort;
+
+        part fan : FanAssembly;
+        part preFilter : PreFilter;
+        part hepaFilter : HepaFilter;
+        part carbonFilter : ActivatedCarbonFilter;
+        part airQualitySensor : AirQualitySensor;
+        part controller : ControlUnit;
+        part userInterface : UserInterface;
+
+        connect roomAirIn to preFilter.airIn;
+        connect preFilter.airOut to hepaFilter.airIn;
+        connect hepaFilter.airOut to carbonFilter.airIn;
+        connect carbonFilter.airOut to fan.airIn;
+        connect fan.airOut to purifiedAirOut;
+
+        connect roomAirIn to airQualitySensor.sampledAir;
+        connect airQualitySensor.readingOut to controller.sensorReadingIn;
+        connect airQualitySensor.readingOut to userInterface.readingIn;
+        connect airQualitySensor.readingOut to airQualityOut;
+
+        connect userCommandIn to controller.commandIn;
+        connect userCommandIn to userInterface.commandOut;
+
+        connect mainsPowerIn to controller.powerIn;
+        connect mainsPowerIn to fan.powerIn;
+
+        action purifyIndoorAir {
+            in item contaminatedAir : IndoorAir;
+            out item cleanedAir : PurifiedAir;
+
+            first start;
+            then action senseAirQuality : airQualitySensor.measureAirQuality;
+            then action determineMode : controller.selectOperatingMode;
+            then action captureLargeParticles : preFilter.removeLargeParticles;
+            then action captureFineParticles : hepaFilter.removeFineParticles;
+            then action removeOdorsAndVocs : carbonFilter.adsorbChemicalPollutants;
+            then action circulateCleanAir : fan.moveAir;
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier shall draw indoor air through filtration stages and deliver purified air back to the room to reduce airborne particulate and chemical pollutants.
+        }
+    }
+
+    requirement def ParticleRemovalRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.hepaFilter.pm25RemovalEfficiency.value >= 99.97
+        }
+    }
+
+    requirement def AirDeliveryRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.cleanAirDeliveryRate.value >= 250.0
+        }
+    }
+
+    requirement def NoiseRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.maximumNoiseLevel.value <= 55.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.ratedInputPower.value <= 60.0
+        }
+    }
+
+    requirement def AutomaticControlRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.controller shall increase fan speed when measured air quality worsens and reduce fan speed when measured air quality improves.
+        }
+    }
+
+    requirement def FilterServiceRequirement {
+        subject purifier : AirPurifier;
+        require constraint {
+            purifier.userInterface shall alert the user when either the HEPA filter or activated carbon filter reaches exhausted condition.
+        }
+    }
+
+    part householdAirPurifier : AirPurifier;
+
+    satisfy PrimaryFunctionRequirement by householdAirPurifier;
+    satisfy ParticleRemovalRequirement by householdAirPurifier;
+    satisfy AirDeliveryRequirement by householdAirPurifier;
+    satisfy NoiseRequirement by householdAirPurifier;
+    satisfy PowerRequirement by householdAirPurifier;
+    satisfy AutomaticControlRequirement by householdAirPurifier;
+    satisfy FilterServiceRequirement by householdAirPurifier;
+}

@@ -1,0 +1,733 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-eodl3at_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb413-532a-7393-8376-e1d621ecf653
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Scanning laser ophthalmoscopy and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ScanningLaserOphthalmoscopySystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Nanometer :> length {
+        unit = SI::nanometre;
+    }
+
+    attribute def Micrometer :> length {
+        unit = SI::micrometre;
+    }
+
+    attribute def Milliwatt :> power {
+        unit = SI::milliwatt;
+    }
+
+    attribute def Hertz :> frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Degree :> planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def Millisecond :> duration {
+        unit = SI::millisecond;
+    }
+
+    attribute def PixelCount :> Integer;
+
+    item def LaserBeam {
+        attribute wavelength : Nanometer;
+        attribute opticalPower : Milliwatt;
+        attribute beamDiameter : Micrometer;
+        attribute divergence : Degree;
+        attribute polarization : String;
+    }
+
+    item def ScannedRetinalIllumination :> LaserBeam {
+        attribute horizontalScanAngle : Degree;
+        attribute verticalScanAngle : Degree;
+        attribute pixelDwellTime : Millisecond;
+    }
+
+    item def RetinalBackscatter {
+        attribute wavelength : Nanometer;
+        attribute intensity : Real;
+        attribute acquisitionTime : Millisecond;
+        attribute retinalLocationX : Degree;
+        attribute retinalLocationY : Degree;
+    }
+
+    item def RetinalImage {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute frameRate : Hertz;
+        attribute grayscaleDepthBits : Integer;
+        attribute fieldOfView : Degree;
+    }
+
+    item def PatientEye {
+        attribute pupilDiameter : Micrometer;
+        attribute axialLength : Micrometer;
+        attribute fixationStable : Boolean;
+    }
+
+    item def OperatorCommand {
+        attribute startAcquisition : Boolean;
+        attribute stopAcquisition : Boolean;
+        attribute requestedFieldOfView : Degree;
+        attribute requestedFrameRate : Hertz;
+    }
+
+    item def SystemStatus {
+        attribute ready : Boolean;
+        attribute acquiring : Boolean;
+        attribute laserEnabled : Boolean;
+        attribute faultActive : Boolean;
+        attribute message : String;
+    }
+
+    port def OpticalOutputPort {
+        out item beam : LaserBeam;
+    }
+
+    port def OpticalScanPort {
+        out item illumination : ScannedRetinalIllumination;
+    }
+
+    port def OpticalReturnPort {
+        in item backscatter : RetinalBackscatter;
+    }
+
+    port def EyeInterfacePort {
+        out item incidentIllumination : ScannedRetinalIllumination;
+        in item returnedLight : RetinalBackscatter;
+        in item eye : PatientEye;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def StatusPort {
+        out item status : SystemStatus;
+    }
+
+    port def ImageOutputPort {
+        out item image : RetinalImage;
+    }
+
+    part def LaserSource {
+        attribute nominalWavelength : Nanometer = 790;
+        attribute maximumAccessiblePower : Milliwatt = 1.5;
+        attribute warmupTime : Millisecond = 500;
+        port opticalOut : OpticalOutputPort;
+
+        action emitLaserBeam {
+            out item emittedBeam : LaserBeam;
+        }
+    }
+
+    part def BeamConditioner {
+        attribute targetBeamDiameter : Micrometer = 1200;
+        attribute focusAdjustmentRange : Micrometer = 8000;
+        port opticalIn : OpticalReturnPort;
+        port opticalOut : OpticalOutputPort;
+
+        action collimateAndFocus {
+            in item rawBeam : LaserBeam;
+            out item conditionedBeam : LaserBeam;
+        }
+    }
+
+    part def RasterScanner {
+        attribute horizontalFrequency : Hertz = 16000;
+        attribute verticalFrequency : Hertz = 30;
+        attribute maximumFieldOfView : Degree = 45;
+        attribute minimumPixelDwellTime : Millisecond = 0.00008;
+        port opticalIn : OpticalReturnPort;
+        port scannedOut : OpticalScanPort;
+
+        action generateRasterScan {
+            in item conditionedBeam : LaserBeam;
+            out item scannedIllumination : ScannedRetinalIllumination;
+        }
+    }
+
+    part def OphthalmicOptics {
+        attribute workingDistance : Micrometer = 25000;
+        attribute pupilAlignmentTolerance : Micrometer = 500;
+        attribute retinalSpotDiameter : Micrometer = 15;
+        port scannerIn : OpticalReturnPort;
+        port eyeInterface : EyeInterfacePort;
+
+        action projectIlluminationToRetina {
+            in item scannedIllumination : ScannedRetinalIllumination;
+            in item eye : PatientEye;
+            out item retinalBackscatter : RetinalBackscatter;
+        }
+    }
+
+    part def ConfocalAperture {
+        attribute pinholeDiameter : Micrometer = 75;
+        attribute rejectionRatio : Real = 0.92;
+        port opticalIn : OpticalReturnPort;
+        port opticalOut : OpticalReturnPort;
+
+        action rejectOutOfFocusLight {
+            in item mixedBackscatter : RetinalBackscatter;
+            out item confocalBackscatter : RetinalBackscatter;
+        }
+    }
+
+    part def Photodetector {
+        attribute detectorGain : Real = 1200000;
+        attribute responseWavelength : Nanometer = 790;
+        attribute saturationThreshold : Real = 0.98;
+        port opticalIn : OpticalReturnPort;
+
+        action convertLightToSignal {
+            in item confocalBackscatter : RetinalBackscatter;
+            out signalIntensity : Real;
+        }
+    }
+
+    part def ImageProcessor {
+        attribute defaultWidthPixels : PixelCount = 1024;
+        attribute defaultHeightPixels : PixelCount = 1024;
+        attribute defaultFrameRate : Hertz = 30;
+        attribute grayscaleDepthBits : Integer = 12;
+        port imageOut : ImageOutputPort;
+
+        action reconstructRetinalImage {
+            in signalIntensity : Real;
+            in item scanPattern : ScannedRetinalIllumination;
+            out item image : RetinalImage;
+        }
+    }
+
+    part def OperatorConsole {
+        port commandOut : CommandPort;
+        port statusIn : StatusPort;
+        port imageIn : ImageOutputPort;
+
+        action displayLiveImage {
+            in item image : RetinalImage;
+            in item status : SystemStatus;
+        }
+    }
+
+    part def SafetyController {
+        attribute maximumRetinalExposure : Milliwatt = 1.0;
+        attribute shutdownLatency : Millisecond = 10;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        action evaluateSafety {
+            in item command : OperatorCommand;
+            in item beam : LaserBeam;
+            out enableLaser : Boolean;
+            out item status : SystemStatus;
+        }
+    }
+
+    part def ScanningLaserOphthalmoscope {
+        attribute systemName : String = "Confocal Scanning Laser Ophthalmoscope";
+        attribute primaryFunction : String =
+            "Raster scan a low-power laser beam across the retina, collect confocal backscattered light, and reconstruct a high-contrast retinal image.";
+
+        port patientInterface : EyeInterfacePort;
+        port operatorCommand : CommandPort;
+        port operatorStatus : StatusPort;
+        port imageOutput : ImageOutputPort;
+
+        part laser : LaserSource;
+        part conditioner : BeamConditioner;
+        part scanner : RasterScanner;
+        part optics : OphthalmicOptics;
+        part aperture : ConfocalAperture;
+        part detector : Photodetector;
+        part processor : ImageProcessor;
+        part console : OperatorConsole;
+        part safety : SafetyController;
+
+        connection laserToConditioner connect laser.opticalOut to conditioner.opticalIn;
+        connection conditionerToScanner connect conditioner.opticalOut to scanner.opticalIn;
+        connection scannerToOptics connect scanner.scannedOut to optics.scannerIn;
+        connection opticsToPatient connect optics.eyeInterface to patientInterface;
+        connection returnToAperture connect patientInterface.returnedLight to aperture.opticalIn;
+        connection apertureToDetector connect aperture.opticalOut to detector.opticalIn;
+        connection processorToSystemOutput connect processor.imageOut to imageOutput;
+        connection commandToSafety connect operatorCommand to safety.commandIn;
+        connection safetyToStatus connect safety.statusOut to operatorStatus;
+        connection consoleCommand connect console.commandOut to operatorCommand;
+        connection consoleStatus connect operatorStatus to console.statusIn;
+        connection consoleImage connect imageOutput to console.imageIn;
+
+        action acquireRetinalImage {
+            in item command : OperatorCommand;
+            in item eye : PatientEye;
+            out item image : RetinalImage;
+            out item status : SystemStatus;
+
+            first start;
+            then safety.evaluateSafety;
+            then laser.emitLaserBeam;
+            then conditioner.collimateAndFocus;
+            then scanner.generateRasterScan;
+            then optics.projectIlluminationToRetina;
+            then aperture.rejectOutOfFocusLight;
+            then detector.convertLightToSignal;
+            then processor.reconstructRetinalImage;
+            then done;
+        }
+
+        state acquisitionState {
+            state Off;
+            state Standby;
+            state Alignment;
+            state Ready;
+            state Scanning;
+            state Processing;
+            state Displaying;
+            state Fault;
+
+            transition initial then Off;
+            transition powerOn first Off then Standby;
+            transition beginAlignment first Standby then Alignment;
+            transition alignmentStable first Alignment then Ready;
+            transition startScan first Ready then Scanning;
+            transition scanComplete first Scanning then Processing;
+            transition imageReady first Processing then Displaying;
+            transition nextFrame first Displaying then Scanning;
+            transition stopRequested first Scanning then Ready;
+            transition unsafeExposure first Ready then Fault;
+            transition detectorSaturated first Scanning then Fault;
+            transition resetFault first Fault then Standby;
+            transition powerOff first Standby then Off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.primaryFunction ==
+            "Raster scan a low-power laser beam across the retina, collect confocal backscattered light, and reconstruct a high-contrast retinal image."
+        }
+    }
+
+    requirement def LaserSafetyRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.laser.maximumAccessiblePower <= 1.5 [SI::milliwatt]
+        }
+    }
+
+    requirement def RetinalImageResolutionRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.processor.defaultWidthPixels >= 1024 and
+            slo.processor.defaultHeightPixels >= 1024
+        }
+    }
+
+    requirement def ConfocalRejectionRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.aperture.rejectionRatio >= 0.90
+        }
+    }
+
+    requirement def RealTimeImagingRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.processor.defaultFrameRate >= 30 [SI::hertz]
+        }
+    }
+
+    requirement def FieldOfViewRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.scanner.maximumFieldOfView >= 45 [SI::degree]
+        }
+    }
+
+    part sloSystem : ScanningLaserOphthalmoscope;
+
+}
+tokens used
+4,326
+package ScanningLaserOphthalmoscopySystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Nanometer :> length {
+        unit = SI::nanometre;
+    }
+
+    attribute def Micrometer :> length {
+        unit = SI::micrometre;
+    }
+
+    attribute def Milliwatt :> power {
+        unit = SI::milliwatt;
+    }
+
+    attribute def Hertz :> frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Degree :> planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def Millisecond :> duration {
+        unit = SI::millisecond;
+    }
+
+    attribute def PixelCount :> Integer;
+
+    item def LaserBeam {
+        attribute wavelength : Nanometer;
+        attribute opticalPower : Milliwatt;
+        attribute beamDiameter : Micrometer;
+        attribute divergence : Degree;
+        attribute polarization : String;
+    }
+
+    item def ScannedRetinalIllumination :> LaserBeam {
+        attribute horizontalScanAngle : Degree;
+        attribute verticalScanAngle : Degree;
+        attribute pixelDwellTime : Millisecond;
+    }
+
+    item def RetinalBackscatter {
+        attribute wavelength : Nanometer;
+        attribute intensity : Real;
+        attribute acquisitionTime : Millisecond;
+        attribute retinalLocationX : Degree;
+        attribute retinalLocationY : Degree;
+    }
+
+    item def RetinalImage {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute frameRate : Hertz;
+        attribute grayscaleDepthBits : Integer;
+        attribute fieldOfView : Degree;
+    }
+
+    item def PatientEye {
+        attribute pupilDiameter : Micrometer;
+        attribute axialLength : Micrometer;
+        attribute fixationStable : Boolean;
+    }
+
+    item def OperatorCommand {
+        attribute startAcquisition : Boolean;
+        attribute stopAcquisition : Boolean;
+        attribute requestedFieldOfView : Degree;
+        attribute requestedFrameRate : Hertz;
+    }
+
+    item def SystemStatus {
+        attribute ready : Boolean;
+        attribute acquiring : Boolean;
+        attribute laserEnabled : Boolean;
+        attribute faultActive : Boolean;
+        attribute message : String;
+    }
+
+    port def OpticalOutputPort {
+        out item beam : LaserBeam;
+    }
+
+    port def OpticalScanPort {
+        out item illumination : ScannedRetinalIllumination;
+    }
+
+    port def OpticalReturnPort {
+        in item backscatter : RetinalBackscatter;
+    }
+
+    port def EyeInterfacePort {
+        out item incidentIllumination : ScannedRetinalIllumination;
+        in item returnedLight : RetinalBackscatter;
+        in item eye : PatientEye;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def StatusPort {
+        out item status : SystemStatus;
+    }
+
+    port def ImageOutputPort {
+        out item image : RetinalImage;
+    }
+
+    part def LaserSource {
+        attribute nominalWavelength : Nanometer = 790;
+        attribute maximumAccessiblePower : Milliwatt = 1.5;
+        attribute warmupTime : Millisecond = 500;
+        port opticalOut : OpticalOutputPort;
+
+        action emitLaserBeam {
+            out item emittedBeam : LaserBeam;
+        }
+    }
+
+    part def BeamConditioner {
+        attribute targetBeamDiameter : Micrometer = 1200;
+        attribute focusAdjustmentRange : Micrometer = 8000;
+        port opticalIn : OpticalReturnPort;
+        port opticalOut : OpticalOutputPort;
+
+        action collimateAndFocus {
+            in item rawBeam : LaserBeam;
+            out item conditionedBeam : LaserBeam;
+        }
+    }
+
+    part def RasterScanner {
+        attribute horizontalFrequency : Hertz = 16000;
+        attribute verticalFrequency : Hertz = 30;
+        attribute maximumFieldOfView : Degree = 45;
+        attribute minimumPixelDwellTime : Millisecond = 0.00008;
+        port opticalIn : OpticalReturnPort;
+        port scannedOut : OpticalScanPort;
+
+        action generateRasterScan {
+            in item conditionedBeam : LaserBeam;
+            out item scannedIllumination : ScannedRetinalIllumination;
+        }
+    }
+
+    part def OphthalmicOptics {
+        attribute workingDistance : Micrometer = 25000;
+        attribute pupilAlignmentTolerance : Micrometer = 500;
+        attribute retinalSpotDiameter : Micrometer = 15;
+        port scannerIn : OpticalReturnPort;
+        port eyeInterface : EyeInterfacePort;
+
+        action projectIlluminationToRetina {
+            in item scannedIllumination : ScannedRetinalIllumination;
+            in item eye : PatientEye;
+            out item retinalBackscatter : RetinalBackscatter;
+        }
+    }
+
+    part def ConfocalAperture {
+        attribute pinholeDiameter : Micrometer = 75;
+        attribute rejectionRatio : Real = 0.92;
+        port opticalIn : OpticalReturnPort;
+        port opticalOut : OpticalReturnPort;
+
+        action rejectOutOfFocusLight {
+            in item mixedBackscatter : RetinalBackscatter;
+            out item confocalBackscatter : RetinalBackscatter;
+        }
+    }
+
+    part def Photodetector {
+        attribute detectorGain : Real = 1200000;
+        attribute responseWavelength : Nanometer = 790;
+        attribute saturationThreshold : Real = 0.98;
+        port opticalIn : OpticalReturnPort;
+
+        action convertLightToSignal {
+            in item confocalBackscatter : RetinalBackscatter;
+            out signalIntensity : Real;
+        }
+    }
+
+    part def ImageProcessor {
+        attribute defaultWidthPixels : PixelCount = 1024;
+        attribute defaultHeightPixels : PixelCount = 1024;
+        attribute defaultFrameRate : Hertz = 30;
+        attribute grayscaleDepthBits : Integer = 12;
+        port imageOut : ImageOutputPort;
+
+        action reconstructRetinalImage {
+            in signalIntensity : Real;
+            in item scanPattern : ScannedRetinalIllumination;
+            out item image : RetinalImage;
+        }
+    }
+
+    part def OperatorConsole {
+        port commandOut : CommandPort;
+        port statusIn : StatusPort;
+        port imageIn : ImageOutputPort;
+
+        action displayLiveImage {
+            in item image : RetinalImage;
+            in item status : SystemStatus;
+        }
+    }
+
+    part def SafetyController {
+        attribute maximumRetinalExposure : Milliwatt = 1.0;
+        attribute shutdownLatency : Millisecond = 10;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        action evaluateSafety {
+            in item command : OperatorCommand;
+            in item beam : LaserBeam;
+            out enableLaser : Boolean;
+            out item status : SystemStatus;
+        }
+    }
+
+    part def ScanningLaserOphthalmoscope {
+        attribute systemName : String = "Confocal Scanning Laser Ophthalmoscope";
+        attribute primaryFunction : String =
+            "Raster scan a low-power laser beam across the retina, collect confocal backscattered light, and reconstruct a high-contrast retinal image.";
+
+        port patientInterface : EyeInterfacePort;
+        port operatorCommand : CommandPort;
+        port operatorStatus : StatusPort;
+        port imageOutput : ImageOutputPort;
+
+        part laser : LaserSource;
+        part conditioner : BeamConditioner;
+        part scanner : RasterScanner;
+        part optics : OphthalmicOptics;
+        part aperture : ConfocalAperture;
+        part detector : Photodetector;
+        part processor : ImageProcessor;
+        part console : OperatorConsole;
+        part safety : SafetyController;
+
+        connection laserToConditioner connect laser.opticalOut to conditioner.opticalIn;
+        connection conditionerToScanner connect conditioner.opticalOut to scanner.opticalIn;
+        connection scannerToOptics connect scanner.scannedOut to optics.scannerIn;
+        connection opticsToPatient connect optics.eyeInterface to patientInterface;
+        connection returnToAperture connect patientInterface.returnedLight to aperture.opticalIn;
+        connection apertureToDetector connect aperture.opticalOut to detector.opticalIn;
+        connection processorToSystemOutput connect processor.imageOut to imageOutput;
+        connection commandToSafety connect operatorCommand to safety.commandIn;
+        connection safetyToStatus connect safety.statusOut to operatorStatus;
+        connection consoleCommand connect console.commandOut to operatorCommand;
+        connection consoleStatus connect operatorStatus to console.statusIn;
+        connection consoleImage connect imageOutput to console.imageIn;
+
+        action acquireRetinalImage {
+            in item command : OperatorCommand;
+            in item eye : PatientEye;
+            out item image : RetinalImage;
+            out item status : SystemStatus;
+
+            first start;
+            then safety.evaluateSafety;
+            then laser.emitLaserBeam;
+            then conditioner.collimateAndFocus;
+            then scanner.generateRasterScan;
+            then optics.projectIlluminationToRetina;
+            then aperture.rejectOutOfFocusLight;
+            then detector.convertLightToSignal;
+            then processor.reconstructRetinalImage;
+            then done;
+        }
+
+        state acquisitionState {
+            state Off;
+            state Standby;
+            state Alignment;
+            state Ready;
+            state Scanning;
+            state Processing;
+            state Displaying;
+            state Fault;
+
+            transition initial then Off;
+            transition powerOn first Off then Standby;
+            transition beginAlignment first Standby then Alignment;
+            transition alignmentStable first Alignment then Ready;
+            transition startScan first Ready then Scanning;
+            transition scanComplete first Scanning then Processing;
+            transition imageReady first Processing then Displaying;
+            transition nextFrame first Displaying then Scanning;
+            transition stopRequested first Scanning then Ready;
+            transition unsafeExposure first Ready then Fault;
+            transition detectorSaturated first Scanning then Fault;
+            transition resetFault first Fault then Standby;
+            transition powerOff first Standby then Off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.primaryFunction ==
+            "Raster scan a low-power laser beam across the retina, collect confocal backscattered light, and reconstruct a high-contrast retinal image."
+        }
+    }
+
+    requirement def LaserSafetyRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.laser.maximumAccessiblePower <= 1.5 [SI::milliwatt]
+        }
+    }
+
+    requirement def RetinalImageResolutionRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.processor.defaultWidthPixels >= 1024 and
+            slo.processor.defaultHeightPixels >= 1024
+        }
+    }
+
+    requirement def ConfocalRejectionRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.aperture.rejectionRatio >= 0.90
+        }
+    }
+
+    requirement def RealTimeImagingRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.processor.defaultFrameRate >= 30 [SI::hertz]
+        }
+    }
+
+    requirement def FieldOfViewRequirement {
+        subject slo : ScanningLaserOphthalmoscope;
+
+        require constraint {
+            slo.scanner.maximumFieldOfView >= 45 [SI::degree]
+        }
+    }
+
+    part sloSystem : ScanningLaserOphthalmoscope;
+
+}

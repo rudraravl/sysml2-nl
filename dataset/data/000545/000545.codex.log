@@ -1,0 +1,785 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-y1prk5ui
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb34a-a6f9-7e71-86a1-5e08a6e646ba
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Bedpan and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package BedpanCareSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Volume;
+    attribute def Mass;
+    attribute def Force;
+    attribute def Duration;
+    attribute def Temperature;
+    attribute def Pressure;
+    attribute def Angle;
+
+    value def milliliter :> Volume;
+    value def kilogram :> Mass;
+    value def newton :> Force;
+    value def second :> Duration;
+    value def degreeCelsius :> Temperature;
+    value def kilopascal :> Pressure;
+    value def degree :> Angle;
+
+    enum def PatientMobilityLevel {
+        enum fullyImmobile;
+        enum limitedMobility;
+        enum assistedTransfer;
+    }
+
+    enum def BedpanUseState {
+        enum storedClean;
+        enum positionedForUse;
+        enum collectingWaste;
+        enum removedAfterUse;
+        enum coveredForTransport;
+        enum emptied;
+        enum cleanedAndDisinfected;
+    }
+
+    item def HumanWaste {
+        attribute liquidVolume : Volume[ml];
+        attribute solidMass : Mass[kg];
+        attribute temperature : Temperature[degC];
+        attribute biologicalHazard : Boolean;
+    }
+
+    item def CleaningFluid {
+        attribute volume : Volume[ml];
+        attribute disinfectantConcentration : Real;
+        attribute temperature : Temperature[degC];
+    }
+
+    item def OdorAir {
+        attribute odorIntensity : Real;
+        attribute humidity : Real;
+    }
+
+    item def SupportLoad {
+        attribute downwardForce : Force[N];
+        attribute contactPressure : Pressure[kPa];
+    }
+
+    item def PatientComfortSignal {
+        attribute painScore : Integer;
+        attribute pressureHotspotDetected : Boolean;
+    }
+
+    port def WasteInletPort {
+        in item waste : HumanWaste;
+    }
+
+    port def WasteOutletPort {
+        out item waste : HumanWaste;
+    }
+
+    port def CleaningPort {
+        in item fluid : CleaningFluid;
+        out item rinseWaste : HumanWaste;
+    }
+
+    port def SupportInterfacePort {
+        in item load : SupportLoad;
+        out item comfort : PatientComfortSignal;
+    }
+
+    port def OdorVentPort {
+        out item air : OdorAir;
+    }
+
+    port def HandlingGripPort {
+        in item liftLoad : SupportLoad;
+    }
+
+    part def BedpanSystem {
+        doc /* A portable sanitary support and containment system whose primary high-level function is to receive, contain, transport, empty, and enable cleaning of human waste from a patient who cannot conveniently use a fixed toilet. */
+
+        attribute totalCapacity : Volume[ml] = 2200;
+        attribute usableCapacity : Volume[ml] = 1800;
+        attribute maximumPatientMass : Mass[kg] = 180;
+        attribute maximumContactPressure : Pressure[kPa] = 8;
+        attribute rimHeight : Length[mm] = 85;
+        attribute overallLength : Length[mm] = 420;
+        attribute overallWidth : Length[mm] = 305;
+        attribute emptyMass : Mass[kg] = 1.1;
+        attribute allowableTiltBeforeSpill : Angle[deg] = 18;
+        attribute cleaningWaterMaximumTemperature : Temperature[degC] = 80;
+
+        port inlet : WasteInletPort;
+        port outlet : WasteOutletPort;
+        port cleaning : CleaningPort;
+        port support : SupportInterfacePort;
+        port vent : OdorVentPort;
+        port leftGrip : HandlingGripPort;
+        port rightGrip : HandlingGripPort;
+
+        part basin : CollectionBasin;
+        part rim : SealingComfortRim;
+        part splashGuard : FrontSplashGuard;
+        part cover : OdorContainmentCover;
+        part grips : HandlingGripAssembly;
+        part indicator : FillLevelIndicator;
+        part coating : AntimicrobialSurface;
+        part label : UseAndSafetyLabel;
+
+        connect inlet.waste to basin.inlet.waste;
+        connect basin.outlet.waste to outlet.waste;
+        connect cleaning.fluid to coating.cleaning.fluid;
+        connect coating.rinseWaste to cleaning.rinseWaste;
+        connect support.load to rim.support.load;
+        connect rim.support.comfort to support.comfort;
+        connect basin.vent.air to cover.vent.air;
+        connect cover.filteredVent.air to vent.air;
+        connect leftGrip.liftLoad to grips.leftLoad.liftLoad;
+        connect rightGrip.liftLoad to grips.rightLoad.liftLoad;
+
+        action useBedpan {
+            in item patientLoad : SupportLoad;
+            in item excreta : HumanWaste;
+            out item containedWaste : HumanWaste;
+
+            first start;
+            then positionUnderPatient;
+            then verifyStableSupport;
+            then collectWaste;
+            then coverForTransport;
+            then removeFromBed;
+            then transferToDisposalPoint;
+            then emptyWaste;
+            then cleanAndDisinfect;
+            then returnToStorage;
+            then done;
+
+            action positionUnderPatient {
+                out item comfort : PatientComfortSignal;
+            }
+
+            action verifyStableSupport {
+                in item load : SupportLoad;
+                assert constraint {
+                    load.downwardForce <= 1766 [N]
+                }
+            }
+
+            action collectWaste {
+                in item excreta : HumanWaste;
+                out item containedWaste : HumanWaste;
+                assert constraint {
+                    excreta.liquidVolume <= 1800 [ml]
+                }
+            }
+
+            action coverForTransport {
+                assert constraint {
+                    cover.isInstalled == true
+                }
+            }
+
+            action removeFromBed;
+            action transferToDisposalPoint;
+            action emptyWaste;
+            action cleanAndDisinfect;
+            action returnToStorage;
+        }
+
+        state def BedpanOperationalStateMachine {
+            state cleanStored;
+            state placedUnderPatient;
+            state supportingPatient;
+            state receivingWaste;
+            state covered;
+            state transported;
+            state emptiedState;
+            state disinfected;
+
+            transition first cleanStored;
+            transition cleanStored then placedUnderPatient
+                accept PositionCommand;
+            transition placedUnderPatient then supportingPatient
+                accept PatientLowered;
+            transition supportingPatient then receivingWaste
+                accept EliminationStarted;
+            transition receivingWaste then covered
+                accept EliminationCompleted
+                if basin.currentVolume <= basin.retentionVolume;
+            transition covered then transported
+                accept LiftedByCaregiver;
+            transition transported then emptiedState
+                accept WastePouredOut;
+            transition emptiedState then disinfected
+                accept CleaningCompleted;
+            transition disinfected then cleanStored
+                accept StoredForNextUse;
+        }
+    }
+
+    part def CollectionBasin {
+        attribute retentionVolume : Volume[ml] = 2200;
+        attribute currentVolume : Volume[ml] = 0;
+        attribute innerSurfaceSlope : Angle[deg] = 7;
+        attribute minimumWallThickness : Length[mm] = 3.5;
+        attribute spillLipHeight : Length[mm] = 22;
+
+        port inlet : WasteInletPort;
+        port outlet : WasteOutletPort;
+        port vent : OdorVentPort;
+
+        constraint noOverflow {
+            currentVolume <= retentionVolume
+        }
+
+        constraint stableAtTilt {
+            currentVolume <= 1800 [ml] implies spillLipHeight >= 20 [mm]
+        }
+    }
+
+    part def SealingComfortRim {
+        attribute rimWidth : Length[mm] = 38;
+        attribute edgeRadius : Length[mm] = 12;
+        attribute cushionCompliance : Real = 0.42;
+        attribute maximumLocalPressure : Pressure[kPa] = 8;
+
+        port support : SupportInterfacePort;
+
+        constraint pressureLimit {
+            support.load.contactPressure <= maximumLocalPressure
+        }
+    }
+
+    part def FrontSplashGuard {
+        attribute guardHeight : Length[mm] = 95;
+        attribute forwardOffset : Length[mm] = 45;
+        attribute deflectionAngle : Angle[deg] = 63;
+    }
+
+    part def OdorContainmentCover {
+        attribute isInstalled : Boolean = false;
+        attribute sealCompression : Length[mm] = 2;
+        attribute odorReductionEfficiency : Real = 0.85;
+
+        port vent : OdorVentPort;
+        port filteredVent : OdorVentPort;
+
+        action install {
+            out attribute installed : Boolean = true;
+        }
+
+        action remove {
+            out attribute installed : Boolean = false;
+        }
+    }
+
+    part def HandlingGripAssembly {
+        attribute gripClearance : Length[mm] = 28;
+        attribute maximumLiftMass : Mass[kg] = 4;
+        attribute texturedSurfaceCoefficient : Real = 0.7;
+
+        port leftLoad : HandlingGripPort;
+        port rightLoad : HandlingGripPort;
+    }
+
+    part def FillLevelIndicator {
+        attribute lowMark : Volume[ml] = 500;
+        attribute cautionMark : Volume[ml] = 1400;
+        attribute maximumSafeMark : Volume[ml] = 1800;
+
+        action indicateLevel {
+            in attribute measuredVolume : Volume[ml];
+            out attribute cautionRequired : Boolean;
+            out attribute emptyRequired : Boolean;
+        }
+    }
+
+    part def AntimicrobialSurface {
+        attribute surfaceRoughnessRa : Length[um] = 0.8;
+        attribute disinfectantCompatibility : Boolean = true;
+        attribute nonPorous : Boolean = true;
+
+        port cleaning : CleaningPort;
+        out item rinseWaste : HumanWaste;
+
+        action disinfect {
+            in item fluid : CleaningFluid;
+            out attribute pathogenReductionLog : Real;
+            assert constraint {
+                fluid.disinfectantConcentration >= 0.005
+            }
+        }
+    }
+
+    part def UseAndSafetyLabel {
+        attribute showsMaximumPatientMass : Boolean = true;
+        attribute showsMaximumFillLine : Boolean = true;
+        attribute showsCleaningInstructions : Boolean = true;
+        attribute showsSinglePatientUseGuidance : Boolean = true;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The bedpan system shall provide a portable means to collect and temporarily contain human waste from a bed-bound or mobility-limited patient while supporting safe placement, removal, transport, emptying, and cleaning. */
+    }
+
+    requirement def WasteContainmentRequirement {
+        subject bedpan : BedpanSystem;
+        require constraint {
+            bedpan.usableCapacity >= 1800 [ml]
+        }
+    }
+
+    requirement def PatientSupportRequirement {
+        subject bedpan : BedpanSystem;
+        require constraint {
+            bedpan.maximumPatientMass >= 180 [kg]
+        }
+    }
+
+    requirement def SpillResistanceRequirement {
+        subject bedpan : BedpanSystem;
+        require constraint {
+            bedpan.allowableTiltBeforeSpill >= 18 [deg]
+        }
+    }
+
+    requirement def ComfortRequirement {
+        subject rim : SealingComfortRim;
+        require constraint {
+            rim.maximumLocalPressure <= 8 [kPa]
+        }
+    }
+
+    requirement def CleanabilityRequirement {
+        subject surface : AntimicrobialSurface;
+        require constraint {
+            surface.nonPorous == true and surface.disinfectantCompatibility == true
+        }
+    }
+
+    requirement def HandlingRequirement {
+        subject grips : HandlingGripAssembly;
+        require constraint {
+            grips.gripClearance >= 25 [mm]
+        }
+    }
+
+    requirement def OdorControlRequirement {
+        subject cover : OdorContainmentCover;
+        require constraint {
+            cover.odorReductionEfficiency >= 0.80
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by BedpanSystem;
+    satisfy WasteContainmentRequirement by CollectionBasin;
+    satisfy PatientSupportRequirement by SealingComfortRim;
+    satisfy SpillResistanceRequirement by CollectionBasin;
+    satisfy ComfortRequirement by SealingComfortRim;
+    satisfy CleanabilityRequirement by AntimicrobialSurface;
+    satisfy HandlingRequirement by HandlingGripAssembly;
+    satisfy OdorControlRequirement by OdorContainmentCover;
+
+    part bedpanCareSystem : BedpanSystem {
+        attribute totalCapacity = 2200 [ml];
+        attribute usableCapacity = 1800 [ml];
+        attribute maximumPatientMass = 180 [kg];
+    }
+}
+tokens used
+4,151
+package BedpanCareSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Volume;
+    attribute def Mass;
+    attribute def Force;
+    attribute def Duration;
+    attribute def Temperature;
+    attribute def Pressure;
+    attribute def Angle;
+
+    value def milliliter :> Volume;
+    value def kilogram :> Mass;
+    value def newton :> Force;
+    value def second :> Duration;
+    value def degreeCelsius :> Temperature;
+    value def kilopascal :> Pressure;
+    value def degree :> Angle;
+
+    enum def PatientMobilityLevel {
+        enum fullyImmobile;
+        enum limitedMobility;
+        enum assistedTransfer;
+    }
+
+    enum def BedpanUseState {
+        enum storedClean;
+        enum positionedForUse;
+        enum collectingWaste;
+        enum removedAfterUse;
+        enum coveredForTransport;
+        enum emptied;
+        enum cleanedAndDisinfected;
+    }
+
+    item def HumanWaste {
+        attribute liquidVolume : Volume[ml];
+        attribute solidMass : Mass[kg];
+        attribute temperature : Temperature[degC];
+        attribute biologicalHazard : Boolean;
+    }
+
+    item def CleaningFluid {
+        attribute volume : Volume[ml];
+        attribute disinfectantConcentration : Real;
+        attribute temperature : Temperature[degC];
+    }
+
+    item def OdorAir {
+        attribute odorIntensity : Real;
+        attribute humidity : Real;
+    }
+
+    item def SupportLoad {
+        attribute downwardForce : Force[N];
+        attribute contactPressure : Pressure[kPa];
+    }
+
+    item def PatientComfortSignal {
+        attribute painScore : Integer;
+        attribute pressureHotspotDetected : Boolean;
+    }
+
+    port def WasteInletPort {
+        in item waste : HumanWaste;
+    }
+
+    port def WasteOutletPort {
+        out item waste : HumanWaste;
+    }
+
+    port def CleaningPort {
+        in item fluid : CleaningFluid;
+        out item rinseWaste : HumanWaste;
+    }
+
+    port def SupportInterfacePort {
+        in item load : SupportLoad;
+        out item comfort : PatientComfortSignal;
+    }
+
+    port def OdorVentPort {
+        out item air : OdorAir;
+    }
+
+    port def HandlingGripPort {
+        in item liftLoad : SupportLoad;
+    }
+
+    part def BedpanSystem {
+        doc /* A portable sanitary support and containment system whose primary high-level function is to receive, contain, transport, empty, and enable cleaning of human waste from a patient who cannot conveniently use a fixed toilet. */
+
+        attribute totalCapacity : Volume[ml] = 2200;
+        attribute usableCapacity : Volume[ml] = 1800;
+        attribute maximumPatientMass : Mass[kg] = 180;
+        attribute maximumContactPressure : Pressure[kPa] = 8;
+        attribute rimHeight : Length[mm] = 85;
+        attribute overallLength : Length[mm] = 420;
+        attribute overallWidth : Length[mm] = 305;
+        attribute emptyMass : Mass[kg] = 1.1;
+        attribute allowableTiltBeforeSpill : Angle[deg] = 18;
+        attribute cleaningWaterMaximumTemperature : Temperature[degC] = 80;
+
+        port inlet : WasteInletPort;
+        port outlet : WasteOutletPort;
+        port cleaning : CleaningPort;
+        port support : SupportInterfacePort;
+        port vent : OdorVentPort;
+        port leftGrip : HandlingGripPort;
+        port rightGrip : HandlingGripPort;
+
+        part basin : CollectionBasin;
+        part rim : SealingComfortRim;
+        part splashGuard : FrontSplashGuard;
+        part cover : OdorContainmentCover;
+        part grips : HandlingGripAssembly;
+        part indicator : FillLevelIndicator;
+        part coating : AntimicrobialSurface;
+        part label : UseAndSafetyLabel;
+
+        connect inlet.waste to basin.inlet.waste;
+        connect basin.outlet.waste to outlet.waste;
+        connect cleaning.fluid to coating.cleaning.fluid;
+        connect coating.rinseWaste to cleaning.rinseWaste;
+        connect support.load to rim.support.load;
+        connect rim.support.comfort to support.comfort;
+        connect basin.vent.air to cover.vent.air;
+        connect cover.filteredVent.air to vent.air;
+        connect leftGrip.liftLoad to grips.leftLoad.liftLoad;
+        connect rightGrip.liftLoad to grips.rightLoad.liftLoad;
+
+        action useBedpan {
+            in item patientLoad : SupportLoad;
+            in item excreta : HumanWaste;
+            out item containedWaste : HumanWaste;
+
+            first start;
+            then positionUnderPatient;
+            then verifyStableSupport;
+            then collectWaste;
+            then coverForTransport;
+            then removeFromBed;
+            then transferToDisposalPoint;
+            then emptyWaste;
+            then cleanAndDisinfect;
+            then returnToStorage;
+            then done;
+
+            action positionUnderPatient {
+                out item comfort : PatientComfortSignal;
+            }
+
+            action verifyStableSupport {
+                in item load : SupportLoad;
+                assert constraint {
+                    load.downwardForce <= 1766 [N]
+                }
+            }
+
+            action collectWaste {
+                in item excreta : HumanWaste;
+                out item containedWaste : HumanWaste;
+                assert constraint {
+                    excreta.liquidVolume <= 1800 [ml]
+                }
+            }
+
+            action coverForTransport {
+                assert constraint {
+                    cover.isInstalled == true
+                }
+            }
+
+            action removeFromBed;
+            action transferToDisposalPoint;
+            action emptyWaste;
+            action cleanAndDisinfect;
+            action returnToStorage;
+        }
+
+        state def BedpanOperationalStateMachine {
+            state cleanStored;
+            state placedUnderPatient;
+            state supportingPatient;
+            state receivingWaste;
+            state covered;
+            state transported;
+            state emptiedState;
+            state disinfected;
+
+            transition first cleanStored;
+            transition cleanStored then placedUnderPatient
+                accept PositionCommand;
+            transition placedUnderPatient then supportingPatient
+                accept PatientLowered;
+            transition supportingPatient then receivingWaste
+                accept EliminationStarted;
+            transition receivingWaste then covered
+                accept EliminationCompleted
+                if basin.currentVolume <= basin.retentionVolume;
+            transition covered then transported
+                accept LiftedByCaregiver;
+            transition transported then emptiedState
+                accept WastePouredOut;
+            transition emptiedState then disinfected
+                accept CleaningCompleted;
+            transition disinfected then cleanStored
+                accept StoredForNextUse;
+        }
+    }
+
+    part def CollectionBasin {
+        attribute retentionVolume : Volume[ml] = 2200;
+        attribute currentVolume : Volume[ml] = 0;
+        attribute innerSurfaceSlope : Angle[deg] = 7;
+        attribute minimumWallThickness : Length[mm] = 3.5;
+        attribute spillLipHeight : Length[mm] = 22;
+
+        port inlet : WasteInletPort;
+        port outlet : WasteOutletPort;
+        port vent : OdorVentPort;
+
+        constraint noOverflow {
+            currentVolume <= retentionVolume
+        }
+
+        constraint stableAtTilt {
+            currentVolume <= 1800 [ml] implies spillLipHeight >= 20 [mm]
+        }
+    }
+
+    part def SealingComfortRim {
+        attribute rimWidth : Length[mm] = 38;
+        attribute edgeRadius : Length[mm] = 12;
+        attribute cushionCompliance : Real = 0.42;
+        attribute maximumLocalPressure : Pressure[kPa] = 8;
+
+        port support : SupportInterfacePort;
+
+        constraint pressureLimit {
+            support.load.contactPressure <= maximumLocalPressure
+        }
+    }
+
+    part def FrontSplashGuard {
+        attribute guardHeight : Length[mm] = 95;
+        attribute forwardOffset : Length[mm] = 45;
+        attribute deflectionAngle : Angle[deg] = 63;
+    }
+
+    part def OdorContainmentCover {
+        attribute isInstalled : Boolean = false;
+        attribute sealCompression : Length[mm] = 2;
+        attribute odorReductionEfficiency : Real = 0.85;
+
+        port vent : OdorVentPort;
+        port filteredVent : OdorVentPort;
+
+        action install {
+            out attribute installed : Boolean = true;
+        }
+
+        action remove {
+            out attribute installed : Boolean = false;
+        }
+    }
+
+    part def HandlingGripAssembly {
+        attribute gripClearance : Length[mm] = 28;
+        attribute maximumLiftMass : Mass[kg] = 4;
+        attribute texturedSurfaceCoefficient : Real = 0.7;
+
+        port leftLoad : HandlingGripPort;
+        port rightLoad : HandlingGripPort;
+    }
+
+    part def FillLevelIndicator {
+        attribute lowMark : Volume[ml] = 500;
+        attribute cautionMark : Volume[ml] = 1400;
+        attribute maximumSafeMark : Volume[ml] = 1800;
+
+        action indicateLevel {
+            in attribute measuredVolume : Volume[ml];
+            out attribute cautionRequired : Boolean;
+            out attribute emptyRequired : Boolean;
+        }
+    }
+
+    part def AntimicrobialSurface {
+        attribute surfaceRoughnessRa : Length[um] = 0.8;
+        attribute disinfectantCompatibility : Boolean = true;
+        attribute nonPorous : Boolean = true;
+
+        port cleaning : CleaningPort;
+        out item rinseWaste : HumanWaste;
+
+        action disinfect {
+            in item fluid : CleaningFluid;
+            out attribute pathogenReductionLog : Real;
+            assert constraint {
+                fluid.disinfectantConcentration >= 0.005
+            }
+        }
+    }
+
+    part def UseAndSafetyLabel {
+        attribute showsMaximumPatientMass : Boolean = true;
+        attribute showsMaximumFillLine : Boolean = true;
+        attribute showsCleaningInstructions : Boolean = true;
+        attribute showsSinglePatientUseGuidance : Boolean = true;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The bedpan system shall provide a portable means to collect and temporarily contain human waste from a bed-bound or mobility-limited patient while supporting safe placement, removal, transport, emptying, and cleaning. */
+    }
+
+    requirement def WasteContainmentRequirement {
+        subject bedpan : BedpanSystem;
+        require constraint {
+            bedpan.usableCapacity >= 1800 [ml]
+        }
+    }
+
+    requirement def PatientSupportRequirement {
+        subject bedpan : BedpanSystem;
+        require constraint {
+            bedpan.maximumPatientMass >= 180 [kg]
+        }
+    }
+
+    requirement def SpillResistanceRequirement {
+        subject bedpan : BedpanSystem;
+        require constraint {
+            bedpan.allowableTiltBeforeSpill >= 18 [deg]
+        }
+    }
+
+    requirement def ComfortRequirement {
+        subject rim : SealingComfortRim;
+        require constraint {
+            rim.maximumLocalPressure <= 8 [kPa]
+        }
+    }
+
+    requirement def CleanabilityRequirement {
+        subject surface : AntimicrobialSurface;
+        require constraint {
+            surface.nonPorous == true and surface.disinfectantCompatibility == true
+        }
+    }
+
+    requirement def HandlingRequirement {
+        subject grips : HandlingGripAssembly;
+        require constraint {
+            grips.gripClearance >= 25 [mm]
+        }
+    }
+
+    requirement def OdorControlRequirement {
+        subject cover : OdorContainmentCover;
+        require constraint {
+            cover.odorReductionEfficiency >= 0.80
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by BedpanSystem;
+    satisfy WasteContainmentRequirement by CollectionBasin;
+    satisfy PatientSupportRequirement by SealingComfortRim;
+    satisfy SpillResistanceRequirement by CollectionBasin;
+    satisfy ComfortRequirement by SealingComfortRim;
+    satisfy CleanabilityRequirement by AntimicrobialSurface;
+    satisfy HandlingRequirement by HandlingGripAssembly;
+    satisfy OdorControlRequirement by OdorContainmentCover;
+
+    part bedpanCareSystem : BedpanSystem {
+        attribute totalCapacity = 2200 [ml];
+        attribute usableCapacity = 1800 [ml];
+        attribute maximumPatientMass = 180 [kg];
+    }
+}

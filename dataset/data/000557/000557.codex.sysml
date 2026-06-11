@@ -1,0 +1,481 @@
+package BronchialBlockerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> Real {
+    unit = "cmH2O";
+  }
+
+  attribute def Volume :> Real {
+    unit = "mL";
+  }
+
+  attribute def Length :> Real {
+    unit = "mm";
+  }
+
+  attribute def Diameter :> Real {
+    unit = "mm";
+  }
+
+  attribute def FlowRate :> Real {
+    unit = "L/min";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  enum def BlockerMode {
+    enum preparing;
+    enum positioning;
+    enum isolated;
+    enum suctioning;
+    enum deflated;
+    enum removed;
+    enum fault;
+  }
+
+  enum def LungSide {
+    enum left;
+    enum right;
+  }
+
+  enum def InflationState {
+    enum deflated;
+    enum inflating;
+    enum sealed;
+    enum overPressure;
+  }
+
+  item def OxygenatedGas {
+    attribute oxygenFraction : Percent;
+    attribute flow : FlowRate;
+    attribute airwayPressure : Pressure;
+  }
+
+  item def AirwaySecretion {
+    attribute collectedVolume : Volume;
+    attribute viscosityIndex : Real;
+  }
+
+  item def InflationMedium {
+    attribute injectedVolume : Volume;
+    attribute inflationPressure : Pressure;
+  }
+
+  item def BronchoscopicImage {
+    attribute fieldOfView : Percent;
+    attribute targetBronchusVisible : Boolean;
+  }
+
+  item def ControlCommand {
+    attribute requestedMode : BlockerMode;
+    attribute targetLung : LungSide;
+  }
+
+  port def GasPort {
+    in item gasIn : OxygenatedGas;
+    out item gasOut : OxygenatedGas;
+  }
+
+  port def SuctionPort {
+    in item secretionIn : AirwaySecretion;
+    out item secretionOut : AirwaySecretion;
+  }
+
+  port def InflationPort {
+    in item mediumIn : InflationMedium;
+    out item mediumOut : InflationMedium;
+  }
+
+  port def VisualizationPort {
+    out item image : BronchoscopicImage;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  part def BronchialBlocker {
+    attribute outerDiameter : Diameter = 2.7;
+    attribute workingLength : Length = 650.0;
+    attribute blockerMode : BlockerMode = BlockerMode::preparing;
+    attribute selectedLung : LungSide;
+    attribute cuffInflationState : InflationState = InflationState::deflated;
+    attribute cuffPressure : Pressure;
+    attribute cuffVolume : Volume;
+    attribute distalPositionDepth : Length;
+    attribute leakageRateAroundCuff : FlowRate;
+    attribute lumenPatency : Percent;
+
+    port proximalGasPort : GasPort;
+    port inflationPort : InflationPort;
+    port suctionPort : SuctionPort;
+    port visualizationInput : VisualizationPort;
+    port commandPort : CommandPort;
+
+    part catheterShaft {
+      attribute length : Length = 650.0;
+      attribute outerDiameter : Diameter = 2.7;
+      attribute innerLumenDiameter : Diameter = 1.4;
+      attribute flexibilityIndex : Real = 0.74;
+      attribute radiopaqueMarkerPresent : Boolean = true;
+    }
+
+    part distalCuff {
+      attribute nominalSealPressure : Pressure = 25.0;
+      attribute maximumRecommendedPressure : Pressure = 60.0;
+      attribute nominalInflationVolume : Volume = 6.0;
+      attribute currentPressure : Pressure;
+      attribute currentVolume : Volume;
+      attribute sealEstablished : Boolean;
+    }
+
+    part pilotBalloon {
+      attribute indicatedPressure : Pressure;
+      attribute tactileFeedbackAvailable : Boolean = true;
+    }
+
+    part inflationValve {
+      attribute oneWaySealEnabled : Boolean = true;
+      attribute leakRate : FlowRate;
+    }
+
+    part suctionLumen {
+      attribute innerDiameter : Diameter = 1.2;
+      attribute maximumSuctionFlow : FlowRate = 6.0;
+      attribute isObstructed : Boolean = false;
+    }
+
+    part distalTip {
+      attribute atraumaticTipRadius : Length = 1.0;
+      attribute orientationAngle : Real;
+      attribute targetBronchusEntered : Boolean;
+    }
+
+    action def PositionBlocker {
+      in targetSide : LungSide;
+      in image : BronchoscopicImage;
+      out positioned : Boolean;
+
+      first start;
+      then advanceCatheter;
+      then verifyBronchialEntry;
+      then stop;
+
+      action advanceCatheter;
+      action verifyBronchialEntry;
+    }
+
+    action def InflateCuff {
+      in medium : InflationMedium;
+      out achievedPressure : Pressure;
+      out sealEstablished : Boolean;
+
+      first beginInflation;
+      then monitorPressure;
+      then establishSeal;
+      then done;
+
+      action beginInflation;
+      action monitorPressure;
+      action establishSeal;
+    }
+
+    action def IsolateLung {
+      in targetSide : LungSide;
+      in cuffPressure : Pressure;
+      out isolated : Boolean;
+      out residualLeakage : FlowRate;
+
+      first evaluatePosition;
+      then maintainSeal;
+      then confirmIsolation;
+      then complete;
+
+      action evaluatePosition;
+      action maintainSeal;
+      action confirmIsolation;
+    }
+
+    action def DeflateAndRemove {
+      out removalReady : Boolean;
+
+      first releaseInflationMedium;
+      then verifyCuffDeflated;
+      then withdrawCatheter;
+      then completeRemoval;
+
+      action releaseInflationMedium;
+      action verifyCuffDeflated;
+      action withdrawCatheter;
+      action completeRemoval;
+    }
+
+    state def BlockerOperationalStates {
+      state preparing;
+      state positioning;
+      state isolated;
+      state suctioning;
+      state deflated;
+      state removed;
+      state fault;
+
+      initial then preparing;
+
+      transition preparing_to_positioning
+        first preparing
+        accept ControlCommand
+        if command.requestedMode == BlockerMode::positioning
+        then positioning;
+
+      transition positioning_to_isolated
+        first positioning
+        if distalTip.targetBronchusEntered and distalCuff.sealEstablished
+        then isolated;
+
+      transition isolated_to_suctioning
+        first isolated
+        accept ControlCommand
+        if command.requestedMode == BlockerMode::suctioning
+        then suctioning;
+
+      transition suctioning_to_isolated
+        first suctioning
+        accept ControlCommand
+        if command.requestedMode == BlockerMode::isolated
+        then isolated;
+
+      transition isolated_to_deflated
+        first isolated
+        accept ControlCommand
+        if command.requestedMode == BlockerMode::deflated
+        then deflated;
+
+      transition deflated_to_removed
+        first deflated
+        accept ControlCommand
+        if command.requestedMode == BlockerMode::removed
+        then removed;
+
+      transition any_to_fault
+        first preparing
+        if distalCuff.currentPressure > distalCuff.maximumRecommendedPressure
+        then fault;
+    }
+  }
+
+  part def AirwayAccessAssembly {
+    attribute airwayPressure : Pressure;
+    attribute inspiredOxygenFraction : Percent;
+    attribute ventilationFlow : FlowRate;
+
+    port ventilatorGasPort : GasPort;
+    port blockerGasPort : GasPort;
+    port visualizationPort : VisualizationPort;
+    port operatorCommandPort : CommandPort;
+
+    part trachealTube {
+      attribute internalDiameter : Diameter = 8.0;
+      attribute insertedDepth : Length = 220.0;
+      attribute cuffPressure : Pressure = 25.0;
+    }
+
+    part bronchoscope {
+      attribute insertionDiameter : Diameter = 3.8;
+      attribute imageAvailable : Boolean;
+      port imagePort : VisualizationPort;
+    }
+
+    part blocker : BronchialBlocker;
+
+    connect bronchoscope.imagePort to blocker.visualizationInput;
+    connect blocker.proximalGasPort to blockerGasPort;
+    connect blocker.commandPort to operatorCommandPort;
+  }
+
+  part def ClinicalEnvironment {
+    attribute targetLungForIsolation : LungSide;
+    attribute procedureDuration : TimeDuration;
+    attribute acceptableLeakage : FlowRate = 0.5;
+    attribute minimumVentilatedLungOxygenFraction : Percent = 21.0;
+
+    port anesthesiaGasPort : GasPort;
+    port suctionCollectionPort : SuctionPort;
+    port clinicianCommandPort : CommandPort;
+  }
+
+  part def BronchialBlockerSystem {
+    attribute primaryFunction : String =
+      "Temporarily occlude a selected mainstem or lobar bronchus to enable one-lung ventilation or targeted lung isolation while preserving access for ventilation, suction, and controlled cuff deflation.";
+    attribute activeMode : BlockerMode;
+    attribute isolatedSide : LungSide;
+    attribute deliveredOxygenFraction : Percent;
+    attribute measuredCuffPressure : Pressure;
+    attribute measuredLeakage : FlowRate;
+    attribute systemReady : Boolean;
+
+    part airwayAccess : AirwayAccessAssembly;
+    part environment : ClinicalEnvironment;
+
+    port gasInterface : GasPort;
+    port suctionInterface : SuctionPort;
+    port commandInterface : CommandPort;
+
+    connect gasInterface to environment.anesthesiaGasPort;
+    connect commandInterface to environment.clinicianCommandPort;
+    connect suctionInterface to environment.suctionCollectionPort;
+    connect airwayAccess.operatorCommandPort to environment.clinicianCommandPort;
+    connect airwayAccess.blocker.suctionPort to suctionInterface;
+
+    action def PerformHighLevelIsolation {
+      in selectedSide : LungSide;
+      out isolationEstablished : Boolean;
+
+      first prepareDevice;
+      then placeDistalTip;
+      then inflateSealCuff;
+      then confirmOneLungIsolation;
+      then maintainIsolation;
+      then end;
+
+      action prepareDevice;
+      action placeDistalTip;
+      action inflateSealCuff;
+      action confirmOneLungIsolation;
+      action maintainIsolation;
+    }
+
+    action def MonitorIsolationSafety {
+      in cuffPressure : Pressure;
+      in leakage : FlowRate;
+      in oxygenFraction : Percent;
+      out safeToContinue : Boolean;
+
+      first readMeasurements;
+      then compareToLimits;
+      then issueStatus;
+      then complete;
+
+      action readMeasurements;
+      action compareToLimits;
+      action issueStatus;
+    }
+
+    state def SystemLifecycle {
+      state ready;
+      state placing;
+      state bronchusOccluded;
+      state monitoring;
+      state releasing;
+      state complete;
+      state alarm;
+
+      initial then ready;
+
+      transition ready_to_placing
+        first ready
+        accept ControlCommand
+        if command.requestedMode == BlockerMode::positioning
+        then placing;
+
+      transition placing_to_bronchusOccluded
+        first placing
+        if airwayAccess.blocker.distalTip.targetBronchusEntered and airwayAccess.blocker.distalCuff.sealEstablished
+        then bronchusOccluded;
+
+      transition bronchusOccluded_to_monitoring
+        first bronchusOccluded
+        if measuredLeakage <= environment.acceptableLeakage
+        then monitoring;
+
+      transition monitoring_to_releasing
+        first monitoring
+        accept ControlCommand
+        if command.requestedMode == BlockerMode::deflated
+        then releasing;
+
+      transition releasing_to_complete
+        first releasing
+        if airwayAccess.blocker.cuffInflationState == InflationState::deflated
+        then complete;
+
+      transition monitoring_to_alarm
+        first monitoring
+        if measuredCuffPressure > airwayAccess.blocker.distalCuff.maximumRecommendedPressure
+        then alarm;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The bronchial blocker system shall temporarily isolate a selected bronchus by positioning a distal occlusion cuff and inflating it sufficiently to reduce gas exchange with the blocked lung region while maintaining ventilation access to the non-blocked lung. */
+
+    subject system : BronchialBlockerSystem;
+
+    require constraint {
+      system.airwayAccess.blocker.distalCuff.sealEstablished == true and
+      system.measuredLeakage <= system.environment.acceptableLeakage
+    }
+  }
+
+  requirement def ControlledInflationRequirement {
+    doc
+    /* The bronchial blocker shall provide controlled cuff inflation and pressure indication to support bronchial sealing without exceeding the maximum recommended cuff pressure. */
+
+    subject blocker : BronchialBlocker;
+
+    require constraint {
+      blocker.distalCuff.currentPressure <= blocker.distalCuff.maximumRecommendedPressure
+    }
+  }
+
+  requirement def PositionVerificationRequirement {
+    doc
+    /* The system shall support visual verification of blocker placement in the intended bronchus before declaring lung isolation established. */
+
+    subject assembly : AirwayAccessAssembly;
+
+    require constraint {
+      assembly.bronchoscope.imageAvailable == true and
+      assembly.blocker.distalTip.targetBronchusEntered == true
+    }
+  }
+
+  requirement def SuctionAccessRequirement {
+    doc
+    /* The bronchial blocker shall provide a suction pathway through or alongside the blocker to remove gas or secretions from the isolated lung region when commanded. */
+
+    subject blocker : BronchialBlocker;
+
+    require constraint {
+      blocker.suctionLumen.isObstructed == false and
+      blocker.suctionLumen.maximumSuctionFlow >= 3.0
+    }
+  }
+
+  requirement def DeflationRemovalRequirement {
+    doc
+    /* The bronchial blocker shall allow complete cuff deflation before removal from the airway access assembly. */
+
+    subject blocker : BronchialBlocker;
+
+    require constraint {
+      blocker.cuffInflationState == InflationState::deflated
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by BronchialBlockerSystem;
+  satisfy ControlledInflationRequirement by BronchialBlocker;
+  satisfy PositionVerificationRequirement by AirwayAccessAssembly;
+  satisfy SuctionAccessRequirement by BronchialBlocker;
+  satisfy DeflationRemovalRequirement by BronchialBlocker;
+
+}

@@ -1,0 +1,515 @@
+package DiaphragmPumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Pressure :> ScalarQuantityValue {
+        unit = SI::Unit::Pa;
+    }
+
+    attribute def FlowRate :> ScalarQuantityValue {
+        unit = SI::Unit::m3_per_s;
+    }
+
+    attribute def Volume :> ScalarQuantityValue {
+        unit = SI::Unit::m3;
+    }
+
+    attribute def TimeDuration :> ScalarQuantityValue {
+        unit = SI::Unit::s;
+    }
+
+    attribute def Frequency :> ScalarQuantityValue {
+        unit = SI::Unit::Hz;
+    }
+
+    attribute def Temperature :> ScalarQuantityValue {
+        unit = SI::Unit::K;
+    }
+
+    attribute def ElectricalVoltage :> ScalarQuantityValue {
+        unit = SI::Unit::V;
+    }
+
+    attribute def ElectricalCurrent :> ScalarQuantityValue {
+        unit = SI::Unit::A;
+    }
+
+    attribute def Power :> ScalarQuantityValue {
+        unit = SI::Unit::W;
+    }
+
+    attribute def StrokeLength :> ScalarQuantityValue {
+        unit = SI::Unit::m;
+    }
+
+    attribute def Efficiency :> ScalarQuantityValue {
+        unit = SI::Unit::one;
+    }
+
+    item def ProcessFluid {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute volumetricFlowRate : FlowRate;
+        attribute gasFraction : Efficiency;
+        attribute suspendedSolidsFraction : Efficiency;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricalVoltage;
+        attribute current : ElectricalCurrent;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : Efficiency;
+        attribute signalVoltage : ElectricalVoltage;
+    }
+
+    item def FaultSignal {
+        attribute active : Boolean;
+        attribute severity : Integer;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : ProcessFluid;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : ProcessFluid;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalEnergy;
+    }
+
+    port def ControlInputPort {
+        in item controlIn : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item faultOut : FaultSignal;
+    }
+
+    action def DrawFluid {
+        in item inletFluid : ProcessFluid;
+        out item chamberFluid : ProcessFluid;
+        attribute inletPressure : Pressure;
+        attribute chamberPressure : Pressure;
+    }
+
+    action def CompressFluid {
+        inout item chamberFluid : ProcessFluid;
+        attribute diaphragmDisplacement : StrokeLength;
+        attribute compressionPressure : Pressure;
+    }
+
+    action def DischargeFluid {
+        in item chamberFluid : ProcessFluid;
+        out item outletFluid : ProcessFluid;
+        attribute outletPressure : Pressure;
+        attribute dischargeFlowRate : FlowRate;
+    }
+
+    action def RegulatePumpSpeed {
+        in item command : ControlSignal;
+        out attribute commandedStrokeFrequency : Frequency;
+    }
+
+    action def DetectPumpFaults {
+        in item inletFluid : ProcessFluid;
+        in item outletFluid : ProcessFluid;
+        in attribute motorCurrent : ElectricalCurrent;
+        out item fault : FaultSignal;
+    }
+
+    part def CheckValve {
+        port upstream : FluidInletPort;
+        port downstream : FluidOutletPort;
+
+        attribute crackingPressure : Pressure = 2500 [SI::Unit::Pa];
+        attribute reverseLeakageRate : FlowRate = 0.0000002 [SI::Unit::m3_per_s];
+
+        state def ValveState {
+            state closed;
+            state open;
+
+            transition first closed;
+            transition closedToOpen
+                first closed
+                then open
+                if upstream.fluidIn.pressure > downstream.fluidOut.pressure + crackingPressure;
+
+            transition openToClosed
+                first open
+                then closed
+                if downstream.fluidOut.pressure >= upstream.fluidIn.pressure;
+        }
+
+        state valveState : ValveState;
+    }
+
+    part def FlexibleDiaphragm {
+        attribute effectiveArea : AreaValue = 0.0032 [SI::Unit::m2];
+        attribute maximumStroke : StrokeLength = 0.006 [SI::Unit::m];
+        attribute fatigueLifeCycles : Integer = 25000000;
+        attribute materialCompatibilityPHMin : Real = 3.0;
+        attribute materialCompatibilityPHMax : Real = 11.0;
+    }
+
+    part def PumpChamber {
+        port suctionPort : FluidInletPort;
+        port dischargePort : FluidOutletPort;
+
+        item containedFluid : ProcessFluid;
+
+        attribute sweptVolume : Volume = 0.000019 [SI::Unit::m3];
+        attribute deadVolume : Volume = 0.000004 [SI::Unit::m3];
+        attribute maximumAllowablePressure : Pressure = 700000 [SI::Unit::Pa];
+    }
+
+    part def ElectricDrive {
+        port electricalInput : ElectricalPowerPort;
+        port speedCommand : ControlInputPort;
+        port driveStatus : StatusOutputPort;
+
+        attribute nominalVoltage : ElectricalVoltage = 24 [SI::Unit::V];
+        attribute maximumCurrent : ElectricalCurrent = 8 [SI::Unit::A];
+        attribute ratedPower : Power = 120 [SI::Unit::W];
+        attribute actualStrokeFrequency : Frequency;
+        attribute driveEfficiency : Efficiency = 0.82 [SI::Unit::one];
+
+        action regulateSpeed : RegulatePumpSpeed {
+            in command = speedCommand.controlIn;
+            out commandedStrokeFrequency = actualStrokeFrequency;
+        }
+    }
+
+    part def PressureSensor {
+        port measuredFluidPort : FluidInletPort;
+        port sensorStatus : StatusOutputPort;
+
+        attribute measuredPressure : Pressure;
+        attribute measurementRange : Pressure = 1000000 [SI::Unit::Pa];
+        attribute responseTime : TimeDuration = 0.03 [SI::Unit::s];
+        attribute accuracyFullScale : Efficiency = 0.005 [SI::Unit::one];
+    }
+
+    part def FlowSensor {
+        port measuredFluidPort : FluidInletPort;
+        port sensorStatus : StatusOutputPort;
+
+        attribute measuredFlowRate : FlowRate;
+        attribute measurementRange : FlowRate = 0.00008 [SI::Unit::m3_per_s];
+        attribute responseTime : TimeDuration = 0.05 [SI::Unit::s];
+        attribute accuracyFullScale : Efficiency = 0.01 [SI::Unit::one];
+    }
+
+    part def DiaphragmPump {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port power : ElectricalPowerPort;
+        port command : ControlInputPort;
+        port status : StatusOutputPort;
+
+        part inletValve : CheckValve;
+        part outletValve : CheckValve;
+        part chamber : PumpChamber;
+        part diaphragm : FlexibleDiaphragm;
+        part drive : ElectricDrive;
+
+        attribute nominalFlowRate : FlowRate = 0.000052 [SI::Unit::m3_per_s];
+        attribute maximumDischargePressure : Pressure = 500000 [SI::Unit::Pa];
+        attribute minimumInletPressure : Pressure = 20000 [SI::Unit::Pa];
+        attribute nominalStrokeFrequency : Frequency = 2.8 [SI::Unit::Hz];
+        attribute volumetricEfficiency : Efficiency = 0.88 [SI::Unit::one];
+        attribute primingTimeLimit : TimeDuration = 20 [SI::Unit::s];
+
+        connect inlet to inletValve.upstream;
+        connect inletValve.downstream to chamber.suctionPort;
+        connect chamber.dischargePort to outletValve.upstream;
+        connect outletValve.downstream to outlet;
+        connect power to drive.electricalInput;
+        connect command to drive.speedCommand;
+        connect drive.driveStatus to status;
+
+        action pumpingCycle {
+            action draw : DrawFluid {
+                in inletFluid = inlet.fluidIn;
+                out chamberFluid = chamber.containedFluid;
+            }
+
+            action compress : CompressFluid {
+                inout chamberFluid = chamber.containedFluid;
+            }
+
+            action discharge : DischargeFluid {
+                in chamberFluid = chamber.containedFluid;
+                out outletFluid = outlet.fluidOut;
+            }
+
+            first start;
+            then draw;
+            then compress;
+            then discharge;
+            then done;
+        }
+
+        state def PumpOperatingState {
+            state off;
+            state priming;
+            state running;
+            state blockedDischarge;
+            state dryRun;
+            state faulted;
+
+            transition initialOff first off;
+
+            transition startPriming
+                first off
+                then priming
+                if command.controlIn.commandValue > 0.05;
+
+            transition primed
+                first priming
+                then running
+                if outlet.fluidOut.volumetricFlowRate > 0.000005 [SI::Unit::m3_per_s];
+
+            transition stopFromPriming
+                first priming
+                then off
+                if command.controlIn.commandValue <= 0.05;
+
+            transition stopFromRunning
+                first running
+                then off
+                if command.controlIn.commandValue <= 0.05;
+
+            transition detectBlockedDischarge
+                first running
+                then blockedDischarge
+                if outlet.fluidOut.pressure > maximumDischargePressure;
+
+            transition detectDryRun
+                first running
+                then dryRun
+                if inlet.fluidIn.pressure < minimumInletPressure;
+
+            transition blockedToFault
+                first blockedDischarge
+                then faulted;
+
+            transition dryRunToFault
+                first dryRun
+                then faulted;
+
+            transition resetFault
+                first faulted
+                then off
+                if command.controlIn.commandValue == 0.0;
+        }
+
+        state operatingState : PumpOperatingState;
+    }
+
+    part def SuctionLine {
+        port sourceEnd : FluidInletPort;
+        port pumpEnd : FluidOutletPort;
+
+        attribute internalVolume : Volume = 0.0018 [SI::Unit::m3];
+        attribute pressureDropAtNominalFlow : Pressure = 8000 [SI::Unit::Pa];
+    }
+
+    part def DischargeLine {
+        port pumpEnd : FluidInletPort;
+        port destinationEnd : FluidOutletPort;
+
+        attribute internalVolume : Volume = 0.0021 [SI::Unit::m3];
+        attribute pressureDropAtNominalFlow : Pressure = 15000 [SI::Unit::Pa];
+        attribute designPressure : Pressure = 800000 [SI::Unit::Pa];
+    }
+
+    part def PumpController {
+        port commandOutput : ControlInputPort;
+        port pumpStatusInput : StatusOutputPort;
+
+        attribute requestedFlowRate : FlowRate;
+        attribute commandedDutyFraction : Efficiency;
+        attribute shutdownOnFault : Boolean = true;
+
+        action calculateCommand {
+            out item command : ControlSignal;
+        }
+
+        state def ControllerState {
+            state idle;
+            state commandPump;
+            state shutdown;
+
+            transition init first idle;
+
+            transition enable
+                first idle
+                then commandPump
+                if requestedFlowRate > 0.0 [SI::Unit::m3_per_s];
+
+            transition disable
+                first commandPump
+                then idle
+                if requestedFlowRate == 0.0 [SI::Unit::m3_per_s];
+
+            transition faultShutdown
+                first commandPump
+                then shutdown
+                if pumpStatusInput.faultOut.active and shutdownOnFault;
+
+            transition reset
+                first shutdown
+                then idle
+                if requestedFlowRate == 0.0 [SI::Unit::m3_per_s];
+        }
+
+        state controllerState : ControllerState;
+    }
+
+    part def PumpingSubsystem {
+        port subsystemInlet : FluidInletPort;
+        port subsystemOutlet : FluidOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port flowCommand : ControlInputPort;
+        port subsystemStatus : StatusOutputPort;
+
+        part suctionLine : SuctionLine;
+        part dischargeLine : DischargeLine;
+        part pump : DiaphragmPump;
+        part controller : PumpController;
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part outletFlowSensor : FlowSensor;
+
+        attribute requiredFlowRate : FlowRate = 0.000045 [SI::Unit::m3_per_s];
+        attribute requiredDischargePressure : Pressure = 350000 [SI::Unit::Pa];
+        attribute maximumFluidTemperature : Temperature = 333 [SI::Unit::K];
+        attribute minimumFluidTemperature : Temperature = 278 [SI::Unit::K];
+        attribute continuousOperationDuration : TimeDuration = 28800 [SI::Unit::s];
+
+        connect subsystemInlet to suctionLine.sourceEnd;
+        connect suctionLine.pumpEnd to pump.inlet;
+        connect pump.outlet to dischargeLine.pumpEnd;
+        connect dischargeLine.destinationEnd to subsystemOutlet;
+        connect electricalSupply to pump.power;
+        connect flowCommand to pump.command;
+        connect pump.status to subsystemStatus;
+        connect pump.status to controller.pumpStatusInput;
+        connect suctionLine.pumpEnd to inletPressureSensor.measuredFluidPort;
+        connect dischargeLine.pumpEnd to outletPressureSensor.measuredFluidPort;
+        connect dischargeLine.pumpEnd to outletFlowSensor.measuredFluidPort;
+
+        action monitorAndProtect {
+            action faultDetection : DetectPumpFaults {
+                in inletFluid = subsystemInlet.fluidIn;
+                in outletFluid = subsystemOutlet.fluidOut;
+                out fault = subsystemStatus.faultOut;
+            }
+        }
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.subsystemOutlet.fluidOut.volumetricFlowRate >= subsystem.requiredFlowRate
+        }
+
+        require constraint {
+            subsystem.subsystemOutlet.fluidOut.pressure >= subsystem.requiredDischargePressure
+        }
+    }
+
+    requirement def DiaphragmPumpRequirement {
+        subject pump : DiaphragmPump;
+
+        require constraint {
+            pump.nominalFlowRate >= 0.000045 [SI::Unit::m3_per_s]
+        }
+
+        require constraint {
+            pump.maximumDischargePressure >= 500000 [SI::Unit::Pa]
+        }
+
+        require constraint {
+            pump.volumetricEfficiency >= 0.80 [SI::Unit::one]
+        }
+    }
+
+    requirement def DryRunProtectionRequirement {
+        subject pump : DiaphragmPump;
+
+        require constraint {
+            pump.minimumInletPressure >= 15000 [SI::Unit::Pa]
+        }
+    }
+
+    requirement def ElectricalCompatibilityRequirement {
+        subject pump : DiaphragmPump;
+
+        require constraint {
+            pump.drive.nominalVoltage == 24 [SI::Unit::V]
+        }
+
+        require constraint {
+            pump.drive.maximumCurrent <= 10 [SI::Unit::A]
+        }
+    }
+
+    requirement def FluidContainmentRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.dischargeLine.designPressure >= 800000 [SI::Unit::Pa]
+        }
+
+        require constraint {
+            subsystem.pump.chamber.maximumAllowablePressure >= 700000 [SI::Unit::Pa]
+        }
+    }
+
+    requirement def TemperatureCompatibilityRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.subsystemInlet.fluidIn.temperature >= subsystem.minimumFluidTemperature
+        }
+
+        require constraint {
+            subsystem.subsystemInlet.fluidIn.temperature <= subsystem.maximumFluidTemperature
+        }
+    }
+
+    part pumpingSubsystem : PumpingSubsystem;
+
+    requirement moveFluid : MoveFluidRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement pumpPerformance : DiaphragmPumpRequirement {
+        subject pump = pumpingSubsystem.pump;
+    }
+
+    requirement dryRunProtection : DryRunProtectionRequirement {
+        subject pump = pumpingSubsystem.pump;
+    }
+
+    requirement electricalCompatibility : ElectricalCompatibilityRequirement {
+        subject pump = pumpingSubsystem.pump;
+    }
+
+    requirement fluidContainment : FluidContainmentRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement temperatureCompatibility : TemperatureCompatibilityRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+}

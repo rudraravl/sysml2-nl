@@ -1,0 +1,311 @@
+package MikegillerSandboxModel {
+
+  import ScalarValues::*;
+  import Quantities::*;
+  import ISQ::*;
+
+  attribute def RepositoryIdentifier :> ScalarValues::String;
+  attribute def UserIdentifier :> ScalarValues::String;
+  attribute def RequestIdentifier :> ScalarValues::String;
+  attribute def ArtifactIdentifier :> ScalarValues::String;
+
+  item def UserRequest {
+    attribute id : RequestIdentifier;
+    attribute requester : UserIdentifier;
+    attribute submittedText : ScalarValues::String;
+    attribute priority : PriorityLevel;
+  }
+
+  enum def PriorityLevel {
+    enum low;
+    enum normal;
+    enum high;
+  }
+
+  item def ExecutionCommand {
+    attribute commandText : ScalarValues::String;
+    attribute timeout_s : Time;
+    attribute requiresNetwork : Boolean;
+    attribute requiresWriteAccess : Boolean;
+  }
+
+  item def ExecutionResult {
+    attribute exitCode : Integer;
+    attribute stdout : ScalarValues::String;
+    attribute stderr : ScalarValues::String;
+    attribute duration_s : Time;
+    attribute status : ExecutionStatus;
+  }
+
+  enum def ExecutionStatus {
+    enum queued;
+    enum running;
+    enum succeeded;
+    enum failed;
+    enum blocked;
+  }
+
+  item def SandboxArtifact {
+    attribute artifactId : ArtifactIdentifier;
+    attribute logicalPath : ScalarValues::String;
+    attribute size_B : Mass;
+    attribute checksum : ScalarValues::String;
+  }
+
+  item def StatusReport {
+    attribute requestId : RequestIdentifier;
+    attribute summary : ScalarValues::String;
+    attribute currentStatus : ExecutionStatus;
+    attribute artifactCount : Integer;
+  }
+
+  port def RequestPort {
+    in request : UserRequest;
+    out report : StatusReport;
+  }
+
+  port def CommandPort {
+    out command : ExecutionCommand;
+    in result : ExecutionResult;
+  }
+
+  port def ArtifactPort {
+    in artifactIn : SandboxArtifact;
+    out artifactOut : SandboxArtifact;
+  }
+
+  port def AuditPort {
+    out report : StatusReport;
+    out result : ExecutionResult;
+  }
+
+  interface def RequestSubmission {
+    end submitter : RequestPort;
+    end receiver : RequestPort;
+  }
+
+  interface def CommandExecution {
+    end controller : CommandPort;
+    end executor : CommandPort;
+  }
+
+  interface def ArtifactTransfer {
+    end producer : ArtifactPort;
+    end consumer : ArtifactPort;
+  }
+
+  interface def AuditReporting {
+    end source : AuditPort;
+    end sink : AuditPort;
+  }
+
+  action def AcceptUserRequest {
+    in request : UserRequest;
+    out acceptedRequest : UserRequest;
+  }
+
+  action def ValidateSandboxPolicy {
+    in request : UserRequest;
+    out approved : Boolean;
+  }
+
+  action def PlanSandboxCommand {
+    in request : UserRequest;
+    out command : ExecutionCommand;
+  }
+
+  action def ExecuteSandboxCommand {
+    in command : ExecutionCommand;
+    out result : ExecutionResult;
+  }
+
+  action def CaptureArtifacts {
+    in result : ExecutionResult;
+    out artifact : SandboxArtifact;
+  }
+
+  action def ProduceStatusReport {
+    in request : UserRequest;
+    in result : ExecutionResult;
+    out report : StatusReport;
+  }
+
+  state def SandboxLifecycle {
+    entry action initialize;
+    state idle;
+    state acceptingRequest;
+    state validatingPolicy;
+    state planningExecution;
+    state executing;
+    state collectingArtifacts;
+    state reportingSuccess;
+    state reportingFailure;
+    state blockedByPolicy;
+
+    transition first idle;
+    transition idle_to_accepting
+      first idle
+      then acceptingRequest;
+
+    transition accepting_to_validating
+      first acceptingRequest
+      then validatingPolicy;
+
+    transition validation_to_planning
+      first validatingPolicy
+      if approved
+      then planningExecution;
+
+    transition validation_to_blocked
+      first validatingPolicy
+      if not approved
+      then blockedByPolicy;
+
+    transition planning_to_execution
+      first planningExecution
+      then executing;
+
+    transition execution_to_collection
+      first executing
+      if executionStatus == ExecutionStatus::succeeded
+      then collectingArtifacts;
+
+    transition execution_to_failure
+      first executing
+      if executionStatus == ExecutionStatus::failed
+      then reportingFailure;
+
+    transition collection_to_success
+      first collectingArtifacts
+      then reportingSuccess;
+
+    transition success_to_idle
+      first reportingSuccess
+      then idle;
+
+    transition failure_to_idle
+      first reportingFailure
+      then idle;
+
+    transition blocked_to_idle
+      first blockedByPolicy
+      then idle;
+  }
+
+  part def UserEndpoint {
+    attribute userName : UserIdentifier = "Mikegiller";
+    port requestPort : RequestPort;
+  }
+
+  part def SandboxController {
+    attribute repository : RepositoryIdentifier = "User:Mikegiller/sandbox";
+    attribute maxConcurrentRequests : Integer = 4;
+    attribute defaultTimeout_s : Time = 300 [s];
+
+    port userFacingPort : RequestPort;
+    port executorPort : CommandPort;
+    port artifactPort : ArtifactPort;
+    port auditPort : AuditPort;
+
+    perform action accept : AcceptUserRequest;
+    perform action validate : ValidateSandboxPolicy;
+    perform action plan : PlanSandboxCommand;
+    perform action report : ProduceStatusReport;
+
+    exhibit state lifecycle : SandboxLifecycle;
+  }
+
+  part def PolicyManager {
+    attribute networkAllowed : Boolean = false;
+    attribute writeAccessAllowed : Boolean = true;
+    attribute maximumTimeout_s : Time = 600 [s];
+
+    port policyInput : RequestPort;
+    port auditPort : AuditPort;
+  }
+
+  part def ExecutionSandbox {
+    attribute isolated : Boolean = true;
+    attribute cpuLimit_core : Real = 2.0;
+    attribute memoryLimit_MB : Real = 2048.0;
+    attribute diskLimit_MB : Real = 1024.0;
+
+    port commandPort : CommandPort;
+    port artifactPort : ArtifactPort;
+
+    perform action execute : ExecuteSandboxCommand;
+  }
+
+  part def ArtifactStore {
+    attribute capacity_MB : Real = 10240.0;
+    attribute retainedArtifactCount : Integer;
+
+    port ingestPort : ArtifactPort;
+    port publishPort : ArtifactPort;
+
+    perform action capture : CaptureArtifacts;
+  }
+
+  part def AuditLog {
+    attribute retention_d : Time = 30 [d];
+    attribute immutable : Boolean = true;
+
+    port auditIn : AuditPort;
+  }
+
+  part def MikegillerSandboxSystem {
+    attribute primaryFunction : ScalarValues::String =
+      "Provide an isolated sandbox workspace for Mikegiller to submit experimental requests, execute approved commands, collect generated artifacts, and return concise execution status.";
+
+    part user : UserEndpoint;
+    part controller : SandboxController;
+    part policy : PolicyManager;
+    part executor : ExecutionSandbox;
+    part artifacts : ArtifactStore;
+    part audit : AuditLog;
+
+    connect user.requestPort to controller.userFacingPort;
+    connect controller.executorPort to executor.commandPort;
+    connect executor.artifactPort to artifacts.ingestPort;
+    connect artifacts.publishPort to controller.artifactPort;
+    connect controller.auditPort to audit.auditIn;
+    connect policy.auditPort to audit.auditIn;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : MikegillerSandboxSystem;
+    doc
+      /* The system shall provide a high-level sandbox capability for User:Mikegiller/sandbox by accepting user requests, enforcing sandbox policy, executing approved work in isolation, preserving artifacts, and reporting results. */
+  }
+
+  requirement def IsolationRequirement {
+    subject sandbox : ExecutionSandbox;
+    doc
+      /* The execution environment shall isolate command execution from the host environment and constrain CPU, memory, disk, and network usage according to configured policy. */
+  }
+
+  requirement def PolicyRequirement {
+    subject controller : SandboxController;
+    doc
+      /* The controller shall reject commands that request capabilities outside the configured sandbox policy before execution begins. */
+  }
+
+  requirement def ReportingRequirement {
+    subject controller : SandboxController;
+    doc
+      /* The controller shall produce a status report for every accepted request, including request identity, execution status, summary, and artifact count. */
+  }
+
+  requirement def ArtifactRequirement {
+    subject store : ArtifactStore;
+    doc
+      /* The artifact store shall retain generated sandbox artifacts with logical path, identifier, size, and checksum metadata. */
+  }
+
+  satisfy PrimaryFunctionRequirement by MikegillerSandboxSystem;
+  satisfy IsolationRequirement by ExecutionSandbox;
+  satisfy PolicyRequirement by SandboxController;
+  satisfy ReportingRequirement by SandboxController;
+  satisfy ArtifactRequirement by ArtifactStore;
+
+}

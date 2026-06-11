@@ -1,0 +1,499 @@
+package ImpedancePumpingSubsystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def FlowRate :> ISQ::volumeFlowRate {
+    unit = SI::litre / SI::minute;
+  }
+
+  attribute def Volume :> ISQ::volume {
+    unit = SI::litre;
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Length :> ISQ::length {
+    unit = SI::millimetre;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::degreeCelsius;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Time :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def DutyCycle :> ScalarValues::Real {
+    range : ScalarValues::Real = 0.0 .. 1.0;
+  }
+
+  item def WorkingFluid {
+    attribute density : ScalarValues::Real = 997.0;
+    attribute dynamicViscosity : ScalarValues::Real = 0.00089;
+    attribute temperature : Temperature;
+    attribute dissolvedGasFraction : ScalarValues::Real;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def ControlSignal {
+    attribute commandFrequency : Frequency;
+    attribute dutyCycle : DutyCycle;
+    attribute driveAmplitude : Voltage;
+    attribute enable : ScalarValues::Boolean;
+  }
+
+  item def SensorSample {
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute tubeTemperature : Temperature;
+    attribute measuredFlow : FlowRate;
+    attribute actuatorCurrent : Current;
+    attribute timestamp : Time;
+  }
+
+  port def FluidPort {
+    inout item fluid : WorkingFluid;
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+  }
+
+  port def ElectricalPort {
+    in item supply : ElectricalPower;
+  }
+
+  port def SignalPort {
+    in item signal : ControlSignal;
+  }
+
+  port def TelemetryPort {
+    out item sample : SensorSample;
+  }
+
+  part def CompliantTube {
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+
+    attribute relaxedLength : Length = 120 [SI::millimetre];
+    attribute internalDiameter : Length = 4.0 [SI::millimetre];
+    attribute wallThickness : Length = 0.7 [SI::millimetre];
+    attribute elasticModulus : Pressure = 1.8e6 [SI::pascal];
+    attribute nominalCompliance : ScalarValues::Real = 2.4e-10;
+    attribute maximumTubeTemperature : Temperature = 45 [SI::degreeCelsius];
+
+    constraint tubePressureLimit {
+      inlet.pressure < 180000 [SI::pascal] and
+      outlet.pressure < 180000 [SI::pascal];
+    }
+  }
+
+  part def StiffInletSegment {
+    port upstream : FluidPort;
+    port downstream : FluidPort;
+
+    attribute length : Length = 70 [SI::millimetre];
+    attribute internalDiameter : Length = 4.0 [SI::millimetre];
+    attribute hydraulicImpedance : ScalarValues::Real = 4.1e9;
+  }
+
+  part def StiffOutletSegment {
+    port upstream : FluidPort;
+    port downstream : FluidPort;
+
+    attribute length : Length = 220 [SI::millimetre];
+    attribute internalDiameter : Length = 4.0 [SI::millimetre];
+    attribute hydraulicImpedance : ScalarValues::Real = 1.25e10;
+  }
+
+  part def PinchActuator {
+    port powerIn : ElectricalPort;
+    port commandIn : SignalPort;
+
+    attribute stroke : Length = 1.6 [SI::millimetre];
+    attribute driveFrequency : Frequency = 8.0 [SI::hertz];
+    attribute dutyCycle : DutyCycle = 0.38;
+    attribute driveVoltage : Voltage = 24 [SI::volt];
+    attribute peakCurrent : Current = 1.2 [SI::ampere];
+    attribute maximumContinuousPower : Power = 18 [SI::watt];
+    attribute offsetFromTubeMidpoint : Length = 32 [SI::millimetre];
+
+    action def CompressTube {
+      in frequency : Frequency;
+      in duty : DutyCycle;
+      in amplitude : Voltage;
+      out generatedPressureWave : Pressure;
+
+      constraint compressionRange {
+        frequency >= 2 [SI::hertz] and frequency <= 20 [SI::hertz];
+        duty >= 0.20 and duty <= 0.55;
+        amplitude >= 8 [SI::volt] and amplitude <= 30 [SI::volt];
+      }
+    }
+
+    action def ReleaseTube {
+      out recoilPressureWave : Pressure;
+    }
+
+    state def ActuatorStateMachine {
+      state off;
+      state armed;
+      state compressing;
+      state releasing;
+      state faulted;
+
+      initial then off;
+
+      transition off_to_armed
+        first off
+        accept ControlSignal
+        if signal.enable
+        then armed;
+
+      transition armed_to_compressing
+        first armed
+        accept ControlSignal
+        if signal.enable
+        do CompressTube(signal.commandFrequency, signal.dutyCycle, signal.driveAmplitude)
+        then compressing;
+
+      transition compressing_to_releasing
+        first compressing
+        after 0.038 [SI::second]
+        do ReleaseTube()
+        then releasing;
+
+      transition releasing_to_compressing
+        first releasing
+        after 0.087 [SI::second]
+        do CompressTube(commandIn.signal.commandFrequency, commandIn.signal.dutyCycle, commandIn.signal.driveAmplitude)
+        then compressing;
+
+      transition any_to_faulted
+        first off, armed, compressing, releasing
+        if powerIn.supply.current > 1.5 [SI::ampere]
+        then faulted;
+
+      transition faulted_to_off
+        first faulted
+        accept ControlSignal
+        if not signal.enable
+        then off;
+    }
+  }
+
+  part def ImpedanceMismatchPumpHead {
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+    port powerIn : ElectricalPort;
+    port commandIn : SignalPort;
+
+    part inletSegment : StiffInletSegment;
+    part compliantTube : CompliantTube;
+    part outletSegment : StiffOutletSegment;
+    part actuator : PinchActuator;
+
+    attribute targetMeanFlow : FlowRate = 0.45 [SI::litre / SI::minute];
+    attribute minimumStartupFrequency : Frequency = 3 [SI::hertz];
+    attribute maximumOperatingFrequency : Frequency = 18 [SI::hertz];
+    attribute impedanceRatio : ScalarValues::Real = 3.05;
+    attribute actuatorLocationRatio : ScalarValues::Real = 0.63;
+
+    connect inlet to inletSegment.upstream;
+    connect inletSegment.downstream to compliantTube.inlet;
+    connect compliantTube.outlet to outletSegment.upstream;
+    connect outletSegment.downstream to outlet;
+    connect powerIn to actuator.powerIn;
+    connect commandIn to actuator.commandIn;
+
+    constraint impedancePumpGeometry {
+      actuator.offsetFromTubeMidpoint == 32 [SI::millimetre];
+      outletSegment.hydraulicImpedance / inletSegment.hydraulicImpedance >= 2.5;
+      outletSegment.hydraulicImpedance / inletSegment.hydraulicImpedance <= 3.5;
+    }
+
+    constraint operatingEnvelope {
+      commandIn.signal.commandFrequency >= minimumStartupFrequency;
+      commandIn.signal.commandFrequency <= maximumOperatingFrequency;
+      commandIn.signal.dutyCycle >= 0.25;
+      commandIn.signal.dutyCycle <= 0.50;
+    }
+  }
+
+  part def FluidReservoir {
+    port outlet : FluidPort;
+    port returnIn : FluidPort;
+
+    attribute usableVolume : Volume = 2.0 [SI::litre];
+    attribute minimumVolume : Volume = 0.15 [SI::litre];
+    attribute nominalStaticPressure : Pressure = 101325 [SI::pascal];
+  }
+
+  part def OutletLoad {
+    port inlet : FluidPort;
+    port returnOut : FluidPort;
+
+    attribute nominalBackPressure : Pressure = 118000 [SI::pascal];
+    attribute maximumBackPressure : Pressure = 160000 [SI::pascal];
+    attribute requiredFlow : FlowRate = 0.35 [SI::litre / SI::minute];
+  }
+
+  part def PressureSensor {
+    port sensedPort : FluidPort;
+    port telemetry : TelemetryPort;
+
+    attribute rangeMinimum : Pressure = 80000 [SI::pascal];
+    attribute rangeMaximum : Pressure = 200000 [SI::pascal];
+    attribute accuracy : Pressure = 500 [SI::pascal];
+  }
+
+  part def FlowSensor {
+    port sensedPort : FluidPort;
+    port telemetry : TelemetryPort;
+
+    attribute rangeMaximum : FlowRate = 1.2 [SI::litre / SI::minute];
+    attribute accuracy : FlowRate = 0.025 [SI::litre / SI::minute];
+  }
+
+  part def MotorDriveController {
+    port supplyIn : ElectricalPort;
+    port commandOut : SignalPort;
+    port telemetryIn : TelemetryPort;
+
+    attribute supplyVoltage : Voltage = 24 [SI::volt];
+    attribute commandedFrequency : Frequency = 8 [SI::hertz];
+    attribute commandedDutyCycle : DutyCycle = 0.38;
+    attribute commandedAmplitude : Voltage = 24 [SI::volt];
+    attribute flowSetpoint : FlowRate = 0.45 [SI::litre / SI::minute];
+    attribute pressureLimit : Pressure = 165000 [SI::pascal];
+
+    action def StartPump {
+      out signal : ControlSignal;
+    }
+
+    action def StopPump {
+      out signal : ControlSignal;
+    }
+
+    action def AdjustFrequency {
+      in measuredFlow : FlowRate;
+      in setpoint : FlowRate;
+      out newFrequency : Frequency;
+    }
+
+    action def LimitPressure {
+      in outletPressure : Pressure;
+      out reducedAmplitude : Voltage;
+    }
+
+    state def ControllerStateMachine {
+      state idle;
+      state priming;
+      state closedLoopRunning;
+      state pressureLimited;
+      state shutdown;
+      state fault;
+
+      initial then idle;
+
+      transition idle_to_priming
+        first idle
+        accept ControlSignal
+        if signal.enable
+        do StartPump()
+        then priming;
+
+      transition priming_to_running
+        first priming
+        after 5 [SI::second]
+        then closedLoopRunning;
+
+      transition running_adjust
+        first closedLoopRunning
+        accept SensorSample
+        do AdjustFrequency(sample.measuredFlow, flowSetpoint)
+        then closedLoopRunning;
+
+      transition running_to_pressureLimited
+        first closedLoopRunning
+        accept SensorSample
+        if sample.outletPressure > pressureLimit
+        do LimitPressure(sample.outletPressure)
+        then pressureLimited;
+
+      transition pressureLimited_to_running
+        first pressureLimited
+        accept SensorSample
+        if sample.outletPressure < 0.92 * pressureLimit
+        then closedLoopRunning;
+
+      transition running_to_fault
+        first closedLoopRunning, pressureLimited, priming
+        accept SensorSample
+        if sample.tubeTemperature > 45 [SI::degreeCelsius] or sample.actuatorCurrent > 1.5 [SI::ampere]
+        do StopPump()
+        then fault;
+
+      transition any_to_shutdown
+        first priming, closedLoopRunning, pressureLimited
+        accept ControlSignal
+        if not signal.enable
+        do StopPump()
+        then shutdown;
+
+      transition shutdown_to_idle
+        first shutdown
+        after 2 [SI::second]
+        then idle;
+    }
+  }
+
+  part def PumpingSubsystem {
+    port fluidIn : FluidPort;
+    port fluidOut : FluidPort;
+    port electricalInput : ElectricalPort;
+    port commandInput : SignalPort;
+    port telemetryOutput : TelemetryPort;
+
+    part reservoir : FluidReservoir;
+    part pumpHead : ImpedanceMismatchPumpHead;
+    part load : OutletLoad;
+    part inletPressureSensor : PressureSensor;
+    part outletPressureSensor : PressureSensor;
+    part flowSensor : FlowSensor;
+    part controller : MotorDriveController;
+
+    attribute nominalFlow : FlowRate = 0.45 [SI::litre / SI::minute];
+    attribute allowableReverseFlow : FlowRate = 0.03 [SI::litre / SI::minute];
+    attribute maximumOutletPressure : Pressure = 160000 [SI::pascal];
+    attribute startupPrimeTime : Time = 5 [SI::second];
+
+    connect fluidIn to reservoir.outlet;
+    connect reservoir.outlet to pumpHead.inlet;
+    connect pumpHead.outlet to load.inlet;
+    connect load.returnOut to reservoir.returnIn;
+    connect load.inlet to fluidOut;
+
+    connect electricalInput to controller.supplyIn;
+    connect electricalInput to pumpHead.powerIn;
+    connect commandInput to controller.commandOut;
+    connect controller.commandOut to pumpHead.commandIn;
+
+    connect reservoir.outlet to inletPressureSensor.sensedPort;
+    connect pumpHead.outlet to outletPressureSensor.sensedPort;
+    connect pumpHead.outlet to flowSensor.sensedPort;
+
+    connect inletPressureSensor.telemetry to controller.telemetryIn;
+    connect outletPressureSensor.telemetry to controller.telemetryIn;
+    connect flowSensor.telemetry to controller.telemetryIn;
+    connect controller.telemetryIn to telemetryOutput;
+
+    constraint subsystemPerformance {
+      pumpHead.outlet.flow >= load.requiredFlow;
+      pumpHead.outlet.flow <= 0.80 [SI::litre / SI::minute];
+      pumpHead.outlet.pressure <= maximumOutletPressure;
+      reservoir.usableVolume > reservoir.minimumVolume;
+    }
+
+    perform action PumpFluid {
+      in commandedFlow : FlowRate;
+      out deliveredFlow : FlowRate;
+
+      first start controller.StartPump();
+      then regulate controller.AdjustFrequency(flowSensor.telemetry.sample.measuredFlow, commandedFlow);
+      then deliver deliveredFlow = pumpHead.outlet.flow;
+    }
+  }
+
+  requirement def PumpingSubsystemRequirement {
+    subject subsystem : PumpingSubsystem;
+
+    requirement flowRequirement {
+      doc /* The subsystem shall deliver at least 0.35 L/min of working fluid to the outlet load during steady operation. */
+      require constraint {
+        subsystem.pumpHead.outlet.flow >= 0.35 [SI::litre / SI::minute];
+      }
+    }
+
+    requirement valvelessImpedanceRequirement {
+      doc /* The pump shall move fluid by asymmetric hydraulic impedance and cyclic compression of a compliant tube, without check valves. */
+      require constraint {
+        subsystem.pumpHead.outletSegment.hydraulicImpedance >
+        2.5 * subsystem.pumpHead.inletSegment.hydraulicImpedance;
+      }
+    }
+
+    requirement pressureRequirement {
+      doc /* The subsystem shall limit outlet pressure to protect tubing and downstream equipment. */
+      require constraint {
+        subsystem.pumpHead.outlet.pressure <= 160000 [SI::pascal];
+      }
+    }
+
+    requirement actuatorFrequencyRequirement {
+      doc /* The actuator drive frequency shall remain inside the stable impedance-pumping band. */
+      require constraint {
+        subsystem.pumpHead.commandIn.signal.commandFrequency >= 3 [SI::hertz] and
+        subsystem.pumpHead.commandIn.signal.commandFrequency <= 18 [SI::hertz];
+      }
+    }
+
+    requirement thermalRequirement {
+      doc /* The compliant tube temperature shall remain below the material continuous-use limit. */
+      require constraint {
+        subsystem.pumpHead.compliantTube.maximumTubeTemperature <= 45 [SI::degreeCelsius];
+      }
+    }
+
+    requirement reverseFlowRequirement {
+      doc /* Mean reverse flow shall remain below 0.03 L/min during normal operation. */
+      require constraint {
+        subsystem.allowableReverseFlow <= 0.03 [SI::litre / SI::minute];
+      }
+    }
+
+    requirement powerRequirement {
+      doc /* The pumping subsystem shall operate from a 24 V electrical supply with actuator continuous power below 18 W. */
+      require constraint {
+        subsystem.controller.supplyVoltage == 24 [SI::volt] and
+        subsystem.pumpHead.actuator.maximumContinuousPower <= 18 [SI::watt];
+      }
+    }
+  }
+
+  satisfy PumpingSubsystemRequirement::flowRequirement by PumpingSubsystem::pumpHead;
+  satisfy PumpingSubsystemRequirement::valvelessImpedanceRequirement by PumpingSubsystem::pumpHead;
+  satisfy PumpingSubsystemRequirement::pressureRequirement by PumpingSubsystem::controller;
+  satisfy PumpingSubsystemRequirement::thermalRequirement by PumpingSubsystem::pumpHead::compliantTube;
+  satisfy PumpingSubsystemRequirement::powerRequirement by PumpingSubsystem::controller;
+
+  part impedancePumpSubsystem : PumpingSubsystem {
+    attribute nominalFlow = 0.45 [SI::litre / SI::minute];
+    attribute maximumOutletPressure = 160000 [SI::pascal];
+  }
+
+}

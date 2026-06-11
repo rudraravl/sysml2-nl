@@ -1,0 +1,791 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p8y56jtc
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3dc-85ec-7153-bca6-86a193e75951
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Military anti-shock trousers and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MilitaryAntiShockTrousersModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Pressure :> Real {
+    unit = "mmHg";
+  }
+
+  attribute def Volume :> Real {
+    unit = "L";
+  }
+
+  attribute def FlowRate :> Real {
+    unit = "L/min";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Force :> Real {
+    unit = "N";
+  }
+
+  attribute def BodyMass :> Real {
+    unit = "kg";
+  }
+
+  attribute def BloodPressure :> Real {
+    unit = "mmHg";
+  }
+
+  item def CompressedAir {
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+  }
+
+  item def PatientLegInterface {
+    attribute appliedPressure : Pressure;
+    attribute contactArea : AreaValue;
+  }
+
+  item def PatientAbdomenInterface {
+    attribute appliedPressure : Pressure;
+    attribute contactArea : AreaValue;
+  }
+
+  item def ClinicalCommand {
+    enum def CommandKind {
+      enum inflate;
+      enum hold;
+      enum deflate;
+      enum emergencyRelease;
+    }
+    attribute kind : CommandKind;
+  }
+
+  item def PressureStatus {
+    attribute legPressure : Pressure;
+    attribute abdomenPressure : Pressure;
+    attribute leakDetected : Boolean;
+    attribute overPressure : Boolean;
+  }
+
+  port def AirSupplyPort {
+    out item air : CompressedAir;
+  }
+
+  port def InflationPort {
+    in item airIn : CompressedAir;
+    out item status : PressureStatus;
+  }
+
+  port def PatientContactPort {
+    out item legLoad : PatientLegInterface;
+    out item abdomenLoad : PatientAbdomenInterface;
+  }
+
+  port def OperatorControlPort {
+    in item command : ClinicalCommand;
+    out item status : PressureStatus;
+  }
+
+  part def ManualPump {
+    attribute strokeVolume : Volume = 0.35;
+    attribute maximumOutletPressure : Pressure = 120.0;
+    attribute nominalFlowRate : FlowRate = 12.0;
+    port outlet : AirSupplyPort;
+  }
+
+  part def InflationValve {
+    attribute commandedOpen : Boolean = false;
+    attribute maximumFlow : FlowRate = 20.0;
+    port inlet : InflationPort;
+    port outlet : InflationPort;
+  }
+
+  part def ReliefValve {
+    attribute setPoint : Pressure = 105.0;
+    attribute reseatPressure : Pressure = 90.0;
+    attribute ventFlowCapacity : FlowRate = 18.0;
+    port protectedVolume : InflationPort;
+  }
+
+  part def LegBladder {
+    attribute internalVolume : Volume = 8.0;
+    attribute targetPressure : Pressure = 80.0;
+    attribute maximumSafePressure : Pressure = 100.0;
+    attribute currentPressure : Pressure = 0.0;
+    port pneumaticPort : InflationPort;
+    port patientPort : PatientContactPort;
+  }
+
+  part def AbdominalBladder {
+    attribute internalVolume : Volume = 5.0;
+    attribute targetPressure : Pressure = 60.0;
+    attribute maximumSafePressure : Pressure = 80.0;
+    attribute currentPressure : Pressure = 0.0;
+    port pneumaticPort : InflationPort;
+    port patientPort : PatientContactPort;
+  }
+
+  part def PressureGauge {
+    attribute legIndication : Pressure;
+    attribute abdomenIndication : Pressure;
+    attribute accuracy : Pressure = 3.0;
+    port sensedVolume : InflationPort;
+    port operatorDisplay : OperatorControlPort;
+  }
+
+  part def GarmentShell {
+    attribute textileBurstPressure : Pressure = 180.0;
+    attribute abrasionResistanceCycles : Integer = 25000;
+    attribute patientMassRangeMin : BodyMass = 45.0;
+    attribute patientMassRangeMax : BodyMass = 120.0;
+  }
+
+  part def QuickRelease {
+    attribute fullReleaseTime : TimeDuration = 10.0;
+    attribute handleForce : Force = 45.0;
+    port releaseControl : OperatorControlPort;
+    port ventedVolume : InflationPort;
+  }
+
+  action def InflateBladders {
+    in item command : ClinicalCommand;
+    in item air : CompressedAir;
+    out item status : PressureStatus;
+
+    first start;
+    then fillLegs;
+    then fillAbdomen;
+    then verifyPressure;
+    then done;
+
+    action fillLegs {
+      out item legStatus : PressureStatus;
+    }
+
+    action fillAbdomen {
+      out item abdomenStatus : PressureStatus;
+    }
+
+    action verifyPressure {
+      out item verifiedStatus : PressureStatus;
+    }
+  }
+
+  action def MaintainTherapeuticCompression {
+    in item statusIn : PressureStatus;
+    out item statusOut : PressureStatus;
+
+    first samplePressure;
+    then compensateLeakage;
+    then limitOverPressure;
+    then reportStatus;
+
+    action samplePressure;
+    action compensateLeakage;
+    action limitOverPressure;
+    action reportStatus;
+  }
+
+  action def ControlledDeflation {
+    in item command : ClinicalCommand;
+    out item status : PressureStatus;
+
+    first beginDeflation;
+    then reduceAbdominalPressure;
+    then reduceLegPressure;
+    then confirmZeroPressure;
+
+    action reduceAbdominalPressure;
+    action reduceLegPressure;
+    action confirmZeroPressure;
+  }
+
+  action def EmergencyReleaseAction {
+    out item status : PressureStatus;
+
+    first pullRelease;
+    then openAllVents;
+    then verifyRapidDepressurization;
+
+    action pullRelease;
+    action openAllVents;
+    action verifyRapidDepressurization;
+  }
+
+  state def MASTOperationalState {
+    entry action initializePressureMonitoring;
+
+    state stowed;
+    state fittedToPatient;
+    state inflating;
+    state therapeuticCompression;
+    state controlledDeflation;
+    state emergencyReleased;
+    state fault;
+
+    transition stowed_to_fitted
+      first stowed
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::hold
+      then fittedToPatient;
+
+    transition fitted_to_inflating
+      first fittedToPatient
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::inflate
+      do InflateBladders
+      then inflating;
+
+    transition inflation_complete
+      first inflating
+      if legPressureReached and abdomenPressureReached
+      then therapeuticCompression;
+
+    transition maintain_to_deflate
+      first therapeuticCompression
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::deflate
+      do ControlledDeflation
+      then controlledDeflation;
+
+    transition any_to_emergency
+      first stowed
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::emergencyRelease
+      do EmergencyReleaseAction
+      then emergencyReleased;
+
+    transition compression_to_emergency
+      first therapeuticCompression
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::emergencyRelease
+      do EmergencyReleaseAction
+      then emergencyReleased;
+
+    transition overpressure_fault
+      first inflating
+      if overPressureDetected
+      then fault;
+
+    transition leak_fault
+      first therapeuticCompression
+      if persistentLeakDetected
+      then fault;
+
+    transition deflation_complete
+      first controlledDeflation
+      if allBladdersAtAmbient
+      then fittedToPatient;
+  }
+
+  part def MilitaryAntiShockTrousers {
+    doc /* Military anti-shock trousers are a field medical stabilization system whose primary high-level function is to apply controlled external pneumatic compression to the lower limbs and abdomen of a casualty in order to temporarily improve central blood pressure, reduce lower-body bleeding, and support transport to definitive care. */
+
+    attribute legTargetPressure : Pressure = 80.0;
+    attribute abdomenTargetPressure : Pressure = 60.0;
+    attribute maximumLegPressure : Pressure = 100.0;
+    attribute maximumAbdomenPressure : Pressure = 80.0;
+    attribute inflationTimeLimit : TimeDuration = 60.0;
+    attribute emergencyReleaseTimeLimit : TimeDuration = 10.0;
+    attribute minimumSupportedSystolicPressure : BloodPressure = 60.0;
+
+    part pump : ManualPump;
+    part inletValve : InflationValve;
+    part legBladderLeft : LegBladder;
+    part legBladderRight : LegBladder;
+    part abdominalBladder : AbdominalBladder;
+    part legReliefValve : ReliefValve;
+    part abdomenReliefValve : ReliefValve;
+    part gauge : PressureGauge;
+    part shell : GarmentShell;
+    part quickRelease : QuickRelease;
+
+    port operatorInterface : OperatorControlPort;
+    port patientInterface : PatientContactPort;
+
+    connect pump.outlet to inletValve.inlet;
+    connect inletValve.outlet to legBladderLeft.pneumaticPort;
+    connect inletValve.outlet to legBladderRight.pneumaticPort;
+    connect inletValve.outlet to abdominalBladder.pneumaticPort;
+    connect legReliefValve.protectedVolume to legBladderLeft.pneumaticPort;
+    connect legReliefValve.protectedVolume to legBladderRight.pneumaticPort;
+    connect abdomenReliefValve.protectedVolume to abdominalBladder.pneumaticPort;
+    connect gauge.sensedVolume to inletValve.outlet;
+    connect gauge.operatorDisplay to operatorInterface;
+    connect quickRelease.releaseControl to operatorInterface;
+    connect quickRelease.ventedVolume to legBladderLeft.pneumaticPort;
+    connect quickRelease.ventedVolume to legBladderRight.pneumaticPort;
+    connect quickRelease.ventedVolume to abdominalBladder.pneumaticPort;
+    connect legBladderLeft.patientPort to patientInterface;
+    connect legBladderRight.patientPort to patientInterface;
+    connect abdominalBladder.patientPort to patientInterface;
+
+    exhibit state mastState : MASTOperationalState;
+    perform action inflation : InflateBladders;
+    perform action compressionControl : MaintainTherapeuticCompression;
+    perform action deflation : ControlledDeflation;
+    perform action emergencyRelease : EmergencyReleaseAction;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall provide controlled circumferential pneumatic compression to the casualty's legs and abdomen to temporarily stabilize shock during tactical evacuation. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.legTargetPressure >= 70.0 and
+      mast.legTargetPressure <= mast.maximumLegPressure and
+      mast.abdomenTargetPressure >= 45.0 and
+      mast.abdomenTargetPressure <= mast.maximumAbdomenPressure
+    }
+  }
+
+  requirement def InflationPerformanceRequirement {
+    doc /* The system shall reach therapeutic leg and abdominal pressures within the inflation time limit using the manual pump. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.inflationTimeLimit <= 60.0
+    }
+  }
+
+  requirement def OverPressureProtectionRequirement {
+    doc /* The system shall prevent bladder pressure from exceeding safe pressure limits during inflation and compression maintenance. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.maximumLegPressure <= 100.0 and
+      mast.maximumAbdomenPressure <= 80.0
+    }
+  }
+
+  requirement def EmergencyReleaseRequirement {
+    doc /* The system shall permit rapid depressurization of all inflatable chambers for clinical reassessment, airway management, or evacuation safety. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.emergencyReleaseTimeLimit <= 10.0
+    }
+  }
+
+  requirement def PatientCompatibilityRequirement {
+    doc /* The garment shall support adult casualty use over the specified body mass range. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.shell.patientMassRangeMin <= 45.0 and
+      mast.shell.patientMassRangeMax >= 120.0
+    }
+  }
+
+  requirement def FieldDurabilityRequirement {
+    doc /* The textile shell and pneumatic chambers shall tolerate rugged field handling without rupture below the burst pressure margin. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.shell.textileBurstPressure >= 1.8 * mast.maximumLegPressure
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by MilitaryAntiShockTrousers;
+  satisfy InflationPerformanceRequirement by MilitaryAntiShockTrousers;
+  satisfy OverPressureProtectionRequirement by MilitaryAntiShockTrousers;
+  satisfy EmergencyReleaseRequirement by MilitaryAntiShockTrousers;
+  satisfy PatientCompatibilityRequirement by MilitaryAntiShockTrousers;
+  satisfy FieldDurabilityRequirement by MilitaryAntiShockTrousers;
+
+}
+tokens used
+3,147
+package MilitaryAntiShockTrousersModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Pressure :> Real {
+    unit = "mmHg";
+  }
+
+  attribute def Volume :> Real {
+    unit = "L";
+  }
+
+  attribute def FlowRate :> Real {
+    unit = "L/min";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Force :> Real {
+    unit = "N";
+  }
+
+  attribute def BodyMass :> Real {
+    unit = "kg";
+  }
+
+  attribute def BloodPressure :> Real {
+    unit = "mmHg";
+  }
+
+  item def CompressedAir {
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+  }
+
+  item def PatientLegInterface {
+    attribute appliedPressure : Pressure;
+    attribute contactArea : AreaValue;
+  }
+
+  item def PatientAbdomenInterface {
+    attribute appliedPressure : Pressure;
+    attribute contactArea : AreaValue;
+  }
+
+  item def ClinicalCommand {
+    enum def CommandKind {
+      enum inflate;
+      enum hold;
+      enum deflate;
+      enum emergencyRelease;
+    }
+    attribute kind : CommandKind;
+  }
+
+  item def PressureStatus {
+    attribute legPressure : Pressure;
+    attribute abdomenPressure : Pressure;
+    attribute leakDetected : Boolean;
+    attribute overPressure : Boolean;
+  }
+
+  port def AirSupplyPort {
+    out item air : CompressedAir;
+  }
+
+  port def InflationPort {
+    in item airIn : CompressedAir;
+    out item status : PressureStatus;
+  }
+
+  port def PatientContactPort {
+    out item legLoad : PatientLegInterface;
+    out item abdomenLoad : PatientAbdomenInterface;
+  }
+
+  port def OperatorControlPort {
+    in item command : ClinicalCommand;
+    out item status : PressureStatus;
+  }
+
+  part def ManualPump {
+    attribute strokeVolume : Volume = 0.35;
+    attribute maximumOutletPressure : Pressure = 120.0;
+    attribute nominalFlowRate : FlowRate = 12.0;
+    port outlet : AirSupplyPort;
+  }
+
+  part def InflationValve {
+    attribute commandedOpen : Boolean = false;
+    attribute maximumFlow : FlowRate = 20.0;
+    port inlet : InflationPort;
+    port outlet : InflationPort;
+  }
+
+  part def ReliefValve {
+    attribute setPoint : Pressure = 105.0;
+    attribute reseatPressure : Pressure = 90.0;
+    attribute ventFlowCapacity : FlowRate = 18.0;
+    port protectedVolume : InflationPort;
+  }
+
+  part def LegBladder {
+    attribute internalVolume : Volume = 8.0;
+    attribute targetPressure : Pressure = 80.0;
+    attribute maximumSafePressure : Pressure = 100.0;
+    attribute currentPressure : Pressure = 0.0;
+    port pneumaticPort : InflationPort;
+    port patientPort : PatientContactPort;
+  }
+
+  part def AbdominalBladder {
+    attribute internalVolume : Volume = 5.0;
+    attribute targetPressure : Pressure = 60.0;
+    attribute maximumSafePressure : Pressure = 80.0;
+    attribute currentPressure : Pressure = 0.0;
+    port pneumaticPort : InflationPort;
+    port patientPort : PatientContactPort;
+  }
+
+  part def PressureGauge {
+    attribute legIndication : Pressure;
+    attribute abdomenIndication : Pressure;
+    attribute accuracy : Pressure = 3.0;
+    port sensedVolume : InflationPort;
+    port operatorDisplay : OperatorControlPort;
+  }
+
+  part def GarmentShell {
+    attribute textileBurstPressure : Pressure = 180.0;
+    attribute abrasionResistanceCycles : Integer = 25000;
+    attribute patientMassRangeMin : BodyMass = 45.0;
+    attribute patientMassRangeMax : BodyMass = 120.0;
+  }
+
+  part def QuickRelease {
+    attribute fullReleaseTime : TimeDuration = 10.0;
+    attribute handleForce : Force = 45.0;
+    port releaseControl : OperatorControlPort;
+    port ventedVolume : InflationPort;
+  }
+
+  action def InflateBladders {
+    in item command : ClinicalCommand;
+    in item air : CompressedAir;
+    out item status : PressureStatus;
+
+    first start;
+    then fillLegs;
+    then fillAbdomen;
+    then verifyPressure;
+    then done;
+
+    action fillLegs {
+      out item legStatus : PressureStatus;
+    }
+
+    action fillAbdomen {
+      out item abdomenStatus : PressureStatus;
+    }
+
+    action verifyPressure {
+      out item verifiedStatus : PressureStatus;
+    }
+  }
+
+  action def MaintainTherapeuticCompression {
+    in item statusIn : PressureStatus;
+    out item statusOut : PressureStatus;
+
+    first samplePressure;
+    then compensateLeakage;
+    then limitOverPressure;
+    then reportStatus;
+
+    action samplePressure;
+    action compensateLeakage;
+    action limitOverPressure;
+    action reportStatus;
+  }
+
+  action def ControlledDeflation {
+    in item command : ClinicalCommand;
+    out item status : PressureStatus;
+
+    first beginDeflation;
+    then reduceAbdominalPressure;
+    then reduceLegPressure;
+    then confirmZeroPressure;
+
+    action reduceAbdominalPressure;
+    action reduceLegPressure;
+    action confirmZeroPressure;
+  }
+
+  action def EmergencyReleaseAction {
+    out item status : PressureStatus;
+
+    first pullRelease;
+    then openAllVents;
+    then verifyRapidDepressurization;
+
+    action pullRelease;
+    action openAllVents;
+    action verifyRapidDepressurization;
+  }
+
+  state def MASTOperationalState {
+    entry action initializePressureMonitoring;
+
+    state stowed;
+    state fittedToPatient;
+    state inflating;
+    state therapeuticCompression;
+    state controlledDeflation;
+    state emergencyReleased;
+    state fault;
+
+    transition stowed_to_fitted
+      first stowed
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::hold
+      then fittedToPatient;
+
+    transition fitted_to_inflating
+      first fittedToPatient
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::inflate
+      do InflateBladders
+      then inflating;
+
+    transition inflation_complete
+      first inflating
+      if legPressureReached and abdomenPressureReached
+      then therapeuticCompression;
+
+    transition maintain_to_deflate
+      first therapeuticCompression
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::deflate
+      do ControlledDeflation
+      then controlledDeflation;
+
+    transition any_to_emergency
+      first stowed
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::emergencyRelease
+      do EmergencyReleaseAction
+      then emergencyReleased;
+
+    transition compression_to_emergency
+      first therapeuticCompression
+      accept ClinicalCommand
+      if command.kind == ClinicalCommand::CommandKind::emergencyRelease
+      do EmergencyReleaseAction
+      then emergencyReleased;
+
+    transition overpressure_fault
+      first inflating
+      if overPressureDetected
+      then fault;
+
+    transition leak_fault
+      first therapeuticCompression
+      if persistentLeakDetected
+      then fault;
+
+    transition deflation_complete
+      first controlledDeflation
+      if allBladdersAtAmbient
+      then fittedToPatient;
+  }
+
+  part def MilitaryAntiShockTrousers {
+    doc /* Military anti-shock trousers are a field medical stabilization system whose primary high-level function is to apply controlled external pneumatic compression to the lower limbs and abdomen of a casualty in order to temporarily improve central blood pressure, reduce lower-body bleeding, and support transport to definitive care. */
+
+    attribute legTargetPressure : Pressure = 80.0;
+    attribute abdomenTargetPressure : Pressure = 60.0;
+    attribute maximumLegPressure : Pressure = 100.0;
+    attribute maximumAbdomenPressure : Pressure = 80.0;
+    attribute inflationTimeLimit : TimeDuration = 60.0;
+    attribute emergencyReleaseTimeLimit : TimeDuration = 10.0;
+    attribute minimumSupportedSystolicPressure : BloodPressure = 60.0;
+
+    part pump : ManualPump;
+    part inletValve : InflationValve;
+    part legBladderLeft : LegBladder;
+    part legBladderRight : LegBladder;
+    part abdominalBladder : AbdominalBladder;
+    part legReliefValve : ReliefValve;
+    part abdomenReliefValve : ReliefValve;
+    part gauge : PressureGauge;
+    part shell : GarmentShell;
+    part quickRelease : QuickRelease;
+
+    port operatorInterface : OperatorControlPort;
+    port patientInterface : PatientContactPort;
+
+    connect pump.outlet to inletValve.inlet;
+    connect inletValve.outlet to legBladderLeft.pneumaticPort;
+    connect inletValve.outlet to legBladderRight.pneumaticPort;
+    connect inletValve.outlet to abdominalBladder.pneumaticPort;
+    connect legReliefValve.protectedVolume to legBladderLeft.pneumaticPort;
+    connect legReliefValve.protectedVolume to legBladderRight.pneumaticPort;
+    connect abdomenReliefValve.protectedVolume to abdominalBladder.pneumaticPort;
+    connect gauge.sensedVolume to inletValve.outlet;
+    connect gauge.operatorDisplay to operatorInterface;
+    connect quickRelease.releaseControl to operatorInterface;
+    connect quickRelease.ventedVolume to legBladderLeft.pneumaticPort;
+    connect quickRelease.ventedVolume to legBladderRight.pneumaticPort;
+    connect quickRelease.ventedVolume to abdominalBladder.pneumaticPort;
+    connect legBladderLeft.patientPort to patientInterface;
+    connect legBladderRight.patientPort to patientInterface;
+    connect abdominalBladder.patientPort to patientInterface;
+
+    exhibit state mastState : MASTOperationalState;
+    perform action inflation : InflateBladders;
+    perform action compressionControl : MaintainTherapeuticCompression;
+    perform action deflation : ControlledDeflation;
+    perform action emergencyRelease : EmergencyReleaseAction;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall provide controlled circumferential pneumatic compression to the casualty's legs and abdomen to temporarily stabilize shock during tactical evacuation. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.legTargetPressure >= 70.0 and
+      mast.legTargetPressure <= mast.maximumLegPressure and
+      mast.abdomenTargetPressure >= 45.0 and
+      mast.abdomenTargetPressure <= mast.maximumAbdomenPressure
+    }
+  }
+
+  requirement def InflationPerformanceRequirement {
+    doc /* The system shall reach therapeutic leg and abdominal pressures within the inflation time limit using the manual pump. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.inflationTimeLimit <= 60.0
+    }
+  }
+
+  requirement def OverPressureProtectionRequirement {
+    doc /* The system shall prevent bladder pressure from exceeding safe pressure limits during inflation and compression maintenance. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.maximumLegPressure <= 100.0 and
+      mast.maximumAbdomenPressure <= 80.0
+    }
+  }
+
+  requirement def EmergencyReleaseRequirement {
+    doc /* The system shall permit rapid depressurization of all inflatable chambers for clinical reassessment, airway management, or evacuation safety. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.emergencyReleaseTimeLimit <= 10.0
+    }
+  }
+
+  requirement def PatientCompatibilityRequirement {
+    doc /* The garment shall support adult casualty use over the specified body mass range. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.shell.patientMassRangeMin <= 45.0 and
+      mast.shell.patientMassRangeMax >= 120.0
+    }
+  }
+
+  requirement def FieldDurabilityRequirement {
+    doc /* The textile shell and pneumatic chambers shall tolerate rugged field handling without rupture below the burst pressure margin. */
+    subject mast : MilitaryAntiShockTrousers;
+    require constraint {
+      mast.shell.textileBurstPressure >= 1.8 * mast.maximumLegPressure
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by MilitaryAntiShockTrousers;
+  satisfy InflationPerformanceRequirement by MilitaryAntiShockTrousers;
+  satisfy OverPressureProtectionRequirement by MilitaryAntiShockTrousers;
+  satisfy EmergencyReleaseRequirement by MilitaryAntiShockTrousers;
+  satisfy PatientCompatibilityRequirement by MilitaryAntiShockTrousers;
+  satisfy FieldDurabilityRequirement by MilitaryAntiShockTrousers;
+
+}

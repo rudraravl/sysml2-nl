@@ -1,0 +1,406 @@
+package HumphreyVisualFieldAnalyserModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def LuminousIntensity;
+    attribute def Luminance;
+    attribute def Duration;
+    attribute def Angle;
+    attribute def Probability;
+    attribute def ReliabilityIndex;
+    attribute def Sensitivity;
+    attribute def FixationLossRate;
+    attribute def FalsePositiveRate;
+    attribute def FalseNegativeRate;
+
+    item def LightStimulus {
+        attribute meridian : Angle;
+        attribute eccentricity : Angle;
+        attribute size : String;
+        attribute luminance : Luminance;
+        attribute duration : Duration;
+        attribute backgroundLuminance : Luminance;
+    }
+
+    item def PatientResponse {
+        attribute stimulusSeen : Boolean;
+        attribute responseTime : Duration;
+        attribute stimulusLocationId : String;
+    }
+
+    item def VisualFieldThreshold {
+        attribute locationId : String;
+        attribute meridian : Angle;
+        attribute eccentricity : Angle;
+        attribute threshold : Sensitivity;
+        attribute confidence : Probability;
+    }
+
+    item def ReliabilityMetrics {
+        attribute fixationLossRate : FixationLossRate;
+        attribute falsePositiveRate : FalsePositiveRate;
+        attribute falseNegativeRate : FalseNegativeRate;
+        attribute overallReliability : ReliabilityIndex;
+    }
+
+    item def VisualFieldReport {
+        attribute patientIdentifier : String;
+        attribute eyeTested : String;
+        attribute testPattern : String;
+        attribute testStrategy : String;
+        attribute meanDeviation : Sensitivity;
+        attribute patternStandardDeviation : Sensitivity;
+        attribute visualFieldIndex : Probability;
+        part thresholds : VisualFieldThreshold[54];
+        part reliability : ReliabilityMetrics;
+    }
+
+    port def StimulusOutputPort {
+        out stimulus : LightStimulus;
+    }
+
+    port def ResponseInputPort {
+        in response : PatientResponse;
+    }
+
+    port def ReportOutputPort {
+        out report : VisualFieldReport;
+    }
+
+    port def PositioningPort {
+        in chinPresent : Boolean;
+        in foreheadContact : Boolean;
+        out alignmentReady : Boolean;
+    }
+
+    port def FixationMonitoringPort {
+        out fixationStable : Boolean;
+        out gazeOffset : Angle;
+        out pupilVisible : Boolean;
+    }
+
+    part def Patient {
+        port visualStimulusInput {
+            in stimulus : LightStimulus;
+        }
+
+        port handheldSwitch {
+            out response : PatientResponse;
+        }
+
+        attribute eyeUnderTest : String;
+        attribute fixationTargetVisible : Boolean;
+    }
+
+    part def StimulusProjector {
+        port stimulusOutput : StimulusOutputPort;
+
+        attribute bowlRadius : Length = 300 [mm];
+        attribute backgroundLuminance : Luminance = 31.5;
+        attribute maxStimulusLuminance : Luminance = 10000;
+        attribute stimulusDuration : Duration = 200 [ms];
+
+        action presentStimulus {
+            in locationId : String;
+            in meridian : Angle;
+            in eccentricity : Angle;
+            in luminance : Luminance;
+            out stimulus : LightStimulus;
+        }
+    }
+
+    part def FixationMonitor {
+        port monitoring : FixationMonitoringPort;
+
+        attribute permittedGazeOffset : Angle = 2 [deg];
+        attribute currentGazeOffset : Angle;
+        attribute pupilDetected : Boolean;
+
+        state def FixationMonitorState {
+            entry; then SearchingForPupil;
+
+            state SearchingForPupil;
+            state TrackingFixation;
+            state FixationUnstable;
+            state FixationLost;
+
+            transition SearchingForPupil_to_Tracking
+                first SearchingForPupil
+                accept when pupilDetected
+                then TrackingFixation;
+
+            transition Tracking_to_Unstable
+                first TrackingFixation
+                accept when currentGazeOffset > permittedGazeOffset
+                then FixationUnstable;
+
+            transition Unstable_to_Tracking
+                first FixationUnstable
+                accept when currentGazeOffset <= permittedGazeOffset
+                then TrackingFixation;
+
+            transition Any_to_Lost
+                first TrackingFixation
+                accept when not pupilDetected
+                then FixationLost;
+
+            transition Lost_to_Searching
+                first FixationLost
+                then SearchingForPupil;
+        }
+
+        part monitorState : FixationMonitorState;
+    }
+
+    part def PatientPositioningAssembly {
+        port positioning : PositioningPort;
+
+        attribute chinRestHeight : Length;
+        attribute foreheadRestEngaged : Boolean;
+        attribute alignmentTolerance : Length = 1 [mm];
+
+        action alignPatient {
+            in eyeHeight : Length;
+            out aligned : Boolean;
+        }
+    }
+
+    part def ResponseButton {
+        port responseOutput {
+            out response : PatientResponse;
+        }
+
+        attribute debounceTime : Duration = 20 [ms];
+
+        action registerPress {
+            in stimulusLocationId : String;
+            out response : PatientResponse;
+        }
+    }
+
+    part def TestController {
+        port stimulusCommand {
+            out stimulus : LightStimulus;
+        }
+
+        port responseInput : ResponseInputPort;
+        port reportOutput : ReportOutputPort;
+        port fixationInput : FixationMonitoringPort;
+        port positioningInput : PositioningPort;
+
+        attribute selectedPattern : String = "24-2";
+        attribute selectedStrategy : String = "SITA Standard";
+        attribute minimumReliability : ReliabilityIndex = 0.80;
+        attribute stimulusInterval : Duration = 1200 [ms];
+        attribute fixationLossCount : Integer;
+        attribute falsePositiveCount : Integer;
+        attribute falseNegativeCount : Integer;
+        attribute completedLocations : Integer;
+
+        action initializeExam {
+            in patientIdentifier : String;
+            in eyeTested : String;
+            out ready : Boolean;
+        }
+
+        action estimateThreshold {
+            in locationId : String;
+            in responses : PatientResponse[*];
+            out threshold : VisualFieldThreshold;
+        }
+
+        action computeReliability {
+            in fixationLossCount : Integer;
+            in falsePositiveCount : Integer;
+            in falseNegativeCount : Integer;
+            out metrics : ReliabilityMetrics;
+        }
+
+        action generateReport {
+            in thresholds : VisualFieldThreshold[*];
+            in reliability : ReliabilityMetrics;
+            out report : VisualFieldReport;
+        }
+
+        state def ExaminationState {
+            entry; then Idle;
+
+            state Idle;
+            state PatientSetup;
+            state CalibrationCheck;
+            state RunningThresholdTest;
+            state PausedForFixation;
+            state ComputingResults;
+            state ReportAvailable;
+            state Aborted;
+
+            transition Idle_to_Setup
+                first Idle
+                accept StartExam
+                then PatientSetup;
+
+            transition Setup_to_Calibration
+                first PatientSetup
+                accept when positioningInput.alignmentReady
+                then CalibrationCheck;
+
+            transition Calibration_to_Running
+                first CalibrationCheck
+                accept when fixationInput.pupilVisible and fixationInput.fixationStable
+                then RunningThresholdTest;
+
+            transition Running_to_Paused
+                first RunningThresholdTest
+                accept when not fixationInput.fixationStable
+                then PausedForFixation;
+
+            transition Paused_to_Running
+                first PausedForFixation
+                accept when fixationInput.fixationStable
+                then RunningThresholdTest;
+
+            transition Running_to_Computing
+                first RunningThresholdTest
+                accept when completedLocations >= 54
+                then ComputingResults;
+
+            transition Computing_to_Report
+                first ComputingResults
+                then ReportAvailable;
+
+            transition Any_to_Aborted
+                first RunningThresholdTest
+                accept AbortExam
+                then Aborted;
+        }
+
+        part examState : ExaminationState;
+    }
+
+    part def DataStore {
+        port reportArchive {
+            in report : VisualFieldReport;
+        }
+
+        attribute retainedReportCount : Integer;
+
+        action storeReport {
+            in report : VisualFieldReport;
+            out stored : Boolean;
+        }
+    }
+
+    part def OperatorInterface {
+        port reportDisplay {
+            in report : VisualFieldReport;
+        }
+
+        port examCommand {
+            out startRequested : Boolean;
+            out abortRequested : Boolean;
+        }
+
+        attribute displayedPatientIdentifier : String;
+        attribute displayedEye : String;
+        attribute displayedTestPattern : String;
+
+        action showReport {
+            in report : VisualFieldReport;
+        }
+    }
+
+    part def HumphreyVisualFieldAnalyser {
+        port stimulusToPatient : StimulusOutputPort;
+        port patientResponse : ResponseInputPort;
+        port reportOut : ReportOutputPort;
+
+        attribute primaryFunction : String =
+            "Measure monocular visual field sensitivity by presenting controlled light stimuli at defined retinal locations, collecting patient responses, estimating threshold sensitivity, assessing test reliability, and producing a diagnostic visual field report.";
+
+        part projector : StimulusProjector;
+        part fixationMonitor : FixationMonitor;
+        part positioningAssembly : PatientPositioningAssembly;
+        part responseButton : ResponseButton;
+        part controller : TestController;
+        part dataStore : DataStore;
+        part userInterface : OperatorInterface;
+
+        connect projector.stimulusOutput to stimulusToPatient;
+        connect patientResponse to controller.responseInput;
+        connect fixationMonitor.monitoring to controller.fixationInput;
+        connect positioningAssembly.positioning to controller.positioningInput;
+        connect controller.reportOutput to reportOut;
+        connect controller.reportOutput to dataStore.reportArchive;
+        connect controller.reportOutput to userInterface.reportDisplay;
+    }
+
+    part visualFieldAnalyserSystem {
+        part analyser : HumphreyVisualFieldAnalyser;
+        part patient : Patient;
+
+        connect analyser.stimulusToPatient to patient.visualStimulusInput;
+        connect patient.handheldSwitch to analyser.patientResponse;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject analyser : HumphreyVisualFieldAnalyser;
+
+        require constraint {
+            analyser.primaryFunction != ""
+        }
+
+        doc
+        /* The analyser shall perform automated static perimetry by presenting calibrated visual stimuli, recording patient detection responses, calculating threshold visual sensitivity across the selected field pattern, and outputting clinically useful visual field results. */
+    }
+
+    requirement def StimulusControlRequirement {
+        subject projector : StimulusProjector;
+
+        require constraint {
+            projector.stimulusDuration == 200 [ms] and
+            projector.backgroundLuminance == 31.5
+        }
+
+        doc
+        /* The stimulus subsystem shall present brief, calibrated stimuli against a controlled background luminance. */
+    }
+
+    requirement def FixationMonitoringRequirement {
+        subject monitor : FixationMonitor;
+
+        require constraint {
+            monitor.permittedGazeOffset <= 2 [deg]
+        }
+
+        doc
+        /* The analyser shall monitor patient fixation during testing and pause or flag measurements when fixation is unstable. */
+    }
+
+    requirement def ReliabilityReportingRequirement {
+        subject report : VisualFieldReport;
+
+        require constraint {
+            report.reliability.overallReliability >= 0.0 and
+            report.reliability.overallReliability <= 1.0
+        }
+
+        doc
+        /* The report shall include reliability metrics derived from fixation losses, false positives, and false negatives. */
+    }
+
+    requirement def ThresholdCoverageRequirement {
+        subject report : VisualFieldReport;
+
+        require constraint {
+            report.thresholds->size() == 54
+        }
+
+        doc
+        /* For a 24-2 test pattern, the analyser shall report threshold sensitivity values for 54 tested visual field locations. */
+    }
+
+    satisfy PrimaryFunctionRequirement by visualFieldAnalyserSystem.analyser;
+    satisfy StimulusControlRequirement by visualFieldAnalyserSystem.analyser.projector;
+    satisfy FixationMonitoringRequirement by visualFieldAnalyserSystem.analyser.fixationMonitor;
+}

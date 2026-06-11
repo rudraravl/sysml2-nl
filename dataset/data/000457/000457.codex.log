@@ -1,0 +1,957 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p8ck9fsl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2f4-9f49-7151-bf46-e617d7953246
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Hypoglossal nerve stimulation and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HypoglossalNerveStimulationSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def ElectricPotential :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def ElectricCurrent :> ISQ::electricCurrent {
+    unit = "mA";
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = "Hz";
+  }
+
+  attribute def PulseWidth {
+    unit = "us";
+  }
+
+  attribute def TimeDuration :> ISQ::time {
+    unit = "s";
+  }
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = "Pa";
+  }
+
+  attribute def Acceleration {
+    unit = "m/s^2";
+  }
+
+  attribute def BatteryCharge {
+    unit = "%";
+  }
+
+  attribute def AirflowRate {
+    unit = "L/min";
+  }
+
+  attribute def Impedance {
+    unit = "ohm";
+  }
+
+  enum def TherapyMode {
+    enum off;
+    enum standby;
+    enum sensing;
+    enum stimulating;
+    enum paused;
+    enum fault;
+  }
+
+  enum def RespirationPhase {
+    enum expiration;
+    enum inspirationDetected;
+    enum uncertain;
+  }
+
+  enum def LeadIntegrity {
+    enum normal;
+    enum highImpedance;
+    enum lowImpedance;
+    enum disconnected;
+  }
+
+  item def RespirationSignal {
+    attribute thoracicPressure : Pressure;
+    attribute airflow : AirflowRate;
+    attribute motion : Acceleration;
+    attribute phase : RespirationPhase;
+    attribute confidence : Real;
+  }
+
+  item def StimulationPulse {
+    attribute amplitude : ElectricCurrent;
+    attribute voltageLimit : ElectricPotential;
+    attribute frequency : Frequency;
+    attribute pulseWidth : PulseWidth;
+    attribute burstDuration : TimeDuration;
+    attribute rampTime : TimeDuration;
+  }
+
+  item def NeuralActivation {
+    attribute targetNerve = "hypoglossal nerve";
+    attribute selectedBranch = "medial protrusor branch";
+    attribute recruitmentLevel : Real;
+    attribute fatigueIndex : Real;
+  }
+
+  item def AirwayPatencyStatus {
+    attribute obstructionRisk : Real;
+    attribute tongueProtrusionLevel : Real;
+    attribute ventilationAdequate : Boolean;
+  }
+
+  item def BatteryStatus {
+    attribute chargeRemaining : BatteryCharge;
+    attribute voltage : ElectricPotential;
+    attribute replacementRecommended : Boolean;
+  }
+
+  item def TherapyCommand {
+    attribute enableTherapy : Boolean;
+    attribute requestedMode : TherapyMode;
+    attribute startDelay : TimeDuration;
+    attribute sessionDuration : TimeDuration;
+  }
+
+  item def DiagnosticReport {
+    attribute battery : BatteryStatus;
+    attribute leadIntegrity : LeadIntegrity;
+    attribute measuredImpedance : Impedance;
+    attribute deliveredPulseCount : Integer;
+    attribute lastFaultCode : String;
+  }
+
+  port def RespirationSensorPort {
+    out item respiration : RespirationSignal;
+  }
+
+  port def StimulationOutputPort {
+    out item pulse : StimulationPulse;
+  }
+
+  port def NeuralInterfacePort {
+    in item pulse : StimulationPulse;
+    out item activation : NeuralActivation;
+  }
+
+  port def AirwayEffectPort {
+    in item activation : NeuralActivation;
+    out item patency : AirwayPatencyStatus;
+  }
+
+  port def PatientControllerPort {
+    in item command : TherapyCommand;
+    out item status : DiagnosticReport;
+  }
+
+  port def EnergyPort {
+    out item battery : BatteryStatus;
+  }
+
+  part def ImplantablePulseGenerator {
+    attribute mode : TherapyMode = TherapyMode::off;
+    attribute batteryCharge : BatteryCharge = 100 [%];
+    attribute nominalPulseAmplitude : ElectricCurrent = 1.5 [mA];
+    attribute maxPulseAmplitude : ElectricCurrent = 4.0 [mA];
+    attribute nominalFrequency : Frequency = 33 [Hz];
+    attribute nominalPulseWidth : PulseWidth = 90 [us];
+    attribute inspirationDetectionThreshold : Pressure = -20 [Pa];
+    attribute leadImpedance : Impedance = 850 [ohm];
+
+    port respirationIn : RespirationSensorPort;
+    port stimOut : StimulationOutputPort;
+    port controller : PatientControllerPort;
+    port energy : EnergyPort;
+
+    action detectInspiration {
+      in item signal : RespirationSignal;
+      out phase : RespirationPhase;
+      out confidence : Real;
+    }
+
+    action computePulseTrain {
+      in phase : RespirationPhase;
+      in confidence : Real;
+      out item pulse : StimulationPulse;
+    }
+
+    action performLeadCheck {
+      out integrity : LeadIntegrity;
+      out measuredImpedance : Impedance;
+    }
+
+    action generateDiagnosticReport {
+      out item report : DiagnosticReport;
+    }
+
+    state def TherapyController {
+      state Off;
+      state Standby;
+      state Sensing;
+      state Stimulating;
+      state Paused;
+      state Fault;
+
+      initial then Off;
+
+      transition Off_to_Standby
+        first Off
+        accept TherapyCommand
+        if command.enableTherapy
+        then Standby;
+
+      transition Standby_to_Sensing
+        first Standby
+        after 30 [s]
+        then Sensing;
+
+      transition Sensing_to_Stimulating
+        first Sensing
+        accept RespirationSignal
+        if respiration.phase == RespirationPhase::inspirationDetected and respiration.confidence >= 0.75
+        then Stimulating;
+
+      transition Stimulating_to_Sensing
+        first Stimulating
+        after 2.0 [s]
+        then Sensing;
+
+      transition Sensing_to_Paused
+        first Sensing
+        accept TherapyCommand
+        if not command.enableTherapy
+        then Paused;
+
+      transition Paused_to_Sensing
+        first Paused
+        accept TherapyCommand
+        if command.enableTherapy
+        then Sensing;
+
+      transition Standby_to_Fault
+        first Standby
+        if leadImpedance > 2000 [ohm] or leadImpedance < 100 [ohm] or batteryCharge < 5 [%]
+        then Fault;
+
+      transition Sensing_to_Fault
+        first Sensing
+        if leadImpedance > 2000 [ohm] or leadImpedance < 100 [ohm] or batteryCharge < 5 [%]
+        then Fault;
+
+      transition Stimulating_to_Fault
+        first Stimulating
+        if leadImpedance > 2000 [ohm] or leadImpedance < 100 [ohm] or batteryCharge < 5 [%]
+        then Fault;
+
+      transition Fault_to_Off
+        first Fault
+        accept TherapyCommand
+        if not command.enableTherapy
+        then Off;
+    }
+  }
+
+  part def RespirationSensorLead {
+    attribute sensitivity : Real = 0.92;
+    attribute samplingFrequency : Frequency = 50 [Hz];
+    attribute pressureNoise : Pressure = 2 [Pa];
+
+    port sensorOut : RespirationSensorPort;
+
+    action measureRespiration {
+      out item signal : RespirationSignal;
+    }
+  }
+
+  part def StimulationLead {
+    attribute conductorResistance : Impedance = 70 [ohm];
+    attribute insulationIntegrity : Real = 0.99;
+
+    port stimIn : StimulationOutputPort;
+    port cuff : NeuralInterfacePort;
+
+    action deliverPulseToNerve {
+      in item pulse : StimulationPulse;
+      out item activation : NeuralActivation;
+    }
+  }
+
+  part def HypoglossalNerveCuffElectrode {
+    attribute electrodeContactArea {
+      unit = "mm^2";
+      :>> defaultValue = 8;
+    }
+    attribute contactImpedance : Impedance = 780 [ohm];
+
+    port neural : NeuralInterfacePort;
+  }
+
+  part def UpperAirway {
+    attribute baselineObstructionRisk : Real = 0.83;
+    attribute requiredTongueProtrusionLevel : Real = 0.55;
+
+    port airway : AirwayEffectPort;
+
+    action maintainPatency {
+      in item activation : NeuralActivation;
+      out item status : AirwayPatencyStatus;
+    }
+  }
+
+  part def PatientController {
+    attribute userTherapyEnabled : Boolean = false;
+    attribute configuredSessionDuration : TimeDuration = 28800 [s];
+
+    port therapyControl : PatientControllerPort;
+
+    action startTherapy {
+      out item command : TherapyCommand;
+    }
+
+    action stopTherapy {
+      out item command : TherapyCommand;
+    }
+
+    action requestStatus {
+      in item report : DiagnosticReport;
+    }
+  }
+
+  part def RechargeableBattery {
+    attribute capacity {
+      unit = "mAh";
+      :>> defaultValue = 120;
+    }
+    attribute chargeRemaining : BatteryCharge = 100 [%];
+    attribute nominalVoltage : ElectricPotential = 3.7 [V];
+
+    port powerStatus : EnergyPort;
+
+    action supplyImplantPower {
+      out item battery : BatteryStatus;
+    }
+  }
+
+  part def Patient {
+    part upperAirway : UpperAirway;
+    part hypoglossalNerveCuff : HypoglossalNerveCuffElectrode;
+  }
+
+  part def HypoglossalNerveStimulationSystem {
+    attribute primaryFunction = "Detect inspiration during sleep and stimulate the hypoglossal nerve to protrude or stabilize the tongue, thereby maintaining upper airway patency and reducing obstructive breathing events.";
+
+    part pulseGenerator : ImplantablePulseGenerator;
+    part respirationSensor : RespirationSensorLead;
+    part stimulationLead : StimulationLead;
+    part patientController : PatientController;
+    part battery : RechargeableBattery;
+    part patient : Patient;
+
+    connection sensor_to_generator
+      connect respirationSensor.sensorOut to pulseGenerator.respirationIn;
+
+    connection generator_to_stimulation_lead
+      connect pulseGenerator.stimOut to stimulationLead.stimIn;
+
+    connection stimulation_lead_to_cuff
+      connect stimulationLead.cuff to patient.hypoglossalNerveCuff.neural;
+
+    connection cuff_to_airway_effect
+      connect patient.hypoglossalNerveCuff.neural to patient.upperAirway.airway;
+
+    connection controller_to_generator
+      connect patientController.therapyControl to pulseGenerator.controller;
+
+    connection battery_to_generator
+      connect battery.powerStatus to pulseGenerator.energy;
+
+    perform action therapyCycle {
+      first start;
+      then senseRespiration;
+      then classifyRespirationPhase;
+      then deliverSynchronizedStimulation;
+      then assessAirwayPatency;
+      then updateDiagnostics;
+
+      action start {
+        out item command : TherapyCommand;
+      }
+
+      action senseRespiration {
+        out item signal : RespirationSignal;
+      }
+
+      action classifyRespirationPhase {
+        in item signal : RespirationSignal;
+        out phase : RespirationPhase;
+        out confidence : Real;
+      }
+
+      action deliverSynchronizedStimulation {
+        in phase : RespirationPhase;
+        in confidence : Real;
+        out item pulse : StimulationPulse;
+        out item activation : NeuralActivation;
+      }
+
+      action assessAirwayPatency {
+        in item activation : NeuralActivation;
+        out item status : AirwayPatencyStatus;
+      }
+
+      action updateDiagnostics {
+        in item status : AirwayPatencyStatus;
+        out item report : DiagnosticReport;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The system shall detect inspiratory effort and deliver synchronized hypoglossal nerve stimulation to maintain upper airway patency during sleep.";
+    subject system : HypoglossalNerveStimulationSystem;
+
+    require constraint {
+      system.patient.upperAirway.baselineObstructionRisk >= 0.5
+    }
+  }
+
+  requirement def InspirationDetectionRequirement {
+    doc "The respiration sensing subsystem shall classify inspiration with sufficient confidence before stimulation is delivered.";
+    subject generator : ImplantablePulseGenerator;
+
+    require constraint {
+      generator.inspirationDetectionThreshold <= -10 [Pa]
+    }
+  }
+
+  requirement def StimulationSafetyRequirement {
+    doc "The stimulation output shall remain within programmed amplitude, pulse width, and frequency limits.";
+    subject generator : ImplantablePulseGenerator;
+
+    require constraint {
+      generator.nominalPulseAmplitude <= generator.maxPulseAmplitude and
+      generator.nominalFrequency >= 20 [Hz] and
+      generator.nominalFrequency <= 50 [Hz] and
+      generator.nominalPulseWidth >= 30 [us] and
+      generator.nominalPulseWidth <= 300 [us]
+    }
+  }
+
+  requirement def LeadIntegrityRequirement {
+    doc "The system shall enter a fault state when stimulation lead impedance indicates open-circuit or short-circuit behavior.";
+    subject generator : ImplantablePulseGenerator;
+
+    require constraint {
+      generator.leadImpedance >= 100 [ohm] and generator.leadImpedance <= 2000 [ohm]
+    }
+  }
+
+  requirement def AirwayPatencyRequirement {
+    doc "During effective stimulation, neural activation shall produce tongue protrusion sufficient to reduce obstruction risk.";
+    subject airway : UpperAirway;
+
+    require constraint {
+      airway.requiredTongueProtrusionLevel >= 0.5
+    }
+  }
+
+  requirement def BatteryStatusRequirement {
+    doc "The system shall monitor remaining battery charge and report replacement or recharge recommendation before therapy becomes unavailable.";
+    subject battery : RechargeableBattery;
+
+    require constraint {
+      battery.chargeRemaining >= 5 [%]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HypoglossalNerveStimulationSystem;
+  satisfy InspirationDetectionRequirement by ImplantablePulseGenerator;
+  satisfy StimulationSafetyRequirement by ImplantablePulseGenerator;
+  satisfy LeadIntegrityRequirement by ImplantablePulseGenerator;
+  satisfy AirwayPatencyRequirement by UpperAirway;
+  satisfy BatteryStatusRequirement by RechargeableBattery;
+
+}
+tokens used
+4,541
+package HypoglossalNerveStimulationSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def ElectricPotential :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def ElectricCurrent :> ISQ::electricCurrent {
+    unit = "mA";
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = "Hz";
+  }
+
+  attribute def PulseWidth {
+    unit = "us";
+  }
+
+  attribute def TimeDuration :> ISQ::time {
+    unit = "s";
+  }
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = "Pa";
+  }
+
+  attribute def Acceleration {
+    unit = "m/s^2";
+  }
+
+  attribute def BatteryCharge {
+    unit = "%";
+  }
+
+  attribute def AirflowRate {
+    unit = "L/min";
+  }
+
+  attribute def Impedance {
+    unit = "ohm";
+  }
+
+  enum def TherapyMode {
+    enum off;
+    enum standby;
+    enum sensing;
+    enum stimulating;
+    enum paused;
+    enum fault;
+  }
+
+  enum def RespirationPhase {
+    enum expiration;
+    enum inspirationDetected;
+    enum uncertain;
+  }
+
+  enum def LeadIntegrity {
+    enum normal;
+    enum highImpedance;
+    enum lowImpedance;
+    enum disconnected;
+  }
+
+  item def RespirationSignal {
+    attribute thoracicPressure : Pressure;
+    attribute airflow : AirflowRate;
+    attribute motion : Acceleration;
+    attribute phase : RespirationPhase;
+    attribute confidence : Real;
+  }
+
+  item def StimulationPulse {
+    attribute amplitude : ElectricCurrent;
+    attribute voltageLimit : ElectricPotential;
+    attribute frequency : Frequency;
+    attribute pulseWidth : PulseWidth;
+    attribute burstDuration : TimeDuration;
+    attribute rampTime : TimeDuration;
+  }
+
+  item def NeuralActivation {
+    attribute targetNerve = "hypoglossal nerve";
+    attribute selectedBranch = "medial protrusor branch";
+    attribute recruitmentLevel : Real;
+    attribute fatigueIndex : Real;
+  }
+
+  item def AirwayPatencyStatus {
+    attribute obstructionRisk : Real;
+    attribute tongueProtrusionLevel : Real;
+    attribute ventilationAdequate : Boolean;
+  }
+
+  item def BatteryStatus {
+    attribute chargeRemaining : BatteryCharge;
+    attribute voltage : ElectricPotential;
+    attribute replacementRecommended : Boolean;
+  }
+
+  item def TherapyCommand {
+    attribute enableTherapy : Boolean;
+    attribute requestedMode : TherapyMode;
+    attribute startDelay : TimeDuration;
+    attribute sessionDuration : TimeDuration;
+  }
+
+  item def DiagnosticReport {
+    attribute battery : BatteryStatus;
+    attribute leadIntegrity : LeadIntegrity;
+    attribute measuredImpedance : Impedance;
+    attribute deliveredPulseCount : Integer;
+    attribute lastFaultCode : String;
+  }
+
+  port def RespirationSensorPort {
+    out item respiration : RespirationSignal;
+  }
+
+  port def StimulationOutputPort {
+    out item pulse : StimulationPulse;
+  }
+
+  port def NeuralInterfacePort {
+    in item pulse : StimulationPulse;
+    out item activation : NeuralActivation;
+  }
+
+  port def AirwayEffectPort {
+    in item activation : NeuralActivation;
+    out item patency : AirwayPatencyStatus;
+  }
+
+  port def PatientControllerPort {
+    in item command : TherapyCommand;
+    out item status : DiagnosticReport;
+  }
+
+  port def EnergyPort {
+    out item battery : BatteryStatus;
+  }
+
+  part def ImplantablePulseGenerator {
+    attribute mode : TherapyMode = TherapyMode::off;
+    attribute batteryCharge : BatteryCharge = 100 [%];
+    attribute nominalPulseAmplitude : ElectricCurrent = 1.5 [mA];
+    attribute maxPulseAmplitude : ElectricCurrent = 4.0 [mA];
+    attribute nominalFrequency : Frequency = 33 [Hz];
+    attribute nominalPulseWidth : PulseWidth = 90 [us];
+    attribute inspirationDetectionThreshold : Pressure = -20 [Pa];
+    attribute leadImpedance : Impedance = 850 [ohm];
+
+    port respirationIn : RespirationSensorPort;
+    port stimOut : StimulationOutputPort;
+    port controller : PatientControllerPort;
+    port energy : EnergyPort;
+
+    action detectInspiration {
+      in item signal : RespirationSignal;
+      out phase : RespirationPhase;
+      out confidence : Real;
+    }
+
+    action computePulseTrain {
+      in phase : RespirationPhase;
+      in confidence : Real;
+      out item pulse : StimulationPulse;
+    }
+
+    action performLeadCheck {
+      out integrity : LeadIntegrity;
+      out measuredImpedance : Impedance;
+    }
+
+    action generateDiagnosticReport {
+      out item report : DiagnosticReport;
+    }
+
+    state def TherapyController {
+      state Off;
+      state Standby;
+      state Sensing;
+      state Stimulating;
+      state Paused;
+      state Fault;
+
+      initial then Off;
+
+      transition Off_to_Standby
+        first Off
+        accept TherapyCommand
+        if command.enableTherapy
+        then Standby;
+
+      transition Standby_to_Sensing
+        first Standby
+        after 30 [s]
+        then Sensing;
+
+      transition Sensing_to_Stimulating
+        first Sensing
+        accept RespirationSignal
+        if respiration.phase == RespirationPhase::inspirationDetected and respiration.confidence >= 0.75
+        then Stimulating;
+
+      transition Stimulating_to_Sensing
+        first Stimulating
+        after 2.0 [s]
+        then Sensing;
+
+      transition Sensing_to_Paused
+        first Sensing
+        accept TherapyCommand
+        if not command.enableTherapy
+        then Paused;
+
+      transition Paused_to_Sensing
+        first Paused
+        accept TherapyCommand
+        if command.enableTherapy
+        then Sensing;
+
+      transition Standby_to_Fault
+        first Standby
+        if leadImpedance > 2000 [ohm] or leadImpedance < 100 [ohm] or batteryCharge < 5 [%]
+        then Fault;
+
+      transition Sensing_to_Fault
+        first Sensing
+        if leadImpedance > 2000 [ohm] or leadImpedance < 100 [ohm] or batteryCharge < 5 [%]
+        then Fault;
+
+      transition Stimulating_to_Fault
+        first Stimulating
+        if leadImpedance > 2000 [ohm] or leadImpedance < 100 [ohm] or batteryCharge < 5 [%]
+        then Fault;
+
+      transition Fault_to_Off
+        first Fault
+        accept TherapyCommand
+        if not command.enableTherapy
+        then Off;
+    }
+  }
+
+  part def RespirationSensorLead {
+    attribute sensitivity : Real = 0.92;
+    attribute samplingFrequency : Frequency = 50 [Hz];
+    attribute pressureNoise : Pressure = 2 [Pa];
+
+    port sensorOut : RespirationSensorPort;
+
+    action measureRespiration {
+      out item signal : RespirationSignal;
+    }
+  }
+
+  part def StimulationLead {
+    attribute conductorResistance : Impedance = 70 [ohm];
+    attribute insulationIntegrity : Real = 0.99;
+
+    port stimIn : StimulationOutputPort;
+    port cuff : NeuralInterfacePort;
+
+    action deliverPulseToNerve {
+      in item pulse : StimulationPulse;
+      out item activation : NeuralActivation;
+    }
+  }
+
+  part def HypoglossalNerveCuffElectrode {
+    attribute electrodeContactArea {
+      unit = "mm^2";
+      :>> defaultValue = 8;
+    }
+    attribute contactImpedance : Impedance = 780 [ohm];
+
+    port neural : NeuralInterfacePort;
+  }
+
+  part def UpperAirway {
+    attribute baselineObstructionRisk : Real = 0.83;
+    attribute requiredTongueProtrusionLevel : Real = 0.55;
+
+    port airway : AirwayEffectPort;
+
+    action maintainPatency {
+      in item activation : NeuralActivation;
+      out item status : AirwayPatencyStatus;
+    }
+  }
+
+  part def PatientController {
+    attribute userTherapyEnabled : Boolean = false;
+    attribute configuredSessionDuration : TimeDuration = 28800 [s];
+
+    port therapyControl : PatientControllerPort;
+
+    action startTherapy {
+      out item command : TherapyCommand;
+    }
+
+    action stopTherapy {
+      out item command : TherapyCommand;
+    }
+
+    action requestStatus {
+      in item report : DiagnosticReport;
+    }
+  }
+
+  part def RechargeableBattery {
+    attribute capacity {
+      unit = "mAh";
+      :>> defaultValue = 120;
+    }
+    attribute chargeRemaining : BatteryCharge = 100 [%];
+    attribute nominalVoltage : ElectricPotential = 3.7 [V];
+
+    port powerStatus : EnergyPort;
+
+    action supplyImplantPower {
+      out item battery : BatteryStatus;
+    }
+  }
+
+  part def Patient {
+    part upperAirway : UpperAirway;
+    part hypoglossalNerveCuff : HypoglossalNerveCuffElectrode;
+  }
+
+  part def HypoglossalNerveStimulationSystem {
+    attribute primaryFunction = "Detect inspiration during sleep and stimulate the hypoglossal nerve to protrude or stabilize the tongue, thereby maintaining upper airway patency and reducing obstructive breathing events.";
+
+    part pulseGenerator : ImplantablePulseGenerator;
+    part respirationSensor : RespirationSensorLead;
+    part stimulationLead : StimulationLead;
+    part patientController : PatientController;
+    part battery : RechargeableBattery;
+    part patient : Patient;
+
+    connection sensor_to_generator
+      connect respirationSensor.sensorOut to pulseGenerator.respirationIn;
+
+    connection generator_to_stimulation_lead
+      connect pulseGenerator.stimOut to stimulationLead.stimIn;
+
+    connection stimulation_lead_to_cuff
+      connect stimulationLead.cuff to patient.hypoglossalNerveCuff.neural;
+
+    connection cuff_to_airway_effect
+      connect patient.hypoglossalNerveCuff.neural to patient.upperAirway.airway;
+
+    connection controller_to_generator
+      connect patientController.therapyControl to pulseGenerator.controller;
+
+    connection battery_to_generator
+      connect battery.powerStatus to pulseGenerator.energy;
+
+    perform action therapyCycle {
+      first start;
+      then senseRespiration;
+      then classifyRespirationPhase;
+      then deliverSynchronizedStimulation;
+      then assessAirwayPatency;
+      then updateDiagnostics;
+
+      action start {
+        out item command : TherapyCommand;
+      }
+
+      action senseRespiration {
+        out item signal : RespirationSignal;
+      }
+
+      action classifyRespirationPhase {
+        in item signal : RespirationSignal;
+        out phase : RespirationPhase;
+        out confidence : Real;
+      }
+
+      action deliverSynchronizedStimulation {
+        in phase : RespirationPhase;
+        in confidence : Real;
+        out item pulse : StimulationPulse;
+        out item activation : NeuralActivation;
+      }
+
+      action assessAirwayPatency {
+        in item activation : NeuralActivation;
+        out item status : AirwayPatencyStatus;
+      }
+
+      action updateDiagnostics {
+        in item status : AirwayPatencyStatus;
+        out item report : DiagnosticReport;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The system shall detect inspiratory effort and deliver synchronized hypoglossal nerve stimulation to maintain upper airway patency during sleep.";
+    subject system : HypoglossalNerveStimulationSystem;
+
+    require constraint {
+      system.patient.upperAirway.baselineObstructionRisk >= 0.5
+    }
+  }
+
+  requirement def InspirationDetectionRequirement {
+    doc "The respiration sensing subsystem shall classify inspiration with sufficient confidence before stimulation is delivered.";
+    subject generator : ImplantablePulseGenerator;
+
+    require constraint {
+      generator.inspirationDetectionThreshold <= -10 [Pa]
+    }
+  }
+
+  requirement def StimulationSafetyRequirement {
+    doc "The stimulation output shall remain within programmed amplitude, pulse width, and frequency limits.";
+    subject generator : ImplantablePulseGenerator;
+
+    require constraint {
+      generator.nominalPulseAmplitude <= generator.maxPulseAmplitude and
+      generator.nominalFrequency >= 20 [Hz] and
+      generator.nominalFrequency <= 50 [Hz] and
+      generator.nominalPulseWidth >= 30 [us] and
+      generator.nominalPulseWidth <= 300 [us]
+    }
+  }
+
+  requirement def LeadIntegrityRequirement {
+    doc "The system shall enter a fault state when stimulation lead impedance indicates open-circuit or short-circuit behavior.";
+    subject generator : ImplantablePulseGenerator;
+
+    require constraint {
+      generator.leadImpedance >= 100 [ohm] and generator.leadImpedance <= 2000 [ohm]
+    }
+  }
+
+  requirement def AirwayPatencyRequirement {
+    doc "During effective stimulation, neural activation shall produce tongue protrusion sufficient to reduce obstruction risk.";
+    subject airway : UpperAirway;
+
+    require constraint {
+      airway.requiredTongueProtrusionLevel >= 0.5
+    }
+  }
+
+  requirement def BatteryStatusRequirement {
+    doc "The system shall monitor remaining battery charge and report replacement or recharge recommendation before therapy becomes unavailable.";
+    subject battery : RechargeableBattery;
+
+    require constraint {
+      battery.chargeRemaining >= 5 [%]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HypoglossalNerveStimulationSystem;
+  satisfy InspirationDetectionRequirement by ImplantablePulseGenerator;
+  satisfy StimulationSafetyRequirement by ImplantablePulseGenerator;
+  satisfy LeadIntegrityRequirement by ImplantablePulseGenerator;
+  satisfy AirwayPatencyRequirement by UpperAirway;
+  satisfy BatteryStatusRequirement by RechargeableBattery;
+
+}

@@ -1,0 +1,719 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-og1bkft7
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2d0-c43c-78e2-be69-6949a4a6ff0e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Adaptive deep brain stimulation and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AdaptiveDeepBrainStimulationSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Voltage :> ISQ::electricPotential;
+    attribute def Current :> ISQ::electricCurrent;
+    attribute def Impedance :> ISQ::resistance;
+    attribute def ChargeDensity {
+        value magnitude : Real;
+        unit = "uC_per_cm2";
+    }
+    attribute def NeuralSignalAmplitude {
+        value magnitude : Real;
+        unit = "uV";
+    }
+    attribute def StimulationPulseWidth {
+        value magnitude : Real;
+        unit = "us";
+    }
+    attribute def BatteryCapacity {
+        value magnitude : Real;
+        unit = "mAh";
+    }
+    attribute def TherapyDose {
+        value pulseAmplitude : Voltage;
+        value pulseWidth : StimulationPulseWidth;
+        value pulseFrequency : Frequency;
+    }
+    attribute def BiomarkerConfidence {
+        value probability : Real;
+        constraint { probability >= 0.0 and probability <= 1.0 }
+    }
+
+    item def NeuralSignal {
+        attribute amplitude : NeuralSignalAmplitude;
+        attribute centerFrequency : Frequency;
+        attribute samplingRate : Frequency;
+        attribute signalToNoiseRatio : Real;
+        attribute timestamp_s : Real;
+    }
+
+    item def StimulationCommand {
+        attribute dose : TherapyDose;
+        attribute targetContactId : Integer;
+        attribute rampDuration_s : Real;
+        attribute safetyLimited : Boolean;
+    }
+
+    item def StimulationPulse {
+        attribute amplitude : Voltage;
+        attribute pulseWidth : StimulationPulseWidth;
+        attribute frequency : Frequency;
+        attribute deliveredCurrent : Current;
+        attribute activeContactId : Integer;
+    }
+
+    item def PatientStateEstimate {
+        attribute pathologicalOscillationAmplitude : NeuralSignalAmplitude;
+        attribute symptomSeverityIndex : Real;
+        attribute motionState : String;
+        attribute confidence : BiomarkerConfidence;
+    }
+
+    item def ClinicianProgrammingProfile {
+        attribute minAmplitude : Voltage;
+        attribute maxAmplitude : Voltage;
+        attribute minFrequency : Frequency;
+        attribute maxFrequency : Frequency;
+        attribute minPulseWidth : StimulationPulseWidth;
+        attribute maxPulseWidth : StimulationPulseWidth;
+        attribute targetSymptomSeverityIndex : Real;
+        attribute adaptationEnabled : Boolean;
+    }
+
+    port def NeuralSensePort {
+        out sensedSignal : NeuralSignal;
+    }
+
+    port def StimulationOutputPort {
+        in command : StimulationCommand;
+        out pulse : StimulationPulse;
+    }
+
+    port def TelemetryPort {
+        in programmingProfile : ClinicianProgrammingProfile;
+        out patientEstimate : PatientStateEstimate;
+        out deviceStatus : DeviceStatus;
+    }
+
+    port def PowerPort {
+        out supplyVoltage : Voltage;
+        out availableCapacity : BatteryCapacity;
+    }
+
+    part def SensingLead {
+        attribute contactCount : Integer = 8;
+        attribute electrodeImpedance : Impedance;
+        port neuralSense : NeuralSensePort;
+    }
+
+    part def StimulationLead {
+        attribute contactCount : Integer = 8;
+        attribute maximumChargeDensity : ChargeDensity;
+        port stimOut : StimulationOutputPort;
+    }
+
+    part def NeuralSignalProcessor {
+        attribute betaBandLow : Frequency = 13 [SI::Hz];
+        attribute betaBandHigh : Frequency = 30 [SI::Hz];
+        attribute artifactRejectionEnabled : Boolean = true;
+
+        port rawInput : NeuralSensePort;
+        out estimate : PatientStateEstimate;
+
+        action filterAndExtractBiomarker {
+            in rawSignal : NeuralSignal;
+            out estimate : PatientStateEstimate;
+        }
+    }
+
+    part def AdaptiveTherapyController {
+        attribute controlLoopPeriod_s : Real = 0.250;
+        attribute lastCommand : StimulationCommand;
+        attribute activeProfile : ClinicianProgrammingProfile;
+
+        in estimate : PatientStateEstimate;
+        out command : StimulationCommand;
+
+        action computeTherapyAdjustment {
+            in currentEstimate : PatientStateEstimate;
+            in profile : ClinicianProgrammingProfile;
+            out nextCommand : StimulationCommand;
+        }
+
+        state therapyControlState {
+            state Initializing;
+            state OpenLoopFallback;
+            state AdaptiveClosedLoop;
+            state SafetyLimited;
+            state TherapySuspended;
+
+            initial then Initializing;
+
+            transition Initializing_to_AdaptiveClosedLoop
+                first Initializing
+                then AdaptiveClosedLoop
+                if activeProfile.adaptationEnabled == true;
+
+            transition Initializing_to_OpenLoopFallback
+                first Initializing
+                then OpenLoopFallback
+                if activeProfile.adaptationEnabled == false;
+
+            transition AdaptiveClosedLoop_to_SafetyLimited
+                first AdaptiveClosedLoop
+                then SafetyLimited
+                if lastCommand.safetyLimited == true;
+
+            transition SafetyLimited_to_AdaptiveClosedLoop
+                first SafetyLimited
+                then AdaptiveClosedLoop
+                if lastCommand.safetyLimited == false and activeProfile.adaptationEnabled == true;
+
+            transition AdaptiveClosedLoop_to_TherapySuspended
+                first AdaptiveClosedLoop
+                then TherapySuspended
+                if estimate.confidence.probability < 0.40;
+
+            transition TherapySuspended_to_OpenLoopFallback
+                first TherapySuspended
+                then OpenLoopFallback
+                if estimate.confidence.probability >= 0.40;
+        }
+    }
+
+    part def PulseGenerator {
+        attribute maxOutputVoltage : Voltage = 10 [SI::V];
+        attribute maxOutputCurrent : Current = 0.010 [SI::A];
+        attribute nominalFrequency : Frequency = 130 [SI::Hz];
+
+        in command : StimulationCommand;
+        port stimulationPort : StimulationOutputPort;
+
+        action synthesizePulseTrain {
+            in requestedCommand : StimulationCommand;
+            out deliveredPulse : StimulationPulse;
+        }
+    }
+
+    part def SafetySupervisor {
+        attribute maxSafeAmplitude : Voltage = 5.0 [SI::V];
+        attribute maxSafeFrequency : Frequency = 185 [SI::Hz];
+        attribute maxSafePulseWidth : StimulationPulseWidth;
+        attribute minimumImpedance : Impedance = 250 [SI::ohm];
+        attribute maximumImpedance : Impedance = 4000 [SI::ohm];
+
+        in requestedCommand : StimulationCommand;
+        out limitedCommand : StimulationCommand;
+
+        action enforceTherapyLimits {
+            in commandIn : StimulationCommand;
+            out commandOut : StimulationCommand;
+        }
+    }
+
+    part def ImplantBattery {
+        attribute capacity : BatteryCapacity;
+        attribute nominalVoltage : Voltage = 3.2 [SI::V];
+        port power : PowerPort;
+    }
+
+    part def TelemetryModule {
+        port clinicianLink : TelemetryPort;
+        in estimate : PatientStateEstimate;
+        in status : DeviceStatus;
+        out profile : ClinicianProgrammingProfile;
+    }
+
+    part def PatientNeuralTarget {
+        attribute targetRegion : String = "subthalamic nucleus";
+        attribute pathologicalBetaAmplitude : NeuralSignalAmplitude;
+        port sensedActivity : NeuralSensePort;
+        port therapeuticInput : StimulationOutputPort;
+    }
+
+    part def ImplantableAdaptiveDBS {
+        doc /* Primary function: continuously sense neural activity from the implanted target, estimate symptom-related biomarkers, and automatically adjust deep brain stimulation parameters to maintain therapeutic benefit while respecting safety limits. */
+
+        part neuralTarget : PatientNeuralTarget;
+        part sensingLead : SensingLead;
+        part stimulationLead : StimulationLead;
+        part processor : NeuralSignalProcessor;
+        part controller : AdaptiveTherapyController;
+        part safetySupervisor : SafetySupervisor;
+        part pulseGenerator : PulseGenerator;
+        part battery : ImplantBattery;
+        part telemetry : TelemetryModule;
+
+        port externalTelemetry : TelemetryPort;
+
+        connect neuralTarget.sensedActivity to sensingLead.neuralSense;
+        connect sensingLead.neuralSense to processor.rawInput;
+        connect processor.estimate to controller.estimate;
+        connect controller.command to safetySupervisor.requestedCommand;
+        connect safetySupervisor.limitedCommand to pulseGenerator.command;
+        connect pulseGenerator.stimulationPort to stimulationLead.stimOut;
+        connect stimulationLead.stimOut to neuralTarget.therapeuticInput;
+        connect battery.power to pulseGenerator;
+        connect telemetry.clinicianLink to externalTelemetry;
+        connect processor.estimate to telemetry.estimate;
+        connect telemetry.profile to controller.activeProfile;
+
+        perform action closedLoopTherapy {
+            first startSensing;
+            then estimatePatientState;
+            then computeAdaptiveDose;
+            then enforceSafety;
+            then deliverStimulation;
+            then reportStatus;
+        }
+
+        action startSensing {
+            out rawSignal : NeuralSignal;
+        }
+
+        action estimatePatientState {
+            in rawSignal : NeuralSignal;
+            out estimate : PatientStateEstimate;
+        }
+
+        action computeAdaptiveDose {
+            in estimate : PatientStateEstimate;
+            out command : StimulationCommand;
+        }
+
+        action enforceSafety {
+            in command : StimulationCommand;
+            out limitedCommand : StimulationCommand;
+        }
+
+        action deliverStimulation {
+            in limitedCommand : StimulationCommand;
+            out pulse : StimulationPulse;
+        }
+
+        action reportStatus {
+            in estimate : PatientStateEstimate;
+            out status : DeviceStatus;
+        }
+    }
+
+    item def DeviceStatus {
+        attribute batteryRemaining : BatteryCapacity;
+        attribute leadImpedance : Impedance;
+        attribute activeContactId : Integer;
+        attribute therapyEnabled : Boolean;
+        attribute faultCode : String;
+    }
+
+    requirement def ClosedLoopTherapyRequirement {
+        doc /* The system shall adapt stimulation amplitude, pulse width, or frequency using sensed neural biomarkers to reduce pathological activity while maintaining programmed safety boundaries. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.controller.controlLoopPeriod_s <= 1.0
+        }
+    }
+
+    requirement def SafetyLimitRequirement {
+        doc /* The system shall prevent stimulation commands from exceeding clinician-programmed amplitude, frequency, pulse-width, impedance, and charge-density limits. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.safetySupervisor.maxSafeAmplitude <= 5.0 [SI::V] and
+            system.safetySupervisor.maxSafeFrequency <= 185 [SI::Hz]
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The system shall provide patient state estimates, device status, and active therapy settings to an external clinician programmer. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.telemetry.clinicianLink != null
+        }
+    }
+
+    requirement def TherapyContinuityRequirement {
+        doc /* The system shall enter an open-loop fallback mode when adaptive biomarker confidence is insufficient for closed-loop control. */
+        subject controller : AdaptiveTherapyController;
+        require constraint {
+            controller.controlLoopPeriod_s > 0.0
+        }
+    }
+
+    requirement def BiocompatibleImplantRequirement {
+        doc /* Implanted sensing and stimulation interfaces shall operate through electrode contacts suitable for chronic neural implantation. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.sensingLead.contactCount >= 4 and
+            system.stimulationLead.contactCount >= 4
+        }
+    }
+
+    satisfy ClosedLoopTherapyRequirement by ImplantableAdaptiveDBS;
+    satisfy SafetyLimitRequirement by SafetySupervisor;
+    satisfy TelemetryRequirement by TelemetryModule;
+    satisfy TherapyContinuityRequirement by AdaptiveTherapyController;
+    satisfy BiocompatibleImplantRequirement by SensingLead;
+    satisfy BiocompatibleImplantRequirement by StimulationLead;
+}
+tokens used
+4,034
+package AdaptiveDeepBrainStimulationSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Voltage :> ISQ::electricPotential;
+    attribute def Current :> ISQ::electricCurrent;
+    attribute def Impedance :> ISQ::resistance;
+    attribute def ChargeDensity {
+        value magnitude : Real;
+        unit = "uC_per_cm2";
+    }
+    attribute def NeuralSignalAmplitude {
+        value magnitude : Real;
+        unit = "uV";
+    }
+    attribute def StimulationPulseWidth {
+        value magnitude : Real;
+        unit = "us";
+    }
+    attribute def BatteryCapacity {
+        value magnitude : Real;
+        unit = "mAh";
+    }
+    attribute def TherapyDose {
+        value pulseAmplitude : Voltage;
+        value pulseWidth : StimulationPulseWidth;
+        value pulseFrequency : Frequency;
+    }
+    attribute def BiomarkerConfidence {
+        value probability : Real;
+        constraint { probability >= 0.0 and probability <= 1.0 }
+    }
+
+    item def NeuralSignal {
+        attribute amplitude : NeuralSignalAmplitude;
+        attribute centerFrequency : Frequency;
+        attribute samplingRate : Frequency;
+        attribute signalToNoiseRatio : Real;
+        attribute timestamp_s : Real;
+    }
+
+    item def StimulationCommand {
+        attribute dose : TherapyDose;
+        attribute targetContactId : Integer;
+        attribute rampDuration_s : Real;
+        attribute safetyLimited : Boolean;
+    }
+
+    item def StimulationPulse {
+        attribute amplitude : Voltage;
+        attribute pulseWidth : StimulationPulseWidth;
+        attribute frequency : Frequency;
+        attribute deliveredCurrent : Current;
+        attribute activeContactId : Integer;
+    }
+
+    item def PatientStateEstimate {
+        attribute pathologicalOscillationAmplitude : NeuralSignalAmplitude;
+        attribute symptomSeverityIndex : Real;
+        attribute motionState : String;
+        attribute confidence : BiomarkerConfidence;
+    }
+
+    item def ClinicianProgrammingProfile {
+        attribute minAmplitude : Voltage;
+        attribute maxAmplitude : Voltage;
+        attribute minFrequency : Frequency;
+        attribute maxFrequency : Frequency;
+        attribute minPulseWidth : StimulationPulseWidth;
+        attribute maxPulseWidth : StimulationPulseWidth;
+        attribute targetSymptomSeverityIndex : Real;
+        attribute adaptationEnabled : Boolean;
+    }
+
+    port def NeuralSensePort {
+        out sensedSignal : NeuralSignal;
+    }
+
+    port def StimulationOutputPort {
+        in command : StimulationCommand;
+        out pulse : StimulationPulse;
+    }
+
+    port def TelemetryPort {
+        in programmingProfile : ClinicianProgrammingProfile;
+        out patientEstimate : PatientStateEstimate;
+        out deviceStatus : DeviceStatus;
+    }
+
+    port def PowerPort {
+        out supplyVoltage : Voltage;
+        out availableCapacity : BatteryCapacity;
+    }
+
+    part def SensingLead {
+        attribute contactCount : Integer = 8;
+        attribute electrodeImpedance : Impedance;
+        port neuralSense : NeuralSensePort;
+    }
+
+    part def StimulationLead {
+        attribute contactCount : Integer = 8;
+        attribute maximumChargeDensity : ChargeDensity;
+        port stimOut : StimulationOutputPort;
+    }
+
+    part def NeuralSignalProcessor {
+        attribute betaBandLow : Frequency = 13 [SI::Hz];
+        attribute betaBandHigh : Frequency = 30 [SI::Hz];
+        attribute artifactRejectionEnabled : Boolean = true;
+
+        port rawInput : NeuralSensePort;
+        out estimate : PatientStateEstimate;
+
+        action filterAndExtractBiomarker {
+            in rawSignal : NeuralSignal;
+            out estimate : PatientStateEstimate;
+        }
+    }
+
+    part def AdaptiveTherapyController {
+        attribute controlLoopPeriod_s : Real = 0.250;
+        attribute lastCommand : StimulationCommand;
+        attribute activeProfile : ClinicianProgrammingProfile;
+
+        in estimate : PatientStateEstimate;
+        out command : StimulationCommand;
+
+        action computeTherapyAdjustment {
+            in currentEstimate : PatientStateEstimate;
+            in profile : ClinicianProgrammingProfile;
+            out nextCommand : StimulationCommand;
+        }
+
+        state therapyControlState {
+            state Initializing;
+            state OpenLoopFallback;
+            state AdaptiveClosedLoop;
+            state SafetyLimited;
+            state TherapySuspended;
+
+            initial then Initializing;
+
+            transition Initializing_to_AdaptiveClosedLoop
+                first Initializing
+                then AdaptiveClosedLoop
+                if activeProfile.adaptationEnabled == true;
+
+            transition Initializing_to_OpenLoopFallback
+                first Initializing
+                then OpenLoopFallback
+                if activeProfile.adaptationEnabled == false;
+
+            transition AdaptiveClosedLoop_to_SafetyLimited
+                first AdaptiveClosedLoop
+                then SafetyLimited
+                if lastCommand.safetyLimited == true;
+
+            transition SafetyLimited_to_AdaptiveClosedLoop
+                first SafetyLimited
+                then AdaptiveClosedLoop
+                if lastCommand.safetyLimited == false and activeProfile.adaptationEnabled == true;
+
+            transition AdaptiveClosedLoop_to_TherapySuspended
+                first AdaptiveClosedLoop
+                then TherapySuspended
+                if estimate.confidence.probability < 0.40;
+
+            transition TherapySuspended_to_OpenLoopFallback
+                first TherapySuspended
+                then OpenLoopFallback
+                if estimate.confidence.probability >= 0.40;
+        }
+    }
+
+    part def PulseGenerator {
+        attribute maxOutputVoltage : Voltage = 10 [SI::V];
+        attribute maxOutputCurrent : Current = 0.010 [SI::A];
+        attribute nominalFrequency : Frequency = 130 [SI::Hz];
+
+        in command : StimulationCommand;
+        port stimulationPort : StimulationOutputPort;
+
+        action synthesizePulseTrain {
+            in requestedCommand : StimulationCommand;
+            out deliveredPulse : StimulationPulse;
+        }
+    }
+
+    part def SafetySupervisor {
+        attribute maxSafeAmplitude : Voltage = 5.0 [SI::V];
+        attribute maxSafeFrequency : Frequency = 185 [SI::Hz];
+        attribute maxSafePulseWidth : StimulationPulseWidth;
+        attribute minimumImpedance : Impedance = 250 [SI::ohm];
+        attribute maximumImpedance : Impedance = 4000 [SI::ohm];
+
+        in requestedCommand : StimulationCommand;
+        out limitedCommand : StimulationCommand;
+
+        action enforceTherapyLimits {
+            in commandIn : StimulationCommand;
+            out commandOut : StimulationCommand;
+        }
+    }
+
+    part def ImplantBattery {
+        attribute capacity : BatteryCapacity;
+        attribute nominalVoltage : Voltage = 3.2 [SI::V];
+        port power : PowerPort;
+    }
+
+    part def TelemetryModule {
+        port clinicianLink : TelemetryPort;
+        in estimate : PatientStateEstimate;
+        in status : DeviceStatus;
+        out profile : ClinicianProgrammingProfile;
+    }
+
+    part def PatientNeuralTarget {
+        attribute targetRegion : String = "subthalamic nucleus";
+        attribute pathologicalBetaAmplitude : NeuralSignalAmplitude;
+        port sensedActivity : NeuralSensePort;
+        port therapeuticInput : StimulationOutputPort;
+    }
+
+    part def ImplantableAdaptiveDBS {
+        doc /* Primary function: continuously sense neural activity from the implanted target, estimate symptom-related biomarkers, and automatically adjust deep brain stimulation parameters to maintain therapeutic benefit while respecting safety limits. */
+
+        part neuralTarget : PatientNeuralTarget;
+        part sensingLead : SensingLead;
+        part stimulationLead : StimulationLead;
+        part processor : NeuralSignalProcessor;
+        part controller : AdaptiveTherapyController;
+        part safetySupervisor : SafetySupervisor;
+        part pulseGenerator : PulseGenerator;
+        part battery : ImplantBattery;
+        part telemetry : TelemetryModule;
+
+        port externalTelemetry : TelemetryPort;
+
+        connect neuralTarget.sensedActivity to sensingLead.neuralSense;
+        connect sensingLead.neuralSense to processor.rawInput;
+        connect processor.estimate to controller.estimate;
+        connect controller.command to safetySupervisor.requestedCommand;
+        connect safetySupervisor.limitedCommand to pulseGenerator.command;
+        connect pulseGenerator.stimulationPort to stimulationLead.stimOut;
+        connect stimulationLead.stimOut to neuralTarget.therapeuticInput;
+        connect battery.power to pulseGenerator;
+        connect telemetry.clinicianLink to externalTelemetry;
+        connect processor.estimate to telemetry.estimate;
+        connect telemetry.profile to controller.activeProfile;
+
+        perform action closedLoopTherapy {
+            first startSensing;
+            then estimatePatientState;
+            then computeAdaptiveDose;
+            then enforceSafety;
+            then deliverStimulation;
+            then reportStatus;
+        }
+
+        action startSensing {
+            out rawSignal : NeuralSignal;
+        }
+
+        action estimatePatientState {
+            in rawSignal : NeuralSignal;
+            out estimate : PatientStateEstimate;
+        }
+
+        action computeAdaptiveDose {
+            in estimate : PatientStateEstimate;
+            out command : StimulationCommand;
+        }
+
+        action enforceSafety {
+            in command : StimulationCommand;
+            out limitedCommand : StimulationCommand;
+        }
+
+        action deliverStimulation {
+            in limitedCommand : StimulationCommand;
+            out pulse : StimulationPulse;
+        }
+
+        action reportStatus {
+            in estimate : PatientStateEstimate;
+            out status : DeviceStatus;
+        }
+    }
+
+    item def DeviceStatus {
+        attribute batteryRemaining : BatteryCapacity;
+        attribute leadImpedance : Impedance;
+        attribute activeContactId : Integer;
+        attribute therapyEnabled : Boolean;
+        attribute faultCode : String;
+    }
+
+    requirement def ClosedLoopTherapyRequirement {
+        doc /* The system shall adapt stimulation amplitude, pulse width, or frequency using sensed neural biomarkers to reduce pathological activity while maintaining programmed safety boundaries. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.controller.controlLoopPeriod_s <= 1.0
+        }
+    }
+
+    requirement def SafetyLimitRequirement {
+        doc /* The system shall prevent stimulation commands from exceeding clinician-programmed amplitude, frequency, pulse-width, impedance, and charge-density limits. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.safetySupervisor.maxSafeAmplitude <= 5.0 [SI::V] and
+            system.safetySupervisor.maxSafeFrequency <= 185 [SI::Hz]
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The system shall provide patient state estimates, device status, and active therapy settings to an external clinician programmer. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.telemetry.clinicianLink != null
+        }
+    }
+
+    requirement def TherapyContinuityRequirement {
+        doc /* The system shall enter an open-loop fallback mode when adaptive biomarker confidence is insufficient for closed-loop control. */
+        subject controller : AdaptiveTherapyController;
+        require constraint {
+            controller.controlLoopPeriod_s > 0.0
+        }
+    }
+
+    requirement def BiocompatibleImplantRequirement {
+        doc /* Implanted sensing and stimulation interfaces shall operate through electrode contacts suitable for chronic neural implantation. */
+        subject system : ImplantableAdaptiveDBS;
+        require constraint {
+            system.sensingLead.contactCount >= 4 and
+            system.stimulationLead.contactCount >= 4
+        }
+    }
+
+    satisfy ClosedLoopTherapyRequirement by ImplantableAdaptiveDBS;
+    satisfy SafetyLimitRequirement by SafetySupervisor;
+    satisfy TelemetryRequirement by TelemetryModule;
+    satisfy TherapyContinuityRequirement by AdaptiveTherapyController;
+    satisfy BiocompatibleImplantRequirement by SensingLead;
+    satisfy BiocompatibleImplantRequirement by StimulationLead;
+}

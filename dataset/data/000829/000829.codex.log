@@ -1,0 +1,1513 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-nkuoh7uw
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb45c-6e50-7d03-94c8-aac1a9638e6c
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Wearable cardioverter defibrillator and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WearableCardioverterDefibrillatorSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  /* Units and value types */
+
+  attribute def Volt :> Real {
+    unit = "V";
+  }
+
+  attribute def MilliVolt :> Real {
+    unit = "mV";
+  }
+
+  attribute def Ampere :> Real {
+    unit = "A";
+  }
+
+  attribute def MilliAmpere :> Real {
+    unit = "mA";
+  }
+
+  attribute def Joule :> Real {
+    unit = "J";
+  }
+
+  attribute def Watt :> Real {
+    unit = "W";
+  }
+
+  attribute def Second :> Real {
+    unit = "s";
+  }
+
+  attribute def Millisecond :> Real {
+    unit = "ms";
+  }
+
+  attribute def BeatsPerMinute :> Real {
+    unit = "beat/min";
+  }
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Celsius :> Real {
+    unit = "degC";
+  }
+
+  attribute def Ohm :> Real {
+    unit = "ohm";
+  }
+
+  attribute def Kilobyte :> Real {
+    unit = "kB";
+  }
+
+  enum def TherapyDecision {
+    enum none;
+    enum monitor;
+    enum warnPatient;
+    enum deliverShock;
+    enum inhibitShock;
+    enum serviceRequired;
+  }
+
+  enum def RhythmClass {
+    enum normalSinus;
+    enum bradycardia;
+    enum tachycardiaNonShockable;
+    enum ventricularTachycardia;
+    enum ventricularFibrillation;
+    enum artifact;
+    enum unknown;
+  }
+
+  enum def GarmentFitStatus {
+    enum fitted;
+    enum loose;
+    enum electrodeDetached;
+    enum therapyPadDetached;
+    enum unknown;
+  }
+
+  enum def BatteryStatus {
+    enum normal;
+    enum low;
+    enum critical;
+    enum charging;
+    enum failed;
+  }
+
+  enum def AlarmPriority {
+    enum advisory;
+    enum warning;
+    enum critical;
+  }
+
+  item def ECGSample {
+    attribute leadId : Integer;
+    attribute sampleVoltage : MilliVolt;
+    attribute sampleTime : Second;
+    attribute signalQuality : Percent;
+  }
+
+  item def ECGFrame {
+    attribute frameStartTime : Second;
+    attribute frameDuration : Second;
+    attribute sampleRate : Real;
+    attribute channelCount : Integer;
+    attribute meanSignalQuality : Percent;
+  }
+
+  item def PatientResponse {
+    attribute responsePressed : Boolean;
+    attribute responseTime : Second;
+    attribute buttonHeldDuration : Second;
+  }
+
+  item def ShockCommand {
+    attribute commandedEnergy : Joule;
+    attribute chargeVoltage : Volt;
+    attribute maxDeliveryDelay : Second;
+    attribute synchronized : Boolean;
+  }
+
+  item def ShockPulse {
+    attribute deliveredEnergy : Joule;
+    attribute peakCurrent : Ampere;
+    attribute pulseDuration : Millisecond;
+    attribute transthoracicImpedance : Ohm;
+  }
+
+  item def AlarmMessage {
+    attribute priority : AlarmPriority;
+    attribute messageCode : String;
+    attribute audibleEnabled : Boolean;
+    attribute vibrationEnabled : Boolean;
+    attribute visualEnabled : Boolean;
+  }
+
+  item def DeviceEvent {
+    attribute eventTime : Second;
+    attribute eventCode : String;
+    attribute storedSize : Kilobyte;
+  }
+
+  item def PowerFlow {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def FitMeasurement {
+    attribute electrodeContactImpedance : Ohm;
+    attribute therapyPadContactImpedance : Ohm;
+    attribute fitStatus : GarmentFitStatus;
+  }
+
+  /* Ports */
+
+  port def ECGSensePort {
+    out ecgSample : ECGSample;
+    out fitMeasurement : FitMeasurement;
+  }
+
+  port def PatientInterfacePort {
+    out alarm : AlarmMessage;
+    in patientResponse : PatientResponse;
+  }
+
+  port def TherapyPort {
+    in shockCommand : ShockCommand;
+    out shockPulse : ShockPulse;
+  }
+
+  port def PowerPort {
+    in powerIn : PowerFlow;
+    out powerOut : PowerFlow;
+  }
+
+  port def DataPort {
+    in eventIn : DeviceEvent;
+    out eventOut : DeviceEvent;
+  }
+
+  port def ServicePort {
+    in serviceCommand : String;
+    out serviceStatus : String;
+  }
+
+  /* Primary system */
+
+  part def WearableCardioverterDefibrillator {
+    attribute primaryFunction : String =
+      "Continuously monitor the patient's cardiac rhythm while worn, detect life-threatening ventricular tachyarrhythmias, warn the conscious patient, and automatically deliver a defibrillation shock when the arrhythmia persists and the patient does not inhibit therapy.";
+
+    attribute targetAdultPatientMassMin : Real = 35.0;
+    attribute nominalOperatingTime : Real = 24.0;
+    attribute maxShockEnergy : Joule = 150.0;
+    attribute nominalShockEnergy : Joule = 100.0;
+    attribute arrhythmiaConfirmationWindow : Second = 45.0;
+    attribute patientResponseWindow : Second = 30.0;
+    attribute minimumECGSignalQuality : Percent = 70.0;
+    attribute operatingTemperatureMin : Celsius = 0.0;
+    attribute operatingTemperatureMax : Celsius = 45.0;
+
+    port ecgAcquisitionPort : ECGSensePort;
+    port patientInterfacePort : PatientInterfacePort;
+    port therapyOutputPort : TherapyPort;
+    port removableBatteryPort : PowerPort;
+    port clinicalDataPort : DataPort;
+    port servicePort : ServicePort;
+
+    part garment : WearableGarment;
+    part electrodeSet : SensingElectrodeSet;
+    part therapyPadSet : DefibrillationTherapyPadSet;
+    part monitorController : MonitorController;
+    part arrhythmiaDetector : ArrhythmiaDetectionProcessor;
+    part therapyManager : TherapyManager;
+    part energySubsystem : ShockEnergySubsystem;
+    part patientInterface : PatientInterfaceModule;
+    part batteryPack : RechargeableBatteryPack;
+    part eventRecorder : EventRecorder;
+    part selfTestManager : SelfTestManager;
+    part communicationsModule : ClinicalCommunicationsModule;
+
+    connect electrodeSet.ecgPort to ecgAcquisitionPort;
+    connect electrodeSet.ecgPort to monitorController.ecgInputPort;
+    connect therapyPadSet.therapyPort to therapyOutputPort;
+    connect therapyPadSet.therapyPort to energySubsystem.therapyPort;
+    connect batteryPack.powerPort to removableBatteryPort;
+    connect batteryPack.powerPort to monitorController.powerPort;
+    connect batteryPack.powerPort to energySubsystem.powerPort;
+    connect monitorController.rhythmDataPort to arrhythmiaDetector.ecgFramePort;
+    connect arrhythmiaDetector.decisionPort to therapyManager.decisionInputPort;
+    connect therapyManager.patientInterfacePort to patientInterface.userPort;
+    connect patientInterface.userPort to patientInterfacePort;
+    connect therapyManager.shockCommandPort to energySubsystem.commandPort;
+    connect energySubsystem.eventPort to eventRecorder.eventInputPort;
+    connect monitorController.eventPort to eventRecorder.eventInputPort;
+    connect therapyManager.eventPort to eventRecorder.eventInputPort;
+    connect eventRecorder.dataPort to clinicalDataPort;
+    connect communicationsModule.dataPort to clinicalDataPort;
+    connect selfTestManager.servicePort to servicePort;
+
+    perform action monitorAndTreat;
+    exhibit state machine operationalStates;
+  }
+
+  part def WearableGarment {
+    attribute sizeCode : String;
+    attribute washable : Boolean = true;
+    attribute maintainsElectrodePlacement : Boolean = true;
+    attribute expectedDailyWearDuration : Real = 24.0;
+
+    part shoulderStraps;
+    part torsoBand;
+    part electrodePockets;
+    part therapyPadPockets;
+  }
+
+  part def SensingElectrodeSet {
+    attribute electrodeCount : Integer = 4;
+    attribute maxAcceptableContactImpedance : Ohm = 5000.0;
+    attribute requiredSignalQuality : Percent = 70.0;
+
+    port ecgPort : ECGSensePort;
+
+    part anteriorElectrode;
+    part lateralElectrode;
+    part posteriorElectrode;
+    part referenceElectrode;
+  }
+
+  part def DefibrillationTherapyPadSet {
+    attribute padCount : Integer = 3;
+    attribute maxAcceptablePadImpedance : Ohm = 150.0;
+    attribute skinContactRequired : Boolean = true;
+
+    port therapyPort : TherapyPort;
+
+    part apexPad;
+    part sternumPad;
+    part backPad;
+    part conductiveGelReservoir;
+  }
+
+  part def MonitorController {
+    attribute processorClockRateMHz : Real = 200.0;
+    attribute ecgSampleRateHz : Real = 250.0;
+    attribute frameDuration : Second = 4.0;
+    attribute watchdogTimeout : Second = 2.0;
+
+    port ecgInputPort : ECGSensePort;
+    port rhythmDataPort : DataPort;
+    port powerPort : PowerPort;
+    port eventPort : DataPort;
+
+    perform action acquireECG;
+    perform action superviseDevice;
+  }
+
+  part def ArrhythmiaDetectionProcessor {
+    attribute vtHeartRateThreshold : BeatsPerMinute = 150.0;
+    attribute vfHeartRateThreshold : BeatsPerMinute = 200.0;
+    attribute minimumDetectionConfidence : Percent = 90.0;
+    attribute artifactRejectionEnabled : Boolean = true;
+
+    port ecgFramePort : DataPort;
+    port decisionPort : DataPort;
+
+    perform action classifyRhythm;
+  }
+
+  part def TherapyManager {
+    attribute patientResponseTimeout : Second = 30.0;
+    attribute persistentArrhythmiaTimeout : Second = 45.0;
+    attribute maxShocksPerEpisode : Integer = 5;
+    attribute postShockReanalysisDelay : Second = 15.0;
+
+    port decisionInputPort : DataPort;
+    port patientInterfacePort : PatientInterfacePort;
+    port shockCommandPort : TherapyPort;
+    port eventPort : DataPort;
+
+    perform action manageTherapyEpisode;
+    exhibit state machine therapyStates;
+  }
+
+  part def ShockEnergySubsystem {
+    attribute capacitorBankEnergyCapacity : Joule = 170.0;
+    attribute nominalChargeVoltage : Volt = 1900.0;
+    attribute maxChargeTime : Second = 15.0;
+    attribute deliveredEnergyTolerance : Percent = 15.0;
+    attribute internalDischargeTime : Second = 10.0;
+
+    port powerPort : PowerPort;
+    port commandPort : TherapyPort;
+    port therapyPort : TherapyPort;
+    port eventPort : DataPort;
+
+    part charger;
+    part capacitorBank;
+    part dischargeSwitch;
+    part impedanceMeasurementCircuit;
+
+    perform action chargeCapacitors;
+    perform action deliverBiphasicShock;
+    perform action internallyDischarge;
+  }
+
+  part def PatientInterfaceModule {
+    attribute audibleAlarmLeveldBA : Real = 85.0;
+    attribute vibrationMotorCount : Integer = 2;
+    attribute displayPresent : Boolean = true;
+    attribute responseButtons : Integer = 2;
+
+    port userPort : PatientInterfacePort;
+
+    part speaker;
+    part vibrationMotors;
+    part display;
+    part responseButtonLeft;
+    part responseButtonRight;
+
+    perform action alertPatient;
+    perform action collectPatientResponse;
+  }
+
+  part def RechargeableBatteryPack {
+    attribute nominalVoltage : Volt = 14.4;
+    attribute capacityWh : Real = 98.0;
+    attribute lowBatteryThreshold : Percent = 20.0;
+    attribute criticalBatteryThreshold : Percent = 5.0;
+    attribute rechargeTimeHours : Real = 3.0;
+    attribute status : BatteryStatus = BatteryStatus::normal;
+
+    port powerPort : PowerPort;
+
+    part batteryCells;
+    part protectionCircuit;
+    part fuelGauge;
+  }
+
+  part def EventRecorder {
+    attribute storageCapacityMB : Real = 512.0;
+    attribute minimumRetainedEpisodes : Integer = 20;
+    attribute recordsECGWaveforms : Boolean = true;
+    attribute recordsAlarms : Boolean = true;
+    attribute recordsDeliveredTherapy : Boolean = true;
+
+    port eventInputPort : DataPort;
+    port dataPort : DataPort;
+
+    perform action storeEvent;
+  }
+
+  part def SelfTestManager {
+    attribute startupSelfTestDuration : Second = 10.0;
+    attribute periodicSelfTestIntervalHours : Real = 1.0;
+    attribute electrodeCheckInterval : Second = 60.0;
+
+    port servicePort : ServicePort;
+
+    perform action runStartupSelfTest;
+    perform action runPeriodicSelfTest;
+  }
+
+  part def ClinicalCommunicationsModule {
+    attribute encryptedTransmission : Boolean = true;
+    attribute wirelessEnabled : Boolean = true;
+    attribute usbEnabled : Boolean = true;
+
+    port dataPort : DataPort;
+
+    perform action transmitEpisodeSummary;
+  }
+
+  /* Behaviors */
+
+  action def monitorAndTreat {
+    in ecgFrame : ECGFrame;
+    in patientResponse : PatientResponse;
+    out decision : TherapyDecision;
+    out deliveredShock : ShockPulse;
+
+    first start;
+    then acquire : acquireECG;
+    then classify : classifyRhythm;
+    then decide : decideTherapy;
+    then warn : alertPatient;
+    then treat : deliverBiphasicShock;
+    then record : storeEvent;
+    then done;
+
+    flow acquire.ecgFrame to classify.ecgFrame;
+    flow classify.rhythmClass to decide.rhythmClass;
+    flow decide.therapyDecision to warn.therapyDecision;
+    flow decide.shockCommand to treat.shockCommand;
+    flow treat.shockPulse to record.shockPulse;
+  }
+
+  action def acquireECG {
+    out ecgFrame : ECGFrame;
+  }
+
+  action def classifyRhythm {
+    in ecgFrame : ECGFrame;
+    out rhythmClass : RhythmClass;
+    out detectionConfidence : Percent;
+  }
+
+  action def decideTherapy {
+    in rhythmClass : RhythmClass;
+    in detectionConfidence : Percent;
+    in patientResponse : PatientResponse;
+    out therapyDecision : TherapyDecision;
+    out shockCommand : ShockCommand;
+  }
+
+  action def alertPatient {
+    in therapyDecision : TherapyDecision;
+    out alarm : AlarmMessage;
+  }
+
+  action def collectPatientResponse {
+    out patientResponse : PatientResponse;
+  }
+
+  action def manageTherapyEpisode {
+    in rhythmClass : RhythmClass;
+    in patientResponse : PatientResponse;
+    out shockCommand : ShockCommand;
+    out therapyDecision : TherapyDecision;
+  }
+
+  action def chargeCapacitors {
+    in commandedEnergy : Joule;
+    out chargeVoltage : Volt;
+  }
+
+  action def deliverBiphasicShock {
+    in shockCommand : ShockCommand;
+    out shockPulse : ShockPulse;
+  }
+
+  action def internallyDischarge {
+    out discharged : Boolean;
+  }
+
+  action def storeEvent {
+    in shockPulse : ShockPulse;
+    in deviceEvent : DeviceEvent;
+    out retained : Boolean;
+  }
+
+  action def superviseDevice {
+    out deviceReady : Boolean;
+    out serviceRequired : Boolean;
+  }
+
+  action def runStartupSelfTest {
+    out passed : Boolean;
+  }
+
+  action def runPeriodicSelfTest {
+    out passed : Boolean;
+  }
+
+  action def transmitEpisodeSummary {
+    in deviceEvent : DeviceEvent;
+    out transmitted : Boolean;
+  }
+
+  state def operationalStates {
+    entry action runStartupSelfTest;
+
+    state initializing;
+    state readyMonitoring;
+    state garmentFault;
+    state batteryFault;
+    state therapyEpisodeActive;
+    state serviceRequired;
+    state poweredOff;
+
+    initial then initializing;
+
+    transition initializing_to_ready
+      first initializing
+      accept after 10.0 [selfTestPassed == true]
+      then readyMonitoring;
+
+    transition initializing_to_service
+      first initializing
+      accept after 10.0 [selfTestPassed == false]
+      then serviceRequired;
+
+    transition ready_to_garmentFault
+      first readyMonitoring
+      accept FitMeasurement [fitStatus != GarmentFitStatus::fitted]
+      then garmentFault;
+
+    transition garmentFault_to_ready
+      first garmentFault
+      accept FitMeasurement [fitStatus == GarmentFitStatus::fitted]
+      then readyMonitoring;
+
+    transition ready_to_batteryFault
+      first readyMonitoring
+      accept BatteryStatus [status == BatteryStatus::critical or status == BatteryStatus::failed]
+      then batteryFault;
+
+    transition ready_to_therapy
+      first readyMonitoring
+      accept DeviceEvent [eventCode == "SHOCKABLE_RHYTHM_CONFIRMED"]
+      then therapyEpisodeActive;
+
+    transition therapy_to_ready
+      first therapyEpisodeActive
+      accept DeviceEvent [eventCode == "EPISODE_RESOLVED"]
+      then readyMonitoring;
+
+    transition any_to_poweredOff
+      first readyMonitoring
+      accept DeviceEvent [eventCode == "POWER_OFF_REQUESTED"]
+      then poweredOff;
+  }
+
+  state def therapyStates {
+    state monitoring;
+    state suspectedArrhythmia;
+    state confirmingArrhythmia;
+    state warningPatient;
+    state therapyInhibited;
+    state charging;
+    state shockArmed;
+    state shockDelivered;
+    state reanalyzing;
+    state episodeClosed;
+
+    initial then monitoring;
+
+    transition monitoring_to_suspected
+      first monitoring
+      accept RhythmClass [this == RhythmClass::ventricularTachycardia or this == RhythmClass::ventricularFibrillation]
+      then suspectedArrhythmia;
+
+    transition suspected_to_confirming
+      first suspectedArrhythmia
+      accept after 5.0
+      then confirmingArrhythmia;
+
+    transition confirming_to_monitoring
+      first confirmingArrhythmia
+      accept RhythmClass [this == RhythmClass::normalSinus or this == RhythmClass::artifact]
+      then monitoring;
+
+    transition confirming_to_warning
+      first confirmingArrhythmia
+      accept after 45.0
+      then warningPatient;
+
+    transition warning_to_inhibited
+      first warningPatient
+      accept PatientResponse [responsePressed == true and buttonHeldDuration >= 1.0]
+      then therapyInhibited;
+
+    transition warning_to_charging
+      first warningPatient
+      accept after 30.0
+      then charging;
+
+    transition inhibited_to_monitoring
+      first therapyInhibited
+      accept after 15.0
+      then monitoring;
+
+    transition charging_to_armed
+      first charging
+      accept DeviceEvent [eventCode == "CAPACITOR_CHARGED"]
+      then shockArmed;
+
+    transition armed_to_delivered
+      first shockArmed
+      accept ShockPulse [deliveredEnergy >= 85.0 and deliveredEnergy <= 115.0]
+      then shockDelivered;
+
+    transition delivered_to_reanalyzing
+      first shockDelivered
+      accept after 15.0
+      then reanalyzing;
+
+    transition reanalyzing_to_closed
+      first reanalyzing
+      accept RhythmClass [this == RhythmClass::normalSinus or this == RhythmClass::tachycardiaNonShockable]
+      then episodeClosed;
+
+    transition reanalyzing_to_warning
+      first reanalyzing
+      accept RhythmClass [this == RhythmClass::ventricularTachycardia or this == RhythmClass::ventricularFibrillation]
+      then warningPatient;
+  }
+
+  /* Requirements */
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The wearable cardioverter defibrillator shall continuously monitor cardiac rhythm, detect shockable ventricular arrhythmias, warn the patient, allow conscious patient inhibition, and deliver defibrillation therapy when the rhythm remains shockable without patient response. */
+    subject wcd : WearableCardioverterDefibrillator;
+    require constraint {
+      wcd.minimumECGSignalQuality >= 70.0 and
+      wcd.nominalShockEnergy <= wcd.maxShockEnergy
+    }
+  }
+
+  requirement def ContinuousMonitoringRequirement {
+    doc
+      /* The system shall acquire multi-lead ECG data continuously while powered and fitted to the patient. */
+    subject controller : MonitorController;
+    require constraint {
+      controller.ecgSampleRateHz >= 250.0 and
+      controller.frameDuration <= 4.0
+    }
+  }
+
+  requirement def ShockableRhythmDetectionRequirement {
+    doc
+      /* The arrhythmia detection processor shall classify ventricular tachycardia and ventricular fibrillation with high confidence before therapy is commanded. */
+    subject detector : ArrhythmiaDetectionProcessor;
+    require constraint {
+      detector.minimumDetectionConfidence >= 90.0 and
+      detector.vtHeartRateThreshold >= 120.0 and
+      detector.vfHeartRateThreshold >= detector.vtHeartRateThreshold
+    }
+  }
+
+  requirement def PatientWarningRequirement {
+    doc
+      /* The system shall provide audible, visual, and vibration warning before shock delivery and shall allow the patient to inhibit therapy during the response window. */
+    subject therapy : TherapyManager;
+    require constraint {
+      therapy.patientResponseTimeout >= 20.0 and
+      therapy.patientResponseTimeout <= 60.0
+    }
+  }
+
+  requirement def DefibrillationEnergyRequirement {
+    doc
+      /* The energy subsystem shall deliver a biphasic transthoracic shock at the commanded energy within the configured tolerance when therapy is not inhibited. */
+    subject energy : ShockEnergySubsystem;
+    require constraint {
+      energy.capacitorBankEnergyCapacity >= 150.0 and
+      energy.deliveredEnergyTolerance <= 15.0 and
+      energy.maxChargeTime <= 15.0
+    }
+  }
+
+  requirement def WearabilityRequirement {
+    doc
+      /* The garment and electrodes shall maintain sensing and therapy pad contact during normal daily activity. */
+    subject electrodes : SensingElectrodeSet;
+    require constraint {
+      electrodes.electrodeCount >= 4 and
+      electrodes.maxAcceptableContactImpedance <= 5000.0
+    }
+  }
+
+  requirement def EventRecordingRequirement {
+    doc
+      /* The system shall retain ECG, alarms, patient responses, decisions, and delivered shock records for clinical review. */
+    subject recorder : EventRecorder;
+    require constraint {
+      recorder.storageCapacityMB >= 256.0 and
+      recorder.minimumRetainedEpisodes >= 10
+    }
+  }
+
+  requirement def BatteryRuntimeRequirement {
+    doc
+      /* The removable battery pack shall support at least one full day of monitoring under nominal operating conditions. */
+    subject battery : RechargeableBatteryPack;
+    require constraint {
+      battery.capacityWh >= 90.0 and
+      battery.lowBatteryThreshold > battery.criticalBatteryThreshold
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by WearableCardioverterDefibrillator;
+  satisfy ContinuousMonitoringRequirement by MonitorController;
+  satisfy ShockableRhythmDetectionRequirement by ArrhythmiaDetectionProcessor;
+  satisfy PatientWarningRequirement by TherapyManager;
+  satisfy DefibrillationEnergyRequirement by ShockEnergySubsystem;
+  satisfy WearabilityRequirement by SensingElectrodeSet;
+  satisfy EventRecordingRequirement by EventRecorder;
+  satisfy BatteryRuntimeRequirement by RechargeableBatteryPack;
+
+  /* System instance */
+
+  part wcdSystem : WearableCardioverterDefibrillator {
+    attribute primaryFunction =
+      "High-level primary function: protect a patient at temporary risk of sudden cardiac arrest by continuously sensing ECG, deciding whether a ventricular arrhythmia is shockable, warning the patient, and automatically delivering defibrillation therapy if the patient is unresponsive.";
+  }
+}
+tokens used
+6,388
+package WearableCardioverterDefibrillatorSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  /* Units and value types */
+
+  attribute def Volt :> Real {
+    unit = "V";
+  }
+
+  attribute def MilliVolt :> Real {
+    unit = "mV";
+  }
+
+  attribute def Ampere :> Real {
+    unit = "A";
+  }
+
+  attribute def MilliAmpere :> Real {
+    unit = "mA";
+  }
+
+  attribute def Joule :> Real {
+    unit = "J";
+  }
+
+  attribute def Watt :> Real {
+    unit = "W";
+  }
+
+  attribute def Second :> Real {
+    unit = "s";
+  }
+
+  attribute def Millisecond :> Real {
+    unit = "ms";
+  }
+
+  attribute def BeatsPerMinute :> Real {
+    unit = "beat/min";
+  }
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Celsius :> Real {
+    unit = "degC";
+  }
+
+  attribute def Ohm :> Real {
+    unit = "ohm";
+  }
+
+  attribute def Kilobyte :> Real {
+    unit = "kB";
+  }
+
+  enum def TherapyDecision {
+    enum none;
+    enum monitor;
+    enum warnPatient;
+    enum deliverShock;
+    enum inhibitShock;
+    enum serviceRequired;
+  }
+
+  enum def RhythmClass {
+    enum normalSinus;
+    enum bradycardia;
+    enum tachycardiaNonShockable;
+    enum ventricularTachycardia;
+    enum ventricularFibrillation;
+    enum artifact;
+    enum unknown;
+  }
+
+  enum def GarmentFitStatus {
+    enum fitted;
+    enum loose;
+    enum electrodeDetached;
+    enum therapyPadDetached;
+    enum unknown;
+  }
+
+  enum def BatteryStatus {
+    enum normal;
+    enum low;
+    enum critical;
+    enum charging;
+    enum failed;
+  }
+
+  enum def AlarmPriority {
+    enum advisory;
+    enum warning;
+    enum critical;
+  }
+
+  item def ECGSample {
+    attribute leadId : Integer;
+    attribute sampleVoltage : MilliVolt;
+    attribute sampleTime : Second;
+    attribute signalQuality : Percent;
+  }
+
+  item def ECGFrame {
+    attribute frameStartTime : Second;
+    attribute frameDuration : Second;
+    attribute sampleRate : Real;
+    attribute channelCount : Integer;
+    attribute meanSignalQuality : Percent;
+  }
+
+  item def PatientResponse {
+    attribute responsePressed : Boolean;
+    attribute responseTime : Second;
+    attribute buttonHeldDuration : Second;
+  }
+
+  item def ShockCommand {
+    attribute commandedEnergy : Joule;
+    attribute chargeVoltage : Volt;
+    attribute maxDeliveryDelay : Second;
+    attribute synchronized : Boolean;
+  }
+
+  item def ShockPulse {
+    attribute deliveredEnergy : Joule;
+    attribute peakCurrent : Ampere;
+    attribute pulseDuration : Millisecond;
+    attribute transthoracicImpedance : Ohm;
+  }
+
+  item def AlarmMessage {
+    attribute priority : AlarmPriority;
+    attribute messageCode : String;
+    attribute audibleEnabled : Boolean;
+    attribute vibrationEnabled : Boolean;
+    attribute visualEnabled : Boolean;
+  }
+
+  item def DeviceEvent {
+    attribute eventTime : Second;
+    attribute eventCode : String;
+    attribute storedSize : Kilobyte;
+  }
+
+  item def PowerFlow {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def FitMeasurement {
+    attribute electrodeContactImpedance : Ohm;
+    attribute therapyPadContactImpedance : Ohm;
+    attribute fitStatus : GarmentFitStatus;
+  }
+
+  /* Ports */
+
+  port def ECGSensePort {
+    out ecgSample : ECGSample;
+    out fitMeasurement : FitMeasurement;
+  }
+
+  port def PatientInterfacePort {
+    out alarm : AlarmMessage;
+    in patientResponse : PatientResponse;
+  }
+
+  port def TherapyPort {
+    in shockCommand : ShockCommand;
+    out shockPulse : ShockPulse;
+  }
+
+  port def PowerPort {
+    in powerIn : PowerFlow;
+    out powerOut : PowerFlow;
+  }
+
+  port def DataPort {
+    in eventIn : DeviceEvent;
+    out eventOut : DeviceEvent;
+  }
+
+  port def ServicePort {
+    in serviceCommand : String;
+    out serviceStatus : String;
+  }
+
+  /* Primary system */
+
+  part def WearableCardioverterDefibrillator {
+    attribute primaryFunction : String =
+      "Continuously monitor the patient's cardiac rhythm while worn, detect life-threatening ventricular tachyarrhythmias, warn the conscious patient, and automatically deliver a defibrillation shock when the arrhythmia persists and the patient does not inhibit therapy.";
+
+    attribute targetAdultPatientMassMin : Real = 35.0;
+    attribute nominalOperatingTime : Real = 24.0;
+    attribute maxShockEnergy : Joule = 150.0;
+    attribute nominalShockEnergy : Joule = 100.0;
+    attribute arrhythmiaConfirmationWindow : Second = 45.0;
+    attribute patientResponseWindow : Second = 30.0;
+    attribute minimumECGSignalQuality : Percent = 70.0;
+    attribute operatingTemperatureMin : Celsius = 0.0;
+    attribute operatingTemperatureMax : Celsius = 45.0;
+
+    port ecgAcquisitionPort : ECGSensePort;
+    port patientInterfacePort : PatientInterfacePort;
+    port therapyOutputPort : TherapyPort;
+    port removableBatteryPort : PowerPort;
+    port clinicalDataPort : DataPort;
+    port servicePort : ServicePort;
+
+    part garment : WearableGarment;
+    part electrodeSet : SensingElectrodeSet;
+    part therapyPadSet : DefibrillationTherapyPadSet;
+    part monitorController : MonitorController;
+    part arrhythmiaDetector : ArrhythmiaDetectionProcessor;
+    part therapyManager : TherapyManager;
+    part energySubsystem : ShockEnergySubsystem;
+    part patientInterface : PatientInterfaceModule;
+    part batteryPack : RechargeableBatteryPack;
+    part eventRecorder : EventRecorder;
+    part selfTestManager : SelfTestManager;
+    part communicationsModule : ClinicalCommunicationsModule;
+
+    connect electrodeSet.ecgPort to ecgAcquisitionPort;
+    connect electrodeSet.ecgPort to monitorController.ecgInputPort;
+    connect therapyPadSet.therapyPort to therapyOutputPort;
+    connect therapyPadSet.therapyPort to energySubsystem.therapyPort;
+    connect batteryPack.powerPort to removableBatteryPort;
+    connect batteryPack.powerPort to monitorController.powerPort;
+    connect batteryPack.powerPort to energySubsystem.powerPort;
+    connect monitorController.rhythmDataPort to arrhythmiaDetector.ecgFramePort;
+    connect arrhythmiaDetector.decisionPort to therapyManager.decisionInputPort;
+    connect therapyManager.patientInterfacePort to patientInterface.userPort;
+    connect patientInterface.userPort to patientInterfacePort;
+    connect therapyManager.shockCommandPort to energySubsystem.commandPort;
+    connect energySubsystem.eventPort to eventRecorder.eventInputPort;
+    connect monitorController.eventPort to eventRecorder.eventInputPort;
+    connect therapyManager.eventPort to eventRecorder.eventInputPort;
+    connect eventRecorder.dataPort to clinicalDataPort;
+    connect communicationsModule.dataPort to clinicalDataPort;
+    connect selfTestManager.servicePort to servicePort;
+
+    perform action monitorAndTreat;
+    exhibit state machine operationalStates;
+  }
+
+  part def WearableGarment {
+    attribute sizeCode : String;
+    attribute washable : Boolean = true;
+    attribute maintainsElectrodePlacement : Boolean = true;
+    attribute expectedDailyWearDuration : Real = 24.0;
+
+    part shoulderStraps;
+    part torsoBand;
+    part electrodePockets;
+    part therapyPadPockets;
+  }
+
+  part def SensingElectrodeSet {
+    attribute electrodeCount : Integer = 4;
+    attribute maxAcceptableContactImpedance : Ohm = 5000.0;
+    attribute requiredSignalQuality : Percent = 70.0;
+
+    port ecgPort : ECGSensePort;
+
+    part anteriorElectrode;
+    part lateralElectrode;
+    part posteriorElectrode;
+    part referenceElectrode;
+  }
+
+  part def DefibrillationTherapyPadSet {
+    attribute padCount : Integer = 3;
+    attribute maxAcceptablePadImpedance : Ohm = 150.0;
+    attribute skinContactRequired : Boolean = true;
+
+    port therapyPort : TherapyPort;
+
+    part apexPad;
+    part sternumPad;
+    part backPad;
+    part conductiveGelReservoir;
+  }
+
+  part def MonitorController {
+    attribute processorClockRateMHz : Real = 200.0;
+    attribute ecgSampleRateHz : Real = 250.0;
+    attribute frameDuration : Second = 4.0;
+    attribute watchdogTimeout : Second = 2.0;
+
+    port ecgInputPort : ECGSensePort;
+    port rhythmDataPort : DataPort;
+    port powerPort : PowerPort;
+    port eventPort : DataPort;
+
+    perform action acquireECG;
+    perform action superviseDevice;
+  }
+
+  part def ArrhythmiaDetectionProcessor {
+    attribute vtHeartRateThreshold : BeatsPerMinute = 150.0;
+    attribute vfHeartRateThreshold : BeatsPerMinute = 200.0;
+    attribute minimumDetectionConfidence : Percent = 90.0;
+    attribute artifactRejectionEnabled : Boolean = true;
+
+    port ecgFramePort : DataPort;
+    port decisionPort : DataPort;
+
+    perform action classifyRhythm;
+  }
+
+  part def TherapyManager {
+    attribute patientResponseTimeout : Second = 30.0;
+    attribute persistentArrhythmiaTimeout : Second = 45.0;
+    attribute maxShocksPerEpisode : Integer = 5;
+    attribute postShockReanalysisDelay : Second = 15.0;
+
+    port decisionInputPort : DataPort;
+    port patientInterfacePort : PatientInterfacePort;
+    port shockCommandPort : TherapyPort;
+    port eventPort : DataPort;
+
+    perform action manageTherapyEpisode;
+    exhibit state machine therapyStates;
+  }
+
+  part def ShockEnergySubsystem {
+    attribute capacitorBankEnergyCapacity : Joule = 170.0;
+    attribute nominalChargeVoltage : Volt = 1900.0;
+    attribute maxChargeTime : Second = 15.0;
+    attribute deliveredEnergyTolerance : Percent = 15.0;
+    attribute internalDischargeTime : Second = 10.0;
+
+    port powerPort : PowerPort;
+    port commandPort : TherapyPort;
+    port therapyPort : TherapyPort;
+    port eventPort : DataPort;
+
+    part charger;
+    part capacitorBank;
+    part dischargeSwitch;
+    part impedanceMeasurementCircuit;
+
+    perform action chargeCapacitors;
+    perform action deliverBiphasicShock;
+    perform action internallyDischarge;
+  }
+
+  part def PatientInterfaceModule {
+    attribute audibleAlarmLeveldBA : Real = 85.0;
+    attribute vibrationMotorCount : Integer = 2;
+    attribute displayPresent : Boolean = true;
+    attribute responseButtons : Integer = 2;
+
+    port userPort : PatientInterfacePort;
+
+    part speaker;
+    part vibrationMotors;
+    part display;
+    part responseButtonLeft;
+    part responseButtonRight;
+
+    perform action alertPatient;
+    perform action collectPatientResponse;
+  }
+
+  part def RechargeableBatteryPack {
+    attribute nominalVoltage : Volt = 14.4;
+    attribute capacityWh : Real = 98.0;
+    attribute lowBatteryThreshold : Percent = 20.0;
+    attribute criticalBatteryThreshold : Percent = 5.0;
+    attribute rechargeTimeHours : Real = 3.0;
+    attribute status : BatteryStatus = BatteryStatus::normal;
+
+    port powerPort : PowerPort;
+
+    part batteryCells;
+    part protectionCircuit;
+    part fuelGauge;
+  }
+
+  part def EventRecorder {
+    attribute storageCapacityMB : Real = 512.0;
+    attribute minimumRetainedEpisodes : Integer = 20;
+    attribute recordsECGWaveforms : Boolean = true;
+    attribute recordsAlarms : Boolean = true;
+    attribute recordsDeliveredTherapy : Boolean = true;
+
+    port eventInputPort : DataPort;
+    port dataPort : DataPort;
+
+    perform action storeEvent;
+  }
+
+  part def SelfTestManager {
+    attribute startupSelfTestDuration : Second = 10.0;
+    attribute periodicSelfTestIntervalHours : Real = 1.0;
+    attribute electrodeCheckInterval : Second = 60.0;
+
+    port servicePort : ServicePort;
+
+    perform action runStartupSelfTest;
+    perform action runPeriodicSelfTest;
+  }
+
+  part def ClinicalCommunicationsModule {
+    attribute encryptedTransmission : Boolean = true;
+    attribute wirelessEnabled : Boolean = true;
+    attribute usbEnabled : Boolean = true;
+
+    port dataPort : DataPort;
+
+    perform action transmitEpisodeSummary;
+  }
+
+  /* Behaviors */
+
+  action def monitorAndTreat {
+    in ecgFrame : ECGFrame;
+    in patientResponse : PatientResponse;
+    out decision : TherapyDecision;
+    out deliveredShock : ShockPulse;
+
+    first start;
+    then acquire : acquireECG;
+    then classify : classifyRhythm;
+    then decide : decideTherapy;
+    then warn : alertPatient;
+    then treat : deliverBiphasicShock;
+    then record : storeEvent;
+    then done;
+
+    flow acquire.ecgFrame to classify.ecgFrame;
+    flow classify.rhythmClass to decide.rhythmClass;
+    flow decide.therapyDecision to warn.therapyDecision;
+    flow decide.shockCommand to treat.shockCommand;
+    flow treat.shockPulse to record.shockPulse;
+  }
+
+  action def acquireECG {
+    out ecgFrame : ECGFrame;
+  }
+
+  action def classifyRhythm {
+    in ecgFrame : ECGFrame;
+    out rhythmClass : RhythmClass;
+    out detectionConfidence : Percent;
+  }
+
+  action def decideTherapy {
+    in rhythmClass : RhythmClass;
+    in detectionConfidence : Percent;
+    in patientResponse : PatientResponse;
+    out therapyDecision : TherapyDecision;
+    out shockCommand : ShockCommand;
+  }
+
+  action def alertPatient {
+    in therapyDecision : TherapyDecision;
+    out alarm : AlarmMessage;
+  }
+
+  action def collectPatientResponse {
+    out patientResponse : PatientResponse;
+  }
+
+  action def manageTherapyEpisode {
+    in rhythmClass : RhythmClass;
+    in patientResponse : PatientResponse;
+    out shockCommand : ShockCommand;
+    out therapyDecision : TherapyDecision;
+  }
+
+  action def chargeCapacitors {
+    in commandedEnergy : Joule;
+    out chargeVoltage : Volt;
+  }
+
+  action def deliverBiphasicShock {
+    in shockCommand : ShockCommand;
+    out shockPulse : ShockPulse;
+  }
+
+  action def internallyDischarge {
+    out discharged : Boolean;
+  }
+
+  action def storeEvent {
+    in shockPulse : ShockPulse;
+    in deviceEvent : DeviceEvent;
+    out retained : Boolean;
+  }
+
+  action def superviseDevice {
+    out deviceReady : Boolean;
+    out serviceRequired : Boolean;
+  }
+
+  action def runStartupSelfTest {
+    out passed : Boolean;
+  }
+
+  action def runPeriodicSelfTest {
+    out passed : Boolean;
+  }
+
+  action def transmitEpisodeSummary {
+    in deviceEvent : DeviceEvent;
+    out transmitted : Boolean;
+  }
+
+  state def operationalStates {
+    entry action runStartupSelfTest;
+
+    state initializing;
+    state readyMonitoring;
+    state garmentFault;
+    state batteryFault;
+    state therapyEpisodeActive;
+    state serviceRequired;
+    state poweredOff;
+
+    initial then initializing;
+
+    transition initializing_to_ready
+      first initializing
+      accept after 10.0 [selfTestPassed == true]
+      then readyMonitoring;
+
+    transition initializing_to_service
+      first initializing
+      accept after 10.0 [selfTestPassed == false]
+      then serviceRequired;
+
+    transition ready_to_garmentFault
+      first readyMonitoring
+      accept FitMeasurement [fitStatus != GarmentFitStatus::fitted]
+      then garmentFault;
+
+    transition garmentFault_to_ready
+      first garmentFault
+      accept FitMeasurement [fitStatus == GarmentFitStatus::fitted]
+      then readyMonitoring;
+
+    transition ready_to_batteryFault
+      first readyMonitoring
+      accept BatteryStatus [status == BatteryStatus::critical or status == BatteryStatus::failed]
+      then batteryFault;
+
+    transition ready_to_therapy
+      first readyMonitoring
+      accept DeviceEvent [eventCode == "SHOCKABLE_RHYTHM_CONFIRMED"]
+      then therapyEpisodeActive;
+
+    transition therapy_to_ready
+      first therapyEpisodeActive
+      accept DeviceEvent [eventCode == "EPISODE_RESOLVED"]
+      then readyMonitoring;
+
+    transition any_to_poweredOff
+      first readyMonitoring
+      accept DeviceEvent [eventCode == "POWER_OFF_REQUESTED"]
+      then poweredOff;
+  }
+
+  state def therapyStates {
+    state monitoring;
+    state suspectedArrhythmia;
+    state confirmingArrhythmia;
+    state warningPatient;
+    state therapyInhibited;
+    state charging;
+    state shockArmed;
+    state shockDelivered;
+    state reanalyzing;
+    state episodeClosed;
+
+    initial then monitoring;
+
+    transition monitoring_to_suspected
+      first monitoring
+      accept RhythmClass [this == RhythmClass::ventricularTachycardia or this == RhythmClass::ventricularFibrillation]
+      then suspectedArrhythmia;
+
+    transition suspected_to_confirming
+      first suspectedArrhythmia
+      accept after 5.0
+      then confirmingArrhythmia;
+
+    transition confirming_to_monitoring
+      first confirmingArrhythmia
+      accept RhythmClass [this == RhythmClass::normalSinus or this == RhythmClass::artifact]
+      then monitoring;
+
+    transition confirming_to_warning
+      first confirmingArrhythmia
+      accept after 45.0
+      then warningPatient;
+
+    transition warning_to_inhibited
+      first warningPatient
+      accept PatientResponse [responsePressed == true and buttonHeldDuration >= 1.0]
+      then therapyInhibited;
+
+    transition warning_to_charging
+      first warningPatient
+      accept after 30.0
+      then charging;
+
+    transition inhibited_to_monitoring
+      first therapyInhibited
+      accept after 15.0
+      then monitoring;
+
+    transition charging_to_armed
+      first charging
+      accept DeviceEvent [eventCode == "CAPACITOR_CHARGED"]
+      then shockArmed;
+
+    transition armed_to_delivered
+      first shockArmed
+      accept ShockPulse [deliveredEnergy >= 85.0 and deliveredEnergy <= 115.0]
+      then shockDelivered;
+
+    transition delivered_to_reanalyzing
+      first shockDelivered
+      accept after 15.0
+      then reanalyzing;
+
+    transition reanalyzing_to_closed
+      first reanalyzing
+      accept RhythmClass [this == RhythmClass::normalSinus or this == RhythmClass::tachycardiaNonShockable]
+      then episodeClosed;
+
+    transition reanalyzing_to_warning
+      first reanalyzing
+      accept RhythmClass [this == RhythmClass::ventricularTachycardia or this == RhythmClass::ventricularFibrillation]
+      then warningPatient;
+  }
+
+  /* Requirements */
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The wearable cardioverter defibrillator shall continuously monitor cardiac rhythm, detect shockable ventricular arrhythmias, warn the patient, allow conscious patient inhibition, and deliver defibrillation therapy when the rhythm remains shockable without patient response. */
+    subject wcd : WearableCardioverterDefibrillator;
+    require constraint {
+      wcd.minimumECGSignalQuality >= 70.0 and
+      wcd.nominalShockEnergy <= wcd.maxShockEnergy
+    }
+  }
+
+  requirement def ContinuousMonitoringRequirement {
+    doc
+      /* The system shall acquire multi-lead ECG data continuously while powered and fitted to the patient. */
+    subject controller : MonitorController;
+    require constraint {
+      controller.ecgSampleRateHz >= 250.0 and
+      controller.frameDuration <= 4.0
+    }
+  }
+
+  requirement def ShockableRhythmDetectionRequirement {
+    doc
+      /* The arrhythmia detection processor shall classify ventricular tachycardia and ventricular fibrillation with high confidence before therapy is commanded. */
+    subject detector : ArrhythmiaDetectionProcessor;
+    require constraint {
+      detector.minimumDetectionConfidence >= 90.0 and
+      detector.vtHeartRateThreshold >= 120.0 and
+      detector.vfHeartRateThreshold >= detector.vtHeartRateThreshold
+    }
+  }
+
+  requirement def PatientWarningRequirement {
+    doc
+      /* The system shall provide audible, visual, and vibration warning before shock delivery and shall allow the patient to inhibit therapy during the response window. */
+    subject therapy : TherapyManager;
+    require constraint {
+      therapy.patientResponseTimeout >= 20.0 and
+      therapy.patientResponseTimeout <= 60.0
+    }
+  }
+
+  requirement def DefibrillationEnergyRequirement {
+    doc
+      /* The energy subsystem shall deliver a biphasic transthoracic shock at the commanded energy within the configured tolerance when therapy is not inhibited. */
+    subject energy : ShockEnergySubsystem;
+    require constraint {
+      energy.capacitorBankEnergyCapacity >= 150.0 and
+      energy.deliveredEnergyTolerance <= 15.0 and
+      energy.maxChargeTime <= 15.0
+    }
+  }
+
+  requirement def WearabilityRequirement {
+    doc
+      /* The garment and electrodes shall maintain sensing and therapy pad contact during normal daily activity. */
+    subject electrodes : SensingElectrodeSet;
+    require constraint {
+      electrodes.electrodeCount >= 4 and
+      electrodes.maxAcceptableContactImpedance <= 5000.0
+    }
+  }
+
+  requirement def EventRecordingRequirement {
+    doc
+      /* The system shall retain ECG, alarms, patient responses, decisions, and delivered shock records for clinical review. */
+    subject recorder : EventRecorder;
+    require constraint {
+      recorder.storageCapacityMB >= 256.0 and
+      recorder.minimumRetainedEpisodes >= 10
+    }
+  }
+
+  requirement def BatteryRuntimeRequirement {
+    doc
+      /* The removable battery pack shall support at least one full day of monitoring under nominal operating conditions. */
+    subject battery : RechargeableBatteryPack;
+    require constraint {
+      battery.capacityWh >= 90.0 and
+      battery.lowBatteryThreshold > battery.criticalBatteryThreshold
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by WearableCardioverterDefibrillator;
+  satisfy ContinuousMonitoringRequirement by MonitorController;
+  satisfy ShockableRhythmDetectionRequirement by ArrhythmiaDetectionProcessor;
+  satisfy PatientWarningRequirement by TherapyManager;
+  satisfy DefibrillationEnergyRequirement by ShockEnergySubsystem;
+  satisfy WearabilityRequirement by SensingElectrodeSet;
+  satisfy EventRecordingRequirement by EventRecorder;
+  satisfy BatteryRuntimeRequirement by RechargeableBatteryPack;
+
+  /* System instance */
+
+  part wcdSystem : WearableCardioverterDefibrillator {
+    attribute primaryFunction =
+      "High-level primary function: protect a patient at temporary risk of sudden cardiac arrest by continuously sensing ECG, deciding whether a ventricular arrhythmia is shockable, warning the patient, and automatically delivering defibrillation therapy if the patient is unresponsive.";
+  }
+}

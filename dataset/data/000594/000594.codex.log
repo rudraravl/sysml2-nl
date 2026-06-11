@@ -1,0 +1,1467 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-s_05ypb3
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb378-7971-7f22-bb96-15914bef7033
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a E-textiles and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ETextileWearableMonitoringSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def ElectricCharge :> ISQ::electricCharge {
+        unit = SI::coulomb;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::millimeter;
+    }
+
+    attribute def Resistance :> ISQ::electricalResistance {
+        unit = SI::ohm;
+    }
+
+    attribute def Conductance :> ISQ::electricalConductance {
+        unit = SI::siemens;
+    }
+
+    attribute def Percentage {
+        attribute value : Real;
+    }
+
+    attribute def DataRate {
+        attribute value : Real;
+        unit = SI::bitPerSecond;
+    }
+
+    item def SkinContactSignal {
+        attribute contactPressure : Pressure;
+        attribute electrodeImpedance : Resistance;
+        attribute contactQuality : Percentage;
+    }
+
+    item def PhysiologicalSample {
+        attribute timestamp : TimeDuration;
+        attribute heartElectricalPotential : ElectricPotential;
+        attribute skinTemperature : Temperature;
+        attribute respirationStrain : Percentage;
+        attribute motionAccelerationX : Real;
+        attribute motionAccelerationY : Real;
+        attribute motionAccelerationZ : Real;
+        attribute sampleQuality : Percentage;
+    }
+
+    item def TextileStatus {
+        attribute moistureLevel : Percentage;
+        attribute washCycleCount : Integer;
+        attribute conductiveTraceContinuity : Percentage;
+        attribute fabricStrain : Percentage;
+        attribute moduleAttached : Boolean;
+    }
+
+    item def ProcessedHealthMetric {
+        attribute heartRateBpm : Real;
+        attribute respirationRateBpm : Real;
+        attribute bodyTemperature : Temperature;
+        attribute activityIntensity : Percentage;
+        attribute confidence : Percentage;
+    }
+
+    item def AlertMessage {
+        attribute timestamp : TimeDuration;
+        attribute severity : Integer;
+        attribute summaryCode : String;
+        attribute requiresUserAttention : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute availablePower : Power;
+        attribute stateOfCharge : Percentage;
+    }
+
+    item def WirelessPacket {
+        attribute packetId : Integer;
+        attribute payloadBytes : Integer;
+        attribute encrypted : Boolean;
+        attribute dataRate : DataRate;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+        out item powerOut : ElectricalPower;
+    }
+
+    port def SensorSignalPort {
+        in item contact : SkinContactSignal;
+        out item sample : PhysiologicalSample;
+    }
+
+    port def StatusPort {
+        out item textileStatus : TextileStatus;
+    }
+
+    port def MetricPort {
+        out item metric : ProcessedHealthMetric;
+        out item alert : AlertMessage;
+    }
+
+    port def WirelessPort {
+        out item uplink : WirelessPacket;
+        in item downlink : WirelessPacket;
+    }
+
+    port def UserFeedbackPort {
+        out item hapticPulse : AlertMessage;
+        out item visualStatus : TextileStatus;
+    }
+
+    part def ConductiveYarnNetwork {
+        attribute traceResistance : Resistance = 8.0 [SI::ohm];
+        attribute maximumElongation : Percentage = 18.0;
+        attribute minimumContinuity : Percentage = 95.0;
+        attribute stitchPitch : Length = 2.5 [SI::millimeter];
+
+        port powerDistribution : PowerPort;
+        port sensorBus : SensorSignalPort;
+        port statusOut : StatusPort;
+
+        action checkContinuity {
+            in attribute measuredResistance : Resistance;
+            out attribute continuity : Percentage;
+            out attribute serviceable : Boolean;
+
+            first start;
+            then calculateContinuity;
+            then decideServiceability;
+            then done;
+
+            action calculateContinuity {
+                out attribute continuity : Percentage;
+            }
+
+            action decideServiceability {
+                in attribute continuity : Percentage;
+                out attribute serviceable : Boolean;
+            }
+        }
+    }
+
+    part def TextileElectrodeArray {
+        attribute electrodeCount : Integer = 6;
+        attribute nominalSkinImpedance : Resistance = 120000.0 [SI::ohm];
+        attribute minimumContactQuality : Percentage = 70.0;
+
+        port skinInterface : SensorSignalPort;
+        port power : PowerPort;
+
+        action acquireBioPotential {
+            in item contact : SkinContactSignal;
+            out item sample : PhysiologicalSample;
+
+            first detectContact;
+            then rejectNoisyContact;
+            then amplifySignal;
+            then emitSample;
+
+            action detectContact {
+                in item contact : SkinContactSignal;
+                out attribute contactAccepted : Boolean;
+            }
+
+            action rejectNoisyContact {
+                in attribute contactAccepted : Boolean;
+                out attribute signalUsable : Boolean;
+            }
+
+            action amplifySignal {
+                in attribute signalUsable : Boolean;
+                out attribute amplifiedVoltage : ElectricPotential;
+            }
+
+            action emitSample {
+                in attribute amplifiedVoltage : ElectricPotential;
+                out item sample : PhysiologicalSample;
+            }
+        }
+    }
+
+    part def StretchAndPressureSensorGrid {
+        attribute sensorCellCount : Integer = 48;
+        attribute pressureRange : Pressure = 20000.0 [SI::pascal];
+        attribute strainRange : Percentage = 35.0;
+        attribute samplingFrequency : Frequency = 25.0 [SI::hertz];
+
+        port sensorOutput : SensorSignalPort;
+        port power : PowerPort;
+
+        action measureRespirationAndFit {
+            out item sample : PhysiologicalSample;
+            out item contact : SkinContactSignal;
+
+            first scanRows;
+            then estimateChestExpansion;
+            then estimateGarmentFit;
+            then publishSignals;
+        }
+    }
+
+    part def TemperaturePatch {
+        attribute accuracy : Temperature = 0.2 [SI::degreeCelsius];
+        attribute responseTime : TimeDuration = 4.0 [SI::second];
+
+        port temperatureOutput : SensorSignalPort;
+        port power : PowerPort;
+
+        action measureSkinTemperature {
+            out item sample : PhysiologicalSample;
+
+            first stabilizeSensor;
+            then readThermistor;
+            then compensateFabricOffset;
+            then publishTemperature;
+        }
+    }
+
+    part def DetachableElectronicsModule {
+        attribute processorClock : Frequency = 64000000.0 [SI::hertz];
+        attribute localStorageCapacityBytes : Integer = 16777216;
+        attribute nominalCurrentDraw : ElectricCurrent = 0.018 [SI::ampere];
+
+        port sensorInput : SensorSignalPort;
+        port textileStatusInput : StatusPort;
+        port metricsOutput : MetricPort;
+        port wireless : WirelessPort;
+        port userFeedback : UserFeedbackPort;
+        port powerInput : PowerPort;
+
+        part processor : EmbeddedProcessor;
+        part radio : LowEnergyWirelessRadio;
+        part secureStorage : LocalHealthDataStore;
+        part hapticDriver : HapticFeedbackDriver;
+
+        connect sensorInput.sample to processor.rawSampleIn.sample;
+        connect textileStatusInput.textileStatus to processor.statusIn.textileStatus;
+        connect processor.metricOut.metric to metricsOutput.metric;
+        connect processor.metricOut.alert to metricsOutput.alert;
+        connect processor.packetOut.uplink to radio.packetIn.uplink;
+        connect radio.packetOut.uplink to wireless.uplink;
+        connect wireless.downlink to radio.packetIn.downlink;
+        connect processor.feedbackOut.hapticPulse to hapticDriver.feedbackIn.hapticPulse;
+        connect hapticDriver.feedbackOut.hapticPulse to userFeedback.hapticPulse;
+    }
+
+    part def EmbeddedProcessor {
+        attribute signalWindowDuration : TimeDuration = 10.0 [SI::second];
+        attribute minimumMetricConfidence : Percentage = 80.0;
+
+        port rawSampleIn : SensorSignalPort;
+        port statusIn : StatusPort;
+        port metricOut : MetricPort;
+        port packetOut : WirelessPort;
+        port feedbackOut : UserFeedbackPort;
+
+        action processPhysiologicalData {
+            in item sample : PhysiologicalSample;
+            in item status : TextileStatus;
+            out item metric : ProcessedHealthMetric;
+            out item alert : AlertMessage;
+
+            first validateTextileIntegrity;
+            then filterMotionArtifact;
+            then estimateHeartRate;
+            then estimateRespirationRate;
+            then evaluateThermalState;
+            then classifyActivity;
+            then determineAlert;
+            then publishMetric;
+
+            action validateTextileIntegrity {
+                in item status : TextileStatus;
+                out attribute textileUsable : Boolean;
+            }
+
+            action filterMotionArtifact {
+                in item sample : PhysiologicalSample;
+                out item filteredSample : PhysiologicalSample;
+            }
+
+            action estimateHeartRate {
+                in item filteredSample : PhysiologicalSample;
+                out attribute heartRateBpm : Real;
+            }
+
+            action estimateRespirationRate {
+                in item filteredSample : PhysiologicalSample;
+                out attribute respirationRateBpm : Real;
+            }
+
+            action evaluateThermalState {
+                in item filteredSample : PhysiologicalSample;
+                out attribute bodyTemperature : Temperature;
+            }
+
+            action classifyActivity {
+                in item filteredSample : PhysiologicalSample;
+                out attribute activityIntensity : Percentage;
+            }
+
+            action determineAlert {
+                in attribute heartRateBpm : Real;
+                in attribute respirationRateBpm : Real;
+                in attribute bodyTemperature : Temperature;
+                out item alert : AlertMessage;
+            }
+
+            action publishMetric {
+                out item metric : ProcessedHealthMetric;
+            }
+        }
+
+        state def MonitoringController {
+            entry action initializeSampling;
+            state Idle;
+            state GarmentDetected;
+            state Monitoring;
+            state LowQualitySignal;
+            state Alerting;
+            state Syncing;
+            state LowPower;
+            state WashingLocked;
+
+            transition first Idle;
+            transition Idle_to_GarmentDetected
+                first Idle
+                then GarmentDetected
+                if textileStatusInput.textileStatus.moduleAttached == true;
+
+            transition GarmentDetected_to_Monitoring
+                first GarmentDetected
+                then Monitoring
+                if rawSampleIn.contact.contactQuality >= 70.0;
+
+            transition Monitoring_to_LowQualitySignal
+                first Monitoring
+                then LowQualitySignal
+                if rawSampleIn.sample.sampleQuality < 60.0;
+
+            transition LowQualitySignal_to_Monitoring
+                first LowQualitySignal
+                then Monitoring
+                if rawSampleIn.sample.sampleQuality >= 80.0;
+
+            transition Monitoring_to_Alerting
+                first Monitoring
+                then Alerting
+                if metricOut.alert.requiresUserAttention == true;
+
+            transition Alerting_to_Monitoring
+                first Alerting
+                then Monitoring
+                if metricOut.alert.requiresUserAttention == false;
+
+            transition Monitoring_to_Syncing
+                first Monitoring
+                then Syncing
+                if packetOut.uplink.payloadBytes > 0;
+
+            transition Syncing_to_Monitoring
+                first Syncing
+                then Monitoring;
+
+            transition Monitoring_to_LowPower
+                first Monitoring
+                then LowPower
+                if powerBudget.stateOfCharge.value < 15.0;
+
+            transition LowPower_to_Monitoring
+                first LowPower
+                then Monitoring
+                if powerBudget.stateOfCharge.value > 30.0;
+
+            transition GarmentDetected_to_WashingLocked
+                first GarmentDetected
+                then WashingLocked
+                if textileStatusInput.textileStatus.moistureLevel.value > 85.0;
+
+            transition WashingLocked_to_Idle
+                first WashingLocked
+                then Idle
+                if textileStatusInput.textileStatus.moistureLevel.value < 20.0;
+        }
+
+        attribute powerBudget : ElectricalPower;
+    }
+
+    part def LowEnergyWirelessRadio {
+        attribute transmitFrequency : Frequency = 2400000000.0 [SI::hertz];
+        attribute maximumDataRate : DataRate = 1000000.0;
+        attribute encryptedLinkRequired : Boolean = true;
+
+        port packetIn : WirelessPort;
+        port packetOut : WirelessPort;
+
+        action transmitHealthSummary {
+            in item metric : ProcessedHealthMetric;
+            out item uplink : WirelessPacket;
+
+            first encryptPayload;
+            then scheduleConnectionEvent;
+            then transmitPacket;
+            then confirmDelivery;
+        }
+    }
+
+    part def LocalHealthDataStore {
+        attribute retentionDuration : TimeDuration = 604800.0 [SI::second];
+        attribute encryptedAtRest : Boolean = true;
+        attribute storedMetricCount : Integer;
+
+        action storeMetric {
+            in item metric : ProcessedHealthMetric;
+            first validateRecord;
+            then encryptRecord;
+            then commitRecord;
+        }
+    }
+
+    part def HapticFeedbackDriver {
+        attribute vibrationCurrent : ElectricCurrent = 0.055 [SI::ampere];
+        attribute pulseDuration : TimeDuration = 0.4 [SI::second];
+
+        port feedbackIn : UserFeedbackPort;
+        port feedbackOut : UserFeedbackPort;
+
+        action notifyUser {
+            in item alert : AlertMessage;
+            out item hapticPulse : AlertMessage;
+
+            first selectPattern;
+            then driveActuator;
+            then stopActuator;
+        }
+    }
+
+    part def FlexibleBatteryPack {
+        attribute capacity : ElectricCharge = 7200.0 [SI::coulomb];
+        attribute nominalVoltage : ElectricPotential = 3.7 [SI::volt];
+        attribute maximumDischargeCurrent : ElectricCurrent = 0.4 [SI::ampere];
+        attribute minimumBendRadius : Length = 25.0 [SI::millimeter];
+
+        port powerOutput : PowerPort;
+
+        action provideRegulatedPower {
+            out item powerOut : ElectricalPower;
+
+            first measureStateOfCharge;
+            then regulateVoltage;
+            then limitCurrent;
+            then distributePower;
+        }
+    }
+
+    part def EnergyHarvestingLayer {
+        attribute generatorCount : Integer = 12;
+        attribute averageHarvestedPowerWalking : Power = 0.025 [SI::watt];
+        attribute solarAssistPowerOutdoor : Power = 0.12 [SI::watt];
+
+        port harvestedPower : PowerPort;
+
+        action harvestAmbientEnergy {
+            out item powerOut : ElectricalPower;
+
+            first convertMotionEnergy;
+            then convertLightEnergy;
+            then conditionInputPower;
+            then chargeStorageBus;
+        }
+    }
+
+    part def PowerManagementUnit {
+        attribute regulatedVoltage : ElectricPotential = 3.3 [SI::volt];
+        attribute sleepCurrent : ElectricCurrent = 0.00008 [SI::ampere];
+        attribute conversionEfficiency : Percentage = 88.0;
+
+        port batteryInput : PowerPort;
+        port harvesterInput : PowerPort;
+        port regulatedOutput : PowerPort;
+
+        action managePower {
+            in item batteryPower : ElectricalPower;
+            in item harvestedPower : ElectricalPower;
+            out item regulatedPower : ElectricalPower;
+
+            first selectPowerSource;
+            then chargeBatteryWhenSurplus;
+            then regulateSystemVoltage;
+            then enterSleepWhenIdle;
+        }
+    }
+
+    part def WashableTextileSubstrate {
+        attribute fabricMassGrams : Real = 180.0;
+        attribute washCycleRating : Integer = 50;
+        attribute breathableAreaRatio : Percentage = 72.0;
+        attribute moistureLimitDuringOperation : Percentage = 85.0;
+
+        port substrateStatus : StatusPort;
+
+        action assessGarmentCondition {
+            out item textileStatus : TextileStatus;
+
+            first detectMoisture;
+            then countWashExposure;
+            then inspectTraceContinuity;
+            then publishCondition;
+        }
+    }
+
+    part def MobileHealthApplication {
+        attribute displayedMetricRefreshPeriod : TimeDuration = 5.0 [SI::second];
+        attribute storesPersonalData : Boolean = true;
+
+        port wirelessLink : WirelessPort;
+        port displayedMetrics : MetricPort;
+
+        action presentHighLevelFunction {
+            in item metric : ProcessedHealthMetric;
+            in item alert : AlertMessage;
+
+            first receiveEncryptedPacket;
+            then authenticateGarment;
+            then updateLiveDashboard;
+            then showAlertWhenNeeded;
+        }
+    }
+
+    part def SmartETextileGarment {
+        doc /* Primary high-level function: continuously sense physiological and garment-condition signals through washable conductive textile structures, process them into health metrics, and communicate actionable status to the wearer and paired mobile device while remaining comfortable, flexible, and safe during normal wear. */
+
+        attribute garmentSizeCode : String = "M";
+        attribute totalSystemMassGrams : Real = 245.0;
+        attribute continuousOperatingDuration : TimeDuration = 43200.0 [SI::second];
+        attribute maximumSurfaceTemperature : Temperature = 41.0 [SI::degreeCelsius];
+
+        port wearerInterface : SensorSignalPort;
+        port wirelessExternal : WirelessPort;
+        port userFeedbackExternal : UserFeedbackPort;
+
+        part substrate : WashableTextileSubstrate;
+        part conductiveNetwork : ConductiveYarnNetwork;
+        part electrodes : TextileElectrodeArray;
+        part strainPressureGrid : StretchAndPressureSensorGrid;
+        part temperaturePatch : TemperaturePatch;
+        part battery : FlexibleBatteryPack;
+        part harvester : EnergyHarvestingLayer;
+        part powerManager : PowerManagementUnit;
+        part electronics : DetachableElectronicsModule;
+        part mobileApp : MobileHealthApplication;
+
+        connect wearerInterface.contact to electrodes.skinInterface.contact;
+        connect wearerInterface.contact to strainPressureGrid.sensorOutput.contact;
+
+        connect battery.powerOutput.powerOut to powerManager.batteryInput.powerIn;
+        connect harvester.harvestedPower.powerOut to powerManager.harvesterInput.powerIn;
+        connect powerManager.regulatedOutput.powerOut to conductiveNetwork.powerDistribution.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to electrodes.power.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to strainPressureGrid.power.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to temperaturePatch.power.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to electronics.powerInput.powerIn;
+
+        connect electrodes.skinInterface.sample to conductiveNetwork.sensorBus.sample;
+        connect strainPressureGrid.sensorOutput.sample to conductiveNetwork.sensorBus.sample;
+        connect temperaturePatch.temperatureOutput.sample to conductiveNetwork.sensorBus.sample;
+        connect conductiveNetwork.sensorBus.sample to electronics.sensorInput.sample;
+
+        connect substrate.substrateStatus.textileStatus to conductiveNetwork.statusOut.textileStatus;
+        connect conductiveNetwork.statusOut.textileStatus to electronics.textileStatusInput.textileStatus;
+
+        connect electronics.wireless.uplink to wirelessExternal.uplink;
+        connect wirelessExternal.downlink to electronics.wireless.downlink;
+        connect wirelessExternal.uplink to mobileApp.wirelessLink.uplink;
+        connect mobileApp.wirelessLink.downlink to wirelessExternal.downlink;
+
+        connect electronics.metricsOutput.metric to mobileApp.displayedMetrics.metric;
+        connect electronics.metricsOutput.alert to mobileApp.displayedMetrics.alert;
+        connect electronics.userFeedback.hapticPulse to userFeedbackExternal.hapticPulse;
+
+        action operateGarment {
+            first attachElectronicsModule;
+            then verifyTextileIntegrity;
+            then establishSkinContact;
+            then startContinuousMonitoring;
+            then processAndClassifySignals;
+            then communicateHealthStatus;
+
+            action attachElectronicsModule {
+                out item status : TextileStatus;
+            }
+
+            action verifyTextileIntegrity {
+                in item status : TextileStatus;
+                out attribute garmentReady : Boolean;
+            }
+
+            action establishSkinContact {
+                out item contact : SkinContactSignal;
+            }
+
+            action startContinuousMonitoring {
+                in item contact : SkinContactSignal;
+                out item sample : PhysiologicalSample;
+            }
+
+            action processAndClassifySignals {
+                in item sample : PhysiologicalSample;
+                out item metric : ProcessedHealthMetric;
+                out item alert : AlertMessage;
+            }
+
+            action communicateHealthStatus {
+                in item metric : ProcessedHealthMetric;
+                in item alert : AlertMessage;
+                out item uplink : WirelessPacket;
+            }
+        }
+    }
+
+    requirement def ContinuousMonitoringRequirement {
+        subject garment : SmartETextileGarment;
+        require constraint {
+            garment.continuousOperatingDuration >= 43200.0 [SI::second]
+        }
+        doc /* The garment shall support at least twelve hours of continuous sensing, local processing, user feedback, and wireless summary transmission. */
+    }
+
+    requirement def ComfortAndFlexibilityRequirement {
+        subject battery : FlexibleBatteryPack;
+        subject conductiveNetwork : ConductiveYarnNetwork;
+        require constraint {
+            battery.minimumBendRadius <= 25.0 [SI::millimeter] and
+            conductiveNetwork.maximumElongation.value >= 18.0
+        }
+        doc /* Flexible components shall preserve normal garment movement and wearer comfort. */
+    }
+
+    requirement def SafeSkinTemperatureRequirement {
+        subject garment : SmartETextileGarment;
+        require constraint {
+            garment.maximumSurfaceTemperature <= 41.0 [SI::degreeCelsius]
+        }
+        doc /* Any surface contacting the wearer shall remain below the defined safe operating temperature during normal operation. */
+    }
+
+    requirement def WashabilityRequirement {
+        subject substrate : WashableTextileSubstrate;
+        subject conductiveNetwork : ConductiveYarnNetwork;
+        require constraint {
+            substrate.washCycleRating >= 50 and
+            conductiveNetwork.minimumContinuity.value >= 95.0
+        }
+        doc /* Textile and conductive structures shall remain serviceable after repeated wash cycles. */
+    }
+
+    requirement def SignalQualityRequirement {
+        subject electrodes : TextileElectrodeArray;
+        require constraint {
+            electrodes.minimumContactQuality.value >= 70.0
+        }
+        doc /* The sensing interface shall reject measurements that do not meet minimum skin-contact quality. */
+    }
+
+    requirement def PrivacyRequirement {
+        subject radio : LowEnergyWirelessRadio;
+        subject storage : LocalHealthDataStore;
+        require constraint {
+            radio.encryptedLinkRequired == true and
+            storage.encryptedAtRest == true
+        }
+        doc /* Health data shall be encrypted during wireless transmission and local storage. */
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject garment : SmartETextileGarment;
+        require constraint {
+            garment.totalSystemMassGrams <= 300.0 and
+            garment.continuousOperatingDuration >= 43200.0 [SI::second]
+        }
+        doc /* The smart e-textile garment shall convert textile-integrated sensor signals into high-level wearer health status without preventing ordinary wear. */
+    }
+
+    satisfy ContinuousMonitoringRequirement by SmartETextileGarment;
+    satisfy ComfortAndFlexibilityRequirement by FlexibleBatteryPack;
+    satisfy ComfortAndFlexibilityRequirement by ConductiveYarnNetwork;
+    satisfy SafeSkinTemperatureRequirement by SmartETextileGarment;
+    satisfy WashabilityRequirement by WashableTextileSubstrate;
+    satisfy WashabilityRequirement by ConductiveYarnNetwork;
+    satisfy SignalQualityRequirement by TextileElectrodeArray;
+    satisfy PrivacyRequirement by LowEnergyWirelessRadio;
+    satisfy PrivacyRequirement by LocalHealthDataStore;
+    satisfy PrimaryFunctionRequirement by SmartETextileGarment;
+}
+tokens used
+6,377
+package ETextileWearableMonitoringSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def ElectricCharge :> ISQ::electricCharge {
+        unit = SI::coulomb;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::millimeter;
+    }
+
+    attribute def Resistance :> ISQ::electricalResistance {
+        unit = SI::ohm;
+    }
+
+    attribute def Conductance :> ISQ::electricalConductance {
+        unit = SI::siemens;
+    }
+
+    attribute def Percentage {
+        attribute value : Real;
+    }
+
+    attribute def DataRate {
+        attribute value : Real;
+        unit = SI::bitPerSecond;
+    }
+
+    item def SkinContactSignal {
+        attribute contactPressure : Pressure;
+        attribute electrodeImpedance : Resistance;
+        attribute contactQuality : Percentage;
+    }
+
+    item def PhysiologicalSample {
+        attribute timestamp : TimeDuration;
+        attribute heartElectricalPotential : ElectricPotential;
+        attribute skinTemperature : Temperature;
+        attribute respirationStrain : Percentage;
+        attribute motionAccelerationX : Real;
+        attribute motionAccelerationY : Real;
+        attribute motionAccelerationZ : Real;
+        attribute sampleQuality : Percentage;
+    }
+
+    item def TextileStatus {
+        attribute moistureLevel : Percentage;
+        attribute washCycleCount : Integer;
+        attribute conductiveTraceContinuity : Percentage;
+        attribute fabricStrain : Percentage;
+        attribute moduleAttached : Boolean;
+    }
+
+    item def ProcessedHealthMetric {
+        attribute heartRateBpm : Real;
+        attribute respirationRateBpm : Real;
+        attribute bodyTemperature : Temperature;
+        attribute activityIntensity : Percentage;
+        attribute confidence : Percentage;
+    }
+
+    item def AlertMessage {
+        attribute timestamp : TimeDuration;
+        attribute severity : Integer;
+        attribute summaryCode : String;
+        attribute requiresUserAttention : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute availablePower : Power;
+        attribute stateOfCharge : Percentage;
+    }
+
+    item def WirelessPacket {
+        attribute packetId : Integer;
+        attribute payloadBytes : Integer;
+        attribute encrypted : Boolean;
+        attribute dataRate : DataRate;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+        out item powerOut : ElectricalPower;
+    }
+
+    port def SensorSignalPort {
+        in item contact : SkinContactSignal;
+        out item sample : PhysiologicalSample;
+    }
+
+    port def StatusPort {
+        out item textileStatus : TextileStatus;
+    }
+
+    port def MetricPort {
+        out item metric : ProcessedHealthMetric;
+        out item alert : AlertMessage;
+    }
+
+    port def WirelessPort {
+        out item uplink : WirelessPacket;
+        in item downlink : WirelessPacket;
+    }
+
+    port def UserFeedbackPort {
+        out item hapticPulse : AlertMessage;
+        out item visualStatus : TextileStatus;
+    }
+
+    part def ConductiveYarnNetwork {
+        attribute traceResistance : Resistance = 8.0 [SI::ohm];
+        attribute maximumElongation : Percentage = 18.0;
+        attribute minimumContinuity : Percentage = 95.0;
+        attribute stitchPitch : Length = 2.5 [SI::millimeter];
+
+        port powerDistribution : PowerPort;
+        port sensorBus : SensorSignalPort;
+        port statusOut : StatusPort;
+
+        action checkContinuity {
+            in attribute measuredResistance : Resistance;
+            out attribute continuity : Percentage;
+            out attribute serviceable : Boolean;
+
+            first start;
+            then calculateContinuity;
+            then decideServiceability;
+            then done;
+
+            action calculateContinuity {
+                out attribute continuity : Percentage;
+            }
+
+            action decideServiceability {
+                in attribute continuity : Percentage;
+                out attribute serviceable : Boolean;
+            }
+        }
+    }
+
+    part def TextileElectrodeArray {
+        attribute electrodeCount : Integer = 6;
+        attribute nominalSkinImpedance : Resistance = 120000.0 [SI::ohm];
+        attribute minimumContactQuality : Percentage = 70.0;
+
+        port skinInterface : SensorSignalPort;
+        port power : PowerPort;
+
+        action acquireBioPotential {
+            in item contact : SkinContactSignal;
+            out item sample : PhysiologicalSample;
+
+            first detectContact;
+            then rejectNoisyContact;
+            then amplifySignal;
+            then emitSample;
+
+            action detectContact {
+                in item contact : SkinContactSignal;
+                out attribute contactAccepted : Boolean;
+            }
+
+            action rejectNoisyContact {
+                in attribute contactAccepted : Boolean;
+                out attribute signalUsable : Boolean;
+            }
+
+            action amplifySignal {
+                in attribute signalUsable : Boolean;
+                out attribute amplifiedVoltage : ElectricPotential;
+            }
+
+            action emitSample {
+                in attribute amplifiedVoltage : ElectricPotential;
+                out item sample : PhysiologicalSample;
+            }
+        }
+    }
+
+    part def StretchAndPressureSensorGrid {
+        attribute sensorCellCount : Integer = 48;
+        attribute pressureRange : Pressure = 20000.0 [SI::pascal];
+        attribute strainRange : Percentage = 35.0;
+        attribute samplingFrequency : Frequency = 25.0 [SI::hertz];
+
+        port sensorOutput : SensorSignalPort;
+        port power : PowerPort;
+
+        action measureRespirationAndFit {
+            out item sample : PhysiologicalSample;
+            out item contact : SkinContactSignal;
+
+            first scanRows;
+            then estimateChestExpansion;
+            then estimateGarmentFit;
+            then publishSignals;
+        }
+    }
+
+    part def TemperaturePatch {
+        attribute accuracy : Temperature = 0.2 [SI::degreeCelsius];
+        attribute responseTime : TimeDuration = 4.0 [SI::second];
+
+        port temperatureOutput : SensorSignalPort;
+        port power : PowerPort;
+
+        action measureSkinTemperature {
+            out item sample : PhysiologicalSample;
+
+            first stabilizeSensor;
+            then readThermistor;
+            then compensateFabricOffset;
+            then publishTemperature;
+        }
+    }
+
+    part def DetachableElectronicsModule {
+        attribute processorClock : Frequency = 64000000.0 [SI::hertz];
+        attribute localStorageCapacityBytes : Integer = 16777216;
+        attribute nominalCurrentDraw : ElectricCurrent = 0.018 [SI::ampere];
+
+        port sensorInput : SensorSignalPort;
+        port textileStatusInput : StatusPort;
+        port metricsOutput : MetricPort;
+        port wireless : WirelessPort;
+        port userFeedback : UserFeedbackPort;
+        port powerInput : PowerPort;
+
+        part processor : EmbeddedProcessor;
+        part radio : LowEnergyWirelessRadio;
+        part secureStorage : LocalHealthDataStore;
+        part hapticDriver : HapticFeedbackDriver;
+
+        connect sensorInput.sample to processor.rawSampleIn.sample;
+        connect textileStatusInput.textileStatus to processor.statusIn.textileStatus;
+        connect processor.metricOut.metric to metricsOutput.metric;
+        connect processor.metricOut.alert to metricsOutput.alert;
+        connect processor.packetOut.uplink to radio.packetIn.uplink;
+        connect radio.packetOut.uplink to wireless.uplink;
+        connect wireless.downlink to radio.packetIn.downlink;
+        connect processor.feedbackOut.hapticPulse to hapticDriver.feedbackIn.hapticPulse;
+        connect hapticDriver.feedbackOut.hapticPulse to userFeedback.hapticPulse;
+    }
+
+    part def EmbeddedProcessor {
+        attribute signalWindowDuration : TimeDuration = 10.0 [SI::second];
+        attribute minimumMetricConfidence : Percentage = 80.0;
+
+        port rawSampleIn : SensorSignalPort;
+        port statusIn : StatusPort;
+        port metricOut : MetricPort;
+        port packetOut : WirelessPort;
+        port feedbackOut : UserFeedbackPort;
+
+        action processPhysiologicalData {
+            in item sample : PhysiologicalSample;
+            in item status : TextileStatus;
+            out item metric : ProcessedHealthMetric;
+            out item alert : AlertMessage;
+
+            first validateTextileIntegrity;
+            then filterMotionArtifact;
+            then estimateHeartRate;
+            then estimateRespirationRate;
+            then evaluateThermalState;
+            then classifyActivity;
+            then determineAlert;
+            then publishMetric;
+
+            action validateTextileIntegrity {
+                in item status : TextileStatus;
+                out attribute textileUsable : Boolean;
+            }
+
+            action filterMotionArtifact {
+                in item sample : PhysiologicalSample;
+                out item filteredSample : PhysiologicalSample;
+            }
+
+            action estimateHeartRate {
+                in item filteredSample : PhysiologicalSample;
+                out attribute heartRateBpm : Real;
+            }
+
+            action estimateRespirationRate {
+                in item filteredSample : PhysiologicalSample;
+                out attribute respirationRateBpm : Real;
+            }
+
+            action evaluateThermalState {
+                in item filteredSample : PhysiologicalSample;
+                out attribute bodyTemperature : Temperature;
+            }
+
+            action classifyActivity {
+                in item filteredSample : PhysiologicalSample;
+                out attribute activityIntensity : Percentage;
+            }
+
+            action determineAlert {
+                in attribute heartRateBpm : Real;
+                in attribute respirationRateBpm : Real;
+                in attribute bodyTemperature : Temperature;
+                out item alert : AlertMessage;
+            }
+
+            action publishMetric {
+                out item metric : ProcessedHealthMetric;
+            }
+        }
+
+        state def MonitoringController {
+            entry action initializeSampling;
+            state Idle;
+            state GarmentDetected;
+            state Monitoring;
+            state LowQualitySignal;
+            state Alerting;
+            state Syncing;
+            state LowPower;
+            state WashingLocked;
+
+            transition first Idle;
+            transition Idle_to_GarmentDetected
+                first Idle
+                then GarmentDetected
+                if textileStatusInput.textileStatus.moduleAttached == true;
+
+            transition GarmentDetected_to_Monitoring
+                first GarmentDetected
+                then Monitoring
+                if rawSampleIn.contact.contactQuality >= 70.0;
+
+            transition Monitoring_to_LowQualitySignal
+                first Monitoring
+                then LowQualitySignal
+                if rawSampleIn.sample.sampleQuality < 60.0;
+
+            transition LowQualitySignal_to_Monitoring
+                first LowQualitySignal
+                then Monitoring
+                if rawSampleIn.sample.sampleQuality >= 80.0;
+
+            transition Monitoring_to_Alerting
+                first Monitoring
+                then Alerting
+                if metricOut.alert.requiresUserAttention == true;
+
+            transition Alerting_to_Monitoring
+                first Alerting
+                then Monitoring
+                if metricOut.alert.requiresUserAttention == false;
+
+            transition Monitoring_to_Syncing
+                first Monitoring
+                then Syncing
+                if packetOut.uplink.payloadBytes > 0;
+
+            transition Syncing_to_Monitoring
+                first Syncing
+                then Monitoring;
+
+            transition Monitoring_to_LowPower
+                first Monitoring
+                then LowPower
+                if powerBudget.stateOfCharge.value < 15.0;
+
+            transition LowPower_to_Monitoring
+                first LowPower
+                then Monitoring
+                if powerBudget.stateOfCharge.value > 30.0;
+
+            transition GarmentDetected_to_WashingLocked
+                first GarmentDetected
+                then WashingLocked
+                if textileStatusInput.textileStatus.moistureLevel.value > 85.0;
+
+            transition WashingLocked_to_Idle
+                first WashingLocked
+                then Idle
+                if textileStatusInput.textileStatus.moistureLevel.value < 20.0;
+        }
+
+        attribute powerBudget : ElectricalPower;
+    }
+
+    part def LowEnergyWirelessRadio {
+        attribute transmitFrequency : Frequency = 2400000000.0 [SI::hertz];
+        attribute maximumDataRate : DataRate = 1000000.0;
+        attribute encryptedLinkRequired : Boolean = true;
+
+        port packetIn : WirelessPort;
+        port packetOut : WirelessPort;
+
+        action transmitHealthSummary {
+            in item metric : ProcessedHealthMetric;
+            out item uplink : WirelessPacket;
+
+            first encryptPayload;
+            then scheduleConnectionEvent;
+            then transmitPacket;
+            then confirmDelivery;
+        }
+    }
+
+    part def LocalHealthDataStore {
+        attribute retentionDuration : TimeDuration = 604800.0 [SI::second];
+        attribute encryptedAtRest : Boolean = true;
+        attribute storedMetricCount : Integer;
+
+        action storeMetric {
+            in item metric : ProcessedHealthMetric;
+            first validateRecord;
+            then encryptRecord;
+            then commitRecord;
+        }
+    }
+
+    part def HapticFeedbackDriver {
+        attribute vibrationCurrent : ElectricCurrent = 0.055 [SI::ampere];
+        attribute pulseDuration : TimeDuration = 0.4 [SI::second];
+
+        port feedbackIn : UserFeedbackPort;
+        port feedbackOut : UserFeedbackPort;
+
+        action notifyUser {
+            in item alert : AlertMessage;
+            out item hapticPulse : AlertMessage;
+
+            first selectPattern;
+            then driveActuator;
+            then stopActuator;
+        }
+    }
+
+    part def FlexibleBatteryPack {
+        attribute capacity : ElectricCharge = 7200.0 [SI::coulomb];
+        attribute nominalVoltage : ElectricPotential = 3.7 [SI::volt];
+        attribute maximumDischargeCurrent : ElectricCurrent = 0.4 [SI::ampere];
+        attribute minimumBendRadius : Length = 25.0 [SI::millimeter];
+
+        port powerOutput : PowerPort;
+
+        action provideRegulatedPower {
+            out item powerOut : ElectricalPower;
+
+            first measureStateOfCharge;
+            then regulateVoltage;
+            then limitCurrent;
+            then distributePower;
+        }
+    }
+
+    part def EnergyHarvestingLayer {
+        attribute generatorCount : Integer = 12;
+        attribute averageHarvestedPowerWalking : Power = 0.025 [SI::watt];
+        attribute solarAssistPowerOutdoor : Power = 0.12 [SI::watt];
+
+        port harvestedPower : PowerPort;
+
+        action harvestAmbientEnergy {
+            out item powerOut : ElectricalPower;
+
+            first convertMotionEnergy;
+            then convertLightEnergy;
+            then conditionInputPower;
+            then chargeStorageBus;
+        }
+    }
+
+    part def PowerManagementUnit {
+        attribute regulatedVoltage : ElectricPotential = 3.3 [SI::volt];
+        attribute sleepCurrent : ElectricCurrent = 0.00008 [SI::ampere];
+        attribute conversionEfficiency : Percentage = 88.0;
+
+        port batteryInput : PowerPort;
+        port harvesterInput : PowerPort;
+        port regulatedOutput : PowerPort;
+
+        action managePower {
+            in item batteryPower : ElectricalPower;
+            in item harvestedPower : ElectricalPower;
+            out item regulatedPower : ElectricalPower;
+
+            first selectPowerSource;
+            then chargeBatteryWhenSurplus;
+            then regulateSystemVoltage;
+            then enterSleepWhenIdle;
+        }
+    }
+
+    part def WashableTextileSubstrate {
+        attribute fabricMassGrams : Real = 180.0;
+        attribute washCycleRating : Integer = 50;
+        attribute breathableAreaRatio : Percentage = 72.0;
+        attribute moistureLimitDuringOperation : Percentage = 85.0;
+
+        port substrateStatus : StatusPort;
+
+        action assessGarmentCondition {
+            out item textileStatus : TextileStatus;
+
+            first detectMoisture;
+            then countWashExposure;
+            then inspectTraceContinuity;
+            then publishCondition;
+        }
+    }
+
+    part def MobileHealthApplication {
+        attribute displayedMetricRefreshPeriod : TimeDuration = 5.0 [SI::second];
+        attribute storesPersonalData : Boolean = true;
+
+        port wirelessLink : WirelessPort;
+        port displayedMetrics : MetricPort;
+
+        action presentHighLevelFunction {
+            in item metric : ProcessedHealthMetric;
+            in item alert : AlertMessage;
+
+            first receiveEncryptedPacket;
+            then authenticateGarment;
+            then updateLiveDashboard;
+            then showAlertWhenNeeded;
+        }
+    }
+
+    part def SmartETextileGarment {
+        doc /* Primary high-level function: continuously sense physiological and garment-condition signals through washable conductive textile structures, process them into health metrics, and communicate actionable status to the wearer and paired mobile device while remaining comfortable, flexible, and safe during normal wear. */
+
+        attribute garmentSizeCode : String = "M";
+        attribute totalSystemMassGrams : Real = 245.0;
+        attribute continuousOperatingDuration : TimeDuration = 43200.0 [SI::second];
+        attribute maximumSurfaceTemperature : Temperature = 41.0 [SI::degreeCelsius];
+
+        port wearerInterface : SensorSignalPort;
+        port wirelessExternal : WirelessPort;
+        port userFeedbackExternal : UserFeedbackPort;
+
+        part substrate : WashableTextileSubstrate;
+        part conductiveNetwork : ConductiveYarnNetwork;
+        part electrodes : TextileElectrodeArray;
+        part strainPressureGrid : StretchAndPressureSensorGrid;
+        part temperaturePatch : TemperaturePatch;
+        part battery : FlexibleBatteryPack;
+        part harvester : EnergyHarvestingLayer;
+        part powerManager : PowerManagementUnit;
+        part electronics : DetachableElectronicsModule;
+        part mobileApp : MobileHealthApplication;
+
+        connect wearerInterface.contact to electrodes.skinInterface.contact;
+        connect wearerInterface.contact to strainPressureGrid.sensorOutput.contact;
+
+        connect battery.powerOutput.powerOut to powerManager.batteryInput.powerIn;
+        connect harvester.harvestedPower.powerOut to powerManager.harvesterInput.powerIn;
+        connect powerManager.regulatedOutput.powerOut to conductiveNetwork.powerDistribution.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to electrodes.power.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to strainPressureGrid.power.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to temperaturePatch.power.powerIn;
+        connect conductiveNetwork.powerDistribution.powerOut to electronics.powerInput.powerIn;
+
+        connect electrodes.skinInterface.sample to conductiveNetwork.sensorBus.sample;
+        connect strainPressureGrid.sensorOutput.sample to conductiveNetwork.sensorBus.sample;
+        connect temperaturePatch.temperatureOutput.sample to conductiveNetwork.sensorBus.sample;
+        connect conductiveNetwork.sensorBus.sample to electronics.sensorInput.sample;
+
+        connect substrate.substrateStatus.textileStatus to conductiveNetwork.statusOut.textileStatus;
+        connect conductiveNetwork.statusOut.textileStatus to electronics.textileStatusInput.textileStatus;
+
+        connect electronics.wireless.uplink to wirelessExternal.uplink;
+        connect wirelessExternal.downlink to electronics.wireless.downlink;
+        connect wirelessExternal.uplink to mobileApp.wirelessLink.uplink;
+        connect mobileApp.wirelessLink.downlink to wirelessExternal.downlink;
+
+        connect electronics.metricsOutput.metric to mobileApp.displayedMetrics.metric;
+        connect electronics.metricsOutput.alert to mobileApp.displayedMetrics.alert;
+        connect electronics.userFeedback.hapticPulse to userFeedbackExternal.hapticPulse;
+
+        action operateGarment {
+            first attachElectronicsModule;
+            then verifyTextileIntegrity;
+            then establishSkinContact;
+            then startContinuousMonitoring;
+            then processAndClassifySignals;
+            then communicateHealthStatus;
+
+            action attachElectronicsModule {
+                out item status : TextileStatus;
+            }
+
+            action verifyTextileIntegrity {
+                in item status : TextileStatus;
+                out attribute garmentReady : Boolean;
+            }
+
+            action establishSkinContact {
+                out item contact : SkinContactSignal;
+            }
+
+            action startContinuousMonitoring {
+                in item contact : SkinContactSignal;
+                out item sample : PhysiologicalSample;
+            }
+
+            action processAndClassifySignals {
+                in item sample : PhysiologicalSample;
+                out item metric : ProcessedHealthMetric;
+                out item alert : AlertMessage;
+            }
+
+            action communicateHealthStatus {
+                in item metric : ProcessedHealthMetric;
+                in item alert : AlertMessage;
+                out item uplink : WirelessPacket;
+            }
+        }
+    }
+
+    requirement def ContinuousMonitoringRequirement {
+        subject garment : SmartETextileGarment;
+        require constraint {
+            garment.continuousOperatingDuration >= 43200.0 [SI::second]
+        }
+        doc /* The garment shall support at least twelve hours of continuous sensing, local processing, user feedback, and wireless summary transmission. */
+    }
+
+    requirement def ComfortAndFlexibilityRequirement {
+        subject battery : FlexibleBatteryPack;
+        subject conductiveNetwork : ConductiveYarnNetwork;
+        require constraint {
+            battery.minimumBendRadius <= 25.0 [SI::millimeter] and
+            conductiveNetwork.maximumElongation.value >= 18.0
+        }
+        doc /* Flexible components shall preserve normal garment movement and wearer comfort. */
+    }
+
+    requirement def SafeSkinTemperatureRequirement {
+        subject garment : SmartETextileGarment;
+        require constraint {
+            garment.maximumSurfaceTemperature <= 41.0 [SI::degreeCelsius]
+        }
+        doc /* Any surface contacting the wearer shall remain below the defined safe operating temperature during normal operation. */
+    }
+
+    requirement def WashabilityRequirement {
+        subject substrate : WashableTextileSubstrate;
+        subject conductiveNetwork : ConductiveYarnNetwork;
+        require constraint {
+            substrate.washCycleRating >= 50 and
+            conductiveNetwork.minimumContinuity.value >= 95.0
+        }
+        doc /* Textile and conductive structures shall remain serviceable after repeated wash cycles. */
+    }
+
+    requirement def SignalQualityRequirement {
+        subject electrodes : TextileElectrodeArray;
+        require constraint {
+            electrodes.minimumContactQuality.value >= 70.0
+        }
+        doc /* The sensing interface shall reject measurements that do not meet minimum skin-contact quality. */
+    }
+
+    requirement def PrivacyRequirement {
+        subject radio : LowEnergyWirelessRadio;
+        subject storage : LocalHealthDataStore;
+        require constraint {
+            radio.encryptedLinkRequired == true and
+            storage.encryptedAtRest == true
+        }
+        doc /* Health data shall be encrypted during wireless transmission and local storage. */
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject garment : SmartETextileGarment;
+        require constraint {
+            garment.totalSystemMassGrams <= 300.0 and
+            garment.continuousOperatingDuration >= 43200.0 [SI::second]
+        }
+        doc /* The smart e-textile garment shall convert textile-integrated sensor signals into high-level wearer health status without preventing ordinary wear. */
+    }
+
+    satisfy ContinuousMonitoringRequirement by SmartETextileGarment;
+    satisfy ComfortAndFlexibilityRequirement by FlexibleBatteryPack;
+    satisfy ComfortAndFlexibilityRequirement by ConductiveYarnNetwork;
+    satisfy SafeSkinTemperatureRequirement by SmartETextileGarment;
+    satisfy WashabilityRequirement by WashableTextileSubstrate;
+    satisfy WashabilityRequirement by ConductiveYarnNetwork;
+    satisfy SignalQualityRequirement by TextileElectrodeArray;
+    satisfy PrivacyRequirement by LowEnergyWirelessRadio;
+    satisfy PrivacyRequirement by LocalHealthDataStore;
+    satisfy PrimaryFunctionRequirement by SmartETextileGarment;
+}

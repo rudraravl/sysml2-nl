@@ -1,0 +1,666 @@
+package NellcorPulseOximetrySystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        doc /* Dimensionless percent value from 0 to 100. */
+    }
+
+    attribute def BeatsPerMinute :> Real {
+        doc /* Pulse rate in beats per minute. */
+    }
+
+    attribute def PerfusionIndex :> Real {
+        doc /* Relative pulsatile signal strength indicator. */
+    }
+
+    attribute def Milliamperes :> Real {
+        doc /* Electrical current in milliamperes. */
+    }
+
+    attribute def Millivolts :> Real {
+        doc /* Electrical potential in millivolts. */
+    }
+
+    attribute def SampleRateHz :> Real {
+        doc /* Samples per second. */
+    }
+
+    attribute def Seconds :> Real {
+        doc /* Time duration in seconds. */
+    }
+
+    attribute def Celsius :> Real {
+        doc /* Temperature in degrees Celsius. */
+    }
+
+    item def RedLight {
+        attribute wavelength : Real = 660.0;
+        attribute driveCurrent : Milliamperes;
+    }
+
+    item def InfraredLight {
+        attribute wavelength : Real = 940.0;
+        attribute driveCurrent : Milliamperes;
+    }
+
+    item def TissueModulatedOpticalSignal {
+        attribute redIntensity : Real;
+        attribute infraredIntensity : Real;
+        attribute perfusion : PerfusionIndex;
+    }
+
+    item def PhotodiodeCurrent {
+        attribute redComponent : Milliamperes;
+        attribute infraredComponent : Milliamperes;
+        attribute ambientComponent : Milliamperes;
+    }
+
+    item def AnalogPulseWaveform {
+        attribute redVoltage : Millivolts;
+        attribute infraredVoltage : Millivolts;
+        attribute noiseVoltage : Millivolts;
+    }
+
+    item def DigitalPlethysmographicSample {
+        attribute timeStamp : Seconds;
+        attribute redAc : Real;
+        attribute redDc : Real;
+        attribute infraredAc : Real;
+        attribute infraredDc : Real;
+        attribute motionEstimate : Real;
+    }
+
+    item def OximetryMeasurement {
+        attribute oxygenSaturation : Percent;
+        attribute pulseRate : BeatsPerMinute;
+        attribute perfusionIndex : PerfusionIndex;
+        attribute signalQuality : Percent;
+        attribute valid : Boolean;
+    }
+
+    item def AlarmSignal {
+        attribute priority : AlarmPriority;
+        attribute message : String;
+        attribute active : Boolean;
+    }
+
+    enum def AlarmPriority {
+        enum low;
+        enum medium;
+        enum high;
+    }
+
+    item def DisplayFrame {
+        attribute spo2Text : String;
+        attribute pulseRateText : String;
+        attribute waveformVisible : Boolean;
+        attribute alarmMessage : String;
+    }
+
+    item def UserCommand {
+        attribute silenceAlarm : Boolean;
+        attribute acknowledgeAlarm : Boolean;
+        attribute setSpo2LowLimit : Percent;
+        attribute setPulseHighLimit : BeatsPerMinute;
+        attribute setPulseLowLimit : BeatsPerMinute;
+    }
+
+    port def OpticalEmitterPort {
+        out item red : RedLight;
+        out item infrared : InfraredLight;
+    }
+
+    port def OpticalReceiverPort {
+        in item opticalSignal : TissueModulatedOpticalSignal;
+        out item photocurrent : PhotodiodeCurrent;
+    }
+
+    port def AnalogSignalPort {
+        out item waveform : AnalogPulseWaveform;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalPlethysmographicSample;
+    }
+
+    port def MeasurementPort {
+        out item measurement : OximetryMeasurement;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    port def DisplayPort {
+        in item frame : DisplayFrame;
+    }
+
+    port def UserInterfacePort {
+        in item command : UserCommand;
+        out item frame : DisplayFrame;
+        out item alarm : AlarmSignal;
+    }
+
+    part def NellcorCompatibleSpO2Sensor {
+        doc /* Reusable pulse oximetry sensor assembly with red and infrared emitters and a photodiode receiver. */
+
+        attribute sensorAttached : Boolean;
+        attribute skinTemperature : Celsius;
+        attribute nominalRedWavelength : Real = 660.0;
+        attribute nominalInfraredWavelength : Real = 940.0;
+
+        port emitter : OpticalEmitterPort;
+        port receiver : OpticalReceiverPort;
+
+        part redLed {
+            attribute forwardCurrent : Milliamperes;
+            attribute enabled : Boolean;
+        }
+
+        part infraredLed {
+            attribute forwardCurrent : Milliamperes;
+            attribute enabled : Boolean;
+        }
+
+        part photodiode {
+            attribute responsivity : Real;
+            attribute saturated : Boolean;
+        }
+
+        action emitAlternatingLight {
+            in item redDrive : RedLight;
+            in item infraredDrive : InfraredLight;
+            out item emittedRed : RedLight;
+            out item emittedInfrared : InfraredLight;
+        }
+
+        action senseTransmittedLight {
+            in item modulatedSignal : TissueModulatedOpticalSignal;
+            out item sensedCurrent : PhotodiodeCurrent;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        doc /* Conditions the photodiode current into separate red and infrared pulse waveforms. */
+
+        attribute transimpedanceGain : Real;
+        attribute ambientCancellationEnabled : Boolean;
+        attribute inputSaturated : Boolean;
+        attribute sampleRate : SampleRateHz = 240.0;
+
+        in port opticalInput : OpticalReceiverPort;
+        out port analogOutput : AnalogSignalPort;
+
+        part transimpedanceAmplifier {
+            attribute gain : Real;
+            attribute outputNoise : Millivolts;
+        }
+
+        part ledDemodulator {
+            attribute redWindowOpen : Boolean;
+            attribute infraredWindowOpen : Boolean;
+        }
+
+        part antiAliasFilter {
+            attribute cutoffFrequency : Real = 30.0;
+            attribute order : Integer = 4;
+        }
+
+        action convertCurrentToVoltage {
+            in item current : PhotodiodeCurrent;
+            out item waveform : AnalogPulseWaveform;
+        }
+    }
+
+    part def DigitalSignalProcessor {
+        doc /* Extracts oxygen saturation, pulse rate, perfusion index, and signal quality from the plethysmographic waveform. */
+
+        attribute averagingTime : Seconds = 8.0;
+        attribute motionRejectionEnabled : Boolean = true;
+        attribute lowPerfusionMode : Boolean;
+        attribute lastValidSpo2 : Percent;
+        attribute lastValidPulseRate : BeatsPerMinute;
+
+        in port analogInput : AnalogSignalPort;
+        out port sampleOutput : DigitalSamplePort;
+        out port measurementOutput : MeasurementPort;
+
+        part analogToDigitalConverter {
+            attribute resolutionBits : Integer = 16;
+            attribute conversionRate : SampleRateHz = 240.0;
+        }
+
+        part plethFilter {
+            attribute highPassCorner : Real = 0.5;
+            attribute lowPassCorner : Real = 12.0;
+        }
+
+        part ratioOfRatiosEstimator {
+            attribute redRatio : Real;
+            attribute infraredRatio : Real;
+            attribute calibrationCoefficientA : Real = 110.0;
+            attribute calibrationCoefficientB : Real = 25.0;
+        }
+
+        part pulseDetector {
+            attribute minimumPulseRate : BeatsPerMinute = 25.0;
+            attribute maximumPulseRate : BeatsPerMinute = 250.0;
+        }
+
+        action digitizeWaveform {
+            in item waveform : AnalogPulseWaveform;
+            out item sample : DigitalPlethysmographicSample;
+        }
+
+        action estimateOxygenSaturation {
+            in item sample : DigitalPlethysmographicSample;
+            out item measurement : OximetryMeasurement;
+        }
+
+        state def ProcessingStateMachine {
+            state initializing;
+            state acquiringSignal;
+            state calculatingMeasurement;
+            state lowPerfusionTracking;
+            state motionArtifactSuppression;
+            state signalLost;
+
+            transition first initializing then acquiringSignal;
+
+            transition acquiringSignal then calculatingMeasurement
+                accept when signalQualityAvailable;
+
+            transition calculatingMeasurement then lowPerfusionTracking
+                accept when perfusionBelowTrackingThreshold;
+
+            transition lowPerfusionTracking then calculatingMeasurement
+                accept when perfusionRecovered;
+
+            transition calculatingMeasurement then motionArtifactSuppression
+                accept when excessiveMotionDetected;
+
+            transition motionArtifactSuppression then calculatingMeasurement
+                accept when motionResolved;
+
+            transition calculatingMeasurement then signalLost
+                accept when noPulseDetected;
+
+            transition signalLost then acquiringSignal
+                accept when pulseSignalReacquired;
+        }
+
+        attribute signalQualityAvailable : Boolean;
+        attribute perfusionBelowTrackingThreshold : Boolean;
+        attribute perfusionRecovered : Boolean;
+        attribute excessiveMotionDetected : Boolean;
+        attribute motionResolved : Boolean;
+        attribute noPulseDetected : Boolean;
+        attribute pulseSignalReacquired : Boolean;
+    }
+
+    part def AlarmManager {
+        doc /* Compares measurements to configured clinical limits and produces audible and visual alarm signals. */
+
+        attribute spo2LowLimit : Percent = 90.0;
+        attribute pulseRateLowLimit : BeatsPerMinute = 50.0;
+        attribute pulseRateHighLimit : BeatsPerMinute = 120.0;
+        attribute alarmSilenced : Boolean;
+        attribute alarmSilenceRemaining : Seconds;
+
+        in port measurementInput : MeasurementPort;
+        out port alarmOutput : AlarmPort;
+
+        action evaluateAlarmLimits {
+            in item measurement : OximetryMeasurement;
+            out item alarm : AlarmSignal;
+        }
+
+        state def AlarmStateMachine {
+            state normal;
+            state lowSpo2Alarm;
+            state pulseRateAlarm;
+            state sensorFaultAlarm;
+            state silenced;
+
+            transition first normal;
+
+            transition normal then lowSpo2Alarm
+                accept when spo2BelowLimit;
+
+            transition normal then pulseRateAlarm
+                accept when pulseOutsideLimits;
+
+            transition normal then sensorFaultAlarm
+                accept when measurementInvalid;
+
+            transition lowSpo2Alarm then normal
+                accept when spo2Recovered;
+
+            transition pulseRateAlarm then normal
+                accept when pulseRecovered;
+
+            transition sensorFaultAlarm then normal
+                accept when sensorFaultCleared;
+
+            transition lowSpo2Alarm then silenced
+                accept when silenceCommandReceived;
+
+            transition pulseRateAlarm then silenced
+                accept when silenceCommandReceived;
+
+            transition silenced then lowSpo2Alarm
+                accept when silenceExpiredAndSpo2StillLow;
+
+            transition silenced then normal
+                accept when alarmConditionCleared;
+        }
+
+        attribute spo2BelowLimit : Boolean;
+        attribute pulseOutsideLimits : Boolean;
+        attribute measurementInvalid : Boolean;
+        attribute spo2Recovered : Boolean;
+        attribute pulseRecovered : Boolean;
+        attribute sensorFaultCleared : Boolean;
+        attribute silenceCommandReceived : Boolean;
+        attribute silenceExpiredAndSpo2StillLow : Boolean;
+        attribute alarmConditionCleared : Boolean;
+    }
+
+    part def DisplayAndControls {
+        doc /* Presents SpO2, pulse rate, pleth waveform, and alarm status while accepting clinician commands. */
+
+        in port measurementInput : MeasurementPort;
+        in port alarmInput : AlarmPort;
+        port ui : UserInterfacePort;
+
+        attribute displayBrightness : Percent = 80.0;
+        attribute alarmVolume : Percent = 70.0;
+        attribute batteryIndicatorVisible : Boolean;
+
+        part numericDisplay {
+            attribute spo2Digits : String;
+            attribute pulseRateDigits : String;
+            attribute updatePeriod : Seconds = 1.0;
+        }
+
+        part plethWaveformDisplay {
+            attribute sweepSpeed : Real = 25.0;
+            attribute visible : Boolean = true;
+        }
+
+        part controlButtons {
+            attribute silencePressed : Boolean;
+            attribute limitMenuOpen : Boolean;
+        }
+
+        action renderMeasurement {
+            in item measurement : OximetryMeasurement;
+            in item alarm : AlarmSignal;
+            out item frame : DisplayFrame;
+        }
+
+        action acceptUserCommand {
+            out item command : UserCommand;
+        }
+    }
+
+    part def PowerSubsystem {
+        doc /* Supplies regulated power to the monitor, sensor drive electronics, processor, display, and alarms. */
+
+        attribute mainsAvailable : Boolean;
+        attribute batteryCharge : Percent;
+        attribute batteryRuntimeRemaining : Seconds;
+        attribute outputVoltage : Real = 5.0;
+
+        part acDcSupply {
+            attribute inputVoltage : Real = 120.0;
+            attribute regulated : Boolean;
+        }
+
+        part rechargeableBattery {
+            attribute capacityWh : Real = 24.0;
+            attribute charging : Boolean;
+        }
+
+        part powerRegulator {
+            attribute logicRailVoltage : Real = 3.3;
+            attribute analogRailVoltage : Real = 5.0;
+        }
+
+        state def PowerStateMachine {
+            state off;
+            state booting;
+            state mainsPowered;
+            state batteryPowered;
+            state lowBattery;
+            state shutdown;
+
+            transition first off;
+
+            transition off then booting
+                accept when powerButtonPressed;
+
+            transition booting then mainsPowered
+                accept when mainsAvailableEvent;
+
+            transition booting then batteryPowered
+                accept when batteryAvailableEvent;
+
+            transition mainsPowered then batteryPowered
+                accept when mainsLost;
+
+            transition batteryPowered then mainsPowered
+                accept when mainsRestored;
+
+            transition batteryPowered then lowBattery
+                accept when batteryLow;
+
+            transition lowBattery then shutdown
+                accept when batteryDepleted;
+
+            transition mainsPowered then shutdown
+                accept when powerButtonHeld;
+
+            transition shutdown then off
+                accept when shutdownComplete;
+        }
+
+        attribute powerButtonPressed : Boolean;
+        attribute mainsAvailableEvent : Boolean;
+        attribute batteryAvailableEvent : Boolean;
+        attribute mainsLost : Boolean;
+        attribute mainsRestored : Boolean;
+        attribute batteryLow : Boolean;
+        attribute batteryDepleted : Boolean;
+        attribute powerButtonHeld : Boolean;
+        attribute shutdownComplete : Boolean;
+    }
+
+    part def NellcorBasedPulseOximeter {
+        doc /* Primary function: continuously and noninvasively estimate arterial oxygen saturation and pulse rate from red and infrared light transmitted through perfused tissue, then present the values and alarms to a caregiver. */
+
+        attribute operating : Boolean;
+        attribute patientConnected : Boolean;
+        attribute measurementUpdatePeriod : Seconds = 1.0;
+
+        part sensor : NellcorCompatibleSpO2Sensor;
+        part analogFrontEnd : AnalogFrontEnd;
+        part signalProcessor : DigitalSignalProcessor;
+        part alarmManager : AlarmManager;
+        part displayAndControls : DisplayAndControls;
+        part powerSubsystem : PowerSubsystem;
+
+        port userInterface : UserInterfacePort;
+
+        connect sensor.receiver to analogFrontEnd.opticalInput;
+        connect analogFrontEnd.analogOutput to signalProcessor.analogInput;
+        connect signalProcessor.measurementOutput to alarmManager.measurementInput;
+        connect signalProcessor.measurementOutput to displayAndControls.measurementInput;
+        connect alarmManager.alarmOutput to displayAndControls.alarmInput;
+        connect displayAndControls.ui to userInterface;
+
+        action performMonitoringCycle {
+            in item tissueSignal : TissueModulatedOpticalSignal;
+            out item measurement : OximetryMeasurement;
+            out item alarm : AlarmSignal;
+            out item frame : DisplayFrame;
+
+            first start;
+            then driveSensor;
+            then acquireOpticalSignal;
+            then conditionWaveform;
+            then computeVitals;
+            then evaluateAlarms;
+            then updateDisplay;
+            then done;
+        }
+
+        state def MonitorOperatingStateMachine {
+            state poweredOff;
+            state selfTest;
+            state waitingForSensor;
+            state waitingForPatientSignal;
+            state monitoring;
+            state alarmActive;
+            state serviceRequired;
+
+            transition first poweredOff;
+
+            transition poweredOff then selfTest
+                accept when powerOnRequested;
+
+            transition selfTest then waitingForSensor
+                accept when selfTestPassed;
+
+            transition selfTest then serviceRequired
+                accept when selfTestFailed;
+
+            transition waitingForSensor then waitingForPatientSignal
+                accept when compatibleSensorAttached;
+
+            transition waitingForPatientSignal then monitoring
+                accept when adequatePlethDetected;
+
+            transition monitoring then alarmActive
+                accept when alarmGenerated;
+
+            transition alarmActive then monitoring
+                accept when alarmCleared;
+
+            transition monitoring then waitingForPatientSignal
+                accept when signalLost;
+
+            transition waitingForSensor then poweredOff
+                accept when powerOffRequested;
+
+            transition monitoring then poweredOff
+                accept when powerOffRequested;
+        }
+
+        attribute powerOnRequested : Boolean;
+        attribute selfTestPassed : Boolean;
+        attribute selfTestFailed : Boolean;
+        attribute compatibleSensorAttached : Boolean;
+        attribute adequatePlethDetected : Boolean;
+        attribute alarmGenerated : Boolean;
+        attribute alarmCleared : Boolean;
+        attribute signalLost : Boolean;
+        attribute powerOffRequested : Boolean;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall noninvasively estimate and display arterial oxygen saturation and pulse rate using red and infrared optical plethysmography. */
+        subject monitoredSystem : NellcorBasedPulseOximeter;
+    }
+
+    requirement def MeasurementUpdateRequirement {
+        doc /* The system shall update displayed oxygen saturation and pulse rate at least once every 2 seconds during valid monitoring. */
+        subject monitoredSystem : NellcorBasedPulseOximeter;
+
+        require constraint {
+            monitoredSystem.measurementUpdatePeriod <= 2.0
+        }
+    }
+
+    requirement def SpO2RangeRequirement {
+        doc /* The system shall represent oxygen saturation measurements from 0 percent through 100 percent. */
+        subject measurement : OximetryMeasurement;
+
+        require constraint {
+            measurement.oxygenSaturation >= 0.0 and measurement.oxygenSaturation <= 100.0
+        }
+    }
+
+    requirement def PulseRateRangeRequirement {
+        doc /* The system shall represent pulse rate measurements from 25 beats per minute through 250 beats per minute. */
+        subject measurement : OximetryMeasurement;
+
+        require constraint {
+            measurement.pulseRate >= 25.0 and measurement.pulseRate <= 250.0
+        }
+    }
+
+    requirement def LowSpO2AlarmRequirement {
+        doc /* The system shall generate a high-priority alarm when a valid SpO2 measurement is below the configured low SpO2 limit. */
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.spo2LowLimit >= 80.0 and alarmManager.spo2LowLimit <= 95.0
+        }
+    }
+
+    requirement def SensorFaultRequirement {
+        doc /* The system shall alert the caregiver when the sensor is disconnected, saturated, or unable to provide a valid plethysmographic signal. */
+        subject monitoredSystem : NellcorBasedPulseOximeter;
+    }
+
+    requirement def AlarmSilenceRequirement {
+        doc /* The system shall allow temporary alarm silence while preserving visual alarm indication and automatically restoring audible alarm capability after the silence interval. */
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.alarmSilenceRemaining >= 0.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        doc /* The system shall continue monitoring from battery power when mains power is unavailable and battery charge remains sufficient. */
+        subject powerSubsystem : PowerSubsystem;
+
+        require constraint {
+            powerSubsystem.batteryCharge >= 0.0 and powerSubsystem.batteryCharge <= 100.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NellcorBasedPulseOximeter;
+    satisfy MeasurementUpdateRequirement by NellcorBasedPulseOximeter;
+    satisfy LowSpO2AlarmRequirement by AlarmManager;
+    satisfy SensorFaultRequirement by NellcorBasedPulseOximeter;
+    satisfy AlarmSilenceRequirement by AlarmManager;
+    satisfy BatteryOperationRequirement by PowerSubsystem;
+
+    part nellcorMonitor : NellcorBasedPulseOximeter {
+        attribute operating = true;
+        attribute patientConnected = true;
+        attribute measurementUpdatePeriod = 1.0;
+
+        part sensor {
+            attribute sensorAttached = true;
+            attribute skinTemperature = 34.0;
+        }
+
+        part alarmManager {
+            attribute spo2LowLimit = 90.0;
+            attribute pulseRateLowLimit = 50.0;
+            attribute pulseRateHighLimit = 120.0;
+        }
+
+        part powerSubsystem {
+            attribute mainsAvailable = true;
+            attribute batteryCharge = 95.0;
+        }
+    }
+}

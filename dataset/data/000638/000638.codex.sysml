@@ -1,0 +1,554 @@
+package ImpedanceCardiographySystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def ElectricCurrent_mA :> ISQ::electricCurrent {
+        :>> unit = SI::mA;
+    }
+
+    attribute def ElectricPotential_mV :> ISQ::electricPotential {
+        :>> unit = SI::mV;
+    }
+
+    attribute def Frequency_kHz :> ISQ::frequency {
+        :>> unit = SI::kHz;
+    }
+
+    attribute def Resistance_ohm :> ISQ::resistance {
+        :>> unit = SI::ohm;
+    }
+
+    attribute def Time_s :> ISQ::time {
+        :>> unit = SI::s;
+    }
+
+    attribute def Volume_mL :> ISQ::volume {
+        :>> unit = SI::mL;
+    }
+
+    attribute def Flow_L_per_min {
+        :>> unit = "L/min";
+    }
+
+    attribute def Rate_per_min {
+        :>> unit = "1/min";
+    }
+
+    attribute def Pressure_mmHg {
+        :>> unit = "mmHg";
+    }
+
+    attribute def Percentage {
+        :>> unit = "%";
+    }
+
+    enum def ElectrodePosition {
+        enum leftNeck;
+        enum rightNeck;
+        enum leftThorax;
+        enum rightThorax;
+    }
+
+    enum def LeadContactQuality {
+        enum open;
+        enum poor;
+        enum acceptable;
+        enum good;
+    }
+
+    enum def MeasurementMode {
+        enum idle;
+        enum singleMeasurement;
+        enum continuousMonitoring;
+        enum calibration;
+        enum service;
+    }
+
+    enum def AlarmPriority {
+        enum advisory;
+        enum caution;
+        enum warning;
+        enum critical;
+    }
+
+    item def Patient {
+        attribute patientId : String;
+        attribute height_cm : Real;
+        attribute weight_kg : Real;
+        attribute thoracicLength_cm : Real;
+        attribute age_years : Integer;
+        attribute sex : String;
+    }
+
+    item def ExcitationCurrent {
+        attribute amplitude : ElectricCurrent_mA;
+        attribute frequency : Frequency_kHz;
+        attribute waveformPurity : Percentage;
+    }
+
+    item def ThoracicVoltage {
+        attribute differentialVoltage : ElectricPotential_mV;
+        attribute carrierFrequency : Frequency_kHz;
+        attribute commonModeVoltage : ElectricPotential_mV;
+    }
+
+    item def ElectrodeContactStatus {
+        attribute position : ElectrodePosition;
+        attribute impedance : Resistance_ohm;
+        attribute quality : LeadContactQuality;
+    }
+
+    item def ImpedanceWaveform {
+        attribute baselineImpedanceZ0 : Resistance_ohm;
+        attribute deltaZ : Resistance_ohm;
+        attribute dZdtPeak : Real;
+        attribute samplePeriod : Time_s;
+        attribute signalQualityIndex : Percentage;
+    }
+
+    item def ECGWaveform {
+        attribute rPeakDetected : Boolean;
+        attribute heartRate : Rate_per_min;
+        attribute samplePeriod : Time_s;
+        attribute signalQualityIndex : Percentage;
+    }
+
+    item def HemodynamicReport {
+        attribute heartRate : Rate_per_min;
+        attribute strokeVolume : Volume_mL;
+        attribute cardiacOutput : Flow_L_per_min;
+        attribute cardiacIndex : Real;
+        attribute systemicVascularResistance : Real;
+        attribute thoracicFluidContent : Real;
+        attribute preEjectionPeriod : Time_s;
+        attribute leftVentricularEjectionTime : Time_s;
+        attribute confidence : Percentage;
+    }
+
+    item def AlarmEvent {
+        attribute priority : AlarmPriority;
+        attribute code : String;
+        attribute message : String;
+        attribute active : Boolean;
+    }
+
+    port def CurrentOutputPort {
+        out item current : ExcitationCurrent;
+        in item contactStatus : ElectrodeContactStatus;
+    }
+
+    port def VoltageSensePort {
+        in item voltage : ThoracicVoltage;
+        in item contactStatus : ElectrodeContactStatus;
+    }
+
+    port def ECGSensePort {
+        in item ecg : ECGWaveform;
+        in item contactStatus : ElectrodeContactStatus;
+    }
+
+    port def PatientDataPort {
+        in item patient : Patient;
+    }
+
+    port def WaveformPort {
+        out item impedance : ImpedanceWaveform;
+        out item ecg : ECGWaveform;
+    }
+
+    port def ReportPort {
+        out item report : HemodynamicReport;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmEvent;
+    }
+
+    port def UserCommandPort {
+        in item selectedMode : MeasurementMode;
+        in item patient : Patient;
+    }
+
+    part def Electrode {
+        attribute position : ElectrodePosition;
+        attribute contactImpedance : Resistance_ohm;
+        attribute contactQuality : LeadContactQuality;
+
+        port currentPort : CurrentOutputPort;
+        port voltagePort : VoltageSensePort;
+        port ecgPort : ECGSensePort;
+    }
+
+    part def ElectrodeHarness {
+        part driveHigh : Electrode {
+            :>> position = ElectrodePosition::leftNeck;
+        }
+
+        part driveLow : Electrode {
+            :>> position = ElectrodePosition::rightThorax;
+        }
+
+        part senseHigh : Electrode {
+            :>> position = ElectrodePosition::rightNeck;
+        }
+
+        part senseLow : Electrode {
+            :>> position = ElectrodePosition::leftThorax;
+        }
+
+        port injectedCurrent : CurrentOutputPort;
+        port sensedVoltage : VoltageSensePort;
+        port sensedECG : ECGSensePort;
+    }
+
+    part def IsolationBarrier {
+        attribute isolationVoltage_V : Real = 4000.0;
+        attribute leakageCurrent_uA : Real = 5.0;
+
+        port patientSideCurrent : CurrentOutputPort;
+        port patientSideVoltage : VoltageSensePort;
+        port electronicsSideCurrent : CurrentOutputPort;
+        port electronicsSideVoltage : VoltageSensePort;
+    }
+
+    part def CurrentSource {
+        attribute nominalAmplitude : ElectricCurrent_mA = 2.5;
+        attribute maximumAmplitude : ElectricCurrent_mA = 4.0;
+        attribute carrierFrequency : Frequency_kHz = 70.0;
+        attribute amplitudeAccuracy : Percentage = 2.0;
+
+        port output : CurrentOutputPort;
+    }
+
+    part def DifferentialVoltageFrontEnd {
+        attribute inputImpedance_Mohm : Real = 20.0;
+        attribute commonModeRejection_dB : Real = 100.0;
+        attribute noiseFloor_uV : Real = 2.0;
+        attribute bandwidth_kHz : Real = 120.0;
+
+        port input : VoltageSensePort;
+        port output : VoltageSensePort;
+    }
+
+    part def ECGFrontEnd {
+        attribute bandwidth_Hz : Real = 150.0;
+        attribute notchFrequency_Hz : Real = 60.0;
+        attribute rPeakDetectionLatency_s : Time_s = 0.080;
+
+        port input : ECGSensePort;
+        port output : ECGSensePort;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolution_bits : Integer = 24;
+        attribute samplingRate_Hz : Real = 1000.0;
+        attribute inputRange_mV : Real = 500.0;
+
+        port voltageInput : VoltageSensePort;
+        port ecgInput : ECGSensePort;
+        port sampledOutput : WaveformPort;
+    }
+
+    part def SignalProcessor {
+        attribute movingAverageWindow_s : Time_s = 0.250;
+        attribute artifactRejectionEnabled : Boolean = true;
+        attribute minimumSignalQuality : Percentage = 85.0;
+
+        port rawWaveforms : WaveformPort;
+        port patientData : PatientDataPort;
+        port reportOutput : ReportPort;
+        port alarmOutput : AlarmPort;
+    }
+
+    part def HemodynamicEstimator {
+        attribute kubicekCoefficient : Real = 135.0;
+        attribute bernsteinCorrectionEnabled : Boolean = true;
+        attribute minimumAcceptedBeats : Integer = 8;
+
+        port impedanceInput : WaveformPort;
+        port patientInput : PatientDataPort;
+        port reportOutput : ReportPort;
+    }
+
+    part def DisplayAndUserInterface {
+        attribute screenSize_in : Real = 7.0;
+        attribute updatePeriod_s : Time_s = 1.0;
+        attribute audibleAlarmEnabled : Boolean = true;
+
+        port commands : UserCommandPort;
+        port reports : ReportPort;
+        port alarms : AlarmPort;
+    }
+
+    part def DataRecorder {
+        attribute waveformRetention_h : Real = 72.0;
+        attribute reportRetention_days : Integer = 30;
+        attribute encryptedStorage : Boolean = true;
+
+        port waveforms : WaveformPort;
+        port reports : ReportPort;
+        port alarms : AlarmPort;
+    }
+
+    part def PowerSubsystem {
+        attribute inputVoltage_V : Real = 24.0;
+        attribute batteryRuntime_h : Real = 4.0;
+        attribute medicalPowerSupplyCertified : Boolean = true;
+    }
+
+    part def ImpedanceCardiographyMonitor {
+        attribute primaryFunction : String =
+            "Noninvasively inject a small high-frequency current through the thorax, sense thoracic impedance variation caused by cardiac blood flow, and estimate stroke volume, cardiac output, heart rate, and related hemodynamic parameters.";
+
+        attribute operatingMode : MeasurementMode = MeasurementMode::idle;
+
+        part harness : ElectrodeHarness;
+        part isolation : IsolationBarrier;
+        part currentSource : CurrentSource;
+        part voltageFrontEnd : DifferentialVoltageFrontEnd;
+        part ecgFrontEnd : ECGFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part processor : SignalProcessor;
+        part estimator : HemodynamicEstimator;
+        part ui : DisplayAndUserInterface;
+        part recorder : DataRecorder;
+        part power : PowerSubsystem;
+
+        port patientInput : PatientDataPort;
+        port userCommands : UserCommandPort;
+        port hemodynamicReports : ReportPort;
+        port alarms : AlarmPort;
+
+        connect currentSource.output to isolation.electronicsSideCurrent;
+        connect isolation.patientSideCurrent to harness.injectedCurrent;
+
+        connect harness.sensedVoltage to isolation.patientSideVoltage;
+        connect isolation.electronicsSideVoltage to voltageFrontEnd.input;
+        connect voltageFrontEnd.output to adc.voltageInput;
+
+        connect harness.sensedECG to ecgFrontEnd.input;
+        connect ecgFrontEnd.output to adc.ecgInput;
+
+        connect adc.sampledOutput to processor.rawWaveforms;
+        connect adc.sampledOutput to estimator.impedanceInput;
+
+        connect patientInput to processor.patientData;
+        connect patientInput to estimator.patientInput;
+
+        connect processor.reportOutput to ui.reports;
+        connect estimator.reportOutput to ui.reports;
+        connect estimator.reportOutput to hemodynamicReports;
+
+        connect processor.alarmOutput to ui.alarms;
+        connect processor.alarmOutput to alarms;
+
+        connect adc.sampledOutput to recorder.waveforms;
+        connect estimator.reportOutput to recorder.reports;
+        connect processor.alarmOutput to recorder.alarms;
+
+        connect userCommands to ui.commands;
+    }
+
+    constraint def SafeExcitationCurrent {
+        in injectedCurrent : ElectricCurrent_mA;
+        injectedCurrent <= 4.0;
+    }
+
+    constraint def ValidCarrierFrequency {
+        in carrierFrequency : Frequency_kHz;
+        carrierFrequency >= 50.0 and carrierFrequency <= 100.0;
+    }
+
+    constraint def AcceptableElectrodeContact {
+        in contactImpedance : Resistance_ohm;
+        contactImpedance <= 5000.0;
+    }
+
+    constraint def MinimumSignalQuality {
+        in signalQuality : Percentage;
+        signalQuality >= 85.0;
+    }
+
+    action def AcquireThoracicImpedance {
+        in item patient : Patient;
+        in item excitation : ExcitationCurrent;
+        in item thoracicVoltage : ThoracicVoltage;
+        out item waveform : ImpedanceWaveform;
+
+        action validateElectrodeContact;
+        action injectHighFrequencyCurrent;
+        action sampleDifferentialVoltage;
+        action demodulateCarrier;
+        action estimateBaselineImpedance;
+        action computeImpedanceChange;
+
+        first validateElectrodeContact
+            then injectHighFrequencyCurrent
+            then sampleDifferentialVoltage
+            then demodulateCarrier
+            then estimateBaselineImpedance
+            then computeImpedanceChange;
+    }
+
+    action def EstimateHemodynamics {
+        in item patient : Patient;
+        in item impedance : ImpedanceWaveform;
+        in item ecg : ECGWaveform;
+        out item report : HemodynamicReport;
+
+        action detectCardiacCycles;
+        action rejectMotionArtifacts;
+        action computeLVET;
+        action computeStrokeVolume;
+        action computeCardiacOutput;
+        action computeConfidence;
+
+        first detectCardiacCycles
+            then rejectMotionArtifacts
+            then computeLVET
+            then computeStrokeVolume
+            then computeCardiacOutput
+            then computeConfidence;
+    }
+
+    action def MonitorPatientHemodynamics {
+        in item patient : Patient;
+        out item report : HemodynamicReport;
+        out item alarm : AlarmEvent;
+
+        action initializeSystem;
+        action verifyIsolation;
+        action checkElectrodes;
+        action acquireSignals;
+        action estimateParameters;
+        action displayReport;
+        action storeRecord;
+        action evaluateAlarms;
+
+        first initializeSystem
+            then verifyIsolation
+            then checkElectrodes
+            then acquireSignals
+            then estimateParameters
+            then displayReport
+            then storeRecord
+            then evaluateAlarms;
+    }
+
+    state def ICGMonitorOperatingStates {
+        state off;
+        state selfTest;
+        state standby;
+        state electrodeCheck;
+        state calibrating;
+        state acquiring;
+        state processing;
+        state reporting;
+        state alarmActive;
+        state fault;
+
+        transition initial then off;
+        transition off then selfTest accept powerOn;
+        transition selfTest then standby accept selfTestPassed;
+        transition selfTest then fault accept selfTestFailed;
+        transition standby then electrodeCheck accept startMonitoring;
+        transition electrodeCheck then calibrating accept electrodesGood;
+        transition electrodeCheck then alarmActive accept electrodesPoor;
+        transition calibrating then acquiring accept calibrationComplete;
+        transition acquiring then processing accept waveformWindowComplete;
+        transition processing then reporting accept reportReady;
+        transition reporting then acquiring accept continuousModeSelected;
+        transition reporting then standby accept stopMonitoring;
+        transition acquiring then alarmActive accept signalQualityLow;
+        transition processing then alarmActive accept estimateInvalid;
+        transition alarmActive then electrodeCheck accept alarmAcknowledged;
+        transition fault then off accept shutdown;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject monitor : ImpedanceCardiographyMonitor;
+
+        doc /* The monitor shall provide noninvasive impedance cardiography by injecting a safe high-frequency thoracic current, measuring voltage response, deriving impedance waveforms, and estimating clinically useful hemodynamic parameters. */
+
+        require constraint {
+            monitor.currentSource.nominalAmplitude <= 2.5 and
+            monitor.currentSource.maximumAmplitude <= 4.0 and
+            monitor.currentSource.carrierFrequency >= 50.0 and
+            monitor.currentSource.carrierFrequency <= 100.0;
+        }
+    }
+
+    requirement def ElectricalSafetyRequirement {
+        subject monitor : ImpedanceCardiographyMonitor;
+
+        doc /* Patient-applied circuitry shall limit injected current and leakage current while maintaining medical isolation between patient electrodes and processing electronics. */
+
+        require constraint {
+            monitor.currentSource.maximumAmplitude <= 4.0 and
+            monitor.isolation.isolationVoltage_V >= 4000.0 and
+            monitor.isolation.leakageCurrent_uA <= 10.0;
+        }
+    }
+
+    requirement def HemodynamicOutputRequirement {
+        subject report : HemodynamicReport;
+
+        doc /* Each valid report shall include heart rate, stroke volume, cardiac output, thoracic fluid content, timing intervals, and confidence. */
+
+        require constraint {
+            report.confidence >= 85.0 and
+            report.heartRate > 20.0 and
+            report.heartRate < 240.0 and
+            report.strokeVolume > 10.0 and
+            report.strokeVolume < 250.0;
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject waveform : ImpedanceWaveform;
+
+        doc /* The system shall produce hemodynamic estimates only when impedance signal quality is acceptable. */
+
+        require constraint {
+            waveform.signalQualityIndex >= 85.0 and
+            waveform.baselineImpedanceZ0 > 5.0 and
+            waveform.baselineImpedanceZ0 < 80.0;
+        }
+    }
+
+    requirement def ElectrodeContactRequirement {
+        subject electrode : Electrode;
+
+        doc /* Each patient electrode shall maintain contact impedance low enough for reliable current injection or voltage sensing. */
+
+        require constraint {
+            electrode.contactImpedance <= 5000.0 and
+            electrode.contactQuality != LeadContactQuality::open;
+        }
+    }
+
+    requirement def ReportingLatencyRequirement {
+        subject monitor : ImpedanceCardiographyMonitor;
+
+        doc /* In continuous monitoring mode, the displayed hemodynamic report shall update at least once per second after acquisition has stabilized. */
+
+        require constraint {
+            monitor.ui.updatePeriod_s <= 1.0;
+        }
+    }
+
+    requirement def DataRetentionRequirement {
+        subject recorder : DataRecorder;
+
+        doc /* The system shall retain recent waveforms and computed reports in encrypted storage for clinical review. */
+
+        require constraint {
+            recorder.waveformRetention_h >= 72.0 and
+            recorder.reportRetention_days >= 30 and
+            recorder.encryptedStorage == true;
+        }
+    }
+
+}

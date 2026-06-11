@@ -1,0 +1,1299 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-sahyimya
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3bc-4339-7922-93e1-ccc3e3f633f5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Laser microtome and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LaserMicrotomeModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Power;
+  attribute def Energy;
+  attribute def Duration;
+  attribute def Frequency;
+  attribute def Length;
+  attribute def Speed;
+  attribute def Temperature;
+  attribute def Angle;
+  attribute def Pressure;
+  attribute def Mass;
+  attribute def Area;
+
+  item def BiologicalSample {
+    attribute tissueType : String;
+    attribute embeddedMedium : String;
+    attribute sectionTargetThickness : Length;
+    attribute hydrated : Boolean;
+  }
+
+  item def TissueSection {
+    attribute thickness : Length;
+    attribute width : Length;
+    attribute height : Length;
+    attribute thermalDamageDepth : Length;
+    attribute isAccepted : Boolean;
+  }
+
+  item def LaserPulse {
+    attribute wavelength : Length;
+    attribute pulseEnergy : Energy;
+    attribute pulseDuration : Duration;
+    attribute repetitionRate : Frequency;
+    attribute spotDiameter : Length;
+  }
+
+  item def AblationDebris {
+    attribute particleMass : Mass;
+    attribute collectionVolume : Length;
+  }
+
+  item def CoolingFluid {
+    attribute temperature : Temperature;
+    attribute flowRate : Speed;
+  }
+
+  item def Command {
+    attribute commandId : String;
+    attribute targetThickness : Length;
+    attribute targetScanSpeed : Speed;
+  }
+
+  item def Status {
+    attribute operatingState : String;
+    attribute measuredThickness : Length;
+    attribute chamberTemperature : Temperature;
+    attribute interlockClosed : Boolean;
+    attribute faultCode : String;
+  }
+
+  port def SamplePort {
+    in item sampleIn : BiologicalSample;
+    out item sectionOut : TissueSection;
+  }
+
+  port def LaserEmissionPort {
+    out item pulse : LaserPulse;
+  }
+
+  port def DebrisPort {
+    out item debris : AblationDebris;
+  }
+
+  port def FluidPort {
+    in item coolantIn : CoolingFluid;
+    out item coolantOut : CoolingFluid;
+  }
+
+  port def ControlPort {
+    in item command : Command;
+    out item status : Status;
+  }
+
+  port def MotionControlPort {
+    in attribute requestedVelocity : Speed;
+    in attribute requestedPosition : Length;
+    out attribute actualPosition : Length;
+  }
+
+  port def SafetySignalPort {
+    in attribute guardClosed : Boolean;
+    in attribute emergencyStop : Boolean;
+    out attribute laserPermit : Boolean;
+  }
+
+  part def LaserMicrotome {
+    attribute maximumSectionThickness : Length = 200 [um];
+    attribute minimumSectionThickness : Length = 1 [um];
+    attribute nominalSectionThickness : Length = 20 [um];
+    attribute maximumLaserPower : Power = 25 [W];
+    attribute nominalWavelength : Length = 1030 [nm];
+    attribute maximumStageSpeed : Speed = 50 [mm/s];
+    attribute chamberTemperatureSetpoint : Temperature = 293.15 [K];
+
+    port sampleInterface : SamplePort;
+    port userInterface : ControlPort;
+    port debrisInterface : DebrisPort;
+    port coolantInterface : FluidPort;
+
+    part laserSubsystem : PulsedLaserSubsystem;
+    part opticalSubsystem : BeamDeliverySubsystem;
+    part motionSubsystem : PrecisionMotionSubsystem;
+    part sampleSubsystem : SampleHandlingSubsystem;
+    part sensingSubsystem : SectionSensingSubsystem;
+    part debrisSubsystem : DebrisExtractionSubsystem;
+    part thermalSubsystem : ThermalControlSubsystem;
+    part controller : MicrotomeController;
+    part safetySubsystem : SafetyInterlockSubsystem;
+
+    connect laserSubsystem.emission to opticalSubsystem.laserInput;
+    connect opticalSubsystem.focusedBeam to sampleSubsystem.ablationZone;
+    connect motionSubsystem.stageInterface to sampleSubsystem.stageControl;
+    connect sampleSubsystem.samplePort to sampleInterface;
+    connect sampleSubsystem.debrisOut to debrisSubsystem.debrisIn;
+    connect debrisSubsystem.debrisOut to debrisInterface;
+    connect sensingSubsystem.sampleObservation to sampleSubsystem.measurementPort;
+    connect sensingSubsystem.feedbackPort to controller.sensorFeedback;
+    connect controller.laserControl to laserSubsystem.control;
+    connect controller.motionControl to motionSubsystem.control;
+    connect controller.safetyCommand to safetySubsystem.control;
+    connect safetySubsystem.permitSignal to laserSubsystem.safetyInput;
+    connect thermalSubsystem.coolantPort to coolantInterface;
+    connect thermalSubsystem.thermalContact to sampleSubsystem.thermalInterface;
+    connect userInterface to controller.operatorInterface;
+
+    perform action cutThinSection;
+    exhibit state operatingStates;
+  }
+
+  part def PulsedLaserSubsystem {
+    attribute wavelength : Length = 1030 [nm];
+    attribute pulseEnergy : Energy = 15 [uJ];
+    attribute pulseDuration : Duration = 400 [fs];
+    attribute repetitionRate : Frequency = 200 [kHz];
+    attribute averagePower : Power = 3 [W];
+
+    port emission : LaserEmissionPort;
+    port control : ControlPort;
+    port safetyInput : SafetySignalPort;
+
+    action generatePulse {
+      in item command : Command;
+      out item pulse : LaserPulse;
+      first start;
+      then validateLaserPermit;
+      then setPulseParameters;
+      then emitPulse;
+      then done;
+
+      action validateLaserPermit;
+      action setPulseParameters;
+      action emitPulse;
+    }
+
+    state def LaserState {
+      entry action initializeLaser;
+      state Off;
+      state Armed;
+      state Emitting;
+      state Faulted;
+
+      transition first Off;
+      transition Off_to_Armed from Off to Armed
+        accept Command
+        if safetyInput.laserPermit == true;
+      transition Armed_to_Emitting from Armed to Emitting
+        accept Command;
+      transition Emitting_to_Armed from Emitting to Armed
+        accept Command;
+      transition Any_to_Faulted from Off to Faulted
+        if safetyInput.emergencyStop == true;
+      transition Armed_to_Faulted from Armed to Faulted
+        if safetyInput.emergencyStop == true;
+      transition Emitting_to_Faulted from Emitting to Faulted
+        if safetyInput.emergencyStop == true;
+      transition Faulted_to_Off from Faulted to Off
+        accept Command
+        if safetyInput.emergencyStop == false;
+
+      action initializeLaser;
+    }
+
+    exhibit state laserStates : LaserState;
+  }
+
+  part def BeamDeliverySubsystem {
+    attribute numericalAperture : Real = 0.45;
+    attribute focusSpotDiameter : Length = 2 [um];
+    attribute scanFieldWidth : Length = 10 [mm];
+    attribute scanFieldHeight : Length = 10 [mm];
+
+    port laserInput : LaserEmissionPort;
+    port focusedBeam : LaserEmissionPort;
+
+    part beamExpander : BeamExpander;
+    part galvoScanner : GalvoScanner;
+    part objectiveLens : ObjectiveLens;
+
+    connect laserInput to beamExpander.inputBeam;
+    connect beamExpander.outputBeam to galvoScanner.inputBeam;
+    connect galvoScanner.outputBeam to objectiveLens.inputBeam;
+    connect objectiveLens.outputBeam to focusedBeam;
+
+    action focusAndScanBeam {
+      in item pulse : LaserPulse;
+      in attribute scanSpeed : Speed;
+      out item focusedPulse : LaserPulse;
+      first receivePulse;
+      then expandBeam;
+      then steerBeam;
+      then focusBeam;
+      then deliverPulse;
+      then done;
+
+      action receivePulse;
+      action expandBeam;
+      action steerBeam;
+      action focusBeam;
+      action deliverPulse;
+    }
+  }
+
+  part def BeamExpander {
+    attribute expansionRatio : Real = 4.0;
+    port inputBeam : LaserEmissionPort;
+    port outputBeam : LaserEmissionPort;
+  }
+
+  part def GalvoScanner {
+    attribute maximumScanAngle : Angle = 20 [deg];
+    attribute commandBandwidth : Frequency = 1 [kHz];
+    port inputBeam : LaserEmissionPort;
+    port outputBeam : LaserEmissionPort;
+  }
+
+  part def ObjectiveLens {
+    attribute focalLength : Length = 10 [mm];
+    attribute workingDistance : Length = 15 [mm];
+    port inputBeam : LaserEmissionPort;
+    port outputBeam : LaserEmissionPort;
+  }
+
+  part def PrecisionMotionSubsystem {
+    attribute xTravel : Length = 100 [mm];
+    attribute yTravel : Length = 100 [mm];
+    attribute zTravel : Length = 25 [mm];
+    attribute zResolution : Length = 0.1 [um];
+    attribute maximumVelocity : Speed = 50 [mm/s];
+
+    port control : MotionControlPort;
+    port stageInterface : MotionControlPort;
+
+    part xAxis : LinearAxis;
+    part yAxis : LinearAxis;
+    part zAxis : LinearAxis;
+
+    connect control to xAxis.control;
+    connect control to yAxis.control;
+    connect control to zAxis.control;
+    connect zAxis.stageOutput to stageInterface;
+
+    action positionSample {
+      in attribute requestedThickness : Length;
+      out attribute cuttingPlanePosition : Length;
+      first readCurrentPosition;
+      then calculateLayerIncrement;
+      then moveZAxis;
+      then stabilizeStage;
+      then done;
+
+      action readCurrentPosition;
+      action calculateLayerIncrement;
+      action moveZAxis;
+      action stabilizeStage;
+    }
+  }
+
+  part def LinearAxis {
+    attribute travel : Length;
+    attribute resolution : Length = 0.1 [um];
+    attribute maximumVelocity : Speed = 50 [mm/s];
+    port control : MotionControlPort;
+    port stageOutput : MotionControlPort;
+  }
+
+  part def SampleHandlingSubsystem {
+    attribute clampForce : Pressure = 20 [kPa];
+    attribute sampleAreaCapacity : Area = 400 [mm^2];
+    attribute currentCutDepth : Length = 0 [um];
+
+    port samplePort : SamplePort;
+    port stageControl : MotionControlPort;
+    port ablationZone : LaserEmissionPort;
+    port debrisOut : DebrisPort;
+    port measurementPort : SamplePort;
+    port thermalInterface : FluidPort;
+
+    action ablateLayer {
+      in item sample : BiologicalSample;
+      in item pulse : LaserPulse;
+      in attribute targetThickness : Length;
+      out item section : TissueSection;
+      out item debris : AblationDebris;
+      first clampSample;
+      then alignSurface;
+      then rasterAblateCutPlane;
+      then releaseSection;
+      then transferSection;
+      then done;
+
+      action clampSample;
+      action alignSurface;
+      action rasterAblateCutPlane;
+      action releaseSection;
+      action transferSection;
+    }
+  }
+
+  part def SectionSensingSubsystem {
+    attribute thicknessMeasurementResolution : Length = 0.2 [um];
+    attribute surfaceTemperatureAccuracy : Temperature = 0.5 [K];
+
+    port sampleObservation : SamplePort;
+    port feedbackPort : ControlPort;
+
+    part opticalCoherenceSensor : ThicknessSensor;
+    part thermalCamera : ThermalSensor;
+
+    action measureSectionQuality {
+      in item section : TissueSection;
+      out item status : Status;
+      first measureThickness;
+      then measureThermalDamage;
+      then compareAgainstTolerance;
+      then reportStatus;
+      then done;
+
+      action measureThickness;
+      action measureThermalDamage;
+      action compareAgainstTolerance;
+      action reportStatus;
+    }
+  }
+
+  part def ThicknessSensor {
+    attribute axialResolution : Length = 0.2 [um];
+    attribute scanDepth : Length = 2 [mm];
+  }
+
+  part def ThermalSensor {
+    attribute temperatureRangeLow : Temperature = 273.15 [K];
+    attribute temperatureRangeHigh : Temperature = 373.15 [K];
+  }
+
+  part def DebrisExtractionSubsystem {
+    attribute suctionFlowSpeed : Speed = 2 [m/s];
+    attribute filterParticleLimit : Length = 0.3 [um];
+
+    port debrisIn : DebrisPort;
+    port debrisOut : DebrisPort;
+
+    action removeAblationDebris {
+      in item debris : AblationDebris;
+      out item capturedDebris : AblationDebris;
+      first drawAirflowAcrossCut;
+      then separateParticles;
+      then monitorFilterLoad;
+      then done;
+
+      action drawAirflowAcrossCut;
+      action separateParticles;
+      action monitorFilterLoad;
+    }
+  }
+
+  part def ThermalControlSubsystem {
+    attribute coolantSetpoint : Temperature = 293.15 [K];
+    attribute maximumSampleTemperature : Temperature = 310.15 [K];
+
+    port coolantPort : FluidPort;
+    port thermalContact : FluidPort;
+
+    action regulateTemperature {
+      in item coolant : CoolingFluid;
+      out item conditionedCoolant : CoolingFluid;
+      first readTemperature;
+      then adjustCoolantFlow;
+      then rejectHeat;
+      then done;
+
+      action readTemperature;
+      action adjustCoolantFlow;
+      action rejectHeat;
+    }
+  }
+
+  part def SafetyInterlockSubsystem {
+    attribute enclosureClosed : Boolean;
+    attribute emergencyStopActive : Boolean;
+    attribute laserPermitGranted : Boolean;
+
+    port control : ControlPort;
+    port permitSignal : SafetySignalPort;
+
+    action evaluateInterlocks {
+      out attribute permit : Boolean;
+      first readGuardSwitch;
+      then readEmergencyStop;
+      then readBeamDumpSensor;
+      then computeLaserPermit;
+      then done;
+
+      action readGuardSwitch;
+      action readEmergencyStop;
+      action readBeamDumpSensor;
+      action computeLaserPermit;
+    }
+
+    state def SafetyState {
+      state Open;
+      state Ready;
+      state Tripped;
+
+      transition first Open;
+      transition Open_to_Ready from Open to Ready
+        if enclosureClosed == true and emergencyStopActive == false;
+      transition Ready_to_Open from Ready to Open
+        if enclosureClosed == false;
+      transition Ready_to_Tripped from Ready to Tripped
+        if emergencyStopActive == true;
+      transition Tripped_to_Open from Tripped to Open
+        if emergencyStopActive == false;
+
+      entry action setLaserPermitFalse;
+      action setLaserPermitFalse;
+    }
+
+    exhibit state safetyStates : SafetyState;
+  }
+
+  part def MicrotomeController {
+    attribute thicknessTolerance : Length = 1 [um];
+    attribute thermalDamageLimit : Length = 3 [um];
+    attribute defaultScanSpeed : Speed = 10 [mm/s];
+
+    port operatorInterface : ControlPort;
+    port laserControl : ControlPort;
+    port motionControl : MotionControlPort;
+    port sensorFeedback : ControlPort;
+    port safetyCommand : ControlPort;
+
+    action executeSectioningCycle {
+      in item command : Command;
+      in item sample : BiologicalSample;
+      out item section : TissueSection;
+      out item status : Status;
+      first validateCommand;
+      then verifySafetyPermit;
+      then calculateLaserRecipe;
+      then positionCuttingPlane;
+      then commandLaserRaster;
+      then collectQualityFeedback;
+      then acceptOrRejectSection;
+      then publishStatus;
+      then done;
+
+      action validateCommand;
+      action verifySafetyPermit;
+      action calculateLaserRecipe;
+      action positionCuttingPlane;
+      action commandLaserRaster;
+      action collectQualityFeedback;
+      action acceptOrRejectSection;
+      action publishStatus;
+    }
+  }
+
+  action def LaserMicrotome::cutThinSection {
+    in item inputSample : BiologicalSample;
+    in item sectioningCommand : Command;
+    out item outputSection : TissueSection;
+    out item systemStatus : Status;
+
+    first receiveSampleAndCommand;
+    then secureSample;
+    then verifyInterlocks;
+    then configureLaserAndMotion;
+    then ablateSectionPlane;
+    then extractDebris;
+    then measureProducedSection;
+    then releaseAcceptedSection;
+    then done;
+
+    action receiveSampleAndCommand;
+    action secureSample;
+    action verifyInterlocks;
+    action configureLaserAndMotion;
+    action ablateSectionPlane;
+    action extractDebris;
+    action measureProducedSection;
+    action releaseAcceptedSection;
+  }
+
+  state def LaserMicrotome::operatingStates {
+    state Idle;
+    state Loaded;
+    state Armed;
+    state Sectioning;
+    state Inspecting;
+    state Complete;
+    state Fault;
+
+    transition first Idle;
+    transition Idle_to_Loaded from Idle to Loaded
+      accept BiologicalSample;
+    transition Loaded_to_Armed from Loaded to Armed
+      accept Command
+      if safetySubsystem.laserPermitGranted == true;
+    transition Armed_to_Sectioning from Armed to Sectioning
+      accept Command;
+    transition Sectioning_to_Inspecting from Sectioning to Inspecting
+      after 1 [s];
+    transition Inspecting_to_Complete from Inspecting to Complete
+      if sensingSubsystem.thicknessMeasurementResolution <= controller.thicknessTolerance;
+    transition Inspecting_to_Sectioning from Inspecting to Sectioning
+      if sensingSubsystem.thicknessMeasurementResolution > controller.thicknessTolerance;
+    transition Complete_to_Idle from Complete to Idle
+      accept Command;
+    transition Idle_to_Fault from Idle to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Loaded_to_Fault from Loaded to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Armed_to_Fault from Armed to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Sectioning_to_Fault from Sectioning to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Fault_to_Idle from Fault to Idle
+      accept Command
+      if safetySubsystem.emergencyStopActive == false;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject microtome : LaserMicrotome;
+    doc
+    /*
+     The laser microtome shall convert a mounted biological sample into controlled thin tissue sections by using a focused pulsed laser to ablate a precise cutting plane while coordinating sample positioning, debris extraction, thermal control, safety interlocks, and section quality feedback.
+    */
+    require constraint {
+      microtome.minimumSectionThickness <= microtome.nominalSectionThickness and
+      microtome.nominalSectionThickness <= microtome.maximumSectionThickness
+    }
+  }
+
+  requirement def SectionThicknessRequirement {
+    subject section : TissueSection;
+    attribute targetThickness : Length = 20 [um];
+    attribute allowedError : Length = 1 [um];
+    require constraint {
+      section.thickness >= targetThickness - allowedError and
+      section.thickness <= targetThickness + allowedError
+    }
+  }
+
+  requirement def ThermalDamageRequirement {
+    subject section : TissueSection;
+    attribute maximumDamageDepth : Length = 3 [um];
+    require constraint {
+      section.thermalDamageDepth <= maximumDamageDepth
+    }
+  }
+
+  requirement def SafetyInterlockRequirement {
+    subject system : LaserMicrotome;
+    require constraint {
+      system.safetySubsystem.laserPermitGranted == true implies
+      system.safetySubsystem.enclosureClosed == true and
+      system.safetySubsystem.emergencyStopActive == false
+    }
+  }
+
+  requirement def LaserOperatingRequirement {
+    subject laser : PulsedLaserSubsystem;
+    require constraint {
+      laser.averagePower <= 25 [W] and
+      laser.wavelength >= 1000 [nm] and
+      laser.wavelength <= 1100 [nm]
+    }
+  }
+
+  requirement def MotionResolutionRequirement {
+    subject motion : PrecisionMotionSubsystem;
+    require constraint {
+      motion.zResolution <= 0.1 [um]
+    }
+  }
+
+  requirement def DebrisRemovalRequirement {
+    subject debrisSystem : DebrisExtractionSubsystem;
+    require constraint {
+      debrisSystem.suctionFlowSpeed >= 1 [m/s] and
+      debrisSystem.filterParticleLimit <= 0.3 [um]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by LaserMicrotome;
+  satisfy SectionThicknessRequirement by TissueSection;
+  satisfy ThermalDamageRequirement by TissueSection;
+  satisfy SafetyInterlockRequirement by LaserMicrotome;
+  satisfy LaserOperatingRequirement by PulsedLaserSubsystem;
+  satisfy MotionResolutionRequirement by PrecisionMotionSubsystem;
+  satisfy DebrisRemovalRequirement by DebrisExtractionSubsystem;
+
+  allocation def ControlAllocation {
+    end controller : MicrotomeController;
+    end controlledLaser : PulsedLaserSubsystem;
+    end controlledMotion : PrecisionMotionSubsystem;
+    end monitoredSafety : SafetyInterlockSubsystem;
+  }
+
+  allocation controlAllocation : ControlAllocation
+    allocate controller to controlledLaser,
+             controller to controlledMotion,
+             controller to monitoredSafety;
+
+}
+tokens used
+5,658
+package LaserMicrotomeModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Power;
+  attribute def Energy;
+  attribute def Duration;
+  attribute def Frequency;
+  attribute def Length;
+  attribute def Speed;
+  attribute def Temperature;
+  attribute def Angle;
+  attribute def Pressure;
+  attribute def Mass;
+  attribute def Area;
+
+  item def BiologicalSample {
+    attribute tissueType : String;
+    attribute embeddedMedium : String;
+    attribute sectionTargetThickness : Length;
+    attribute hydrated : Boolean;
+  }
+
+  item def TissueSection {
+    attribute thickness : Length;
+    attribute width : Length;
+    attribute height : Length;
+    attribute thermalDamageDepth : Length;
+    attribute isAccepted : Boolean;
+  }
+
+  item def LaserPulse {
+    attribute wavelength : Length;
+    attribute pulseEnergy : Energy;
+    attribute pulseDuration : Duration;
+    attribute repetitionRate : Frequency;
+    attribute spotDiameter : Length;
+  }
+
+  item def AblationDebris {
+    attribute particleMass : Mass;
+    attribute collectionVolume : Length;
+  }
+
+  item def CoolingFluid {
+    attribute temperature : Temperature;
+    attribute flowRate : Speed;
+  }
+
+  item def Command {
+    attribute commandId : String;
+    attribute targetThickness : Length;
+    attribute targetScanSpeed : Speed;
+  }
+
+  item def Status {
+    attribute operatingState : String;
+    attribute measuredThickness : Length;
+    attribute chamberTemperature : Temperature;
+    attribute interlockClosed : Boolean;
+    attribute faultCode : String;
+  }
+
+  port def SamplePort {
+    in item sampleIn : BiologicalSample;
+    out item sectionOut : TissueSection;
+  }
+
+  port def LaserEmissionPort {
+    out item pulse : LaserPulse;
+  }
+
+  port def DebrisPort {
+    out item debris : AblationDebris;
+  }
+
+  port def FluidPort {
+    in item coolantIn : CoolingFluid;
+    out item coolantOut : CoolingFluid;
+  }
+
+  port def ControlPort {
+    in item command : Command;
+    out item status : Status;
+  }
+
+  port def MotionControlPort {
+    in attribute requestedVelocity : Speed;
+    in attribute requestedPosition : Length;
+    out attribute actualPosition : Length;
+  }
+
+  port def SafetySignalPort {
+    in attribute guardClosed : Boolean;
+    in attribute emergencyStop : Boolean;
+    out attribute laserPermit : Boolean;
+  }
+
+  part def LaserMicrotome {
+    attribute maximumSectionThickness : Length = 200 [um];
+    attribute minimumSectionThickness : Length = 1 [um];
+    attribute nominalSectionThickness : Length = 20 [um];
+    attribute maximumLaserPower : Power = 25 [W];
+    attribute nominalWavelength : Length = 1030 [nm];
+    attribute maximumStageSpeed : Speed = 50 [mm/s];
+    attribute chamberTemperatureSetpoint : Temperature = 293.15 [K];
+
+    port sampleInterface : SamplePort;
+    port userInterface : ControlPort;
+    port debrisInterface : DebrisPort;
+    port coolantInterface : FluidPort;
+
+    part laserSubsystem : PulsedLaserSubsystem;
+    part opticalSubsystem : BeamDeliverySubsystem;
+    part motionSubsystem : PrecisionMotionSubsystem;
+    part sampleSubsystem : SampleHandlingSubsystem;
+    part sensingSubsystem : SectionSensingSubsystem;
+    part debrisSubsystem : DebrisExtractionSubsystem;
+    part thermalSubsystem : ThermalControlSubsystem;
+    part controller : MicrotomeController;
+    part safetySubsystem : SafetyInterlockSubsystem;
+
+    connect laserSubsystem.emission to opticalSubsystem.laserInput;
+    connect opticalSubsystem.focusedBeam to sampleSubsystem.ablationZone;
+    connect motionSubsystem.stageInterface to sampleSubsystem.stageControl;
+    connect sampleSubsystem.samplePort to sampleInterface;
+    connect sampleSubsystem.debrisOut to debrisSubsystem.debrisIn;
+    connect debrisSubsystem.debrisOut to debrisInterface;
+    connect sensingSubsystem.sampleObservation to sampleSubsystem.measurementPort;
+    connect sensingSubsystem.feedbackPort to controller.sensorFeedback;
+    connect controller.laserControl to laserSubsystem.control;
+    connect controller.motionControl to motionSubsystem.control;
+    connect controller.safetyCommand to safetySubsystem.control;
+    connect safetySubsystem.permitSignal to laserSubsystem.safetyInput;
+    connect thermalSubsystem.coolantPort to coolantInterface;
+    connect thermalSubsystem.thermalContact to sampleSubsystem.thermalInterface;
+    connect userInterface to controller.operatorInterface;
+
+    perform action cutThinSection;
+    exhibit state operatingStates;
+  }
+
+  part def PulsedLaserSubsystem {
+    attribute wavelength : Length = 1030 [nm];
+    attribute pulseEnergy : Energy = 15 [uJ];
+    attribute pulseDuration : Duration = 400 [fs];
+    attribute repetitionRate : Frequency = 200 [kHz];
+    attribute averagePower : Power = 3 [W];
+
+    port emission : LaserEmissionPort;
+    port control : ControlPort;
+    port safetyInput : SafetySignalPort;
+
+    action generatePulse {
+      in item command : Command;
+      out item pulse : LaserPulse;
+      first start;
+      then validateLaserPermit;
+      then setPulseParameters;
+      then emitPulse;
+      then done;
+
+      action validateLaserPermit;
+      action setPulseParameters;
+      action emitPulse;
+    }
+
+    state def LaserState {
+      entry action initializeLaser;
+      state Off;
+      state Armed;
+      state Emitting;
+      state Faulted;
+
+      transition first Off;
+      transition Off_to_Armed from Off to Armed
+        accept Command
+        if safetyInput.laserPermit == true;
+      transition Armed_to_Emitting from Armed to Emitting
+        accept Command;
+      transition Emitting_to_Armed from Emitting to Armed
+        accept Command;
+      transition Any_to_Faulted from Off to Faulted
+        if safetyInput.emergencyStop == true;
+      transition Armed_to_Faulted from Armed to Faulted
+        if safetyInput.emergencyStop == true;
+      transition Emitting_to_Faulted from Emitting to Faulted
+        if safetyInput.emergencyStop == true;
+      transition Faulted_to_Off from Faulted to Off
+        accept Command
+        if safetyInput.emergencyStop == false;
+
+      action initializeLaser;
+    }
+
+    exhibit state laserStates : LaserState;
+  }
+
+  part def BeamDeliverySubsystem {
+    attribute numericalAperture : Real = 0.45;
+    attribute focusSpotDiameter : Length = 2 [um];
+    attribute scanFieldWidth : Length = 10 [mm];
+    attribute scanFieldHeight : Length = 10 [mm];
+
+    port laserInput : LaserEmissionPort;
+    port focusedBeam : LaserEmissionPort;
+
+    part beamExpander : BeamExpander;
+    part galvoScanner : GalvoScanner;
+    part objectiveLens : ObjectiveLens;
+
+    connect laserInput to beamExpander.inputBeam;
+    connect beamExpander.outputBeam to galvoScanner.inputBeam;
+    connect galvoScanner.outputBeam to objectiveLens.inputBeam;
+    connect objectiveLens.outputBeam to focusedBeam;
+
+    action focusAndScanBeam {
+      in item pulse : LaserPulse;
+      in attribute scanSpeed : Speed;
+      out item focusedPulse : LaserPulse;
+      first receivePulse;
+      then expandBeam;
+      then steerBeam;
+      then focusBeam;
+      then deliverPulse;
+      then done;
+
+      action receivePulse;
+      action expandBeam;
+      action steerBeam;
+      action focusBeam;
+      action deliverPulse;
+    }
+  }
+
+  part def BeamExpander {
+    attribute expansionRatio : Real = 4.0;
+    port inputBeam : LaserEmissionPort;
+    port outputBeam : LaserEmissionPort;
+  }
+
+  part def GalvoScanner {
+    attribute maximumScanAngle : Angle = 20 [deg];
+    attribute commandBandwidth : Frequency = 1 [kHz];
+    port inputBeam : LaserEmissionPort;
+    port outputBeam : LaserEmissionPort;
+  }
+
+  part def ObjectiveLens {
+    attribute focalLength : Length = 10 [mm];
+    attribute workingDistance : Length = 15 [mm];
+    port inputBeam : LaserEmissionPort;
+    port outputBeam : LaserEmissionPort;
+  }
+
+  part def PrecisionMotionSubsystem {
+    attribute xTravel : Length = 100 [mm];
+    attribute yTravel : Length = 100 [mm];
+    attribute zTravel : Length = 25 [mm];
+    attribute zResolution : Length = 0.1 [um];
+    attribute maximumVelocity : Speed = 50 [mm/s];
+
+    port control : MotionControlPort;
+    port stageInterface : MotionControlPort;
+
+    part xAxis : LinearAxis;
+    part yAxis : LinearAxis;
+    part zAxis : LinearAxis;
+
+    connect control to xAxis.control;
+    connect control to yAxis.control;
+    connect control to zAxis.control;
+    connect zAxis.stageOutput to stageInterface;
+
+    action positionSample {
+      in attribute requestedThickness : Length;
+      out attribute cuttingPlanePosition : Length;
+      first readCurrentPosition;
+      then calculateLayerIncrement;
+      then moveZAxis;
+      then stabilizeStage;
+      then done;
+
+      action readCurrentPosition;
+      action calculateLayerIncrement;
+      action moveZAxis;
+      action stabilizeStage;
+    }
+  }
+
+  part def LinearAxis {
+    attribute travel : Length;
+    attribute resolution : Length = 0.1 [um];
+    attribute maximumVelocity : Speed = 50 [mm/s];
+    port control : MotionControlPort;
+    port stageOutput : MotionControlPort;
+  }
+
+  part def SampleHandlingSubsystem {
+    attribute clampForce : Pressure = 20 [kPa];
+    attribute sampleAreaCapacity : Area = 400 [mm^2];
+    attribute currentCutDepth : Length = 0 [um];
+
+    port samplePort : SamplePort;
+    port stageControl : MotionControlPort;
+    port ablationZone : LaserEmissionPort;
+    port debrisOut : DebrisPort;
+    port measurementPort : SamplePort;
+    port thermalInterface : FluidPort;
+
+    action ablateLayer {
+      in item sample : BiologicalSample;
+      in item pulse : LaserPulse;
+      in attribute targetThickness : Length;
+      out item section : TissueSection;
+      out item debris : AblationDebris;
+      first clampSample;
+      then alignSurface;
+      then rasterAblateCutPlane;
+      then releaseSection;
+      then transferSection;
+      then done;
+
+      action clampSample;
+      action alignSurface;
+      action rasterAblateCutPlane;
+      action releaseSection;
+      action transferSection;
+    }
+  }
+
+  part def SectionSensingSubsystem {
+    attribute thicknessMeasurementResolution : Length = 0.2 [um];
+    attribute surfaceTemperatureAccuracy : Temperature = 0.5 [K];
+
+    port sampleObservation : SamplePort;
+    port feedbackPort : ControlPort;
+
+    part opticalCoherenceSensor : ThicknessSensor;
+    part thermalCamera : ThermalSensor;
+
+    action measureSectionQuality {
+      in item section : TissueSection;
+      out item status : Status;
+      first measureThickness;
+      then measureThermalDamage;
+      then compareAgainstTolerance;
+      then reportStatus;
+      then done;
+
+      action measureThickness;
+      action measureThermalDamage;
+      action compareAgainstTolerance;
+      action reportStatus;
+    }
+  }
+
+  part def ThicknessSensor {
+    attribute axialResolution : Length = 0.2 [um];
+    attribute scanDepth : Length = 2 [mm];
+  }
+
+  part def ThermalSensor {
+    attribute temperatureRangeLow : Temperature = 273.15 [K];
+    attribute temperatureRangeHigh : Temperature = 373.15 [K];
+  }
+
+  part def DebrisExtractionSubsystem {
+    attribute suctionFlowSpeed : Speed = 2 [m/s];
+    attribute filterParticleLimit : Length = 0.3 [um];
+
+    port debrisIn : DebrisPort;
+    port debrisOut : DebrisPort;
+
+    action removeAblationDebris {
+      in item debris : AblationDebris;
+      out item capturedDebris : AblationDebris;
+      first drawAirflowAcrossCut;
+      then separateParticles;
+      then monitorFilterLoad;
+      then done;
+
+      action drawAirflowAcrossCut;
+      action separateParticles;
+      action monitorFilterLoad;
+    }
+  }
+
+  part def ThermalControlSubsystem {
+    attribute coolantSetpoint : Temperature = 293.15 [K];
+    attribute maximumSampleTemperature : Temperature = 310.15 [K];
+
+    port coolantPort : FluidPort;
+    port thermalContact : FluidPort;
+
+    action regulateTemperature {
+      in item coolant : CoolingFluid;
+      out item conditionedCoolant : CoolingFluid;
+      first readTemperature;
+      then adjustCoolantFlow;
+      then rejectHeat;
+      then done;
+
+      action readTemperature;
+      action adjustCoolantFlow;
+      action rejectHeat;
+    }
+  }
+
+  part def SafetyInterlockSubsystem {
+    attribute enclosureClosed : Boolean;
+    attribute emergencyStopActive : Boolean;
+    attribute laserPermitGranted : Boolean;
+
+    port control : ControlPort;
+    port permitSignal : SafetySignalPort;
+
+    action evaluateInterlocks {
+      out attribute permit : Boolean;
+      first readGuardSwitch;
+      then readEmergencyStop;
+      then readBeamDumpSensor;
+      then computeLaserPermit;
+      then done;
+
+      action readGuardSwitch;
+      action readEmergencyStop;
+      action readBeamDumpSensor;
+      action computeLaserPermit;
+    }
+
+    state def SafetyState {
+      state Open;
+      state Ready;
+      state Tripped;
+
+      transition first Open;
+      transition Open_to_Ready from Open to Ready
+        if enclosureClosed == true and emergencyStopActive == false;
+      transition Ready_to_Open from Ready to Open
+        if enclosureClosed == false;
+      transition Ready_to_Tripped from Ready to Tripped
+        if emergencyStopActive == true;
+      transition Tripped_to_Open from Tripped to Open
+        if emergencyStopActive == false;
+
+      entry action setLaserPermitFalse;
+      action setLaserPermitFalse;
+    }
+
+    exhibit state safetyStates : SafetyState;
+  }
+
+  part def MicrotomeController {
+    attribute thicknessTolerance : Length = 1 [um];
+    attribute thermalDamageLimit : Length = 3 [um];
+    attribute defaultScanSpeed : Speed = 10 [mm/s];
+
+    port operatorInterface : ControlPort;
+    port laserControl : ControlPort;
+    port motionControl : MotionControlPort;
+    port sensorFeedback : ControlPort;
+    port safetyCommand : ControlPort;
+
+    action executeSectioningCycle {
+      in item command : Command;
+      in item sample : BiologicalSample;
+      out item section : TissueSection;
+      out item status : Status;
+      first validateCommand;
+      then verifySafetyPermit;
+      then calculateLaserRecipe;
+      then positionCuttingPlane;
+      then commandLaserRaster;
+      then collectQualityFeedback;
+      then acceptOrRejectSection;
+      then publishStatus;
+      then done;
+
+      action validateCommand;
+      action verifySafetyPermit;
+      action calculateLaserRecipe;
+      action positionCuttingPlane;
+      action commandLaserRaster;
+      action collectQualityFeedback;
+      action acceptOrRejectSection;
+      action publishStatus;
+    }
+  }
+
+  action def LaserMicrotome::cutThinSection {
+    in item inputSample : BiologicalSample;
+    in item sectioningCommand : Command;
+    out item outputSection : TissueSection;
+    out item systemStatus : Status;
+
+    first receiveSampleAndCommand;
+    then secureSample;
+    then verifyInterlocks;
+    then configureLaserAndMotion;
+    then ablateSectionPlane;
+    then extractDebris;
+    then measureProducedSection;
+    then releaseAcceptedSection;
+    then done;
+
+    action receiveSampleAndCommand;
+    action secureSample;
+    action verifyInterlocks;
+    action configureLaserAndMotion;
+    action ablateSectionPlane;
+    action extractDebris;
+    action measureProducedSection;
+    action releaseAcceptedSection;
+  }
+
+  state def LaserMicrotome::operatingStates {
+    state Idle;
+    state Loaded;
+    state Armed;
+    state Sectioning;
+    state Inspecting;
+    state Complete;
+    state Fault;
+
+    transition first Idle;
+    transition Idle_to_Loaded from Idle to Loaded
+      accept BiologicalSample;
+    transition Loaded_to_Armed from Loaded to Armed
+      accept Command
+      if safetySubsystem.laserPermitGranted == true;
+    transition Armed_to_Sectioning from Armed to Sectioning
+      accept Command;
+    transition Sectioning_to_Inspecting from Sectioning to Inspecting
+      after 1 [s];
+    transition Inspecting_to_Complete from Inspecting to Complete
+      if sensingSubsystem.thicknessMeasurementResolution <= controller.thicknessTolerance;
+    transition Inspecting_to_Sectioning from Inspecting to Sectioning
+      if sensingSubsystem.thicknessMeasurementResolution > controller.thicknessTolerance;
+    transition Complete_to_Idle from Complete to Idle
+      accept Command;
+    transition Idle_to_Fault from Idle to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Loaded_to_Fault from Loaded to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Armed_to_Fault from Armed to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Sectioning_to_Fault from Sectioning to Fault
+      if safetySubsystem.emergencyStopActive == true;
+    transition Fault_to_Idle from Fault to Idle
+      accept Command
+      if safetySubsystem.emergencyStopActive == false;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject microtome : LaserMicrotome;
+    doc
+    /*
+     The laser microtome shall convert a mounted biological sample into controlled thin tissue sections by using a focused pulsed laser to ablate a precise cutting plane while coordinating sample positioning, debris extraction, thermal control, safety interlocks, and section quality feedback.
+    */
+    require constraint {
+      microtome.minimumSectionThickness <= microtome.nominalSectionThickness and
+      microtome.nominalSectionThickness <= microtome.maximumSectionThickness
+    }
+  }
+
+  requirement def SectionThicknessRequirement {
+    subject section : TissueSection;
+    attribute targetThickness : Length = 20 [um];
+    attribute allowedError : Length = 1 [um];
+    require constraint {
+      section.thickness >= targetThickness - allowedError and
+      section.thickness <= targetThickness + allowedError
+    }
+  }
+
+  requirement def ThermalDamageRequirement {
+    subject section : TissueSection;
+    attribute maximumDamageDepth : Length = 3 [um];
+    require constraint {
+      section.thermalDamageDepth <= maximumDamageDepth
+    }
+  }
+
+  requirement def SafetyInterlockRequirement {
+    subject system : LaserMicrotome;
+    require constraint {
+      system.safetySubsystem.laserPermitGranted == true implies
+      system.safetySubsystem.enclosureClosed == true and
+      system.safetySubsystem.emergencyStopActive == false
+    }
+  }
+
+  requirement def LaserOperatingRequirement {
+    subject laser : PulsedLaserSubsystem;
+    require constraint {
+      laser.averagePower <= 25 [W] and
+      laser.wavelength >= 1000 [nm] and
+      laser.wavelength <= 1100 [nm]
+    }
+  }
+
+  requirement def MotionResolutionRequirement {
+    subject motion : PrecisionMotionSubsystem;
+    require constraint {
+      motion.zResolution <= 0.1 [um]
+    }
+  }
+
+  requirement def DebrisRemovalRequirement {
+    subject debrisSystem : DebrisExtractionSubsystem;
+    require constraint {
+      debrisSystem.suctionFlowSpeed >= 1 [m/s] and
+      debrisSystem.filterParticleLimit <= 0.3 [um]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by LaserMicrotome;
+  satisfy SectionThicknessRequirement by TissueSection;
+  satisfy ThermalDamageRequirement by TissueSection;
+  satisfy SafetyInterlockRequirement by LaserMicrotome;
+  satisfy LaserOperatingRequirement by PulsedLaserSubsystem;
+  satisfy MotionResolutionRequirement by PrecisionMotionSubsystem;
+  satisfy DebrisRemovalRequirement by DebrisExtractionSubsystem;
+
+  allocation def ControlAllocation {
+    end controller : MicrotomeController;
+    end controlledLaser : PulsedLaserSubsystem;
+    end controlledMotion : PrecisionMotionSubsystem;
+    end monitoredSafety : SafetyInterlockSubsystem;
+  }
+
+  allocation controlAllocation : ControlAllocation
+    allocate controller to controlledLaser,
+             controller to controlledMotion,
+             controller to monitoredSafety;
+
+}

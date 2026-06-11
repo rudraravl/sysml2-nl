@@ -1,0 +1,1697 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-0z2jh9k6
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4e5-fe4f-7322-8268-31e9c340d99f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Village-level operation and maintenance and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VillageOperationAndMaintenanceSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def VillageIdentifier : String;
+    attribute def AssetIdentifier : String;
+    attribute def WorkOrderIdentifier : String;
+
+    item def MaintenanceRequest {
+        attribute requestId : WorkOrderIdentifier;
+        attribute sourceAssetId : AssetIdentifier;
+        attribute priority : PriorityLevel;
+        attribute description : String;
+        attribute reportedAt : TimeInstant;
+    }
+
+    item def WorkOrder {
+        attribute orderId : WorkOrderIdentifier;
+        attribute targetAssetId : AssetIdentifier;
+        attribute priority : PriorityLevel;
+        attribute status : WorkOrderStatus;
+        attribute estimatedEffort : PersonHour;
+        attribute dueWithin : Hour;
+    }
+
+    item def CrewAssignment {
+        attribute crewId : String;
+        attribute assignedOrderId : WorkOrderIdentifier;
+        attribute dispatchTime : TimeInstant;
+    }
+
+    item def AssetHealthReport {
+        attribute assetId : AssetIdentifier;
+        attribute condition : ConditionLevel;
+        attribute measuredAvailability : AvailabilityRatio;
+        attribute faultCount : Integer;
+        attribute recommendedAction : MaintenanceActionType;
+    }
+
+    item def SparePart {
+        attribute partNumber : String;
+        attribute description : String;
+        attribute quantity : Integer;
+        attribute reorderThreshold : Integer;
+    }
+
+    item def EnergyFlow {
+        attribute power : Kilowatt;
+        attribute voltage : Volt;
+        attribute frequency : Hertz;
+    }
+
+    item def WaterFlow {
+        attribute flowRate : CubicMeterPerHour;
+        attribute pressure : Kilopascal;
+        attribute qualityIndex : WaterQualityIndex;
+    }
+
+    item def WasteCollectionLoad {
+        attribute mass : Kilogram;
+        attribute fillLevel : FillRatio;
+    }
+
+    item def CommunicationMessage {
+        attribute messageId : String;
+        attribute severity : PriorityLevel;
+        attribute payload : String;
+    }
+
+    enum def PriorityLevel {
+        enum low;
+        enum normal;
+        enum high;
+        enum emergency;
+    }
+
+    enum def WorkOrderStatus {
+        enum created;
+        enum triaged;
+        enum scheduled;
+        enum dispatched;
+        enum inProgress;
+        enum verified;
+        enum closed;
+        enum deferred;
+    }
+
+    enum def ConditionLevel {
+        enum good;
+        enum degraded;
+        enum failed;
+        enum unsafe;
+    }
+
+    enum def MaintenanceActionType {
+        enum inspect;
+        enum repair;
+        enum replace;
+        enum clean;
+        enum calibrate;
+        enum escalate;
+    }
+
+    enum def OperatingMode {
+        enum normalOperation;
+        enum preventiveMaintenance;
+        enum correctiveMaintenance;
+        enum emergencyResponse;
+        enum resourceRecovery;
+    }
+
+    enum def ServiceDomain {
+        enum water;
+        enum power;
+        enum roads;
+        enum drainage;
+        enum lighting;
+        enum solidWaste;
+        enum publicFacilities;
+        enum communications;
+    }
+
+    value type Hour = Real {
+        unit = h;
+    }
+
+    value type Kilowatt = Real {
+        unit = kW;
+    }
+
+    value type Volt = Real {
+        unit = V;
+    }
+
+    value type Hertz = Real {
+        unit = Hz;
+    }
+
+    value type Kilopascal = Real {
+        unit = kPa;
+    }
+
+    value type CubicMeterPerHour = Real {
+        unit = m^3 / h;
+    }
+
+    value type Kilogram = Real {
+        unit = kg;
+    }
+
+    value type PersonHour = Real {
+        unit = h;
+    }
+
+    value type TimeInstant = String;
+
+    value type AvailabilityRatio = Real {
+        unit = one;
+    }
+
+    value type FillRatio = Real {
+        unit = one;
+    }
+
+    value type WaterQualityIndex = Real {
+        unit = one;
+    }
+
+    value type CurrencyAmount = Real {
+        unit = one;
+    }
+
+    port def ServiceRequestPort {
+        in request : MaintenanceRequest;
+        out acknowledgement : CommunicationMessage;
+    }
+
+    port def WorkOrderPort {
+        out workOrder : WorkOrder;
+        in completionReport : AssetHealthReport;
+    }
+
+    port def CrewDispatchPort {
+        out assignment : CrewAssignment;
+        in statusMessage : CommunicationMessage;
+    }
+
+    port def AssetTelemetryPort {
+        in healthReport : AssetHealthReport;
+        out commandMessage : CommunicationMessage;
+    }
+
+    port def InventoryPort {
+        out partRequest : SparePart;
+        in partAvailability : SparePart;
+    }
+
+    port def EnergyPort {
+        inout energy : EnergyFlow;
+    }
+
+    port def WaterPort {
+        inout water : WaterFlow;
+    }
+
+    port def WastePort {
+        inout wasteLoad : WasteCollectionLoad;
+    }
+
+    port def CommunicationPort {
+        inout message : CommunicationMessage;
+    }
+
+    part def VillageOMSystem {
+        attribute villageId : VillageIdentifier;
+        attribute populationServed : Integer;
+        attribute annualBudget : CurrencyAmount;
+        attribute targetAssetAvailability : AvailabilityRatio = 0.98;
+        attribute emergencyResponseTarget : Hour = 2.0;
+
+        port citizenRequests : ServiceRequestPort;
+        port municipalInterface : CommunicationPort;
+
+        part controlCenter : OperationsControlCenter;
+        part assetRegistry : VillageAssetRegistry;
+        part workManagement : WorkManagementSubsystem;
+        part crewManagement : CrewManagementSubsystem;
+        part inventory : SparePartsInventory;
+        part performanceMonitor : PerformanceMonitoringSubsystem;
+
+        part waterNetwork : WaterSupplyAndDrainageAssets;
+        part powerAndLighting : PowerAndStreetLightingAssets;
+        part transportAssets : RoadAndPathwayAssets;
+        part wasteService : SolidWasteAssets;
+        part publicFacilities : PublicFacilityAssets;
+        part communicationNetwork : VillageCommunicationAssets;
+
+        connect citizenRequests to controlCenter.publicRequestInput;
+        connect municipalInterface to controlCenter.municipalCoordination;
+
+        connect controlCenter.workOrderOutput to workManagement.intake;
+        connect workManagement.dispatchOutput to crewManagement.assignmentInput;
+        connect crewManagement.fieldReportOutput to workManagement.completionInput;
+
+        connect assetRegistry.telemetryInput to waterNetwork.telemetry;
+        connect assetRegistry.telemetryInput to powerAndLighting.telemetry;
+        connect assetRegistry.telemetryInput to transportAssets.telemetry;
+        connect assetRegistry.telemetryInput to wasteService.telemetry;
+        connect assetRegistry.telemetryInput to publicFacilities.telemetry;
+        connect assetRegistry.telemetryInput to communicationNetwork.telemetry;
+
+        connect workManagement.assetCommandOutput to waterNetwork.command;
+        connect workManagement.assetCommandOutput to powerAndLighting.command;
+        connect workManagement.assetCommandOutput to transportAssets.command;
+        connect workManagement.assetCommandOutput to wasteService.command;
+        connect workManagement.assetCommandOutput to publicFacilities.command;
+        connect workManagement.assetCommandOutput to communicationNetwork.command;
+
+        connect crewManagement.partsDemand to inventory.partsInterface;
+        connect performanceMonitor.assetStatusInput to assetRegistry.statusOutput;
+        connect performanceMonitor.workOrderStatusInput to workManagement.statusOutput;
+
+        perform maintainVillageServices;
+        exhibit state omLifecycle;
+    }
+
+    part def OperationsControlCenter {
+        port publicRequestInput : ServiceRequestPort;
+        port municipalCoordination : CommunicationPort;
+        port workOrderOutput : WorkOrderPort;
+
+        attribute activeMode : OperatingMode;
+        attribute staffedOperators : Integer;
+        attribute openEmergencyCount : Integer;
+
+        action triageIncomingRequest {
+            in request : MaintenanceRequest;
+            out order : WorkOrder;
+            first start;
+            then classifyPriority;
+            then identifyAffectedServiceDomain;
+            then createWorkOrder;
+            then issueAcknowledgement;
+            then done;
+        }
+
+        action coordinateEmergency {
+            in emergencyRequest : MaintenanceRequest;
+            out emergencyOrder : WorkOrder;
+            first start;
+            then activateEmergencyMode;
+            then notifyMunicipality;
+            then createEmergencyWorkOrder;
+            then done;
+        }
+    }
+
+    part def VillageAssetRegistry {
+        port telemetryInput : AssetTelemetryPort;
+        port statusOutput : AssetTelemetryPort;
+
+        attribute registeredAssets : Integer;
+        attribute criticalAssets : Integer;
+        attribute degradedAssets : Integer;
+
+        action updateAssetCondition {
+            in report : AssetHealthReport;
+            out storedReport : AssetHealthReport;
+            first receiveReport;
+            then validateAssetIdentifier;
+            then updateConditionHistory;
+            then publishCurrentStatus;
+            then done;
+        }
+    }
+
+    part def WorkManagementSubsystem {
+        port intake : WorkOrderPort;
+        port completionInput : CrewDispatchPort;
+        port dispatchOutput : CrewDispatchPort;
+        port assetCommandOutput : AssetTelemetryPort;
+        port statusOutput : WorkOrderPort;
+
+        attribute backlogCount : Integer;
+        attribute scheduledToday : Integer;
+        attribute emergencyOrdersOpen : Integer;
+
+        action planPreventiveMaintenance {
+            out preventiveOrder : WorkOrder;
+            first reviewAssetHealth;
+            then selectDueMaintenanceTasks;
+            then reserveCrewCapacity;
+            then scheduleWorkOrder;
+            then done;
+        }
+
+        action manageCorrectiveMaintenance {
+            in request : MaintenanceRequest;
+            out correctiveOrder : WorkOrder;
+            first assessFault;
+            then determinePriority;
+            then checkPartsAndCrewAvailability;
+            then dispatchOrDefer;
+            then done;
+        }
+    }
+
+    part def CrewManagementSubsystem {
+        port assignmentInput : CrewDispatchPort;
+        port fieldReportOutput : CrewDispatchPort;
+        port partsDemand : InventoryPort;
+
+        attribute availableCrewCount : Integer;
+        attribute crewsOnDuty : Integer;
+        attribute safetyIncidentsThisMonth : Integer;
+
+        part waterCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::water;
+            attribute crewCapacity : PersonHour = 48.0;
+        }
+
+        part electricalCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::lighting;
+            attribute crewCapacity : PersonHour = 32.0;
+        }
+
+        part civilCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::roads;
+            attribute crewCapacity : PersonHour = 40.0;
+        }
+
+        part wasteCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::solidWaste;
+            attribute crewCapacity : PersonHour = 24.0;
+        }
+
+        action dispatchCrew {
+            in order : WorkOrder;
+            out assignment : CrewAssignment;
+            first receiveScheduledOrder;
+            then selectQualifiedCrew;
+            then confirmToolsAndParts;
+            then sendAssignment;
+            then done;
+        }
+    }
+
+    part def MaintenanceCrew {
+        attribute crewId : String;
+        attribute domain : ServiceDomain;
+        attribute crewCapacity : PersonHour;
+        attribute currentUtilization : AvailabilityRatio;
+
+        port assignmentPort : CrewDispatchPort;
+        port partsPort : InventoryPort;
+
+        action executeFieldMaintenance {
+            in assignment : CrewAssignment;
+            out healthReport : AssetHealthReport;
+            first travelToAsset;
+            then isolateOrSecureAsset;
+            then performMaintenanceTask;
+            then testRestoredService;
+            then reportCompletion;
+            then done;
+        }
+    }
+
+    part def SparePartsInventory {
+        port partsInterface : InventoryPort;
+
+        attribute stockedPartTypes : Integer;
+        attribute lowStockItems : Integer;
+        attribute emergencyReserveValue : CurrencyAmount;
+
+        part pipeRepairKits : InventoryBin {
+            attribute storedPart.partNumber = "WTR-PIPE-REPAIR-050";
+            attribute storedPart.description = "Village water pipe repair kit, 50 mm";
+            attribute storedPart.quantity = 18;
+            attribute storedPart.reorderThreshold = 6;
+        }
+
+        part ledLampHeads : InventoryBin {
+            attribute storedPart.partNumber = "ELC-LED-LAMP-040";
+            attribute storedPart.description = "40 W LED street lamp head";
+            attribute storedPart.quantity = 42;
+            attribute storedPart.reorderThreshold = 12;
+        }
+
+        part drainageGrates : InventoryBin {
+            attribute storedPart.partNumber = "CIV-DRAIN-GRATE-600";
+            attribute storedPart.description = "600 mm drainage grate";
+            attribute storedPart.quantity = 10;
+            attribute storedPart.reorderThreshold = 4;
+        }
+
+        action issueParts {
+            in requestedPart : SparePart;
+            out availablePart : SparePart;
+            first verifyStock;
+            then reserveQuantity;
+            then releaseToCrew;
+            then updateInventoryLevel;
+            then done;
+        }
+    }
+
+    part def InventoryBin {
+        attribute storedPart : SparePart;
+        attribute binLocation : String;
+    }
+
+    part def PerformanceMonitoringSubsystem {
+        port assetStatusInput : AssetTelemetryPort;
+        port workOrderStatusInput : WorkOrderPort;
+
+        attribute monthlyAvailability : AvailabilityRatio;
+        attribute meanRepairTime : Hour;
+        attribute preventiveCompliance : AvailabilityRatio;
+        attribute citizenSatisfactionIndex : Real;
+
+        action calculatePerformance {
+            first collectAssetStatus;
+            then calculateAvailability;
+            then calculateMeanRepairTime;
+            then compareAgainstTargets;
+            then publishMonthlyDashboard;
+            then done;
+        }
+    }
+
+    part def WaterSupplyAndDrainageAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port waterInterface : WaterPort;
+
+        part borewellPump : PumpStation {
+            attribute assetId = "WTR-PUMP-001";
+            attribute ratedFlow = 45.0;
+            attribute ratedPower = 18.0;
+        }
+
+        part overheadTank : WaterStorageTank {
+            attribute assetId = "WTR-TANK-001";
+            attribute storageCapacity = 250.0;
+            attribute currentLevel = 0.72;
+        }
+
+        part drainageCanal : DrainageSegment {
+            attribute assetId = "DRN-CANAL-004";
+            attribute flowCapacity = 180.0;
+            attribute blockageLevel = 0.12;
+        }
+    }
+
+    part def PowerAndStreetLightingAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port energyInterface : EnergyPort;
+
+        part distributionTransformer : ElectricalTransformer {
+            attribute assetId = "PWR-XFMR-001";
+            attribute ratedPower = 250.0;
+            attribute condition = ConditionLevel::good;
+        }
+
+        part mainRoadLightingCircuit : StreetLightingCircuit {
+            attribute assetId = "LGT-CIR-001";
+            attribute lampCount = 86;
+            attribute failedLampCount = 3;
+        }
+    }
+
+    part def RoadAndPathwayAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+
+        part primaryRoad : RoadSegment {
+            attribute assetId = "RD-PRIMARY-001";
+            attribute length = 3.8;
+            attribute potholeCount = 9;
+            attribute condition = ConditionLevel::degraded;
+        }
+
+        part villageSquarePathway : RoadSegment {
+            attribute assetId = "RD-PATH-002";
+            attribute length = 0.6;
+            attribute potholeCount = 1;
+            attribute condition = ConditionLevel::good;
+        }
+    }
+
+    part def SolidWasteAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port wasteInterface : WastePort;
+
+        part marketWastePoint : WasteCollectionPoint {
+            attribute assetId = "WST-POINT-001";
+            attribute containerCapacity = 1200.0;
+            attribute fillLevel = 0.81;
+        }
+
+        part residentialWastePoint : WasteCollectionPoint {
+            attribute assetId = "WST-POINT-002";
+            attribute containerCapacity = 900.0;
+            attribute fillLevel = 0.44;
+        }
+    }
+
+    part def PublicFacilityAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+
+        part healthPost : PublicBuilding {
+            attribute assetId = "FAC-HEALTH-001";
+            attribute criticality = PriorityLevel::high;
+            attribute condition = ConditionLevel::good;
+        }
+
+        part communityHall : PublicBuilding {
+            attribute assetId = "FAC-HALL-001";
+            attribute criticality = PriorityLevel::normal;
+            attribute condition = ConditionLevel::degraded;
+        }
+    }
+
+    part def VillageCommunicationAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port communicationInterface : CommunicationPort;
+
+        part radioRepeater : CommunicationNode {
+            attribute assetId = "COM-RADIO-001";
+            attribute condition = ConditionLevel::good;
+            attribute availability = 0.995;
+        }
+
+        part noticeBoardController : CommunicationNode {
+            attribute assetId = "COM-NOTICE-001";
+            attribute condition = ConditionLevel::good;
+            attribute availability = 0.990;
+        }
+    }
+
+    part def PumpStation {
+        attribute assetId : AssetIdentifier;
+        attribute ratedFlow : CubicMeterPerHour;
+        attribute ratedPower : Kilowatt;
+        attribute condition : ConditionLevel;
+        port waterPort : WaterPort;
+        port energyPort : EnergyPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def WaterStorageTank {
+        attribute assetId : AssetIdentifier;
+        attribute storageCapacity : Real;
+        attribute currentLevel : FillRatio;
+        attribute condition : ConditionLevel;
+        port waterPort : WaterPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def DrainageSegment {
+        attribute assetId : AssetIdentifier;
+        attribute flowCapacity : CubicMeterPerHour;
+        attribute blockageLevel : FillRatio;
+        attribute condition : ConditionLevel;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def ElectricalTransformer {
+        attribute assetId : AssetIdentifier;
+        attribute ratedPower : Kilowatt;
+        attribute condition : ConditionLevel;
+        port energyPort : EnergyPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def StreetLightingCircuit {
+        attribute assetId : AssetIdentifier;
+        attribute lampCount : Integer;
+        attribute failedLampCount : Integer;
+        attribute condition : ConditionLevel;
+        port energyPort : EnergyPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def RoadSegment {
+        attribute assetId : AssetIdentifier;
+        attribute length : Real;
+        attribute potholeCount : Integer;
+        attribute condition : ConditionLevel;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def WasteCollectionPoint {
+        attribute assetId : AssetIdentifier;
+        attribute containerCapacity : Kilogram;
+        attribute fillLevel : FillRatio;
+        attribute condition : ConditionLevel;
+        port wastePort : WastePort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def PublicBuilding {
+        attribute assetId : AssetIdentifier;
+        attribute criticality : PriorityLevel;
+        attribute condition : ConditionLevel;
+        port energyPort : EnergyPort;
+        port waterPort : WaterPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def CommunicationNode {
+        attribute assetId : AssetIdentifier;
+        attribute condition : ConditionLevel;
+        attribute availability : AvailabilityRatio;
+        port communicationPort : CommunicationPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    action def MaintainVillageServices {
+        in incomingRequest : MaintenanceRequest;
+        out restoredServiceReport : AssetHealthReport;
+
+        first receiveVillageMaintenanceNeed;
+        then classifyNeed;
+        then inspectRelevantAsset;
+        then createAndScheduleWorkOrder;
+        then dispatchCrewAndParts;
+        then executeMaintenance;
+        then verifyServiceRestoration;
+        then updateVillageRecords;
+        then closeWorkOrder;
+        then done;
+    }
+
+    action maintainVillageServices : MaintainVillageServices;
+
+    state def OMLifecycle {
+        entry action initializeDailyOperations;
+        state Monitoring {
+            entry action collectTelemetry;
+            do action receiveRequests;
+            transition first to PreventivePlanning
+                if monthlyPreventiveWindowOpen;
+            transition first to CorrectiveResponse
+                if faultDetected;
+            transition first to EmergencyResponse
+                if emergencyRequestReceived;
+        }
+
+        state PreventivePlanning {
+            entry action analyzeDueTasks;
+            do action schedulePreventiveOrders;
+            transition first to FieldExecution
+                if ordersScheduled;
+        }
+
+        state CorrectiveResponse {
+            entry action triageCorrectiveRequest;
+            do action allocateCrewAndParts;
+            transition first to FieldExecution
+                if workOrderDispatched;
+            transition first to Monitoring
+                if requestDeferred;
+        }
+
+        state EmergencyResponse {
+            entry action activateEmergencyCoordination;
+            do action dispatchImmediateCrew;
+            transition first to FieldExecution
+                if emergencyCrewArrived;
+        }
+
+        state FieldExecution {
+            entry action secureWorkSite;
+            do action performAssetMaintenance;
+            transition first to Verification
+                if maintenanceCompleted;
+        }
+
+        state Verification {
+            entry action testServicePerformance;
+            do action recordAssetHealth;
+            transition first to Monitoring
+                if serviceRestored;
+            transition first to CorrectiveResponse
+                if serviceNotRestored;
+        }
+    }
+
+    state omLifecycle : OMLifecycle;
+
+    requirement def HighLevelVillageOMFunction {
+        doc /* The system shall provide coordinated village-level operation and maintenance by monitoring essential public assets, accepting citizen and municipal maintenance needs, converting needs into prioritized work orders, dispatching qualified crews with required spare parts, verifying restoration of services, and maintaining performance records for water, power, roads, drainage, lighting, waste, public facilities, and communications. */
+    }
+
+    requirement def AssetAvailabilityRequirement {
+        attribute minimumMonthlyAvailability : AvailabilityRatio = 0.98;
+        subject villageOM : VillageOMSystem;
+        require constraint {
+            villageOM.performanceMonitor.monthlyAvailability >= minimumMonthlyAvailability
+        }
+    }
+
+    requirement def EmergencyResponseRequirement {
+        attribute maximumEmergencyDispatchTime : Hour = 2.0;
+        subject villageOM : VillageOMSystem;
+        require constraint {
+            villageOM.emergencyResponseTarget <= maximumEmergencyDispatchTime
+        }
+    }
+
+    requirement def PreventiveMaintenanceRequirement {
+        attribute minimumPreventiveCompliance : AvailabilityRatio = 0.90;
+        subject villageOM : VillageOMSystem;
+        require constraint {
+            villageOM.performanceMonitor.preventiveCompliance >= minimumPreventiveCompliance
+        }
+    }
+
+    requirement def InventoryReadinessRequirement {
+        attribute maximumLowStockItems : Integer = 5;
+        subject inventory : SparePartsInventory;
+        require constraint {
+            inventory.lowStockItems <= maximumLowStockItems
+        }
+    }
+
+    requirement def WorkOrderTraceabilityRequirement {
+        doc /* Every accepted village maintenance request shall be acknowledged, assigned a work order identifier, linked to an asset identifier, tracked through dispatch and field completion, and closed only after verification of service restoration or approved deferral. */
+    }
+
+    requirement def SafetyRequirement {
+        attribute maximumMonthlySafetyIncidents : Integer = 0;
+        subject crews : CrewManagementSubsystem;
+        require constraint {
+            crews.safetyIncidentsThisMonth <= maximumMonthlySafetyIncidents
+        }
+    }
+
+    satisfy HighLevelVillageOMFunction by VillageOMSystem;
+    satisfy AssetAvailabilityRequirement by PerformanceMonitoringSubsystem;
+    satisfy EmergencyResponseRequirement by OperationsControlCenter;
+    satisfy PreventiveMaintenanceRequirement by WorkManagementSubsystem;
+    satisfy InventoryReadinessRequirement by SparePartsInventory;
+    satisfy WorkOrderTraceabilityRequirement by WorkManagementSubsystem;
+    satisfy SafetyRequirement by CrewManagementSubsystem;
+
+    part villageOMInstance : VillageOMSystem {
+        attribute villageId = "VILLAGE-OM-001";
+        attribute populationServed = 5200;
+        attribute annualBudget = 185000.0;
+        attribute targetAssetAvailability = 0.98;
+        attribute emergencyResponseTarget = 2.0;
+
+        part controlCenter {
+            attribute activeMode = OperatingMode::normalOperation;
+            attribute staffedOperators = 3;
+            attribute openEmergencyCount = 0;
+        }
+
+        part assetRegistry {
+            attribute registeredAssets = 214;
+            attribute criticalAssets = 37;
+            attribute degradedAssets = 16;
+        }
+
+        part workManagement {
+            attribute backlogCount = 22;
+            attribute scheduledToday = 8;
+            attribute emergencyOrdersOpen = 0;
+        }
+
+        part crewManagement {
+            attribute availableCrewCount = 4;
+            attribute crewsOnDuty = 4;
+            attribute safetyIncidentsThisMonth = 0;
+        }
+
+        part inventory {
+            attribute stockedPartTypes = 96;
+            attribute lowStockItems = 3;
+            attribute emergencyReserveValue = 28000.0;
+        }
+
+        part performanceMonitor {
+            attribute monthlyAvailability = 0.985;
+            attribute meanRepairTime = 5.6;
+            attribute preventiveCompliance = 0.93;
+            attribute citizenSatisfactionIndex = 4.2;
+        }
+    }
+}
+tokens used
+5,509
+package VillageOperationAndMaintenanceSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def VillageIdentifier : String;
+    attribute def AssetIdentifier : String;
+    attribute def WorkOrderIdentifier : String;
+
+    item def MaintenanceRequest {
+        attribute requestId : WorkOrderIdentifier;
+        attribute sourceAssetId : AssetIdentifier;
+        attribute priority : PriorityLevel;
+        attribute description : String;
+        attribute reportedAt : TimeInstant;
+    }
+
+    item def WorkOrder {
+        attribute orderId : WorkOrderIdentifier;
+        attribute targetAssetId : AssetIdentifier;
+        attribute priority : PriorityLevel;
+        attribute status : WorkOrderStatus;
+        attribute estimatedEffort : PersonHour;
+        attribute dueWithin : Hour;
+    }
+
+    item def CrewAssignment {
+        attribute crewId : String;
+        attribute assignedOrderId : WorkOrderIdentifier;
+        attribute dispatchTime : TimeInstant;
+    }
+
+    item def AssetHealthReport {
+        attribute assetId : AssetIdentifier;
+        attribute condition : ConditionLevel;
+        attribute measuredAvailability : AvailabilityRatio;
+        attribute faultCount : Integer;
+        attribute recommendedAction : MaintenanceActionType;
+    }
+
+    item def SparePart {
+        attribute partNumber : String;
+        attribute description : String;
+        attribute quantity : Integer;
+        attribute reorderThreshold : Integer;
+    }
+
+    item def EnergyFlow {
+        attribute power : Kilowatt;
+        attribute voltage : Volt;
+        attribute frequency : Hertz;
+    }
+
+    item def WaterFlow {
+        attribute flowRate : CubicMeterPerHour;
+        attribute pressure : Kilopascal;
+        attribute qualityIndex : WaterQualityIndex;
+    }
+
+    item def WasteCollectionLoad {
+        attribute mass : Kilogram;
+        attribute fillLevel : FillRatio;
+    }
+
+    item def CommunicationMessage {
+        attribute messageId : String;
+        attribute severity : PriorityLevel;
+        attribute payload : String;
+    }
+
+    enum def PriorityLevel {
+        enum low;
+        enum normal;
+        enum high;
+        enum emergency;
+    }
+
+    enum def WorkOrderStatus {
+        enum created;
+        enum triaged;
+        enum scheduled;
+        enum dispatched;
+        enum inProgress;
+        enum verified;
+        enum closed;
+        enum deferred;
+    }
+
+    enum def ConditionLevel {
+        enum good;
+        enum degraded;
+        enum failed;
+        enum unsafe;
+    }
+
+    enum def MaintenanceActionType {
+        enum inspect;
+        enum repair;
+        enum replace;
+        enum clean;
+        enum calibrate;
+        enum escalate;
+    }
+
+    enum def OperatingMode {
+        enum normalOperation;
+        enum preventiveMaintenance;
+        enum correctiveMaintenance;
+        enum emergencyResponse;
+        enum resourceRecovery;
+    }
+
+    enum def ServiceDomain {
+        enum water;
+        enum power;
+        enum roads;
+        enum drainage;
+        enum lighting;
+        enum solidWaste;
+        enum publicFacilities;
+        enum communications;
+    }
+
+    value type Hour = Real {
+        unit = h;
+    }
+
+    value type Kilowatt = Real {
+        unit = kW;
+    }
+
+    value type Volt = Real {
+        unit = V;
+    }
+
+    value type Hertz = Real {
+        unit = Hz;
+    }
+
+    value type Kilopascal = Real {
+        unit = kPa;
+    }
+
+    value type CubicMeterPerHour = Real {
+        unit = m^3 / h;
+    }
+
+    value type Kilogram = Real {
+        unit = kg;
+    }
+
+    value type PersonHour = Real {
+        unit = h;
+    }
+
+    value type TimeInstant = String;
+
+    value type AvailabilityRatio = Real {
+        unit = one;
+    }
+
+    value type FillRatio = Real {
+        unit = one;
+    }
+
+    value type WaterQualityIndex = Real {
+        unit = one;
+    }
+
+    value type CurrencyAmount = Real {
+        unit = one;
+    }
+
+    port def ServiceRequestPort {
+        in request : MaintenanceRequest;
+        out acknowledgement : CommunicationMessage;
+    }
+
+    port def WorkOrderPort {
+        out workOrder : WorkOrder;
+        in completionReport : AssetHealthReport;
+    }
+
+    port def CrewDispatchPort {
+        out assignment : CrewAssignment;
+        in statusMessage : CommunicationMessage;
+    }
+
+    port def AssetTelemetryPort {
+        in healthReport : AssetHealthReport;
+        out commandMessage : CommunicationMessage;
+    }
+
+    port def InventoryPort {
+        out partRequest : SparePart;
+        in partAvailability : SparePart;
+    }
+
+    port def EnergyPort {
+        inout energy : EnergyFlow;
+    }
+
+    port def WaterPort {
+        inout water : WaterFlow;
+    }
+
+    port def WastePort {
+        inout wasteLoad : WasteCollectionLoad;
+    }
+
+    port def CommunicationPort {
+        inout message : CommunicationMessage;
+    }
+
+    part def VillageOMSystem {
+        attribute villageId : VillageIdentifier;
+        attribute populationServed : Integer;
+        attribute annualBudget : CurrencyAmount;
+        attribute targetAssetAvailability : AvailabilityRatio = 0.98;
+        attribute emergencyResponseTarget : Hour = 2.0;
+
+        port citizenRequests : ServiceRequestPort;
+        port municipalInterface : CommunicationPort;
+
+        part controlCenter : OperationsControlCenter;
+        part assetRegistry : VillageAssetRegistry;
+        part workManagement : WorkManagementSubsystem;
+        part crewManagement : CrewManagementSubsystem;
+        part inventory : SparePartsInventory;
+        part performanceMonitor : PerformanceMonitoringSubsystem;
+
+        part waterNetwork : WaterSupplyAndDrainageAssets;
+        part powerAndLighting : PowerAndStreetLightingAssets;
+        part transportAssets : RoadAndPathwayAssets;
+        part wasteService : SolidWasteAssets;
+        part publicFacilities : PublicFacilityAssets;
+        part communicationNetwork : VillageCommunicationAssets;
+
+        connect citizenRequests to controlCenter.publicRequestInput;
+        connect municipalInterface to controlCenter.municipalCoordination;
+
+        connect controlCenter.workOrderOutput to workManagement.intake;
+        connect workManagement.dispatchOutput to crewManagement.assignmentInput;
+        connect crewManagement.fieldReportOutput to workManagement.completionInput;
+
+        connect assetRegistry.telemetryInput to waterNetwork.telemetry;
+        connect assetRegistry.telemetryInput to powerAndLighting.telemetry;
+        connect assetRegistry.telemetryInput to transportAssets.telemetry;
+        connect assetRegistry.telemetryInput to wasteService.telemetry;
+        connect assetRegistry.telemetryInput to publicFacilities.telemetry;
+        connect assetRegistry.telemetryInput to communicationNetwork.telemetry;
+
+        connect workManagement.assetCommandOutput to waterNetwork.command;
+        connect workManagement.assetCommandOutput to powerAndLighting.command;
+        connect workManagement.assetCommandOutput to transportAssets.command;
+        connect workManagement.assetCommandOutput to wasteService.command;
+        connect workManagement.assetCommandOutput to publicFacilities.command;
+        connect workManagement.assetCommandOutput to communicationNetwork.command;
+
+        connect crewManagement.partsDemand to inventory.partsInterface;
+        connect performanceMonitor.assetStatusInput to assetRegistry.statusOutput;
+        connect performanceMonitor.workOrderStatusInput to workManagement.statusOutput;
+
+        perform maintainVillageServices;
+        exhibit state omLifecycle;
+    }
+
+    part def OperationsControlCenter {
+        port publicRequestInput : ServiceRequestPort;
+        port municipalCoordination : CommunicationPort;
+        port workOrderOutput : WorkOrderPort;
+
+        attribute activeMode : OperatingMode;
+        attribute staffedOperators : Integer;
+        attribute openEmergencyCount : Integer;
+
+        action triageIncomingRequest {
+            in request : MaintenanceRequest;
+            out order : WorkOrder;
+            first start;
+            then classifyPriority;
+            then identifyAffectedServiceDomain;
+            then createWorkOrder;
+            then issueAcknowledgement;
+            then done;
+        }
+
+        action coordinateEmergency {
+            in emergencyRequest : MaintenanceRequest;
+            out emergencyOrder : WorkOrder;
+            first start;
+            then activateEmergencyMode;
+            then notifyMunicipality;
+            then createEmergencyWorkOrder;
+            then done;
+        }
+    }
+
+    part def VillageAssetRegistry {
+        port telemetryInput : AssetTelemetryPort;
+        port statusOutput : AssetTelemetryPort;
+
+        attribute registeredAssets : Integer;
+        attribute criticalAssets : Integer;
+        attribute degradedAssets : Integer;
+
+        action updateAssetCondition {
+            in report : AssetHealthReport;
+            out storedReport : AssetHealthReport;
+            first receiveReport;
+            then validateAssetIdentifier;
+            then updateConditionHistory;
+            then publishCurrentStatus;
+            then done;
+        }
+    }
+
+    part def WorkManagementSubsystem {
+        port intake : WorkOrderPort;
+        port completionInput : CrewDispatchPort;
+        port dispatchOutput : CrewDispatchPort;
+        port assetCommandOutput : AssetTelemetryPort;
+        port statusOutput : WorkOrderPort;
+
+        attribute backlogCount : Integer;
+        attribute scheduledToday : Integer;
+        attribute emergencyOrdersOpen : Integer;
+
+        action planPreventiveMaintenance {
+            out preventiveOrder : WorkOrder;
+            first reviewAssetHealth;
+            then selectDueMaintenanceTasks;
+            then reserveCrewCapacity;
+            then scheduleWorkOrder;
+            then done;
+        }
+
+        action manageCorrectiveMaintenance {
+            in request : MaintenanceRequest;
+            out correctiveOrder : WorkOrder;
+            first assessFault;
+            then determinePriority;
+            then checkPartsAndCrewAvailability;
+            then dispatchOrDefer;
+            then done;
+        }
+    }
+
+    part def CrewManagementSubsystem {
+        port assignmentInput : CrewDispatchPort;
+        port fieldReportOutput : CrewDispatchPort;
+        port partsDemand : InventoryPort;
+
+        attribute availableCrewCount : Integer;
+        attribute crewsOnDuty : Integer;
+        attribute safetyIncidentsThisMonth : Integer;
+
+        part waterCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::water;
+            attribute crewCapacity : PersonHour = 48.0;
+        }
+
+        part electricalCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::lighting;
+            attribute crewCapacity : PersonHour = 32.0;
+        }
+
+        part civilCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::roads;
+            attribute crewCapacity : PersonHour = 40.0;
+        }
+
+        part wasteCrew : MaintenanceCrew {
+            attribute domain : ServiceDomain = ServiceDomain::solidWaste;
+            attribute crewCapacity : PersonHour = 24.0;
+        }
+
+        action dispatchCrew {
+            in order : WorkOrder;
+            out assignment : CrewAssignment;
+            first receiveScheduledOrder;
+            then selectQualifiedCrew;
+            then confirmToolsAndParts;
+            then sendAssignment;
+            then done;
+        }
+    }
+
+    part def MaintenanceCrew {
+        attribute crewId : String;
+        attribute domain : ServiceDomain;
+        attribute crewCapacity : PersonHour;
+        attribute currentUtilization : AvailabilityRatio;
+
+        port assignmentPort : CrewDispatchPort;
+        port partsPort : InventoryPort;
+
+        action executeFieldMaintenance {
+            in assignment : CrewAssignment;
+            out healthReport : AssetHealthReport;
+            first travelToAsset;
+            then isolateOrSecureAsset;
+            then performMaintenanceTask;
+            then testRestoredService;
+            then reportCompletion;
+            then done;
+        }
+    }
+
+    part def SparePartsInventory {
+        port partsInterface : InventoryPort;
+
+        attribute stockedPartTypes : Integer;
+        attribute lowStockItems : Integer;
+        attribute emergencyReserveValue : CurrencyAmount;
+
+        part pipeRepairKits : InventoryBin {
+            attribute storedPart.partNumber = "WTR-PIPE-REPAIR-050";
+            attribute storedPart.description = "Village water pipe repair kit, 50 mm";
+            attribute storedPart.quantity = 18;
+            attribute storedPart.reorderThreshold = 6;
+        }
+
+        part ledLampHeads : InventoryBin {
+            attribute storedPart.partNumber = "ELC-LED-LAMP-040";
+            attribute storedPart.description = "40 W LED street lamp head";
+            attribute storedPart.quantity = 42;
+            attribute storedPart.reorderThreshold = 12;
+        }
+
+        part drainageGrates : InventoryBin {
+            attribute storedPart.partNumber = "CIV-DRAIN-GRATE-600";
+            attribute storedPart.description = "600 mm drainage grate";
+            attribute storedPart.quantity = 10;
+            attribute storedPart.reorderThreshold = 4;
+        }
+
+        action issueParts {
+            in requestedPart : SparePart;
+            out availablePart : SparePart;
+            first verifyStock;
+            then reserveQuantity;
+            then releaseToCrew;
+            then updateInventoryLevel;
+            then done;
+        }
+    }
+
+    part def InventoryBin {
+        attribute storedPart : SparePart;
+        attribute binLocation : String;
+    }
+
+    part def PerformanceMonitoringSubsystem {
+        port assetStatusInput : AssetTelemetryPort;
+        port workOrderStatusInput : WorkOrderPort;
+
+        attribute monthlyAvailability : AvailabilityRatio;
+        attribute meanRepairTime : Hour;
+        attribute preventiveCompliance : AvailabilityRatio;
+        attribute citizenSatisfactionIndex : Real;
+
+        action calculatePerformance {
+            first collectAssetStatus;
+            then calculateAvailability;
+            then calculateMeanRepairTime;
+            then compareAgainstTargets;
+            then publishMonthlyDashboard;
+            then done;
+        }
+    }
+
+    part def WaterSupplyAndDrainageAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port waterInterface : WaterPort;
+
+        part borewellPump : PumpStation {
+            attribute assetId = "WTR-PUMP-001";
+            attribute ratedFlow = 45.0;
+            attribute ratedPower = 18.0;
+        }
+
+        part overheadTank : WaterStorageTank {
+            attribute assetId = "WTR-TANK-001";
+            attribute storageCapacity = 250.0;
+            attribute currentLevel = 0.72;
+        }
+
+        part drainageCanal : DrainageSegment {
+            attribute assetId = "DRN-CANAL-004";
+            attribute flowCapacity = 180.0;
+            attribute blockageLevel = 0.12;
+        }
+    }
+
+    part def PowerAndStreetLightingAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port energyInterface : EnergyPort;
+
+        part distributionTransformer : ElectricalTransformer {
+            attribute assetId = "PWR-XFMR-001";
+            attribute ratedPower = 250.0;
+            attribute condition = ConditionLevel::good;
+        }
+
+        part mainRoadLightingCircuit : StreetLightingCircuit {
+            attribute assetId = "LGT-CIR-001";
+            attribute lampCount = 86;
+            attribute failedLampCount = 3;
+        }
+    }
+
+    part def RoadAndPathwayAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+
+        part primaryRoad : RoadSegment {
+            attribute assetId = "RD-PRIMARY-001";
+            attribute length = 3.8;
+            attribute potholeCount = 9;
+            attribute condition = ConditionLevel::degraded;
+        }
+
+        part villageSquarePathway : RoadSegment {
+            attribute assetId = "RD-PATH-002";
+            attribute length = 0.6;
+            attribute potholeCount = 1;
+            attribute condition = ConditionLevel::good;
+        }
+    }
+
+    part def SolidWasteAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port wasteInterface : WastePort;
+
+        part marketWastePoint : WasteCollectionPoint {
+            attribute assetId = "WST-POINT-001";
+            attribute containerCapacity = 1200.0;
+            attribute fillLevel = 0.81;
+        }
+
+        part residentialWastePoint : WasteCollectionPoint {
+            attribute assetId = "WST-POINT-002";
+            attribute containerCapacity = 900.0;
+            attribute fillLevel = 0.44;
+        }
+    }
+
+    part def PublicFacilityAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+
+        part healthPost : PublicBuilding {
+            attribute assetId = "FAC-HEALTH-001";
+            attribute criticality = PriorityLevel::high;
+            attribute condition = ConditionLevel::good;
+        }
+
+        part communityHall : PublicBuilding {
+            attribute assetId = "FAC-HALL-001";
+            attribute criticality = PriorityLevel::normal;
+            attribute condition = ConditionLevel::degraded;
+        }
+    }
+
+    part def VillageCommunicationAssets {
+        port telemetry : AssetTelemetryPort;
+        port command : AssetTelemetryPort;
+        port communicationInterface : CommunicationPort;
+
+        part radioRepeater : CommunicationNode {
+            attribute assetId = "COM-RADIO-001";
+            attribute condition = ConditionLevel::good;
+            attribute availability = 0.995;
+        }
+
+        part noticeBoardController : CommunicationNode {
+            attribute assetId = "COM-NOTICE-001";
+            attribute condition = ConditionLevel::good;
+            attribute availability = 0.990;
+        }
+    }
+
+    part def PumpStation {
+        attribute assetId : AssetIdentifier;
+        attribute ratedFlow : CubicMeterPerHour;
+        attribute ratedPower : Kilowatt;
+        attribute condition : ConditionLevel;
+        port waterPort : WaterPort;
+        port energyPort : EnergyPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def WaterStorageTank {
+        attribute assetId : AssetIdentifier;
+        attribute storageCapacity : Real;
+        attribute currentLevel : FillRatio;
+        attribute condition : ConditionLevel;
+        port waterPort : WaterPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def DrainageSegment {
+        attribute assetId : AssetIdentifier;
+        attribute flowCapacity : CubicMeterPerHour;
+        attribute blockageLevel : FillRatio;
+        attribute condition : ConditionLevel;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def ElectricalTransformer {
+        attribute assetId : AssetIdentifier;
+        attribute ratedPower : Kilowatt;
+        attribute condition : ConditionLevel;
+        port energyPort : EnergyPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def StreetLightingCircuit {
+        attribute assetId : AssetIdentifier;
+        attribute lampCount : Integer;
+        attribute failedLampCount : Integer;
+        attribute condition : ConditionLevel;
+        port energyPort : EnergyPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def RoadSegment {
+        attribute assetId : AssetIdentifier;
+        attribute length : Real;
+        attribute potholeCount : Integer;
+        attribute condition : ConditionLevel;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def WasteCollectionPoint {
+        attribute assetId : AssetIdentifier;
+        attribute containerCapacity : Kilogram;
+        attribute fillLevel : FillRatio;
+        attribute condition : ConditionLevel;
+        port wastePort : WastePort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def PublicBuilding {
+        attribute assetId : AssetIdentifier;
+        attribute criticality : PriorityLevel;
+        attribute condition : ConditionLevel;
+        port energyPort : EnergyPort;
+        port waterPort : WaterPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    part def CommunicationNode {
+        attribute assetId : AssetIdentifier;
+        attribute condition : ConditionLevel;
+        attribute availability : AvailabilityRatio;
+        port communicationPort : CommunicationPort;
+        port telemetry : AssetTelemetryPort;
+    }
+
+    action def MaintainVillageServices {
+        in incomingRequest : MaintenanceRequest;
+        out restoredServiceReport : AssetHealthReport;
+
+        first receiveVillageMaintenanceNeed;
+        then classifyNeed;
+        then inspectRelevantAsset;
+        then createAndScheduleWorkOrder;
+        then dispatchCrewAndParts;
+        then executeMaintenance;
+        then verifyServiceRestoration;
+        then updateVillageRecords;
+        then closeWorkOrder;
+        then done;
+    }
+
+    action maintainVillageServices : MaintainVillageServices;
+
+    state def OMLifecycle {
+        entry action initializeDailyOperations;
+        state Monitoring {
+            entry action collectTelemetry;
+            do action receiveRequests;
+            transition first to PreventivePlanning
+                if monthlyPreventiveWindowOpen;
+            transition first to CorrectiveResponse
+                if faultDetected;
+            transition first to EmergencyResponse
+                if emergencyRequestReceived;
+        }
+
+        state PreventivePlanning {
+            entry action analyzeDueTasks;
+            do action schedulePreventiveOrders;
+            transition first to FieldExecution
+                if ordersScheduled;
+        }
+
+        state CorrectiveResponse {
+            entry action triageCorrectiveRequest;
+            do action allocateCrewAndParts;
+            transition first to FieldExecution
+                if workOrderDispatched;
+            transition first to Monitoring
+                if requestDeferred;
+        }
+
+        state EmergencyResponse {
+            entry action activateEmergencyCoordination;
+            do action dispatchImmediateCrew;
+            transition first to FieldExecution
+                if emergencyCrewArrived;
+        }
+
+        state FieldExecution {
+            entry action secureWorkSite;
+            do action performAssetMaintenance;
+            transition first to Verification
+                if maintenanceCompleted;
+        }
+
+        state Verification {
+            entry action testServicePerformance;
+            do action recordAssetHealth;
+            transition first to Monitoring
+                if serviceRestored;
+            transition first to CorrectiveResponse
+                if serviceNotRestored;
+        }
+    }
+
+    state omLifecycle : OMLifecycle;
+
+    requirement def HighLevelVillageOMFunction {
+        doc /* The system shall provide coordinated village-level operation and maintenance by monitoring essential public assets, accepting citizen and municipal maintenance needs, converting needs into prioritized work orders, dispatching qualified crews with required spare parts, verifying restoration of services, and maintaining performance records for water, power, roads, drainage, lighting, waste, public facilities, and communications. */
+    }
+
+    requirement def AssetAvailabilityRequirement {
+        attribute minimumMonthlyAvailability : AvailabilityRatio = 0.98;
+        subject villageOM : VillageOMSystem;
+        require constraint {
+            villageOM.performanceMonitor.monthlyAvailability >= minimumMonthlyAvailability
+        }
+    }
+
+    requirement def EmergencyResponseRequirement {
+        attribute maximumEmergencyDispatchTime : Hour = 2.0;
+        subject villageOM : VillageOMSystem;
+        require constraint {
+            villageOM.emergencyResponseTarget <= maximumEmergencyDispatchTime
+        }
+    }
+
+    requirement def PreventiveMaintenanceRequirement {
+        attribute minimumPreventiveCompliance : AvailabilityRatio = 0.90;
+        subject villageOM : VillageOMSystem;
+        require constraint {
+            villageOM.performanceMonitor.preventiveCompliance >= minimumPreventiveCompliance
+        }
+    }
+
+    requirement def InventoryReadinessRequirement {
+        attribute maximumLowStockItems : Integer = 5;
+        subject inventory : SparePartsInventory;
+        require constraint {
+            inventory.lowStockItems <= maximumLowStockItems
+        }
+    }
+
+    requirement def WorkOrderTraceabilityRequirement {
+        doc /* Every accepted village maintenance request shall be acknowledged, assigned a work order identifier, linked to an asset identifier, tracked through dispatch and field completion, and closed only after verification of service restoration or approved deferral. */
+    }
+
+    requirement def SafetyRequirement {
+        attribute maximumMonthlySafetyIncidents : Integer = 0;
+        subject crews : CrewManagementSubsystem;
+        require constraint {
+            crews.safetyIncidentsThisMonth <= maximumMonthlySafetyIncidents
+        }
+    }
+
+    satisfy HighLevelVillageOMFunction by VillageOMSystem;
+    satisfy AssetAvailabilityRequirement by PerformanceMonitoringSubsystem;
+    satisfy EmergencyResponseRequirement by OperationsControlCenter;
+    satisfy PreventiveMaintenanceRequirement by WorkManagementSubsystem;
+    satisfy InventoryReadinessRequirement by SparePartsInventory;
+    satisfy WorkOrderTraceabilityRequirement by WorkManagementSubsystem;
+    satisfy SafetyRequirement by CrewManagementSubsystem;
+
+    part villageOMInstance : VillageOMSystem {
+        attribute villageId = "VILLAGE-OM-001";
+        attribute populationServed = 5200;
+        attribute annualBudget = 185000.0;
+        attribute targetAssetAvailability = 0.98;
+        attribute emergencyResponseTarget = 2.0;
+
+        part controlCenter {
+            attribute activeMode = OperatingMode::normalOperation;
+            attribute staffedOperators = 3;
+            attribute openEmergencyCount = 0;
+        }
+
+        part assetRegistry {
+            attribute registeredAssets = 214;
+            attribute criticalAssets = 37;
+            attribute degradedAssets = 16;
+        }
+
+        part workManagement {
+            attribute backlogCount = 22;
+            attribute scheduledToday = 8;
+            attribute emergencyOrdersOpen = 0;
+        }
+
+        part crewManagement {
+            attribute availableCrewCount = 4;
+            attribute crewsOnDuty = 4;
+            attribute safetyIncidentsThisMonth = 0;
+        }
+
+        part inventory {
+            attribute stockedPartTypes = 96;
+            attribute lowStockItems = 3;
+            attribute emergencyReserveValue = 28000.0;
+        }
+
+        part performanceMonitor {
+            attribute monthlyAvailability = 0.985;
+            attribute meanRepairTime = 5.6;
+            attribute preventiveCompliance = 0.93;
+            attribute citizenSatisfactionIndex = 4.2;
+        }
+    }
+}

@@ -1,0 +1,841 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-lmkeyz1j
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2d3-5301-7142-a5b4-f559d15f7c9e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Anal plug and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PersonalComfortPlugSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> Real {
+        unit = "mm";
+    }
+
+    attribute def DiameterValue :> Real {
+        unit = "mm";
+    }
+
+    attribute def MassValue :> Real {
+        unit = "g";
+    }
+
+    attribute def ForceValue :> Real {
+        unit = "N";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def HardnessValue :> Real {
+        unit = "ShoreA";
+    }
+
+    attribute def ProtectionRating :> String;
+
+    enum def DeviceMode {
+        enum off;
+        enum standby;
+        enum comfortCheck;
+        enum active;
+        enum alert;
+        enum cleaning;
+    }
+
+    enum def MaterialGrade {
+        enum medicalGradeSilicone;
+        enum stainlessSteel;
+        enum absPlastic;
+    }
+
+    enum def CleaningStatus {
+        enum clean;
+        enum needsCleaning;
+        enum disinfecting;
+        enum drying;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+    }
+
+    item def HapticCommand {
+        attribute intensityLevel : Integer;
+        attribute patternId : Integer;
+        attribute duration : TimeValue;
+    }
+
+    item def PressureReading {
+        attribute radialForce : ForceValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def TemperatureReading {
+        attribute surfaceTemperature : TemperatureValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def StatusMessage {
+        attribute mode : DeviceMode;
+        attribute batteryPercent : Integer;
+        attribute cleaningStatus : CleaningStatus;
+        attribute alertCode : String;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : HapticCommand;
+    }
+
+    port def SensorOutPort {
+        out item pressure : PressureReading;
+        out item temperature : TemperatureReading;
+    }
+
+    port def StatusPort {
+        out item status : StatusMessage;
+    }
+
+    port def MechanicalInterfacePort {
+        attribute insertionDepthLimit : LengthValue;
+        attribute maximumRadialForce : ForceValue;
+    }
+
+    part def PersonalComfortPlug {
+        attribute totalLength : LengthValue = 95.0;
+        attribute maximumDiameter : DiameterValue = 38.0;
+        attribute neckDiameter : DiameterValue = 22.0;
+        attribute baseWidth : LengthValue = 64.0;
+        attribute mass : MassValue = 118.0;
+        attribute surfaceHardness : HardnessValue = 35.0;
+        attribute waterResistance : ProtectionRating = "IPX7";
+        attribute currentMode : DeviceMode = DeviceMode::off;
+        attribute cleaningStatus : CleaningStatus = CleaningStatus::clean;
+
+        port powerPort : PowerInPort;
+        port commandPort : CommandPort;
+        port sensorPort : SensorOutPort;
+        port statusPort : StatusPort;
+        port bodyInterface : MechanicalInterfacePort {
+            attribute insertionDepthLimit = 75.0;
+            attribute maximumRadialForce = 12.0;
+        }
+
+        part body : TaperedBody;
+        part retentionBase : ExternalRetentionBase;
+        part sensorModule : ComfortSensorModule;
+        part controller : EmbeddedController;
+        part hapticModule : HapticModule;
+        part battery : RechargeableBattery;
+        part enclosureSeal : WaterproofSeal;
+
+        connect powerPort to battery.chargingPort;
+        connect commandPort to controller.commandInput;
+        connect controller.hapticOutput to hapticModule.commandInput;
+        connect sensorModule.sensorOutput to controller.sensorInput;
+        connect controller.statusOutput to statusPort;
+        connect body.mechanicalSurface to bodyInterface;
+        connect retentionBase.bodyJoint to body.baseJoint;
+        connect enclosureSeal.sealedRegion to body.internalCavity;
+
+        perform action initializeDevice;
+        perform action monitorComfortLimits;
+        perform action provideOptionalHapticFeedback;
+        perform action reportDeviceStatus;
+    }
+
+    part def TaperedBody {
+        attribute material : MaterialGrade = MaterialGrade::medicalGradeSilicone;
+        attribute length : LengthValue = 80.0;
+        attribute tipDiameter : DiameterValue = 14.0;
+        attribute maximumDiameter : DiameterValue = 38.0;
+        attribute neckDiameter : DiameterValue = 22.0;
+        attribute minimumBendRadius : LengthValue = 25.0;
+        attribute surfaceRoughnessRa : Real = 0.8;
+
+        port mechanicalSurface : MechanicalInterfacePort;
+        port baseJoint : MechanicalInterfacePort;
+        part internalCavity : InternalElectronicsCavity;
+    }
+
+    part def ExternalRetentionBase {
+        attribute material : MaterialGrade = MaterialGrade::medicalGradeSilicone;
+        attribute width : LengthValue = 64.0;
+        attribute thickness : LengthValue = 12.0;
+        attribute edgeRadius : LengthValue = 5.0;
+
+        port bodyJoint : MechanicalInterfacePort;
+    }
+
+    part def InternalElectronicsCavity {
+        attribute cavityLength : LengthValue = 42.0;
+        attribute cavityDiameter : DiameterValue = 14.0;
+    }
+
+    part def WaterproofSeal {
+        attribute rating : ProtectionRating = "IPX7";
+        attribute gasketMaterial : MaterialGrade = MaterialGrade::medicalGradeSilicone;
+        attribute sealCompression : LengthValue = 0.8;
+
+        port sealedRegion : MechanicalInterfacePort;
+    }
+
+    part def RechargeableBattery {
+        attribute capacity_mAh : Real = 320.0;
+        attribute nominalVoltage : Real = 3.7;
+        attribute lowBatteryThresholdPercent : Integer = 15;
+
+        port chargingPort : PowerInPort;
+        port powerOutput : PowerInPort;
+    }
+
+    part def EmbeddedController {
+        attribute firmwareVersion : String = "1.0.0";
+        attribute samplingPeriod : TimeValue = 0.1;
+        attribute maximumAllowedTemperature : TemperatureValue = 41.0;
+        attribute maximumAllowedRadialForce : ForceValue = 12.0;
+
+        port commandInput : CommandPort;
+        port sensorInput : SensorOutPort;
+        port hapticOutput : CommandPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def ComfortSensorModule {
+        attribute pressureRange : ForceValue = 20.0;
+        attribute temperatureRangeMin : TemperatureValue = 0.0;
+        attribute temperatureRangeMax : TemperatureValue = 50.0;
+        attribute accuracyForce : ForceValue = 0.5;
+        attribute accuracyTemperature : TemperatureValue = 0.3;
+
+        port sensorOutput : SensorOutPort;
+    }
+
+    part def HapticModule {
+        attribute motorCount : Integer = 1;
+        attribute maximumIntensityLevel : Integer = 5;
+        attribute nominalFrequencyHz : Real = 120.0;
+
+        port commandInput : CommandPort;
+    }
+
+    action def initializeDevice {
+        in item suppliedPower : ElectricalPower;
+        out item initialStatus : StatusMessage;
+
+        first start;
+        then verifyBattery;
+        then verifySensors;
+        then setStandbyMode;
+        then done;
+
+        action verifyBattery;
+        action verifySensors;
+        action setStandbyMode;
+    }
+
+    action def monitorComfortLimits {
+        in item pressure : PressureReading;
+        in item temperature : TemperatureReading;
+        out item status : StatusMessage;
+
+        first readSensors;
+        then evaluatePressure;
+        then evaluateTemperature;
+        then publishStatus;
+        then done;
+
+        action readSensors;
+        action evaluatePressure;
+        action evaluateTemperature;
+        action publishStatus;
+    }
+
+    action def provideOptionalHapticFeedback {
+        in item command : HapticCommand;
+        out item status : StatusMessage;
+
+        first receiveCommand;
+        then validateIntensity;
+        then activateMotor;
+        then stopAtDuration;
+        then publishStatus;
+        then done;
+
+        action receiveCommand;
+        action validateIntensity;
+        action activateMotor;
+        action stopAtDuration;
+        action publishStatus;
+    }
+
+    action def reportDeviceStatus {
+        in item mode : DeviceMode;
+        in item cleaningStatus : CleaningStatus;
+        out item status : StatusMessage;
+
+        first collectState;
+        then formatMessage;
+        then transmitStatus;
+        then done;
+
+        action collectState;
+        action formatMessage;
+        action transmitStatus;
+    }
+
+    state def PlugOperatingStateMachine {
+        entry action initializeDevice;
+
+        state Off;
+        state Standby;
+        state ComfortCheck;
+        state Active;
+        state Alert;
+        state Cleaning;
+
+        transition first Off;
+        transition Off_to_Standby
+            first Off
+            accept after 1.0 [battery.capacity_mAh > 0.0]
+            then Standby;
+
+        transition Standby_to_ComfortCheck
+            first Standby
+            accept HapticCommand
+            then ComfortCheck;
+
+        transition ComfortCheck_to_Active
+            first ComfortCheck
+            if pressure.radialForce <= 12.0 and temperature.surfaceTemperature <= 41.0
+            then Active;
+
+        transition ComfortCheck_to_Alert
+            first ComfortCheck
+            if pressure.radialForce > 12.0 or temperature.surfaceTemperature > 41.0
+            then Alert;
+
+        transition Active_to_Standby
+            first Active
+            accept after command.duration
+            then Standby;
+
+        transition Active_to_Alert
+            first Active
+            if pressure.radialForce > 12.0 or temperature.surfaceTemperature > 41.0
+            then Alert;
+
+        transition Alert_to_Standby
+            first Alert
+            accept HapticCommand
+            then Standby;
+
+        transition Standby_to_Cleaning
+            first Standby
+            if cleaningStatus == CleaningStatus::needsCleaning
+            then Cleaning;
+
+        transition Cleaning_to_Standby
+            first Cleaning
+            if cleaningStatus == CleaningStatus::clean
+            then Standby;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide a smooth, body-safe personal comfort plug whose primary high-level function is passive retention with optional controlled haptic feedback while maintaining defined limits for geometry, surface temperature, radial force, and cleanability. */
+    }
+
+    requirement def RetentionBaseRequirement {
+        doc /* The system shall include an external retention base wider than the maximum body diameter to prevent complete insertion during intended use. */
+        require constraint {
+            retentionBase.width > body.maximumDiameter;
+        }
+    }
+
+    requirement def MaterialSafetyRequirement {
+        doc /* All externally exposed surfaces shall be made from nonporous, cleanable, body-contact-compatible material. */
+        require constraint {
+            body.material == MaterialGrade::medicalGradeSilicone and
+            retentionBase.material == MaterialGrade::medicalGradeSilicone;
+        }
+    }
+
+    requirement def GeometryRequirement {
+        doc /* The insertable body shall be tapered, smooth, and limited in insertable length and maximum diameter for the specified product size. */
+        require constraint {
+            body.length <= 80.0 and
+            body.maximumDiameter <= 38.0 and
+            body.tipDiameter < body.neckDiameter;
+        }
+    }
+
+    requirement def ComfortLimitRequirement {
+        doc /* The controller shall place the device in alert mode when measured radial force or surface temperature exceeds configured comfort limits. */
+        require constraint {
+            controller.maximumAllowedRadialForce <= 12.0 and
+            controller.maximumAllowedTemperature <= 41.0;
+        }
+    }
+
+    requirement def WaterResistanceRequirement {
+        doc /* The sealed assembly shall resist temporary immersion sufficient for washing and rinsing under the specified rating. */
+        require constraint {
+            waterResistance == "IPX7" and enclosureSeal.rating == "IPX7";
+        }
+    }
+
+    requirement def StatusReportingRequirement {
+        doc /* The system shall report operating mode, battery state, cleaning status, and alert condition through the status port. */
+    }
+
+    requirement def HapticControlRequirement {
+        doc /* Optional haptic output shall be command-controlled, intensity-limited, and automatically stopped at the requested duration. */
+        require constraint {
+            hapticModule.maximumIntensityLevel <= 5;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PersonalComfortPlug;
+    satisfy RetentionBaseRequirement by PersonalComfortPlug::retentionBase;
+    satisfy MaterialSafetyRequirement by PersonalComfortPlug::body;
+    satisfy GeometryRequirement by PersonalComfortPlug::body;
+    satisfy ComfortLimitRequirement by PersonalComfortPlug::controller;
+    satisfy WaterResistanceRequirement by PersonalComfortPlug::enclosureSeal;
+    satisfy StatusReportingRequirement by PersonalComfortPlug::controller;
+    satisfy HapticControlRequirement by PersonalComfortPlug::hapticModule;
+}
+tokens used
+3,295
+package PersonalComfortPlugSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> Real {
+        unit = "mm";
+    }
+
+    attribute def DiameterValue :> Real {
+        unit = "mm";
+    }
+
+    attribute def MassValue :> Real {
+        unit = "g";
+    }
+
+    attribute def ForceValue :> Real {
+        unit = "N";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def HardnessValue :> Real {
+        unit = "ShoreA";
+    }
+
+    attribute def ProtectionRating :> String;
+
+    enum def DeviceMode {
+        enum off;
+        enum standby;
+        enum comfortCheck;
+        enum active;
+        enum alert;
+        enum cleaning;
+    }
+
+    enum def MaterialGrade {
+        enum medicalGradeSilicone;
+        enum stainlessSteel;
+        enum absPlastic;
+    }
+
+    enum def CleaningStatus {
+        enum clean;
+        enum needsCleaning;
+        enum disinfecting;
+        enum drying;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+    }
+
+    item def HapticCommand {
+        attribute intensityLevel : Integer;
+        attribute patternId : Integer;
+        attribute duration : TimeValue;
+    }
+
+    item def PressureReading {
+        attribute radialForce : ForceValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def TemperatureReading {
+        attribute surfaceTemperature : TemperatureValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def StatusMessage {
+        attribute mode : DeviceMode;
+        attribute batteryPercent : Integer;
+        attribute cleaningStatus : CleaningStatus;
+        attribute alertCode : String;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : HapticCommand;
+    }
+
+    port def SensorOutPort {
+        out item pressure : PressureReading;
+        out item temperature : TemperatureReading;
+    }
+
+    port def StatusPort {
+        out item status : StatusMessage;
+    }
+
+    port def MechanicalInterfacePort {
+        attribute insertionDepthLimit : LengthValue;
+        attribute maximumRadialForce : ForceValue;
+    }
+
+    part def PersonalComfortPlug {
+        attribute totalLength : LengthValue = 95.0;
+        attribute maximumDiameter : DiameterValue = 38.0;
+        attribute neckDiameter : DiameterValue = 22.0;
+        attribute baseWidth : LengthValue = 64.0;
+        attribute mass : MassValue = 118.0;
+        attribute surfaceHardness : HardnessValue = 35.0;
+        attribute waterResistance : ProtectionRating = "IPX7";
+        attribute currentMode : DeviceMode = DeviceMode::off;
+        attribute cleaningStatus : CleaningStatus = CleaningStatus::clean;
+
+        port powerPort : PowerInPort;
+        port commandPort : CommandPort;
+        port sensorPort : SensorOutPort;
+        port statusPort : StatusPort;
+        port bodyInterface : MechanicalInterfacePort {
+            attribute insertionDepthLimit = 75.0;
+            attribute maximumRadialForce = 12.0;
+        }
+
+        part body : TaperedBody;
+        part retentionBase : ExternalRetentionBase;
+        part sensorModule : ComfortSensorModule;
+        part controller : EmbeddedController;
+        part hapticModule : HapticModule;
+        part battery : RechargeableBattery;
+        part enclosureSeal : WaterproofSeal;
+
+        connect powerPort to battery.chargingPort;
+        connect commandPort to controller.commandInput;
+        connect controller.hapticOutput to hapticModule.commandInput;
+        connect sensorModule.sensorOutput to controller.sensorInput;
+        connect controller.statusOutput to statusPort;
+        connect body.mechanicalSurface to bodyInterface;
+        connect retentionBase.bodyJoint to body.baseJoint;
+        connect enclosureSeal.sealedRegion to body.internalCavity;
+
+        perform action initializeDevice;
+        perform action monitorComfortLimits;
+        perform action provideOptionalHapticFeedback;
+        perform action reportDeviceStatus;
+    }
+
+    part def TaperedBody {
+        attribute material : MaterialGrade = MaterialGrade::medicalGradeSilicone;
+        attribute length : LengthValue = 80.0;
+        attribute tipDiameter : DiameterValue = 14.0;
+        attribute maximumDiameter : DiameterValue = 38.0;
+        attribute neckDiameter : DiameterValue = 22.0;
+        attribute minimumBendRadius : LengthValue = 25.0;
+        attribute surfaceRoughnessRa : Real = 0.8;
+
+        port mechanicalSurface : MechanicalInterfacePort;
+        port baseJoint : MechanicalInterfacePort;
+        part internalCavity : InternalElectronicsCavity;
+    }
+
+    part def ExternalRetentionBase {
+        attribute material : MaterialGrade = MaterialGrade::medicalGradeSilicone;
+        attribute width : LengthValue = 64.0;
+        attribute thickness : LengthValue = 12.0;
+        attribute edgeRadius : LengthValue = 5.0;
+
+        port bodyJoint : MechanicalInterfacePort;
+    }
+
+    part def InternalElectronicsCavity {
+        attribute cavityLength : LengthValue = 42.0;
+        attribute cavityDiameter : DiameterValue = 14.0;
+    }
+
+    part def WaterproofSeal {
+        attribute rating : ProtectionRating = "IPX7";
+        attribute gasketMaterial : MaterialGrade = MaterialGrade::medicalGradeSilicone;
+        attribute sealCompression : LengthValue = 0.8;
+
+        port sealedRegion : MechanicalInterfacePort;
+    }
+
+    part def RechargeableBattery {
+        attribute capacity_mAh : Real = 320.0;
+        attribute nominalVoltage : Real = 3.7;
+        attribute lowBatteryThresholdPercent : Integer = 15;
+
+        port chargingPort : PowerInPort;
+        port powerOutput : PowerInPort;
+    }
+
+    part def EmbeddedController {
+        attribute firmwareVersion : String = "1.0.0";
+        attribute samplingPeriod : TimeValue = 0.1;
+        attribute maximumAllowedTemperature : TemperatureValue = 41.0;
+        attribute maximumAllowedRadialForce : ForceValue = 12.0;
+
+        port commandInput : CommandPort;
+        port sensorInput : SensorOutPort;
+        port hapticOutput : CommandPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def ComfortSensorModule {
+        attribute pressureRange : ForceValue = 20.0;
+        attribute temperatureRangeMin : TemperatureValue = 0.0;
+        attribute temperatureRangeMax : TemperatureValue = 50.0;
+        attribute accuracyForce : ForceValue = 0.5;
+        attribute accuracyTemperature : TemperatureValue = 0.3;
+
+        port sensorOutput : SensorOutPort;
+    }
+
+    part def HapticModule {
+        attribute motorCount : Integer = 1;
+        attribute maximumIntensityLevel : Integer = 5;
+        attribute nominalFrequencyHz : Real = 120.0;
+
+        port commandInput : CommandPort;
+    }
+
+    action def initializeDevice {
+        in item suppliedPower : ElectricalPower;
+        out item initialStatus : StatusMessage;
+
+        first start;
+        then verifyBattery;
+        then verifySensors;
+        then setStandbyMode;
+        then done;
+
+        action verifyBattery;
+        action verifySensors;
+        action setStandbyMode;
+    }
+
+    action def monitorComfortLimits {
+        in item pressure : PressureReading;
+        in item temperature : TemperatureReading;
+        out item status : StatusMessage;
+
+        first readSensors;
+        then evaluatePressure;
+        then evaluateTemperature;
+        then publishStatus;
+        then done;
+
+        action readSensors;
+        action evaluatePressure;
+        action evaluateTemperature;
+        action publishStatus;
+    }
+
+    action def provideOptionalHapticFeedback {
+        in item command : HapticCommand;
+        out item status : StatusMessage;
+
+        first receiveCommand;
+        then validateIntensity;
+        then activateMotor;
+        then stopAtDuration;
+        then publishStatus;
+        then done;
+
+        action receiveCommand;
+        action validateIntensity;
+        action activateMotor;
+        action stopAtDuration;
+        action publishStatus;
+    }
+
+    action def reportDeviceStatus {
+        in item mode : DeviceMode;
+        in item cleaningStatus : CleaningStatus;
+        out item status : StatusMessage;
+
+        first collectState;
+        then formatMessage;
+        then transmitStatus;
+        then done;
+
+        action collectState;
+        action formatMessage;
+        action transmitStatus;
+    }
+
+    state def PlugOperatingStateMachine {
+        entry action initializeDevice;
+
+        state Off;
+        state Standby;
+        state ComfortCheck;
+        state Active;
+        state Alert;
+        state Cleaning;
+
+        transition first Off;
+        transition Off_to_Standby
+            first Off
+            accept after 1.0 [battery.capacity_mAh > 0.0]
+            then Standby;
+
+        transition Standby_to_ComfortCheck
+            first Standby
+            accept HapticCommand
+            then ComfortCheck;
+
+        transition ComfortCheck_to_Active
+            first ComfortCheck
+            if pressure.radialForce <= 12.0 and temperature.surfaceTemperature <= 41.0
+            then Active;
+
+        transition ComfortCheck_to_Alert
+            first ComfortCheck
+            if pressure.radialForce > 12.0 or temperature.surfaceTemperature > 41.0
+            then Alert;
+
+        transition Active_to_Standby
+            first Active
+            accept after command.duration
+            then Standby;
+
+        transition Active_to_Alert
+            first Active
+            if pressure.radialForce > 12.0 or temperature.surfaceTemperature > 41.0
+            then Alert;
+
+        transition Alert_to_Standby
+            first Alert
+            accept HapticCommand
+            then Standby;
+
+        transition Standby_to_Cleaning
+            first Standby
+            if cleaningStatus == CleaningStatus::needsCleaning
+            then Cleaning;
+
+        transition Cleaning_to_Standby
+            first Cleaning
+            if cleaningStatus == CleaningStatus::clean
+            then Standby;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide a smooth, body-safe personal comfort plug whose primary high-level function is passive retention with optional controlled haptic feedback while maintaining defined limits for geometry, surface temperature, radial force, and cleanability. */
+    }
+
+    requirement def RetentionBaseRequirement {
+        doc /* The system shall include an external retention base wider than the maximum body diameter to prevent complete insertion during intended use. */
+        require constraint {
+            retentionBase.width > body.maximumDiameter;
+        }
+    }
+
+    requirement def MaterialSafetyRequirement {
+        doc /* All externally exposed surfaces shall be made from nonporous, cleanable, body-contact-compatible material. */
+        require constraint {
+            body.material == MaterialGrade::medicalGradeSilicone and
+            retentionBase.material == MaterialGrade::medicalGradeSilicone;
+        }
+    }
+
+    requirement def GeometryRequirement {
+        doc /* The insertable body shall be tapered, smooth, and limited in insertable length and maximum diameter for the specified product size. */
+        require constraint {
+            body.length <= 80.0 and
+            body.maximumDiameter <= 38.0 and
+            body.tipDiameter < body.neckDiameter;
+        }
+    }
+
+    requirement def ComfortLimitRequirement {
+        doc /* The controller shall place the device in alert mode when measured radial force or surface temperature exceeds configured comfort limits. */
+        require constraint {
+            controller.maximumAllowedRadialForce <= 12.0 and
+            controller.maximumAllowedTemperature <= 41.0;
+        }
+    }
+
+    requirement def WaterResistanceRequirement {
+        doc /* The sealed assembly shall resist temporary immersion sufficient for washing and rinsing under the specified rating. */
+        require constraint {
+            waterResistance == "IPX7" and enclosureSeal.rating == "IPX7";
+        }
+    }
+
+    requirement def StatusReportingRequirement {
+        doc /* The system shall report operating mode, battery state, cleaning status, and alert condition through the status port. */
+    }
+
+    requirement def HapticControlRequirement {
+        doc /* Optional haptic output shall be command-controlled, intensity-limited, and automatically stopped at the requested duration. */
+        require constraint {
+            hapticModule.maximumIntensityLevel <= 5;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PersonalComfortPlug;
+    satisfy RetentionBaseRequirement by PersonalComfortPlug::retentionBase;
+    satisfy MaterialSafetyRequirement by PersonalComfortPlug::body;
+    satisfy GeometryRequirement by PersonalComfortPlug::body;
+    satisfy ComfortLimitRequirement by PersonalComfortPlug::controller;
+    satisfy WaterResistanceRequirement by PersonalComfortPlug::enclosureSeal;
+    satisfy StatusReportingRequirement by PersonalComfortPlug::controller;
+    satisfy HapticControlRequirement by PersonalComfortPlug::hapticModule;
+}

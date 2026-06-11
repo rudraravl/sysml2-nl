@@ -1,0 +1,420 @@
+package BELTRI_System;
+
+import ScalarValues::*;
+import NumericalFunctions::*;
+
+attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+}
+
+attribute def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+}
+
+attribute def Power {
+    attribute value : Real;
+    attribute unit : String = "W";
+}
+
+attribute def Energy {
+    attribute value : Real;
+    attribute unit : String = "Wh";
+}
+
+attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+}
+
+attribute def Distance {
+    attribute value : Real;
+    attribute unit : String = "m";
+}
+
+attribute def Speed {
+    attribute value : Real;
+    attribute unit : String = "m/s";
+}
+
+attribute def Probability {
+    attribute value : Real;
+    attribute unit : String = "1";
+}
+
+attribute def TimeDuration {
+    attribute value : Real;
+    attribute unit : String = "s";
+}
+
+attribute def DataRate {
+    attribute value : Real;
+    attribute unit : String = "Mb/s";
+}
+
+item def MissionCommand {
+    attribute commandId : String;
+    attribute priority : Integer;
+    attribute targetAreaId : String;
+    attribute requestedCoverageRadius : Distance;
+}
+
+item def PositionFix {
+    attribute latitudeDeg : Real;
+    attribute longitudeDeg : Real;
+    attribute altitude : Distance;
+    attribute horizontalError : Distance;
+    attribute timestamp : String;
+}
+
+item def SensorObservation {
+    attribute observationId : String;
+    attribute confidence : Probability;
+    attribute rangeToObject : Distance;
+    attribute bearingDeg : Real;
+    attribute temperatureSignature : Temperature;
+}
+
+item def ReconnaissanceReport {
+    attribute reportId : String;
+    attribute areaId : String;
+    attribute coverageAchieved : Probability;
+    attribute detectedObjects : Integer;
+    attribute generatedAt : String;
+}
+
+item def ElectricalEnergyFlow {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute availablePower : Power;
+}
+
+item def ThermalFlow {
+    attribute temperature : Temperature;
+    attribute heatPower : Power;
+}
+
+item def EncryptedDataFrame {
+    attribute frameId : String;
+    attribute payloadBytes : Integer;
+    attribute integrityValid : Boolean;
+    attribute classification : String;
+}
+
+port def PowerInputPort {
+    in item energyIn : ElectricalEnergyFlow;
+}
+
+port def PowerOutputPort {
+    out item energyOut : ElectricalEnergyFlow;
+}
+
+port def CommandPort {
+    in item command : MissionCommand;
+}
+
+port def ReportPort {
+    out item report : ReconnaissanceReport;
+}
+
+port def DataPort {
+    inout item frame : EncryptedDataFrame;
+}
+
+port def PositionPort {
+    out item position : PositionFix;
+}
+
+port def ObservationPort {
+    out item observation : SensorObservation;
+}
+
+port def ThermalPort {
+    out item heat : ThermalFlow;
+}
+
+part def BatteryEnergyLogisticsTrackingReconnaissanceInterface {
+    doc /* BELTRI is a Battery-Electric Logistics, Tracking, and Reconnaissance Interface. Its primary high-level function is to accept mission commands, autonomously collect position and environmental observations, fuse them into a reconnaissance report, and transmit that report while managing onboard energy and thermal limits. */
+
+    attribute identifier : String;
+    attribute operatingRange : Distance;
+    attribute maximumSpeed : Speed;
+    attribute endurance : TimeDuration;
+    attribute nominalBusVoltage : Voltage;
+    attribute peakComputePower : Power;
+    attribute secureDataRate : DataRate;
+    attribute healthState : String;
+
+    port commandIn : CommandPort;
+    port missionReportOut : ReportPort;
+    port externalNetwork : DataPort;
+    port externalPowerIn : PowerInputPort;
+    port wasteHeatOut : ThermalPort;
+
+    part powerSubsystem : PowerSubsystem;
+    part computeSubsystem : ComputeSubsystem;
+    part navigationSubsystem : NavigationSubsystem;
+    part sensorSubsystem : SensorSubsystem;
+    part communicationsSubsystem : CommunicationsSubsystem;
+    part thermalSubsystem : ThermalSubsystem;
+    part missionManager : MissionManager;
+
+    connect externalPowerIn.energyIn to powerSubsystem.chargeInput.energyIn;
+    connect powerSubsystem.primaryBus.energyOut to computeSubsystem.powerIn.energyIn;
+    connect powerSubsystem.primaryBus.energyOut to navigationSubsystem.powerIn.energyIn;
+    connect powerSubsystem.primaryBus.energyOut to sensorSubsystem.powerIn.energyIn;
+    connect powerSubsystem.primaryBus.energyOut to communicationsSubsystem.powerIn.energyIn;
+    connect powerSubsystem.primaryBus.energyOut to thermalSubsystem.powerIn.energyIn;
+
+    connect commandIn.command to missionManager.commandIn.command;
+    connect missionManager.sensorTaskOut.frame to sensorSubsystem.taskIn.frame;
+    connect missionManager.navigationTaskOut.frame to navigationSubsystem.taskIn.frame;
+
+    connect navigationSubsystem.positionOut.position to missionManager.positionIn.position;
+    connect sensorSubsystem.observationOut.observation to missionManager.observationIn.observation;
+
+    connect missionManager.reportOut.report to missionReportOut.report;
+    connect missionManager.reportFrameOut.frame to communicationsSubsystem.dataIn.frame;
+    connect communicationsSubsystem.network.frame to externalNetwork.frame;
+
+    connect computeSubsystem.heatOut.heat to thermalSubsystem.heatIn.heat;
+    connect sensorSubsystem.heatOut.heat to thermalSubsystem.heatIn.heat;
+    connect communicationsSubsystem.heatOut.heat to thermalSubsystem.heatIn.heat;
+    connect thermalSubsystem.heatRejectOut.heat to wasteHeatOut.heat;
+}
+
+part def PowerSubsystem {
+    attribute storedEnergy : Energy;
+    attribute minimumReserveEnergy : Energy;
+    attribute busVoltage : Voltage;
+    attribute maxOutputPower : Power;
+
+    port chargeInput : PowerInputPort;
+    port primaryBus : PowerOutputPort;
+}
+
+part def ComputeSubsystem {
+    attribute processorLoad : Probability;
+    attribute memoryUsedBytes : Integer;
+    attribute faultDetected : Boolean;
+
+    port powerIn : PowerInputPort;
+    port heatOut : ThermalPort;
+}
+
+part def NavigationSubsystem {
+    attribute fixAccuracy : Distance;
+    attribute updatePeriod : TimeDuration;
+
+    port powerIn : PowerInputPort;
+    port taskIn : DataPort;
+    port positionOut : PositionPort;
+}
+
+part def SensorSubsystem {
+    attribute detectionRange : Distance;
+    attribute falseAlarmProbability : Probability;
+    attribute scanPeriod : TimeDuration;
+
+    port powerIn : PowerInputPort;
+    port taskIn : DataPort;
+    port observationOut : ObservationPort;
+    port heatOut : ThermalPort;
+}
+
+part def CommunicationsSubsystem {
+    attribute linkMargin : Real;
+    attribute encryptionEnabled : Boolean;
+    attribute transmitRate : DataRate;
+
+    port powerIn : PowerInputPort;
+    port dataIn : DataPort;
+    port network : DataPort;
+    port heatOut : ThermalPort;
+}
+
+part def ThermalSubsystem {
+    attribute internalTemperature : Temperature;
+    attribute maximumAllowableTemperature : Temperature;
+    attribute coolingPower : Power;
+
+    port powerIn : PowerInputPort;
+    port heatIn : ThermalPort;
+    port heatRejectOut : ThermalPort;
+}
+
+part def MissionManager {
+    attribute activeMissionId : String;
+    attribute missionComplete : Boolean;
+    attribute reportConfidence : Probability;
+
+    port commandIn : CommandPort;
+    port positionIn : PositionPort;
+    port observationIn : ObservationPort;
+    port sensorTaskOut : DataPort;
+    port navigationTaskOut : DataPort;
+    port reportOut : ReportPort;
+    port reportFrameOut : DataPort;
+}
+
+action def ExecuteBELTRIPrimaryFunction {
+    in item missionCommand : MissionCommand;
+    out item reconnaissanceReport : ReconnaissanceReport;
+
+    action validateCommand;
+    action allocateEnergyReserve;
+    action acquirePositionFix;
+    action scanTargetArea;
+    action fuseObservations;
+    action generateReport;
+    action encryptReport;
+    action transmitReport;
+
+    first start;
+    then validateCommand;
+    then allocateEnergyReserve;
+    then acquirePositionFix;
+    then scanTargetArea;
+    then fuseObservations;
+    then generateReport;
+    then encryptReport;
+    then transmitReport;
+    then done;
+}
+
+state def BELTRIOperationalStateMachine {
+    state Off;
+    state Standby;
+    state MissionPlanning;
+    state Reconnaissance;
+    state Reporting;
+    state Recharge;
+    state FaultRecovery;
+    state SafeShutdown;
+
+    transition initial then Off;
+    transition Off_to_Standby
+        first Off
+        accept MissionCommand
+        then Standby;
+
+    transition Standby_to_MissionPlanning
+        first Standby
+        accept MissionCommand
+        then MissionPlanning;
+
+    transition MissionPlanning_to_Reconnaissance
+        first MissionPlanning
+        if missionAccepted
+        then Reconnaissance;
+
+    transition Reconnaissance_to_Reporting
+        first Reconnaissance
+        if targetAreaCovered
+        then Reporting;
+
+    transition Reporting_to_Standby
+        first Reporting
+        if reportTransmitted
+        then Standby;
+
+    transition Standby_to_Recharge
+        first Standby
+        if energyBelowReserve
+        then Recharge;
+
+    transition Recharge_to_Standby
+        first Recharge
+        if energyRestored
+        then Standby;
+
+    transition AnyFault_to_FaultRecovery
+        first Standby
+        if faultDetected
+        then FaultRecovery;
+
+    transition FaultRecovery_to_SafeShutdown
+        first FaultRecovery
+        if unrecoverableFault
+        then SafeShutdown;
+}
+
+requirement def PrimaryFunctionRequirement {
+    subject beltri : BatteryEnergyLogisticsTrackingReconnaissanceInterface;
+
+    doc /* The BELTRI shall receive a valid mission command, gather position and sensor observations for the commanded area, produce a reconnaissance report, and transmit the report over an encrypted communication link. */
+}
+
+requirement def EnergyReserveRequirement {
+    subject power : PowerSubsystem;
+
+    attribute minimumReserve : Energy = (value = 250.0; unit = "Wh");
+
+    doc /* The BELTRI power subsystem shall preserve at least 250 Wh of reserve energy after mission execution unless safe shutdown is commanded. */
+}
+
+requirement def ReportConfidenceRequirement {
+    subject manager : MissionManager;
+
+    attribute minimumConfidence : Probability = (value = 0.85; unit = "1");
+
+    doc /* The BELTRI mission manager shall produce reconnaissance reports with fused confidence of at least 0.85 for nominal sensor and navigation conditions. */
+}
+
+requirement def SecureTransmissionRequirement {
+    subject comms : CommunicationsSubsystem;
+
+    attribute minimumDataRate : DataRate = (value = 10.0; unit = "Mb/s");
+
+    doc /* The BELTRI communications subsystem shall transmit mission reports using encrypted frames at no less than 10 Mb/s when the external network link is available. */
+}
+
+requirement def ThermalProtectionRequirement {
+    subject thermal : ThermalSubsystem;
+
+    attribute maximumTemperature : Temperature = (value = 70.0; unit = "degC");
+
+    doc /* The BELTRI thermal subsystem shall maintain internal electronics temperature at or below 70 degC during reconnaissance and reporting operations. */
+}
+
+part beltriSystem : BatteryEnergyLogisticsTrackingReconnaissanceInterface {
+    attribute identifier = "BELTRI-001";
+    attribute operatingRange = (value = 12000.0; unit = "m");
+    attribute maximumSpeed = (value = 8.0; unit = "m/s");
+    attribute endurance = (value = 14400.0; unit = "s");
+    attribute nominalBusVoltage = (value = 48.0; unit = "V");
+    attribute peakComputePower = (value = 350.0; unit = "W");
+    attribute secureDataRate = (value = 25.0; unit = "Mb/s");
+    attribute healthState = "Nominal";
+}
+
+requirement primaryFunction : PrimaryFunctionRequirement {
+    subject beltri = beltriSystem;
+}
+
+requirement energyReserve : EnergyReserveRequirement {
+    subject power = beltriSystem.powerSubsystem;
+}
+
+requirement reportConfidence : ReportConfidenceRequirement {
+    subject manager = beltriSystem.missionManager;
+}
+
+requirement secureTransmission : SecureTransmissionRequirement {
+    subject comms = beltriSystem.communicationsSubsystem;
+}
+
+requirement thermalProtection : ThermalProtectionRequirement {
+    subject thermal = beltriSystem.thermalSubsystem;
+}
+
+satisfy primaryFunction by beltriSystem;
+satisfy energyReserve by beltriSystem.powerSubsystem;
+satisfy reportConfidence by beltriSystem.missionManager;
+satisfy secureTransmission by beltriSystem.communicationsSubsystem;
+satisfy thermalProtection by beltriSystem.thermalSubsystem;
+
+perform action beltriMission : ExecuteBELTRIPrimaryFunction;
+
+end package BELTRI_System;

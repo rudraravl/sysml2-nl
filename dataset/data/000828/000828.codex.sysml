@@ -1,0 +1,610 @@
+package WatsonCapsuleModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def MassKg :> Real;
+  attribute def LengthM :> Real;
+  attribute def PressureKPa :> Real;
+  attribute def TemperatureC :> Real;
+  attribute def TimeS :> Real;
+  attribute def ForceN :> Real;
+  attribute def ElectricPowerW :> Real;
+  attribute def ElectricEnergyWh :> Real;
+  attribute def DataRateMbps :> Real;
+  attribute def VelocityMps :> Real;
+  attribute def AccelerationMps2 :> Real;
+  attribute def Percent :> Real;
+
+  item def CrewMember {
+    attribute bodyMass : MassKg;
+    attribute metabolicOxygenDemand : Real;
+    attribute safe : Boolean;
+  }
+
+  item def PressurizedGasMixture {
+    attribute oxygenFraction : Percent;
+    attribute carbonDioxideFraction : Percent;
+    attribute nitrogenFraction : Percent;
+    attribute pressure : PressureKPa;
+    attribute temperature : TemperatureC;
+  }
+
+  item def CommandPacket {
+    attribute commandId : String;
+    attribute priority : Integer;
+    attribute authenticated : Boolean;
+  }
+
+  item def TelemetryPacket {
+    attribute capsuleState : String;
+    attribute cabinPressure : PressureKPa;
+    attribute batteryStateOfCharge : Percent;
+    attribute heatShieldTemperature : TemperatureC;
+    attribute timestamp : TimeS;
+  }
+
+  item def Propellant {
+    attribute mass : MassKg;
+    attribute tankPressure : PressureKPa;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : Real;
+    attribute capacity : ElectricEnergyWh;
+    attribute availablePower : ElectricPowerW;
+  }
+
+  item def ThermalEnergy {
+    attribute heatFlux : Real;
+    attribute temperature : TemperatureC;
+  }
+
+  item def LandingLoad {
+    attribute verticalVelocity : VelocityMps;
+    attribute deceleration : AccelerationMps2;
+    attribute impactForce : ForceN;
+  }
+
+  port def AtmospherePort {
+    in gasIn : PressurizedGasMixture;
+    out gasOut : PressurizedGasMixture;
+  }
+
+  port def CrewAccessPort {
+    in crewIn : CrewMember;
+    out crewOut : CrewMember;
+  }
+
+  port def CommandPort {
+    in command : CommandPacket;
+  }
+
+  port def TelemetryPort {
+    out telemetry : TelemetryPacket;
+  }
+
+  port def PowerPort {
+    in powerIn : ElectricalEnergy;
+    out powerOut : ElectricalEnergy;
+  }
+
+  port def PropellantPort {
+    in propellantIn : Propellant;
+    out propellantOut : Propellant;
+  }
+
+  port def ThermalPort {
+    in absorbedHeat : ThermalEnergy;
+    out rejectedHeat : ThermalEnergy;
+  }
+
+  port def MechanicalLoadPort {
+    in loadIn : LandingLoad;
+    out loadOut : LandingLoad;
+  }
+
+  part def WatsonCapsule {
+    attribute primaryFunction : String = "Safely transport crew and mission payload through launch, orbital operations, atmospheric reentry, landing, and post-landing recovery.";
+    attribute dryMass : MassKg = 5200.0;
+    attribute crewCapacity : Integer = 3;
+    attribute internalPressurizedVolume : Real = 9.4;
+    attribute designMissionDuration : TimeS = 604800.0;
+    attribute maxReentryDeceleration : AccelerationMps2 = 39.2;
+    attribute nominalCabinPressure : PressureKPa = 101.3;
+
+    port commandReceiver : CommandPort;
+    port telemetryTransmitter : TelemetryPort;
+    port externalPower : PowerPort;
+    port crewHatch : CrewAccessPort;
+    port externalThermalInterface : ThermalPort;
+    port landingLoadInterface : MechanicalLoadPort;
+
+    part crewModule : CrewModule;
+    part serviceModule : ServiceModule;
+    part guidanceNavigationControl : GuidanceNavigationControl;
+    part environmentalControlLifeSupport : EnvironmentalControlLifeSupport;
+    part communications : CommunicationsSubsystem;
+    part thermalProtectionSystem : ThermalProtectionSystem;
+    part landingRecoverySystem : LandingRecoverySystem;
+    part avionics : AvionicsSubsystem;
+    part powerSystem : PowerSystem;
+
+    connection commandToAvionics connect commandReceiver to avionics.commandInput;
+    connection avionicsToGnc connect avionics.gncCommandOutput to guidanceNavigationControl.commandInput;
+    connection avionicsToComms connect avionics.telemetryOutput to communications.telemetryInput;
+    connection commsToExternal connect communications.downlink to telemetryTransmitter;
+    connection powerDistribution connect powerSystem.primaryPower to avionics.powerInput;
+    connection powerToEclss connect powerSystem.primaryPower to environmentalControlLifeSupport.powerInput;
+    connection powerToComms connect powerSystem.primaryPower to communications.powerInput;
+    connection powerToGnc connect powerSystem.primaryPower to guidanceNavigationControl.powerInput;
+    connection servicePropellantToGnc connect serviceModule.propellantFeed to guidanceNavigationControl.propellantInput;
+    connection cabinAtmosphereLoop connect crewModule.cabinAtmosphere to environmentalControlLifeSupport.cabinAtmosphere;
+    connection heatShieldToThermal connect thermalProtectionSystem.thermalOutput to crewModule.thermalInput;
+    connection externalHeatToShield connect externalThermalInterface to thermalProtectionSystem.externalThermalInput;
+    connection landingLoads connect landingRecoverySystem.loadOutput to landingLoadInterface;
+    connection crewAccess connect crewHatch to crewModule.hatch;
+  }
+
+  part def CrewModule {
+    attribute pressureShellMass : MassKg = 1850.0;
+    attribute habitableVolume : Real = 9.4;
+    attribute leakRateLimit : Real = 0.12;
+
+    port hatch : CrewAccessPort;
+    port cabinAtmosphere : AtmospherePort;
+    port thermalInput : ThermalPort;
+
+    part pressureVessel : PressureVessel;
+    part seating : CrewSeat[3];
+    part displaysAndControls : CrewInterface;
+    part dockingRing : DockingRing;
+  }
+
+  part def PressureVessel {
+    attribute proofPressure : PressureKPa = 155.0;
+    attribute operatingPressure : PressureKPa = 101.3;
+    attribute structuralMargin : Real = 1.40;
+  }
+
+  part def CrewSeat {
+    attribute occupantMassLimit : MassKg = 115.0;
+    attribute strokeDistance : LengthM = 0.18;
+    attribute maxLandingAcceleration : AccelerationMps2 = 147.0;
+  }
+
+  part def CrewInterface {
+    port commandInput : CommandPort;
+    port statusOutput : TelemetryPort;
+    attribute manualAbortEnabled : Boolean = true;
+    attribute displayPower : ElectricPowerW = 120.0;
+  }
+
+  part def DockingRing {
+    attribute captureForceLimit : ForceN = 12000.0;
+    attribute sealPressureCapability : PressureKPa = 105.0;
+  }
+
+  part def ServiceModule {
+    attribute jettisonMass : MassKg = 2100.0;
+
+    port propellantFeed : PropellantPort;
+    port powerInput : PowerPort;
+
+    part propulsionTanks : PropellantTank[4];
+    part reactionControlThrusters : Thruster[16];
+    part separationMechanism : SeparationMechanism;
+  }
+
+  part def PropellantTank {
+    attribute usablePropellantMass : MassKg = 82.0;
+    attribute minimumTankPressure : PressureKPa = 1800.0;
+    attribute maximumTankPressure : PressureKPa = 2400.0;
+    port outlet : PropellantPort;
+  }
+
+  part def Thruster {
+    attribute nominalThrust : ForceN = 445.0;
+    attribute minimumImpulseBit : Real = 0.4;
+    attribute propellantConsumptionRate : Real = 0.19;
+    port propellantInput : PropellantPort;
+  }
+
+  part def SeparationMechanism {
+    attribute releaseTime : TimeS = 0.35;
+    attribute redundantInitiators : Integer = 2;
+  }
+
+  part def GuidanceNavigationControl {
+    attribute attitudeKnowledgeError : Real = 0.05;
+    attribute entryCorridorTolerance : Real = 1.5;
+
+    port commandInput : CommandPort;
+    port powerInput : PowerPort;
+    port propellantInput : PropellantPort;
+    port telemetryOutput : TelemetryPort;
+
+    part inertialMeasurementUnit : NavigationSensor;
+    part starTracker : NavigationSensor;
+    part flightComputerInterface : FlightControlInterface;
+    part attitudeThrusterController : ThrusterController;
+  }
+
+  part def NavigationSensor {
+    attribute updateRateHz : Real = 50.0;
+    attribute measurementValid : Boolean = true;
+    attribute powerConsumption : ElectricPowerW = 35.0;
+  }
+
+  part def FlightControlInterface {
+    port commandInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+  }
+
+  part def ThrusterController {
+    attribute closedLoopEnabled : Boolean = true;
+    attribute commandLatency : TimeS = 0.05;
+  }
+
+  part def EnvironmentalControlLifeSupport {
+    attribute oxygenReserveMass : MassKg = 18.0;
+    attribute carbonDioxideLimit : Percent = 0.7;
+    attribute humidityTarget : Percent = 45.0;
+    attribute temperatureTarget : TemperatureC = 22.0;
+
+    port cabinAtmosphere : AtmospherePort;
+    port powerInput : PowerPort;
+    port telemetryOutput : TelemetryPort;
+
+    part oxygenSupply : OxygenSupply;
+    part carbonDioxideScrubber : CarbonDioxideScrubber;
+    part ventilationFan : VentilationFan;
+    part thermalControlLoop : CabinThermalControl;
+  }
+
+  part def OxygenSupply {
+    attribute regulatedPressure : PressureKPa = 101.3;
+    attribute flowCapacity : Real = 3.0;
+  }
+
+  part def CarbonDioxideScrubber {
+    attribute removalCapacity : Real = 2.4;
+    attribute cartridgeLife : TimeS = 86400.0;
+  }
+
+  part def VentilationFan {
+    attribute flowRate : Real = 0.42;
+    attribute powerConsumption : ElectricPowerW = 90.0;
+  }
+
+  part def CabinThermalControl {
+    port thermalPort : ThermalPort;
+    attribute coolingCapacity : ElectricPowerW = 1200.0;
+    attribute heatingCapacity : ElectricPowerW = 600.0;
+  }
+
+  part def CommunicationsSubsystem {
+    attribute uplinkRate : DataRateMbps = 2.0;
+    attribute downlinkRate : DataRateMbps = 15.0;
+    attribute encryptionEnabled : Boolean = true;
+
+    port commandInput : CommandPort;
+    port telemetryInput : TelemetryPort;
+    port downlink : TelemetryPort;
+    port powerInput : PowerPort;
+
+    part sBandRadio : Radio;
+    part highGainAntenna : Antenna;
+    part recoveryBeacon : RecoveryBeacon;
+  }
+
+  part def Radio {
+    attribute transmitPower : ElectricPowerW = 45.0;
+    attribute receivePower : ElectricPowerW = 18.0;
+  }
+
+  part def Antenna {
+    attribute gainDbi : Real = 12.0;
+    attribute steeringEnabled : Boolean = true;
+  }
+
+  part def RecoveryBeacon {
+    attribute beaconPower : ElectricPowerW = 8.0;
+    attribute operatingLife : TimeS = 259200.0;
+  }
+
+  part def ThermalProtectionSystem {
+    attribute heatShieldMass : MassKg = 720.0;
+    attribute maximumSurfaceTemperature : TemperatureC = 1850.0;
+    attribute allowableBackFaceTemperature : TemperatureC = 80.0;
+
+    port externalThermalInput : ThermalPort;
+    port thermalOutput : ThermalPort;
+
+    part ablativeHeatShield : AblativeHeatShield;
+    part backshellInsulation : BackshellInsulation;
+  }
+
+  part def AblativeHeatShield {
+    attribute thickness : LengthM = 0.11;
+    attribute recessionLimit : LengthM = 0.025;
+    attribute peakHeatFluxCapability : Real = 5200000.0;
+  }
+
+  part def BackshellInsulation {
+    attribute insulationThickness : LengthM = 0.045;
+    attribute maximumTemperature : TemperatureC = 650.0;
+  }
+
+  part def LandingRecoverySystem {
+    attribute nominalTouchdownVelocity : VelocityMps = 7.2;
+    attribute recoveryBeaconActivationAltitude : LengthM = 3000.0;
+
+    port loadOutput : MechanicalLoadPort;
+    port powerInput : PowerPort;
+
+    part drogueParachutes : Parachute[2];
+    part mainParachutes : Parachute[3];
+    part flotationBags : FlotationSystem;
+    part locatorBeacon : RecoveryBeacon;
+  }
+
+  part def Parachute {
+    attribute canopyDiameter : LengthM = 25.0;
+    attribute deploymentAltitude : LengthM = 3000.0;
+    attribute reefingStages : Integer = 2;
+    attribute ratedLoad : ForceN = 95000.0;
+  }
+
+  part def FlotationSystem {
+    attribute inflationTime : TimeS = 45.0;
+    attribute buoyancyMargin : Percent = 35.0;
+  }
+
+  part def AvionicsSubsystem {
+    attribute processorRedundancy : Integer = 3;
+    attribute faultDetectionCycle : TimeS = 0.1;
+
+    port commandInput : CommandPort;
+    port gncCommandOutput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+    port powerInput : PowerPort;
+
+    part flightComputerA : FlightComputer;
+    part flightComputerB : FlightComputer;
+    part dataRecorder : DataRecorder;
+  }
+
+  part def FlightComputer {
+    attribute processingLoad : Percent = 55.0;
+    attribute healthy : Boolean = true;
+    attribute powerConsumption : ElectricPowerW = 95.0;
+  }
+
+  part def DataRecorder {
+    attribute storageCapacityGb : Real = 2048.0;
+    attribute writeRateMbps : DataRateMbps = 40.0;
+  }
+
+  part def PowerSystem {
+    attribute totalBatteryCapacity : ElectricEnergyWh = 18000.0;
+    attribute minimumStateOfCharge : Percent = 20.0;
+
+    port primaryPower : PowerPort;
+
+    part batteryModules : BatteryModule[4];
+    part powerDistributionUnit : PowerDistributionUnit;
+  }
+
+  part def BatteryModule {
+    attribute capacity : ElectricEnergyWh = 4500.0;
+    attribute nominalVoltage : Real = 120.0;
+    attribute maxDischargePower : ElectricPowerW = 3500.0;
+  }
+
+  part def PowerDistributionUnit {
+    attribute conversionEfficiency : Percent = 94.0;
+    attribute protectedChannels : Integer = 24;
+  }
+
+  action def ExecuteWatsonMission {
+    in crewManifest : CrewMember[3];
+    in targetOrbitAltitude : LengthM;
+    out recoveredCrew : CrewMember[3];
+
+    first start;
+    then configureCapsule;
+    then supportLaunchAscent;
+    then performOrbitalOperations;
+    then executeDeorbitBurn;
+    then protectDuringReentry;
+    then deployLandingSystem;
+    then supportRecovery;
+    then done;
+
+    action configureCapsule {
+      out configured : Boolean;
+    }
+
+    action supportLaunchAscent {
+      in configured : Boolean;
+      out insertionReady : Boolean;
+    }
+
+    action performOrbitalOperations {
+      in insertionReady : Boolean;
+      out deorbitReady : Boolean;
+    }
+
+    action executeDeorbitBurn {
+      in deorbitReady : Boolean;
+      out entryInterfaceAchieved : Boolean;
+    }
+
+    action protectDuringReentry {
+      in entryInterfaceAchieved : Boolean;
+      out subsonicDescent : Boolean;
+    }
+
+    action deployLandingSystem {
+      in subsonicDescent : Boolean;
+      out landed : Boolean;
+    }
+
+    action supportRecovery {
+      in landed : Boolean;
+      out recoveredCrew : CrewMember[3];
+    }
+  }
+
+  state def WatsonCapsuleOperationalState {
+    entry action initializeTelemetry;
+
+    state Stored;
+    state PoweredCheckout;
+    state CrewIngress;
+    state LaunchReady;
+    state Ascent;
+    state OrbitOperations;
+    state Deorbit;
+    state Reentry;
+    state Descent;
+    state Landed;
+    state Recovery;
+    state SafeMode;
+    state Abort;
+
+    transition initial then Stored;
+    transition Stored_to_PoweredCheckout
+      first Stored
+      accept CommandPacket
+      if command.commandId == "POWER_ON"
+      then PoweredCheckout;
+
+    transition PoweredCheckout_to_CrewIngress
+      first PoweredCheckout
+      if command.commandId == "ENABLE_INGRESS"
+      then CrewIngress;
+
+    transition CrewIngress_to_LaunchReady
+      first CrewIngress
+      if command.commandId == "SEAL_HATCH"
+      then LaunchReady;
+
+    transition LaunchReady_to_Ascent
+      first LaunchReady
+      if command.commandId == "LAUNCH_COMMIT"
+      then Ascent;
+
+    transition Ascent_to_OrbitOperations
+      first Ascent
+      if command.commandId == "ORBIT_INSERTION_CONFIRMED"
+      then OrbitOperations;
+
+    transition OrbitOperations_to_Deorbit
+      first OrbitOperations
+      if command.commandId == "DEORBIT"
+      then Deorbit;
+
+    transition Deorbit_to_Reentry
+      first Deorbit
+      if command.commandId == "ENTRY_INTERFACE"
+      then Reentry;
+
+    transition Reentry_to_Descent
+      first Reentry
+      if command.commandId == "DEPLOY_DROGUES"
+      then Descent;
+
+    transition Descent_to_Landed
+      first Descent
+      if command.commandId == "TOUCHDOWN"
+      then Landed;
+
+    transition Landed_to_Recovery
+      first Landed
+      if command.commandId == "RECOVERY_TEAM_ATTACHED"
+      then Recovery;
+
+    transition nominalFaultToSafeMode
+      first PoweredCheckout
+      then SafeMode;
+
+    transition ascentAbort
+      first Ascent
+      if command.commandId == "ABORT"
+      then Abort;
+
+    transition orbitAbort
+      first OrbitOperations
+      if command.commandId == "CONTINGENCY_DEORBIT"
+      then Abort;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject capsule : WatsonCapsule;
+    doc /* The Watson capsule shall provide safe, autonomous crew transport from prelaunch through recovery while preserving life support, command, navigation, thermal protection, landing, and telemetry functions. */
+    require constraint {
+      capsule.crewCapacity >= 3 and
+      capsule.designMissionDuration >= 604800.0 and
+      capsule.nominalCabinPressure >= 95.0 and
+      capsule.nominalCabinPressure <= 105.0
+    }
+  }
+
+  requirement def CabinPressureRequirement {
+    subject eclss : EnvironmentalControlLifeSupport;
+    doc /* The life support subsystem shall maintain a breathable cabin atmosphere during all crewed mission phases. */
+    require constraint {
+      eclss.temperatureTarget >= 18.0 and
+      eclss.temperatureTarget <= 27.0 and
+      eclss.carbonDioxideLimit <= 0.7
+    }
+  }
+
+  requirement def ReentryThermalRequirement {
+    subject tps : ThermalProtectionSystem;
+    doc /* The thermal protection system shall limit crew module back-face temperature during atmospheric entry. */
+    require constraint {
+      tps.maximumSurfaceTemperature >= 1800.0 and
+      tps.allowableBackFaceTemperature <= 80.0
+    }
+  }
+
+  requirement def LandingSurvivabilityRequirement {
+    subject landing : LandingRecoverySystem;
+    doc /* The landing recovery system shall reduce descent energy so that crew seat loads remain survivable at touchdown. */
+    require constraint {
+      landing.nominalTouchdownVelocity <= 8.0
+    }
+  }
+
+  requirement def CommandTelemetryRequirement {
+    subject comms : CommunicationsSubsystem;
+    doc /* The communications subsystem shall receive authenticated commands and transmit health telemetry throughout nominal mission operations and recovery. */
+    require constraint {
+      comms.encryptionEnabled == true and
+      comms.downlinkRate >= 10.0 and
+      comms.uplinkRate >= 1.0
+    }
+  }
+
+  requirement def PowerEnduranceRequirement {
+    subject power : PowerSystem;
+    doc /* The power system shall support capsule essential loads for the design mission duration with reserve energy available after landing. */
+    require constraint {
+      power.totalBatteryCapacity >= 16000.0 and
+      power.minimumStateOfCharge >= 20.0
+    }
+  }
+
+  part watsonCapsule : WatsonCapsule;
+
+  satisfy PrimaryFunctionRequirement by watsonCapsule;
+  satisfy CabinPressureRequirement by watsonCapsule.environmentalControlLifeSupport;
+  satisfy ReentryThermalRequirement by watsonCapsule.thermalProtectionSystem;
+  satisfy LandingSurvivabilityRequirement by watsonCapsule.landingRecoverySystem;
+  satisfy CommandTelemetryRequirement by watsonCapsule.communications;
+  satisfy PowerEnduranceRequirement by watsonCapsule.powerSystem;
+
+}

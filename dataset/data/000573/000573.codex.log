@@ -1,0 +1,779 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-8ldtlck0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb365-8cd8-7872-b88e-ff33d531765f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Cooling vest and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CoolingVestSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Temperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def HeatFlowRate :> Real {
+    unit = "W";
+  }
+
+  attribute def MassFlowRate :> Real {
+    unit = "kg/s";
+  }
+
+  attribute def ElectricPotential :> Real {
+    unit = "V";
+  }
+
+  attribute def ElectricCurrent :> Real {
+    unit = "A";
+  }
+
+  attribute def ElectricPower :> Real {
+    unit = "W";
+  }
+
+  attribute def EnergyCapacity :> Real {
+    unit = "Wh";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "min";
+  }
+
+  attribute def Pressure :> Real {
+    unit = "kPa";
+  }
+
+  attribute def Fraction :> Real {
+    unit = "1";
+  }
+
+  attribute def FlowRate :> Real {
+    unit = "L/min";
+  }
+
+  item def Coolant {
+    attribute temperature : Temperature;
+    attribute massFlowRate : MassFlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def Heat {
+    attribute rate : HeatFlowRate;
+    attribute sourceTemperature : Temperature;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute power : ElectricPower;
+  }
+
+  item def ThermalStatusSignal {
+    attribute skinTemperature : Temperature;
+    attribute coolantTemperature : Temperature;
+    attribute batteryStateOfCharge : Fraction;
+    attribute flowRate : FlowRate;
+  }
+
+  item def ControlCommand {
+    attribute pumpDutyCycle : Fraction;
+    attribute fanDutyCycle : Fraction;
+    attribute coolingEnabled : Boolean;
+  }
+
+  port def CoolantPort {
+    inout coolant : Coolant;
+  }
+
+  port def HeatTransferPort {
+    in heat : Heat;
+  }
+
+  port def ElectricalPort {
+    in energy : ElectricalEnergy;
+  }
+
+  port def SignalInPort {
+    in signal : ThermalStatusSignal;
+  }
+
+  port def CommandOutPort {
+    out command : ControlCommand;
+  }
+
+  port def CommandInPort {
+    in command : ControlCommand;
+  }
+
+  part def WearerBody {
+    attribute coreTemperature : Temperature = 37.0;
+    attribute averageSkinTemperature : Temperature = 35.0;
+    attribute metabolicHeatRate : HeatFlowRate = 180.0;
+
+    port torsoHeatPort : HeatTransferPort;
+  }
+
+  part def CoolingVest {
+    attribute targetSkinTemperature : Temperature = 32.0;
+    attribute maximumSafeSkinTemperature : Temperature = 38.0;
+    attribute minimumSafeSkinTemperature : Temperature = 18.0;
+    attribute nominalHeatRemovalRate : HeatFlowRate = 120.0;
+    attribute vestMass : Real = 2.4;
+    attribute operatingDuration : TimeDuration = 180.0;
+
+    port bodyHeatInput : HeatTransferPort;
+    port statusSignalInput : SignalInPort;
+    port controllerCommandOutput : CommandOutPort;
+
+    part garmentShell : GarmentShell;
+    part coolingPanel[6] : CoolingPanel;
+    part coolantLoop : CoolantLoop;
+    part pump : MicroPump;
+    part heatExchanger : HeatExchanger;
+    part fan : Fan;
+    part batteryPack : BatteryPack;
+    part controller : ThermalController;
+    part sensorSuite : SensorSuite;
+    part userInterface : UserInterface;
+
+    connect bodyHeatInput to coolingPanel.bodySideHeatPort;
+    connect coolingPanel.coolantOutlet to coolantLoop.warmCoolantInlet;
+    connect coolantLoop.warmCoolantOutlet to pump.coolantInlet;
+    connect pump.coolantOutlet to heatExchanger.hotCoolantInlet;
+    connect heatExchanger.cooledCoolantOutlet to coolantLoop.cooledCoolantInlet;
+    connect coolantLoop.cooledCoolantOutlet to coolingPanel.coolantInlet;
+
+    connect batteryPack.powerOutput to pump.powerInput;
+    connect batteryPack.powerOutput to fan.powerInput;
+    connect batteryPack.powerOutput to controller.powerInput;
+    connect batteryPack.powerOutput to sensorSuite.powerInput;
+    connect batteryPack.powerOutput to userInterface.powerInput;
+
+    connect sensorSuite.statusOutput to controller.statusInput;
+    connect controller.commandOutput to pump.commandInput;
+    connect controller.commandOutput to fan.commandInput;
+    connect controller.commandOutput to userInterface.commandInput;
+    connect userInterface.userCommandOutput to controller.userCommandInput;
+  }
+
+  part def GarmentShell {
+    attribute insulationResistance : Real = 0.18;
+    attribute coverageArea : Real = 0.42;
+    attribute washable : Boolean = true;
+  }
+
+  part def CoolingPanel {
+    attribute contactArea : Real = 0.07;
+    attribute maximumLocalHeatRemovalRate : HeatFlowRate = 25.0;
+    attribute surfaceTemperature : Temperature = 24.0;
+
+    port bodySideHeatPort : HeatTransferPort;
+    port coolantInlet : CoolantPort;
+    port coolantOutlet : CoolantPort;
+  }
+
+  part def CoolantLoop {
+    attribute reservoirVolume : Real = 0.75;
+    attribute nominalLoopFlowRate : FlowRate = 1.2;
+    attribute coolantSpecificHeat : Real = 4180.0;
+
+    port warmCoolantInlet : CoolantPort;
+    port warmCoolantOutlet : CoolantPort;
+    port cooledCoolantInlet : CoolantPort;
+    port cooledCoolantOutlet : CoolantPort;
+  }
+
+  part def MicroPump {
+    attribute maximumFlowRate : FlowRate = 1.8;
+    attribute nominalFlowRate : FlowRate = 1.2;
+    attribute maximumPressureRise : Pressure = 45.0;
+    attribute nominalPowerDraw : ElectricPower = 6.0;
+
+    port powerInput : ElectricalPort;
+    port commandInput : CommandInPort;
+    port coolantInlet : CoolantPort;
+    port coolantOutlet : CoolantPort;
+  }
+
+  part def HeatExchanger {
+    attribute maximumHeatRejectionRate : HeatFlowRate = 150.0;
+    attribute coolantInletTemperature : Temperature = 30.0;
+    attribute coolantOutletTemperature : Temperature = 20.0;
+
+    port hotCoolantInlet : CoolantPort;
+    port cooledCoolantOutlet : CoolantPort;
+    port wasteHeatOutput : HeatTransferPort;
+  }
+
+  part def Fan {
+    attribute maximumAirflow : Real = 18.0;
+    attribute nominalPowerDraw : ElectricPower = 4.0;
+
+    port powerInput : ElectricalPort;
+    port commandInput : CommandInPort;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : ElectricPotential = 14.8;
+    attribute capacity : EnergyCapacity = 98.0;
+    attribute stateOfCharge : Fraction = 1.0;
+    attribute maximumContinuousPower : ElectricPower = 60.0;
+
+    port powerOutput : ElectricalPort;
+  }
+
+  part def SensorSuite {
+    attribute skinTemperatureAccuracy : Temperature = 0.5;
+    attribute coolantTemperatureAccuracy : Temperature = 0.5;
+    attribute flowSensorAccuracy : Fraction = 0.05;
+
+    port powerInput : ElectricalPort;
+    port statusOutput : SignalInPort;
+  }
+
+  part def ThermalController {
+    attribute controlCyclePeriod : TimeDuration = 0.083;
+    attribute coolingDeadband : Temperature = 1.0;
+    attribute lowBatteryThreshold : Fraction = 0.15;
+
+    port powerInput : ElectricalPort;
+    port statusInput : SignalInPort;
+    port userCommandInput : SignalInPort;
+    port commandOutput : CommandOutPort;
+  }
+
+  part def UserInterface {
+    attribute selectedCoolingLevel : Integer = 2;
+    attribute alarmActive : Boolean = false;
+
+    port powerInput : ElectricalPort;
+    port commandInput : CommandInPort;
+    port userCommandOutput : SignalInPort;
+  }
+
+  action def RemoveBodyHeat {
+    in bodyHeat : Heat;
+    in coolantBeforePanel : Coolant;
+    out coolantAfterPanel : Coolant;
+
+    attribute removedHeatRate : HeatFlowRate;
+  }
+
+  action def RejectHeatToAmbient {
+    in warmCoolant : Coolant;
+    out cooledCoolant : Coolant;
+
+    attribute rejectedHeatRate : HeatFlowRate;
+  }
+
+  action def RegulateCooling {
+    in measuredStatus : ThermalStatusSignal;
+    out command : ControlCommand;
+
+    attribute skinTemperatureError : Temperature;
+  }
+
+  state def CoolingVestOperatingState {
+    entry action initializeSystem;
+
+    state Off;
+    state Standby;
+    state ActiveCooling;
+    state LowPowerCooling;
+    state Fault;
+    state Shutdown;
+
+    transition initial then Off;
+
+    transition Off_to_Standby
+      first Off
+      accept PowerButtonPressed
+      then Standby;
+
+    transition Standby_to_ActiveCooling
+      first Standby
+      if measuredSkinTemperature > targetSkinTemperature + coolingDeadband
+      then ActiveCooling;
+
+    transition ActiveCooling_to_Standby
+      first ActiveCooling
+      if measuredSkinTemperature <= targetSkinTemperature
+      then Standby;
+
+    transition ActiveCooling_to_LowPowerCooling
+      first ActiveCooling
+      if batteryStateOfCharge <= lowBatteryThreshold
+      then LowPowerCooling;
+
+    transition LowPowerCooling_to_Shutdown
+      first LowPowerCooling
+      if batteryStateOfCharge <= 0.05
+      then Shutdown;
+
+    transition Any_to_Fault
+      first Off, Standby, ActiveCooling, LowPowerCooling
+      if coolantFlowRate < 0.2 or measuredSkinTemperature < minimumSafeSkinTemperature
+      then Fault;
+
+    transition Fault_to_Shutdown
+      first Fault
+      accept AcknowledgeFault
+      then Shutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The cooling vest shall remove heat from the wearer's torso and regulate local skin temperature to reduce thermal strain during activity in hot environments. */
+  }
+
+  requirement def HeatRemovalRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.nominalHeatRemovalRate >= 100.0
+    }
+  }
+
+  requirement def SkinTemperatureRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.minimumSafeSkinTemperature <= vest.targetSkinTemperature and
+      vest.targetSkinTemperature <= vest.maximumSafeSkinTemperature
+    }
+  }
+
+  requirement def RuntimeRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.operatingDuration >= 120.0
+    }
+  }
+
+  requirement def BatteryPowerRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.batteryPack.maximumContinuousPower >=
+      vest.pump.nominalPowerDraw + vest.fan.nominalPowerDraw
+    }
+  }
+
+  requirement def CoolantFlowRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.coolantLoop.nominalLoopFlowRate >= 1.0 and
+      vest.pump.maximumFlowRate >= vest.coolantLoop.nominalLoopFlowRate
+    }
+  }
+
+  part coolingVestSystem {
+    part wearer : WearerBody;
+    part vest : CoolingVest;
+
+    connect wearer.torsoHeatPort to vest.bodyHeatInput;
+
+    satisfy PrimaryFunctionRequirement by vest;
+    satisfy HeatRemovalRequirement by vest;
+    satisfy SkinTemperatureRequirement by vest;
+    satisfy RuntimeRequirement by vest;
+    satisfy BatteryPowerRequirement by vest;
+    satisfy CoolantFlowRequirement by vest;
+
+    perform RemoveBodyHeat;
+    perform RejectHeatToAmbient;
+    perform RegulateCooling;
+  }
+}
+tokens used
+3,935
+package CoolingVestSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Temperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def HeatFlowRate :> Real {
+    unit = "W";
+  }
+
+  attribute def MassFlowRate :> Real {
+    unit = "kg/s";
+  }
+
+  attribute def ElectricPotential :> Real {
+    unit = "V";
+  }
+
+  attribute def ElectricCurrent :> Real {
+    unit = "A";
+  }
+
+  attribute def ElectricPower :> Real {
+    unit = "W";
+  }
+
+  attribute def EnergyCapacity :> Real {
+    unit = "Wh";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "min";
+  }
+
+  attribute def Pressure :> Real {
+    unit = "kPa";
+  }
+
+  attribute def Fraction :> Real {
+    unit = "1";
+  }
+
+  attribute def FlowRate :> Real {
+    unit = "L/min";
+  }
+
+  item def Coolant {
+    attribute temperature : Temperature;
+    attribute massFlowRate : MassFlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def Heat {
+    attribute rate : HeatFlowRate;
+    attribute sourceTemperature : Temperature;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute power : ElectricPower;
+  }
+
+  item def ThermalStatusSignal {
+    attribute skinTemperature : Temperature;
+    attribute coolantTemperature : Temperature;
+    attribute batteryStateOfCharge : Fraction;
+    attribute flowRate : FlowRate;
+  }
+
+  item def ControlCommand {
+    attribute pumpDutyCycle : Fraction;
+    attribute fanDutyCycle : Fraction;
+    attribute coolingEnabled : Boolean;
+  }
+
+  port def CoolantPort {
+    inout coolant : Coolant;
+  }
+
+  port def HeatTransferPort {
+    in heat : Heat;
+  }
+
+  port def ElectricalPort {
+    in energy : ElectricalEnergy;
+  }
+
+  port def SignalInPort {
+    in signal : ThermalStatusSignal;
+  }
+
+  port def CommandOutPort {
+    out command : ControlCommand;
+  }
+
+  port def CommandInPort {
+    in command : ControlCommand;
+  }
+
+  part def WearerBody {
+    attribute coreTemperature : Temperature = 37.0;
+    attribute averageSkinTemperature : Temperature = 35.0;
+    attribute metabolicHeatRate : HeatFlowRate = 180.0;
+
+    port torsoHeatPort : HeatTransferPort;
+  }
+
+  part def CoolingVest {
+    attribute targetSkinTemperature : Temperature = 32.0;
+    attribute maximumSafeSkinTemperature : Temperature = 38.0;
+    attribute minimumSafeSkinTemperature : Temperature = 18.0;
+    attribute nominalHeatRemovalRate : HeatFlowRate = 120.0;
+    attribute vestMass : Real = 2.4;
+    attribute operatingDuration : TimeDuration = 180.0;
+
+    port bodyHeatInput : HeatTransferPort;
+    port statusSignalInput : SignalInPort;
+    port controllerCommandOutput : CommandOutPort;
+
+    part garmentShell : GarmentShell;
+    part coolingPanel[6] : CoolingPanel;
+    part coolantLoop : CoolantLoop;
+    part pump : MicroPump;
+    part heatExchanger : HeatExchanger;
+    part fan : Fan;
+    part batteryPack : BatteryPack;
+    part controller : ThermalController;
+    part sensorSuite : SensorSuite;
+    part userInterface : UserInterface;
+
+    connect bodyHeatInput to coolingPanel.bodySideHeatPort;
+    connect coolingPanel.coolantOutlet to coolantLoop.warmCoolantInlet;
+    connect coolantLoop.warmCoolantOutlet to pump.coolantInlet;
+    connect pump.coolantOutlet to heatExchanger.hotCoolantInlet;
+    connect heatExchanger.cooledCoolantOutlet to coolantLoop.cooledCoolantInlet;
+    connect coolantLoop.cooledCoolantOutlet to coolingPanel.coolantInlet;
+
+    connect batteryPack.powerOutput to pump.powerInput;
+    connect batteryPack.powerOutput to fan.powerInput;
+    connect batteryPack.powerOutput to controller.powerInput;
+    connect batteryPack.powerOutput to sensorSuite.powerInput;
+    connect batteryPack.powerOutput to userInterface.powerInput;
+
+    connect sensorSuite.statusOutput to controller.statusInput;
+    connect controller.commandOutput to pump.commandInput;
+    connect controller.commandOutput to fan.commandInput;
+    connect controller.commandOutput to userInterface.commandInput;
+    connect userInterface.userCommandOutput to controller.userCommandInput;
+  }
+
+  part def GarmentShell {
+    attribute insulationResistance : Real = 0.18;
+    attribute coverageArea : Real = 0.42;
+    attribute washable : Boolean = true;
+  }
+
+  part def CoolingPanel {
+    attribute contactArea : Real = 0.07;
+    attribute maximumLocalHeatRemovalRate : HeatFlowRate = 25.0;
+    attribute surfaceTemperature : Temperature = 24.0;
+
+    port bodySideHeatPort : HeatTransferPort;
+    port coolantInlet : CoolantPort;
+    port coolantOutlet : CoolantPort;
+  }
+
+  part def CoolantLoop {
+    attribute reservoirVolume : Real = 0.75;
+    attribute nominalLoopFlowRate : FlowRate = 1.2;
+    attribute coolantSpecificHeat : Real = 4180.0;
+
+    port warmCoolantInlet : CoolantPort;
+    port warmCoolantOutlet : CoolantPort;
+    port cooledCoolantInlet : CoolantPort;
+    port cooledCoolantOutlet : CoolantPort;
+  }
+
+  part def MicroPump {
+    attribute maximumFlowRate : FlowRate = 1.8;
+    attribute nominalFlowRate : FlowRate = 1.2;
+    attribute maximumPressureRise : Pressure = 45.0;
+    attribute nominalPowerDraw : ElectricPower = 6.0;
+
+    port powerInput : ElectricalPort;
+    port commandInput : CommandInPort;
+    port coolantInlet : CoolantPort;
+    port coolantOutlet : CoolantPort;
+  }
+
+  part def HeatExchanger {
+    attribute maximumHeatRejectionRate : HeatFlowRate = 150.0;
+    attribute coolantInletTemperature : Temperature = 30.0;
+    attribute coolantOutletTemperature : Temperature = 20.0;
+
+    port hotCoolantInlet : CoolantPort;
+    port cooledCoolantOutlet : CoolantPort;
+    port wasteHeatOutput : HeatTransferPort;
+  }
+
+  part def Fan {
+    attribute maximumAirflow : Real = 18.0;
+    attribute nominalPowerDraw : ElectricPower = 4.0;
+
+    port powerInput : ElectricalPort;
+    port commandInput : CommandInPort;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : ElectricPotential = 14.8;
+    attribute capacity : EnergyCapacity = 98.0;
+    attribute stateOfCharge : Fraction = 1.0;
+    attribute maximumContinuousPower : ElectricPower = 60.0;
+
+    port powerOutput : ElectricalPort;
+  }
+
+  part def SensorSuite {
+    attribute skinTemperatureAccuracy : Temperature = 0.5;
+    attribute coolantTemperatureAccuracy : Temperature = 0.5;
+    attribute flowSensorAccuracy : Fraction = 0.05;
+
+    port powerInput : ElectricalPort;
+    port statusOutput : SignalInPort;
+  }
+
+  part def ThermalController {
+    attribute controlCyclePeriod : TimeDuration = 0.083;
+    attribute coolingDeadband : Temperature = 1.0;
+    attribute lowBatteryThreshold : Fraction = 0.15;
+
+    port powerInput : ElectricalPort;
+    port statusInput : SignalInPort;
+    port userCommandInput : SignalInPort;
+    port commandOutput : CommandOutPort;
+  }
+
+  part def UserInterface {
+    attribute selectedCoolingLevel : Integer = 2;
+    attribute alarmActive : Boolean = false;
+
+    port powerInput : ElectricalPort;
+    port commandInput : CommandInPort;
+    port userCommandOutput : SignalInPort;
+  }
+
+  action def RemoveBodyHeat {
+    in bodyHeat : Heat;
+    in coolantBeforePanel : Coolant;
+    out coolantAfterPanel : Coolant;
+
+    attribute removedHeatRate : HeatFlowRate;
+  }
+
+  action def RejectHeatToAmbient {
+    in warmCoolant : Coolant;
+    out cooledCoolant : Coolant;
+
+    attribute rejectedHeatRate : HeatFlowRate;
+  }
+
+  action def RegulateCooling {
+    in measuredStatus : ThermalStatusSignal;
+    out command : ControlCommand;
+
+    attribute skinTemperatureError : Temperature;
+  }
+
+  state def CoolingVestOperatingState {
+    entry action initializeSystem;
+
+    state Off;
+    state Standby;
+    state ActiveCooling;
+    state LowPowerCooling;
+    state Fault;
+    state Shutdown;
+
+    transition initial then Off;
+
+    transition Off_to_Standby
+      first Off
+      accept PowerButtonPressed
+      then Standby;
+
+    transition Standby_to_ActiveCooling
+      first Standby
+      if measuredSkinTemperature > targetSkinTemperature + coolingDeadband
+      then ActiveCooling;
+
+    transition ActiveCooling_to_Standby
+      first ActiveCooling
+      if measuredSkinTemperature <= targetSkinTemperature
+      then Standby;
+
+    transition ActiveCooling_to_LowPowerCooling
+      first ActiveCooling
+      if batteryStateOfCharge <= lowBatteryThreshold
+      then LowPowerCooling;
+
+    transition LowPowerCooling_to_Shutdown
+      first LowPowerCooling
+      if batteryStateOfCharge <= 0.05
+      then Shutdown;
+
+    transition Any_to_Fault
+      first Off, Standby, ActiveCooling, LowPowerCooling
+      if coolantFlowRate < 0.2 or measuredSkinTemperature < minimumSafeSkinTemperature
+      then Fault;
+
+    transition Fault_to_Shutdown
+      first Fault
+      accept AcknowledgeFault
+      then Shutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The cooling vest shall remove heat from the wearer's torso and regulate local skin temperature to reduce thermal strain during activity in hot environments. */
+  }
+
+  requirement def HeatRemovalRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.nominalHeatRemovalRate >= 100.0
+    }
+  }
+
+  requirement def SkinTemperatureRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.minimumSafeSkinTemperature <= vest.targetSkinTemperature and
+      vest.targetSkinTemperature <= vest.maximumSafeSkinTemperature
+    }
+  }
+
+  requirement def RuntimeRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.operatingDuration >= 120.0
+    }
+  }
+
+  requirement def BatteryPowerRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.batteryPack.maximumContinuousPower >=
+      vest.pump.nominalPowerDraw + vest.fan.nominalPowerDraw
+    }
+  }
+
+  requirement def CoolantFlowRequirement {
+    subject vest : CoolingVest;
+    require constraint {
+      vest.coolantLoop.nominalLoopFlowRate >= 1.0 and
+      vest.pump.maximumFlowRate >= vest.coolantLoop.nominalLoopFlowRate
+    }
+  }
+
+  part coolingVestSystem {
+    part wearer : WearerBody;
+    part vest : CoolingVest;
+
+    connect wearer.torsoHeatPort to vest.bodyHeatInput;
+
+    satisfy PrimaryFunctionRequirement by vest;
+    satisfy HeatRemovalRequirement by vest;
+    satisfy SkinTemperatureRequirement by vest;
+    satisfy RuntimeRequirement by vest;
+    satisfy BatteryPowerRequirement by vest;
+    satisfy CoolantFlowRequirement by vest;
+
+    perform RemoveBodyHeat;
+    perform RejectHeatToAmbient;
+    perform RegulateCooling;
+  }
+}

@@ -1,0 +1,334 @@
+package OrphanDeviceModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    doc "Dimensionless percentage from 0 to 100.";
+  }
+
+  attribute def Meter :> Real;
+  attribute def Second :> Real;
+  attribute def MeterPerSecond :> Real;
+  attribute def Watt :> Real;
+  attribute def WattHour :> Real;
+  attribute def Volt :> Real;
+  attribute def DegreeCelsius :> Real;
+  attribute def DecibelMilliwatt :> Real;
+
+  enum def DeviceMode {
+    enum idle;
+    enum searching;
+    enum connected;
+    enum alerting;
+    enum powerSaving;
+    enum faulted;
+  }
+
+  enum def AlertSeverity {
+    enum advisory;
+    enum warning;
+    enum critical;
+  }
+
+  enum def LinkStatus {
+    enum unavailable;
+    enum discovering;
+    enum authenticated;
+    enum degraded;
+    enum lost;
+  }
+
+  item def LocationFix {
+    attribute latitudeDeg : Real;
+    attribute longitudeDeg : Real;
+    attribute altitude : Meter;
+    attribute horizontalAccuracy : Meter;
+    attribute fixAge : Second;
+  }
+
+  item def VitalTelemetry {
+    attribute deviceTemperature : DegreeCelsius;
+    attribute batteryStateOfCharge : Percent;
+    attribute batteryEnergyRemaining : WattHour;
+    attribute enclosureOpen : Boolean;
+    attribute motionDetected : Boolean;
+  }
+
+  item def IdentityCredential {
+    attribute deviceId : String;
+    attribute orphanProfileId : String;
+    attribute credentialValid : Boolean;
+  }
+
+  item def NetworkCommand {
+    attribute commandId : String;
+    attribute requestedMode : DeviceMode;
+    attribute requestedReportPeriod : Second;
+    attribute authorized : Boolean;
+  }
+
+  item def EmergencyAlert {
+    attribute alertId : String;
+    attribute severity : AlertSeverity;
+    attribute message : String;
+    attribute generatedAtAge : Second;
+  }
+
+  item def StatusReport {
+    attribute mode : DeviceMode;
+    attribute linkStatus : LinkStatus;
+    attribute location : LocationFix;
+    attribute telemetry : VitalTelemetry;
+  }
+
+  port def PowerInputPort {
+    in item supplyVoltage : Volt;
+    in item availablePower : Watt;
+  }
+
+  port def WirelessServicePort {
+    out item report : StatusReport;
+    out item alert : EmergencyAlert;
+    in item command : NetworkCommand;
+  }
+
+  port def PositioningPort {
+    out item fix : LocationFix;
+  }
+
+  port def SensorPort {
+    out item telemetry : VitalTelemetry;
+  }
+
+  port def UserInterfacePort {
+    out item visibleMode : DeviceMode;
+    out item audibleAlert : EmergencyAlert;
+    in item acknowledge : Boolean;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : Volt = 3.7;
+    attribute capacity : WattHour = 18.5;
+    attribute stateOfCharge : Percent;
+    attribute minimumOperatingCharge : Percent = 10.0;
+
+    port powerOut : PowerInputPort;
+  }
+
+  part def LocationSubsystem {
+    attribute coldStartTime : Second = 45.0;
+    attribute targetAccuracy : Meter = 10.0;
+    attribute maxReportedSpeed : MeterPerSecond = 20.0;
+
+    port position : PositioningPort;
+  }
+
+  part def WirelessSubsystem {
+    attribute transmitPower : DecibelMilliwatt = 20.0;
+    attribute normalReportPeriod : Second = 60.0;
+    attribute alertReportPeriod : Second = 5.0;
+    attribute linkTimeout : Second = 180.0;
+    attribute status : LinkStatus = LinkStatus::unavailable;
+
+    port service : WirelessServicePort;
+  }
+
+  part def EnvironmentalSensorSet {
+    attribute maxOperatingTemperature : DegreeCelsius = 60.0;
+    attribute minOperatingTemperature : DegreeCelsius = -20.0;
+
+    port sensed : SensorPort;
+  }
+
+  part def LocalUserInterface {
+    attribute buzzerSoundPressure : Real = 75.0;
+    attribute displayRefreshPeriod : Second = 1.0;
+
+    port ui : UserInterfacePort;
+  }
+
+  part def OrphanDeviceController {
+    attribute currentMode : DeviceMode = DeviceMode::idle;
+    attribute lowBatteryThreshold : Percent = 20.0;
+    attribute criticalBatteryThreshold : Percent = 8.0;
+    attribute lostLinkThreshold : Second = 180.0;
+    attribute staleLocationThreshold : Second = 120.0;
+
+    port powerIn : PowerInputPort;
+    port positionIn : PositioningPort;
+    port sensorIn : SensorPort;
+    port wireless : WirelessServicePort;
+    port userInterface : UserInterfacePort;
+
+    action monitorDevice {
+      in item location : LocationFix;
+      in item telemetry : VitalTelemetry;
+      in item command : NetworkCommand;
+      out item report : StatusReport;
+      out item alert : EmergencyAlert;
+    }
+
+    action authenticateCommand {
+      in item command : NetworkCommand;
+      in item credential : IdentityCredential;
+      out item accepted : Boolean;
+    }
+
+    action generateEmergencyAlert {
+      in item location : LocationFix;
+      in item telemetry : VitalTelemetry;
+      out item alert : EmergencyAlert;
+    }
+
+    state lifecycle {
+      entry action monitorDevice;
+
+      state idle;
+      state searching;
+      state connected;
+      state alerting;
+      state powerSaving;
+      state faulted;
+
+      transition first idle;
+
+      transition idle_to_searching
+        first idle
+        then searching;
+
+      transition searching_to_connected
+        first searching
+        then connected
+        if wireless.status == LinkStatus::authenticated;
+
+      transition connected_to_alerting
+        first connected
+        then alerting
+        if sensorIn.telemetry.batteryStateOfCharge <= criticalBatteryThreshold
+           or positionIn.fix.fixAge >= staleLocationThreshold
+           or wireless.status == LinkStatus::lost;
+
+      transition connected_to_powerSaving
+        first connected
+        then powerSaving
+        if sensorIn.telemetry.batteryStateOfCharge <= lowBatteryThreshold;
+
+      transition powerSaving_to_alerting
+        first powerSaving
+        then alerting
+        if sensorIn.telemetry.batteryStateOfCharge <= criticalBatteryThreshold
+           or sensorIn.telemetry.enclosureOpen == true;
+
+      transition alerting_to_connected
+        first alerting
+        then connected
+        if wireless.status == LinkStatus::authenticated
+           and userInterface.acknowledge == true
+           and sensorIn.telemetry.batteryStateOfCharge > lowBatteryThreshold;
+
+      transition any_to_faulted
+        first idle
+        then faulted
+        if sensorIn.telemetry.deviceTemperature > 60.0;
+
+      transition faulted_to_powerSaving
+        first faulted
+        then powerSaving
+        if sensorIn.telemetry.deviceTemperature <= 55.0;
+    }
+  }
+
+  part def OrphanDevice {
+    doc "Primary function: provide an autonomous, battery-powered identity, location, status, and emergency-alert service for an unattended orphan device when normal supervision or network ownership is absent.";
+
+    attribute mass : Real = 0.18;
+    attribute enclosureIngressProtection : String = "IP67";
+    attribute expectedOperatingLife : Second = 259200.0;
+
+    part battery : BatteryPack;
+    part locator : LocationSubsystem;
+    part radio : WirelessSubsystem;
+    part sensors : EnvironmentalSensorSet;
+    part interface : LocalUserInterface;
+    part controller : OrphanDeviceController;
+
+    port externalPower : PowerInputPort;
+    port service : WirelessServicePort;
+    port localUi : UserInterfacePort;
+
+    connect externalPower to battery.powerOut;
+    connect battery.powerOut to controller.powerIn;
+    connect locator.position to controller.positionIn;
+    connect sensors.sensed to controller.sensorIn;
+    connect radio.service to controller.wireless;
+    connect interface.ui to controller.userInterface;
+    connect radio.service to service;
+    connect interface.ui to localUi;
+  }
+
+  part def OrphanDeviceSystem {
+    part device : OrphanDevice;
+
+    attribute missionReportPeriod : Second = 60.0;
+    attribute maximumAlertLatency : Second = 10.0;
+    attribute minimumLocationAccuracy : Meter = 25.0;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject device : OrphanDevice;
+
+    doc "The orphan device shall autonomously determine its operating condition, estimate its location, report status, and issue emergency alerts without relying on continuous external supervision.";
+
+    require constraint {
+      device.controller.currentMode != DeviceMode::faulted implies
+      device.radio.normalReportPeriod <= 60.0
+    }
+  }
+
+  requirement def LocationReportingRequirement {
+    subject device : OrphanDevice;
+
+    doc "The device shall provide a location fix suitable for high-level recovery and monitoring.";
+
+    require constraint {
+      device.locator.targetAccuracy <= 10.0
+    }
+  }
+
+  requirement def AlertLatencyRequirement {
+    subject system : OrphanDeviceSystem;
+
+    doc "The system shall transmit critical emergency alerts within the required alert latency.";
+
+    require constraint {
+      system.maximumAlertLatency <= 10.0
+    }
+  }
+
+  requirement def BatteryEnduranceRequirement {
+    subject device : OrphanDevice;
+
+    doc "The device shall support at least seventy-two hours of autonomous operation from its internal battery under nominal reporting conditions.";
+
+    require constraint {
+      device.expectedOperatingLife >= 259200.0
+    }
+  }
+
+  requirement def LowPowerRequirement {
+    subject device : OrphanDevice;
+
+    doc "The controller shall enter power-saving behavior before the battery reaches its critical alert threshold.";
+
+    require constraint {
+      device.controller.lowBatteryThreshold > device.controller.criticalBatteryThreshold
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by OrphanDevice;
+  satisfy LocationReportingRequirement by LocationSubsystem;
+  satisfy AlertLatencyRequirement by WirelessSubsystem;
+  satisfy BatteryEnduranceRequirement by BatteryPack;
+  satisfy LowPowerRequirement by OrphanDeviceController;
+}

@@ -1,0 +1,1265 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-i97m9ldz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2f6-6e78-7df2-91e9-807e04b2f29a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Impella and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ImpellaBasedVentricularAssistSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalar;
+        unit = "mmHg";
+    }
+
+    attribute def FlowRate {
+        :> scalar;
+        unit = "L/min";
+    }
+
+    attribute def RotationalSpeed {
+        :> scalar;
+        unit = "rpm";
+    }
+
+    attribute def ElectricPotential {
+        :> scalar;
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent {
+        :> scalar;
+        unit = "A";
+    }
+
+    attribute def Power {
+        :> scalar;
+        unit = "W";
+    }
+
+    attribute def Temperature {
+        :> scalar;
+        unit = "degC";
+    }
+
+    attribute def TimeDuration {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def BloodVolume {
+        :> scalar;
+        unit = "mL";
+    }
+
+    item def Blood {
+        attribute oxygenSaturation : Real;
+        attribute hematocrit : Real;
+        attribute temperature : Temperature;
+        attribute hemolysisIndex : Real;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : Power;
+    }
+
+    item def MotorCommand {
+        attribute targetSpeed : RotationalSpeed;
+        attribute requestedSupportLevel : Integer;
+        attribute commandTimestamp : TimeDuration;
+    }
+
+    item def SensorTelemetry {
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute motorCurrent : ElectricCurrent;
+        attribute motorSpeed : RotationalSpeed;
+        attribute purgePressure : Pressure;
+        attribute bloodFlowEstimate : FlowRate;
+        attribute controllerTemperature : Temperature;
+    }
+
+    item def AlarmSignal {
+        attribute severity : Integer;
+        attribute code : String;
+        attribute active : Boolean;
+    }
+
+    port def BloodInletPort {
+        in item bloodIn : Blood;
+        attribute pressure : Pressure;
+    }
+
+    port def BloodOutletPort {
+        out item bloodOut : Blood;
+        attribute pressure : Pressure;
+    }
+
+    port def ElectricalPowerPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in item command : MotorCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : SensorTelemetry;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    port def PurgeFluidPort {
+        in item purgeFluid : Blood;
+        attribute purgePressure : Pressure;
+        attribute purgeFlow : FlowRate;
+    }
+
+    part def ImpellaBasedAssistSystem {
+        attribute nominalAssistFlow : FlowRate = 3.5;
+        attribute maximumAssistFlow : FlowRate = 5.0;
+        attribute minimumOperatingFlow : FlowRate = 0.5;
+        attribute maximumMotorSpeed : RotationalSpeed = 51000;
+        attribute minimumMotorSpeed : RotationalSpeed = 10000;
+        attribute maximumControllerTemperature : Temperature = 45.0;
+        attribute maximumPurgePressure : Pressure = 1100.0;
+        attribute minimumPurgePressure : Pressure = 300.0;
+
+        port aorticBloodOut : BloodOutletPort;
+        port ventricularBloodIn : BloodInletPort;
+        port externalPowerIn : ElectricalPowerPort;
+        port clinicianCommandIn : CommandPort;
+        port statusOut : TelemetryPort;
+        port alarmOut : AlarmPort;
+
+        part pumpCatheter : MicroAxialPumpCatheter;
+        part controller : BedsideController;
+        part purgeSystem : PurgeSubsystem;
+        part powerModule : PowerSubsystem;
+        part sensorSuite : HemodynamicSensorSuite;
+        part alarmManager : AlarmManager;
+
+        connect externalPowerIn to powerModule.powerInput;
+        connect powerModule.conditionedPowerOut to controller.powerIn;
+        connect controller.motorDriveOut to pumpCatheter.motorPowerIn;
+        connect clinicianCommandIn to controller.commandIn;
+
+        connect ventricularBloodIn to pumpCatheter.inlet;
+        connect pumpCatheter.outlet to aorticBloodOut;
+
+        connect purgeSystem.purgeOut to pumpCatheter.purgeIn;
+        connect sensorSuite.telemetryOut to controller.telemetryIn;
+        connect controller.telemetryOut to statusOut;
+        connect controller.alarmCommandOut to alarmManager.alarmIn;
+        connect alarmManager.alarmOut to alarmOut;
+
+        perform action assistNativeCardiacOutput;
+    }
+
+    part def MicroAxialPumpCatheter {
+        attribute catheterDiameter : Real = 9.0;
+        attribute pumpLength : Real = 45.0;
+        attribute currentSpeed : RotationalSpeed;
+        attribute generatedPressureRise : Pressure;
+        attribute estimatedBloodFlow : FlowRate;
+        attribute bloodContactSurfaceTemperature : Temperature;
+
+        port inlet : BloodInletPort;
+        port outlet : BloodOutletPort;
+        port motorPowerIn : ElectricalPowerPort;
+        port purgeIn : PurgeFluidPort;
+
+        part inletCage : InletCage;
+        part impeller : ImpellerRotor;
+        part outletCage : OutletCage;
+        part motor : BrushlessMotor;
+        part catheterShaft : CatheterShaft;
+
+        connect inlet to inletCage.ventricularInterface;
+        connect inletCage.flowOut to impeller.flowIn;
+        connect impeller.flowOut to outletCage.flowIn;
+        connect outletCage.aorticInterface to outlet;
+        connect motor.rotorDrive to impeller.mechanicalDrive;
+        connect motorPowerIn to motor.powerIn;
+        connect purgeIn to catheterShaft.purgeIn;
+    }
+
+    part def InletCage {
+        port ventricularInterface : BloodInletPort;
+        port flowOut : BloodOutletPort;
+        attribute openAreaRatio : Real = 0.72;
+    }
+
+    part def OutletCage {
+        port flowIn : BloodInletPort;
+        port aorticInterface : BloodOutletPort;
+        attribute strutCount : Integer = 6;
+    }
+
+    part def ImpellerRotor {
+        port flowIn : BloodInletPort;
+        port flowOut : BloodOutletPort;
+        port mechanicalDrive : MechanicalDrivePort;
+        attribute bladeCount : Integer = 4;
+        attribute speed : RotationalSpeed;
+        attribute hydraulicEfficiency : Real = 0.38;
+    }
+
+    port def MechanicalDrivePort {
+        in attribute shaftSpeed : RotationalSpeed;
+        in attribute shaftPower : Power;
+    }
+
+    part def BrushlessMotor {
+        port powerIn : ElectricalPowerPort;
+        port rotorDrive : MechanicalDrivePort;
+        attribute windingTemperature : Temperature;
+        attribute currentDraw : ElectricCurrent;
+        attribute deliveredPower : Power;
+    }
+
+    part def CatheterShaft {
+        port purgeIn : PurgeFluidPort;
+        attribute insertedLength : Real = 920.0;
+        attribute flexibleSectionLength : Real = 120.0;
+    }
+
+    part def BedsideController {
+        port powerIn : ElectricalPowerPort;
+        port commandIn : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port motorDriveOut : ElectricalPowerPort;
+        port telemetryOut : TelemetryPort;
+        port alarmCommandOut : AlarmPort;
+
+        attribute selectedSupportLevel : Integer = 4;
+        attribute commandedSpeed : RotationalSpeed = 33000;
+        attribute closedLoopEnabled : Boolean = true;
+        attribute targetFlow : FlowRate = 3.5;
+        attribute controlCycleTime : TimeDuration = 0.02;
+
+        perform action regulatePumpSpeed;
+        perform action estimateAssistFlow;
+        perform action detectHazards;
+    }
+
+    part def PowerSubsystem {
+        port powerInput : ElectricalPowerPort;
+        port conditionedPowerOut : ElectricalPowerPort;
+        attribute inputVoltage : ElectricPotential = 24.0;
+        attribute dcBusVoltage : ElectricPotential = 18.0;
+        attribute availableRuntimeOnBattery : TimeDuration = 3600.0;
+
+        part acDcAdapter : ExternalPowerAdapter;
+        part battery : BackupBattery;
+        part dcBus : IsolatedDcBus;
+
+        connect powerInput to acDcAdapter.externalInput;
+        connect acDcAdapter.conditionedOutput to dcBus.primaryInput;
+        connect battery.backupOutput to dcBus.backupInput;
+        connect dcBus.output to conditionedPowerOut;
+    }
+
+    part def ExternalPowerAdapter {
+        port externalInput : ElectricalPowerPort;
+        port conditionedOutput : ElectricalPowerPort;
+        attribute nominalInputVoltage : ElectricPotential = 120.0;
+        attribute outputVoltage : ElectricPotential = 24.0;
+    }
+
+    part def BackupBattery {
+        port backupOutput : ElectricalPowerPort;
+        attribute capacity : Real = 98.0;
+        attribute stateOfCharge : Real = 1.0;
+        attribute lowChargeThreshold : Real = 0.2;
+    }
+
+    part def IsolatedDcBus {
+        port primaryInput : ElectricalPowerPort;
+        port backupInput : ElectricalPowerPort;
+        port output : ElectricalPowerPort;
+        attribute regulatedVoltage : ElectricPotential = 18.0;
+        attribute isolationResistance : Real = 50000000.0;
+    }
+
+    part def PurgeSubsystem {
+        port purgeOut : PurgeFluidPort;
+        attribute purgePressure : Pressure = 650.0;
+        attribute purgeFlowRate : FlowRate = 0.03;
+        attribute reservoirVolume : BloodVolume = 500.0;
+
+        part purgeReservoir : PurgeReservoir;
+        part purgePump : PurgePump;
+        part pressureRegulator : PurgePressureRegulator;
+
+        connect purgeReservoir.reservoirOut to purgePump.purgeIn;
+        connect purgePump.purgeOut to pressureRegulator.regulatorIn;
+        connect pressureRegulator.regulatorOut to purgeOut;
+    }
+
+    part def PurgeReservoir {
+        port reservoirOut : PurgeFluidPort;
+        attribute volumeRemaining : BloodVolume = 500.0;
+    }
+
+    part def PurgePump {
+        port purgeIn : PurgeFluidPort;
+        port purgeOut : PurgeFluidPort;
+        attribute commandedPurgeFlow : FlowRate = 0.03;
+    }
+
+    part def PurgePressureRegulator {
+        port regulatorIn : PurgeFluidPort;
+        port regulatorOut : PurgeFluidPort;
+        attribute targetPressure : Pressure = 650.0;
+    }
+
+    part def HemodynamicSensorSuite {
+        port telemetryOut : TelemetryPort;
+
+        attribute measuredInletPressure : Pressure;
+        attribute measuredOutletPressure : Pressure;
+        attribute measuredMotorCurrent : ElectricCurrent;
+        attribute measuredMotorSpeed : RotationalSpeed;
+        attribute measuredPurgePressure : Pressure;
+        attribute estimatedAssistFlow : FlowRate;
+
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part motorCurrentSensor : CurrentSensor;
+        part motorSpeedSensor : SpeedSensor;
+        part purgePressureSensor : PressureSensor;
+    }
+
+    part def PressureSensor {
+        attribute pressure : Pressure;
+        attribute accuracy : Pressure = 2.0;
+        attribute samplePeriod : TimeDuration = 0.01;
+    }
+
+    part def CurrentSensor {
+        attribute current : ElectricCurrent;
+        attribute accuracy : ElectricCurrent = 0.05;
+        attribute samplePeriod : TimeDuration = 0.01;
+    }
+
+    part def SpeedSensor {
+        attribute speed : RotationalSpeed;
+        attribute accuracy : RotationalSpeed = 100.0;
+        attribute samplePeriod : TimeDuration = 0.01;
+    }
+
+    part def AlarmManager {
+        port alarmIn : AlarmPort;
+        port alarmOut : AlarmPort;
+        attribute audibleEnabled : Boolean = true;
+        attribute visualEnabled : Boolean = true;
+        attribute highestActiveSeverity : Integer = 0;
+
+        perform action prioritizeAlarms;
+    }
+
+    action def assistNativeCardiacOutput {
+        in item venousReturnBlood : Blood;
+        out item augmentedAorticBlood : Blood;
+        attribute requestedFlow : FlowRate;
+        attribute achievedFlow : FlowRate;
+
+        first start;
+        then drawBloodFromLeftVentricle;
+        then impartAxialMomentum;
+        then dischargeBloodIntoAscendingAorta;
+        then updateSystemTelemetry;
+        then done;
+
+        action drawBloodFromLeftVentricle {
+            in item ventricularBlood : Blood;
+            out item pumpInletBlood : Blood;
+        }
+
+        action impartAxialMomentum {
+            in item pumpInletBlood : Blood;
+            out item pressurizedBlood : Blood;
+            attribute impellerSpeed : RotationalSpeed;
+            attribute pressureRise : Pressure;
+        }
+
+        action dischargeBloodIntoAscendingAorta {
+            in item pressurizedBlood : Blood;
+            out item aorticBlood : Blood;
+        }
+
+        action updateSystemTelemetry {
+            out item telemetry : SensorTelemetry;
+        }
+    }
+
+    action def regulatePumpSpeed {
+        in item command : MotorCommand;
+        in item telemetry : SensorTelemetry;
+        out item motorEnergy : ElectricalEnergy;
+        attribute speedError : RotationalSpeed;
+        attribute pressureDifferential : Pressure;
+        attribute controllerGain : Real = 0.18;
+
+        first readCommand;
+        then evaluateHemodynamics;
+        then computeTargetSpeed;
+        then limitCommand;
+        then energizeMotor;
+        then done;
+
+        action readCommand;
+        action evaluateHemodynamics;
+        action computeTargetSpeed;
+        action limitCommand;
+        action energizeMotor;
+    }
+
+    action def estimateAssistFlow {
+        in item telemetry : SensorTelemetry;
+        out attribute estimatedFlow : FlowRate;
+        attribute pressureDifferential : Pressure;
+        attribute motorLoad : ElectricCurrent;
+    }
+
+    action def detectHazards {
+        in item telemetry : SensorTelemetry;
+        out item alarm : AlarmSignal;
+
+        first evaluateSuction;
+        then evaluatePurgeIntegrity;
+        then evaluateOvertemperature;
+        then evaluateLowFlow;
+        then publishAlarmState;
+        then done;
+
+        action evaluateSuction;
+        action evaluatePurgeIntegrity;
+        action evaluateOvertemperature;
+        action evaluateLowFlow;
+        action publishAlarmState;
+    }
+
+    action def prioritizeAlarms {
+        in item alarmInput : AlarmSignal;
+        out item alarmOutput : AlarmSignal;
+    }
+
+    state def PumpSupportStateMachine {
+        entry action initializeController;
+
+        state Off;
+        state Priming;
+        state Ready;
+        state InsertionSupport;
+        state ActiveSupport;
+        state Weaning;
+        state AlarmLimitedSupport;
+        state EmergencyStop;
+
+        transition first Off;
+
+        transition Off_to_Priming
+            first Off
+            accept commandReceived
+            if commandReceived.command.requestedSupportLevel == 0
+            then Priming;
+
+        transition Priming_to_Ready
+            first Priming
+            accept purgePressureStable
+            if purgePressureStable.telemetry.purgePressure >= 300.0 and purgePressureStable.telemetry.purgePressure <= 1100.0
+            then Ready;
+
+        transition Ready_to_InsertionSupport
+            first Ready
+            accept clinicianStart
+            if clinicianStart.command.requestedSupportLevel >= 1
+            then InsertionSupport;
+
+        transition InsertionSupport_to_ActiveSupport
+            first InsertionSupport
+            accept placementConfirmed
+            if placementConfirmed.telemetry.bloodFlowEstimate >= 0.5
+            then ActiveSupport;
+
+        transition ActiveSupport_to_Weaning
+            first ActiveSupport
+            accept reduceSupport
+            if reduceSupport.command.requestedSupportLevel <= 2
+            then Weaning;
+
+        transition Weaning_to_ActiveSupport
+            first Weaning
+            accept increaseSupport
+            if increaseSupport.command.requestedSupportLevel > 2
+            then ActiveSupport;
+
+        transition ActiveSupport_to_AlarmLimitedSupport
+            first ActiveSupport
+            accept hazardDetected
+            if hazardDetected.alarm.severity >= 2
+            then AlarmLimitedSupport;
+
+        transition AlarmLimitedSupport_to_ActiveSupport
+            first AlarmLimitedSupport
+            accept hazardCleared
+            if hazardCleared.alarm.active == false
+            then ActiveSupport;
+
+        transition AlarmLimitedSupport_to_EmergencyStop
+            first AlarmLimitedSupport
+            accept criticalHazard
+            if criticalHazard.alarm.severity >= 4
+            then EmergencyStop;
+
+        transition ActiveSupport_to_EmergencyStop
+            first ActiveSupport
+            accept stopCommand
+            if stopCommand.command.requestedSupportLevel == 0
+            then EmergencyStop;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The Impella-based ventricular assist system shall provide temporary mechanical circulatory support by drawing blood from the left ventricle and expelling it into the ascending aorta, thereby increasing forward cardiac output while continuously monitoring pump speed, pressure, purge integrity, flow estimate, and alarm conditions. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.nominalAssistFlow >= 2.5 and system.nominalAssistFlow <= system.maximumAssistFlow
+        }
+    }
+
+    requirement def FlowSupportRequirement {
+        doc
+        /* During active support, the system shall maintain estimated assist flow between 0.5 L/min and 5.0 L/min according to clinician-selected support level and measured hemodynamic load. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.minimumOperatingFlow >= 0.5 and system.maximumAssistFlow <= 5.0
+        }
+    }
+
+    requirement def PressureRiseRequirement {
+        doc
+        /* The pump catheter shall generate a positive pressure rise from ventricular inlet to aortic outlet whenever commanded speed is above the minimum operating speed. */
+
+        subject pump : MicroAxialPumpCatheter;
+
+        require constraint {
+            pump.currentSpeed >= 10000.0 implies pump.generatedPressureRise > 0.0
+        }
+    }
+
+    requirement def SpeedLimitRequirement {
+        doc
+        /* The controller shall constrain motor commands to the validated pump operating speed range. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.controller.commandedSpeed >= system.minimumMotorSpeed and
+            system.controller.commandedSpeed <= system.maximumMotorSpeed
+        }
+    }
+
+    requirement def PurgeIntegrityRequirement {
+        doc
+        /* The purge subsystem shall maintain purge pressure within the configured safe range to reduce blood ingress into the motor region. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.purgeSystem.purgePressure >= system.minimumPurgePressure and
+            system.purgeSystem.purgePressure <= system.maximumPurgePressure
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc
+        /* The controller and motor shall alarm and limit support when measured temperature exceeds the configured safety threshold. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.controller.telemetryIn.telemetry.controllerTemperature <= system.maximumControllerTemperature
+        }
+    }
+
+    requirement def AlarmRequirement {
+        doc
+        /* The alarm manager shall issue active visual and audible alarm signals for critical low-flow, suction, purge-pressure, power, and overtemperature hazards. */
+
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.audibleEnabled == true and alarmManager.visualEnabled == true
+        }
+    }
+
+    requirement def BackupPowerRequirement {
+        doc
+        /* The power subsystem shall provide at least 30 minutes of backup operation when external power is unavailable. */
+
+        subject power : PowerSubsystem;
+
+        require constraint {
+            power.availableRuntimeOnBattery >= 1800.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ImpellaBasedAssistSystem;
+    satisfy FlowSupportRequirement by ImpellaBasedAssistSystem;
+    satisfy PressureRiseRequirement by MicroAxialPumpCatheter;
+    satisfy SpeedLimitRequirement by BedsideController;
+    satisfy PurgeIntegrityRequirement by PurgeSubsystem;
+    satisfy ThermalSafetyRequirement by BedsideController;
+    satisfy AlarmRequirement by AlarmManager;
+    satisfy BackupPowerRequirement by PowerSubsystem;
+}
+tokens used
+5,758
+package ImpellaBasedVentricularAssistSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalar;
+        unit = "mmHg";
+    }
+
+    attribute def FlowRate {
+        :> scalar;
+        unit = "L/min";
+    }
+
+    attribute def RotationalSpeed {
+        :> scalar;
+        unit = "rpm";
+    }
+
+    attribute def ElectricPotential {
+        :> scalar;
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent {
+        :> scalar;
+        unit = "A";
+    }
+
+    attribute def Power {
+        :> scalar;
+        unit = "W";
+    }
+
+    attribute def Temperature {
+        :> scalar;
+        unit = "degC";
+    }
+
+    attribute def TimeDuration {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def BloodVolume {
+        :> scalar;
+        unit = "mL";
+    }
+
+    item def Blood {
+        attribute oxygenSaturation : Real;
+        attribute hematocrit : Real;
+        attribute temperature : Temperature;
+        attribute hemolysisIndex : Real;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : Power;
+    }
+
+    item def MotorCommand {
+        attribute targetSpeed : RotationalSpeed;
+        attribute requestedSupportLevel : Integer;
+        attribute commandTimestamp : TimeDuration;
+    }
+
+    item def SensorTelemetry {
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute motorCurrent : ElectricCurrent;
+        attribute motorSpeed : RotationalSpeed;
+        attribute purgePressure : Pressure;
+        attribute bloodFlowEstimate : FlowRate;
+        attribute controllerTemperature : Temperature;
+    }
+
+    item def AlarmSignal {
+        attribute severity : Integer;
+        attribute code : String;
+        attribute active : Boolean;
+    }
+
+    port def BloodInletPort {
+        in item bloodIn : Blood;
+        attribute pressure : Pressure;
+    }
+
+    port def BloodOutletPort {
+        out item bloodOut : Blood;
+        attribute pressure : Pressure;
+    }
+
+    port def ElectricalPowerPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in item command : MotorCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : SensorTelemetry;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    port def PurgeFluidPort {
+        in item purgeFluid : Blood;
+        attribute purgePressure : Pressure;
+        attribute purgeFlow : FlowRate;
+    }
+
+    part def ImpellaBasedAssistSystem {
+        attribute nominalAssistFlow : FlowRate = 3.5;
+        attribute maximumAssistFlow : FlowRate = 5.0;
+        attribute minimumOperatingFlow : FlowRate = 0.5;
+        attribute maximumMotorSpeed : RotationalSpeed = 51000;
+        attribute minimumMotorSpeed : RotationalSpeed = 10000;
+        attribute maximumControllerTemperature : Temperature = 45.0;
+        attribute maximumPurgePressure : Pressure = 1100.0;
+        attribute minimumPurgePressure : Pressure = 300.0;
+
+        port aorticBloodOut : BloodOutletPort;
+        port ventricularBloodIn : BloodInletPort;
+        port externalPowerIn : ElectricalPowerPort;
+        port clinicianCommandIn : CommandPort;
+        port statusOut : TelemetryPort;
+        port alarmOut : AlarmPort;
+
+        part pumpCatheter : MicroAxialPumpCatheter;
+        part controller : BedsideController;
+        part purgeSystem : PurgeSubsystem;
+        part powerModule : PowerSubsystem;
+        part sensorSuite : HemodynamicSensorSuite;
+        part alarmManager : AlarmManager;
+
+        connect externalPowerIn to powerModule.powerInput;
+        connect powerModule.conditionedPowerOut to controller.powerIn;
+        connect controller.motorDriveOut to pumpCatheter.motorPowerIn;
+        connect clinicianCommandIn to controller.commandIn;
+
+        connect ventricularBloodIn to pumpCatheter.inlet;
+        connect pumpCatheter.outlet to aorticBloodOut;
+
+        connect purgeSystem.purgeOut to pumpCatheter.purgeIn;
+        connect sensorSuite.telemetryOut to controller.telemetryIn;
+        connect controller.telemetryOut to statusOut;
+        connect controller.alarmCommandOut to alarmManager.alarmIn;
+        connect alarmManager.alarmOut to alarmOut;
+
+        perform action assistNativeCardiacOutput;
+    }
+
+    part def MicroAxialPumpCatheter {
+        attribute catheterDiameter : Real = 9.0;
+        attribute pumpLength : Real = 45.0;
+        attribute currentSpeed : RotationalSpeed;
+        attribute generatedPressureRise : Pressure;
+        attribute estimatedBloodFlow : FlowRate;
+        attribute bloodContactSurfaceTemperature : Temperature;
+
+        port inlet : BloodInletPort;
+        port outlet : BloodOutletPort;
+        port motorPowerIn : ElectricalPowerPort;
+        port purgeIn : PurgeFluidPort;
+
+        part inletCage : InletCage;
+        part impeller : ImpellerRotor;
+        part outletCage : OutletCage;
+        part motor : BrushlessMotor;
+        part catheterShaft : CatheterShaft;
+
+        connect inlet to inletCage.ventricularInterface;
+        connect inletCage.flowOut to impeller.flowIn;
+        connect impeller.flowOut to outletCage.flowIn;
+        connect outletCage.aorticInterface to outlet;
+        connect motor.rotorDrive to impeller.mechanicalDrive;
+        connect motorPowerIn to motor.powerIn;
+        connect purgeIn to catheterShaft.purgeIn;
+    }
+
+    part def InletCage {
+        port ventricularInterface : BloodInletPort;
+        port flowOut : BloodOutletPort;
+        attribute openAreaRatio : Real = 0.72;
+    }
+
+    part def OutletCage {
+        port flowIn : BloodInletPort;
+        port aorticInterface : BloodOutletPort;
+        attribute strutCount : Integer = 6;
+    }
+
+    part def ImpellerRotor {
+        port flowIn : BloodInletPort;
+        port flowOut : BloodOutletPort;
+        port mechanicalDrive : MechanicalDrivePort;
+        attribute bladeCount : Integer = 4;
+        attribute speed : RotationalSpeed;
+        attribute hydraulicEfficiency : Real = 0.38;
+    }
+
+    port def MechanicalDrivePort {
+        in attribute shaftSpeed : RotationalSpeed;
+        in attribute shaftPower : Power;
+    }
+
+    part def BrushlessMotor {
+        port powerIn : ElectricalPowerPort;
+        port rotorDrive : MechanicalDrivePort;
+        attribute windingTemperature : Temperature;
+        attribute currentDraw : ElectricCurrent;
+        attribute deliveredPower : Power;
+    }
+
+    part def CatheterShaft {
+        port purgeIn : PurgeFluidPort;
+        attribute insertedLength : Real = 920.0;
+        attribute flexibleSectionLength : Real = 120.0;
+    }
+
+    part def BedsideController {
+        port powerIn : ElectricalPowerPort;
+        port commandIn : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port motorDriveOut : ElectricalPowerPort;
+        port telemetryOut : TelemetryPort;
+        port alarmCommandOut : AlarmPort;
+
+        attribute selectedSupportLevel : Integer = 4;
+        attribute commandedSpeed : RotationalSpeed = 33000;
+        attribute closedLoopEnabled : Boolean = true;
+        attribute targetFlow : FlowRate = 3.5;
+        attribute controlCycleTime : TimeDuration = 0.02;
+
+        perform action regulatePumpSpeed;
+        perform action estimateAssistFlow;
+        perform action detectHazards;
+    }
+
+    part def PowerSubsystem {
+        port powerInput : ElectricalPowerPort;
+        port conditionedPowerOut : ElectricalPowerPort;
+        attribute inputVoltage : ElectricPotential = 24.0;
+        attribute dcBusVoltage : ElectricPotential = 18.0;
+        attribute availableRuntimeOnBattery : TimeDuration = 3600.0;
+
+        part acDcAdapter : ExternalPowerAdapter;
+        part battery : BackupBattery;
+        part dcBus : IsolatedDcBus;
+
+        connect powerInput to acDcAdapter.externalInput;
+        connect acDcAdapter.conditionedOutput to dcBus.primaryInput;
+        connect battery.backupOutput to dcBus.backupInput;
+        connect dcBus.output to conditionedPowerOut;
+    }
+
+    part def ExternalPowerAdapter {
+        port externalInput : ElectricalPowerPort;
+        port conditionedOutput : ElectricalPowerPort;
+        attribute nominalInputVoltage : ElectricPotential = 120.0;
+        attribute outputVoltage : ElectricPotential = 24.0;
+    }
+
+    part def BackupBattery {
+        port backupOutput : ElectricalPowerPort;
+        attribute capacity : Real = 98.0;
+        attribute stateOfCharge : Real = 1.0;
+        attribute lowChargeThreshold : Real = 0.2;
+    }
+
+    part def IsolatedDcBus {
+        port primaryInput : ElectricalPowerPort;
+        port backupInput : ElectricalPowerPort;
+        port output : ElectricalPowerPort;
+        attribute regulatedVoltage : ElectricPotential = 18.0;
+        attribute isolationResistance : Real = 50000000.0;
+    }
+
+    part def PurgeSubsystem {
+        port purgeOut : PurgeFluidPort;
+        attribute purgePressure : Pressure = 650.0;
+        attribute purgeFlowRate : FlowRate = 0.03;
+        attribute reservoirVolume : BloodVolume = 500.0;
+
+        part purgeReservoir : PurgeReservoir;
+        part purgePump : PurgePump;
+        part pressureRegulator : PurgePressureRegulator;
+
+        connect purgeReservoir.reservoirOut to purgePump.purgeIn;
+        connect purgePump.purgeOut to pressureRegulator.regulatorIn;
+        connect pressureRegulator.regulatorOut to purgeOut;
+    }
+
+    part def PurgeReservoir {
+        port reservoirOut : PurgeFluidPort;
+        attribute volumeRemaining : BloodVolume = 500.0;
+    }
+
+    part def PurgePump {
+        port purgeIn : PurgeFluidPort;
+        port purgeOut : PurgeFluidPort;
+        attribute commandedPurgeFlow : FlowRate = 0.03;
+    }
+
+    part def PurgePressureRegulator {
+        port regulatorIn : PurgeFluidPort;
+        port regulatorOut : PurgeFluidPort;
+        attribute targetPressure : Pressure = 650.0;
+    }
+
+    part def HemodynamicSensorSuite {
+        port telemetryOut : TelemetryPort;
+
+        attribute measuredInletPressure : Pressure;
+        attribute measuredOutletPressure : Pressure;
+        attribute measuredMotorCurrent : ElectricCurrent;
+        attribute measuredMotorSpeed : RotationalSpeed;
+        attribute measuredPurgePressure : Pressure;
+        attribute estimatedAssistFlow : FlowRate;
+
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part motorCurrentSensor : CurrentSensor;
+        part motorSpeedSensor : SpeedSensor;
+        part purgePressureSensor : PressureSensor;
+    }
+
+    part def PressureSensor {
+        attribute pressure : Pressure;
+        attribute accuracy : Pressure = 2.0;
+        attribute samplePeriod : TimeDuration = 0.01;
+    }
+
+    part def CurrentSensor {
+        attribute current : ElectricCurrent;
+        attribute accuracy : ElectricCurrent = 0.05;
+        attribute samplePeriod : TimeDuration = 0.01;
+    }
+
+    part def SpeedSensor {
+        attribute speed : RotationalSpeed;
+        attribute accuracy : RotationalSpeed = 100.0;
+        attribute samplePeriod : TimeDuration = 0.01;
+    }
+
+    part def AlarmManager {
+        port alarmIn : AlarmPort;
+        port alarmOut : AlarmPort;
+        attribute audibleEnabled : Boolean = true;
+        attribute visualEnabled : Boolean = true;
+        attribute highestActiveSeverity : Integer = 0;
+
+        perform action prioritizeAlarms;
+    }
+
+    action def assistNativeCardiacOutput {
+        in item venousReturnBlood : Blood;
+        out item augmentedAorticBlood : Blood;
+        attribute requestedFlow : FlowRate;
+        attribute achievedFlow : FlowRate;
+
+        first start;
+        then drawBloodFromLeftVentricle;
+        then impartAxialMomentum;
+        then dischargeBloodIntoAscendingAorta;
+        then updateSystemTelemetry;
+        then done;
+
+        action drawBloodFromLeftVentricle {
+            in item ventricularBlood : Blood;
+            out item pumpInletBlood : Blood;
+        }
+
+        action impartAxialMomentum {
+            in item pumpInletBlood : Blood;
+            out item pressurizedBlood : Blood;
+            attribute impellerSpeed : RotationalSpeed;
+            attribute pressureRise : Pressure;
+        }
+
+        action dischargeBloodIntoAscendingAorta {
+            in item pressurizedBlood : Blood;
+            out item aorticBlood : Blood;
+        }
+
+        action updateSystemTelemetry {
+            out item telemetry : SensorTelemetry;
+        }
+    }
+
+    action def regulatePumpSpeed {
+        in item command : MotorCommand;
+        in item telemetry : SensorTelemetry;
+        out item motorEnergy : ElectricalEnergy;
+        attribute speedError : RotationalSpeed;
+        attribute pressureDifferential : Pressure;
+        attribute controllerGain : Real = 0.18;
+
+        first readCommand;
+        then evaluateHemodynamics;
+        then computeTargetSpeed;
+        then limitCommand;
+        then energizeMotor;
+        then done;
+
+        action readCommand;
+        action evaluateHemodynamics;
+        action computeTargetSpeed;
+        action limitCommand;
+        action energizeMotor;
+    }
+
+    action def estimateAssistFlow {
+        in item telemetry : SensorTelemetry;
+        out attribute estimatedFlow : FlowRate;
+        attribute pressureDifferential : Pressure;
+        attribute motorLoad : ElectricCurrent;
+    }
+
+    action def detectHazards {
+        in item telemetry : SensorTelemetry;
+        out item alarm : AlarmSignal;
+
+        first evaluateSuction;
+        then evaluatePurgeIntegrity;
+        then evaluateOvertemperature;
+        then evaluateLowFlow;
+        then publishAlarmState;
+        then done;
+
+        action evaluateSuction;
+        action evaluatePurgeIntegrity;
+        action evaluateOvertemperature;
+        action evaluateLowFlow;
+        action publishAlarmState;
+    }
+
+    action def prioritizeAlarms {
+        in item alarmInput : AlarmSignal;
+        out item alarmOutput : AlarmSignal;
+    }
+
+    state def PumpSupportStateMachine {
+        entry action initializeController;
+
+        state Off;
+        state Priming;
+        state Ready;
+        state InsertionSupport;
+        state ActiveSupport;
+        state Weaning;
+        state AlarmLimitedSupport;
+        state EmergencyStop;
+
+        transition first Off;
+
+        transition Off_to_Priming
+            first Off
+            accept commandReceived
+            if commandReceived.command.requestedSupportLevel == 0
+            then Priming;
+
+        transition Priming_to_Ready
+            first Priming
+            accept purgePressureStable
+            if purgePressureStable.telemetry.purgePressure >= 300.0 and purgePressureStable.telemetry.purgePressure <= 1100.0
+            then Ready;
+
+        transition Ready_to_InsertionSupport
+            first Ready
+            accept clinicianStart
+            if clinicianStart.command.requestedSupportLevel >= 1
+            then InsertionSupport;
+
+        transition InsertionSupport_to_ActiveSupport
+            first InsertionSupport
+            accept placementConfirmed
+            if placementConfirmed.telemetry.bloodFlowEstimate >= 0.5
+            then ActiveSupport;
+
+        transition ActiveSupport_to_Weaning
+            first ActiveSupport
+            accept reduceSupport
+            if reduceSupport.command.requestedSupportLevel <= 2
+            then Weaning;
+
+        transition Weaning_to_ActiveSupport
+            first Weaning
+            accept increaseSupport
+            if increaseSupport.command.requestedSupportLevel > 2
+            then ActiveSupport;
+
+        transition ActiveSupport_to_AlarmLimitedSupport
+            first ActiveSupport
+            accept hazardDetected
+            if hazardDetected.alarm.severity >= 2
+            then AlarmLimitedSupport;
+
+        transition AlarmLimitedSupport_to_ActiveSupport
+            first AlarmLimitedSupport
+            accept hazardCleared
+            if hazardCleared.alarm.active == false
+            then ActiveSupport;
+
+        transition AlarmLimitedSupport_to_EmergencyStop
+            first AlarmLimitedSupport
+            accept criticalHazard
+            if criticalHazard.alarm.severity >= 4
+            then EmergencyStop;
+
+        transition ActiveSupport_to_EmergencyStop
+            first ActiveSupport
+            accept stopCommand
+            if stopCommand.command.requestedSupportLevel == 0
+            then EmergencyStop;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The Impella-based ventricular assist system shall provide temporary mechanical circulatory support by drawing blood from the left ventricle and expelling it into the ascending aorta, thereby increasing forward cardiac output while continuously monitoring pump speed, pressure, purge integrity, flow estimate, and alarm conditions. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.nominalAssistFlow >= 2.5 and system.nominalAssistFlow <= system.maximumAssistFlow
+        }
+    }
+
+    requirement def FlowSupportRequirement {
+        doc
+        /* During active support, the system shall maintain estimated assist flow between 0.5 L/min and 5.0 L/min according to clinician-selected support level and measured hemodynamic load. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.minimumOperatingFlow >= 0.5 and system.maximumAssistFlow <= 5.0
+        }
+    }
+
+    requirement def PressureRiseRequirement {
+        doc
+        /* The pump catheter shall generate a positive pressure rise from ventricular inlet to aortic outlet whenever commanded speed is above the minimum operating speed. */
+
+        subject pump : MicroAxialPumpCatheter;
+
+        require constraint {
+            pump.currentSpeed >= 10000.0 implies pump.generatedPressureRise > 0.0
+        }
+    }
+
+    requirement def SpeedLimitRequirement {
+        doc
+        /* The controller shall constrain motor commands to the validated pump operating speed range. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.controller.commandedSpeed >= system.minimumMotorSpeed and
+            system.controller.commandedSpeed <= system.maximumMotorSpeed
+        }
+    }
+
+    requirement def PurgeIntegrityRequirement {
+        doc
+        /* The purge subsystem shall maintain purge pressure within the configured safe range to reduce blood ingress into the motor region. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.purgeSystem.purgePressure >= system.minimumPurgePressure and
+            system.purgeSystem.purgePressure <= system.maximumPurgePressure
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc
+        /* The controller and motor shall alarm and limit support when measured temperature exceeds the configured safety threshold. */
+
+        subject system : ImpellaBasedAssistSystem;
+
+        require constraint {
+            system.controller.telemetryIn.telemetry.controllerTemperature <= system.maximumControllerTemperature
+        }
+    }
+
+    requirement def AlarmRequirement {
+        doc
+        /* The alarm manager shall issue active visual and audible alarm signals for critical low-flow, suction, purge-pressure, power, and overtemperature hazards. */
+
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.audibleEnabled == true and alarmManager.visualEnabled == true
+        }
+    }
+
+    requirement def BackupPowerRequirement {
+        doc
+        /* The power subsystem shall provide at least 30 minutes of backup operation when external power is unavailable. */
+
+        subject power : PowerSubsystem;
+
+        require constraint {
+            power.availableRuntimeOnBattery >= 1800.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ImpellaBasedAssistSystem;
+    satisfy FlowSupportRequirement by ImpellaBasedAssistSystem;
+    satisfy PressureRiseRequirement by MicroAxialPumpCatheter;
+    satisfy SpeedLimitRequirement by BedsideController;
+    satisfy PurgeIntegrityRequirement by PurgeSubsystem;
+    satisfy ThermalSafetyRequirement by BedsideController;
+    satisfy AlarmRequirement by AlarmManager;
+    satisfy BackupPowerRequirement by PowerSubsystem;
+}

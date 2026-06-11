@@ -1,0 +1,522 @@
+package OtoscopeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    doc /* 
+     * High-level primary function:
+     * The otoscope provides controlled illumination and optical viewing of the external ear canal
+     * and tympanic membrane so a clinician can inspect ear anatomy safely, clearly, and hygienically.
+     */
+
+    attribute def LuminousFlux :> ISQ::luminousFlux {
+        unit = SI::lumen;
+    }
+
+    attribute def Illuminance :> ISQ::illuminance {
+        unit = SI::lux;
+    }
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def ElectricPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    enum def PowerMode {
+        enum off;
+        enum standby;
+        enum examination;
+        enum lowBattery;
+        enum fault;
+    }
+
+    enum def SpeculumStatus {
+        enum notInstalled;
+        enum installedClean;
+        enum installedUsed;
+        enum rejected;
+    }
+
+    enum def IlluminationLevel {
+        enum minimum;
+        enum low;
+        enum medium;
+        enum high;
+        enum maximum;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : ElectricPower;
+    }
+
+    item def LightBeam {
+        attribute luminousFlux : LuminousFlux;
+        attribute centerIlluminance : Illuminance;
+        attribute beamAngle : Angle;
+        attribute colorTemperature : Temperature;
+    }
+
+    item def OpticalImage {
+        attribute fieldOfView : Angle;
+        attribute magnification : Real;
+        attribute workingDistance : Length;
+        attribute imageBrightness : Illuminance;
+    }
+
+    item def EarCanalView {
+        attribute canalDiameter : Length;
+        attribute tympanicMembraneVisible : Boolean;
+        attribute obstructionDetected : Boolean;
+        attribute image : OpticalImage;
+    }
+
+    item def UserCommand {
+        attribute powerPressed : Boolean;
+        attribute brightnessIncreasePressed : Boolean;
+        attribute brightnessDecreasePressed : Boolean;
+    }
+
+    item def HygieneInterface {
+        attribute speculumStatus : SpeculumStatus;
+        attribute tipDiameter : Length;
+        attribute insertionDepthLimit : Length;
+    }
+
+    item def ThermalCondition {
+        attribute tipTemperature : Temperature;
+        attribute ledTemperature : Temperature;
+        attribute handleTemperature : Temperature;
+    }
+
+    port def ElectricalPowerPort {
+        out item electricalEnergy : ElectricalEnergy;
+    }
+
+    port def ElectricalLoadPort {
+        in item electricalEnergy : ElectricalEnergy;
+    }
+
+    port def LightOutputPort {
+        out item light : LightBeam;
+    }
+
+    port def LightInputPort {
+        in item light : LightBeam;
+    }
+
+    port def OpticalOutputPort {
+        out item image : OpticalImage;
+    }
+
+    port def OpticalInputPort {
+        in item image : OpticalImage;
+    }
+
+    port def CommandInputPort {
+        in item command : UserCommand;
+    }
+
+    port def CommandOutputPort {
+        out item command : UserCommand;
+    }
+
+    port def EarInterfacePort {
+        out item hygieneInterface : HygieneInterface;
+        in item earCanalView : EarCanalView;
+    }
+
+    port def ThermalStatusPort {
+        out item thermalCondition : ThermalCondition;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : ElectricPotential = 3.7 [SI::volt];
+        attribute capacity : Real = 2.6;
+        attribute remainingChargePercent : Real;
+        attribute lowBatteryThresholdPercent : Real = 15.0;
+
+        port powerOut : ElectricalPowerPort;
+
+        action providePower {
+            in desiredLoadPower : ElectricPower;
+            out suppliedEnergy : ElectricalEnergy;
+        }
+
+        state def BatteryState {
+            state charged;
+            state discharging;
+            state lowCharge;
+            state depleted;
+
+            transition first charged;
+            transition charged_to_discharging
+                first charged
+                then discharging;
+
+            transition discharging_to_lowCharge
+                first discharging
+                then lowCharge
+                if remainingChargePercent <= lowBatteryThresholdPercent;
+
+            transition lowCharge_to_depleted
+                first lowCharge
+                then depleted
+                if remainingChargePercent <= 2.0;
+
+            transition depleted_to_charged
+                first depleted
+                then charged
+                if remainingChargePercent >= 95.0;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute regulatedVoltage : ElectricPotential = 3.3 [SI::volt];
+        attribute maximumOutputCurrent : ElectricCurrent = 0.7 [SI::ampere];
+        attribute efficiency : Real = 0.88;
+
+        port powerIn : ElectricalLoadPort;
+        port regulatedPowerOut : ElectricalPowerPort;
+
+        action regulateVoltage {
+            in rawEnergy : ElectricalEnergy;
+            out regulatedEnergy : ElectricalEnergy;
+        }
+    }
+
+    part def LEDIlluminator {
+        attribute selectedLevel : IlluminationLevel = IlluminationLevel::medium;
+        attribute minimumFlux : LuminousFlux = 8.0 [SI::lumen];
+        attribute maximumFlux : LuminousFlux = 38.0 [SI::lumen];
+        attribute maximumLedTemperature : Temperature = 48.0 [SI::degreeCelsius];
+
+        port powerIn : ElectricalLoadPort;
+        port lightOut : LightOutputPort;
+        port thermalOut : ThermalStatusPort;
+
+        action emitIllumination {
+            in level : IlluminationLevel;
+            out beam : LightBeam;
+        }
+
+        action reduceOutputForThermalProtection {
+            in measuredCondition : ThermalCondition;
+            out deratedLevel : IlluminationLevel;
+        }
+    }
+
+    part def OpticalLensAssembly {
+        attribute magnification : Real = 3.0;
+        attribute fieldOfView : Angle = 20.0 [SI::degree];
+        attribute nominalWorkingDistance : Length = 25.0 [SI::millimetre];
+
+        port lightIn : LightInputPort;
+        port imageOut : OpticalOutputPort;
+
+        action formMagnifiedImage {
+            in reflectedLight : LightBeam;
+            out image : OpticalImage;
+        }
+    }
+
+    part def DisposableSpeculum {
+        attribute status : SpeculumStatus = SpeculumStatus::notInstalled;
+        attribute tipOuterDiameter : Length = 4.0 [SI::millimetre];
+        attribute maximumInsertionDepth : Length = 18.0 [SI::millimetre];
+        attribute sterileBeforeUse : Boolean = true;
+
+        port earInterface : EarInterfacePort;
+        port imageIn : OpticalInputPort;
+        port imageOut : OpticalOutputPort;
+
+        action verifyInstalledClean {
+            in observedStatus : SpeculumStatus;
+            out accepted : Boolean;
+        }
+
+        action constrainInsertion {
+            in intendedDepth : Length;
+            out allowedDepth : Length;
+        }
+    }
+
+    part def UserControlAssembly {
+        attribute powerButtonDebounceTime : TimeDuration = 0.05 [SI::second];
+        attribute brightnessStepCount : Integer = 5;
+
+        port commandOut : CommandOutputPort;
+
+        action interpretButtonPress {
+            out command : UserCommand;
+        }
+    }
+
+    part def ControlElectronics {
+        attribute mode : PowerMode = PowerMode::off;
+        attribute requestedIlluminationLevel : IlluminationLevel = IlluminationLevel::medium;
+        attribute automaticShutoffTime : TimeDuration = 600.0 [SI::second];
+
+        port commandIn : CommandInputPort;
+        port powerIn : ElectricalLoadPort;
+        port ledPowerOut : ElectricalPowerPort;
+        port thermalIn : ThermalStatusPort;
+
+        action processUserCommand {
+            in command : UserCommand;
+            out newMode : PowerMode;
+            out newLevel : IlluminationLevel;
+        }
+
+        action superviseSafety {
+            in batteryPercent : Real;
+            in thermalCondition : ThermalCondition;
+            out permittedMode : PowerMode;
+            out permittedLevel : IlluminationLevel;
+        }
+
+        state def OtoscopeControlState {
+            state Off;
+            state Standby;
+            state Examining;
+            state LowBatteryWarning;
+            state ThermalFault;
+            state ShutDown;
+
+            transition initial_to_off
+                first Off;
+
+            transition off_to_standby
+                first Off
+                then Standby
+                accept UserCommand
+                if commandIn.command.powerPressed == true;
+
+            transition standby_to_examining
+                first Standby
+                then Examining
+                accept UserCommand
+                if commandIn.command.powerPressed == true;
+
+            transition examining_to_standby
+                first Examining
+                then Standby
+                accept UserCommand
+                if commandIn.command.powerPressed == true;
+
+            transition examining_to_lowBattery
+                first Examining
+                then LowBatteryWarning
+                if mode == PowerMode::lowBattery;
+
+            transition lowBattery_to_shutdown
+                first LowBatteryWarning
+                then ShutDown
+                if mode == PowerMode::off;
+
+            transition examining_to_thermalFault
+                first Examining
+                then ThermalFault
+                if mode == PowerMode::fault;
+
+            transition thermalFault_to_shutdown
+                first ThermalFault
+                then ShutDown;
+
+            transition shutdown_to_off
+                first ShutDown
+                then Off;
+        }
+    }
+
+    part def ClinicianEye {
+        port imageIn : OpticalInputPort;
+
+        action observeEarCanal {
+            in image : OpticalImage;
+            out viewInterpreted : EarCanalView;
+        }
+    }
+
+    part def PatientEar {
+        attribute nominalCanalDiameter : Length = 7.0 [SI::millimetre];
+        attribute tympanicMembraneDistance : Length = 25.0 [SI::millimetre];
+
+        port earInterface : EarInterfacePort;
+        port reflectedImageOut : OpticalOutputPort;
+
+        action reflectIlluminatedAnatomy {
+            in illumination : LightBeam;
+            out view : EarCanalView;
+        }
+    }
+
+    part def Otoscope {
+        attribute deviceMass : Real = 0.145;
+        attribute handleDiameter : Length = 28.0 [SI::millimetre];
+        attribute safeTipTemperatureLimit : Temperature = 41.0 [SI::degreeCelsius];
+
+        part battery : BatteryPack;
+        part regulator : PowerRegulator;
+        part controls : UserControlAssembly;
+        part electronics : ControlElectronics;
+        part led : LEDIlluminator;
+        part optics : OpticalLensAssembly;
+        part speculum : DisposableSpeculum;
+
+        port userCommandIn : CommandInputPort;
+        port patientEarInterface : EarInterfacePort;
+        port clinicianViewOut : OpticalOutputPort;
+
+        connect battery.powerOut to regulator.powerIn;
+        connect regulator.regulatedPowerOut to electronics.powerIn;
+        connect electronics.ledPowerOut to led.powerIn;
+        connect controls.commandOut to electronics.commandIn;
+        connect userCommandIn to electronics.commandIn;
+        connect led.lightOut to optics.lightIn;
+        connect optics.imageOut to speculum.imageIn;
+        connect speculum.imageOut to clinicianViewOut;
+        connect speculum.earInterface to patientEarInterface;
+        connect led.thermalOut to electronics.thermalIn;
+
+        action inspectEar {
+            in clinicianCommand : UserCommand;
+            in patientEarView : EarCanalView;
+            out magnifiedView : OpticalImage;
+
+            first startExamination;
+            then illuminateCanal;
+            then collectReflectedLight;
+            then presentMagnifiedImage;
+
+            action startExamination {
+                in command : UserCommand = clinicianCommand;
+                out enabled : Boolean;
+            }
+
+            action illuminateCanal {
+                in enabled : Boolean;
+                out beam : LightBeam;
+            }
+
+            action collectReflectedLight {
+                in beam : LightBeam;
+                in anatomy : EarCanalView = patientEarView;
+                out rawImage : OpticalImage;
+            }
+
+            action presentMagnifiedImage {
+                in rawImage : OpticalImage;
+                out image : OpticalImage = magnifiedView;
+            }
+        }
+    }
+
+    part def OtoscopeUseContext {
+        part otoscope : Otoscope;
+        part clinician : ClinicianEye;
+        part ear : PatientEar;
+
+        connect otoscope.clinicianViewOut to clinician.imageIn;
+        connect otoscope.patientEarInterface to ear.earInterface;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject otoscope : Otoscope;
+
+        doc /* The otoscope shall illuminate and magnify the external ear canal and tympanic membrane for clinician inspection. */
+
+        require constraint {
+            otoscope.led.maximumFlux >= 30.0 [SI::lumen] and
+            otoscope.optics.magnification >= 2.5 and
+            otoscope.optics.fieldOfView >= 15.0 [SI::degree];
+        }
+    }
+
+    requirement def SafeIlluminationRequirement {
+        subject otoscope : Otoscope;
+
+        doc /* The otoscope shall limit emitted light and tip temperature to values suitable for brief patient contact examination. */
+
+        require constraint {
+            otoscope.led.maximumFlux <= 45.0 [SI::lumen] and
+            otoscope.safeTipTemperatureLimit <= 41.0 [SI::degreeCelsius];
+        }
+    }
+
+    requirement def HygieneRequirement {
+        subject speculum : DisposableSpeculum;
+
+        doc /* The patient-contacting tip shall be a clean removable speculum before insertion into the ear canal. */
+
+        require constraint {
+            speculum.status == SpeculumStatus::installedClean and
+            speculum.sterileBeforeUse == true;
+        }
+    }
+
+    requirement def InsertionLimitRequirement {
+        subject speculum : DisposableSpeculum;
+
+        doc /* The speculum geometry shall limit insertion depth to reduce risk of contact with the tympanic membrane. */
+
+        require constraint {
+            speculum.maximumInsertionDepth <= 18.0 [SI::millimetre] and
+            speculum.tipOuterDiameter <= 5.0 [SI::millimetre];
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        subject otoscope : Otoscope;
+
+        doc /* The otoscope shall provide regulated electrical power for illumination during handheld examination. */
+
+        require constraint {
+            otoscope.battery.nominalVoltage >= 3.0 [SI::volt] and
+            otoscope.regulator.regulatedVoltage == 3.3 [SI::volt] and
+            otoscope.regulator.maximumOutputCurrent >= 0.5 [SI::ampere];
+        }
+    }
+
+    requirement def AutomaticProtectionRequirement {
+        subject electronics : ControlElectronics;
+
+        doc /* The control electronics shall enter a protected state when battery charge or thermal condition is outside safe operating limits. */
+
+        require constraint {
+            electronics.automaticShutoffTime <= 600.0 [SI::second];
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Otoscope::inspectEar;
+    satisfy SafeIlluminationRequirement by LEDIlluminator::reduceOutputForThermalProtection;
+    satisfy HygieneRequirement by DisposableSpeculum::verifyInstalledClean;
+    satisfy InsertionLimitRequirement by DisposableSpeculum::constrainInsertion;
+    satisfy BatteryOperationRequirement by PowerRegulator::regulateVoltage;
+    satisfy AutomaticProtectionRequirement by ControlElectronics::superviseSafety;
+}

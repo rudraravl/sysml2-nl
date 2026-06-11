@@ -1,0 +1,664 @@
+package HotAirOvenSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ISQ::temperature {
+        unit = "K";
+    }
+
+    attribute def CelsiusTemperature {
+        :>> numericalValue;
+        unit = "degC";
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = "s";
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = "W";
+    }
+
+    attribute def MassFlowRate {
+        :>> numericalValue;
+        unit = "kg/s";
+    }
+
+    attribute def Volume {
+        :>> numericalValue;
+        unit = "L";
+    }
+
+    attribute def Percentage {
+        :>> numericalValue;
+        unit = "%";
+    }
+
+    attribute def AirVelocity {
+        :>> numericalValue;
+        unit = "m/s";
+    }
+
+    attribute def ElectricalVoltage {
+        :>> numericalValue;
+        unit = "V";
+    }
+
+    attribute def ElectricalCurrent {
+        :>> numericalValue;
+        unit = "A";
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricalVoltage;
+        attribute current : ElectricalCurrent;
+        attribute frequency {
+            :>> numericalValue;
+            unit = "Hz";
+        }
+    }
+
+    item def HotAir {
+        attribute temperature : CelsiusTemperature;
+        attribute flowRate : MassFlowRate;
+        attribute velocity : AirVelocity;
+        attribute humidity : Percentage;
+    }
+
+    item def AmbientAir {
+        attribute temperature : CelsiusTemperature;
+        attribute humidity : Percentage;
+    }
+
+    item def ThermalEnergy {
+        attribute heatFlow : Power;
+        attribute sourceTemperature : CelsiusTemperature;
+    }
+
+    item def OvenLoad {
+        attribute loadMass {
+            :>> numericalValue;
+            unit = "kg";
+        }
+        attribute initialTemperature : CelsiusTemperature;
+        attribute targetTemperature : CelsiusTemperature;
+        attribute allowableTemperatureDeviation : CelsiusTemperature;
+    }
+
+    item def UserCommand {
+        attribute setpointTemperature : CelsiusTemperature;
+        attribute setpointDuration : TimeDuration;
+        attribute fanEnabled : Boolean;
+        attribute startRequested : Boolean;
+        attribute stopRequested : Boolean;
+    }
+
+    item def OvenStatus {
+        attribute chamberTemperature : CelsiusTemperature;
+        attribute remainingTime : TimeDuration;
+        attribute heaterDutyCycle : Percentage;
+        attribute doorClosed : Boolean;
+        attribute operatingMode : String;
+        attribute alarmActive : Boolean;
+    }
+
+    port def ElectricalPowerPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def AirInletPort {
+        in item air : AmbientAir;
+    }
+
+    port def HotAirPort {
+        out item air : HotAir;
+    }
+
+    port def ExhaustPort {
+        out item air : HotAir;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalEnergy;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusPort {
+        out item status : OvenStatus;
+    }
+
+    port def SensorSignalPort {
+        out attribute measuredTemperature : CelsiusTemperature;
+        out attribute measuredDoorClosed : Boolean;
+    }
+
+    port def ControlSignalPort {
+        out attribute heaterEnable : Boolean;
+        out attribute heaterDutyCycle : Percentage;
+        out attribute fanSpeedCommand : Percentage;
+        out attribute alarmEnable : Boolean;
+    }
+
+    part def HeatingElement {
+        attribute ratedPower : Power = 2500 [W];
+        attribute maximumSurfaceTemperature : CelsiusTemperature = 450 [degC];
+        attribute efficiency : Percentage = 92 [%];
+
+        port powerIn : ElectricalPowerPort;
+        port heatOut : ThermalPort;
+        port controlIn : ControlSignalPort;
+
+        action generateHeat {
+            in attribute enable : Boolean;
+            in attribute dutyCycle : Percentage;
+            out item heat : ThermalEnergy;
+
+            first start;
+            then decide;
+            if enable then supplyThermalEnergy;
+            else remainOff;
+            then done;
+
+            action supplyThermalEnergy {
+                out item producedHeat : ThermalEnergy {
+                    :>> heatFlow = ratedPower * dutyCycle / 100;
+                    :>> sourceTemperature = maximumSurfaceTemperature;
+                }
+            }
+
+            action remainOff {
+                out item producedHeat : ThermalEnergy {
+                    :>> heatFlow = 0 [W];
+                    :>> sourceTemperature = 25 [degC];
+                }
+            }
+        }
+    }
+
+    part def CirculationFan {
+        attribute ratedPower : Power = 120 [W];
+        attribute maximumFlowRate : MassFlowRate = 0.35 [kg/s];
+        attribute nominalAirVelocity : AirVelocity = 3.5 [m/s];
+
+        port powerIn : ElectricalPowerPort;
+        port inlet : AirInletPort;
+        port outlet : HotAirPort;
+        port controlIn : ControlSignalPort;
+
+        action circulateAir {
+            in item incomingAir : AmbientAir;
+            in attribute fanSpeedCommand : Percentage;
+            out item movingAir : HotAir;
+
+            first start;
+            then accelerateFlow;
+            then dischargeAir;
+            then done;
+
+            action accelerateFlow {
+                out item fanAir : HotAir {
+                    :>> temperature = incomingAir.temperature;
+                    :>> flowRate = maximumFlowRate * fanSpeedCommand / 100;
+                    :>> velocity = nominalAirVelocity * fanSpeedCommand / 100;
+                    :>> humidity = incomingAir.humidity;
+                }
+            }
+
+            action dischargeAir {
+                in item fanAir : HotAir;
+                out item movingAir : HotAir;
+            }
+        }
+    }
+
+    part def InsulatedChamber {
+        attribute internalVolume : Volume = 80 [L];
+        attribute maximumOperatingTemperature : CelsiusTemperature = 250 [degC];
+        attribute temperatureUniformity : CelsiusTemperature = 3 [degC];
+        attribute heatLossAt200C : Power = 180 [W];
+
+        port airIn : HotAirPort;
+        port exhaustOut : ExhaustPort;
+        port heatIn : ThermalPort;
+        port loadInterface : ThermalPort;
+
+        part rack {
+            attribute loadCapacity {
+                :>> numericalValue;
+                unit = "kg";
+            } = 25 [kg];
+            attribute shelfCount : Integer = 3;
+        }
+
+        action transferHeatToLoad {
+            in item circulatingAir : HotAir;
+            in item load : OvenLoad;
+            out item conditionedLoad : OvenLoad;
+
+            first start;
+            then convectiveHeating;
+            then equilibrateTemperature;
+            then done;
+
+            action convectiveHeating {
+                in item circulatingAir : HotAir;
+                in item load : OvenLoad;
+                out item partiallyHeatedLoad : OvenLoad;
+            }
+
+            action equilibrateTemperature {
+                in item partiallyHeatedLoad : OvenLoad;
+                out item conditionedLoad : OvenLoad {
+                    :>> targetTemperature = load.targetTemperature;
+                    :>> allowableTemperatureDeviation = temperatureUniformity;
+                }
+            }
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeLow : CelsiusTemperature = 0 [degC];
+        attribute measurementRangeHigh : CelsiusTemperature = 300 [degC];
+        attribute accuracy : CelsiusTemperature = 1 [degC];
+        attribute samplePeriod : TimeDuration = 1 [s];
+
+        port signalOut : SensorSignalPort;
+
+        action measureChamberTemperature {
+            in attribute actualTemperature : CelsiusTemperature;
+            out attribute measuredTemperature : CelsiusTemperature;
+        }
+    }
+
+    part def DoorAssembly {
+        attribute sealLeakageRate : MassFlowRate = 0.005 [kg/s];
+        attribute windowPresent : Boolean = true;
+
+        port sensorOut : SensorSignalPort;
+
+        state def DoorStateMachine {
+            state closed;
+            state open;
+
+            entry; then closed;
+
+            transition closedToOpen
+                first closed
+                accept event doorHandlePulled
+                then open;
+
+            transition openToClosed
+                first open
+                accept event doorLatched
+                then closed;
+        }
+
+        action senseDoorPosition {
+            out attribute doorClosed : Boolean;
+        }
+    }
+
+    part def Controller {
+        attribute controlPeriod : TimeDuration = 1 [s];
+        attribute defaultSetpoint : CelsiusTemperature = 180 [degC];
+        attribute overTemperatureLimit : CelsiusTemperature = 260 [degC];
+        attribute heaterDutyCycle : Percentage;
+        attribute fanSpeedCommand : Percentage;
+
+        port commandIn : CommandPort;
+        port sensorIn : SensorSignalPort;
+        port controlOut : ControlSignalPort;
+        port statusOut : StatusPort;
+
+        state def OvenControlStateMachine {
+            state idle;
+            state preheating;
+            state stabilizing;
+            state baking;
+            state complete;
+            state fault;
+
+            entry; then idle;
+
+            transition startCycle
+                first idle
+                accept event startRequested
+                if sensorIn.measuredDoorClosed
+                then preheating;
+
+            transition preheatReached
+                first preheating
+                if sensorIn.measuredTemperature >= commandIn.command.setpointTemperature - 2 [degC]
+                then stabilizing;
+
+            transition stabilized
+                first stabilizing
+                after 120 [s]
+                then baking;
+
+            transition timedComplete
+                first baking
+                after commandIn.command.setpointDuration
+                then complete;
+
+            transition resetToIdle
+                first complete
+                accept event stopRequested
+                then idle;
+
+            transition doorOpenedDuringHeating
+                first preheating
+                accept event doorOpened
+                then fault;
+
+            transition doorOpenedDuringBaking
+                first baking
+                accept event doorOpened
+                then fault;
+
+            transition overTemperature
+                first preheating
+                if sensorIn.measuredTemperature > overTemperatureLimit
+                then fault;
+
+            transition stopFault
+                first fault
+                accept event stopRequested
+                then idle;
+        }
+
+        action regulateTemperature {
+            in attribute setpoint : CelsiusTemperature;
+            in attribute measuredTemperature : CelsiusTemperature;
+            in attribute doorClosed : Boolean;
+            out attribute heaterEnable : Boolean;
+            out attribute dutyCycle : Percentage;
+            out attribute fanCommand : Percentage;
+            out attribute alarmEnable : Boolean;
+
+            first start;
+            then evaluateSafety;
+            if doorClosed and measuredTemperature <= overTemperatureLimit then computeDutyCycle;
+            else disableHeating;
+            then emitControls;
+            then done;
+
+            action evaluateSafety {
+                in attribute doorClosed : Boolean;
+                in attribute measuredTemperature : CelsiusTemperature;
+                out attribute safeToHeat : Boolean;
+            }
+
+            action computeDutyCycle {
+                in attribute setpoint : CelsiusTemperature;
+                in attribute measuredTemperature : CelsiusTemperature;
+                out attribute dutyCycle : Percentage;
+            }
+
+            action disableHeating {
+                out attribute dutyCycle : Percentage = 0 [%];
+                out attribute heaterEnable : Boolean = false;
+                out attribute alarmEnable : Boolean = true;
+            }
+
+            action emitControls {
+                out attribute fanCommand : Percentage = 100 [%];
+            }
+        }
+    }
+
+    part def UserInterface {
+        attribute displayResolution : String = "128x64 monochrome";
+        attribute audibleAlarmLevel {
+            :>> numericalValue;
+            unit = "dBA";
+        } = 70 [dBA];
+
+        port commandOut : CommandPort;
+        port statusIn : StatusPort;
+
+        action acceptUserSettings {
+            out item command : UserCommand {
+                :>> setpointTemperature = 180 [degC];
+                :>> setpointDuration = 1800 [s];
+                :>> fanEnabled = true;
+                :>> startRequested = true;
+                :>> stopRequested = false;
+            }
+        }
+
+        action displayStatus {
+            in item status : OvenStatus;
+        }
+    }
+
+    part def SafetyLimiter {
+        attribute tripTemperature : CelsiusTemperature = 275 [degC];
+        attribute resettable : Boolean = false;
+
+        port sensorIn : SensorSignalPort;
+        port controlOut : ControlSignalPort;
+
+        action interruptHeating {
+            in attribute measuredTemperature : CelsiusTemperature;
+            out attribute heaterEnable : Boolean;
+            out attribute alarmEnable : Boolean;
+        }
+    }
+
+    part def HotAirOven {
+        doc
+        /* The primary function of the hot air oven is to heat and maintain an enclosed chamber at a controlled temperature by forced circulation of hot air so that a load is uniformly dried, sterilized, cured, or thermally conditioned for a specified duration. */
+
+        attribute ratedSupplyVoltage : ElectricalVoltage = 230 [V];
+        attribute ratedSupplyFrequency {
+            :>> numericalValue;
+            unit = "Hz";
+        } = 50 [Hz];
+        attribute maximumSetpointTemperature : CelsiusTemperature = 250 [degC];
+        attribute minimumSetpointTemperature : CelsiusTemperature = 40 [degC];
+        attribute chamberCapacity : Volume = 80 [L];
+        attribute warmupTimeTo180C : TimeDuration = 900 [s];
+
+        port mainsPower : ElectricalPowerPort;
+        port ambientAirIn : AirInletPort;
+        port exhaustAirOut : ExhaustPort;
+        port operatorCommand : CommandPort;
+        port ovenStatus : StatusPort;
+
+        part chamber : InsulatedChamber;
+        part heater : HeatingElement;
+        part fan : CirculationFan;
+        part temperatureSensor : TemperatureSensor;
+        part door : DoorAssembly;
+        part controller : Controller;
+        part userInterface : UserInterface;
+        part safetyLimiter : SafetyLimiter;
+
+        connect mainsPower to heater.powerIn;
+        connect mainsPower to fan.powerIn;
+        connect ambientAirIn to fan.inlet;
+        connect fan.outlet to chamber.airIn;
+        connect heater.heatOut to chamber.heatIn;
+        connect chamber.exhaustOut to exhaustAirOut;
+        connect temperatureSensor.signalOut to controller.sensorIn;
+        connect door.sensorOut to controller.sensorIn;
+        connect controller.controlOut to heater.controlIn;
+        connect controller.controlOut to fan.controlIn;
+        connect safetyLimiter.controlOut to heater.controlIn;
+        connect userInterface.commandOut to controller.commandIn;
+        connect controller.statusOut to userInterface.statusIn;
+        connect operatorCommand to controller.commandIn;
+        connect controller.statusOut to ovenStatus;
+
+        action operateOvenCycle {
+            in item command : UserCommand;
+            in item load : OvenLoad;
+            out item conditionedLoad : OvenLoad;
+            out item status : OvenStatus;
+
+            first receiveCommand;
+            then verifyDoorClosed;
+            then preheatChamber;
+            then maintainSetpoint;
+            then heatLoad;
+            then completeCycle;
+            then done;
+
+            action receiveCommand {
+                in item command : UserCommand;
+            }
+
+            action verifyDoorClosed {
+                in attribute doorClosed : Boolean;
+                out attribute cyclePermitted : Boolean;
+            }
+
+            action preheatChamber {
+                in attribute setpoint : CelsiusTemperature;
+                out attribute chamberTemperature : CelsiusTemperature;
+            }
+
+            action maintainSetpoint {
+                in attribute setpoint : CelsiusTemperature;
+                in attribute measuredTemperature : CelsiusTemperature;
+                out attribute heaterDutyCycle : Percentage;
+                out attribute circulatingAirTemperature : CelsiusTemperature;
+            }
+
+            action heatLoad {
+                in item load : OvenLoad;
+                in attribute circulatingAirTemperature : CelsiusTemperature;
+                out item conditionedLoad : OvenLoad;
+            }
+
+            action completeCycle {
+                out item status : OvenStatus {
+                    :>> operatingMode = "Complete";
+                    :>> alarmActive = false;
+                }
+            }
+        }
+    }
+
+    requirement def ControlledHotAirHeatingRequirement {
+        subject oven : HotAirOven;
+
+        require constraint {
+            oven.chamberCapacity >= 80 [L] and
+            oven.maximumSetpointTemperature >= 250 [degC]
+        }
+
+        doc
+        /* The oven shall provide a forced hot air environment in an insulated chamber for controlled thermal conditioning of a load. */
+    }
+
+    requirement def TemperatureControlRequirement {
+        subject oven : HotAirOven;
+
+        require constraint {
+            oven.chamber.temperatureUniformity <= 3 [degC]
+        }
+
+        doc
+        /* The oven shall maintain chamber temperature within plus or minus 3 degC of the selected setpoint during the baking or conditioning interval after stabilization. */
+    }
+
+    requirement def HeatingPerformanceRequirement {
+        subject oven : HotAirOven;
+
+        require constraint {
+            oven.warmupTimeTo180C <= 900 [s]
+        }
+
+        doc
+        /* The oven shall heat the empty chamber from 25 degC to 180 degC within 900 seconds under rated electrical supply conditions. */
+    }
+
+    requirement def SafetyInterlockRequirement {
+        subject oven : HotAirOven;
+
+        require constraint {
+            oven.safetyLimiter.tripTemperature <= 275 [degC]
+        }
+
+        doc
+        /* The oven shall disable heater power when the chamber exceeds the safety trip temperature or when the door is opened during an active heating cycle. */
+    }
+
+    requirement def AirCirculationRequirement {
+        subject oven : HotAirOven;
+
+        require constraint {
+            oven.fan.maximumFlowRate >= 0.35 [kg/s] and
+            oven.fan.nominalAirVelocity >= 3.5 [m/s]
+        }
+
+        doc
+        /* The oven shall circulate heated air through the chamber to reduce thermal gradients around the load. */
+    }
+
+    requirement def OperatorFeedbackRequirement {
+        subject oven : HotAirOven;
+
+        require constraint {
+            oven.userInterface.audibleAlarmLevel >= 70 [dBA]
+        }
+
+        doc
+        /* The oven shall present operating status including chamber temperature, remaining time, heater activity, door state, and alarm state to the operator. */
+    }
+
+    satisfy ControlledHotAirHeatingRequirement by HotAirOven;
+    satisfy TemperatureControlRequirement by HotAirOven;
+    satisfy HeatingPerformanceRequirement by HotAirOven;
+    satisfy SafetyInterlockRequirement by HotAirOven;
+    satisfy AirCirculationRequirement by HotAirOven;
+    satisfy OperatorFeedbackRequirement by HotAirOven;
+
+    analysis def ThermalBalanceAnalysis {
+        subject oven : HotAirOven;
+
+        in attribute heaterPower : Power;
+        in attribute heatLoss : Power;
+        in attribute loadHeatAbsorption : Power;
+        out attribute netHeatingPower : Power;
+
+        constraint thermalBalance {
+            netHeatingPower == heaterPower - heatLoss - loadHeatAbsorption
+        }
+    }
+
+    verification def VerifyTemperatureUniformity {
+        subject oven : HotAirOven;
+        objective TemperatureControlRequirement;
+
+        action testUniformity {
+            in attribute setpoint : CelsiusTemperature = 180 [degC];
+            out attribute maximumMeasuredGradient : CelsiusTemperature;
+        }
+
+        constraint passCriterion {
+            maximumMeasuredGradient <= 3 [degC]
+        }
+    }
+
+    verification def VerifyDoorInterlock {
+        subject oven : HotAirOven;
+        objective SafetyInterlockRequirement;
+
+        action openDoorDuringHeating {
+            out attribute heaterEnabledAfterDoorOpen : Boolean;
+            out attribute alarmActive : Boolean;
+        }
+
+        constraint passCriterion {
+            heaterEnabledAfterDoorOpen == false and alarmActive == true
+        }
+    }
+}

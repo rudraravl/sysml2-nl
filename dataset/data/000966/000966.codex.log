@@ -1,0 +1,1023 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-bas7o1pi
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4f4-da7d-7181-a032-274374d92618
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Air flow meter and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AirFlowMeterModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  item def Air {
+    attribute temperature : TemperatureValue;
+    attribute absolutePressure : PressureValue;
+    attribute relativeHumidity : Real;
+    attribute density : DensityValue;
+  }
+
+  item def AirStream {
+    attribute massFlowRate : MassFlowRateValue;
+    attribute volumetricFlowRate : VolumetricFlowRateValue;
+    attribute flowVelocity : SpeedValue;
+    attribute direction : FlowDirectionKind;
+    item air : Air;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ElectricPotentialValue;
+    attribute current : ElectricCurrentValue;
+  }
+
+  item def FlowMeasurement {
+    attribute measuredMassFlowRate : MassFlowRateValue;
+    attribute measuredVolumetricFlowRate : VolumetricFlowRateValue;
+    attribute measuredAirTemperature : TemperatureValue;
+    attribute measuredPressure : PressureValue;
+    attribute confidence : Real;
+    attribute timestamp_ms : Integer;
+  }
+
+  item def DiagnosticReport {
+    attribute sensorHealthy : Boolean;
+    attribute contaminationDetected : Boolean;
+    attribute electronicsHealthy : Boolean;
+    attribute calibrationValid : Boolean;
+    attribute faultCode : FaultCodeKind;
+  }
+
+  enum def FlowDirectionKind {
+    enum forward;
+    enum reverse;
+    enum stagnant;
+  }
+
+  enum def FaultCodeKind {
+    enum none;
+    enum noPower;
+    enum sensorOpenCircuit;
+    enum sensorShortCircuit;
+    enum outOfRangeFlow;
+    enum contaminatedSensingElement;
+    enum calibrationExpired;
+    enum communicationFailure;
+  }
+
+  enum def OperatingModeKind {
+    enum off;
+    enum initialization;
+    enum selfTest;
+    enum measuring;
+    enum degraded;
+    enum fault;
+  }
+
+  value def MassFlowRateValue {
+    :> Real;
+    unit = "kg/s";
+  }
+
+  value def VolumetricFlowRateValue {
+    :> Real;
+    unit = "m^3/s";
+  }
+
+  value def DensityValue {
+    :> Real;
+    unit = "kg/m^3";
+  }
+
+  value def PressureValue {
+    :> Real;
+    unit = "Pa";
+  }
+
+  value def TemperatureValue {
+    :> Real;
+    unit = "K";
+  }
+
+  value def SpeedValue {
+    :> Real;
+    unit = "m/s";
+  }
+
+  value def ElectricPotentialValue {
+    :> Real;
+    unit = "V";
+  }
+
+  value def ElectricCurrentValue {
+    :> Real;
+    unit = "A";
+  }
+
+  value def TimeValue {
+    :> Real;
+    unit = "s";
+  }
+
+  port def AirFlowPort {
+    in item incomingAirStream : AirStream;
+    out item outgoingAirStream : AirStream;
+  }
+
+  port def PowerPort {
+    in item suppliedPower : ElectricalPower;
+  }
+
+  port def MeasurementOutputPort {
+    out item measurement : FlowMeasurement;
+    out item diagnostic : DiagnosticReport;
+  }
+
+  port def MaintenancePort {
+    in item calibrationCommand : CalibrationCommand;
+    out item calibrationStatus : CalibrationStatus;
+  }
+
+  item def CalibrationCommand {
+    attribute requestedZeroFlow : Boolean;
+    attribute requestedSpanCheck : Boolean;
+    attribute referenceMassFlowRate : MassFlowRateValue;
+  }
+
+  item def CalibrationStatus {
+    attribute zeroOffset : MassFlowRateValue;
+    attribute spanFactor : Real;
+    attribute calibrationAccepted : Boolean;
+    attribute remainingValidity_s : TimeValue;
+  }
+
+  part def FlowConditioningTube {
+    port inlet : AirFlowPort;
+    port outlet : AirFlowPort;
+
+    attribute innerDiameter_m : Real = 0.050;
+    attribute straightLength_m : Real = 0.300;
+    attribute pressureDropLimit : PressureValue = 35.0;
+    attribute flowUniformityIndex : Real;
+
+    perform action conditionFlow {
+      in item rawFlow : AirStream;
+      out item conditionedFlow : AirStream;
+      first start;
+      then computeUniformProfile;
+      then passThrough;
+      then done;
+
+      action computeUniformProfile;
+      action passThrough;
+    }
+  }
+
+  part def SensingElement {
+    port sampledFlow : AirFlowPort;
+
+    attribute heaterTemperatureSetpoint : TemperatureValue = 423.15;
+    attribute bridgeVoltage : ElectricPotentialValue = 5.0;
+    attribute thermalResponseTime_s : TimeValue = 0.025;
+    attribute rawThermalSignal_V : ElectricPotentialValue;
+    attribute elementContaminationLevel : Real;
+
+    perform action senseThermalCooling {
+      in item conditionedFlow : AirStream;
+      out attribute rawThermalSignal_V : ElectricPotentialValue;
+      first energizeHeater;
+      then observeCooling;
+      then produceSignal;
+
+      action energizeHeater;
+      action observeCooling;
+      action produceSignal;
+    }
+  }
+
+  part def TemperatureSensor {
+    attribute measuredTemperature : TemperatureValue;
+    attribute accuracy_K : Real = 0.5;
+
+    perform action measureTemperature {
+      in item air : Air;
+      out attribute measuredTemperature : TemperatureValue;
+    }
+  }
+
+  part def PressureSensor {
+    attribute measuredPressure : PressureValue;
+    attribute accuracy_Pa : Real = 50.0;
+
+    perform action measurePressure {
+      in item air : Air;
+      out attribute measuredPressure : PressureValue;
+    }
+  }
+
+  part def SignalProcessor {
+    attribute filteredThermalSignal_V : ElectricPotentialValue;
+    attribute computedMassFlowRate : MassFlowRateValue;
+    attribute computedVolumetricFlowRate : VolumetricFlowRateValue;
+    attribute samplePeriod_s : TimeValue = 0.010;
+    attribute zeroOffset : MassFlowRateValue = 0.0;
+    attribute spanFactor : Real = 1.0;
+
+    perform action computeFlow {
+      in attribute thermalSignal_V : ElectricPotentialValue;
+      in attribute airTemperature : TemperatureValue;
+      in attribute airPressure : PressureValue;
+      out item measurement : FlowMeasurement;
+
+      first filterSignal;
+      then compensateForAirProperties;
+      then convertToMassFlow;
+      then convertToVolumetricFlow;
+      then publishMeasurement;
+
+      action filterSignal;
+      action compensateForAirProperties;
+      action convertToMassFlow;
+      action convertToVolumetricFlow;
+      action publishMeasurement;
+    }
+  }
+
+  part def DiagnosticsController {
+    attribute currentFault : FaultCodeKind = FaultCodeKind::none;
+    attribute contaminationThreshold : Real = 0.80;
+    attribute minSupplyVoltage : ElectricPotentialValue = 9.0;
+    attribute maxSupplyVoltage : ElectricPotentialValue = 16.0;
+
+    perform action runDiagnostics {
+      in item suppliedPower : ElectricalPower;
+      in attribute sensorSignal_V : ElectricPotentialValue;
+      in attribute contaminationLevel : Real;
+      out item report : DiagnosticReport;
+
+      first checkPower;
+      then checkSensorCircuit;
+      then checkContamination;
+      then checkCalibration;
+      then issueReport;
+
+      action checkPower;
+      action checkSensorCircuit;
+      action checkContamination;
+      action checkCalibration;
+      action issueReport;
+    }
+  }
+
+  part def CommunicationInterface {
+    port measurementOut : MeasurementOutputPort;
+    attribute updateRate_Hz : Real = 100.0;
+    attribute measurementLatency_s : TimeValue = 0.020;
+
+    perform action transmit {
+      in item measurement : FlowMeasurement;
+      in item diagnostic : DiagnosticReport;
+      out item transmittedMeasurement : FlowMeasurement;
+      out item transmittedDiagnostic : DiagnosticReport;
+    }
+  }
+
+  part def AirFlowMeter {
+    port airIn : AirFlowPort;
+    port airOut : AirFlowPort;
+    port powerIn : PowerPort;
+    port dataOut : MeasurementOutputPort;
+    port service : MaintenancePort;
+
+    part tube : FlowConditioningTube;
+    part sensingElement : SensingElement;
+    part temperatureSensor : TemperatureSensor;
+    part pressureSensor : PressureSensor;
+    part processor : SignalProcessor;
+    part diagnostics : DiagnosticsController;
+    part interface : CommunicationInterface;
+
+    attribute mode : OperatingModeKind = OperatingModeKind::off;
+    attribute measurementRangeMin : MassFlowRateValue = 0.000;
+    attribute measurementRangeMax : MassFlowRateValue = 0.500;
+    attribute requiredAccuracyPercentOfReading : Real = 2.0;
+    attribute maximumPressureDrop : PressureValue = 35.0;
+    attribute warmupTime_s : TimeValue = 1.0;
+
+    connect airIn to tube.inlet;
+    connect tube.outlet to sensingElement.sampledFlow;
+    connect sensingElement.sampledFlow to airOut;
+    connect interface.measurementOut to dataOut;
+
+    perform action primaryFunction {
+      in item incomingAir : AirStream;
+      in item suppliedPower : ElectricalPower;
+      out item measuredFlow : FlowMeasurement;
+      out item diagnosticReport : DiagnosticReport;
+
+      first receiveAirStream;
+      then conditionAirStream;
+      then senseCoolingOfHeatedElement;
+      then measureAirProperties;
+      then calculateMassAndVolumetricFlow;
+      then assessHealth;
+      then outputMeasurement;
+
+      action receiveAirStream;
+      action conditionAirStream;
+      action senseCoolingOfHeatedElement;
+      action measureAirProperties;
+      action calculateMassAndVolumetricFlow;
+      action assessHealth;
+      action outputMeasurement;
+    }
+
+    state def OperatingStateMachine {
+      entry action initializeMode {
+        mode = OperatingModeKind::off;
+      }
+
+      state Off;
+      state Initialization;
+      state SelfTest;
+      state Measuring;
+      state Degraded;
+      state Fault;
+
+      transition powerApplied
+        first Off
+        then Initialization
+        if powerIn.suppliedPower.voltage >= diagnostics.minSupplyVoltage;
+
+      transition warmupComplete
+        first Initialization
+        then SelfTest
+        after warmupTime_s;
+
+      transition selfTestPassed
+        first SelfTest
+        then Measuring
+        if diagnostics.currentFault == FaultCodeKind::none;
+
+      transition nonCriticalFaultDetected
+        first Measuring
+        then Degraded
+        if diagnostics.currentFault == FaultCodeKind::contaminatedSensingElement or
+           diagnostics.currentFault == FaultCodeKind::calibrationExpired;
+
+      transition criticalFaultDetected
+        first Measuring
+        then Fault
+        if diagnostics.currentFault == FaultCodeKind::noPower or
+           diagnostics.currentFault == FaultCodeKind::sensorOpenCircuit or
+           diagnostics.currentFault == FaultCodeKind::sensorShortCircuit;
+
+      transition degradedRecovered
+        first Degraded
+        then Measuring
+        if diagnostics.currentFault == FaultCodeKind::none;
+
+      transition degradedCriticalFault
+        first Degraded
+        then Fault
+        if diagnostics.currentFault == FaultCodeKind::noPower or
+           diagnostics.currentFault == FaultCodeKind::sensorOpenCircuit or
+           diagnostics.currentFault == FaultCodeKind::sensorShortCircuit;
+
+      transition resetAfterService
+        first Fault
+        then Initialization
+        if service.calibrationCommand.requestedZeroFlow == true;
+
+      transition powerRemoved
+        first Measuring
+        then Off
+        if powerIn.suppliedPower.voltage < diagnostics.minSupplyVoltage;
+
+      transition powerRemovedFromFault
+        first Fault
+        then Off
+        if powerIn.suppliedPower.voltage < diagnostics.minSupplyVoltage;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject meter : AirFlowMeter;
+
+    doc
+    /*
+     * The air flow meter shall accept an air stream passing through its flow path,
+     * sense the thermal response caused by the moving air, compensate the sensed
+     * signal for air temperature and pressure, and output a high-level measurement
+     * of air mass flow rate and volumetric flow rate with diagnostic status.
+     */
+
+    require constraint {
+      meter.dataOut.measurement.measuredMassFlowRate >= meter.measurementRangeMin and
+      meter.dataOut.measurement.measuredMassFlowRate <= meter.measurementRangeMax
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject meter : AirFlowMeter;
+
+    attribute referenceMassFlowRate : MassFlowRateValue;
+    attribute measuredMassFlowRate : MassFlowRateValue;
+
+    require constraint {
+      abs(measuredMassFlowRate - referenceMassFlowRate) <=
+      referenceMassFlowRate * meter.requiredAccuracyPercentOfReading / 100.0
+    }
+  }
+
+  requirement def PressureDropRequirement {
+    subject meter : AirFlowMeter;
+
+    attribute inletPressure : PressureValue;
+    attribute outletPressure : PressureValue;
+
+    require constraint {
+      inletPressure - outletPressure <= meter.maximumPressureDrop
+    }
+  }
+
+  requirement def DiagnosticRequirement {
+    subject meter : AirFlowMeter;
+
+    require constraint {
+      meter.dataOut.diagnostic.faultCode != FaultCodeKind::none implies
+      meter.mode == OperatingModeKind::degraded or meter.mode == OperatingModeKind::fault
+    }
+  }
+
+  requirement def UpdateRateRequirement {
+    subject meter : AirFlowMeter;
+
+    require constraint {
+      meter.interface.updateRate_Hz >= 50.0 and
+      meter.interface.measurementLatency_s <= 0.050
+    }
+  }
+
+  part airFlowMeterSystem {
+    part meter : AirFlowMeter;
+
+    item ambientAir : Air {
+      attribute temperature = 293.15;
+      attribute absolutePressure = 101325.0;
+      attribute relativeHumidity = 0.45;
+      attribute density = 1.204;
+    }
+
+    item operatingAirStream : AirStream {
+      attribute massFlowRate = 0.125;
+      attribute volumetricFlowRate = 0.104;
+      attribute flowVelocity = 12.5;
+      attribute direction = FlowDirectionKind::forward;
+      item air = ambientAir;
+    }
+
+    item vehiclePower : ElectricalPower {
+      attribute voltage = 12.0;
+      attribute current = 0.180;
+    }
+
+    assert requirement PrimaryFunctionRequirement {
+      subject meter = airFlowMeterSystem.meter;
+    }
+
+    assert requirement AccuracyRequirement {
+      subject meter = airFlowMeterSystem.meter;
+      attribute referenceMassFlowRate = 0.125;
+      attribute measuredMassFlowRate = meter.dataOut.measurement.measuredMassFlowRate;
+    }
+
+    assert requirement PressureDropRequirement {
+      subject meter = airFlowMeterSystem.meter;
+      attribute inletPressure = 101325.0;
+      attribute outletPressure = 101300.0;
+    }
+
+    assert requirement DiagnosticRequirement {
+      subject meter = airFlowMeterSystem.meter;
+    }
+
+    assert requirement UpdateRateRequirement {
+      subject meter = airFlowMeterSystem.meter;
+    }
+  }
+}
+tokens used
+4,579
+package AirFlowMeterModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  item def Air {
+    attribute temperature : TemperatureValue;
+    attribute absolutePressure : PressureValue;
+    attribute relativeHumidity : Real;
+    attribute density : DensityValue;
+  }
+
+  item def AirStream {
+    attribute massFlowRate : MassFlowRateValue;
+    attribute volumetricFlowRate : VolumetricFlowRateValue;
+    attribute flowVelocity : SpeedValue;
+    attribute direction : FlowDirectionKind;
+    item air : Air;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ElectricPotentialValue;
+    attribute current : ElectricCurrentValue;
+  }
+
+  item def FlowMeasurement {
+    attribute measuredMassFlowRate : MassFlowRateValue;
+    attribute measuredVolumetricFlowRate : VolumetricFlowRateValue;
+    attribute measuredAirTemperature : TemperatureValue;
+    attribute measuredPressure : PressureValue;
+    attribute confidence : Real;
+    attribute timestamp_ms : Integer;
+  }
+
+  item def DiagnosticReport {
+    attribute sensorHealthy : Boolean;
+    attribute contaminationDetected : Boolean;
+    attribute electronicsHealthy : Boolean;
+    attribute calibrationValid : Boolean;
+    attribute faultCode : FaultCodeKind;
+  }
+
+  enum def FlowDirectionKind {
+    enum forward;
+    enum reverse;
+    enum stagnant;
+  }
+
+  enum def FaultCodeKind {
+    enum none;
+    enum noPower;
+    enum sensorOpenCircuit;
+    enum sensorShortCircuit;
+    enum outOfRangeFlow;
+    enum contaminatedSensingElement;
+    enum calibrationExpired;
+    enum communicationFailure;
+  }
+
+  enum def OperatingModeKind {
+    enum off;
+    enum initialization;
+    enum selfTest;
+    enum measuring;
+    enum degraded;
+    enum fault;
+  }
+
+  value def MassFlowRateValue {
+    :> Real;
+    unit = "kg/s";
+  }
+
+  value def VolumetricFlowRateValue {
+    :> Real;
+    unit = "m^3/s";
+  }
+
+  value def DensityValue {
+    :> Real;
+    unit = "kg/m^3";
+  }
+
+  value def PressureValue {
+    :> Real;
+    unit = "Pa";
+  }
+
+  value def TemperatureValue {
+    :> Real;
+    unit = "K";
+  }
+
+  value def SpeedValue {
+    :> Real;
+    unit = "m/s";
+  }
+
+  value def ElectricPotentialValue {
+    :> Real;
+    unit = "V";
+  }
+
+  value def ElectricCurrentValue {
+    :> Real;
+    unit = "A";
+  }
+
+  value def TimeValue {
+    :> Real;
+    unit = "s";
+  }
+
+  port def AirFlowPort {
+    in item incomingAirStream : AirStream;
+    out item outgoingAirStream : AirStream;
+  }
+
+  port def PowerPort {
+    in item suppliedPower : ElectricalPower;
+  }
+
+  port def MeasurementOutputPort {
+    out item measurement : FlowMeasurement;
+    out item diagnostic : DiagnosticReport;
+  }
+
+  port def MaintenancePort {
+    in item calibrationCommand : CalibrationCommand;
+    out item calibrationStatus : CalibrationStatus;
+  }
+
+  item def CalibrationCommand {
+    attribute requestedZeroFlow : Boolean;
+    attribute requestedSpanCheck : Boolean;
+    attribute referenceMassFlowRate : MassFlowRateValue;
+  }
+
+  item def CalibrationStatus {
+    attribute zeroOffset : MassFlowRateValue;
+    attribute spanFactor : Real;
+    attribute calibrationAccepted : Boolean;
+    attribute remainingValidity_s : TimeValue;
+  }
+
+  part def FlowConditioningTube {
+    port inlet : AirFlowPort;
+    port outlet : AirFlowPort;
+
+    attribute innerDiameter_m : Real = 0.050;
+    attribute straightLength_m : Real = 0.300;
+    attribute pressureDropLimit : PressureValue = 35.0;
+    attribute flowUniformityIndex : Real;
+
+    perform action conditionFlow {
+      in item rawFlow : AirStream;
+      out item conditionedFlow : AirStream;
+      first start;
+      then computeUniformProfile;
+      then passThrough;
+      then done;
+
+      action computeUniformProfile;
+      action passThrough;
+    }
+  }
+
+  part def SensingElement {
+    port sampledFlow : AirFlowPort;
+
+    attribute heaterTemperatureSetpoint : TemperatureValue = 423.15;
+    attribute bridgeVoltage : ElectricPotentialValue = 5.0;
+    attribute thermalResponseTime_s : TimeValue = 0.025;
+    attribute rawThermalSignal_V : ElectricPotentialValue;
+    attribute elementContaminationLevel : Real;
+
+    perform action senseThermalCooling {
+      in item conditionedFlow : AirStream;
+      out attribute rawThermalSignal_V : ElectricPotentialValue;
+      first energizeHeater;
+      then observeCooling;
+      then produceSignal;
+
+      action energizeHeater;
+      action observeCooling;
+      action produceSignal;
+    }
+  }
+
+  part def TemperatureSensor {
+    attribute measuredTemperature : TemperatureValue;
+    attribute accuracy_K : Real = 0.5;
+
+    perform action measureTemperature {
+      in item air : Air;
+      out attribute measuredTemperature : TemperatureValue;
+    }
+  }
+
+  part def PressureSensor {
+    attribute measuredPressure : PressureValue;
+    attribute accuracy_Pa : Real = 50.0;
+
+    perform action measurePressure {
+      in item air : Air;
+      out attribute measuredPressure : PressureValue;
+    }
+  }
+
+  part def SignalProcessor {
+    attribute filteredThermalSignal_V : ElectricPotentialValue;
+    attribute computedMassFlowRate : MassFlowRateValue;
+    attribute computedVolumetricFlowRate : VolumetricFlowRateValue;
+    attribute samplePeriod_s : TimeValue = 0.010;
+    attribute zeroOffset : MassFlowRateValue = 0.0;
+    attribute spanFactor : Real = 1.0;
+
+    perform action computeFlow {
+      in attribute thermalSignal_V : ElectricPotentialValue;
+      in attribute airTemperature : TemperatureValue;
+      in attribute airPressure : PressureValue;
+      out item measurement : FlowMeasurement;
+
+      first filterSignal;
+      then compensateForAirProperties;
+      then convertToMassFlow;
+      then convertToVolumetricFlow;
+      then publishMeasurement;
+
+      action filterSignal;
+      action compensateForAirProperties;
+      action convertToMassFlow;
+      action convertToVolumetricFlow;
+      action publishMeasurement;
+    }
+  }
+
+  part def DiagnosticsController {
+    attribute currentFault : FaultCodeKind = FaultCodeKind::none;
+    attribute contaminationThreshold : Real = 0.80;
+    attribute minSupplyVoltage : ElectricPotentialValue = 9.0;
+    attribute maxSupplyVoltage : ElectricPotentialValue = 16.0;
+
+    perform action runDiagnostics {
+      in item suppliedPower : ElectricalPower;
+      in attribute sensorSignal_V : ElectricPotentialValue;
+      in attribute contaminationLevel : Real;
+      out item report : DiagnosticReport;
+
+      first checkPower;
+      then checkSensorCircuit;
+      then checkContamination;
+      then checkCalibration;
+      then issueReport;
+
+      action checkPower;
+      action checkSensorCircuit;
+      action checkContamination;
+      action checkCalibration;
+      action issueReport;
+    }
+  }
+
+  part def CommunicationInterface {
+    port measurementOut : MeasurementOutputPort;
+    attribute updateRate_Hz : Real = 100.0;
+    attribute measurementLatency_s : TimeValue = 0.020;
+
+    perform action transmit {
+      in item measurement : FlowMeasurement;
+      in item diagnostic : DiagnosticReport;
+      out item transmittedMeasurement : FlowMeasurement;
+      out item transmittedDiagnostic : DiagnosticReport;
+    }
+  }
+
+  part def AirFlowMeter {
+    port airIn : AirFlowPort;
+    port airOut : AirFlowPort;
+    port powerIn : PowerPort;
+    port dataOut : MeasurementOutputPort;
+    port service : MaintenancePort;
+
+    part tube : FlowConditioningTube;
+    part sensingElement : SensingElement;
+    part temperatureSensor : TemperatureSensor;
+    part pressureSensor : PressureSensor;
+    part processor : SignalProcessor;
+    part diagnostics : DiagnosticsController;
+    part interface : CommunicationInterface;
+
+    attribute mode : OperatingModeKind = OperatingModeKind::off;
+    attribute measurementRangeMin : MassFlowRateValue = 0.000;
+    attribute measurementRangeMax : MassFlowRateValue = 0.500;
+    attribute requiredAccuracyPercentOfReading : Real = 2.0;
+    attribute maximumPressureDrop : PressureValue = 35.0;
+    attribute warmupTime_s : TimeValue = 1.0;
+
+    connect airIn to tube.inlet;
+    connect tube.outlet to sensingElement.sampledFlow;
+    connect sensingElement.sampledFlow to airOut;
+    connect interface.measurementOut to dataOut;
+
+    perform action primaryFunction {
+      in item incomingAir : AirStream;
+      in item suppliedPower : ElectricalPower;
+      out item measuredFlow : FlowMeasurement;
+      out item diagnosticReport : DiagnosticReport;
+
+      first receiveAirStream;
+      then conditionAirStream;
+      then senseCoolingOfHeatedElement;
+      then measureAirProperties;
+      then calculateMassAndVolumetricFlow;
+      then assessHealth;
+      then outputMeasurement;
+
+      action receiveAirStream;
+      action conditionAirStream;
+      action senseCoolingOfHeatedElement;
+      action measureAirProperties;
+      action calculateMassAndVolumetricFlow;
+      action assessHealth;
+      action outputMeasurement;
+    }
+
+    state def OperatingStateMachine {
+      entry action initializeMode {
+        mode = OperatingModeKind::off;
+      }
+
+      state Off;
+      state Initialization;
+      state SelfTest;
+      state Measuring;
+      state Degraded;
+      state Fault;
+
+      transition powerApplied
+        first Off
+        then Initialization
+        if powerIn.suppliedPower.voltage >= diagnostics.minSupplyVoltage;
+
+      transition warmupComplete
+        first Initialization
+        then SelfTest
+        after warmupTime_s;
+
+      transition selfTestPassed
+        first SelfTest
+        then Measuring
+        if diagnostics.currentFault == FaultCodeKind::none;
+
+      transition nonCriticalFaultDetected
+        first Measuring
+        then Degraded
+        if diagnostics.currentFault == FaultCodeKind::contaminatedSensingElement or
+           diagnostics.currentFault == FaultCodeKind::calibrationExpired;
+
+      transition criticalFaultDetected
+        first Measuring
+        then Fault
+        if diagnostics.currentFault == FaultCodeKind::noPower or
+           diagnostics.currentFault == FaultCodeKind::sensorOpenCircuit or
+           diagnostics.currentFault == FaultCodeKind::sensorShortCircuit;
+
+      transition degradedRecovered
+        first Degraded
+        then Measuring
+        if diagnostics.currentFault == FaultCodeKind::none;
+
+      transition degradedCriticalFault
+        first Degraded
+        then Fault
+        if diagnostics.currentFault == FaultCodeKind::noPower or
+           diagnostics.currentFault == FaultCodeKind::sensorOpenCircuit or
+           diagnostics.currentFault == FaultCodeKind::sensorShortCircuit;
+
+      transition resetAfterService
+        first Fault
+        then Initialization
+        if service.calibrationCommand.requestedZeroFlow == true;
+
+      transition powerRemoved
+        first Measuring
+        then Off
+        if powerIn.suppliedPower.voltage < diagnostics.minSupplyVoltage;
+
+      transition powerRemovedFromFault
+        first Fault
+        then Off
+        if powerIn.suppliedPower.voltage < diagnostics.minSupplyVoltage;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject meter : AirFlowMeter;
+
+    doc
+    /*
+     * The air flow meter shall accept an air stream passing through its flow path,
+     * sense the thermal response caused by the moving air, compensate the sensed
+     * signal for air temperature and pressure, and output a high-level measurement
+     * of air mass flow rate and volumetric flow rate with diagnostic status.
+     */
+
+    require constraint {
+      meter.dataOut.measurement.measuredMassFlowRate >= meter.measurementRangeMin and
+      meter.dataOut.measurement.measuredMassFlowRate <= meter.measurementRangeMax
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject meter : AirFlowMeter;
+
+    attribute referenceMassFlowRate : MassFlowRateValue;
+    attribute measuredMassFlowRate : MassFlowRateValue;
+
+    require constraint {
+      abs(measuredMassFlowRate - referenceMassFlowRate) <=
+      referenceMassFlowRate * meter.requiredAccuracyPercentOfReading / 100.0
+    }
+  }
+
+  requirement def PressureDropRequirement {
+    subject meter : AirFlowMeter;
+
+    attribute inletPressure : PressureValue;
+    attribute outletPressure : PressureValue;
+
+    require constraint {
+      inletPressure - outletPressure <= meter.maximumPressureDrop
+    }
+  }
+
+  requirement def DiagnosticRequirement {
+    subject meter : AirFlowMeter;
+
+    require constraint {
+      meter.dataOut.diagnostic.faultCode != FaultCodeKind::none implies
+      meter.mode == OperatingModeKind::degraded or meter.mode == OperatingModeKind::fault
+    }
+  }
+
+  requirement def UpdateRateRequirement {
+    subject meter : AirFlowMeter;
+
+    require constraint {
+      meter.interface.updateRate_Hz >= 50.0 and
+      meter.interface.measurementLatency_s <= 0.050
+    }
+  }
+
+  part airFlowMeterSystem {
+    part meter : AirFlowMeter;
+
+    item ambientAir : Air {
+      attribute temperature = 293.15;
+      attribute absolutePressure = 101325.0;
+      attribute relativeHumidity = 0.45;
+      attribute density = 1.204;
+    }
+
+    item operatingAirStream : AirStream {
+      attribute massFlowRate = 0.125;
+      attribute volumetricFlowRate = 0.104;
+      attribute flowVelocity = 12.5;
+      attribute direction = FlowDirectionKind::forward;
+      item air = ambientAir;
+    }
+
+    item vehiclePower : ElectricalPower {
+      attribute voltage = 12.0;
+      attribute current = 0.180;
+    }
+
+    assert requirement PrimaryFunctionRequirement {
+      subject meter = airFlowMeterSystem.meter;
+    }
+
+    assert requirement AccuracyRequirement {
+      subject meter = airFlowMeterSystem.meter;
+      attribute referenceMassFlowRate = 0.125;
+      attribute measuredMassFlowRate = meter.dataOut.measurement.measuredMassFlowRate;
+    }
+
+    assert requirement PressureDropRequirement {
+      subject meter = airFlowMeterSystem.meter;
+      attribute inletPressure = 101325.0;
+      attribute outletPressure = 101300.0;
+    }
+
+    assert requirement DiagnosticRequirement {
+      subject meter = airFlowMeterSystem.meter;
+    }
+
+    assert requirement UpdateRateRequirement {
+      subject meter = airFlowMeterSystem.meter;
+    }
+  }
+}

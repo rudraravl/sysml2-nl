@@ -1,0 +1,481 @@
+package TOPS_System_Specification {
+    import ScalarValues::*;
+    import SI::*;
+
+    value type Probability specializes Real;
+    value type Percent specializes Real;
+    value type Seconds specializes Real;
+    value type Milliseconds specializes Real;
+    value type Meters specializes Real;
+    value type Kilometers specializes Real;
+    value type Watts specializes Real;
+    value type Volts specializes Real;
+    value type Celsius specializes Real;
+    value type Megabytes specializes Real;
+    value type Gigabytes specializes Real;
+    value type MessagesPerSecond specializes Real;
+
+    enum def MissionPriority {
+        enum low;
+        enum routine;
+        enum urgent;
+        enum critical;
+    }
+
+    enum def SystemMode {
+        enum poweredOff;
+        enum initializing;
+        enum standby;
+        enum planning;
+        enum coordinating;
+        enum monitoring;
+        enum degraded;
+        enum faulted;
+        enum maintenance;
+    }
+
+    enum def PlanStatus {
+        enum draft;
+        enum validated;
+        enum distributed;
+        enum executing;
+        enum complete;
+        enum rejected;
+    }
+
+    enum def HealthStatus {
+        enum nominal;
+        enum warning;
+        enum failed;
+        enum isolated;
+    }
+
+    item def MissionTasking {
+        attribute missionId : String;
+        attribute priority : MissionPriority;
+        attribute requestedStartTime_s : Seconds;
+        attribute requestedCompletionTime_s : Seconds;
+        attribute areaRadius_km : Kilometers;
+        attribute requiredConfidence : Probability;
+    }
+
+    item def OperationalContext {
+        attribute contextId : String;
+        attribute updateTime_s : Seconds;
+        attribute operatingAreaRadius_km : Kilometers;
+        attribute weatherRisk_percent : Percent;
+        attribute communicationsRisk_percent : Percent;
+        attribute availableAssetCount : Integer;
+    }
+
+    item def ResourceAvailability {
+        attribute assetId : String;
+        attribute ready : Boolean;
+        attribute locationError_m : Meters;
+        attribute availableEnergy_percent : Percent;
+        attribute estimatedEndurance_s : Seconds;
+    }
+
+    item def OperationsPlan {
+        attribute planId : String;
+        attribute status : PlanStatus;
+        attribute confidence : Probability;
+        attribute generationTime_s : Seconds;
+        attribute expectedCompletionTime_s : Seconds;
+        attribute assignedAssetCount : Integer;
+        attribute residualRisk_percent : Percent;
+    }
+
+    item def CoordinationMessage {
+        attribute messageId : String;
+        attribute planId : String;
+        attribute recipientId : String;
+        attribute issueTime_s : Seconds;
+        attribute acknowledgementRequired : Boolean;
+    }
+
+    item def ExecutionTelemetry {
+        attribute sourceId : String;
+        attribute planId : String;
+        attribute reportTime_s : Seconds;
+        attribute progress_percent : Percent;
+        attribute deviation_m : Meters;
+        attribute health : HealthStatus;
+    }
+
+    item def OperatorCommand {
+        attribute commandId : String;
+        attribute operatorId : String;
+        attribute commandTime_s : Seconds;
+        attribute authorizeDistribution : Boolean;
+        attribute cancelPlan : Boolean;
+    }
+
+    item def OperatorDisplay {
+        attribute activePlanId : String;
+        attribute mode : SystemMode;
+        attribute alertCount : Integer;
+        attribute planConfidence : Probability;
+        attribute missionProgress_percent : Percent;
+    }
+
+    item def DiagnosticReport {
+        attribute componentId : String;
+        attribute health : HealthStatus;
+        attribute temperature_C : Celsius;
+        attribute processorLoad_percent : Percent;
+        attribute memoryUsed_GB : Gigabytes;
+    }
+
+    port def TaskingInputPort {
+        in item tasking : MissionTasking;
+    }
+
+    port def ContextInputPort {
+        in item context : OperationalContext;
+        in item resource : ResourceAvailability;
+    }
+
+    port def CommandInputPort {
+        in item command : OperatorCommand;
+    }
+
+    port def PlanOutputPort {
+        out item plan : OperationsPlan;
+    }
+
+    port def CoordinationOutputPort {
+        out item message : CoordinationMessage;
+    }
+
+    port def TelemetryInputPort {
+        in item telemetry : ExecutionTelemetry;
+    }
+
+    port def DisplayOutputPort {
+        out item display : OperatorDisplay;
+    }
+
+    port def DiagnosticOutputPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def PowerPort {
+        in attribute voltage_V : Volts;
+        in attribute availablePower_W : Watts;
+    }
+
+    port def NetworkPort {
+        in item inboundTasking : MissionTasking;
+        in item inboundContext : OperationalContext;
+        in item inboundTelemetry : ExecutionTelemetry;
+        out item outboundPlan : OperationsPlan;
+        out item outboundCoordination : CoordinationMessage;
+    }
+
+    action def ValidateTasking {
+        in item tasking : MissionTasking;
+        in item context : OperationalContext;
+        out attribute valid : Boolean;
+        out attribute validationConfidence : Probability;
+    }
+
+    action def GenerateOperationsPlan {
+        in item tasking : MissionTasking;
+        in item context : OperationalContext;
+        in item resource : ResourceAvailability;
+        out item plan : OperationsPlan;
+    }
+
+    action def AssessPlanRisk {
+        in item plan : OperationsPlan;
+        in item context : OperationalContext;
+        out attribute residualRisk_percent : Percent;
+        out attribute acceptable : Boolean;
+    }
+
+    action def DistributePlan {
+        in item plan : OperationsPlan;
+        in item command : OperatorCommand;
+        out item message : CoordinationMessage;
+    }
+
+    action def MonitorExecution {
+        in item telemetry : ExecutionTelemetry;
+        in item plan : OperationsPlan;
+        out item display : OperatorDisplay;
+        out attribute deviationExceeded : Boolean;
+    }
+
+    action def PerformBuiltInTest {
+        out item diagnostic : DiagnosticReport;
+        out attribute passed : Boolean;
+    }
+
+    state def TOPSOperationalStateMachine {
+        attribute currentMode : SystemMode;
+
+        state poweredOff;
+        state initializing;
+        state standby;
+        state planning;
+        state coordinating;
+        state monitoring;
+        state degraded;
+        state faulted;
+        state maintenance;
+
+        transition first poweredOff then initializing;
+        transition initializing_to_standby first initializing then standby;
+        transition standby_to_planning first standby then planning;
+        transition planning_to_coordinating first planning then coordinating;
+        transition coordinating_to_monitoring first coordinating then monitoring;
+        transition monitoring_to_planning first monitoring then planning;
+        transition monitoring_to_standby first monitoring then standby;
+        transition any_to_degraded first standby then degraded;
+        transition degraded_to_faulted first degraded then faulted;
+        transition faulted_to_maintenance first faulted then maintenance;
+        transition maintenance_to_initializing first maintenance then initializing;
+    }
+
+    part def TaskingGateway {
+        port taskingIn : TaskingInputPort;
+        port taskingOut : TaskingInputPort;
+        attribute acceptedMessages_per_s : MessagesPerSecond;
+        attribute rejectedMessages_per_s : MessagesPerSecond;
+        attribute inputLatency_ms : Milliseconds;
+    }
+
+    part def ContextFusionService {
+        port contextIn : ContextInputPort;
+        port fusedContextOut : ContextInputPort;
+        attribute fusionLatency_ms : Milliseconds;
+        attribute staleDataLimit_s : Seconds;
+        attribute confidence : Probability;
+    }
+
+    part def ResourceManager {
+        port resourceIn : ContextInputPort;
+        port resourceOut : ContextInputPort;
+        attribute trackedAssetCount : Integer;
+        attribute minimumReadyAssetCount : Integer;
+        attribute refreshPeriod_s : Seconds;
+    }
+
+    part def PlanningEngine {
+        port taskingIn : TaskingInputPort;
+        port contextIn : ContextInputPort;
+        port planOut : PlanOutputPort;
+        perform action validateTasking : ValidateTasking;
+        perform action generatePlan : GenerateOperationsPlan;
+        perform action assessRisk : AssessPlanRisk;
+        attribute maximumPlanningLatency_s : Seconds;
+        attribute minimumPlanConfidence : Probability;
+        attribute maximumResidualRisk_percent : Percent;
+    }
+
+    part def CoordinationManager {
+        port commandIn : CommandInputPort;
+        port planIn : PlanOutputPort;
+        port coordinationOut : CoordinationOutputPort;
+        perform action distributePlan : DistributePlan;
+        attribute acknowledgementTimeout_s : Seconds;
+        attribute maximumRecipients : Integer;
+    }
+
+    part def ExecutionMonitor {
+        port telemetryIn : TelemetryInputPort;
+        port planIn : PlanOutputPort;
+        port displayOut : DisplayOutputPort;
+        perform action monitorExecution : MonitorExecution;
+        attribute deviationThreshold_m : Meters;
+        attribute telemetryTimeout_s : Seconds;
+        attribute alertLatency_s : Seconds;
+    }
+
+    part def OperatorInterface {
+        port commandIn : CommandInputPort;
+        port displayOut : DisplayOutputPort;
+        attribute displayRefresh_ms : Milliseconds;
+        attribute maximumOperatorResponse_s : Seconds;
+    }
+
+    part def HealthManager {
+        port diagnosticOut : DiagnosticOutputPort;
+        perform action builtInTest : PerformBuiltInTest;
+        attribute diagnosticPeriod_s : Seconds;
+        attribute maximumTemperature_C : Celsius;
+        attribute minimumAvailableMemory_MB : Megabytes;
+    }
+
+    part def SecureNetworkAdapter {
+        port network : NetworkPort;
+        attribute inboundThroughput_msg_s : MessagesPerSecond;
+        attribute outboundThroughput_msg_s : MessagesPerSecond;
+        attribute maximumNetworkLatency_ms : Milliseconds;
+        attribute encrypted : Boolean;
+    }
+
+    part def PowerSubsystem {
+        port powerIn : PowerPort;
+        attribute nominalVoltage_V : Volts;
+        attribute maximumPower_W : Watts;
+        attribute backupRuntime_s : Seconds;
+    }
+
+    part def TOPSSystem {
+        doc /* The TOPS System is a Tactical Operations Planning System whose primary high-level function is to transform mission tasking, operational context, resource availability, and operator authorization into validated operations plans, coordinated execution messages, and continuous execution awareness. */
+
+        port externalTasking : TaskingInputPort;
+        port externalContext : ContextInputPort;
+        port externalTelemetry : TelemetryInputPort;
+        port operatorCommands : CommandInputPort;
+        port operatorDisplays : DisplayOutputPort;
+        port coordinationMessages : CoordinationOutputPort;
+        port diagnostics : DiagnosticOutputPort;
+        port power : PowerPort;
+        port network : NetworkPort;
+
+        part taskingGateway : TaskingGateway {
+            attribute acceptedMessages_per_s = 50.0;
+            attribute rejectedMessages_per_s = 0.0;
+            attribute inputLatency_ms = 100.0;
+        }
+
+        part contextFusion : ContextFusionService {
+            attribute fusionLatency_ms = 500.0;
+            attribute staleDataLimit_s = 30.0;
+            attribute confidence = 0.95;
+        }
+
+        part resourceManager : ResourceManager {
+            attribute trackedAssetCount = 120;
+            attribute minimumReadyAssetCount = 3;
+            attribute refreshPeriod_s = 5.0;
+        }
+
+        part planningEngine : PlanningEngine {
+            attribute maximumPlanningLatency_s = 20.0;
+            attribute minimumPlanConfidence = 0.85;
+            attribute maximumResidualRisk_percent = 15.0;
+        }
+
+        part coordinationManager : CoordinationManager {
+            attribute acknowledgementTimeout_s = 10.0;
+            attribute maximumRecipients = 64;
+        }
+
+        part executionMonitor : ExecutionMonitor {
+            attribute deviationThreshold_m = 100.0;
+            attribute telemetryTimeout_s = 15.0;
+            attribute alertLatency_s = 2.0;
+        }
+
+        part operatorInterface : OperatorInterface {
+            attribute displayRefresh_ms = 250.0;
+            attribute maximumOperatorResponse_s = 60.0;
+        }
+
+        part healthManager : HealthManager {
+            attribute diagnosticPeriod_s = 10.0;
+            attribute maximumTemperature_C = 70.0;
+            attribute minimumAvailableMemory_MB = 1024.0;
+        }
+
+        part networkAdapter : SecureNetworkAdapter {
+            attribute inboundThroughput_msg_s = 200.0;
+            attribute outboundThroughput_msg_s = 200.0;
+            attribute maximumNetworkLatency_ms = 150.0;
+            attribute encrypted = true;
+        }
+
+        part powerSubsystem : PowerSubsystem {
+            attribute nominalVoltage_V = 28.0;
+            attribute maximumPower_W = 2500.0;
+            attribute backupRuntime_s = 1800.0;
+        }
+
+        exhibit stateMachine : TOPSOperationalStateMachine;
+
+        connect externalTasking to taskingGateway.taskingIn;
+        connect externalContext to contextFusion.contextIn;
+        connect externalContext to resourceManager.resourceIn;
+        connect externalTelemetry to executionMonitor.telemetryIn;
+        connect operatorCommands to operatorInterface.commandIn;
+        connect operatorCommands to coordinationManager.commandIn;
+        connect power to powerSubsystem.powerIn;
+
+        connect taskingGateway.taskingOut to planningEngine.taskingIn;
+        connect contextFusion.fusedContextOut to planningEngine.contextIn;
+        connect resourceManager.resourceOut to planningEngine.contextIn;
+        connect planningEngine.planOut to coordinationManager.planIn;
+        connect planningEngine.planOut to executionMonitor.planIn;
+        connect coordinationManager.coordinationOut to coordinationMessages;
+        connect executionMonitor.displayOut to operatorInterface.displayOut;
+        connect operatorInterface.displayOut to operatorDisplays;
+        connect healthManager.diagnosticOut to diagnostics;
+
+        connect network to networkAdapter.network;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject tops : TOPSSystem;
+        doc /* TOPS shall provide the primary function of producing validated, risk-assessed, resource-aware operations plans from mission tasking and operational context, then distributing coordinated execution messages and monitoring execution progress. */
+    }
+
+    requirement def PlanningLatencyRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.planningEngine.maximumPlanningLatency_s <= 20.0 }
+    }
+
+    requirement def PlanConfidenceRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.planningEngine.minimumPlanConfidence >= 0.85 }
+    }
+
+    requirement def ResidualRiskRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.planningEngine.maximumResidualRisk_percent <= 15.0 }
+    }
+
+    requirement def ExecutionMonitoringRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.executionMonitor.telemetryTimeout_s <= 15.0 and tops.executionMonitor.alertLatency_s <= 2.0 }
+    }
+
+    requirement def CoordinationRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.coordinationManager.acknowledgementTimeout_s <= 10.0 and tops.coordinationManager.maximumRecipients >= 32 }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.powerSubsystem.backupRuntime_s >= 1800.0 and tops.resourceManager.minimumReadyAssetCount >= 3 }
+    }
+
+    requirement def CyberProtectionRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.networkAdapter.encrypted == true and tops.networkAdapter.maximumNetworkLatency_ms <= 150.0 }
+    }
+
+    requirement def OperatorAwarenessRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.operatorInterface.displayRefresh_ms <= 250.0 }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject tops : TOPSSystem;
+        require constraint { tops.healthManager.diagnosticPeriod_s <= 10.0 and tops.healthManager.maximumTemperature_C <= 70.0 }
+    }
+
+    satisfy PrimaryFunctionRequirement by TOPSSystem;
+    satisfy PlanningLatencyRequirement by PlanningEngine;
+    satisfy PlanConfidenceRequirement by PlanningEngine;
+    satisfy ResidualRiskRequirement by PlanningEngine;
+    satisfy ExecutionMonitoringRequirement by ExecutionMonitor;
+    satisfy CoordinationRequirement by CoordinationManager;
+    satisfy AvailabilityRequirement by PowerSubsystem;
+    satisfy CyberProtectionRequirement by SecureNetworkAdapter;
+    satisfy OperatorAwarenessRequirement by OperatorInterface;
+    satisfy HealthMonitoringRequirement by HealthManager;
+}

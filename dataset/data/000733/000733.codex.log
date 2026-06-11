@@ -1,0 +1,1111 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-5tcxv52r
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb400-d408-7162-94e3-5db388664790
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Philips Respironics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RespironicsInspiredTherapySystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> ScalarValues::Real;
+    unit = "cmH2O";
+  }
+
+  attribute def FlowRate {
+    :> ScalarValues::Real;
+    unit = "L/min";
+  }
+
+  attribute def Volume {
+    :> ScalarValues::Real;
+    unit = "mL";
+  }
+
+  attribute def TimeDuration {
+    :> ScalarValues::Real;
+    unit = "s";
+  }
+
+  attribute def Temperature {
+    :> ScalarValues::Real;
+    unit = "degC";
+  }
+
+  attribute def RelativeHumidity {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def OxygenSaturation {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def ElectricalPower {
+    :> ScalarValues::Real;
+    unit = "W";
+  }
+
+  attribute def SoundPressureLevel {
+    :> ScalarValues::Real;
+    unit = "dBA";
+  }
+
+  enum def TherapyMode {
+    enum CPAP;
+    enum AutoCPAP;
+    enum BiLevel;
+    enum Ramp;
+    enum Standby;
+    enum FaultSafe;
+  }
+
+  enum def FaultSeverity {
+    enum Advisory;
+    enum Warning;
+    enum Critical;
+  }
+
+  item def AmbientAir;
+  item def PressurizedAir {
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+  }
+
+  item def ExhaledAir {
+    attribute co2Rich : Boolean;
+    attribute flow : FlowRate;
+  }
+
+  item def TherapyCommand {
+    attribute mode : TherapyMode;
+    attribute targetInspiratoryPressure : Pressure;
+    attribute targetExpiratoryPressure : Pressure;
+    attribute rampTime : TimeDuration;
+    attribute humidificationSetpoint : RelativeHumidity;
+  }
+
+  item def SensorSample {
+    attribute measuredPressure : Pressure;
+    attribute measuredFlow : FlowRate;
+    attribute leakFlow : FlowRate;
+    attribute deliveredVolume : Volume;
+    attribute patientSpO2 : OxygenSaturation;
+  }
+
+  item def AlarmSignal {
+    attribute severity : FaultSeverity;
+    attribute messageCode : String;
+    attribute audibleRequired : Boolean;
+    attribute therapyMayContinue : Boolean;
+  }
+
+  port def AirInletPort {
+    in item air : AmbientAir;
+  }
+
+  port def TherapyAirOutletPort {
+    out item air : PressurizedAir;
+  }
+
+  port def PatientInterfacePort {
+    in item exhalation : ExhaledAir;
+    out item inspiration : PressurizedAir;
+  }
+
+  port def CommandPort {
+    in item command : TherapyCommand;
+  }
+
+  port def SensorPort {
+    out item sample : SensorSample;
+  }
+
+  port def AlarmPort {
+    out item alarm : AlarmSignal;
+  }
+
+  port def PowerPort {
+    in attribute voltage : Real;
+    in attribute availablePower : ElectricalPower;
+  }
+
+  part def RespironicsInspiredPositiveAirwayPressureSystem {
+    doc
+      /* Primary high-level function: provide controlled positive airway pressure therapy to a sleeping or resting patient by drawing ambient air, filtering it, pressurizing it, optionally humidifying it, delivering it through a patient interface, monitoring therapy quality, and alerting the user when safe or effective therapy cannot be maintained. */
+
+    attribute activeMode : TherapyMode = TherapyMode::Standby;
+    attribute cpapPressureSetpoint : Pressure = 10.0;
+    attribute minAutoPressure : Pressure = 5.0;
+    attribute maxAutoPressure : Pressure = 16.0;
+    attribute inspiratoryPressureSetpoint : Pressure = 14.0;
+    attribute expiratoryPressureSetpoint : Pressure = 8.0;
+    attribute rampStartPressure : Pressure = 4.0;
+    attribute rampDuration : TimeDuration = 1200.0;
+    attribute maximumAllowedPressure : Pressure = 25.0;
+    attribute maximumContinuousLeak : FlowRate = 35.0;
+    attribute minimumTherapeuticFlow : FlowRate = 5.0;
+    attribute maximumSoundLevel : SoundPressureLevel = 30.0;
+    attribute nominalPowerUse : ElectricalPower = 65.0;
+
+    port airIntake : AirInletPort;
+    port patientConnection : PatientInterfacePort;
+    port clinicianCommand : CommandPort;
+    port userAlarm : AlarmPort;
+    port mainsPower : PowerPort;
+
+    part enclosure : Enclosure;
+    part inletFilter : AirFilter;
+    part blower : VariableSpeedBlower;
+    part pressureRegulator : PressureRegulator;
+    part humidifier : HeatedHumidifier;
+    part flowSensor : FlowSensor;
+    part pressureSensor : PressureSensor;
+    part leakEstimator : LeakEstimator;
+    part therapyController : TherapyController;
+    part userInterface : UserInterface;
+    part alarmManager : AlarmManager;
+    part powerSupply : PowerSupply;
+    part dataLogger : TherapyDataLogger;
+    part patientCircuit : PatientBreathingCircuit;
+    part mask : PatientMask;
+
+    connect airIntake.air to inletFilter.rawAir;
+    connect inletFilter.filteredAir to blower.inletAir;
+    connect blower.pressurizedAir to pressureRegulator.unregulatedAir;
+    connect pressureRegulator.regulatedAir to humidifier.dryPressurizedAir;
+    connect humidifier.conditionedAir to flowSensor.airIn;
+    connect flowSensor.airOut to pressureSensor.airIn;
+    connect pressureSensor.airOut to patientCircuit.deviceEnd;
+    connect patientCircuit.patientEnd to mask.circuitPort;
+    connect mask.patientPort to patientConnection.inspiration;
+
+    connect patientConnection.exhalation to mask.exhaledAir;
+    connect mask.ventedAir to patientCircuit.exhaustFlow;
+
+    connect clinicianCommand.command to therapyController.commandInput;
+    connect flowSensor.sampleOut to therapyController.flowSampleInput;
+    connect pressureSensor.sampleOut to therapyController.pressureSampleInput;
+    connect leakEstimator.leakSampleOut to therapyController.leakInput;
+    connect therapyController.blowerCommand to blower.speedCommand;
+    connect therapyController.regulatorCommand to pressureRegulator.pressureCommand;
+    connect therapyController.humidifierCommand to humidifier.humidityCommand;
+    connect therapyController.statusOutput to userInterface.statusInput;
+    connect therapyController.alarmRequest to alarmManager.alarmInput;
+    connect alarmManager.alarmOutput to userAlarm.alarm;
+    connect mainsPower.availablePower to powerSupply.inputPower;
+    connect powerSupply.devicePower to blower.powerInput;
+    connect powerSupply.devicePower to humidifier.powerInput;
+    connect powerSupply.devicePower to therapyController.powerInput;
+    connect therapyController.loggedSample to dataLogger.sampleInput;
+
+    constraint pressureSafety {
+      pressureSensor.measuredPressure <= maximumAllowedPressure
+    }
+
+    constraint therapeuticPressureWindow {
+      minAutoPressure <= cpapPressureSetpoint and cpapPressureSetpoint <= maxAutoPressure
+    }
+
+    constraint leakTolerance {
+      leakEstimator.estimatedLeak <= maximumContinuousLeak
+    }
+
+    perform action providePositiveAirwayPressure;
+  }
+
+  part def Enclosure {
+    attribute ingressProtectionRating : String = "IP22";
+    attribute acousticDampingEnabled : Boolean = true;
+    attribute serviceAccessSecured : Boolean = true;
+  }
+
+  part def AirFilter {
+    port rawAir : AirInletPort;
+    port filteredAir : TherapyAirOutletPort;
+    attribute particulateEfficiency : Real = 0.95;
+    attribute replacementInterval : TimeDuration = 2592000.0;
+  }
+
+  part def VariableSpeedBlower {
+    port inletAir : AirInletPort;
+    port pressurizedAir : TherapyAirOutletPort;
+    in attribute speedCommand : Real;
+    in attribute powerInput : ElectricalPower;
+    attribute motorSpeed : Real;
+    attribute maximumFlow : FlowRate = 180.0;
+    attribute maximumPressure : Pressure = 30.0;
+  }
+
+  part def PressureRegulator {
+    in item unregulatedAir : PressurizedAir;
+    out item regulatedAir : PressurizedAir;
+    in attribute pressureCommand : Pressure;
+    attribute controlError : Pressure;
+    attribute responseTime : TimeDuration = 0.20;
+  }
+
+  part def HeatedHumidifier {
+    in item dryPressurizedAir : PressurizedAir;
+    out item conditionedAir : PressurizedAir;
+    in attribute humidityCommand : RelativeHumidity;
+    in attribute powerInput : ElectricalPower;
+    attribute waterChamberVolume : Volume = 325.0;
+    attribute heaterPlateTemperature : Temperature;
+    attribute humidityOutput : RelativeHumidity;
+  }
+
+  part def FlowSensor {
+    in item airIn : PressurizedAir;
+    out item airOut : PressurizedAir;
+    out item sampleOut : SensorSample;
+    attribute measuredFlow : FlowRate;
+    attribute accuracy : FlowRate = 1.0;
+  }
+
+  part def PressureSensor {
+    in item airIn : PressurizedAir;
+    out item airOut : PressurizedAir;
+    out item sampleOut : SensorSample;
+    attribute measuredPressure : Pressure;
+    attribute accuracy : Pressure = 0.5;
+  }
+
+  part def LeakEstimator {
+    in item measuredSample : SensorSample;
+    out item leakSampleOut : SensorSample;
+    attribute estimatedLeak : FlowRate;
+    attribute intentionalVentFlowModel : FlowRate = 24.0;
+  }
+
+  part def TherapyController {
+    in item commandInput : TherapyCommand;
+    in item flowSampleInput : SensorSample;
+    in item pressureSampleInput : SensorSample;
+    in item leakInput : SensorSample;
+    in attribute powerInput : ElectricalPower;
+    out attribute blowerCommand : Real;
+    out attribute regulatorCommand : Pressure;
+    out attribute humidifierCommand : RelativeHumidity;
+    out item alarmRequest : AlarmSignal;
+    out item statusOutput : SensorSample;
+    out item loggedSample : SensorSample;
+
+    attribute currentMode : TherapyMode = TherapyMode::Standby;
+    attribute currentPressureTarget : Pressure = 4.0;
+    attribute apneaDetectionWindow : TimeDuration = 10.0;
+    attribute pressureAdjustmentStep : Pressure = 0.5;
+
+    state def TherapyControlStateMachine {
+      state standby;
+      state ramping;
+      state deliveringCPAP;
+      state deliveringAutoCPAP;
+      state deliveringBiLevel;
+      state faultSafe;
+
+      transition standby_to_ramping
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::Ramp
+        then ramping;
+
+      transition standby_to_cpap
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::CPAP
+        then deliveringCPAP;
+
+      transition standby_to_autocpap
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::AutoCPAP
+        then deliveringAutoCPAP;
+
+      transition standby_to_bilevel
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::BiLevel
+        then deliveringBiLevel;
+
+      transition therapy_to_fault
+        first deliveringCPAP
+        if pressureSampleInput.measuredPressure > 25.0 or leakInput.leakFlow > 60.0
+        then faultSafe;
+
+      transition auto_to_fault
+        first deliveringAutoCPAP
+        if pressureSampleInput.measuredPressure > 25.0 or leakInput.leakFlow > 60.0
+        then faultSafe;
+
+      transition bilevel_to_fault
+        first deliveringBiLevel
+        if pressureSampleInput.measuredPressure > 25.0 or leakInput.leakFlow > 60.0
+        then faultSafe;
+
+      transition fault_to_standby
+        first faultSafe
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::Standby
+        then standby;
+    }
+
+    action def ComputePressureTarget {
+      in attribute mode : TherapyMode;
+      in attribute measuredPressure : Pressure;
+      in attribute measuredFlow : FlowRate;
+      in attribute estimatedLeak : FlowRate;
+      out attribute targetPressure : Pressure;
+
+      constraint targetLimit {
+        targetPressure >= 4.0 and targetPressure <= 25.0
+      }
+    }
+
+    action def DetectTherapyFault {
+      in attribute measuredPressure : Pressure;
+      in attribute estimatedLeak : FlowRate;
+      in attribute deliveredFlow : FlowRate;
+      out item alarm : AlarmSignal;
+    }
+  }
+
+  part def UserInterface {
+    in item statusInput : SensorSample;
+    attribute displayPressure : Pressure;
+    attribute displayLeak : FlowRate;
+    attribute therapyHours : TimeDuration;
+    attribute clinicianLockEnabled : Boolean = true;
+  }
+
+  part def AlarmManager {
+    in item alarmInput : AlarmSignal;
+    out item alarmOutput : AlarmSignal;
+    attribute audibleLevel : SoundPressureLevel = 65.0;
+    attribute visualIndicatorActive : Boolean;
+  }
+
+  part def PowerSupply {
+    in attribute inputPower : ElectricalPower;
+    out attribute devicePower : ElectricalPower;
+    attribute backupShutdownTime : TimeDuration = 5.0;
+    attribute isolationProvided : Boolean = true;
+  }
+
+  part def TherapyDataLogger {
+    in item sampleInput : SensorSample;
+    attribute complianceHoursStored : TimeDuration;
+    attribute leakEventsStored : Integer;
+    attribute apneaHypopneaIndexEstimate : Real;
+    attribute retentionPeriod : TimeDuration = 31536000.0;
+  }
+
+  part def PatientBreathingCircuit {
+    in item deviceEnd : PressurizedAir;
+    out item patientEnd : PressurizedAir;
+    in item exhaustFlow : ExhaledAir;
+    attribute tubeLength : Real = 1.8;
+    attribute tubeDiameter : Real = 15.0;
+    attribute pressureDropAtNominalFlow : Pressure = 0.4;
+  }
+
+  part def PatientMask {
+    in item circuitPort : PressurizedAir;
+    out item patientPort : PressurizedAir;
+    in item exhaledAir : ExhaledAir;
+    out item ventedAir : ExhaledAir;
+    attribute maskType : String = "nasal";
+    attribute intentionalVentFlowAt10cmH2O : FlowRate = 24.0;
+    attribute fitLeakThreshold : FlowRate = 35.0;
+  }
+
+  action def ProvidePositiveAirwayPressure {
+    in item ambientAir : AmbientAir;
+    in item therapyCommand : TherapyCommand;
+    out item deliveredAir : PressurizedAir;
+    out item alarm : AlarmSignal;
+
+    first start;
+    then filterAmbientAir;
+    then pressurizeAir;
+    then regulatePressure;
+    then humidifyAir;
+    then deliverToPatient;
+    then monitorTherapy;
+    then logTherapyData;
+
+    action filterAmbientAir;
+    action pressurizeAir;
+    action regulatePressure;
+    action humidifyAir;
+    action deliverToPatient;
+    action monitorTherapy;
+    action logTherapyData;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.patientConnection.inspiration.pressure >= 4.0 and
+      system.patientConnection.inspiration.pressure <= system.maximumAllowedPressure
+    }
+
+    doc
+      /* The system shall deliver prescribed positive airway pressure therapy to maintain patient airway patency during sleep or rest. */
+  }
+
+  requirement def PressureControlRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      abs(system.pressureSensor.measuredPressure - system.therapyController.currentPressureTarget) <= 1.0
+    }
+
+    doc
+      /* The system shall regulate delivered airway pressure within 1 cmH2O of the active therapeutic target during stable breathing. */
+  }
+
+  requirement def AutoAdjustmentRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.minAutoPressure >= 4.0 and
+      system.maxAutoPressure <= 20.0 and
+      system.minAutoPressure < system.maxAutoPressure
+    }
+
+    doc
+      /* In AutoCPAP mode, the system shall adjust therapeutic pressure within configured minimum and maximum limits based on measured flow limitation, leak, and pressure response. */
+  }
+
+  requirement def BiLevelRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.inspiratoryPressureSetpoint > system.expiratoryPressureSetpoint and
+      system.inspiratoryPressureSetpoint <= system.maximumAllowedPressure
+    }
+
+    doc
+      /* In bilevel mode, inspiratory pressure shall be greater than expiratory pressure while remaining below the maximum allowed airway pressure. */
+  }
+
+  requirement def LeakAlarmRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.leakEstimator.estimatedLeak <= system.maximumContinuousLeak
+    }
+
+    doc
+      /* The system shall detect excessive unintentional leak and generate an alarm when leak prevents effective therapy delivery. */
+  }
+
+  requirement def OverPressureSafetyRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.pressureSensor.measuredPressure <= system.maximumAllowedPressure
+    }
+
+    doc
+      /* The system shall enter a fault-safe state and alarm if measured airway pressure exceeds the allowed pressure limit. */
+  }
+
+  requirement def HumidificationRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.humidifier.humidityOutput >= 40.0 and system.humidifier.humidityOutput <= 90.0
+    }
+
+    doc
+      /* When enabled, the humidifier shall condition delivered air to a comfortable therapeutic humidity range. */
+  }
+
+  requirement def DataLoggingRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.dataLogger.retentionPeriod >= 31536000.0
+    }
+
+    doc
+      /* The system shall retain therapy usage, leak, pressure, and event summary data for at least one year. */
+  }
+
+  satisfy PrimaryFunctionRequirement by RespironicsInspiredPositiveAirwayPressureSystem;
+  satisfy PressureControlRequirement by PressureRegulator;
+  satisfy AutoAdjustmentRequirement by TherapyController;
+  satisfy BiLevelRequirement by TherapyController;
+  satisfy LeakAlarmRequirement by LeakEstimator;
+  satisfy OverPressureSafetyRequirement by AlarmManager;
+  satisfy HumidificationRequirement by HeatedHumidifier;
+  satisfy DataLoggingRequirement by TherapyDataLogger;
+}
+tokens used
+12,022
+package RespironicsInspiredTherapySystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> ScalarValues::Real;
+    unit = "cmH2O";
+  }
+
+  attribute def FlowRate {
+    :> ScalarValues::Real;
+    unit = "L/min";
+  }
+
+  attribute def Volume {
+    :> ScalarValues::Real;
+    unit = "mL";
+  }
+
+  attribute def TimeDuration {
+    :> ScalarValues::Real;
+    unit = "s";
+  }
+
+  attribute def Temperature {
+    :> ScalarValues::Real;
+    unit = "degC";
+  }
+
+  attribute def RelativeHumidity {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def OxygenSaturation {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def ElectricalPower {
+    :> ScalarValues::Real;
+    unit = "W";
+  }
+
+  attribute def SoundPressureLevel {
+    :> ScalarValues::Real;
+    unit = "dBA";
+  }
+
+  enum def TherapyMode {
+    enum CPAP;
+    enum AutoCPAP;
+    enum BiLevel;
+    enum Ramp;
+    enum Standby;
+    enum FaultSafe;
+  }
+
+  enum def FaultSeverity {
+    enum Advisory;
+    enum Warning;
+    enum Critical;
+  }
+
+  item def AmbientAir;
+  item def PressurizedAir {
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+  }
+
+  item def ExhaledAir {
+    attribute co2Rich : Boolean;
+    attribute flow : FlowRate;
+  }
+
+  item def TherapyCommand {
+    attribute mode : TherapyMode;
+    attribute targetInspiratoryPressure : Pressure;
+    attribute targetExpiratoryPressure : Pressure;
+    attribute rampTime : TimeDuration;
+    attribute humidificationSetpoint : RelativeHumidity;
+  }
+
+  item def SensorSample {
+    attribute measuredPressure : Pressure;
+    attribute measuredFlow : FlowRate;
+    attribute leakFlow : FlowRate;
+    attribute deliveredVolume : Volume;
+    attribute patientSpO2 : OxygenSaturation;
+  }
+
+  item def AlarmSignal {
+    attribute severity : FaultSeverity;
+    attribute messageCode : String;
+    attribute audibleRequired : Boolean;
+    attribute therapyMayContinue : Boolean;
+  }
+
+  port def AirInletPort {
+    in item air : AmbientAir;
+  }
+
+  port def TherapyAirOutletPort {
+    out item air : PressurizedAir;
+  }
+
+  port def PatientInterfacePort {
+    in item exhalation : ExhaledAir;
+    out item inspiration : PressurizedAir;
+  }
+
+  port def CommandPort {
+    in item command : TherapyCommand;
+  }
+
+  port def SensorPort {
+    out item sample : SensorSample;
+  }
+
+  port def AlarmPort {
+    out item alarm : AlarmSignal;
+  }
+
+  port def PowerPort {
+    in attribute voltage : Real;
+    in attribute availablePower : ElectricalPower;
+  }
+
+  part def RespironicsInspiredPositiveAirwayPressureSystem {
+    doc
+      /* Primary high-level function: provide controlled positive airway pressure therapy to a sleeping or resting patient by drawing ambient air, filtering it, pressurizing it, optionally humidifying it, delivering it through a patient interface, monitoring therapy quality, and alerting the user when safe or effective therapy cannot be maintained. */
+
+    attribute activeMode : TherapyMode = TherapyMode::Standby;
+    attribute cpapPressureSetpoint : Pressure = 10.0;
+    attribute minAutoPressure : Pressure = 5.0;
+    attribute maxAutoPressure : Pressure = 16.0;
+    attribute inspiratoryPressureSetpoint : Pressure = 14.0;
+    attribute expiratoryPressureSetpoint : Pressure = 8.0;
+    attribute rampStartPressure : Pressure = 4.0;
+    attribute rampDuration : TimeDuration = 1200.0;
+    attribute maximumAllowedPressure : Pressure = 25.0;
+    attribute maximumContinuousLeak : FlowRate = 35.0;
+    attribute minimumTherapeuticFlow : FlowRate = 5.0;
+    attribute maximumSoundLevel : SoundPressureLevel = 30.0;
+    attribute nominalPowerUse : ElectricalPower = 65.0;
+
+    port airIntake : AirInletPort;
+    port patientConnection : PatientInterfacePort;
+    port clinicianCommand : CommandPort;
+    port userAlarm : AlarmPort;
+    port mainsPower : PowerPort;
+
+    part enclosure : Enclosure;
+    part inletFilter : AirFilter;
+    part blower : VariableSpeedBlower;
+    part pressureRegulator : PressureRegulator;
+    part humidifier : HeatedHumidifier;
+    part flowSensor : FlowSensor;
+    part pressureSensor : PressureSensor;
+    part leakEstimator : LeakEstimator;
+    part therapyController : TherapyController;
+    part userInterface : UserInterface;
+    part alarmManager : AlarmManager;
+    part powerSupply : PowerSupply;
+    part dataLogger : TherapyDataLogger;
+    part patientCircuit : PatientBreathingCircuit;
+    part mask : PatientMask;
+
+    connect airIntake.air to inletFilter.rawAir;
+    connect inletFilter.filteredAir to blower.inletAir;
+    connect blower.pressurizedAir to pressureRegulator.unregulatedAir;
+    connect pressureRegulator.regulatedAir to humidifier.dryPressurizedAir;
+    connect humidifier.conditionedAir to flowSensor.airIn;
+    connect flowSensor.airOut to pressureSensor.airIn;
+    connect pressureSensor.airOut to patientCircuit.deviceEnd;
+    connect patientCircuit.patientEnd to mask.circuitPort;
+    connect mask.patientPort to patientConnection.inspiration;
+
+    connect patientConnection.exhalation to mask.exhaledAir;
+    connect mask.ventedAir to patientCircuit.exhaustFlow;
+
+    connect clinicianCommand.command to therapyController.commandInput;
+    connect flowSensor.sampleOut to therapyController.flowSampleInput;
+    connect pressureSensor.sampleOut to therapyController.pressureSampleInput;
+    connect leakEstimator.leakSampleOut to therapyController.leakInput;
+    connect therapyController.blowerCommand to blower.speedCommand;
+    connect therapyController.regulatorCommand to pressureRegulator.pressureCommand;
+    connect therapyController.humidifierCommand to humidifier.humidityCommand;
+    connect therapyController.statusOutput to userInterface.statusInput;
+    connect therapyController.alarmRequest to alarmManager.alarmInput;
+    connect alarmManager.alarmOutput to userAlarm.alarm;
+    connect mainsPower.availablePower to powerSupply.inputPower;
+    connect powerSupply.devicePower to blower.powerInput;
+    connect powerSupply.devicePower to humidifier.powerInput;
+    connect powerSupply.devicePower to therapyController.powerInput;
+    connect therapyController.loggedSample to dataLogger.sampleInput;
+
+    constraint pressureSafety {
+      pressureSensor.measuredPressure <= maximumAllowedPressure
+    }
+
+    constraint therapeuticPressureWindow {
+      minAutoPressure <= cpapPressureSetpoint and cpapPressureSetpoint <= maxAutoPressure
+    }
+
+    constraint leakTolerance {
+      leakEstimator.estimatedLeak <= maximumContinuousLeak
+    }
+
+    perform action providePositiveAirwayPressure;
+  }
+
+  part def Enclosure {
+    attribute ingressProtectionRating : String = "IP22";
+    attribute acousticDampingEnabled : Boolean = true;
+    attribute serviceAccessSecured : Boolean = true;
+  }
+
+  part def AirFilter {
+    port rawAir : AirInletPort;
+    port filteredAir : TherapyAirOutletPort;
+    attribute particulateEfficiency : Real = 0.95;
+    attribute replacementInterval : TimeDuration = 2592000.0;
+  }
+
+  part def VariableSpeedBlower {
+    port inletAir : AirInletPort;
+    port pressurizedAir : TherapyAirOutletPort;
+    in attribute speedCommand : Real;
+    in attribute powerInput : ElectricalPower;
+    attribute motorSpeed : Real;
+    attribute maximumFlow : FlowRate = 180.0;
+    attribute maximumPressure : Pressure = 30.0;
+  }
+
+  part def PressureRegulator {
+    in item unregulatedAir : PressurizedAir;
+    out item regulatedAir : PressurizedAir;
+    in attribute pressureCommand : Pressure;
+    attribute controlError : Pressure;
+    attribute responseTime : TimeDuration = 0.20;
+  }
+
+  part def HeatedHumidifier {
+    in item dryPressurizedAir : PressurizedAir;
+    out item conditionedAir : PressurizedAir;
+    in attribute humidityCommand : RelativeHumidity;
+    in attribute powerInput : ElectricalPower;
+    attribute waterChamberVolume : Volume = 325.0;
+    attribute heaterPlateTemperature : Temperature;
+    attribute humidityOutput : RelativeHumidity;
+  }
+
+  part def FlowSensor {
+    in item airIn : PressurizedAir;
+    out item airOut : PressurizedAir;
+    out item sampleOut : SensorSample;
+    attribute measuredFlow : FlowRate;
+    attribute accuracy : FlowRate = 1.0;
+  }
+
+  part def PressureSensor {
+    in item airIn : PressurizedAir;
+    out item airOut : PressurizedAir;
+    out item sampleOut : SensorSample;
+    attribute measuredPressure : Pressure;
+    attribute accuracy : Pressure = 0.5;
+  }
+
+  part def LeakEstimator {
+    in item measuredSample : SensorSample;
+    out item leakSampleOut : SensorSample;
+    attribute estimatedLeak : FlowRate;
+    attribute intentionalVentFlowModel : FlowRate = 24.0;
+  }
+
+  part def TherapyController {
+    in item commandInput : TherapyCommand;
+    in item flowSampleInput : SensorSample;
+    in item pressureSampleInput : SensorSample;
+    in item leakInput : SensorSample;
+    in attribute powerInput : ElectricalPower;
+    out attribute blowerCommand : Real;
+    out attribute regulatorCommand : Pressure;
+    out attribute humidifierCommand : RelativeHumidity;
+    out item alarmRequest : AlarmSignal;
+    out item statusOutput : SensorSample;
+    out item loggedSample : SensorSample;
+
+    attribute currentMode : TherapyMode = TherapyMode::Standby;
+    attribute currentPressureTarget : Pressure = 4.0;
+    attribute apneaDetectionWindow : TimeDuration = 10.0;
+    attribute pressureAdjustmentStep : Pressure = 0.5;
+
+    state def TherapyControlStateMachine {
+      state standby;
+      state ramping;
+      state deliveringCPAP;
+      state deliveringAutoCPAP;
+      state deliveringBiLevel;
+      state faultSafe;
+
+      transition standby_to_ramping
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::Ramp
+        then ramping;
+
+      transition standby_to_cpap
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::CPAP
+        then deliveringCPAP;
+
+      transition standby_to_autocpap
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::AutoCPAP
+        then deliveringAutoCPAP;
+
+      transition standby_to_bilevel
+        first standby
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::BiLevel
+        then deliveringBiLevel;
+
+      transition therapy_to_fault
+        first deliveringCPAP
+        if pressureSampleInput.measuredPressure > 25.0 or leakInput.leakFlow > 60.0
+        then faultSafe;
+
+      transition auto_to_fault
+        first deliveringAutoCPAP
+        if pressureSampleInput.measuredPressure > 25.0 or leakInput.leakFlow > 60.0
+        then faultSafe;
+
+      transition bilevel_to_fault
+        first deliveringBiLevel
+        if pressureSampleInput.measuredPressure > 25.0 or leakInput.leakFlow > 60.0
+        then faultSafe;
+
+      transition fault_to_standby
+        first faultSafe
+        accept TherapyCommand
+        if commandInput.mode == TherapyMode::Standby
+        then standby;
+    }
+
+    action def ComputePressureTarget {
+      in attribute mode : TherapyMode;
+      in attribute measuredPressure : Pressure;
+      in attribute measuredFlow : FlowRate;
+      in attribute estimatedLeak : FlowRate;
+      out attribute targetPressure : Pressure;
+
+      constraint targetLimit {
+        targetPressure >= 4.0 and targetPressure <= 25.0
+      }
+    }
+
+    action def DetectTherapyFault {
+      in attribute measuredPressure : Pressure;
+      in attribute estimatedLeak : FlowRate;
+      in attribute deliveredFlow : FlowRate;
+      out item alarm : AlarmSignal;
+    }
+  }
+
+  part def UserInterface {
+    in item statusInput : SensorSample;
+    attribute displayPressure : Pressure;
+    attribute displayLeak : FlowRate;
+    attribute therapyHours : TimeDuration;
+    attribute clinicianLockEnabled : Boolean = true;
+  }
+
+  part def AlarmManager {
+    in item alarmInput : AlarmSignal;
+    out item alarmOutput : AlarmSignal;
+    attribute audibleLevel : SoundPressureLevel = 65.0;
+    attribute visualIndicatorActive : Boolean;
+  }
+
+  part def PowerSupply {
+    in attribute inputPower : ElectricalPower;
+    out attribute devicePower : ElectricalPower;
+    attribute backupShutdownTime : TimeDuration = 5.0;
+    attribute isolationProvided : Boolean = true;
+  }
+
+  part def TherapyDataLogger {
+    in item sampleInput : SensorSample;
+    attribute complianceHoursStored : TimeDuration;
+    attribute leakEventsStored : Integer;
+    attribute apneaHypopneaIndexEstimate : Real;
+    attribute retentionPeriod : TimeDuration = 31536000.0;
+  }
+
+  part def PatientBreathingCircuit {
+    in item deviceEnd : PressurizedAir;
+    out item patientEnd : PressurizedAir;
+    in item exhaustFlow : ExhaledAir;
+    attribute tubeLength : Real = 1.8;
+    attribute tubeDiameter : Real = 15.0;
+    attribute pressureDropAtNominalFlow : Pressure = 0.4;
+  }
+
+  part def PatientMask {
+    in item circuitPort : PressurizedAir;
+    out item patientPort : PressurizedAir;
+    in item exhaledAir : ExhaledAir;
+    out item ventedAir : ExhaledAir;
+    attribute maskType : String = "nasal";
+    attribute intentionalVentFlowAt10cmH2O : FlowRate = 24.0;
+    attribute fitLeakThreshold : FlowRate = 35.0;
+  }
+
+  action def ProvidePositiveAirwayPressure {
+    in item ambientAir : AmbientAir;
+    in item therapyCommand : TherapyCommand;
+    out item deliveredAir : PressurizedAir;
+    out item alarm : AlarmSignal;
+
+    first start;
+    then filterAmbientAir;
+    then pressurizeAir;
+    then regulatePressure;
+    then humidifyAir;
+    then deliverToPatient;
+    then monitorTherapy;
+    then logTherapyData;
+
+    action filterAmbientAir;
+    action pressurizeAir;
+    action regulatePressure;
+    action humidifyAir;
+    action deliverToPatient;
+    action monitorTherapy;
+    action logTherapyData;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.patientConnection.inspiration.pressure >= 4.0 and
+      system.patientConnection.inspiration.pressure <= system.maximumAllowedPressure
+    }
+
+    doc
+      /* The system shall deliver prescribed positive airway pressure therapy to maintain patient airway patency during sleep or rest. */
+  }
+
+  requirement def PressureControlRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      abs(system.pressureSensor.measuredPressure - system.therapyController.currentPressureTarget) <= 1.0
+    }
+
+    doc
+      /* The system shall regulate delivered airway pressure within 1 cmH2O of the active therapeutic target during stable breathing. */
+  }
+
+  requirement def AutoAdjustmentRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.minAutoPressure >= 4.0 and
+      system.maxAutoPressure <= 20.0 and
+      system.minAutoPressure < system.maxAutoPressure
+    }
+
+    doc
+      /* In AutoCPAP mode, the system shall adjust therapeutic pressure within configured minimum and maximum limits based on measured flow limitation, leak, and pressure response. */
+  }
+
+  requirement def BiLevelRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.inspiratoryPressureSetpoint > system.expiratoryPressureSetpoint and
+      system.inspiratoryPressureSetpoint <= system.maximumAllowedPressure
+    }
+
+    doc
+      /* In bilevel mode, inspiratory pressure shall be greater than expiratory pressure while remaining below the maximum allowed airway pressure. */
+  }
+
+  requirement def LeakAlarmRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.leakEstimator.estimatedLeak <= system.maximumContinuousLeak
+    }
+
+    doc
+      /* The system shall detect excessive unintentional leak and generate an alarm when leak prevents effective therapy delivery. */
+  }
+
+  requirement def OverPressureSafetyRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.pressureSensor.measuredPressure <= system.maximumAllowedPressure
+    }
+
+    doc
+      /* The system shall enter a fault-safe state and alarm if measured airway pressure exceeds the allowed pressure limit. */
+  }
+
+  requirement def HumidificationRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.humidifier.humidityOutput >= 40.0 and system.humidifier.humidityOutput <= 90.0
+    }
+
+    doc
+      /* When enabled, the humidifier shall condition delivered air to a comfortable therapeutic humidity range. */
+  }
+
+  requirement def DataLoggingRequirement {
+    subject system : RespironicsInspiredPositiveAirwayPressureSystem;
+
+    require constraint {
+      system.dataLogger.retentionPeriod >= 31536000.0
+    }
+
+    doc
+      /* The system shall retain therapy usage, leak, pressure, and event summary data for at least one year. */
+  }
+
+  satisfy PrimaryFunctionRequirement by RespironicsInspiredPositiveAirwayPressureSystem;
+  satisfy PressureControlRequirement by PressureRegulator;
+  satisfy AutoAdjustmentRequirement by TherapyController;
+  satisfy BiLevelRequirement by TherapyController;
+  satisfy LeakAlarmRequirement by LeakEstimator;
+  satisfy OverPressureSafetyRequirement by AlarmManager;
+  satisfy HumidificationRequirement by HeatedHumidifier;
+  satisfy DataLoggingRequirement by TherapyDataLogger;
+}

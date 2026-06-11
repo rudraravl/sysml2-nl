@@ -1,0 +1,668 @@
+package MedicalBagSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Mass :> Real {
+        unit = "kg";
+    }
+
+    attribute def Volume :> Real {
+        unit = "L";
+    }
+
+    attribute def Length :> Real {
+        unit = "cm";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "min";
+    }
+
+    attribute def Count :> Integer;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    enum def SterilityState {
+        enum sterile;
+        enum opened;
+        enum contaminated;
+        enum expired;
+    }
+
+    enum def InventoryStatus {
+        enum complete;
+        enum low;
+        enum missing;
+        enum expiredItemsPresent;
+    }
+
+    enum def BagOperationalState {
+        enum sealedReady;
+        enum openedForUse;
+        enum restocking;
+        enum cleaning;
+        enum unavailable;
+    }
+
+    item def MedicalSupply {
+        attribute name : String;
+        attribute expirationRemainingDays : Count;
+        attribute sterileState : SterilityState;
+        attribute quantityAvailable : Count;
+        attribute minimumRequiredQuantity : Count;
+        attribute singleUse : Boolean;
+    }
+
+    item def Medication :> MedicalSupply {
+        attribute concentration : Real;
+        attribute doseVolume : Volume;
+        attribute storageMinTemperature : Temperature;
+        attribute storageMaxTemperature : Temperature;
+        attribute controlledSubstance : Boolean;
+    }
+
+    item def DiagnosticReading {
+        attribute patientIdentifier : String;
+        attribute measuredAtMinute : TimeDuration;
+    }
+
+    item def TemperatureReading :> DiagnosticReading {
+        attribute bodyTemperature : Temperature;
+    }
+
+    item def PressureReading :> DiagnosticReading {
+        attribute systolicPressure : Pressure;
+        attribute diastolicPressure : Pressure;
+    }
+
+    item def OxygenReading :> DiagnosticReading {
+        attribute oxygenSaturation : Percent;
+    }
+
+    item def TreatmentRecord {
+        attribute patientIdentifier : String;
+        attribute treatmentStartMinute : TimeDuration;
+        attribute treatmentComplete : Boolean;
+        attribute suppliesConsumed : Count;
+    }
+
+    port def SupplyAccessPort {
+        out item dispensedSupply : MedicalSupply;
+        in item returnedSupply : MedicalSupply;
+    }
+
+    port def MedicationAccessPort {
+        out item dispensedMedication : Medication;
+    }
+
+    port def DiagnosticDataPort {
+        out item temperatureReading : TemperatureReading;
+        out item pressureReading : PressureReading;
+        out item oxygenReading : OxygenReading;
+    }
+
+    port def CareRecordPort {
+        out item treatmentRecord : TreatmentRecord;
+    }
+
+    port def RestockPort {
+        in item replacementSupply : MedicalSupply;
+        in item replacementMedication : Medication;
+    }
+
+    port def EnvironmentalPort {
+        in attribute ambientTemperature : Temperature;
+        in attribute ambientHumidity : Percent;
+        out attribute internalTemperature : Temperature;
+    }
+
+    part def MedicalBag {
+        attribute totalMass : Mass;
+        attribute usableVolume : Volume;
+        attribute externalLength : Length;
+        attribute externalWidth : Length;
+        attribute externalHeight : Length;
+        attribute inventoryStatus : InventoryStatus;
+        attribute operationalState : BagOperationalState;
+        attribute maximumCarryMass : Mass;
+        attribute primaryFunction : String;
+
+        port supplyAccess : SupplyAccessPort;
+        port medicationAccess : MedicationAccessPort;
+        port diagnosticData : DiagnosticDataPort;
+        port careRecords : CareRecordPort;
+        port restockInterface : RestockPort;
+        port environmentInterface : EnvironmentalPort;
+
+        part outerShell : ProtectiveShell;
+        part sterileCompartment : SterileSupplyCompartment;
+        part medicationCompartment : MedicationCompartment;
+        part diagnosticCompartment : DiagnosticCompartment;
+        part traumaCompartment : TraumaCompartment;
+        part airwayCompartment : AirwayCompartment;
+        part documentationModule : DocumentationModule;
+        part inventoryController : InventoryController;
+
+        connect sterileCompartment.supplyPort to supplyAccess;
+        connect traumaCompartment.supplyPort to supplyAccess;
+        connect airwayCompartment.supplyPort to supplyAccess;
+        connect medicationCompartment.medicationPort to medicationAccess;
+        connect diagnosticCompartment.dataPort to diagnosticData;
+        connect documentationModule.recordPort to careRecords;
+        connect restockInterface to inventoryController.restockInput;
+        connect environmentInterface to medicationCompartment.environmentPort;
+
+        perform action ProvidePortableMedicalCare;
+        exhibit state MedicalBagLifecycle;
+    }
+
+    part def ProtectiveShell {
+        attribute shellMass : Mass;
+        attribute impactResistant : Boolean;
+        attribute waterResistant : Boolean;
+        attribute closedSealIntegrity : Percent;
+        attribute maxLoad : Mass;
+    }
+
+    part def SterileSupplyCompartment {
+        attribute compartmentVolume : Volume;
+        attribute sterileBarrierIntegrity : Percent;
+        attribute sterilePackCount : Count;
+
+        port supplyPort : SupplyAccessPort;
+
+        part gloves : MedicalSupply {
+            attribute name = "Nitrile examination gloves";
+            attribute quantityAvailable = 12;
+            attribute minimumRequiredQuantity = 6;
+            attribute expirationRemainingDays = 730;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+
+        part gauzePads : MedicalSupply {
+            attribute name = "Sterile gauze pads";
+            attribute quantityAvailable = 20;
+            attribute minimumRequiredQuantity = 10;
+            attribute expirationRemainingDays = 540;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+
+        part woundDressings : MedicalSupply {
+            attribute name = "Sterile wound dressings";
+            attribute quantityAvailable = 8;
+            attribute minimumRequiredQuantity = 4;
+            attribute expirationRemainingDays = 600;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+
+        part antisepticWipes : MedicalSupply {
+            attribute name = "Antiseptic skin wipes";
+            attribute quantityAvailable = 16;
+            attribute minimumRequiredQuantity = 8;
+            attribute expirationRemainingDays = 420;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+    }
+
+    part def MedicationCompartment {
+        attribute compartmentVolume : Volume;
+        attribute internalTemperature : Temperature;
+        attribute coldPackRemainingDuration : TimeDuration;
+        attribute medicationCount : Count;
+
+        port medicationPort : MedicationAccessPort;
+        port environmentPort : EnvironmentalPort;
+
+        part epinephrineAutoInjector : Medication {
+            attribute name = "Epinephrine auto-injector";
+            attribute concentration = 1.0;
+            attribute doseVolume = 0.3;
+            attribute storageMinTemperature = 15.0;
+            attribute storageMaxTemperature = 25.0;
+            attribute controlledSubstance = false;
+            attribute quantityAvailable = 2;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 300;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+
+        part oralGlucoseGel : Medication {
+            attribute name = "Oral glucose gel";
+            attribute concentration = 40.0;
+            attribute doseVolume = 0.015;
+            attribute storageMinTemperature = 4.0;
+            attribute storageMaxTemperature = 30.0;
+            attribute controlledSubstance = false;
+            attribute quantityAvailable = 3;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 450;
+            attribute sterileState = SterilityState::opened;
+            attribute singleUse = true;
+        }
+
+        part naloxoneSpray : Medication {
+            attribute name = "Naloxone nasal spray";
+            attribute concentration = 4.0;
+            attribute doseVolume = 0.1;
+            attribute storageMinTemperature = 15.0;
+            attribute storageMaxTemperature = 25.0;
+            attribute controlledSubstance = false;
+            attribute quantityAvailable = 2;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 390;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+    }
+
+    part def DiagnosticCompartment {
+        attribute deviceCount : Count;
+        attribute batteryCharge : Percent;
+
+        port dataPort : DiagnosticDataPort;
+
+        part digitalThermometer {
+            attribute mass : Mass = 0.05;
+            attribute measurementAccuracy : Temperature = 0.2;
+            attribute batteryCharge : Percent = 90.0;
+        }
+
+        part pulseOximeter {
+            attribute mass : Mass = 0.08;
+            attribute oxygenAccuracy : Percent = 2.0;
+            attribute batteryCharge : Percent = 85.0;
+        }
+
+        part bloodPressureCuff {
+            attribute mass : Mass = 0.35;
+            attribute cuffSizeRangeMin : Length = 22.0;
+            attribute cuffSizeRangeMax : Length = 42.0;
+            attribute pressureAccuracy : Pressure = 0.4;
+        }
+    }
+
+    part def TraumaCompartment {
+        attribute compartmentVolume : Volume;
+        attribute hemorrhageControlReady : Boolean;
+
+        port supplyPort : SupplyAccessPort;
+
+        part tourniquet : MedicalSupply {
+            attribute name = "Windlass tourniquet";
+            attribute quantityAvailable = 2;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 1825;
+            attribute sterileState = SterilityState::opened;
+            attribute singleUse = false;
+        }
+
+        part compressionBandage : MedicalSupply {
+            attribute name = "Compression trauma bandage";
+            attribute quantityAvailable = 3;
+            attribute minimumRequiredQuantity = 2;
+            attribute expirationRemainingDays = 700;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+
+        part hemostaticDressing : MedicalSupply {
+            attribute name = "Hemostatic dressing";
+            attribute quantityAvailable = 2;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 500;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+    }
+
+    part def AirwayCompartment {
+        attribute airwayKitReady : Boolean;
+        attribute compartmentVolume : Volume;
+
+        port supplyPort : SupplyAccessPort;
+
+        part cprFaceShield : MedicalSupply {
+            attribute name = "CPR face shield";
+            attribute quantityAvailable = 2;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 1000;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+
+        part oralAirwaySet : MedicalSupply {
+            attribute name = "Oropharyngeal airway set";
+            attribute quantityAvailable = 1;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 900;
+            attribute sterileState = SterilityState::sterile;
+            attribute singleUse = true;
+        }
+
+        part pocketMask : MedicalSupply {
+            attribute name = "Pocket resuscitation mask";
+            attribute quantityAvailable = 1;
+            attribute minimumRequiredQuantity = 1;
+            attribute expirationRemainingDays = 1200;
+            attribute sterileState = SterilityState::opened;
+            attribute singleUse = false;
+        }
+    }
+
+    part def DocumentationModule {
+        attribute blankCareFormCount : Count;
+        attribute penCount : Count;
+        attribute electronicLogBatteryCharge : Percent;
+
+        port recordPort : CareRecordPort;
+    }
+
+    part def InventoryController {
+        attribute lastInspectionAgeDays : Count;
+        attribute expiredItemCount : Count;
+        attribute missingRequiredItemCount : Count;
+        attribute restockNeeded : Boolean;
+
+        port restockInput : RestockPort;
+
+        perform action InspectInventory;
+        perform action MarkConsumedSupply;
+        perform action AcceptRestockItem;
+    }
+
+    action def ProvidePortableMedicalCare {
+        in item patientIdentifier : String;
+        out item finalTreatmentRecord : TreatmentRecord;
+
+        first start;
+        then assessPatient;
+        then retrieveDiagnostics;
+        then selectNeededSupplies;
+        then administerImmediateCare;
+        then documentTreatment;
+        then finish;
+
+        action assessPatient {
+            out attribute suspectedCondition : String;
+        }
+
+        action retrieveDiagnostics {
+            out item temperature : TemperatureReading;
+            out item pressure : PressureReading;
+            out item oxygen : OxygenReading;
+        }
+
+        action selectNeededSupplies {
+            in attribute suspectedCondition : String;
+            out item selectedSupply : MedicalSupply;
+            out item selectedMedication : Medication;
+        }
+
+        action administerImmediateCare {
+            in item selectedSupply : MedicalSupply;
+            in item selectedMedication : Medication;
+            out attribute careComplete : Boolean;
+        }
+
+        action documentTreatment {
+            in attribute careComplete : Boolean;
+            out item record : TreatmentRecord;
+        }
+    }
+
+    action def InspectInventory {
+        out attribute status : InventoryStatus;
+
+        first start;
+        then countRequiredSupplies;
+        then checkExpirationDates;
+        then checkSterileBarriers;
+        then evaluateReadiness;
+        then finish;
+
+        action countRequiredSupplies {
+            out attribute missingRequiredItemCount : Count;
+        }
+
+        action checkExpirationDates {
+            out attribute expiredItemCount : Count;
+        }
+
+        action checkSterileBarriers {
+            out attribute contaminatedItemCount : Count;
+        }
+
+        action evaluateReadiness {
+            in attribute missingRequiredItemCount : Count;
+            in attribute expiredItemCount : Count;
+            in attribute contaminatedItemCount : Count;
+            out attribute status : InventoryStatus;
+        }
+    }
+
+    action def MarkConsumedSupply {
+        in item consumedSupply : MedicalSupply;
+        out attribute updatedQuantity : Count;
+    }
+
+    action def AcceptRestockItem {
+        in item replacementSupply : MedicalSupply;
+        in item replacementMedication : Medication;
+        out attribute restockAccepted : Boolean;
+    }
+
+    state def MedicalBagLifecycle {
+        entry action initializeReadiness;
+
+        state sealedReady;
+        state openedForUse;
+        state restocking;
+        state cleaning;
+        state unavailable;
+
+        initial then sealedReady;
+
+        transition sealedReady_to_openedForUse
+            first sealedReady
+            accept UseRequested
+            then openedForUse;
+
+        transition openedForUse_to_sealedReady
+            first openedForUse
+            accept CareCompleted
+            if inventoryAdequate
+            then sealedReady;
+
+        transition openedForUse_to_restocking
+            first openedForUse
+            accept SupplyBelowMinimum
+            then restocking;
+
+        transition sealedReady_to_restocking
+            first sealedReady
+            accept InspectionFailed
+            then restocking;
+
+        transition restocking_to_cleaning
+            first restocking
+            accept RestockCompleted
+            then cleaning;
+
+        transition cleaning_to_sealedReady
+            first cleaning
+            accept BagCleanedAndSealed
+            then sealedReady;
+
+        transition sealedReady_to_unavailable
+            first sealedReady
+            accept StructuralDamageDetected
+            then unavailable;
+
+        transition unavailable_to_restocking
+            first unavailable
+            accept RepairCompleted
+            then restocking;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The medical bag shall provide portable, organized, and rapid access to supplies, medications, diagnostic tools, airway aids, trauma-control items, and treatment documentation needed to deliver immediate field medical care before transfer to a higher level of care. */
+
+        subject medicalBag : MedicalBag;
+
+        require constraint {
+            medicalBag.primaryFunction == "Provide portable immediate medical care support";
+        }
+    }
+
+    requirement def PortabilityRequirement {
+        doc
+        /* The medical bag shall remain portable by a single responder while carrying the required minimum medical inventory. */
+
+        subject medicalBag : MedicalBag;
+
+        require constraint {
+            medicalBag.totalMass <= medicalBag.maximumCarryMass;
+        }
+    }
+
+    requirement def InventoryCompletenessRequirement {
+        doc
+        /* The medical bag shall indicate complete readiness only when all required supplies and medications are present at or above their minimum required quantities. */
+
+        subject controller : InventoryController;
+
+        require constraint {
+            controller.missingRequiredItemCount == 0;
+        }
+    }
+
+    requirement def ExpirationControlRequirement {
+        doc
+        /* The medical bag shall be considered ready only when no expired medical supplies or medications are present. */
+
+        subject controller : InventoryController;
+
+        require constraint {
+            controller.expiredItemCount == 0;
+        }
+    }
+
+    requirement def SterilityRequirement {
+        doc
+        /* Sterile wound-care supplies in the medical bag shall preserve sterile barrier integrity until selected for patient treatment. */
+
+        subject compartment : SterileSupplyCompartment;
+
+        require constraint {
+            compartment.sterileBarrierIntegrity >= 95.0;
+        }
+    }
+
+    requirement def MedicationTemperatureRequirement {
+        doc
+        /* The medication compartment shall maintain medication storage temperature within the safe range required by carried medications during normal transport. */
+
+        subject compartment : MedicationCompartment;
+
+        require constraint {
+            compartment.internalTemperature >= 4.0 and compartment.internalTemperature <= 30.0;
+        }
+    }
+
+    requirement def DiagnosticAvailabilityRequirement {
+        doc
+        /* The medical bag shall provide diagnostic capability for temperature, blood pressure, and oxygen saturation assessment. */
+
+        subject compartment : DiagnosticCompartment;
+
+        require constraint {
+            compartment.deviceCount >= 3 and compartment.batteryCharge >= 50.0;
+        }
+    }
+
+    part emergencyMedicalBag : MedicalBag {
+        attribute totalMass = 6.8;
+        attribute usableVolume = 24.0;
+        attribute externalLength = 46.0;
+        attribute externalWidth = 28.0;
+        attribute externalHeight = 24.0;
+        attribute maximumCarryMass = 10.0;
+        attribute inventoryStatus = InventoryStatus::complete;
+        attribute operationalState = BagOperationalState::sealedReady;
+        attribute primaryFunction = "Provide portable immediate medical care support";
+
+        part outerShell {
+            attribute shellMass = 1.2;
+            attribute impactResistant = true;
+            attribute waterResistant = true;
+            attribute closedSealIntegrity = 98.0;
+            attribute maxLoad = 10.0;
+        }
+
+        part sterileCompartment {
+            attribute compartmentVolume = 5.0;
+            attribute sterileBarrierIntegrity = 98.0;
+            attribute sterilePackCount = 56;
+        }
+
+        part medicationCompartment {
+            attribute compartmentVolume = 2.5;
+            attribute internalTemperature = 21.0;
+            attribute coldPackRemainingDuration = 120.0;
+            attribute medicationCount = 7;
+        }
+
+        part diagnosticCompartment {
+            attribute deviceCount = 3;
+            attribute batteryCharge = 85.0;
+        }
+
+        part traumaCompartment {
+            attribute compartmentVolume = 4.5;
+            attribute hemorrhageControlReady = true;
+        }
+
+        part airwayCompartment {
+            attribute airwayKitReady = true;
+            attribute compartmentVolume = 3.0;
+        }
+
+        part documentationModule {
+            attribute blankCareFormCount = 10;
+            attribute penCount = 2;
+            attribute electronicLogBatteryCharge = 75.0;
+        }
+
+        part inventoryController {
+            attribute lastInspectionAgeDays = 3;
+            attribute expiredItemCount = 0;
+            attribute missingRequiredItemCount = 0;
+            attribute restockNeeded = false;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by emergencyMedicalBag;
+    satisfy PortabilityRequirement by emergencyMedicalBag;
+    satisfy InventoryCompletenessRequirement by emergencyMedicalBag.inventoryController;
+    satisfy ExpirationControlRequirement by emergencyMedicalBag.inventoryController;
+    satisfy SterilityRequirement by emergencyMedicalBag.sterileCompartment;
+    satisfy MedicationTemperatureRequirement by emergencyMedicalBag.medicationCompartment;
+    satisfy DiagnosticAvailabilityRequirement by emergencyMedicalBag.diagnosticCompartment;
+}

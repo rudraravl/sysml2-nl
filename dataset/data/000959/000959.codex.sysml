@@ -1,0 +1,596 @@
+package WoodScrewPumpingSubsystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Volume :> Real {
+        unit = "m^3";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rev/min";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    attribute def Length :> Real {
+        unit = "m";
+    }
+
+    attribute def Angle :> Real {
+        unit = "deg";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    enum def PumpOperatingMode {
+        enum idle;
+        enum priming;
+        enum starting;
+        enum running;
+        enum flushing;
+        enum stopping;
+        enum faulted;
+        enum isolated;
+    }
+
+    enum def FluidType {
+        enum water;
+        enum wastewater;
+        enum slurry;
+        enum irrigationWater;
+        enum stormwater;
+    }
+
+    item def Fluid {
+        attribute type : FluidType;
+        attribute density : MassDensity;
+        attribute dynamicViscosity : DynamicViscosity;
+        attribute temperature : Temperature;
+        attribute vaporPressure : Pressure;
+        attribute solidsFraction : Real;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute transmittedPower : Power;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute frequency : Frequency;
+        attribute realPower : Power;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : Real;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def StatusSignal {
+        attribute healthy : Boolean;
+        attribute operatingMode : PumpOperatingMode;
+        attribute measuredFlow : FlowRate;
+        attribute measuredSpeed : RotationalSpeed;
+        attribute measuredDischargePressure : Pressure;
+    }
+
+    port def FluidPort {
+        inout item fluid : Fluid;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    port def MechanicalPort {
+        inout item mechanicalPower : MechanicalPower;
+    }
+
+    port def ElectricalPort {
+        in item electricalPower : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlSignal;
+    }
+
+    port def StatusPort {
+        out item status : StatusSignal;
+    }
+
+    part def IntakeBasin {
+        attribute retainedVolume : Volume;
+        attribute minimumOperatingLevel : Length;
+        attribute maximumOperatingLevel : Length;
+        attribute currentLevel : Length;
+        port outlet : FluidPort;
+    }
+
+    part def DischargeChannel {
+        attribute designBackPressure : Pressure;
+        attribute maximumAllowedPressure : Pressure;
+        attribute receivingElevation : Length;
+        port inlet : FluidPort;
+    }
+
+    part def WoodScrewPump {
+        attribute screwOuterDiameter : Length;
+        attribute screwCoreDiameter : Length;
+        attribute screwLength : Length;
+        attribute bladePitch : Length;
+        attribute installationAngle : Angle;
+        attribute numberOfFlights : Integer;
+        attribute nominalSpeed : RotationalSpeed;
+        attribute maximumSpeed : RotationalSpeed;
+        attribute minimumEffectiveSpeed : RotationalSpeed;
+        attribute nominalFlow : FlowRate;
+        attribute maximumFlow : FlowRate;
+        attribute volumetricEfficiency : Efficiency;
+        attribute liftHeight : Length;
+        attribute allowableSolidsFraction : Real;
+        attribute dryRunAllowedDuration : TimeDuration;
+
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port shaft : MechanicalPort;
+
+        action conveyFluid {
+            in item incoming : Fluid;
+            in attribute speed : RotationalSpeed;
+            in attribute suctionPressure : Pressure;
+            in attribute dischargePressure : Pressure;
+            out item outgoing : Fluid;
+            out attribute deliveredFlow : FlowRate;
+
+            constraint flowGenerated {
+                deliveredFlow <= maximumFlow;
+                deliveredFlow >= 0.0 [m^3/s];
+            }
+
+            constraint pressureRiseSupported {
+                dischargePressure > suctionPressure;
+            }
+        }
+    }
+
+    part def GearReducer {
+        attribute reductionRatio : Real;
+        attribute ratedInputPower : Power;
+        attribute ratedOutputTorque : Torque;
+        attribute mechanicalEfficiency : Efficiency;
+        attribute oilTemperature : Temperature;
+
+        port motorSide : MechanicalPort;
+        port pumpSide : MechanicalPort;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : Power;
+        attribute ratedVoltage : Voltage;
+        attribute ratedCurrent : Current;
+        attribute ratedSpeed : RotationalSpeed;
+        attribute serviceFactor : Real;
+        attribute windingTemperature : Temperature;
+
+        port supply : ElectricalPort;
+        port shaft : MechanicalPort;
+    }
+
+    part def VariableFrequencyDrive {
+        attribute inputVoltage : Voltage;
+        attribute outputFrequency : Frequency;
+        attribute commandedSpeed : RotationalSpeed;
+        attribute maximumOutputCurrent : Current;
+        attribute enabled : Boolean;
+
+        port powerIn : ElectricalPort;
+        port powerOut : ElectricalPort;
+        port speedCommand : CommandPort;
+        port driveStatus : StatusPort;
+    }
+
+    part def IsolationGate {
+        attribute openFraction : Real;
+        attribute leakageFlowWhenClosed : FlowRate;
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+    }
+
+    part def CheckGate {
+        attribute crackingPressure : Pressure;
+        attribute reverseLeakageFlow : FlowRate;
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+    }
+
+    part def FlowMeter {
+        attribute measuredFlow : FlowRate;
+        attribute accuracyPercent : Real;
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port status : StatusPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        attribute highPressureAlarmSetpoint : Pressure;
+        attribute lowPressureAlarmSetpoint : Pressure;
+        port process : FluidPort;
+        port status : StatusPort;
+    }
+
+    part def LevelSensor {
+        attribute measuredLevel : Length;
+        attribute lowLevelTripSetpoint : Length;
+        attribute highLevelStartSetpoint : Length;
+        port status : StatusPort;
+    }
+
+    part def Controller {
+        attribute selectedMode : PumpOperatingMode;
+        attribute requestedFlow : FlowRate;
+        attribute speedSetpoint : RotationalSpeed;
+        attribute startPermissive : Boolean;
+        attribute shutdownCommanded : Boolean;
+        attribute faultPresent : Boolean;
+
+        port operatorCommand : CommandPort;
+        port vfdCommand : CommandPort;
+        port subsystemStatus : StatusPort;
+        port flowFeedback : StatusPort;
+        port pressureFeedback : StatusPort;
+        port levelFeedback : StatusPort;
+
+        action computeSpeedSetpoint {
+            in attribute requestedFlow : FlowRate;
+            in attribute measuredFlow : FlowRate;
+            in attribute basinLevel : Length;
+            out attribute commandedSpeed : RotationalSpeed;
+
+            constraint limitedCommand {
+                commandedSpeed <= 38.0 [rev/min];
+                commandedSpeed >= 8.0 [rev/min];
+            }
+        }
+
+        state def PumpControlStateMachine {
+            entry; then idle;
+
+            state idle;
+            state priming;
+            state starting;
+            state running;
+            state flushing;
+            state stopping;
+            state faulted;
+            state isolated;
+
+            transition idle_to_priming
+                first idle
+                accept ControlSignal
+                if startPermissive and not faultPresent
+                then priming;
+
+            transition priming_to_starting
+                first priming
+                if selectedMode == PumpOperatingMode::priming
+                then starting;
+
+            transition starting_to_running
+                first starting
+                if speedSetpoint >= 8.0 [rev/min]
+                then running;
+
+            transition running_to_stopping
+                first running
+                accept ControlSignal
+                if shutdownCommanded
+                then stopping;
+
+            transition running_to_faulted
+                first running
+                if faultPresent
+                then faulted;
+
+            transition stopping_to_idle
+                first stopping
+                if speedSetpoint == 0.0 [rev/min]
+                then idle;
+
+            transition faulted_to_isolated
+                first faulted
+                accept ControlSignal
+                then isolated;
+
+            transition isolated_to_idle
+                first isolated
+                if not faultPresent
+                then idle;
+
+            transition running_to_flushing
+                first running
+                accept ControlSignal
+                then flushing;
+
+            transition flushing_to_running
+                first flushing
+                if not shutdownCommanded and not faultPresent
+                then running;
+        }
+    }
+
+    part def WoodScrewPumpingSubsystem {
+        attribute designFluid : FluidType = FluidType::wastewater;
+        attribute requiredNominalFlow : FlowRate = 0.85 [m^3/s];
+        attribute requiredStaticLift : Length = 4.2 [m];
+        attribute maximumDischargePressure : Pressure = 150000.0 [Pa];
+        attribute minimumBasinLevelForStart : Length = 0.75 [m];
+        attribute minimumSubsystemEfficiency : Efficiency = 0.62 [1];
+        attribute maximumSolidsFraction : Real = 0.08;
+        attribute commandedMode : PumpOperatingMode;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port electricalSupply : ElectricalPort;
+        port operatorCommand : CommandPort;
+        port status : StatusPort;
+
+        part intake : IntakeBasin {
+            attribute retainedVolume = 18.0 [m^3];
+            attribute minimumOperatingLevel = 0.60 [m];
+            attribute maximumOperatingLevel = 2.40 [m];
+        }
+
+        part suctionGate : IsolationGate {
+            attribute leakageFlowWhenClosed = 0.0005 [m^3/s];
+        }
+
+        part screwPump : WoodScrewPump {
+            attribute screwOuterDiameter = 1.45 [m];
+            attribute screwCoreDiameter = 0.42 [m];
+            attribute screwLength = 9.80 [m];
+            attribute bladePitch = 1.20 [m];
+            attribute installationAngle = 32.0 [deg];
+            attribute numberOfFlights = 3;
+            attribute nominalSpeed = 28.0 [rev/min];
+            attribute maximumSpeed = 38.0 [rev/min];
+            attribute minimumEffectiveSpeed = 8.0 [rev/min];
+            attribute nominalFlow = 0.85 [m^3/s];
+            attribute maximumFlow = 1.15 [m^3/s];
+            attribute volumetricEfficiency = 0.78 [1];
+            attribute liftHeight = 4.2 [m];
+            attribute allowableSolidsFraction = 0.10;
+            attribute dryRunAllowedDuration = 20.0 [s];
+        }
+
+        part dischargeCheckGate : CheckGate {
+            attribute crackingPressure = 1200.0 [Pa];
+            attribute reverseLeakageFlow = 0.001 [m^3/s];
+        }
+
+        part dischargeMeter : FlowMeter {
+            attribute accuracyPercent = 1.5;
+        }
+
+        part dischargePressureSensor : PressureSensor {
+            attribute highPressureAlarmSetpoint = 135000.0 [Pa];
+            attribute lowPressureAlarmSetpoint = 2000.0 [Pa];
+        }
+
+        part basinLevelSensor : LevelSensor {
+            attribute lowLevelTripSetpoint = 0.60 [m];
+            attribute highLevelStartSetpoint = 0.95 [m];
+        }
+
+        part discharge : DischargeChannel {
+            attribute designBackPressure = 95000.0 [Pa];
+            attribute maximumAllowedPressure = 150000.0 [Pa];
+            attribute receivingElevation = 4.2 [m];
+        }
+
+        part motor : ElectricMotor {
+            attribute ratedPower = 75000.0 [W];
+            attribute ratedVoltage = 480.0 [V];
+            attribute ratedCurrent = 120.0 [A];
+            attribute ratedSpeed = 1760.0 [rev/min];
+            attribute serviceFactor = 1.15;
+        }
+
+        part reducer : GearReducer {
+            attribute reductionRatio = 62.8;
+            attribute ratedInputPower = 75000.0 [W];
+            attribute ratedOutputTorque = 24000.0 [N*m];
+            attribute mechanicalEfficiency = 0.94 [1];
+        }
+
+        part drive : VariableFrequencyDrive {
+            attribute inputVoltage = 480.0 [V];
+            attribute maximumOutputCurrent = 140.0 [A];
+        }
+
+        part controller : Controller {
+            attribute requestedFlow = 0.85 [m^3/s];
+        }
+
+        connect inlet to intake.outlet;
+        connect intake.outlet to suctionGate.upstream;
+        connect suctionGate.downstream to screwPump.suction;
+        connect screwPump.discharge to dischargeCheckGate.inlet;
+        connect dischargeCheckGate.outlet to dischargeMeter.inlet;
+        connect dischargeMeter.outlet to dischargePressureSensor.process;
+        connect dischargePressureSensor.process to discharge.inlet;
+        connect discharge.inlet to outlet;
+
+        connect electricalSupply to drive.powerIn;
+        connect drive.powerOut to motor.supply;
+        connect motor.shaft to reducer.motorSide;
+        connect reducer.pumpSide to screwPump.shaft;
+
+        connect operatorCommand to controller.operatorCommand;
+        connect controller.vfdCommand to drive.speedCommand;
+        connect dischargeMeter.status to controller.flowFeedback;
+        connect dischargePressureSensor.status to controller.pressureFeedback;
+        connect basinLevelSensor.status to controller.levelFeedback;
+        connect controller.subsystemStatus to status;
+
+        constraint nominalCapacity {
+            screwPump.nominalFlow >= requiredNominalFlow;
+        }
+
+        constraint hydraulicLift {
+            screwPump.liftHeight >= requiredStaticLift;
+        }
+
+        constraint pressureProtection {
+            dischargePressureSensor.highPressureAlarmSetpoint < maximumDischargePressure;
+            discharge.maximumAllowedPressure <= maximumDischargePressure;
+        }
+
+        constraint solidsCompatibility {
+            maximumSolidsFraction <= screwPump.allowableSolidsFraction;
+        }
+
+        constraint speedEnvelope {
+            screwPump.minimumEffectiveSpeed <= screwPump.nominalSpeed;
+            screwPump.nominalSpeed < screwPump.maximumSpeed;
+        }
+
+        constraint driveMotorCompatibility {
+            drive.maximumOutputCurrent >= motor.ratedCurrent;
+            motor.ratedPower <= reducer.ratedInputPower;
+        }
+
+        perform controller.computeSpeedSetpoint;
+        perform screwPump.conveyFluid;
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The pumping subsystem shall move the specified design fluid from the intake basin to the discharge channel using a wood screw pump as the sole hydraulic energy transfer element. */
+
+        require constraint {
+            subsystem.screwPump.nominalFlow >= subsystem.requiredNominalFlow;
+            subsystem.screwPump.liftHeight >= subsystem.requiredStaticLift;
+        }
+    }
+
+    requirement def WoodScrewArchitectureRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The hydraulic pumping element shall be a rotating inclined wood screw pump with helical flights, open suction inlet, and elevated discharge outlet. */
+
+        require constraint {
+            subsystem.screwPump.numberOfFlights >= 2;
+            subsystem.screwPump.installationAngle >= 20.0 [deg];
+            subsystem.screwPump.installationAngle <= 40.0 [deg];
+            subsystem.screwPump.bladePitch > 0.0 [m];
+        }
+    }
+
+    requirement def FlowControlRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The subsystem shall regulate delivered flow by commanding screw speed through a variable frequency drive. */
+
+        require constraint {
+            subsystem.screwPump.minimumEffectiveSpeed <= subsystem.controller.speedSetpoint;
+            subsystem.controller.speedSetpoint <= subsystem.screwPump.maximumSpeed;
+        }
+    }
+
+    requirement def DryRunProtectionRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The controller shall prevent starting and shall trip the pump when basin level is below the low-level trip setpoint for longer than the allowable dry-run duration. */
+
+        require constraint {
+            subsystem.basinLevelSensor.lowLevelTripSetpoint >= subsystem.intake.minimumOperatingLevel;
+            subsystem.screwPump.dryRunAllowedDuration <= 20.0 [s];
+        }
+    }
+
+    requirement def BackflowPreventionRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The discharge path shall include a check gate to limit reverse flow from the discharge channel into the screw pump. */
+
+        require constraint {
+            subsystem.dischargeCheckGate.reverseLeakageFlow <= 0.001 [m^3/s];
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The subsystem shall detect excessive discharge pressure before the discharge channel maximum allowed pressure is reached. */
+
+        require constraint {
+            subsystem.dischargePressureSensor.highPressureAlarmSetpoint < subsystem.discharge.maximumAllowedPressure;
+        }
+    }
+
+    requirement def SolidsHandlingRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The wood screw pump shall pass the specified suspended solids fraction without exceeding its allowable solids handling limit. */
+
+        require constraint {
+            subsystem.maximumSolidsFraction <= subsystem.screwPump.allowableSolidsFraction;
+        }
+    }
+
+    requirement def MaintainabilityRequirement {
+        subject subsystem : WoodScrewPumpingSubsystem;
+
+        doc /* The subsystem shall be isolatable at the suction side and shall provide status signals for flow, pressure, level, operating state, and fault condition. */
+
+        require constraint {
+            subsystem.suctionGate.leakageFlowWhenClosed <= 0.0005 [m^3/s];
+        }
+    }
+
+    satisfy MoveFluidRequirement by WoodScrewPumpingSubsystem;
+    satisfy WoodScrewArchitectureRequirement by WoodScrewPumpingSubsystem::screwPump;
+    satisfy FlowControlRequirement by WoodScrewPumpingSubsystem::controller;
+    satisfy DryRunProtectionRequirement by WoodScrewPumpingSubsystem::controller;
+    satisfy BackflowPreventionRequirement by WoodScrewPumpingSubsystem::dischargeCheckGate;
+    satisfy PressureSafetyRequirement by WoodScrewPumpingSubsystem::dischargePressureSensor;
+    satisfy SolidsHandlingRequirement by WoodScrewPumpingSubsystem::screwPump;
+    satisfy MaintainabilityRequirement by WoodScrewPumpingSubsystem;
+
+}

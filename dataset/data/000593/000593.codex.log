@@ -1,0 +1,727 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-8ktymvz5
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb377-bb76-7660-a27d-0a2985b77b8f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Durable medical equipment and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DurableMedicalEquipmentModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def OxygenConcentration {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def ElectricalVoltage {
+        :> scalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def ElectricalPower {
+        :> scalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def BatteryCharge {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def Mass {
+        :> scalarValues::Real;
+        unit = "kg";
+    }
+
+    attribute def SoundPressureLevel {
+        :> scalarValues::Real;
+        unit = "dBA";
+    }
+
+    attribute def Duration {
+        :> scalarValues::Real;
+        unit = "h";
+    }
+
+    item def AmbientAir {
+        attribute oxygenFraction : OxygenConcentration = 20.9;
+        attribute inletPressure : Pressure;
+    }
+
+    item def ConcentratedOxygen {
+        attribute deliveredConcentration : OxygenConcentration;
+        attribute deliveredFlow : FlowRate;
+        attribute outletPressure : Pressure;
+    }
+
+    item def ExhaustGas {
+        attribute nitrogenFraction : OxygenConcentration;
+        attribute exhaustFlow : FlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricalVoltage;
+        attribute availablePower : ElectricalPower;
+    }
+
+    item def PatientBreathDemand {
+        attribute requestedFlow : FlowRate;
+        attribute inhalationDetected : Boolean;
+    }
+
+    item def AlarmSignal {
+        attribute alarmCode : String;
+        attribute severity : String;
+        attribute active : Boolean;
+    }
+
+    port def AirInletPort {
+        in item air : AmbientAir;
+    }
+
+    port def OxygenOutletPort {
+        out item oxygen : ConcentratedOxygen;
+    }
+
+    port def ExhaustPort {
+        out item wasteGas : ExhaustGas;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalEnergy;
+    }
+
+    port def PatientInterfacePort {
+        in item breathDemand : PatientBreathDemand;
+        out item therapyGas : ConcentratedOxygen;
+    }
+
+    port def AlarmOutputPort {
+        out item alarm : AlarmSignal;
+    }
+
+    part def IntakeFilter {
+        port inlet : AirInletPort;
+        port filteredAirOut : AirInletPort;
+        attribute particleRemovalEfficiency : OxygenConcentration = 99.0;
+    }
+
+    part def Compressor {
+        port airIn : AirInletPort;
+        port compressedAirOut : AirInletPort;
+        port electricalIn : PowerInputPort;
+        attribute nominalOutletPressure : Pressure = 220.0;
+        attribute ratedPower : ElectricalPower = 120.0;
+    }
+
+    part def SieveBedAssembly {
+        port compressedAirIn : AirInletPort;
+        port oxygenOut : OxygenOutletPort;
+        port exhaustOut : ExhaustPort;
+        attribute nominalOxygenConcentration : OxygenConcentration = 93.0;
+        attribute minimumOxygenConcentration : OxygenConcentration = 87.0;
+    }
+
+    part def ProductTank {
+        port oxygenIn : OxygenOutletPort;
+        port oxygenOut : OxygenOutletPort;
+        attribute storagePressure : Pressure = 140.0;
+        attribute tankVolume : Real = 0.5;
+    }
+
+    part def FlowController {
+        port oxygenIn : OxygenOutletPort;
+        port patientOut : PatientInterfacePort;
+        attribute selectedFlow : FlowRate = 2.0;
+        attribute minimumFlow : FlowRate = 0.5;
+        attribute maximumFlow : FlowRate = 5.0;
+    }
+
+    part def NasalCannula {
+        port patientConnection : PatientInterfacePort;
+        attribute tubeLength : Real = 2.1;
+    }
+
+    part def BatteryPack {
+        port electricalOut : PowerInputPort;
+        attribute nominalVoltage : ElectricalVoltage = 24.0;
+        attribute chargeState : BatteryCharge = 100.0;
+        attribute runtimeAtTwoLpm : Duration = 4.0;
+    }
+
+    part def ACAdapter {
+        port mainsIn : PowerInputPort;
+        port dcOut : PowerInputPort;
+        attribute inputVoltage : ElectricalVoltage = 120.0;
+        attribute outputVoltage : ElectricalVoltage = 24.0;
+        attribute maximumPower : ElectricalPower = 180.0;
+    }
+
+    part def ControlModule {
+        port compressorPower : PowerInputPort;
+        port patientDemand : PatientInterfacePort;
+        port alarmOut : AlarmOutputPort;
+        attribute commandedFlow : FlowRate = 2.0;
+        attribute measuredOxygenConcentration : OxygenConcentration;
+        attribute measuredTankPressure : Pressure;
+        attribute batteryCharge : BatteryCharge;
+    }
+
+    part def UserInterface {
+        port alarmIn : AlarmOutputPort;
+        attribute displayedFlowSetting : FlowRate;
+        attribute displayedBatteryCharge : BatteryCharge;
+        attribute audibleAlarmLevel : SoundPressureLevel = 65.0;
+    }
+
+    action def DrawAmbientAir {
+        in item ambient : AmbientAir;
+        out item filtered : AmbientAir;
+    }
+
+    action def CompressAir {
+        in item filtered : AmbientAir;
+        in item power : ElectricalEnergy;
+        out item compressed : AmbientAir;
+    }
+
+    action def SeparateOxygen {
+        in item compressed : AmbientAir;
+        out item oxygen : ConcentratedOxygen;
+        out item exhaust : ExhaustGas;
+    }
+
+    action def RegulateFlow {
+        in item storedOxygen : ConcentratedOxygen;
+        in item demand : PatientBreathDemand;
+        out item deliveredOxygen : ConcentratedOxygen;
+    }
+
+    action def MonitorTherapy {
+        in item deliveredOxygen : ConcentratedOxygen;
+        out item alarm : AlarmSignal;
+    }
+
+    state def OxygenConcentratorStateMachine {
+        entry action InitializeSystem;
+
+        state Off;
+        state Startup;
+        state Standby;
+        state DeliveringTherapy;
+        state AlarmActive;
+        state Shutdown;
+
+        transition first Off;
+
+        transition PowerButtonPressed
+            first Off then Startup;
+
+        transition StartupComplete
+            first Startup then Standby;
+
+        transition PatientDemandDetected
+            first Standby then DeliveringTherapy;
+
+        transition DemandPaused
+            first DeliveringTherapy then Standby;
+
+        transition FaultDetected
+            first Standby then AlarmActive;
+
+        transition TherapyFaultDetected
+            first DeliveringTherapy then AlarmActive;
+
+        transition FaultCleared
+            first AlarmActive then Standby;
+
+        transition PowerButtonHeld
+            first Standby then Shutdown;
+
+        transition ShutdownComplete
+            first Shutdown then Off;
+    }
+
+    part def PortableOxygenConcentrator {
+        doc /* Primary function: provide prescribed supplemental oxygen therapy by taking ambient air, filtering and compressing it, separating nitrogen from oxygen using molecular sieve beds, storing concentrated oxygen, and delivering controlled flow to a patient interface. */
+
+        port ambientAirIn : AirInletPort;
+        port oxygenToPatient : PatientInterfacePort;
+        port exhaustToRoom : ExhaustPort;
+        port externalPowerIn : PowerInputPort;
+        port alarmOutput : AlarmOutputPort;
+
+        attribute deviceMass : Mass = 4.8;
+        attribute nominalFlowSetting : FlowRate = 2.0;
+        attribute maximumContinuousFlow : FlowRate = 5.0;
+        attribute nominalOxygenPurity : OxygenConcentration = 93.0;
+        attribute maximumSoundLevel : SoundPressureLevel = 48.0;
+
+        part intakeFilter : IntakeFilter;
+        part compressor : Compressor;
+        part sieveBeds : SieveBedAssembly;
+        part productTank : ProductTank;
+        part flowController : FlowController;
+        part cannula : NasalCannula;
+        part battery : BatteryPack;
+        part adapter : ACAdapter;
+        part controller : ControlModule;
+        part userInterface : UserInterface;
+
+        connect ambientAirIn to intakeFilter.inlet;
+        connect intakeFilter.filteredAirOut to compressor.airIn;
+        connect compressor.compressedAirOut to sieveBeds.compressedAirIn;
+        connect sieveBeds.oxygenOut to productTank.oxygenIn;
+        connect productTank.oxygenOut to flowController.oxygenIn;
+        connect flowController.patientOut to cannula.patientConnection;
+        connect cannula.patientConnection to oxygenToPatient;
+        connect sieveBeds.exhaustOut to exhaustToRoom;
+        connect externalPowerIn to adapter.mainsIn;
+        connect adapter.dcOut to compressor.electricalIn;
+        connect battery.electricalOut to compressor.electricalIn;
+        connect flowController.patientOut to controller.patientDemand;
+        connect controller.alarmOut to userInterface.alarmIn;
+        connect controller.alarmOut to alarmOutput;
+
+        perform action TherapyCycle {
+            first start;
+            then DrawAmbientAir;
+            then CompressAir;
+            then SeparateOxygen;
+            then RegulateFlow;
+            then MonitorTherapy;
+            then done;
+        }
+
+        exhibit state behavior : OxygenConcentratorStateMachine;
+    }
+
+    requirement def ProvideSupplementalOxygen {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.nominalOxygenPurity >= 90.0 and
+            poc.nominalFlowSetting >= 0.5 and
+            poc.nominalFlowSetting <= 5.0
+        }
+    }
+
+    requirement def MaintainMinimumOxygenConcentration {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.sieveBeds.minimumOxygenConcentration >= 87.0
+        }
+    }
+
+    requirement def SupportPortableOperation {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.deviceMass <= 5.5 and
+            poc.battery.runtimeAtTwoLpm >= 3.0
+        }
+    }
+
+    requirement def ProvidePatientAndCaregiverAlerts {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.userInterface.audibleAlarmLevel >= 60.0
+        }
+    }
+
+    requirement def LimitOperatingNoise {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.maximumSoundLevel <= 50.0
+        }
+    }
+
+    requirement def DurableMedicalEquipmentPurpose {
+        subject poc : PortableOxygenConcentrator;
+        doc /* The system shall function as durable medical equipment for repeated home and ambulatory use, supporting prescribed oxygen therapy for patients with impaired blood oxygenation. */
+    }
+
+    satisfy ProvideSupplementalOxygen by PortableOxygenConcentrator;
+    satisfy MaintainMinimumOxygenConcentration by PortableOxygenConcentrator;
+    satisfy SupportPortableOperation by PortableOxygenConcentrator;
+    satisfy ProvidePatientAndCaregiverAlerts by PortableOxygenConcentrator;
+    satisfy LimitOperatingNoise by PortableOxygenConcentrator;
+    satisfy DurableMedicalEquipmentPurpose by PortableOxygenConcentrator;
+}
+tokens used
+3,833
+package DurableMedicalEquipmentModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def OxygenConcentration {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def ElectricalVoltage {
+        :> scalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def ElectricalPower {
+        :> scalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def BatteryCharge {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def Mass {
+        :> scalarValues::Real;
+        unit = "kg";
+    }
+
+    attribute def SoundPressureLevel {
+        :> scalarValues::Real;
+        unit = "dBA";
+    }
+
+    attribute def Duration {
+        :> scalarValues::Real;
+        unit = "h";
+    }
+
+    item def AmbientAir {
+        attribute oxygenFraction : OxygenConcentration = 20.9;
+        attribute inletPressure : Pressure;
+    }
+
+    item def ConcentratedOxygen {
+        attribute deliveredConcentration : OxygenConcentration;
+        attribute deliveredFlow : FlowRate;
+        attribute outletPressure : Pressure;
+    }
+
+    item def ExhaustGas {
+        attribute nitrogenFraction : OxygenConcentration;
+        attribute exhaustFlow : FlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricalVoltage;
+        attribute availablePower : ElectricalPower;
+    }
+
+    item def PatientBreathDemand {
+        attribute requestedFlow : FlowRate;
+        attribute inhalationDetected : Boolean;
+    }
+
+    item def AlarmSignal {
+        attribute alarmCode : String;
+        attribute severity : String;
+        attribute active : Boolean;
+    }
+
+    port def AirInletPort {
+        in item air : AmbientAir;
+    }
+
+    port def OxygenOutletPort {
+        out item oxygen : ConcentratedOxygen;
+    }
+
+    port def ExhaustPort {
+        out item wasteGas : ExhaustGas;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalEnergy;
+    }
+
+    port def PatientInterfacePort {
+        in item breathDemand : PatientBreathDemand;
+        out item therapyGas : ConcentratedOxygen;
+    }
+
+    port def AlarmOutputPort {
+        out item alarm : AlarmSignal;
+    }
+
+    part def IntakeFilter {
+        port inlet : AirInletPort;
+        port filteredAirOut : AirInletPort;
+        attribute particleRemovalEfficiency : OxygenConcentration = 99.0;
+    }
+
+    part def Compressor {
+        port airIn : AirInletPort;
+        port compressedAirOut : AirInletPort;
+        port electricalIn : PowerInputPort;
+        attribute nominalOutletPressure : Pressure = 220.0;
+        attribute ratedPower : ElectricalPower = 120.0;
+    }
+
+    part def SieveBedAssembly {
+        port compressedAirIn : AirInletPort;
+        port oxygenOut : OxygenOutletPort;
+        port exhaustOut : ExhaustPort;
+        attribute nominalOxygenConcentration : OxygenConcentration = 93.0;
+        attribute minimumOxygenConcentration : OxygenConcentration = 87.0;
+    }
+
+    part def ProductTank {
+        port oxygenIn : OxygenOutletPort;
+        port oxygenOut : OxygenOutletPort;
+        attribute storagePressure : Pressure = 140.0;
+        attribute tankVolume : Real = 0.5;
+    }
+
+    part def FlowController {
+        port oxygenIn : OxygenOutletPort;
+        port patientOut : PatientInterfacePort;
+        attribute selectedFlow : FlowRate = 2.0;
+        attribute minimumFlow : FlowRate = 0.5;
+        attribute maximumFlow : FlowRate = 5.0;
+    }
+
+    part def NasalCannula {
+        port patientConnection : PatientInterfacePort;
+        attribute tubeLength : Real = 2.1;
+    }
+
+    part def BatteryPack {
+        port electricalOut : PowerInputPort;
+        attribute nominalVoltage : ElectricalVoltage = 24.0;
+        attribute chargeState : BatteryCharge = 100.0;
+        attribute runtimeAtTwoLpm : Duration = 4.0;
+    }
+
+    part def ACAdapter {
+        port mainsIn : PowerInputPort;
+        port dcOut : PowerInputPort;
+        attribute inputVoltage : ElectricalVoltage = 120.0;
+        attribute outputVoltage : ElectricalVoltage = 24.0;
+        attribute maximumPower : ElectricalPower = 180.0;
+    }
+
+    part def ControlModule {
+        port compressorPower : PowerInputPort;
+        port patientDemand : PatientInterfacePort;
+        port alarmOut : AlarmOutputPort;
+        attribute commandedFlow : FlowRate = 2.0;
+        attribute measuredOxygenConcentration : OxygenConcentration;
+        attribute measuredTankPressure : Pressure;
+        attribute batteryCharge : BatteryCharge;
+    }
+
+    part def UserInterface {
+        port alarmIn : AlarmOutputPort;
+        attribute displayedFlowSetting : FlowRate;
+        attribute displayedBatteryCharge : BatteryCharge;
+        attribute audibleAlarmLevel : SoundPressureLevel = 65.0;
+    }
+
+    action def DrawAmbientAir {
+        in item ambient : AmbientAir;
+        out item filtered : AmbientAir;
+    }
+
+    action def CompressAir {
+        in item filtered : AmbientAir;
+        in item power : ElectricalEnergy;
+        out item compressed : AmbientAir;
+    }
+
+    action def SeparateOxygen {
+        in item compressed : AmbientAir;
+        out item oxygen : ConcentratedOxygen;
+        out item exhaust : ExhaustGas;
+    }
+
+    action def RegulateFlow {
+        in item storedOxygen : ConcentratedOxygen;
+        in item demand : PatientBreathDemand;
+        out item deliveredOxygen : ConcentratedOxygen;
+    }
+
+    action def MonitorTherapy {
+        in item deliveredOxygen : ConcentratedOxygen;
+        out item alarm : AlarmSignal;
+    }
+
+    state def OxygenConcentratorStateMachine {
+        entry action InitializeSystem;
+
+        state Off;
+        state Startup;
+        state Standby;
+        state DeliveringTherapy;
+        state AlarmActive;
+        state Shutdown;
+
+        transition first Off;
+
+        transition PowerButtonPressed
+            first Off then Startup;
+
+        transition StartupComplete
+            first Startup then Standby;
+
+        transition PatientDemandDetected
+            first Standby then DeliveringTherapy;
+
+        transition DemandPaused
+            first DeliveringTherapy then Standby;
+
+        transition FaultDetected
+            first Standby then AlarmActive;
+
+        transition TherapyFaultDetected
+            first DeliveringTherapy then AlarmActive;
+
+        transition FaultCleared
+            first AlarmActive then Standby;
+
+        transition PowerButtonHeld
+            first Standby then Shutdown;
+
+        transition ShutdownComplete
+            first Shutdown then Off;
+    }
+
+    part def PortableOxygenConcentrator {
+        doc /* Primary function: provide prescribed supplemental oxygen therapy by taking ambient air, filtering and compressing it, separating nitrogen from oxygen using molecular sieve beds, storing concentrated oxygen, and delivering controlled flow to a patient interface. */
+
+        port ambientAirIn : AirInletPort;
+        port oxygenToPatient : PatientInterfacePort;
+        port exhaustToRoom : ExhaustPort;
+        port externalPowerIn : PowerInputPort;
+        port alarmOutput : AlarmOutputPort;
+
+        attribute deviceMass : Mass = 4.8;
+        attribute nominalFlowSetting : FlowRate = 2.0;
+        attribute maximumContinuousFlow : FlowRate = 5.0;
+        attribute nominalOxygenPurity : OxygenConcentration = 93.0;
+        attribute maximumSoundLevel : SoundPressureLevel = 48.0;
+
+        part intakeFilter : IntakeFilter;
+        part compressor : Compressor;
+        part sieveBeds : SieveBedAssembly;
+        part productTank : ProductTank;
+        part flowController : FlowController;
+        part cannula : NasalCannula;
+        part battery : BatteryPack;
+        part adapter : ACAdapter;
+        part controller : ControlModule;
+        part userInterface : UserInterface;
+
+        connect ambientAirIn to intakeFilter.inlet;
+        connect intakeFilter.filteredAirOut to compressor.airIn;
+        connect compressor.compressedAirOut to sieveBeds.compressedAirIn;
+        connect sieveBeds.oxygenOut to productTank.oxygenIn;
+        connect productTank.oxygenOut to flowController.oxygenIn;
+        connect flowController.patientOut to cannula.patientConnection;
+        connect cannula.patientConnection to oxygenToPatient;
+        connect sieveBeds.exhaustOut to exhaustToRoom;
+        connect externalPowerIn to adapter.mainsIn;
+        connect adapter.dcOut to compressor.electricalIn;
+        connect battery.electricalOut to compressor.electricalIn;
+        connect flowController.patientOut to controller.patientDemand;
+        connect controller.alarmOut to userInterface.alarmIn;
+        connect controller.alarmOut to alarmOutput;
+
+        perform action TherapyCycle {
+            first start;
+            then DrawAmbientAir;
+            then CompressAir;
+            then SeparateOxygen;
+            then RegulateFlow;
+            then MonitorTherapy;
+            then done;
+        }
+
+        exhibit state behavior : OxygenConcentratorStateMachine;
+    }
+
+    requirement def ProvideSupplementalOxygen {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.nominalOxygenPurity >= 90.0 and
+            poc.nominalFlowSetting >= 0.5 and
+            poc.nominalFlowSetting <= 5.0
+        }
+    }
+
+    requirement def MaintainMinimumOxygenConcentration {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.sieveBeds.minimumOxygenConcentration >= 87.0
+        }
+    }
+
+    requirement def SupportPortableOperation {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.deviceMass <= 5.5 and
+            poc.battery.runtimeAtTwoLpm >= 3.0
+        }
+    }
+
+    requirement def ProvidePatientAndCaregiverAlerts {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.userInterface.audibleAlarmLevel >= 60.0
+        }
+    }
+
+    requirement def LimitOperatingNoise {
+        subject poc : PortableOxygenConcentrator;
+        require constraint {
+            poc.maximumSoundLevel <= 50.0
+        }
+    }
+
+    requirement def DurableMedicalEquipmentPurpose {
+        subject poc : PortableOxygenConcentrator;
+        doc /* The system shall function as durable medical equipment for repeated home and ambulatory use, supporting prescribed oxygen therapy for patients with impaired blood oxygenation. */
+    }
+
+    satisfy ProvideSupplementalOxygen by PortableOxygenConcentrator;
+    satisfy MaintainMinimumOxygenConcentration by PortableOxygenConcentrator;
+    satisfy SupportPortableOperation by PortableOxygenConcentrator;
+    satisfy ProvidePatientAndCaregiverAlerts by PortableOxygenConcentrator;
+    satisfy LimitOperatingNoise by PortableOxygenConcentrator;
+    satisfy DurableMedicalEquipmentPurpose by PortableOxygenConcentrator;
+}

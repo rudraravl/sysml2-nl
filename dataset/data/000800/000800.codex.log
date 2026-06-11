@@ -1,0 +1,853 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-b3o4q5mn
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb440-af94-7041-ae58-6974fb0cbbfa
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Transdermal continuous oxygen therapy and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TransdermalContinuousOxygenTherapyModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def OxygenFlowRate :> Real {
+        unit = "mL/min";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def OxygenConcentration :> Real {
+        unit = "%";
+    }
+
+    attribute def Duration :> Real {
+        unit = "h";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def BatteryEnergy :> Real {
+        unit = "Wh";
+    }
+
+    attribute def Area :> Real {
+        unit = "cm^2";
+    }
+
+    attribute def AlarmLevel :> Integer;
+
+    item def Oxygen {
+        attribute concentration : OxygenConcentration;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def OxygenFlow {
+        item oxygen : Oxygen;
+        attribute flowRate : OxygenFlowRate;
+    }
+
+    item def TherapyPrescription {
+        attribute targetFlowRate : OxygenFlowRate;
+        attribute targetPressure : Pressure;
+        attribute therapyDuration : Duration;
+        attribute woundArea : Area;
+    }
+
+    item def TherapyStatus {
+        attribute deliveredFlowRate : OxygenFlowRate;
+        attribute interfacePressure : Pressure;
+        attribute remainingBatteryEnergy : BatteryEnergy;
+        attribute alarmLevel : AlarmLevel;
+        attribute therapyActive : Boolean;
+    }
+
+    item def UserCommand {
+        attribute startTherapy : Boolean;
+        attribute pauseTherapy : Boolean;
+        attribute stopTherapy : Boolean;
+        attribute silenceAlarm : Boolean;
+    }
+
+    item def SensorReading {
+        attribute measuredFlowRate : OxygenFlowRate;
+        attribute measuredPressure : Pressure;
+        attribute measuredTemperature : Temperature;
+        attribute measuredBatteryEnergy : BatteryEnergy;
+    }
+
+    port def OxygenOutletPort {
+        out item flow : OxygenFlow;
+    }
+
+    port def OxygenInletPort {
+        in item flow : OxygenFlow;
+    }
+
+    port def PrescriptionInputPort {
+        in item prescription : TherapyPrescription;
+    }
+
+    port def CommandInputPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : TherapyStatus;
+    }
+
+    port def SensorOutputPort {
+        out item reading : SensorReading;
+    }
+
+    port def SensorInputPort {
+        in item reading : SensorReading;
+    }
+
+    part def OxygenReservoir {
+        attribute capacity : Real = 50.0 {
+            unit = "mL";
+        }
+
+        attribute nominalConcentration : OxygenConcentration = 99.0;
+        attribute nominalPressure : Pressure = 120.0;
+
+        port outlet : OxygenOutletPort;
+    }
+
+    part def FlowRegulator {
+        attribute minimumFlowRate : OxygenFlowRate = 1.0;
+        attribute maximumFlowRate : OxygenFlowRate = 15.0;
+        attribute regulatedPressure : Pressure = 20.0;
+
+        port inlet : OxygenInletPort;
+        port outlet : OxygenOutletPort;
+        port prescriptionIn : PrescriptionInputPort;
+        port sensorIn : SensorInputPort;
+    }
+
+    part def TransdermalPatchInterface {
+        attribute adhesiveArea : Area = 25.0;
+        attribute maxInterfacePressure : Pressure = 30.0;
+        attribute nominalInterfaceTemperature : Temperature = 33.0;
+
+        port inlet : OxygenInletPort;
+        port sensorOut : SensorOutputPort;
+    }
+
+    part def WoundSite {
+        attribute woundArea : Area;
+        attribute localOxygenExposure : Duration;
+
+        port oxygenIn : OxygenInletPort;
+    }
+
+    part def PressureFlowSensor {
+        attribute flowAccuracy : OxygenFlowRate = 0.5;
+        attribute pressureAccuracy : Pressure = 1.0;
+
+        port sensedFlowIn : OxygenInletPort;
+        port readingOut : SensorOutputPort;
+    }
+
+    part def BatteryPack {
+        attribute capacity : BatteryEnergy = 18.0;
+        attribute minimumOperatingEnergy : BatteryEnergy = 1.5;
+
+        port statusOut : SensorOutputPort;
+    }
+
+    part def UserInterface {
+        port commandOut : CommandInputPort;
+        port prescriptionOut : PrescriptionInputPort;
+        port statusIn : StatusOutputPort;
+    }
+
+    part def Controller {
+        attribute prescribedFlowRate : OxygenFlowRate;
+        attribute prescribedPressure : Pressure;
+        attribute remainingTherapyTime : Duration;
+        attribute activeAlarmLevel : AlarmLevel;
+
+        port commandIn : CommandInputPort;
+        port prescriptionIn : PrescriptionInputPort;
+        port sensorIn : SensorInputPort;
+        port statusOut : StatusOutputPort;
+        port regulatorPrescriptionOut : PrescriptionInputPort;
+
+        state def ControllerStateMachine {
+            state Off;
+            state Standby;
+            state Priming;
+            state DeliveringTherapy;
+            state Paused;
+            state Alarm;
+            state Complete;
+
+            transition initial then Off;
+
+            transition PowerApplied
+                first Off
+                accept UserCommand
+                if command.startTherapy == false
+                then Standby;
+
+            transition StartRequested
+                first Standby
+                accept UserCommand
+                if command.startTherapy == true
+                then Priming;
+
+            transition PrimeComplete
+                first Priming
+                if prescribedFlowRate > 0.0
+                then DeliveringTherapy;
+
+            transition PauseRequested
+                first DeliveringTherapy
+                accept UserCommand
+                if command.pauseTherapy == true
+                then Paused;
+
+            transition ResumeRequested
+                first Paused
+                accept UserCommand
+                if command.startTherapy == true
+                then DeliveringTherapy;
+
+            transition StopRequestedFromDelivery
+                first DeliveringTherapy
+                accept UserCommand
+                if command.stopTherapy == true
+                then Standby;
+
+            transition StopRequestedFromPause
+                first Paused
+                accept UserCommand
+                if command.stopTherapy == true
+                then Standby;
+
+            transition FaultDetected
+                first DeliveringTherapy
+                accept SensorReading
+                if reading.measuredPressure > 30.0 or reading.measuredBatteryEnergy < 1.5
+                then Alarm;
+
+            transition AlarmCleared
+                first Alarm
+                accept UserCommand
+                if command.silenceAlarm == true
+                then Paused;
+
+            transition TherapyTimeElapsed
+                first DeliveringTherapy
+                if remainingTherapyTime <= 0.0
+                then Complete;
+
+            transition ResetAfterComplete
+                first Complete
+                accept UserCommand
+                if command.stopTherapy == true
+                then Standby;
+        }
+    }
+
+    action def RegulateOxygenFlow {
+        in item prescription : TherapyPrescription;
+        in item sensorReading : SensorReading;
+        in item supplyFlow : OxygenFlow;
+        out item regulatedFlow : OxygenFlow;
+
+        assert constraint {
+            regulatedFlow.flowRate >= 1.0 and
+            regulatedFlow.flowRate <= 15.0 and
+            regulatedFlow.oxygen.pressure <= prescription.targetPressure
+        }
+    }
+
+    action def ApplyTransdermalOxygen {
+        in item regulatedFlow : OxygenFlow;
+        in item prescription : TherapyPrescription;
+        out item deliveredStatus : TherapyStatus;
+
+        assert constraint {
+            deliveredStatus.therapyActive == true and
+            deliveredStatus.deliveredFlowRate == prescription.targetFlowRate and
+            deliveredStatus.interfacePressure <= 30.0
+        }
+    }
+
+    action def MonitorTherapy {
+        in item sensorReading : SensorReading;
+        out item status : TherapyStatus;
+
+        assert constraint {
+            status.deliveredFlowRate == sensorReading.measuredFlowRate and
+            status.interfacePressure == sensorReading.measuredPressure and
+            status.remainingBatteryEnergy == sensorReading.measuredBatteryEnergy
+        }
+    }
+
+    part def TransdermalContinuousOxygenTherapySystem {
+        attribute primaryFunction : String =
+            "Continuously deliver controlled oxygen through a sealed transdermal patch interface to maintain localized oxygen exposure at a wound site while monitoring flow, pressure, therapy status, and safety limits.";
+
+        part reservoir : OxygenReservoir;
+        part regulator : FlowRegulator;
+        part patch : TransdermalPatchInterface;
+        part wound : WoundSite;
+        part sensor : PressureFlowSensor;
+        part battery : BatteryPack;
+        part controller : Controller;
+        part userInterface : UserInterface;
+
+        port commandPort : CommandInputPort;
+        port prescriptionPort : PrescriptionInputPort;
+        port statusPort : StatusOutputPort;
+
+        connection oxygenSupplyLine
+            connect reservoir.outlet to regulator.inlet;
+
+        connection regulatedOxygenLine
+            connect regulator.outlet to patch.inlet;
+
+        connection transdermalDeliveryPath
+            connect patch.inlet to wound.oxygenIn;
+
+        connection flowSensingPath
+            connect regulator.outlet to sensor.sensedFlowIn;
+
+        connection sensorFeedbackPath
+            connect sensor.readingOut to controller.sensorIn;
+
+        connection batteryStatusPath
+            connect battery.statusOut to controller.sensorIn;
+
+        connection userCommandPath
+            connect userInterface.commandOut to controller.commandIn;
+
+        connection prescriptionPath
+            connect userInterface.prescriptionOut to controller.prescriptionIn;
+
+        connection regulatorControlPath
+            connect controller.regulatorPrescriptionOut to regulator.prescriptionIn;
+
+        connection systemStatusPath
+            connect controller.statusOut to userInterface.statusIn;
+
+        perform action regulate : RegulateOxygenFlow;
+        perform action applyOxygen : ApplyTransdermalOxygen;
+        perform action monitor : MonitorTherapy;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : TransdermalContinuousOxygenTherapySystem;
+
+        require constraint {
+            system.primaryFunction != ""
+        }
+    }
+
+    requirement def ContinuousDeliveryRequirement {
+        subject system : TransdermalContinuousOxygenTherapySystem;
+
+        require constraint {
+            system.regulator.minimumFlowRate <= 1.0 and
+            system.regulator.maximumFlowRate >= 15.0
+        }
+    }
+
+    requirement def OxygenConcentrationRequirement {
+        subject reservoir : OxygenReservoir;
+
+        require constraint {
+            reservoir.nominalConcentration >= 90.0
+        }
+    }
+
+    requirement def InterfacePressureSafetyRequirement {
+        subject patch : TransdermalPatchInterface;
+
+        require constraint {
+            patch.maxInterfacePressure <= 30.0
+        }
+    }
+
+    requirement def BatteryTherapyRequirement {
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.capacity >= 8.0 and
+            battery.minimumOperatingEnergy >= 1.0
+        }
+    }
+
+    requirement def TherapyMonitoringRequirement {
+        subject controller : Controller;
+
+        require constraint {
+            controller.activeAlarmLevel >= 0
+        }
+    }
+
+    requirement def PrescriptionControlRequirement {
+        subject prescription : TherapyPrescription;
+
+        require constraint {
+            prescription.targetFlowRate >= 1.0 and
+            prescription.targetFlowRate <= 15.0 and
+            prescription.targetPressure <= 30.0 and
+            prescription.therapyDuration >= 1.0
+        }
+    }
+
+    requirement def PatchCoverageRequirement {
+        subject patch : TransdermalPatchInterface;
+
+        require constraint {
+            patch.adhesiveArea >= 10.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TransdermalContinuousOxygenTherapySystem;
+    satisfy ContinuousDeliveryRequirement by FlowRegulator;
+    satisfy OxygenConcentrationRequirement by OxygenReservoir;
+    satisfy InterfacePressureSafetyRequirement by TransdermalPatchInterface;
+    satisfy BatteryTherapyRequirement by BatteryPack;
+    satisfy TherapyMonitoringRequirement by Controller;
+    satisfy PrescriptionControlRequirement by TherapyPrescription;
+    satisfy PatchCoverageRequirement by TransdermalPatchInterface;
+}
+tokens used
+4,327
+package TransdermalContinuousOxygenTherapyModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def OxygenFlowRate :> Real {
+        unit = "mL/min";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def OxygenConcentration :> Real {
+        unit = "%";
+    }
+
+    attribute def Duration :> Real {
+        unit = "h";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def BatteryEnergy :> Real {
+        unit = "Wh";
+    }
+
+    attribute def Area :> Real {
+        unit = "cm^2";
+    }
+
+    attribute def AlarmLevel :> Integer;
+
+    item def Oxygen {
+        attribute concentration : OxygenConcentration;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def OxygenFlow {
+        item oxygen : Oxygen;
+        attribute flowRate : OxygenFlowRate;
+    }
+
+    item def TherapyPrescription {
+        attribute targetFlowRate : OxygenFlowRate;
+        attribute targetPressure : Pressure;
+        attribute therapyDuration : Duration;
+        attribute woundArea : Area;
+    }
+
+    item def TherapyStatus {
+        attribute deliveredFlowRate : OxygenFlowRate;
+        attribute interfacePressure : Pressure;
+        attribute remainingBatteryEnergy : BatteryEnergy;
+        attribute alarmLevel : AlarmLevel;
+        attribute therapyActive : Boolean;
+    }
+
+    item def UserCommand {
+        attribute startTherapy : Boolean;
+        attribute pauseTherapy : Boolean;
+        attribute stopTherapy : Boolean;
+        attribute silenceAlarm : Boolean;
+    }
+
+    item def SensorReading {
+        attribute measuredFlowRate : OxygenFlowRate;
+        attribute measuredPressure : Pressure;
+        attribute measuredTemperature : Temperature;
+        attribute measuredBatteryEnergy : BatteryEnergy;
+    }
+
+    port def OxygenOutletPort {
+        out item flow : OxygenFlow;
+    }
+
+    port def OxygenInletPort {
+        in item flow : OxygenFlow;
+    }
+
+    port def PrescriptionInputPort {
+        in item prescription : TherapyPrescription;
+    }
+
+    port def CommandInputPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : TherapyStatus;
+    }
+
+    port def SensorOutputPort {
+        out item reading : SensorReading;
+    }
+
+    port def SensorInputPort {
+        in item reading : SensorReading;
+    }
+
+    part def OxygenReservoir {
+        attribute capacity : Real = 50.0 {
+            unit = "mL";
+        }
+
+        attribute nominalConcentration : OxygenConcentration = 99.0;
+        attribute nominalPressure : Pressure = 120.0;
+
+        port outlet : OxygenOutletPort;
+    }
+
+    part def FlowRegulator {
+        attribute minimumFlowRate : OxygenFlowRate = 1.0;
+        attribute maximumFlowRate : OxygenFlowRate = 15.0;
+        attribute regulatedPressure : Pressure = 20.0;
+
+        port inlet : OxygenInletPort;
+        port outlet : OxygenOutletPort;
+        port prescriptionIn : PrescriptionInputPort;
+        port sensorIn : SensorInputPort;
+    }
+
+    part def TransdermalPatchInterface {
+        attribute adhesiveArea : Area = 25.0;
+        attribute maxInterfacePressure : Pressure = 30.0;
+        attribute nominalInterfaceTemperature : Temperature = 33.0;
+
+        port inlet : OxygenInletPort;
+        port sensorOut : SensorOutputPort;
+    }
+
+    part def WoundSite {
+        attribute woundArea : Area;
+        attribute localOxygenExposure : Duration;
+
+        port oxygenIn : OxygenInletPort;
+    }
+
+    part def PressureFlowSensor {
+        attribute flowAccuracy : OxygenFlowRate = 0.5;
+        attribute pressureAccuracy : Pressure = 1.0;
+
+        port sensedFlowIn : OxygenInletPort;
+        port readingOut : SensorOutputPort;
+    }
+
+    part def BatteryPack {
+        attribute capacity : BatteryEnergy = 18.0;
+        attribute minimumOperatingEnergy : BatteryEnergy = 1.5;
+
+        port statusOut : SensorOutputPort;
+    }
+
+    part def UserInterface {
+        port commandOut : CommandInputPort;
+        port prescriptionOut : PrescriptionInputPort;
+        port statusIn : StatusOutputPort;
+    }
+
+    part def Controller {
+        attribute prescribedFlowRate : OxygenFlowRate;
+        attribute prescribedPressure : Pressure;
+        attribute remainingTherapyTime : Duration;
+        attribute activeAlarmLevel : AlarmLevel;
+
+        port commandIn : CommandInputPort;
+        port prescriptionIn : PrescriptionInputPort;
+        port sensorIn : SensorInputPort;
+        port statusOut : StatusOutputPort;
+        port regulatorPrescriptionOut : PrescriptionInputPort;
+
+        state def ControllerStateMachine {
+            state Off;
+            state Standby;
+            state Priming;
+            state DeliveringTherapy;
+            state Paused;
+            state Alarm;
+            state Complete;
+
+            transition initial then Off;
+
+            transition PowerApplied
+                first Off
+                accept UserCommand
+                if command.startTherapy == false
+                then Standby;
+
+            transition StartRequested
+                first Standby
+                accept UserCommand
+                if command.startTherapy == true
+                then Priming;
+
+            transition PrimeComplete
+                first Priming
+                if prescribedFlowRate > 0.0
+                then DeliveringTherapy;
+
+            transition PauseRequested
+                first DeliveringTherapy
+                accept UserCommand
+                if command.pauseTherapy == true
+                then Paused;
+
+            transition ResumeRequested
+                first Paused
+                accept UserCommand
+                if command.startTherapy == true
+                then DeliveringTherapy;
+
+            transition StopRequestedFromDelivery
+                first DeliveringTherapy
+                accept UserCommand
+                if command.stopTherapy == true
+                then Standby;
+
+            transition StopRequestedFromPause
+                first Paused
+                accept UserCommand
+                if command.stopTherapy == true
+                then Standby;
+
+            transition FaultDetected
+                first DeliveringTherapy
+                accept SensorReading
+                if reading.measuredPressure > 30.0 or reading.measuredBatteryEnergy < 1.5
+                then Alarm;
+
+            transition AlarmCleared
+                first Alarm
+                accept UserCommand
+                if command.silenceAlarm == true
+                then Paused;
+
+            transition TherapyTimeElapsed
+                first DeliveringTherapy
+                if remainingTherapyTime <= 0.0
+                then Complete;
+
+            transition ResetAfterComplete
+                first Complete
+                accept UserCommand
+                if command.stopTherapy == true
+                then Standby;
+        }
+    }
+
+    action def RegulateOxygenFlow {
+        in item prescription : TherapyPrescription;
+        in item sensorReading : SensorReading;
+        in item supplyFlow : OxygenFlow;
+        out item regulatedFlow : OxygenFlow;
+
+        assert constraint {
+            regulatedFlow.flowRate >= 1.0 and
+            regulatedFlow.flowRate <= 15.0 and
+            regulatedFlow.oxygen.pressure <= prescription.targetPressure
+        }
+    }
+
+    action def ApplyTransdermalOxygen {
+        in item regulatedFlow : OxygenFlow;
+        in item prescription : TherapyPrescription;
+        out item deliveredStatus : TherapyStatus;
+
+        assert constraint {
+            deliveredStatus.therapyActive == true and
+            deliveredStatus.deliveredFlowRate == prescription.targetFlowRate and
+            deliveredStatus.interfacePressure <= 30.0
+        }
+    }
+
+    action def MonitorTherapy {
+        in item sensorReading : SensorReading;
+        out item status : TherapyStatus;
+
+        assert constraint {
+            status.deliveredFlowRate == sensorReading.measuredFlowRate and
+            status.interfacePressure == sensorReading.measuredPressure and
+            status.remainingBatteryEnergy == sensorReading.measuredBatteryEnergy
+        }
+    }
+
+    part def TransdermalContinuousOxygenTherapySystem {
+        attribute primaryFunction : String =
+            "Continuously deliver controlled oxygen through a sealed transdermal patch interface to maintain localized oxygen exposure at a wound site while monitoring flow, pressure, therapy status, and safety limits.";
+
+        part reservoir : OxygenReservoir;
+        part regulator : FlowRegulator;
+        part patch : TransdermalPatchInterface;
+        part wound : WoundSite;
+        part sensor : PressureFlowSensor;
+        part battery : BatteryPack;
+        part controller : Controller;
+        part userInterface : UserInterface;
+
+        port commandPort : CommandInputPort;
+        port prescriptionPort : PrescriptionInputPort;
+        port statusPort : StatusOutputPort;
+
+        connection oxygenSupplyLine
+            connect reservoir.outlet to regulator.inlet;
+
+        connection regulatedOxygenLine
+            connect regulator.outlet to patch.inlet;
+
+        connection transdermalDeliveryPath
+            connect patch.inlet to wound.oxygenIn;
+
+        connection flowSensingPath
+            connect regulator.outlet to sensor.sensedFlowIn;
+
+        connection sensorFeedbackPath
+            connect sensor.readingOut to controller.sensorIn;
+
+        connection batteryStatusPath
+            connect battery.statusOut to controller.sensorIn;
+
+        connection userCommandPath
+            connect userInterface.commandOut to controller.commandIn;
+
+        connection prescriptionPath
+            connect userInterface.prescriptionOut to controller.prescriptionIn;
+
+        connection regulatorControlPath
+            connect controller.regulatorPrescriptionOut to regulator.prescriptionIn;
+
+        connection systemStatusPath
+            connect controller.statusOut to userInterface.statusIn;
+
+        perform action regulate : RegulateOxygenFlow;
+        perform action applyOxygen : ApplyTransdermalOxygen;
+        perform action monitor : MonitorTherapy;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : TransdermalContinuousOxygenTherapySystem;
+
+        require constraint {
+            system.primaryFunction != ""
+        }
+    }
+
+    requirement def ContinuousDeliveryRequirement {
+        subject system : TransdermalContinuousOxygenTherapySystem;
+
+        require constraint {
+            system.regulator.minimumFlowRate <= 1.0 and
+            system.regulator.maximumFlowRate >= 15.0
+        }
+    }
+
+    requirement def OxygenConcentrationRequirement {
+        subject reservoir : OxygenReservoir;
+
+        require constraint {
+            reservoir.nominalConcentration >= 90.0
+        }
+    }
+
+    requirement def InterfacePressureSafetyRequirement {
+        subject patch : TransdermalPatchInterface;
+
+        require constraint {
+            patch.maxInterfacePressure <= 30.0
+        }
+    }
+
+    requirement def BatteryTherapyRequirement {
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.capacity >= 8.0 and
+            battery.minimumOperatingEnergy >= 1.0
+        }
+    }
+
+    requirement def TherapyMonitoringRequirement {
+        subject controller : Controller;
+
+        require constraint {
+            controller.activeAlarmLevel >= 0
+        }
+    }
+
+    requirement def PrescriptionControlRequirement {
+        subject prescription : TherapyPrescription;
+
+        require constraint {
+            prescription.targetFlowRate >= 1.0 and
+            prescription.targetFlowRate <= 15.0 and
+            prescription.targetPressure <= 30.0 and
+            prescription.therapyDuration >= 1.0
+        }
+    }
+
+    requirement def PatchCoverageRequirement {
+        subject patch : TransdermalPatchInterface;
+
+        require constraint {
+            patch.adhesiveArea >= 10.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TransdermalContinuousOxygenTherapySystem;
+    satisfy ContinuousDeliveryRequirement by FlowRegulator;
+    satisfy OxygenConcentrationRequirement by OxygenReservoir;
+    satisfy InterfacePressureSafetyRequirement by TransdermalPatchInterface;
+    satisfy BatteryTherapyRequirement by BatteryPack;
+    satisfy TherapyMonitoringRequirement by Controller;
+    satisfy PrescriptionControlRequirement by TherapyPrescription;
+    satisfy PatchCoverageRequirement by TransdermalPatchInterface;
+}

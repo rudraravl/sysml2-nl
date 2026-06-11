@@ -1,0 +1,508 @@
+package SingleUseMedicalDeviceReprocessingModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real;
+    attribute def CFUCount :> Real;
+    attribute def DeviceCount :> Integer;
+    attribute def LotIdentifier :> String;
+    attribute def UDI :> String;
+    attribute def CycleIdentifier :> String;
+
+    item def UsedSingleUseMedicalDevice {
+        attribute deviceUDI : UDI;
+        attribute deviceType : String;
+        attribute manufacturer : String;
+        attribute priorClinicalUseCount : Integer;
+        attribute visibleSoilPresent : Boolean;
+        attribute packagingIntegrityCompromised : Boolean;
+        attribute incomingBioburden : CFUCount;
+        attribute residualProtein : MassValue;
+        attribute residualHemoglobin : MassValue;
+        attribute structuralIntegrityScore : Percent;
+        attribute electricalSafetyPassed : Boolean;
+        attribute functionalPerformancePassed : Boolean;
+    }
+
+    item def ReprocessedMedicalDevice {
+        attribute deviceUDI : UDI;
+        attribute reprocessorLot : LotIdentifier;
+        attribute sterilityAssuranceLevel : Real;
+        attribute residualProtein : MassValue;
+        attribute residualHemoglobin : MassValue;
+        attribute functionalPerformancePassed : Boolean;
+        attribute finalLabelApplied : Boolean;
+        attribute releaseAuthorized : Boolean;
+        attribute expirationDate : String;
+    }
+
+    item def RejectedDevice {
+        attribute deviceUDI : UDI;
+        attribute rejectionReason : String;
+        attribute disposition : String;
+    }
+
+    item def CleaningChemistry {
+        attribute chemistryName : String;
+        attribute concentration : Percent;
+        attribute temperature : TemperatureValue;
+        attribute contactTime : TimeValue;
+        attribute validatedForDeviceFamily : Boolean;
+    }
+
+    item def Sterilant {
+        attribute sterilantName : String;
+        attribute concentration : Percent;
+        attribute exposureTemperature : TemperatureValue;
+        attribute exposureTime : TimeValue;
+        attribute relativeHumidity : Percent;
+    }
+
+    item def ProcessRecord {
+        attribute lotId : LotIdentifier;
+        attribute cycleId : CycleIdentifier;
+        attribute operatorId : String;
+        attribute receivedDeviceCount : DeviceCount;
+        attribute releasedDeviceCount : DeviceCount;
+        attribute rejectedDeviceCount : DeviceCount;
+        attribute cleaningCycleComplete : Boolean;
+        attribute sterilizationCycleComplete : Boolean;
+        attribute allAcceptanceCriteriaMet : Boolean;
+    }
+
+    item def QualityEvidence {
+        attribute inspectionPassed : Boolean;
+        attribute cleaningVerificationPassed : Boolean;
+        attribute sterilizationParametersPassed : Boolean;
+        attribute packageIntegrityPassed : Boolean;
+        attribute traceabilityComplete : Boolean;
+    }
+
+    part def ReceivingStation {
+        port usedDeviceIn : in UsedSingleUseMedicalDevice;
+        port acceptedForSortingOut : out UsedSingleUseMedicalDevice;
+        port rejectedAtReceiptOut : out RejectedDevice;
+        port recordOut : out ProcessRecord;
+
+        action receiveAndLog {
+            in item device : UsedSingleUseMedicalDevice;
+            out item accepted : UsedSingleUseMedicalDevice;
+            out item rejected : RejectedDevice;
+            out item record : ProcessRecord;
+
+            first start;
+            then inspectReceipt;
+            then decideAcceptability;
+
+            action inspectReceipt {
+                in item device : UsedSingleUseMedicalDevice;
+            }
+
+            action decideAcceptability {
+                in item device : UsedSingleUseMedicalDevice;
+                out item accepted : UsedSingleUseMedicalDevice;
+                out item rejected : RejectedDevice;
+            }
+        }
+    }
+
+    part def SortingAndDisassemblyStation {
+        port acceptedDeviceIn : in UsedSingleUseMedicalDevice;
+        port cleanableDeviceOut : out UsedSingleUseMedicalDevice;
+        port nonconformingDeviceOut : out RejectedDevice;
+
+        action sortAndDisassemble {
+            in item device : UsedSingleUseMedicalDevice;
+            out item preparedDevice : UsedSingleUseMedicalDevice;
+            out item rejected : RejectedDevice;
+
+            first start;
+            then identifyDeviceFamily;
+            then removeGrossSoil;
+            then disassembleValidatedComponents;
+            then routeToCleaning;
+        }
+    }
+
+    part def CleaningSubsystem {
+        port soiledDeviceIn : in UsedSingleUseMedicalDevice;
+        port chemistryIn : in CleaningChemistry;
+        port cleanedDeviceOut : out UsedSingleUseMedicalDevice;
+        port cleaningRecordOut : out ProcessRecord;
+
+        attribute washTemperature : TemperatureValue;
+        attribute rinseWaterConductivity : Real;
+        attribute ultrasonicPower : PowerValue;
+        attribute dryingTime : TimeValue;
+
+        action cleanDevice {
+            in item device : UsedSingleUseMedicalDevice;
+            in item chemistry : CleaningChemistry;
+            out item cleaned : UsedSingleUseMedicalDevice;
+
+            first preRinse;
+            then enzymaticSoak;
+            then mechanicalWash;
+            then ultrasonicClean;
+            then finalRinse;
+            then controlledDrying;
+
+            action preRinse {
+                in item device : UsedSingleUseMedicalDevice;
+            }
+
+            action enzymaticSoak {
+                in item device : UsedSingleUseMedicalDevice;
+                in item chemistry : CleaningChemistry;
+            }
+
+            action mechanicalWash {
+                in item device : UsedSingleUseMedicalDevice;
+            }
+
+            action ultrasonicClean {
+                in item device : UsedSingleUseMedicalDevice;
+            }
+
+            action finalRinse {
+                in item device : UsedSingleUseMedicalDevice;
+            }
+
+            action controlledDrying {
+                in item device : UsedSingleUseMedicalDevice;
+            }
+        }
+    }
+
+    part def InspectionAndTestSubsystem {
+        port cleanedDeviceIn : in UsedSingleUseMedicalDevice;
+        port deviceForPackagingOut : out UsedSingleUseMedicalDevice;
+        port rejectedAfterTestOut : out RejectedDevice;
+        port evidenceOut : out QualityEvidence;
+
+        attribute maximumResidualProtein : MassValue;
+        attribute maximumResidualHemoglobin : MassValue;
+        attribute minimumIntegrityScore : Percent;
+
+        action inspectAndTest {
+            in item cleanedDevice : UsedSingleUseMedicalDevice;
+            out item passedDevice : UsedSingleUseMedicalDevice;
+            out item rejectedDevice : RejectedDevice;
+            out item evidence : QualityEvidence;
+
+            first visualInspection;
+            then cleaningVerification;
+            then structuralIntegrityTest;
+            then functionalPerformanceTest;
+            then electricalSafetyTest;
+            then acceptanceDecision;
+        }
+
+        state def InspectionStateMachine {
+            state receivedCleanedDevice;
+            state visualInspectionInProgress;
+            state cleaningVerificationInProgress;
+            state performanceTestingInProgress;
+            state acceptedForPackaging;
+            state rejectedForNonconformance;
+
+            transition first receivedCleanedDevice;
+            transition receivedCleanedDevice then visualInspectionInProgress;
+            transition visualInspectionInProgress then cleaningVerificationInProgress
+                if visualInspectionPassed;
+            transition visualInspectionInProgress then rejectedForNonconformance
+                if not visualInspectionPassed;
+            transition cleaningVerificationInProgress then performanceTestingInProgress
+                if residualsWithinLimits;
+            transition cleaningVerificationInProgress then rejectedForNonconformance
+                if not residualsWithinLimits;
+            transition performanceTestingInProgress then acceptedForPackaging
+                if functionAndSafetyPassed;
+            transition performanceTestingInProgress then rejectedForNonconformance
+                if not functionAndSafetyPassed;
+
+            attribute visualInspectionPassed : Boolean;
+            attribute residualsWithinLimits : Boolean;
+            attribute functionAndSafetyPassed : Boolean;
+        }
+    }
+
+    part def PackagingSubsystem {
+        port testedDeviceIn : in UsedSingleUseMedicalDevice;
+        port packagedDeviceOut : out UsedSingleUseMedicalDevice;
+        port packageEvidenceOut : out QualityEvidence;
+
+        attribute pouchSealTemperature : TemperatureValue;
+        attribute pouchSealPressure : PressureValue;
+        attribute sealDwellTime : TimeValue;
+
+        action packageDevice {
+            in item testedDevice : UsedSingleUseMedicalDevice;
+            out item packagedDevice : UsedSingleUseMedicalDevice;
+            out item evidence : QualityEvidence;
+
+            first selectValidatedPackaging;
+            then insertDevice;
+            then sealPackage;
+            then verifySealIntegrity;
+            then applyTraceabilityLabel;
+        }
+    }
+
+    part def SterilizationSubsystem {
+        port packagedDeviceIn : in UsedSingleUseMedicalDevice;
+        port sterilantIn : in Sterilant;
+        port sterileDeviceOut : out ReprocessedMedicalDevice;
+        port sterilizationRecordOut : out ProcessRecord;
+
+        attribute chamberPressure : PressureValue;
+        attribute chamberTemperature : TemperatureValue;
+        attribute exposureDuration : TimeValue;
+        attribute aerationDuration : TimeValue;
+        attribute targetSAL : Real = 1.0e-6;
+
+        action sterilizePackagedDevice {
+            in item packagedDevice : UsedSingleUseMedicalDevice;
+            in item sterilant : Sterilant;
+            out item sterileDevice : ReprocessedMedicalDevice;
+            out item record : ProcessRecord;
+
+            first loadChamber;
+            then preconditionLoad;
+            then exposeToSterilant;
+            then evacuateSterilant;
+            then aerateLoad;
+            then verifyCycleParameters;
+            then releaseToQualityReview;
+        }
+
+        state def SterilizationCycleStateMachine {
+            state idle;
+            state loaded;
+            state preconditioning;
+            state sterilantExposure;
+            state evacuation;
+            state aeration;
+            state cycleAccepted;
+            state cycleRejected;
+
+            transition first idle;
+            transition idle then loaded;
+            transition loaded then preconditioning;
+            transition preconditioning then sterilantExposure
+                if temperatureAndHumidityInRange;
+            transition sterilantExposure then evacuation
+                if exposureTimeSatisfied;
+            transition evacuation then aeration;
+            transition aeration then cycleAccepted
+                if residualSterilantWithinLimit and processParametersMet;
+            transition aeration then cycleRejected
+                if not residualSterilantWithinLimit or not processParametersMet;
+
+            attribute temperatureAndHumidityInRange : Boolean;
+            attribute exposureTimeSatisfied : Boolean;
+            attribute residualSterilantWithinLimit : Boolean;
+            attribute processParametersMet : Boolean;
+        }
+    }
+
+    part def QualityReleaseSubsystem {
+        port sterileDeviceIn : in ReprocessedMedicalDevice;
+        port processRecordIn : in ProcessRecord;
+        port evidenceIn : in QualityEvidence;
+        port releasedDeviceOut : out ReprocessedMedicalDevice;
+        port rejectedDeviceOut : out RejectedDevice;
+
+        action reviewAndRelease {
+            in item sterileDevice : ReprocessedMedicalDevice;
+            in item record : ProcessRecord;
+            in item evidence : QualityEvidence;
+            out item releasedDevice : ReprocessedMedicalDevice;
+            out item rejectedDevice : RejectedDevice;
+
+            first verifyTraceability;
+            then reviewCleaningEvidence;
+            then reviewSterilizationEvidence;
+            then reviewPackagingEvidence;
+            then authorizeReleaseDecision;
+        }
+    }
+
+    part def SingleUseMedicalDeviceReprocessingSystem {
+        attribute primaryFunction : String =
+            "Receive used single-use medical devices, determine eligibility for reprocessing, clean, inspect, test, package, sterilize, document, and release conforming devices for safe subsequent clinical use.";
+
+        attribute maximumPriorUsesAllowed : Integer = 1;
+        attribute requiredSterilityAssuranceLevel : Real = 1.0e-6;
+        attribute releasedLotCount : Integer;
+        attribute rejectedLotCount : Integer;
+
+        port usedDeviceInput : in UsedSingleUseMedicalDevice;
+        port cleaningChemistryInput : in CleaningChemistry;
+        port sterilantInput : in Sterilant;
+        port reprocessedDeviceOutput : out ReprocessedMedicalDevice;
+        port rejectedDeviceOutput : out RejectedDevice;
+        port batchRecordOutput : out ProcessRecord;
+
+        part receiving : ReceivingStation;
+        part sorting : SortingAndDisassemblyStation;
+        part cleaning : CleaningSubsystem;
+        part inspection : InspectionAndTestSubsystem;
+        part packaging : PackagingSubsystem;
+        part sterilization : SterilizationSubsystem;
+        part release : QualityReleaseSubsystem;
+
+        connection receiveFlow connect usedDeviceInput to receiving.usedDeviceIn;
+        connection acceptedReceiptFlow connect receiving.acceptedForSortingOut to sorting.acceptedDeviceIn;
+        connection receiptRejectFlow connect receiving.rejectedAtReceiptOut to rejectedDeviceOutput;
+        connection preparedDeviceFlow connect sorting.cleanableDeviceOut to cleaning.soiledDeviceIn;
+        connection sortingRejectFlow connect sorting.nonconformingDeviceOut to rejectedDeviceOutput;
+        connection chemistryFlow connect cleaningChemistryInput to cleaning.chemistryIn;
+        connection cleanedDeviceFlow connect cleaning.cleanedDeviceOut to inspection.cleanedDeviceIn;
+        connection testedDeviceFlow connect inspection.deviceForPackagingOut to packaging.testedDeviceIn;
+        connection inspectionRejectFlow connect inspection.rejectedAfterTestOut to rejectedDeviceOutput;
+        connection packagedDeviceFlow connect packaging.packagedDeviceOut to sterilization.packagedDeviceIn;
+        connection sterilantFlow connect sterilantInput to sterilization.sterilantIn;
+        connection sterileDeviceFlow connect sterilization.sterileDeviceOut to release.sterileDeviceIn;
+        connection qualityEvidenceFlow connect inspection.evidenceOut to release.evidenceIn;
+        connection processRecordFlow connect sterilization.sterilizationRecordOut to release.processRecordIn;
+        connection releasedDeviceFlow connect release.releasedDeviceOut to reprocessedDeviceOutput;
+        connection releaseRejectFlow connect release.rejectedDeviceOut to rejectedDeviceOutput;
+        connection recordOutputFlow connect receiving.recordOut to batchRecordOutput;
+
+        action reprocessSingleUseMedicalDevice {
+            in item usedDevice : UsedSingleUseMedicalDevice;
+            in item cleaningChemistry : CleaningChemistry;
+            in item sterilant : Sterilant;
+            out item releasedDevice : ReprocessedMedicalDevice;
+            out item rejectedDevice : RejectedDevice;
+            out item record : ProcessRecord;
+
+            first receiveDevice;
+            then evaluateEligibility;
+            then clean;
+            then verifyCleanlinessAndFunction;
+            then packageForSterility;
+            then sterilize;
+            then qualityRelease;
+
+            action receiveDevice {
+                in item usedDevice : UsedSingleUseMedicalDevice;
+            }
+
+            action evaluateEligibility {
+                in item usedDevice : UsedSingleUseMedicalDevice;
+                out item eligibleDevice : UsedSingleUseMedicalDevice;
+                out item rejectedDevice : RejectedDevice;
+            }
+
+            action clean {
+                in item eligibleDevice : UsedSingleUseMedicalDevice;
+                in item cleaningChemistry : CleaningChemistry;
+                out item cleanedDevice : UsedSingleUseMedicalDevice;
+            }
+
+            action verifyCleanlinessAndFunction {
+                in item cleanedDevice : UsedSingleUseMedicalDevice;
+                out item verifiedDevice : UsedSingleUseMedicalDevice;
+                out item rejectedDevice : RejectedDevice;
+            }
+
+            action packageForSterility {
+                in item verifiedDevice : UsedSingleUseMedicalDevice;
+                out item packagedDevice : UsedSingleUseMedicalDevice;
+            }
+
+            action sterilize {
+                in item packagedDevice : UsedSingleUseMedicalDevice;
+                in item sterilant : Sterilant;
+                out item sterileDevice : ReprocessedMedicalDevice;
+            }
+
+            action qualityRelease {
+                in item sterileDevice : ReprocessedMedicalDevice;
+                out item releasedDevice : ReprocessedMedicalDevice;
+                out item rejectedDevice : RejectedDevice;
+                out item record : ProcessRecord;
+            }
+        }
+    }
+
+    requirement def DeviceEligibilityRequirement {
+        subject device : UsedSingleUseMedicalDevice;
+        require constraint {
+            device.priorClinicalUseCount <= 1 and
+            not device.packagingIntegrityCompromised
+        }
+    }
+
+    requirement def CleaningEffectivenessRequirement {
+        subject device : UsedSingleUseMedicalDevice;
+        attribute maxResidualProtein : MassValue = 6.4 [mg];
+        attribute maxResidualHemoglobin : MassValue = 2.2 [mg];
+
+        require constraint {
+            device.residualProtein <= maxResidualProtein and
+            device.residualHemoglobin <= maxResidualHemoglobin
+        }
+    }
+
+    requirement def FunctionalIntegrityRequirement {
+        subject device : UsedSingleUseMedicalDevice;
+        attribute minimumStructuralIntegrityScore : Percent = 95.0;
+
+        require constraint {
+            device.structuralIntegrityScore >= minimumStructuralIntegrityScore and
+            device.functionalPerformancePassed and
+            device.electricalSafetyPassed
+        }
+    }
+
+    requirement def SterilityRequirement {
+        subject device : ReprocessedMedicalDevice;
+        attribute requiredSAL : Real = 1.0e-6;
+
+        require constraint {
+            device.sterilityAssuranceLevel <= requiredSAL
+        }
+    }
+
+    requirement def TraceabilityRequirement {
+        subject record : ProcessRecord;
+
+        require constraint {
+            record.lotId != "" and
+            record.cycleId != "" and
+            record.operatorId != "" and
+            record.allAcceptanceCriteriaMet
+        }
+    }
+
+    requirement def ReleaseRequirement {
+        subject device : ReprocessedMedicalDevice;
+
+        require constraint {
+            device.functionalPerformancePassed and
+            device.finalLabelApplied and
+            device.releaseAuthorized
+        }
+    }
+
+    satisfy DeviceEligibilityRequirement by SingleUseMedicalDeviceReprocessingSystem::sorting;
+    satisfy CleaningEffectivenessRequirement by SingleUseMedicalDeviceReprocessingSystem::cleaning;
+    satisfy FunctionalIntegrityRequirement by SingleUseMedicalDeviceReprocessingSystem::inspection;
+    satisfy SterilityRequirement by SingleUseMedicalDeviceReprocessingSystem::sterilization;
+    satisfy TraceabilityRequirement by SingleUseMedicalDeviceReprocessingSystem::release;
+    satisfy ReleaseRequirement by SingleUseMedicalDeviceReprocessingSystem::release;
+
+    view def HighLevelOperationalView {
+        expose SingleUseMedicalDeviceReprocessingSystem;
+        expose UsedSingleUseMedicalDevice;
+        expose ReprocessedMedicalDevice;
+        expose RejectedDevice;
+        expose ProcessRecord;
+    }
+
+}

@@ -1,0 +1,659 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6c0ag_ck
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb313-b1fb-7260-bfb1-9492059fd15e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Penis extender and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PenileTractionExtenderModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Length_mm :> ISQ::length {
+        unit = "mm";
+    }
+
+    attribute def Force_N :> ISQ::force {
+        unit = "N";
+    }
+
+    attribute def Pressure_kPa :> ISQ::pressure {
+        unit = "kPa";
+    }
+
+    attribute def Time_min :> ISQ::time {
+        unit = "min";
+    }
+
+    attribute def Angle_deg {
+        unit = "deg";
+    }
+
+    item def TractionLoad {
+        attribute axialForce : Force_N;
+        attribute lateralForce : Force_N;
+        attribute interfacePressure : Pressure_kPa;
+    }
+
+    item def AdjustmentCommand {
+        attribute targetExtension : Length_mm;
+        attribute targetTraction : Force_N;
+        attribute rampTime : Time_min;
+    }
+
+    item def ComfortStatus {
+        attribute interfacePressure : Pressure_kPa;
+        attribute wearTime : Time_min;
+        attribute alignmentAngle : Angle_deg;
+        attribute userDiscomfortReported : Boolean;
+    }
+
+    item def SafetyAlert {
+        attribute excessiveForce : Boolean;
+        attribute excessivePressure : Boolean;
+        attribute misalignmentDetected : Boolean;
+        attribute wearTimeExceeded : Boolean;
+    }
+
+    port def BodySupportPort {
+        inout tractionLoad : TractionLoad;
+        out comfortStatus : ComfortStatus;
+    }
+
+    port def AdjustmentPort {
+        in command : AdjustmentCommand;
+        out measuredExtension : Length_mm;
+        out measuredTraction : Force_N;
+    }
+
+    port def SafetyPort {
+        in comfortStatus : ComfortStatus;
+        out alert : SafetyAlert;
+    }
+
+    part def PatientInterface {
+        attribute rootSupportDiameter : Length_mm = 42;
+        attribute maximumAllowedPressure : Pressure_kPa = 12;
+        port proximalSupport : BodySupportPort;
+        port distalSupport : BodySupportPort;
+    }
+
+    part def PelvicBaseRing {
+        attribute innerDiameter : Length_mm = 44;
+        attribute padThickness : Length_mm = 6;
+        attribute contactPressure : Pressure_kPa;
+        port bodySide : BodySupportPort;
+        port frameSide : BodySupportPort;
+    }
+
+    part def TelescopingRod {
+        attribute minimumLength : Length_mm = 70;
+        attribute maximumLength : Length_mm = 150;
+        attribute currentLength : Length_mm;
+        attribute axialStiffness : Force_N;
+        port baseEnd : BodySupportPort;
+        port distalEnd : BodySupportPort;
+    }
+
+    part def LengthAdjustmentMechanism {
+        attribute threadPitch : Length_mm = 1;
+        attribute currentExtension : Length_mm;
+        attribute maximumExtension : Length_mm = 80;
+        port leftRodControl : AdjustmentPort;
+        port rightRodControl : AdjustmentPort;
+        port userControl : AdjustmentPort;
+    }
+
+    part def DistalCradle {
+        attribute cradleWidth : Length_mm = 28;
+        attribute strapWidth : Length_mm = 18;
+        attribute cushionThickness : Length_mm = 4;
+        attribute measuredPressure : Pressure_kPa;
+        port tissueSide : BodySupportPort;
+        port frameSide : BodySupportPort;
+    }
+
+    part def TractionSensor {
+        attribute measuredForce : Force_N;
+        attribute accuracy : Force_N = 0.5;
+        port loadInput : BodySupportPort;
+        port safetyOutput : SafetyPort;
+    }
+
+    part def WearTimer {
+        attribute elapsedWearTime : Time_min;
+        attribute maximumContinuousWearTime : Time_min = 120;
+        port safetyOutput : SafetyPort;
+    }
+
+    part def SafetyLimiter {
+        attribute maximumTractionForce : Force_N = 12;
+        attribute maximumInterfacePressure : Pressure_kPa = 12;
+        attribute maximumAlignmentAngle : Angle_deg = 8;
+        port monitoredStatus : SafetyPort;
+        port adjustmentLimit : AdjustmentPort;
+    }
+
+    part def PenileTractionExtender {
+        attribute prescribedTractionForce : Force_N = 8;
+        attribute prescribedSessionDuration : Time_min = 60;
+        attribute primaryFunction : String =
+            "Apply controlled, adjustable axial traction to external penile tissue while distributing contact loads and limiting force, pressure, alignment, and wear-time risks.";
+
+        part baseRing : PelvicBaseRing;
+        part leftRod : TelescopingRod;
+        part rightRod : TelescopingRod;
+        part adjuster : LengthAdjustmentMechanism;
+        part distalCradle : DistalCradle;
+        part tractionSensor : TractionSensor;
+        part wearTimer : WearTimer;
+        part safetyLimiter : SafetyLimiter;
+
+        port proximalBodyInterface : BodySupportPort;
+        port distalBodyInterface : BodySupportPort;
+        port userAdjustmentInterface : AdjustmentPort;
+        port safetyInterface : SafetyPort;
+
+        connect proximalBodyInterface to baseRing.bodySide;
+        connect baseRing.frameSide to leftRod.baseEnd;
+        connect baseRing.frameSide to rightRod.baseEnd;
+        connect leftRod.distalEnd to distalCradle.frameSide;
+        connect rightRod.distalEnd to distalCradle.frameSide;
+        connect distalCradle.tissueSide to distalBodyInterface;
+        connect distalCradle.tissueSide to tractionSensor.loadInput;
+        connect adjuster.leftRodControl to leftRod.baseEnd;
+        connect adjuster.rightRodControl to rightRod.baseEnd;
+        connect userAdjustmentInterface to adjuster.userControl;
+        connect tractionSensor.safetyOutput to safetyLimiter.monitoredStatus;
+        connect wearTimer.safetyOutput to safetyLimiter.monitoredStatus;
+        connect safetyLimiter.adjustmentLimit to adjuster.userControl;
+        connect safetyLimiter.monitoredStatus to safetyInterface;
+    }
+
+    part def UseContext {
+        part extender : PenileTractionExtender;
+        part patientContact : PatientInterface;
+
+        connect patientContact.proximalSupport to extender.proximalBodyInterface;
+        connect patientContact.distalSupport to extender.distalBodyInterface;
+    }
+
+    action def FitDevice {
+        in prescribedForce : Force_N;
+        in sessionDuration : Time_min;
+        out fitted : Boolean;
+
+        action placeBaseRing;
+        action alignTelescopingRods;
+        action positionDistalCradle;
+        action closeRetentionStrap;
+        action verifyComfortPressure;
+
+        first placeBaseRing then alignTelescopingRods;
+        then positionDistalCradle;
+        then closeRetentionStrap;
+        then verifyComfortPressure;
+    }
+
+    action def ApplyControlledTraction {
+        in targetForce : Force_N;
+        in targetExtension : Length_mm;
+        out actualForce : Force_N;
+        out actualExtension : Length_mm;
+        out safe : Boolean;
+
+        action increaseExtensionGradually;
+        action measureTractionForce;
+        action compareAgainstLimits;
+        action holdStableTraction;
+        action reduceExtensionIfLimitExceeded;
+
+        first increaseExtensionGradually then measureTractionForce;
+        then compareAgainstLimits;
+
+        flow compareAgainstLimits.safe to holdStableTraction;
+        flow compareAgainstLimits.unsafe to reduceExtensionIfLimitExceeded;
+    }
+
+    action def EndSession {
+        out released : Boolean;
+
+        action unlockAdjustment;
+        action reduceTractionToZero;
+        action openDistalCradle;
+        action removeBaseRing;
+        action inspectContactAreas;
+
+        first unlockAdjustment then reduceTractionToZero;
+        then openDistalCradle;
+        then removeBaseRing;
+        then inspectContactAreas;
+    }
+
+    state def ExtenderOperationalState {
+        state stored;
+        state fitting;
+        state adjusted;
+        state tractionApplied;
+        state safetyLimited;
+        state sessionEnded;
+
+        initial then stored;
+
+        transition stored_to_fitting
+            first stored
+            accept AdjustmentCommand
+            then fitting;
+
+        transition fitting_to_adjusted
+            first fitting
+            if ComfortStatus::interfacePressure <= 12
+            then adjusted;
+
+        transition adjusted_to_tractionApplied
+            first adjusted
+            if TractionLoad::axialForce > 0
+            then tractionApplied;
+
+        transition tractionApplied_to_safetyLimited
+            first tractionApplied
+            if TractionLoad::axialForce > 12 or ComfortStatus::interfacePressure > 12 or ComfortStatus::alignmentAngle > 8
+            then safetyLimited;
+
+        transition safetyLimited_to_adjusted
+            first safetyLimited
+            if TractionLoad::axialForce <= 8 and ComfortStatus::interfacePressure <= 12
+            then adjusted;
+
+        transition tractionApplied_to_sessionEnded
+            first tractionApplied
+            if ComfortStatus::wearTime >= 120
+            then sessionEnded;
+
+        transition sessionEnded_to_stored
+            first sessionEnded
+            then stored;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The extender shall provide controlled, adjustable axial traction at a high level by supporting the proximal anatomy, retaining the distal anatomy, and extending the frame between them. */
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.prescribedTractionForce > 0 and extender.prescribedTractionForce <= 12
+        }
+    }
+
+    requirement def ForceLimitRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.safetyLimiter.maximumTractionForce <= 12
+        }
+    }
+
+    requirement def PressureLimitRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.safetyLimiter.maximumInterfacePressure <= 12
+        }
+    }
+
+    requirement def AlignmentRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.safetyLimiter.maximumAlignmentAngle <= 8
+        }
+    }
+
+    requirement def WearTimeRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.wearTimer.maximumContinuousWearTime <= 120
+        }
+    }
+
+    requirement def GradualAdjustmentRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.adjuster.threadPitch <= 1
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PenileTractionExtender;
+    satisfy ForceLimitRequirement by SafetyLimiter;
+    satisfy PressureLimitRequirement by SafetyLimiter;
+    satisfy AlignmentRequirement by SafetyLimiter;
+    satisfy WearTimeRequirement by WearTimer;
+    satisfy GradualAdjustmentRequirement by LengthAdjustmentMechanism;
+}
+tokens used
+4,245
+package PenileTractionExtenderModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Length_mm :> ISQ::length {
+        unit = "mm";
+    }
+
+    attribute def Force_N :> ISQ::force {
+        unit = "N";
+    }
+
+    attribute def Pressure_kPa :> ISQ::pressure {
+        unit = "kPa";
+    }
+
+    attribute def Time_min :> ISQ::time {
+        unit = "min";
+    }
+
+    attribute def Angle_deg {
+        unit = "deg";
+    }
+
+    item def TractionLoad {
+        attribute axialForce : Force_N;
+        attribute lateralForce : Force_N;
+        attribute interfacePressure : Pressure_kPa;
+    }
+
+    item def AdjustmentCommand {
+        attribute targetExtension : Length_mm;
+        attribute targetTraction : Force_N;
+        attribute rampTime : Time_min;
+    }
+
+    item def ComfortStatus {
+        attribute interfacePressure : Pressure_kPa;
+        attribute wearTime : Time_min;
+        attribute alignmentAngle : Angle_deg;
+        attribute userDiscomfortReported : Boolean;
+    }
+
+    item def SafetyAlert {
+        attribute excessiveForce : Boolean;
+        attribute excessivePressure : Boolean;
+        attribute misalignmentDetected : Boolean;
+        attribute wearTimeExceeded : Boolean;
+    }
+
+    port def BodySupportPort {
+        inout tractionLoad : TractionLoad;
+        out comfortStatus : ComfortStatus;
+    }
+
+    port def AdjustmentPort {
+        in command : AdjustmentCommand;
+        out measuredExtension : Length_mm;
+        out measuredTraction : Force_N;
+    }
+
+    port def SafetyPort {
+        in comfortStatus : ComfortStatus;
+        out alert : SafetyAlert;
+    }
+
+    part def PatientInterface {
+        attribute rootSupportDiameter : Length_mm = 42;
+        attribute maximumAllowedPressure : Pressure_kPa = 12;
+        port proximalSupport : BodySupportPort;
+        port distalSupport : BodySupportPort;
+    }
+
+    part def PelvicBaseRing {
+        attribute innerDiameter : Length_mm = 44;
+        attribute padThickness : Length_mm = 6;
+        attribute contactPressure : Pressure_kPa;
+        port bodySide : BodySupportPort;
+        port frameSide : BodySupportPort;
+    }
+
+    part def TelescopingRod {
+        attribute minimumLength : Length_mm = 70;
+        attribute maximumLength : Length_mm = 150;
+        attribute currentLength : Length_mm;
+        attribute axialStiffness : Force_N;
+        port baseEnd : BodySupportPort;
+        port distalEnd : BodySupportPort;
+    }
+
+    part def LengthAdjustmentMechanism {
+        attribute threadPitch : Length_mm = 1;
+        attribute currentExtension : Length_mm;
+        attribute maximumExtension : Length_mm = 80;
+        port leftRodControl : AdjustmentPort;
+        port rightRodControl : AdjustmentPort;
+        port userControl : AdjustmentPort;
+    }
+
+    part def DistalCradle {
+        attribute cradleWidth : Length_mm = 28;
+        attribute strapWidth : Length_mm = 18;
+        attribute cushionThickness : Length_mm = 4;
+        attribute measuredPressure : Pressure_kPa;
+        port tissueSide : BodySupportPort;
+        port frameSide : BodySupportPort;
+    }
+
+    part def TractionSensor {
+        attribute measuredForce : Force_N;
+        attribute accuracy : Force_N = 0.5;
+        port loadInput : BodySupportPort;
+        port safetyOutput : SafetyPort;
+    }
+
+    part def WearTimer {
+        attribute elapsedWearTime : Time_min;
+        attribute maximumContinuousWearTime : Time_min = 120;
+        port safetyOutput : SafetyPort;
+    }
+
+    part def SafetyLimiter {
+        attribute maximumTractionForce : Force_N = 12;
+        attribute maximumInterfacePressure : Pressure_kPa = 12;
+        attribute maximumAlignmentAngle : Angle_deg = 8;
+        port monitoredStatus : SafetyPort;
+        port adjustmentLimit : AdjustmentPort;
+    }
+
+    part def PenileTractionExtender {
+        attribute prescribedTractionForce : Force_N = 8;
+        attribute prescribedSessionDuration : Time_min = 60;
+        attribute primaryFunction : String =
+            "Apply controlled, adjustable axial traction to external penile tissue while distributing contact loads and limiting force, pressure, alignment, and wear-time risks.";
+
+        part baseRing : PelvicBaseRing;
+        part leftRod : TelescopingRod;
+        part rightRod : TelescopingRod;
+        part adjuster : LengthAdjustmentMechanism;
+        part distalCradle : DistalCradle;
+        part tractionSensor : TractionSensor;
+        part wearTimer : WearTimer;
+        part safetyLimiter : SafetyLimiter;
+
+        port proximalBodyInterface : BodySupportPort;
+        port distalBodyInterface : BodySupportPort;
+        port userAdjustmentInterface : AdjustmentPort;
+        port safetyInterface : SafetyPort;
+
+        connect proximalBodyInterface to baseRing.bodySide;
+        connect baseRing.frameSide to leftRod.baseEnd;
+        connect baseRing.frameSide to rightRod.baseEnd;
+        connect leftRod.distalEnd to distalCradle.frameSide;
+        connect rightRod.distalEnd to distalCradle.frameSide;
+        connect distalCradle.tissueSide to distalBodyInterface;
+        connect distalCradle.tissueSide to tractionSensor.loadInput;
+        connect adjuster.leftRodControl to leftRod.baseEnd;
+        connect adjuster.rightRodControl to rightRod.baseEnd;
+        connect userAdjustmentInterface to adjuster.userControl;
+        connect tractionSensor.safetyOutput to safetyLimiter.monitoredStatus;
+        connect wearTimer.safetyOutput to safetyLimiter.monitoredStatus;
+        connect safetyLimiter.adjustmentLimit to adjuster.userControl;
+        connect safetyLimiter.monitoredStatus to safetyInterface;
+    }
+
+    part def UseContext {
+        part extender : PenileTractionExtender;
+        part patientContact : PatientInterface;
+
+        connect patientContact.proximalSupport to extender.proximalBodyInterface;
+        connect patientContact.distalSupport to extender.distalBodyInterface;
+    }
+
+    action def FitDevice {
+        in prescribedForce : Force_N;
+        in sessionDuration : Time_min;
+        out fitted : Boolean;
+
+        action placeBaseRing;
+        action alignTelescopingRods;
+        action positionDistalCradle;
+        action closeRetentionStrap;
+        action verifyComfortPressure;
+
+        first placeBaseRing then alignTelescopingRods;
+        then positionDistalCradle;
+        then closeRetentionStrap;
+        then verifyComfortPressure;
+    }
+
+    action def ApplyControlledTraction {
+        in targetForce : Force_N;
+        in targetExtension : Length_mm;
+        out actualForce : Force_N;
+        out actualExtension : Length_mm;
+        out safe : Boolean;
+
+        action increaseExtensionGradually;
+        action measureTractionForce;
+        action compareAgainstLimits;
+        action holdStableTraction;
+        action reduceExtensionIfLimitExceeded;
+
+        first increaseExtensionGradually then measureTractionForce;
+        then compareAgainstLimits;
+
+        flow compareAgainstLimits.safe to holdStableTraction;
+        flow compareAgainstLimits.unsafe to reduceExtensionIfLimitExceeded;
+    }
+
+    action def EndSession {
+        out released : Boolean;
+
+        action unlockAdjustment;
+        action reduceTractionToZero;
+        action openDistalCradle;
+        action removeBaseRing;
+        action inspectContactAreas;
+
+        first unlockAdjustment then reduceTractionToZero;
+        then openDistalCradle;
+        then removeBaseRing;
+        then inspectContactAreas;
+    }
+
+    state def ExtenderOperationalState {
+        state stored;
+        state fitting;
+        state adjusted;
+        state tractionApplied;
+        state safetyLimited;
+        state sessionEnded;
+
+        initial then stored;
+
+        transition stored_to_fitting
+            first stored
+            accept AdjustmentCommand
+            then fitting;
+
+        transition fitting_to_adjusted
+            first fitting
+            if ComfortStatus::interfacePressure <= 12
+            then adjusted;
+
+        transition adjusted_to_tractionApplied
+            first adjusted
+            if TractionLoad::axialForce > 0
+            then tractionApplied;
+
+        transition tractionApplied_to_safetyLimited
+            first tractionApplied
+            if TractionLoad::axialForce > 12 or ComfortStatus::interfacePressure > 12 or ComfortStatus::alignmentAngle > 8
+            then safetyLimited;
+
+        transition safetyLimited_to_adjusted
+            first safetyLimited
+            if TractionLoad::axialForce <= 8 and ComfortStatus::interfacePressure <= 12
+            then adjusted;
+
+        transition tractionApplied_to_sessionEnded
+            first tractionApplied
+            if ComfortStatus::wearTime >= 120
+            then sessionEnded;
+
+        transition sessionEnded_to_stored
+            first sessionEnded
+            then stored;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The extender shall provide controlled, adjustable axial traction at a high level by supporting the proximal anatomy, retaining the distal anatomy, and extending the frame between them. */
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.prescribedTractionForce > 0 and extender.prescribedTractionForce <= 12
+        }
+    }
+
+    requirement def ForceLimitRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.safetyLimiter.maximumTractionForce <= 12
+        }
+    }
+
+    requirement def PressureLimitRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.safetyLimiter.maximumInterfacePressure <= 12
+        }
+    }
+
+    requirement def AlignmentRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.safetyLimiter.maximumAlignmentAngle <= 8
+        }
+    }
+
+    requirement def WearTimeRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.wearTimer.maximumContinuousWearTime <= 120
+        }
+    }
+
+    requirement def GradualAdjustmentRequirement {
+        subject extender : PenileTractionExtender;
+        require constraint {
+            extender.adjuster.threadPitch <= 1
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PenileTractionExtender;
+    satisfy ForceLimitRequirement by SafetyLimiter;
+    satisfy PressureLimitRequirement by SafetyLimiter;
+    satisfy AlignmentRequirement by SafetyLimiter;
+    satisfy WearTimeRequirement by WearTimer;
+    satisfy GradualAdjustmentRequirement by LengthAdjustmentMechanism;
+}

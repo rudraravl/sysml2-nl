@@ -1,0 +1,478 @@
+package DrYoungIdealRectalDilatorModel {
+
+  import ScalarValues::*;
+  import Quantities::*;
+  import SI::*;
+
+  attribute def Length_mm :> Real {
+    doc /* Linear dimension measured in millimeters. */
+  }
+
+  attribute def Diameter_mm :> Length_mm;
+  attribute def Radius_mm :> Length_mm;
+  attribute def Mass_g :> Real {
+    doc /* Mass measured in grams. */
+  }
+
+  attribute def Force_N :> Real {
+    doc /* Force measured in newtons. */
+  }
+
+  attribute def Time_s :> Real {
+    doc /* Time measured in seconds. */
+  }
+
+  attribute def Pressure_kPa :> Real {
+    doc /* Contact pressure measured in kilopascals. */
+  }
+
+  attribute def Temperature_C :> Real {
+    doc /* Temperature measured in degrees Celsius. */
+  }
+
+  attribute def SterilityLevel :> String;
+  attribute def SurfaceFinish_um :> Real;
+  attribute def RiskLevel :> String;
+  attribute def UseStatus :> String;
+
+  item def DilatorSizeLabel {
+    attribute label : String;
+    attribute nominalDiameter : Diameter_mm;
+    attribute nominalLength : Length_mm;
+  }
+
+  item def CleaningAgent {
+    attribute agentName : String;
+    attribute compatibleWithHardRubber : Boolean;
+    attribute recommendedContactTime : Time_s;
+    attribute maximumTemperature : Temperature_C;
+  }
+
+  item def Lubricant {
+    attribute lubricantName : String;
+    attribute medicalGrade : Boolean;
+    attribute waterSoluble : Boolean;
+    attribute viscosityClass : String;
+  }
+
+  item def UserAppliedForce {
+    attribute axialForce : Force_N;
+    attribute lateralForce : Force_N;
+    attribute duration : Time_s;
+  }
+
+  item def TissueContactLoad {
+    attribute contactPressure : Pressure_kPa;
+    attribute axialForce : Force_N;
+    attribute contactDuration : Time_s;
+  }
+
+  item def HygieneStatus {
+    attribute sterilityLevel : SterilityLevel;
+    attribute cleaned : Boolean;
+    attribute visuallyIntact : Boolean;
+    attribute contaminationDetected : Boolean;
+  }
+
+  item def DilationSessionRecord {
+    attribute selectedSize : String;
+    attribute sessionDuration : Time_s;
+    attribute maximumAppliedForce : Force_N;
+    attribute discomfortReported : Boolean;
+    attribute adverseEventObserved : Boolean;
+    attribute completed : Boolean;
+  }
+
+  port def GripPort {
+    in userForce : UserAppliedForce;
+    out tactileFeedback : TissueContactLoad;
+  }
+
+  port def ContactPort {
+    in lubricant : Lubricant;
+    out tissueLoad : TissueContactLoad;
+  }
+
+  port def StoragePort {
+    in cleanedDevice : HygieneStatus;
+    out storedCondition : HygieneStatus;
+  }
+
+  port def InspectionPort {
+    in observedCondition : HygieneStatus;
+    out approvedForUse : Boolean;
+  }
+
+  part def RectalDilator {
+    attribute sizeLabel : String;
+    attribute totalLength : Length_mm;
+    attribute maximumDiameter : Diameter_mm;
+    attribute tipRadius : Radius_mm;
+    attribute mass : Mass_g;
+    attribute surfaceFinish : SurfaceFinish_um;
+    attribute material : String;
+    attribute reusable : Boolean;
+    attribute intendedUseStatus : UseStatus;
+
+    port grip : GripPort;
+    port patientContact : ContactPort;
+    port inspection : InspectionPort;
+
+    part roundedTip {
+      attribute radius : Radius_mm;
+      attribute smoothContinuousSurface : Boolean;
+    }
+
+    part taperedBody {
+      attribute proximalDiameter : Diameter_mm;
+      attribute distalDiameter : Diameter_mm;
+      attribute taperLength : Length_mm;
+      attribute smoothTransition : Boolean;
+    }
+
+    part flaredBase {
+      attribute baseDiameter : Diameter_mm;
+      attribute stopFeaturePresent : Boolean;
+      attribute gripTexturePresent : Boolean;
+    }
+
+    perform action MaintainHighLevelFunction;
+  }
+
+  part def DilatorSet {
+    attribute productName : String = "Dr. Young's Ideal Rectal Dilators";
+    attribute primaryFunction : String =
+      "Provide a graduated, manually controlled set of smooth dilators intended to support progressive rectal dilation under hygienic and clinically appropriate conditions.";
+
+    part size1 : RectalDilator {
+      attribute sizeLabel = "No. 1";
+      attribute totalLength = 102.0;
+      attribute maximumDiameter = 13.0;
+      attribute tipRadius = 6.5;
+      attribute mass = 28.0;
+      attribute surfaceFinish = 0.8;
+      attribute material = "polished hard rubber";
+      attribute reusable = true;
+      attribute intendedUseStatus = "medical dilation accessory";
+    }
+
+    part size2 : RectalDilator {
+      attribute sizeLabel = "No. 2";
+      attribute totalLength = 108.0;
+      attribute maximumDiameter = 16.0;
+      attribute tipRadius = 8.0;
+      attribute mass = 36.0;
+      attribute surfaceFinish = 0.8;
+      attribute material = "polished hard rubber";
+      attribute reusable = true;
+      attribute intendedUseStatus = "medical dilation accessory";
+    }
+
+    part size3 : RectalDilator {
+      attribute sizeLabel = "No. 3";
+      attribute totalLength = 114.0;
+      attribute maximumDiameter = 19.0;
+      attribute tipRadius = 9.5;
+      attribute mass = 46.0;
+      attribute surfaceFinish = 0.8;
+      attribute material = "polished hard rubber";
+      attribute reusable = true;
+      attribute intendedUseStatus = "medical dilation accessory";
+    }
+
+    part size4 : RectalDilator {
+      attribute sizeLabel = "No. 4";
+      attribute totalLength = 121.0;
+      attribute maximumDiameter = 22.0;
+      attribute tipRadius = 11.0;
+      attribute mass = 58.0;
+      attribute surfaceFinish = 0.8;
+      attribute material = "polished hard rubber";
+      attribute reusable = true;
+      attribute intendedUseStatus = "medical dilation accessory";
+    }
+
+    port storage : StoragePort;
+    port setInspection : InspectionPort;
+  }
+
+  part def StorageCase {
+    attribute caseMaterial : String = "rigid fitted container";
+    attribute keepsSizesSeparated : Boolean = true;
+    attribute protectsSurfaceFinish : Boolean = true;
+
+    port storageInterface : StoragePort;
+  }
+
+  part def UserHand {
+    port manualInterface : GripPort;
+  }
+
+  part def AnatomicalUseSite {
+    attribute tissueConditionScreened : Boolean;
+    attribute contraindicationPresent : Boolean;
+
+    port contactInterface : ContactPort;
+  }
+
+  part def HygienePreparationStation {
+    part mildCleaningAgent : CleaningAgent {
+      attribute agentName = "non-abrasive medical cleaning solution";
+      attribute compatibleWithHardRubber = true;
+      attribute recommendedContactTime = 60.0;
+      attribute maximumTemperature = 45.0;
+    }
+
+    port inspectionInterface : InspectionPort;
+    port storageInterface : StoragePort;
+  }
+
+  part def IdealRectalDilatorSystem {
+    part dilatorSet : DilatorSet;
+    part storageCase : StorageCase;
+    part userHand : UserHand;
+    part useSite : AnatomicalUseSite;
+    part hygieneStation : HygienePreparationStation;
+
+    item sterileLubricant : Lubricant {
+      attribute lubricantName = "water soluble medical lubricant";
+      attribute medicalGrade = true;
+      attribute waterSoluble = true;
+      attribute viscosityClass = "medium";
+    }
+
+    connect userHand.manualInterface to dilatorSet.size1.grip;
+    connect userHand.manualInterface to dilatorSet.size2.grip;
+    connect userHand.manualInterface to dilatorSet.size3.grip;
+    connect userHand.manualInterface to dilatorSet.size4.grip;
+
+    connect dilatorSet.size1.patientContact to useSite.contactInterface;
+    connect dilatorSet.size2.patientContact to useSite.contactInterface;
+    connect dilatorSet.size3.patientContact to useSite.contactInterface;
+    connect dilatorSet.size4.patientContact to useSite.contactInterface;
+
+    connect dilatorSet.storage to storageCase.storageInterface;
+    connect hygieneStation.storageInterface to storageCase.storageInterface;
+    connect hygieneStation.inspectionInterface to dilatorSet.setInspection;
+
+    perform action ConductGraduatedDilationSession;
+  }
+
+  action def MaintainHighLevelFunction {
+    in dilator : RectalDilator;
+    in appliedForce : UserAppliedForce;
+    in lubricant : Lubricant;
+    out tissueLoad : TissueContactLoad;
+
+    assert constraint SmoothSurfaceLimit {
+      dilator.surfaceFinish <= 1.0;
+    }
+
+    assert constraint AxialForceLimit {
+      appliedForce.axialForce <= 20.0;
+    }
+
+    assert constraint LateralForceLimit {
+      appliedForce.lateralForce <= 5.0;
+    }
+  }
+
+  action def ConductGraduatedDilationSession {
+    in system : IdealRectalDilatorSystem;
+    out record : DilationSessionRecord;
+
+    first action ScreenUseSite {
+      in contraindicationPresent : Boolean;
+      out approved : Boolean;
+    }
+
+    then action InspectDilator {
+      in condition : HygieneStatus;
+      out approvedForUse : Boolean;
+    }
+
+    then action ApplyLubricant {
+      in selectedDilator : RectalDilator;
+      in lubricant : Lubricant;
+      out lubricated : Boolean;
+    }
+
+    then action ApplyManualControl {
+      in userForce : UserAppliedForce;
+      out tissueLoad : TissueContactLoad;
+    }
+
+    then action StopIfExcessForceOrDiscomfort {
+      in tissueLoad : TissueContactLoad;
+      in discomfortReported : Boolean;
+      out continueSession : Boolean;
+    }
+
+    then action CleanAndStore {
+      in usedDilator : RectalDilator;
+      out hygieneStatus : HygieneStatus;
+    }
+  }
+
+  state def DilatorLifecycle {
+    entry action InitializeStoredStatus;
+
+    state Stored;
+    state Selected;
+    state Inspected;
+    state Lubricated;
+    state InControlledUse;
+    state Cleaning;
+    state Drying;
+    state ReturnedToStorage;
+    state RemovedFromService;
+
+    transition first Stored;
+    transition Stored to Selected
+      accept SelectSize;
+
+    transition Selected to Inspected
+      accept VisualInspection;
+
+    transition Inspected to Lubricated
+      accept ApprovedForUse
+      if approvedForUse == true;
+
+    transition Inspected to RemovedFromService
+      accept DamageOrContaminationDetected
+      if approvedForUse == false;
+
+    transition Lubricated to InControlledUse
+      accept BeginClinicalUse;
+
+    transition InControlledUse to Cleaning
+      accept EndUse;
+
+    transition InControlledUse to Cleaning
+      accept StopForDiscomfort;
+
+    transition Cleaning to Drying
+      accept CleaningCompleted;
+
+    transition Drying to ReturnedToStorage
+      accept Dry;
+
+    transition ReturnedToStorage to Stored
+      accept CaseClosed;
+  }
+
+  state def DilationSessionState {
+    state NotStarted;
+    state Screening;
+    state SizeSelection;
+    state Preparation;
+    state GradualDilation;
+    state Monitoring;
+    state Completed;
+    state Aborted;
+
+    transition first NotStarted;
+    transition NotStarted to Screening accept StartSession;
+    transition Screening to SizeSelection accept NoContraindication;
+    transition Screening to Aborted accept ContraindicationFound;
+    transition SizeSelection to Preparation accept SmallestSuitableSizeSelected;
+    transition Preparation to GradualDilation accept DeviceCleanLubricatedAndIntact;
+    transition GradualDilation to Monitoring accept ContactEstablished;
+    transition Monitoring to GradualDilation accept ContinueWithinForceLimit;
+    transition Monitoring to Completed accept TherapeuticEndpointReached;
+    transition Monitoring to Aborted accept ExcessForceOrAdverseSymptom;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : DilatorSet;
+
+    doc /* The system shall provide a graduated set of smooth rectal dilators whose high-level function is progressive, manually controlled rectal dilation when selected, inspected, lubricated, used, cleaned, and stored according to hygienic medical-device handling expectations. */
+  }
+
+  requirement def GraduatedSizingRequirement {
+    subject set : DilatorSet;
+
+    require constraint IncreasingDiameters {
+      set.size1.maximumDiameter < set.size2.maximumDiameter and
+      set.size2.maximumDiameter < set.size3.maximumDiameter and
+      set.size3.maximumDiameter < set.size4.maximumDiameter;
+    }
+  }
+
+  requirement def SmoothSurfaceRequirement {
+    subject dilator : RectalDilator;
+
+    require constraint SurfaceFinishAcceptable {
+      dilator.surfaceFinish <= 1.0;
+    }
+  }
+
+  requirement def RoundedTipRequirement {
+    subject dilator : RectalDilator;
+
+    require constraint MinimumTipRadius {
+      dilator.tipRadius >= dilator.maximumDiameter / 2.0;
+    }
+  }
+
+  requirement def FlaredBaseRequirement {
+    subject dilator : RectalDilator;
+
+    require constraint BaseStopPresent {
+      dilator.flaredBase.stopFeaturePresent == true;
+    }
+  }
+
+  requirement def ManualForceLimitRequirement {
+    subject load : UserAppliedForce;
+
+    require constraint ControlledManualForce {
+      load.axialForce <= 20.0 and load.lateralForce <= 5.0;
+    }
+  }
+
+  requirement def HygieneRequirement {
+    subject status : HygieneStatus;
+
+    require constraint CleanBeforeUse {
+      status.cleaned == true and
+      status.contaminationDetected == false and
+      status.visuallyIntact == true;
+    }
+  }
+
+  requirement def LubricantCompatibilityRequirement {
+    subject lubricant : Lubricant;
+
+    require constraint MedicalLubricantRequired {
+      lubricant.medicalGrade == true and lubricant.waterSoluble == true;
+    }
+  }
+
+  requirement def StorageProtectionRequirement {
+    subject case : StorageCase;
+
+    require constraint ProtectedStorage {
+      case.keepsSizesSeparated == true and case.protectsSurfaceFinish == true;
+    }
+  }
+
+  requirement def StopConditionRequirement {
+    subject record : DilationSessionRecord;
+
+    require constraint StopOnAdverseEvent {
+      record.adverseEventObserved == false;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by IdealRectalDilatorSystem;
+  satisfy GraduatedSizingRequirement by DilatorSet;
+  satisfy SmoothSurfaceRequirement by RectalDilator;
+  satisfy RoundedTipRequirement by RectalDilator;
+  satisfy FlaredBaseRequirement by RectalDilator;
+  satisfy ManualForceLimitRequirement by MaintainHighLevelFunction;
+  satisfy HygieneRequirement by HygienePreparationStation;
+  satisfy LubricantCompatibilityRequirement by IdealRectalDilatorSystem::sterileLubricant;
+  satisfy StorageProtectionRequirement by StorageCase;
+  satisfy StopConditionRequirement by ConductGraduatedDilationSession;
+}

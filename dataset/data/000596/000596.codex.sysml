@@ -1,0 +1,333 @@
+package ElectromagneticDiaphragmSpecification {
+
+    item def ElectricalDriveSignal {
+        attribute voltage_V : Real;
+        attribute current_A : Real;
+        attribute frequency_Hz : Real;
+        attribute dutyCycle_percent : Real;
+    }
+
+    item def MagneticFlux {
+        attribute fluxDensity_T : Real;
+        attribute flux_Wb : Real;
+    }
+
+    item def DiaphragmMotion {
+        attribute displacement_mm : Real;
+        attribute velocity_m_per_s : Real;
+        attribute force_N : Real;
+    }
+
+    item def AcousticPressureWave {
+        attribute pressure_Pa : Real;
+        attribute frequency_Hz : Real;
+        attribute soundPressureLevel_dB : Real;
+    }
+
+    item def ThermalEnergy {
+        attribute temperature_degC : Real;
+        attribute heatFlow_W : Real;
+    }
+
+    item def DiagnosticStatus {
+        attribute coilContinuity_ok : Boolean;
+        attribute overTemperature : Boolean;
+        attribute overCurrent : Boolean;
+        attribute positionTracking_ok : Boolean;
+    }
+
+    port def ElectricalInputPort {
+        in item drive : ElectricalDriveSignal;
+    }
+
+    port def MagneticFieldPort {
+        out item field : MagneticFlux;
+    }
+
+    port def MechanicalMotionPort {
+        inout item motion : DiaphragmMotion;
+    }
+
+    port def AcousticOutputPort {
+        out item wave : AcousticPressureWave;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalEnergy;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def DriveElectronics {
+        port electricalIn : ElectricalInputPort;
+        port coilDrive : ElectricalInputPort;
+        port diagnostics : DiagnosticPort;
+
+        attribute supplyVoltage_V : Real = 24.0;
+        attribute maxOutputCurrent_A : Real = 2.5;
+        attribute pwmCarrierFrequency_Hz : Real = 25000.0;
+
+        action def RegulateCurrent {
+            in item requestedDrive : ElectricalDriveSignal;
+            out item regulatedDrive : ElectricalDriveSignal;
+        }
+    }
+
+    part def VoiceCoil {
+        port electricalIn : ElectricalInputPort;
+        port magneticOut : MagneticFieldPort;
+        port thermalOut : ThermalPort;
+
+        attribute resistance_ohm : Real = 8.0;
+        attribute inductance_mH : Real = 1.2;
+        attribute turns : Integer = 420;
+        attribute maxCurrent_A : Real = 2.0;
+        attribute maxTemperature_degC : Real = 130.0;
+
+        action def GenerateElectromagneticField {
+            in item drive : ElectricalDriveSignal;
+            out item field : MagneticFlux;
+        }
+    }
+
+    part def PermanentMagnetAssembly {
+        port magneticOut : MagneticFieldPort;
+
+        attribute remanence_T : Real = 1.25;
+        attribute airGap_mm : Real = 1.1;
+        attribute nominalFluxDensity_T : Real = 0.85;
+
+        action def BiasMagneticCircuit {
+            out item field : MagneticFlux;
+        }
+    }
+
+    part def MagneticCircuit {
+        port coilField : MagneticFieldPort;
+        port biasField : MagneticFieldPort;
+        port resultantField : MagneticFieldPort;
+
+        attribute polePieceMaterial : String = "low carbon steel";
+        attribute fluxLeakage_percent : Real = 4.0;
+
+        action def SumMagneticFields {
+            in item dynamicField : MagneticFlux;
+            in item staticField : MagneticFlux;
+            out item resultantField : MagneticFlux;
+        }
+    }
+
+    part def FlexibleDiaphragm {
+        port magneticForceIn : MechanicalMotionPort;
+        port acousticOut : AcousticOutputPort;
+        port motionFeedback : MechanicalMotionPort;
+
+        attribute effectiveArea_cm2 : Real = 18.0;
+        attribute movingMass_g : Real = 4.8;
+        attribute stiffness_N_per_mm : Real = 0.72;
+        attribute damping_N_s_per_m : Real = 0.35;
+        attribute maxStroke_mm : Real = 2.5;
+
+        action def ConvertForceToMotion {
+            in item appliedForce : DiaphragmMotion;
+            out item displacement : DiaphragmMotion;
+        }
+
+        action def DisplaceFluidMedium {
+            in item displacement : DiaphragmMotion;
+            out item pressureWave : AcousticPressureWave;
+        }
+    }
+
+    part def Suspension {
+        port diaphragmMotion : MechanicalMotionPort;
+
+        attribute compliance_mm_per_N : Real = 1.39;
+        attribute radialAlignmentTolerance_mm : Real = 0.08;
+        attribute fatigueLife_cycles : Integer = 100000000;
+
+        action def CenterDiaphragm {
+            inout item motion : DiaphragmMotion;
+        }
+    }
+
+    part def AcousticChamber {
+        port diaphragmInput : AcousticOutputPort;
+        port acousticOutput : AcousticOutputPort;
+
+        attribute chamberVolume_cm3 : Real = 42.0;
+        attribute outletDiameter_mm : Real = 12.0;
+        attribute acousticImpedance_Pa_s_per_m3 : Real = 1250.0;
+
+        action def ShapePressureWave {
+            in item rawWave : AcousticPressureWave;
+            out item conditionedWave : AcousticPressureWave;
+        }
+    }
+
+    part def PositionSensor {
+        port sensedMotion : MechanicalMotionPort;
+        port diagnostics : DiagnosticPort;
+
+        attribute resolution_um : Real = 5.0;
+        attribute samplingRate_Hz : Real = 20000.0;
+
+        action def MeasureDiaphragmPosition {
+            in item motion : DiaphragmMotion;
+            out item status : DiagnosticStatus;
+        }
+    }
+
+    part def Housing {
+        port thermalOut : ThermalPort;
+
+        attribute material : String = "glass-filled polyamide";
+        attribute ingressProtection : String = "IP54";
+        attribute mountingPattern : String = "three-point flange";
+        attribute thermalResistance_degC_per_W : Real = 9.5;
+    }
+
+    part def ElectromagneticDiaphragmSystem {
+        port commandInput : ElectricalInputPort;
+        port acousticOutput : AcousticOutputPort;
+        port diagnosticOutput : DiagnosticPort;
+        port wasteHeat : ThermalPort;
+
+        part electronics : DriveElectronics;
+        part coil : VoiceCoil;
+        part magnet : PermanentMagnetAssembly;
+        part magneticCircuit : MagneticCircuit;
+        part diaphragm : FlexibleDiaphragm;
+        part suspension : Suspension;
+        part chamber : AcousticChamber;
+        part sensor : PositionSensor;
+        part enclosure : Housing;
+
+        attribute nominalInputVoltage_V : Real = 24.0;
+        attribute operatingFrequencyMin_Hz : Real = 20.0;
+        attribute operatingFrequencyMax_Hz : Real = 20000.0;
+        attribute peakDiaphragmStroke_mm : Real = 2.5;
+        attribute nominalAcousticPressure_Pa : Real = 12.0;
+        attribute primaryFunction : String = "Convert a commanded electrical signal into controlled diaphragm motion that produces a pressure wave in the adjacent medium.";
+
+        connect commandInput to electronics.electricalIn;
+        connect electronics.coilDrive to coil.electricalIn;
+        connect coil.magneticOut to magneticCircuit.coilField;
+        connect magnet.magneticOut to magneticCircuit.biasField;
+        connect magneticCircuit.resultantField to diaphragm.magneticForceIn;
+        connect diaphragm.motionFeedback to suspension.diaphragmMotion;
+        connect diaphragm.motionFeedback to sensor.sensedMotion;
+        connect diaphragm.acousticOut to chamber.diaphragmInput;
+        connect chamber.acousticOutput to acousticOutput;
+        connect coil.thermalOut to enclosure.thermalOut;
+        connect enclosure.thermalOut to wasteHeat;
+        connect electronics.diagnostics to diagnosticOutput;
+        connect sensor.diagnostics to diagnosticOutput;
+
+        action def PerformPrimaryConversion {
+            in item inputSignal : ElectricalDriveSignal;
+            out item outputWave : AcousticPressureWave;
+
+            first start;
+            then regulateCurrent;
+            then generateField;
+            then createForce;
+            then moveDiaphragm;
+            then radiatePressureWave;
+            then done;
+
+            action regulateCurrent : electronics.RegulateCurrent;
+            action generateField : coil.GenerateElectromagneticField;
+            action createForce : magneticCircuit.SumMagneticFields;
+            action moveDiaphragm : diaphragm.ConvertForceToMotion;
+            action radiatePressureWave : diaphragm.DisplaceFluidMedium;
+        }
+
+        state def OperatingStateMachine {
+            state Off;
+            state Standby;
+            state Energizing;
+            state ActiveConversion;
+            state ThermalLimit;
+            state Fault;
+
+            transition initial then Off;
+            transition Off then Standby
+                accept PowerAvailable;
+            transition Standby then Energizing
+                accept ValidDriveCommand;
+            transition Energizing then ActiveConversion
+                accept CoilCurrentEstablished;
+            transition ActiveConversion then Standby
+                accept DriveCommandRemoved;
+            transition ActiveConversion then ThermalLimit
+                accept CoilTemperatureHigh;
+            transition ThermalLimit then ActiveConversion
+                accept TemperatureRecovered;
+            transition Standby then Fault
+                accept DiagnosticFailure;
+            transition Energizing then Fault
+                accept OverCurrentDetected;
+            transition ActiveConversion then Fault
+                accept OverStrokeDetected;
+            transition Fault then Off
+                accept ResetCommand;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ElectromagneticDiaphragmSystem;
+
+        doc "The system shall convert an electrical drive signal into controlled diaphragm displacement and produce a corresponding pressure wave at the acoustic output port.";
+
+        require constraint {
+            system.nominalInputVoltage_V == 24.0
+        }
+    }
+
+    requirement def StrokeRequirement {
+        subject system : ElectromagneticDiaphragmSystem;
+
+        doc "The diaphragm shall support bidirectional displacement up to the specified peak stroke without mechanical contact or permanent deformation.";
+
+        require constraint {
+            system.peakDiaphragmStroke_mm >= 2.5
+        }
+    }
+
+    requirement def FrequencyResponseRequirement {
+        subject system : ElectromagneticDiaphragmSystem;
+
+        doc "The system shall operate over the commanded signal frequency range required for pressure-wave generation.";
+
+        require constraint {
+            system.operatingFrequencyMin_Hz <= 20.0 and system.operatingFrequencyMax_Hz >= 20000.0
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject system : ElectromagneticDiaphragmSystem;
+
+        doc "The system shall detect coil over-temperature and transition to a thermal limiting state before exceeding the coil maximum temperature.";
+
+        require constraint {
+            system.coil.maxTemperature_degC <= 130.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject system : ElectromagneticDiaphragmSystem;
+
+        doc "The system shall report coil continuity, over-current, over-temperature, and diaphragm position tracking status through the diagnostic output port.";
+    }
+
+    part electromagneticDiaphragmAssembly : ElectromagneticDiaphragmSystem;
+
+    satisfy PrimaryFunctionRequirement by electromagneticDiaphragmAssembly;
+    satisfy StrokeRequirement by electromagneticDiaphragmAssembly;
+    satisfy FrequencyResponseRequirement by electromagneticDiaphragmAssembly;
+    satisfy ThermalProtectionRequirement by electromagneticDiaphragmAssembly;
+    satisfy DiagnosticRequirement by electromagneticDiaphragmAssembly;
+}

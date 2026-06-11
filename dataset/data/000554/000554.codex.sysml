@@ -1,0 +1,354 @@
+package BodyKomModel {
+
+  value def BeatsPerMinute :> Real;
+  value def Percent :> Real;
+  value def DegreeCelsius :> Real;
+  value def Millivolt :> Real;
+  value def Millisecond :> Real;
+  value def Second :> Real;
+  value def MeterPerSecondSquared :> Real;
+  value def Volt :> Real;
+  value def MilliampereHour :> Real;
+  value def Meter :> Real;
+
+  item def PhysiologicalSample {
+    attribute heartRate : BeatsPerMinute;
+    attribute bloodOxygen : Percent;
+    attribute skinTemperature : DegreeCelsius;
+    attribute ecgLeadI : Millivolt;
+    attribute motionMagnitude : MeterPerSecondSquared;
+    attribute timestamp : Second;
+  }
+
+  item def ProcessedBodyStatus {
+    attribute heartRate : BeatsPerMinute;
+    attribute bloodOxygen : Percent;
+    attribute skinTemperature : DegreeCelsius;
+    attribute activityLevel : Percent;
+    attribute confidence : Percent;
+    attribute riskScore : Percent;
+    attribute timestamp : Second;
+  }
+
+  item def AlertMessage {
+    attribute severity : AlertSeverity;
+    attribute reason : AlertReason;
+    attribute riskScore : Percent;
+    attribute timestamp : Second;
+  }
+
+  enum def AlertSeverity {
+    enum normal;
+    enum advisory;
+    enum urgent;
+    enum emergency;
+  }
+
+  enum def AlertReason {
+    enum none;
+    enum tachycardia;
+    enum bradycardia;
+    enum hypoxemia;
+    enum hyperthermia;
+    enum sensorDetached;
+    enum fallDetected;
+    enum communicationLost;
+    enum lowBattery;
+  }
+
+  item def ConfigurationCommand {
+    attribute samplePeriod : Millisecond;
+    attribute alertThresholdHeartRateHigh : BeatsPerMinute;
+    attribute alertThresholdHeartRateLow : BeatsPerMinute;
+    attribute alertThresholdOxygenLow : Percent;
+    attribute alertThresholdTemperatureHigh : DegreeCelsius;
+  }
+
+  port def PhysiologicalSensorPort {
+    out item sample : PhysiologicalSample;
+  }
+
+  port def StatusPort {
+    out item status : ProcessedBodyStatus;
+  }
+
+  port def AlertPort {
+    out item alert : AlertMessage;
+  }
+
+  port def ConfigurationPort {
+    in item command : ConfigurationCommand;
+  }
+
+  port def WirelessTelemetryPort {
+    out item status : ProcessedBodyStatus;
+    out item alert : AlertMessage;
+    in item command : ConfigurationCommand;
+  }
+
+  port def PowerPort {
+    out attribute supplyVoltage : Volt;
+  }
+
+  part def BodyKom {
+    doc /* BodyKom is a wearable body communication and monitoring system whose primary high-level function is to sense a person's physiological condition, process the body status locally, and communicate actionable alerts and telemetry to a caregiver or host device. */
+
+    attribute samplePeriod : Millisecond = 250.0;
+    attribute operatingTimeRemaining : Second;
+    attribute wearerHeight : Meter;
+    attribute targetBatteryLife : Second = 86400.0;
+
+    port statusOut : StatusPort;
+    port alertOut : AlertPort;
+    port wireless : WirelessTelemetryPort;
+    port configIn : ConfigurationPort;
+
+    part sensorSuite : BodySensorSuite;
+    part processor : BodyStatusProcessor;
+    part alertManager : AlertManager;
+    part radio : WirelessCommunicator;
+    part powerSystem : PowerSystem;
+    part userInterface : LocalUserInterface;
+
+    connect sensorSuite.sampleOut to processor.sampleIn;
+    connect processor.statusOut to alertManager.statusIn;
+    connect processor.statusOut to radio.statusIn;
+    connect alertManager.alertOut to radio.alertIn;
+    connect alertManager.alertOut to userInterface.alertIn;
+    connect radio.statusOut to statusOut;
+    connect radio.alertOut to alertOut;
+    connect wireless to radio.wireless;
+    connect configIn to processor.configIn;
+    connect powerSystem.powerOut to sensorSuite.powerIn;
+    connect powerSystem.powerOut to processor.powerIn;
+    connect powerSystem.powerOut to radio.powerIn;
+    connect powerSystem.powerOut to userInterface.powerIn;
+
+    perform action monitorBody : MonitorBody;
+    exhibit state operationalState : BodyKomOperationalState;
+  }
+
+  part def BodySensorSuite {
+    attribute ecgNoiseLimit : Millivolt = 0.15;
+    attribute temperatureAccuracy : DegreeCelsius = 0.2;
+    attribute oxygenAccuracy : Percent = 2.0;
+
+    port sampleOut : PhysiologicalSensorPort;
+    port powerIn : PowerPort;
+
+    part ecgSensor : EcgSensor;
+    part pulseOximeter : PulseOximeter;
+    part temperatureSensor : SkinTemperatureSensor;
+    part motionSensor : MotionSensor;
+  }
+
+  part def EcgSensor {
+    attribute inputRange : Millivolt = 5.0;
+    attribute samplePeriod : Millisecond = 4.0;
+  }
+
+  part def PulseOximeter {
+    attribute oxygenRangeMinimum : Percent = 70.0;
+    attribute oxygenRangeMaximum : Percent = 100.0;
+    attribute samplePeriod : Millisecond = 250.0;
+  }
+
+  part def SkinTemperatureSensor {
+    attribute temperatureMinimum : DegreeCelsius = 25.0;
+    attribute temperatureMaximum : DegreeCelsius = 45.0;
+    attribute samplePeriod : Millisecond = 1000.0;
+  }
+
+  part def MotionSensor {
+    attribute accelerationRange : MeterPerSecondSquared = 156.96;
+    attribute samplePeriod : Millisecond = 20.0;
+  }
+
+  part def BodyStatusProcessor {
+    port sampleIn : PhysiologicalSensorPort;
+    port statusOut : StatusPort;
+    port configIn : ConfigurationPort;
+    port powerIn : PowerPort;
+
+    attribute heartRateHighLimit : BeatsPerMinute = 120.0;
+    attribute heartRateLowLimit : BeatsPerMinute = 45.0;
+    attribute oxygenLowLimit : Percent = 92.0;
+    attribute temperatureHighLimit : DegreeCelsius = 38.0;
+    attribute fallAccelerationLimit : MeterPerSecondSquared = 24.5;
+
+    perform action acquireSample : AcquirePhysiologicalSample;
+    perform action filterSignal : FilterPhysiologicalSignal;
+    perform action estimateStatus : EstimateBodyStatus;
+  }
+
+  part def AlertManager {
+    port statusIn : StatusPort;
+    port alertOut : AlertPort;
+
+    attribute advisoryRiskThreshold : Percent = 35.0;
+    attribute urgentRiskThreshold : Percent = 65.0;
+    attribute emergencyRiskThreshold : Percent = 85.0;
+
+    perform action classifyAlert : ClassifyBodyAlert;
+  }
+
+  part def WirelessCommunicator {
+    port statusIn : StatusPort;
+    port alertIn : AlertPort;
+    port statusOut : StatusPort;
+    port alertOut : AlertPort;
+    port wireless : WirelessTelemetryPort;
+    port powerIn : PowerPort;
+
+    attribute transmitInterval : Second = 5.0;
+    attribute emergencyTransmitInterval : Second = 0.5;
+    attribute linkQuality : Percent;
+  }
+
+  part def PowerSystem {
+    port powerOut : PowerPort;
+
+    attribute nominalVoltage : Volt = 3.7;
+    attribute batteryCapacity : MilliampereHour = 1200.0;
+    attribute stateOfCharge : Percent;
+    attribute lowBatteryThreshold : Percent = 15.0;
+  }
+
+  part def LocalUserInterface {
+    port alertIn : AlertPort;
+    port powerIn : PowerPort;
+
+    attribute vibrationDuration : Millisecond = 600.0;
+    attribute audibleAlertEnabled : Boolean = true;
+  }
+
+  action def MonitorBody {
+    in item sample : PhysiologicalSample;
+    out item status : ProcessedBodyStatus;
+    out item alert : AlertMessage;
+
+    first start;
+    then acquire;
+    then process;
+    then evaluate;
+    then communicate;
+    then done;
+
+    action acquire : AcquirePhysiologicalSample;
+    action process : EstimateBodyStatus;
+    action evaluate : ClassifyBodyAlert;
+    action communicate : CommunicateBodyStatus;
+  }
+
+  action def AcquirePhysiologicalSample {
+    out item sample : PhysiologicalSample;
+  }
+
+  action def FilterPhysiologicalSignal {
+    in item rawSample : PhysiologicalSample;
+    out item filteredSample : PhysiologicalSample;
+  }
+
+  action def EstimateBodyStatus {
+    in item sample : PhysiologicalSample;
+    out item status : ProcessedBodyStatus;
+  }
+
+  action def ClassifyBodyAlert {
+    in item status : ProcessedBodyStatus;
+    out item alert : AlertMessage;
+  }
+
+  action def CommunicateBodyStatus {
+    in item status : ProcessedBodyStatus;
+    in item alert : AlertMessage;
+  }
+
+  state def BodyKomOperationalState {
+    state off;
+    state startup;
+    state monitoring;
+    state alerting;
+    state transmitting;
+    state lowPower;
+    state fault;
+
+    entry; then off;
+
+    transition powerOn first off then startup;
+    transition initialized first startup then monitoring;
+    transition abnormalStatus first monitoring then alerting;
+    transition alertIssued first alerting then transmitting;
+    transition transmissionComplete first transmitting then monitoring;
+    transition batteryLow first monitoring then lowPower;
+    transition batteryRecovered first lowPower then monitoring;
+    transition sensorFailure first monitoring then fault;
+    transition reset first fault then startup;
+    transition powerOff first monitoring then off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The BodyKom system shall continuously monitor the wearer's physiological condition, compute a body status, and communicate status and alerts to an external caregiver or host device. */
+
+    subject bodyKom : BodyKom;
+
+    require constraint {
+      bodyKom.samplePeriod <= 1000.0
+    }
+  }
+
+  requirement def AlertLatencyRequirement {
+    doc /* The BodyKom system shall communicate emergency alerts within two seconds of detecting an emergency body status. */
+
+    subject bodyKom : BodyKom;
+
+    require constraint {
+      bodyKom.radio.emergencyTransmitInterval <= 2.0
+    }
+  }
+
+  requirement def BatteryLifeRequirement {
+    doc /* The BodyKom system shall support at least twenty-four hours of nominal monitoring operation on one full battery charge. */
+
+    subject bodyKom : BodyKom;
+
+    require constraint {
+      bodyKom.targetBatteryLife >= 86400.0
+    }
+  }
+
+  requirement def OxygenMonitoringRequirement {
+    doc /* The BodyKom system shall identify low blood oxygen when measured oxygen saturation is below the configured threshold. */
+
+    subject processor : BodyStatusProcessor;
+
+    require constraint {
+      processor.oxygenLowLimit <= 92.0
+    }
+  }
+
+  requirement def TemperatureMonitoringRequirement {
+    doc /* The BodyKom system shall identify elevated skin temperature when measured temperature exceeds the configured threshold. */
+
+    subject processor : BodyStatusProcessor;
+
+    require constraint {
+      processor.temperatureHighLimit >= 38.0
+    }
+  }
+
+  requirement def LocalAlertRequirement {
+    doc /* The BodyKom system shall provide a local user indication whenever an urgent or emergency alert is generated. */
+
+    subject bodyKom : BodyKom;
+  }
+
+  part bodyKomSystem : BodyKom;
+
+  satisfy PrimaryFunctionRequirement by bodyKomSystem;
+  satisfy AlertLatencyRequirement by bodyKomSystem;
+  satisfy BatteryLifeRequirement by bodyKomSystem;
+  satisfy OxygenMonitoringRequirement by bodyKomSystem.processor;
+  satisfy TemperatureMonitoringRequirement by bodyKomSystem.processor;
+  satisfy LocalAlertRequirement by bodyKomSystem.userInterface;
+}

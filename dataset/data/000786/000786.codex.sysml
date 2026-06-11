@@ -1,0 +1,322 @@
+package SurgicalLubricantSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def pH : Real;
+  attribute def Viscosity_cP : Real;
+  attribute def Volume_mL : Real;
+  attribute def Temperature_C : Real;
+  attribute def Pressure_kPa : Real;
+  attribute def FlowRate_mL_per_s : Real;
+  attribute def Time_s : Real;
+  attribute def Osmolality_mOsm_per_kg : Real;
+  attribute def SterilityAssuranceLevel : Real;
+
+  item def SurgicalLubricantGel {
+    attribute volume : Volume_mL;
+    attribute viscosity : Viscosity_cP;
+    attribute pHValue : pH;
+    attribute osmolality : Osmolality_mOsm_per_kg;
+    attribute sterile : Boolean;
+    attribute biocompatible : Boolean;
+    attribute waterSoluble : Boolean;
+  }
+
+  item def TissueSurface {
+    attribute hydrated : Boolean;
+    attribute surfaceTemperature : Temperature_C;
+    attribute frictionCoefficient : Real;
+  }
+
+  item def SurgicalInstrument {
+    attribute sterile : Boolean;
+    attribute contactPressure : Pressure_kPa;
+    attribute tipTemperature : Temperature_C;
+  }
+
+  item def LubricatedInterface {
+    attribute filmThickness_mm : Real;
+    attribute reducedFrictionCoefficient : Real;
+    attribute coveragePercent : Real;
+  }
+
+  item def WasteLubricant {
+    attribute volume : Volume_mL;
+    attribute contaminated : Boolean;
+  }
+
+  port def LubricantOutletPort {
+    out item gel : SurgicalLubricantGel;
+    attribute flowRate : FlowRate_mL_per_s;
+  }
+
+  port def LubricantInletPort {
+    in item gel : SurgicalLubricantGel;
+    attribute acceptedFlowRate : FlowRate_mL_per_s;
+  }
+
+  port def TissueContactPort {
+    in item gel : SurgicalLubricantGel;
+    in item tissue : TissueSurface;
+    out item interface : LubricatedInterface;
+  }
+
+  port def InstrumentContactPort {
+    in item gel : SurgicalLubricantGel;
+    in item instrument : SurgicalInstrument;
+    out item interface : LubricatedInterface;
+  }
+
+  port def DisposalPort {
+    out item waste : WasteLubricant;
+  }
+
+  part def SterileLubricantContainer {
+    attribute containedVolume : Volume_mL = 120.0;
+    attribute sealIntegrity : Boolean = true;
+    attribute sterileBarrierIntact : Boolean = true;
+    attribute storageTemperature : Temperature_C = 22.0;
+
+    port outlet : LubricantOutletPort;
+
+    action dispenseLubricant {
+      in requestedVolume : Volume_mL;
+      out dispensedGel : SurgicalLubricantGel;
+
+      first start;
+      then verifySterileBarrier;
+      then meterDose;
+      then emitGel;
+      then done;
+
+      action verifySterileBarrier {
+        in sealOK : Boolean = sealIntegrity;
+        in barrierOK : Boolean = sterileBarrierIntact;
+        out acceptable : Boolean;
+      }
+
+      action meterDose {
+        in requestedVolume : Volume_mL;
+        out meteredVolume : Volume_mL;
+      }
+
+      action emitGel {
+        in meteredVolume : Volume_mL;
+        out gel : SurgicalLubricantGel;
+      }
+    }
+  }
+
+  part def ApplicatorNozzle {
+    attribute internalDiameter_mm : Real = 3.2;
+    attribute maxDispensePressure : Pressure_kPa = 80.0;
+    attribute singleUse : Boolean = true;
+
+    port inlet : LubricantInletPort;
+    port outlet : LubricantOutletPort;
+
+    action spreadGel {
+      in gelIn : SurgicalLubricantGel;
+      out gelOut : SurgicalLubricantGel;
+    }
+  }
+
+  part def LubricationFilm {
+    attribute filmThickness_mm : Real = 0.6;
+    attribute coveragePercent : Real = 95.0;
+    attribute persistenceTime : Time_s = 900.0;
+    attribute frictionReductionPercent : Real = 70.0;
+
+    port tissueContact : TissueContactPort;
+    port instrumentContact : InstrumentContactPort;
+
+    action formInterface {
+      in gel : SurgicalLubricantGel;
+      in tissue : TissueSurface;
+      in instrument : SurgicalInstrument;
+      out interface : LubricatedInterface;
+    }
+  }
+
+  part def SurgicalSite {
+    attribute targetTissueHydrated : Boolean = true;
+    attribute nominalTemperature : Temperature_C = 37.0;
+    attribute baselineFrictionCoefficient : Real = 0.45;
+
+    port lubricantReceiver : LubricantInletPort;
+    port tissueContact : TissueContactPort;
+  }
+
+  part def SurgicalTool {
+    attribute sterile : Boolean = true;
+    attribute operatingContactPressure : Pressure_kPa = 25.0;
+    attribute allowableFrictionCoefficient : Real = 0.18;
+
+    port lubricantReceiver : LubricantInletPort;
+    port instrumentContact : InstrumentContactPort;
+  }
+
+  part def WasteCollector {
+    attribute capacity : Volume_mL = 500.0;
+    attribute currentWasteVolume : Volume_mL = 0.0;
+
+    port disposal : DisposalPort;
+
+    action collectResidualLubricant {
+      in residual : WasteLubricant;
+      out storedVolume : Volume_mL;
+    }
+  }
+
+  part def SurgicalLubricantSystem {
+    attribute primaryFunction : String = "Provide a sterile, biocompatible, water-soluble lubricating film that reduces friction between surgical instruments and patient tissue during clinical manipulation.";
+    attribute targetDispenseVolume : Volume_mL = 10.0;
+    attribute nominalViscosity : Viscosity_cP = 45000.0;
+    attribute acceptablePHLower : pH = 6.5;
+    attribute acceptablePHUpper : pH = 7.8;
+    attribute sterilitySAL : SterilityAssuranceLevel = 1.0e-6;
+
+    part container : SterileLubricantContainer;
+    part nozzle : ApplicatorNozzle;
+    part film : LubricationFilm;
+    part surgicalSite : SurgicalSite;
+    part tool : SurgicalTool;
+    part wasteCollector : WasteCollector;
+
+    connect container.outlet to nozzle.inlet;
+    connect nozzle.outlet to surgicalSite.lubricantReceiver;
+    connect nozzle.outlet to tool.lubricantReceiver;
+    connect surgicalSite.tissueContact to film.tissueContact;
+    connect tool.instrumentContact to film.instrumentContact;
+    connect wasteCollector.disposal to container.outlet;
+
+    action prepareAndApplyLubricant {
+      in requestedVolume : Volume_mL = targetDispenseVolume;
+      out lubricatedInterface : LubricatedInterface;
+
+      first verifyProductCondition;
+      then dispense;
+      then distribute;
+      then formLubricatingFilm;
+      then confirmFrictionReduction;
+      then complete;
+
+      action verifyProductCondition {
+        out conditionAcceptable : Boolean;
+      }
+
+      action dispense {
+        in requestedVolume : Volume_mL;
+        out dispensedGel : SurgicalLubricantGel;
+      }
+
+      action distribute {
+        in dispensedGel : SurgicalLubricantGel;
+        out distributedGel : SurgicalLubricantGel;
+      }
+
+      action formLubricatingFilm {
+        in distributedGel : SurgicalLubricantGel;
+        out interface : LubricatedInterface;
+      }
+
+      action confirmFrictionReduction {
+        in interface : LubricatedInterface;
+        out acceptable : Boolean;
+      }
+    }
+
+    state def LubricantUseState {
+      entry action initializeSystem;
+      state Sealed;
+      state ReadyForUse;
+      state Dispensing;
+      state Applied;
+      state InService;
+      state ResidualCollected;
+      state Disposed;
+      state Rejected;
+
+      transition first Sealed;
+      transition Sealed to ReadyForUse
+        accept OpenSterilePackage
+        if container.sealIntegrity and container.sterileBarrierIntact;
+      transition Sealed to Rejected
+        accept OpenSterilePackage
+        if not container.sealIntegrity or not container.sterileBarrierIntact;
+      transition ReadyForUse to Dispensing
+        accept ApplyPressure;
+      transition Dispensing to Applied
+        accept TargetVolumeDelivered
+        if targetDispenseVolume <= container.containedVolume;
+      transition Applied to InService
+        accept SurgicalContactEstablished;
+      transition InService to ResidualCollected
+        accept ProcedureComplete;
+      transition ResidualCollected to Disposed
+        accept WasteSealed;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : SurgicalLubricantSystem;
+    require constraint {
+      system.primaryFunction ==
+      "Provide a sterile, biocompatible, water-soluble lubricating film that reduces friction between surgical instruments and patient tissue during clinical manipulation."
+    }
+  }
+
+  requirement def SterilityRequirement {
+    subject system : SurgicalLubricantSystem;
+    require constraint {
+      system.sterilitySAL <= 1.0e-6
+    }
+  }
+
+  requirement def BiocompatibilityRequirement {
+    subject gel : SurgicalLubricantGel;
+    require constraint {
+      gel.biocompatible == true and gel.sterile == true
+    }
+  }
+
+  requirement def LubricityRequirement {
+    subject interface : LubricatedInterface;
+    require constraint {
+      interface.reducedFrictionCoefficient <= 0.18 and interface.coveragePercent >= 90.0
+    }
+  }
+
+  requirement def ViscosityRequirement {
+    subject gel : SurgicalLubricantGel;
+    require constraint {
+      gel.viscosity >= 30000.0 and gel.viscosity <= 70000.0
+    }
+  }
+
+  requirement def PhysiologicPHRequirement {
+    subject gel : SurgicalLubricantGel;
+    require constraint {
+      gel.pHValue >= 6.5 and gel.pHValue <= 7.8
+    }
+  }
+
+  requirement def WaterSolubilityRequirement {
+    subject gel : SurgicalLubricantGel;
+    require constraint {
+      gel.waterSoluble == true
+    }
+  }
+
+  requirement def ControlledDispenseRequirement {
+    subject nozzle : ApplicatorNozzle;
+    require constraint {
+      nozzle.maxDispensePressure <= 100.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by SurgicalLubricantSystem;
+  satisfy SterilityRequirement by SurgicalLubricantSystem;
+  satisfy ControlledDispenseRequirement by ApplicatorNozzle;
+}

@@ -1,0 +1,973 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_fddcodi
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2c1-3e5f-7303-9b9a-eb1d3a621101
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Cable robots and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CableRobotSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        value : Real;
+        unit : LengthUnit;
+    }
+
+    attribute def SpeedValue {
+        value : Real;
+        unit : SpeedUnit;
+    }
+
+    attribute def ForceValue {
+        value : Real;
+        unit : ForceUnit;
+    }
+
+    attribute def MassValue {
+        value : Real;
+        unit : MassUnit;
+    }
+
+    attribute def TimeValue {
+        value : Real;
+        unit : TimeUnit;
+    }
+
+    attribute def AngleValue {
+        value : Real;
+        unit : PlaneAngleUnit;
+    }
+
+    item def MotionCommand {
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute targetZ : LengthValue;
+        attribute targetSpeed : SpeedValue;
+        attribute payloadMassEstimate : MassValue;
+    }
+
+    item def CableTensionCommand {
+        attribute commandedTension : ForceValue;
+        attribute commandedLength : LengthValue;
+        attribute commandedSpeed : SpeedValue;
+    }
+
+    item def CableFeedback {
+        attribute measuredTension : ForceValue;
+        attribute measuredLength : LengthValue;
+        attribute measuredSpeed : SpeedValue;
+        attribute encoderAngle : AngleValue;
+    }
+
+    item def PoseFeedback {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute roll : AngleValue;
+        attribute pitch : AngleValue;
+        attribute yaw : AngleValue;
+    }
+
+    item def Payload {
+        attribute mass : MassValue;
+        attribute centerOfMassOffsetX : LengthValue;
+        attribute centerOfMassOffsetY : LengthValue;
+        attribute centerOfMassOffsetZ : LengthValue;
+    }
+
+    item def DiagnosticStatus {
+        attribute controllerHealthy : Boolean;
+        attribute emergencyStopActive : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute cableSlackDetected : Boolean;
+        attribute positionError : LengthValue;
+    }
+
+    port def MotionCommandPort {
+        in item command : MotionCommand;
+    }
+
+    port def CableCommandPort {
+        out item command : CableTensionCommand;
+    }
+
+    port def CableFeedbackPort {
+        in item feedback : CableFeedback;
+    }
+
+    port def PoseFeedbackPort {
+        out item pose : PoseFeedback;
+    }
+
+    port def PayloadInterfacePort {
+        inout item payload : Payload;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def WinchDrive {
+        attribute maxCableLength : LengthValue = (value = 45.0, unit = m);
+        attribute maxCableSpeed : SpeedValue = (value = 2.5, unit = m/s);
+        attribute maxTension : ForceValue = (value = 8500.0, unit = N);
+        attribute minimumTension : ForceValue = (value = 120.0, unit = N);
+        attribute drumRadius : LengthValue = (value = 0.18, unit = m);
+
+        port commandPort : CableCommandPort;
+        port feedbackPort : CableFeedbackPort;
+
+        action adjustCable {
+            in item command : CableTensionCommand;
+            out item feedback : CableFeedback;
+
+            first startMotor;
+            then regulateTorque;
+            then regulateDrumSpeed;
+            then measureCableLength;
+            then measureCableTension;
+
+            action startMotor;
+            action regulateTorque;
+            action regulateDrumSpeed;
+            action measureCableLength;
+            action measureCableTension;
+        }
+    }
+
+    part def Cable {
+        attribute nominalDiameter : LengthValue = (value = 0.012, unit = m);
+        attribute workingLoadLimit : ForceValue = (value = 9000.0, unit = N);
+        attribute currentLength : LengthValue;
+        attribute currentTension : ForceValue;
+    }
+
+    part def MobilePlatform {
+        attribute platformMass : MassValue = (value = 120.0, unit = kg);
+        attribute maximumPayloadMass : MassValue = (value = 500.0, unit = kg);
+        attribute allowablePositionError : LengthValue = (value = 0.02, unit = m);
+
+        port payloadPort : PayloadInterfacePort;
+        port posePort : PoseFeedbackPort;
+    }
+
+    part def MotionController {
+        attribute controlCycleTime : TimeValue = (value = 0.005, unit = s);
+        attribute workspaceLengthX : LengthValue = (value = 30.0, unit = m);
+        attribute workspaceLengthY : LengthValue = (value = 18.0, unit = m);
+        attribute workspaceHeightZ : LengthValue = (value = 12.0, unit = m);
+        attribute maximumPlatformSpeed : SpeedValue = (value = 2.0, unit = m/s);
+        attribute nominalPositionTolerance : LengthValue = (value = 0.015, unit = m);
+
+        port motionCommandPort : MotionCommandPort;
+        port cableCommandPort1 : CableCommandPort;
+        port cableCommandPort2 : CableCommandPort;
+        port cableCommandPort3 : CableCommandPort;
+        port cableCommandPort4 : CableCommandPort;
+        port feedbackPort1 : CableFeedbackPort;
+        port feedbackPort2 : CableFeedbackPort;
+        port feedbackPort3 : CableFeedbackPort;
+        port feedbackPort4 : CableFeedbackPort;
+        port diagnosticPort : DiagnosticPort;
+
+        action computeCoordinatedCableMotion {
+            in item desiredMotion : MotionCommand;
+            in item cableFeedback1 : CableFeedback;
+            in item cableFeedback2 : CableFeedback;
+            in item cableFeedback3 : CableFeedback;
+            in item cableFeedback4 : CableFeedback;
+            out item cableCommand1 : CableTensionCommand;
+            out item cableCommand2 : CableTensionCommand;
+            out item cableCommand3 : CableTensionCommand;
+            out item cableCommand4 : CableTensionCommand;
+            out item diagnostic : DiagnosticStatus;
+
+            first validateCommandWithinWorkspace;
+            then estimatePlatformPose;
+            then solveInverseKinematics;
+            then allocateCableTensions;
+            then checkCableSlackAndOverload;
+            then publishCableCommands;
+
+            action validateCommandWithinWorkspace;
+            action estimatePlatformPose;
+            action solveInverseKinematics;
+            action allocateCableTensions;
+            action checkCableSlackAndOverload;
+            action publishCableCommands;
+        }
+
+        state def ControllerOperatingState {
+            entry action initializeControlLoop;
+
+            state Idle;
+            state Planning;
+            state Moving;
+            state HoldingPosition;
+            state Fault;
+            state EmergencyStopped;
+
+            transition first Idle;
+
+            transition Idle_to_Planning
+                first Idle
+                accept MotionCommand
+                then Planning;
+
+            transition Planning_to_Moving
+                first Planning
+                if commandValid
+                then Moving;
+
+            transition Moving_to_HoldingPosition
+                first Moving
+                if targetPoseReached
+                then HoldingPosition;
+
+            transition HoldingPosition_to_Planning
+                first HoldingPosition
+                accept MotionCommand
+                then Planning;
+
+            transition Any_to_Fault
+                first Idle
+                if overloadDetected or cableSlackDetected
+                then Fault;
+
+            transition Moving_to_Fault
+                first Moving
+                if overloadDetected or cableSlackDetected
+                then Fault;
+
+            transition Fault_to_Idle
+                first Fault
+                if faultCleared
+                then Idle;
+
+            transition Any_to_EmergencyStopped
+                first Moving
+                if emergencyStopActive
+                then EmergencyStopped;
+
+            transition EmergencyStopped_to_Idle
+                first EmergencyStopped
+                if emergencyStopReset
+                then Idle;
+
+            action initializeControlLoop;
+            attribute commandValid : Boolean;
+            attribute targetPoseReached : Boolean;
+            attribute overloadDetected : Boolean;
+            attribute cableSlackDetected : Boolean;
+            attribute emergencyStopActive : Boolean;
+            attribute emergencyStopReset : Boolean;
+            attribute faultCleared : Boolean;
+        }
+    }
+
+    part def SafetySupervisor {
+        attribute emergencyStopLatency : TimeValue = (value = 0.050, unit = s);
+        attribute maximumAllowedTension : ForceValue = (value = 8500.0, unit = N);
+        attribute minimumAllowedTension : ForceValue = (value = 100.0, unit = N);
+
+        port diagnosticPort : DiagnosticPort;
+
+        action monitorCableRobotSafety {
+            in item status : DiagnosticStatus;
+
+            first evaluateEmergencyStop;
+            then evaluateOverload;
+            then evaluateCableSlack;
+            then commandSafeStopWhenNeeded;
+
+            action evaluateEmergencyStop;
+            action evaluateOverload;
+            action evaluateCableSlack;
+            action commandSafeStopWhenNeeded;
+        }
+    }
+
+    part def CableRobot {
+        attribute ratedPayloadMass : MassValue = (value = 500.0, unit = kg);
+        attribute maximumTravelSpeed : SpeedValue = (value = 2.0, unit = m/s);
+        attribute positioningAccuracy : LengthValue = (value = 0.02, unit = m);
+        attribute usableWorkspaceX : LengthValue = (value = 30.0, unit = m);
+        attribute usableWorkspaceY : LengthValue = (value = 18.0, unit = m);
+        attribute usableWorkspaceZ : LengthValue = (value = 12.0, unit = m);
+
+        port operatorMotionCommand : MotionCommandPort;
+        port payloadInterface : PayloadInterfacePort;
+        port robotPoseOutput : PoseFeedbackPort;
+        port robotDiagnosticOutput : DiagnosticPort;
+
+        part controller : MotionController;
+        part supervisor : SafetySupervisor;
+        part platform : MobilePlatform;
+        part winchA : WinchDrive;
+        part winchB : WinchDrive;
+        part winchC : WinchDrive;
+        part winchD : WinchDrive;
+        part cableA : Cable;
+        part cableB : Cable;
+        part cableC : Cable;
+        part cableD : Cable;
+
+        connect operatorMotionCommand to controller.motionCommandPort;
+
+        connect controller.cableCommandPort1 to winchA.commandPort;
+        connect controller.cableCommandPort2 to winchB.commandPort;
+        connect controller.cableCommandPort3 to winchC.commandPort;
+        connect controller.cableCommandPort4 to winchD.commandPort;
+
+        connect winchA.feedbackPort to controller.feedbackPort1;
+        connect winchB.feedbackPort to controller.feedbackPort2;
+        connect winchC.feedbackPort to controller.feedbackPort3;
+        connect winchD.feedbackPort to controller.feedbackPort4;
+
+        connect platform.payloadPort to payloadInterface;
+        connect platform.posePort to robotPoseOutput;
+        connect controller.diagnosticPort to supervisor.diagnosticPort;
+        connect controller.diagnosticPort to robotDiagnosticOutput;
+
+        action performPrimaryFunction {
+            in item requestedMotion : MotionCommand;
+            inout item carriedPayload : Payload;
+            out item reportedPose : PoseFeedback;
+            out item reportedStatus : DiagnosticStatus;
+
+            first receiveMotionRequest;
+            then verifyPayloadWithinRating;
+            then computeCoordinatedWinchCommands;
+            then movePlatformByChangingCableLengths;
+            then holdPayloadAtTargetPose;
+            then reportPoseAndHealth;
+
+            action receiveMotionRequest;
+            action verifyPayloadWithinRating;
+            action computeCoordinatedWinchCommands;
+            action movePlatformByChangingCableLengths;
+            action holdPayloadAtTargetPose;
+            action reportPoseAndHealth;
+        }
+
+        state def RobotMissionState {
+            state PoweredOff;
+            state Ready;
+            state TransportingPayload;
+            state HoldingPayload;
+            state SafeStop;
+            state MaintenanceRequired;
+
+            transition first PoweredOff;
+
+            transition powerOn
+                first PoweredOff
+                then Ready;
+
+            transition startTransport
+                first Ready
+                accept MotionCommand
+                then TransportingPayload;
+
+            transition targetReached
+                first TransportingPayload
+                then HoldingPayload;
+
+            transition newTarget
+                first HoldingPayload
+                accept MotionCommand
+                then TransportingPayload;
+
+            transition safetyStop
+                first TransportingPayload
+                if unsafeConditionPresent
+                then SafeStop;
+
+            transition holdSafetyStop
+                first HoldingPayload
+                if unsafeConditionPresent
+                then SafeStop;
+
+            transition resetAfterSafeStop
+                first SafeStop
+                if unsafeConditionCleared
+                then Ready;
+
+            transition maintenanceFault
+                first Ready
+                if maintenanceFaultPresent
+                then MaintenanceRequired;
+
+            transition maintenanceComplete
+                first MaintenanceRequired
+                if maintenanceFaultCleared
+                then Ready;
+
+            attribute unsafeConditionPresent : Boolean;
+            attribute unsafeConditionCleared : Boolean;
+            attribute maintenanceFaultPresent : Boolean;
+            attribute maintenanceFaultCleared : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall position and transport a suspended payload through a three-dimensional workspace by coordinating four motorized winches that vary cable lengths and maintain controlled cable tension. */
+
+        require constraint {
+            robot.ratedPayloadMass.value >= 500.0
+        }
+
+        require constraint {
+            robot.maximumTravelSpeed.value >= 2.0
+        }
+
+        require constraint {
+            robot.positioningAccuracy.value <= 0.02
+        }
+    }
+
+    requirement def WorkspaceRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall provide a usable rectangular workspace of at least 30 m by 18 m by 12 m for payload motion. */
+
+        require constraint {
+            robot.usableWorkspaceX.value >= 30.0 and
+            robot.usableWorkspaceY.value >= 18.0 and
+            robot.usableWorkspaceZ.value >= 12.0
+        }
+    }
+
+    requirement def CableTensionSafetyRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall detect cable overload and cable slack and transition to a safe stop state before commanded motion continues. */
+
+        require constraint {
+            robot.supervisor.maximumAllowedTension.value <= 8500.0 and
+            robot.supervisor.minimumAllowedTension.value >= 100.0
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall remove motion authority from all winches within 50 ms after emergency stop activation. */
+
+        require constraint {
+            robot.supervisor.emergencyStopLatency.value <= 0.050
+        }
+    }
+
+    requirement def PayloadRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall accept, lift, translate, hold, and release a payload whose mass does not exceed the rated payload mass. */
+
+        require constraint {
+            robot.platform.maximumPayloadMass.value <= robot.ratedPayloadMass.value
+        }
+    }
+
+    part cableRobotSystem : CableRobot;
+
+    satisfy PrimaryFunctionRequirement by cableRobotSystem;
+    satisfy WorkspaceRequirement by cableRobotSystem;
+    satisfy CableTensionSafetyRequirement by cableRobotSystem;
+    satisfy EmergencyStopRequirement by cableRobotSystem;
+    satisfy PayloadRequirement by cableRobotSystem;
+}
+tokens used
+4,744
+package CableRobotSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        value : Real;
+        unit : LengthUnit;
+    }
+
+    attribute def SpeedValue {
+        value : Real;
+        unit : SpeedUnit;
+    }
+
+    attribute def ForceValue {
+        value : Real;
+        unit : ForceUnit;
+    }
+
+    attribute def MassValue {
+        value : Real;
+        unit : MassUnit;
+    }
+
+    attribute def TimeValue {
+        value : Real;
+        unit : TimeUnit;
+    }
+
+    attribute def AngleValue {
+        value : Real;
+        unit : PlaneAngleUnit;
+    }
+
+    item def MotionCommand {
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute targetZ : LengthValue;
+        attribute targetSpeed : SpeedValue;
+        attribute payloadMassEstimate : MassValue;
+    }
+
+    item def CableTensionCommand {
+        attribute commandedTension : ForceValue;
+        attribute commandedLength : LengthValue;
+        attribute commandedSpeed : SpeedValue;
+    }
+
+    item def CableFeedback {
+        attribute measuredTension : ForceValue;
+        attribute measuredLength : LengthValue;
+        attribute measuredSpeed : SpeedValue;
+        attribute encoderAngle : AngleValue;
+    }
+
+    item def PoseFeedback {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute roll : AngleValue;
+        attribute pitch : AngleValue;
+        attribute yaw : AngleValue;
+    }
+
+    item def Payload {
+        attribute mass : MassValue;
+        attribute centerOfMassOffsetX : LengthValue;
+        attribute centerOfMassOffsetY : LengthValue;
+        attribute centerOfMassOffsetZ : LengthValue;
+    }
+
+    item def DiagnosticStatus {
+        attribute controllerHealthy : Boolean;
+        attribute emergencyStopActive : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute cableSlackDetected : Boolean;
+        attribute positionError : LengthValue;
+    }
+
+    port def MotionCommandPort {
+        in item command : MotionCommand;
+    }
+
+    port def CableCommandPort {
+        out item command : CableTensionCommand;
+    }
+
+    port def CableFeedbackPort {
+        in item feedback : CableFeedback;
+    }
+
+    port def PoseFeedbackPort {
+        out item pose : PoseFeedback;
+    }
+
+    port def PayloadInterfacePort {
+        inout item payload : Payload;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def WinchDrive {
+        attribute maxCableLength : LengthValue = (value = 45.0, unit = m);
+        attribute maxCableSpeed : SpeedValue = (value = 2.5, unit = m/s);
+        attribute maxTension : ForceValue = (value = 8500.0, unit = N);
+        attribute minimumTension : ForceValue = (value = 120.0, unit = N);
+        attribute drumRadius : LengthValue = (value = 0.18, unit = m);
+
+        port commandPort : CableCommandPort;
+        port feedbackPort : CableFeedbackPort;
+
+        action adjustCable {
+            in item command : CableTensionCommand;
+            out item feedback : CableFeedback;
+
+            first startMotor;
+            then regulateTorque;
+            then regulateDrumSpeed;
+            then measureCableLength;
+            then measureCableTension;
+
+            action startMotor;
+            action regulateTorque;
+            action regulateDrumSpeed;
+            action measureCableLength;
+            action measureCableTension;
+        }
+    }
+
+    part def Cable {
+        attribute nominalDiameter : LengthValue = (value = 0.012, unit = m);
+        attribute workingLoadLimit : ForceValue = (value = 9000.0, unit = N);
+        attribute currentLength : LengthValue;
+        attribute currentTension : ForceValue;
+    }
+
+    part def MobilePlatform {
+        attribute platformMass : MassValue = (value = 120.0, unit = kg);
+        attribute maximumPayloadMass : MassValue = (value = 500.0, unit = kg);
+        attribute allowablePositionError : LengthValue = (value = 0.02, unit = m);
+
+        port payloadPort : PayloadInterfacePort;
+        port posePort : PoseFeedbackPort;
+    }
+
+    part def MotionController {
+        attribute controlCycleTime : TimeValue = (value = 0.005, unit = s);
+        attribute workspaceLengthX : LengthValue = (value = 30.0, unit = m);
+        attribute workspaceLengthY : LengthValue = (value = 18.0, unit = m);
+        attribute workspaceHeightZ : LengthValue = (value = 12.0, unit = m);
+        attribute maximumPlatformSpeed : SpeedValue = (value = 2.0, unit = m/s);
+        attribute nominalPositionTolerance : LengthValue = (value = 0.015, unit = m);
+
+        port motionCommandPort : MotionCommandPort;
+        port cableCommandPort1 : CableCommandPort;
+        port cableCommandPort2 : CableCommandPort;
+        port cableCommandPort3 : CableCommandPort;
+        port cableCommandPort4 : CableCommandPort;
+        port feedbackPort1 : CableFeedbackPort;
+        port feedbackPort2 : CableFeedbackPort;
+        port feedbackPort3 : CableFeedbackPort;
+        port feedbackPort4 : CableFeedbackPort;
+        port diagnosticPort : DiagnosticPort;
+
+        action computeCoordinatedCableMotion {
+            in item desiredMotion : MotionCommand;
+            in item cableFeedback1 : CableFeedback;
+            in item cableFeedback2 : CableFeedback;
+            in item cableFeedback3 : CableFeedback;
+            in item cableFeedback4 : CableFeedback;
+            out item cableCommand1 : CableTensionCommand;
+            out item cableCommand2 : CableTensionCommand;
+            out item cableCommand3 : CableTensionCommand;
+            out item cableCommand4 : CableTensionCommand;
+            out item diagnostic : DiagnosticStatus;
+
+            first validateCommandWithinWorkspace;
+            then estimatePlatformPose;
+            then solveInverseKinematics;
+            then allocateCableTensions;
+            then checkCableSlackAndOverload;
+            then publishCableCommands;
+
+            action validateCommandWithinWorkspace;
+            action estimatePlatformPose;
+            action solveInverseKinematics;
+            action allocateCableTensions;
+            action checkCableSlackAndOverload;
+            action publishCableCommands;
+        }
+
+        state def ControllerOperatingState {
+            entry action initializeControlLoop;
+
+            state Idle;
+            state Planning;
+            state Moving;
+            state HoldingPosition;
+            state Fault;
+            state EmergencyStopped;
+
+            transition first Idle;
+
+            transition Idle_to_Planning
+                first Idle
+                accept MotionCommand
+                then Planning;
+
+            transition Planning_to_Moving
+                first Planning
+                if commandValid
+                then Moving;
+
+            transition Moving_to_HoldingPosition
+                first Moving
+                if targetPoseReached
+                then HoldingPosition;
+
+            transition HoldingPosition_to_Planning
+                first HoldingPosition
+                accept MotionCommand
+                then Planning;
+
+            transition Any_to_Fault
+                first Idle
+                if overloadDetected or cableSlackDetected
+                then Fault;
+
+            transition Moving_to_Fault
+                first Moving
+                if overloadDetected or cableSlackDetected
+                then Fault;
+
+            transition Fault_to_Idle
+                first Fault
+                if faultCleared
+                then Idle;
+
+            transition Any_to_EmergencyStopped
+                first Moving
+                if emergencyStopActive
+                then EmergencyStopped;
+
+            transition EmergencyStopped_to_Idle
+                first EmergencyStopped
+                if emergencyStopReset
+                then Idle;
+
+            action initializeControlLoop;
+            attribute commandValid : Boolean;
+            attribute targetPoseReached : Boolean;
+            attribute overloadDetected : Boolean;
+            attribute cableSlackDetected : Boolean;
+            attribute emergencyStopActive : Boolean;
+            attribute emergencyStopReset : Boolean;
+            attribute faultCleared : Boolean;
+        }
+    }
+
+    part def SafetySupervisor {
+        attribute emergencyStopLatency : TimeValue = (value = 0.050, unit = s);
+        attribute maximumAllowedTension : ForceValue = (value = 8500.0, unit = N);
+        attribute minimumAllowedTension : ForceValue = (value = 100.0, unit = N);
+
+        port diagnosticPort : DiagnosticPort;
+
+        action monitorCableRobotSafety {
+            in item status : DiagnosticStatus;
+
+            first evaluateEmergencyStop;
+            then evaluateOverload;
+            then evaluateCableSlack;
+            then commandSafeStopWhenNeeded;
+
+            action evaluateEmergencyStop;
+            action evaluateOverload;
+            action evaluateCableSlack;
+            action commandSafeStopWhenNeeded;
+        }
+    }
+
+    part def CableRobot {
+        attribute ratedPayloadMass : MassValue = (value = 500.0, unit = kg);
+        attribute maximumTravelSpeed : SpeedValue = (value = 2.0, unit = m/s);
+        attribute positioningAccuracy : LengthValue = (value = 0.02, unit = m);
+        attribute usableWorkspaceX : LengthValue = (value = 30.0, unit = m);
+        attribute usableWorkspaceY : LengthValue = (value = 18.0, unit = m);
+        attribute usableWorkspaceZ : LengthValue = (value = 12.0, unit = m);
+
+        port operatorMotionCommand : MotionCommandPort;
+        port payloadInterface : PayloadInterfacePort;
+        port robotPoseOutput : PoseFeedbackPort;
+        port robotDiagnosticOutput : DiagnosticPort;
+
+        part controller : MotionController;
+        part supervisor : SafetySupervisor;
+        part platform : MobilePlatform;
+        part winchA : WinchDrive;
+        part winchB : WinchDrive;
+        part winchC : WinchDrive;
+        part winchD : WinchDrive;
+        part cableA : Cable;
+        part cableB : Cable;
+        part cableC : Cable;
+        part cableD : Cable;
+
+        connect operatorMotionCommand to controller.motionCommandPort;
+
+        connect controller.cableCommandPort1 to winchA.commandPort;
+        connect controller.cableCommandPort2 to winchB.commandPort;
+        connect controller.cableCommandPort3 to winchC.commandPort;
+        connect controller.cableCommandPort4 to winchD.commandPort;
+
+        connect winchA.feedbackPort to controller.feedbackPort1;
+        connect winchB.feedbackPort to controller.feedbackPort2;
+        connect winchC.feedbackPort to controller.feedbackPort3;
+        connect winchD.feedbackPort to controller.feedbackPort4;
+
+        connect platform.payloadPort to payloadInterface;
+        connect platform.posePort to robotPoseOutput;
+        connect controller.diagnosticPort to supervisor.diagnosticPort;
+        connect controller.diagnosticPort to robotDiagnosticOutput;
+
+        action performPrimaryFunction {
+            in item requestedMotion : MotionCommand;
+            inout item carriedPayload : Payload;
+            out item reportedPose : PoseFeedback;
+            out item reportedStatus : DiagnosticStatus;
+
+            first receiveMotionRequest;
+            then verifyPayloadWithinRating;
+            then computeCoordinatedWinchCommands;
+            then movePlatformByChangingCableLengths;
+            then holdPayloadAtTargetPose;
+            then reportPoseAndHealth;
+
+            action receiveMotionRequest;
+            action verifyPayloadWithinRating;
+            action computeCoordinatedWinchCommands;
+            action movePlatformByChangingCableLengths;
+            action holdPayloadAtTargetPose;
+            action reportPoseAndHealth;
+        }
+
+        state def RobotMissionState {
+            state PoweredOff;
+            state Ready;
+            state TransportingPayload;
+            state HoldingPayload;
+            state SafeStop;
+            state MaintenanceRequired;
+
+            transition first PoweredOff;
+
+            transition powerOn
+                first PoweredOff
+                then Ready;
+
+            transition startTransport
+                first Ready
+                accept MotionCommand
+                then TransportingPayload;
+
+            transition targetReached
+                first TransportingPayload
+                then HoldingPayload;
+
+            transition newTarget
+                first HoldingPayload
+                accept MotionCommand
+                then TransportingPayload;
+
+            transition safetyStop
+                first TransportingPayload
+                if unsafeConditionPresent
+                then SafeStop;
+
+            transition holdSafetyStop
+                first HoldingPayload
+                if unsafeConditionPresent
+                then SafeStop;
+
+            transition resetAfterSafeStop
+                first SafeStop
+                if unsafeConditionCleared
+                then Ready;
+
+            transition maintenanceFault
+                first Ready
+                if maintenanceFaultPresent
+                then MaintenanceRequired;
+
+            transition maintenanceComplete
+                first MaintenanceRequired
+                if maintenanceFaultCleared
+                then Ready;
+
+            attribute unsafeConditionPresent : Boolean;
+            attribute unsafeConditionCleared : Boolean;
+            attribute maintenanceFaultPresent : Boolean;
+            attribute maintenanceFaultCleared : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall position and transport a suspended payload through a three-dimensional workspace by coordinating four motorized winches that vary cable lengths and maintain controlled cable tension. */
+
+        require constraint {
+            robot.ratedPayloadMass.value >= 500.0
+        }
+
+        require constraint {
+            robot.maximumTravelSpeed.value >= 2.0
+        }
+
+        require constraint {
+            robot.positioningAccuracy.value <= 0.02
+        }
+    }
+
+    requirement def WorkspaceRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall provide a usable rectangular workspace of at least 30 m by 18 m by 12 m for payload motion. */
+
+        require constraint {
+            robot.usableWorkspaceX.value >= 30.0 and
+            robot.usableWorkspaceY.value >= 18.0 and
+            robot.usableWorkspaceZ.value >= 12.0
+        }
+    }
+
+    requirement def CableTensionSafetyRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall detect cable overload and cable slack and transition to a safe stop state before commanded motion continues. */
+
+        require constraint {
+            robot.supervisor.maximumAllowedTension.value <= 8500.0 and
+            robot.supervisor.minimumAllowedTension.value >= 100.0
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall remove motion authority from all winches within 50 ms after emergency stop activation. */
+
+        require constraint {
+            robot.supervisor.emergencyStopLatency.value <= 0.050
+        }
+    }
+
+    requirement def PayloadRequirement {
+        subject robot : CableRobot;
+
+        doc /* The cable robot shall accept, lift, translate, hold, and release a payload whose mass does not exceed the rated payload mass. */
+
+        require constraint {
+            robot.platform.maximumPayloadMass.value <= robot.ratedPayloadMass.value
+        }
+    }
+
+    part cableRobotSystem : CableRobot;
+
+    satisfy PrimaryFunctionRequirement by cableRobotSystem;
+    satisfy WorkspaceRequirement by cableRobotSystem;
+    satisfy CableTensionSafetyRequirement by cableRobotSystem;
+    satisfy EmergencyStopRequirement by cableRobotSystem;
+    satisfy PayloadRequirement by cableRobotSystem;
+}

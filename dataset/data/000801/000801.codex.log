@@ -1,0 +1,797 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-yf6n209l
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb441-9455-7840-a896-0c633b42eb4b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Transfer board and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TransferBoardSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    alias kg for SI::kilogram;
+    alias m for SI::metre;
+    alias deg for SI::degree;
+    alias N for SI::newton;
+    alias s for SI::second;
+
+    attribute def MassValue :> ScalarValues::Real {
+        unit = kg;
+    }
+
+    attribute def LengthValue :> ScalarValues::Real {
+        unit = m;
+    }
+
+    attribute def AngleValue :> ScalarValues::Real {
+        unit = deg;
+    }
+
+    attribute def ForceValue :> ScalarValues::Real {
+        unit = N;
+    }
+
+    attribute def TimeValue :> ScalarValues::Real {
+        unit = s;
+    }
+
+    item def User {
+        attribute bodyMass : MassValue;
+        attribute seatedPostureStable : Boolean;
+        attribute requiresAssistance : Boolean;
+    }
+
+    item def CaregiverCommand {
+        attribute startTransfer : Boolean;
+        attribute stopTransfer : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def BoardStatus {
+        attribute ready : Boolean;
+        attribute locked : Boolean;
+        attribute loadWithinLimit : Boolean;
+        attribute surfaceDry : Boolean;
+        attribute transferComplete : Boolean;
+    }
+
+    item def SupportLoad {
+        attribute verticalForce : ForceValue;
+        attribute shearForce : ForceValue;
+        attribute contactAreaLength : LengthValue;
+    }
+
+    port def UserSupportPort {
+        out item supportedUser : User;
+        in item appliedLoad : SupportLoad;
+    }
+
+    port def SeatInterfacePort {
+        in item seatLoad : SupportLoad;
+        out item alignmentStatus : BoardStatus;
+    }
+
+    port def ControlPort {
+        in item command : CaregiverCommand;
+        out item status : BoardStatus;
+    }
+
+    port def SafetySignalPort {
+        out item safetyStatus : BoardStatus;
+    }
+
+    part def TransferSurface {
+        attribute usableLength : LengthValue = 0.76 [m];
+        attribute usableWidth : LengthValue = 0.23 [m];
+        attribute thickness : LengthValue = 0.012 [m];
+        attribute surfaceFrictionCoefficient : Real = 0.18;
+        attribute edgeRadius : LengthValue = 0.015 [m];
+
+        port userSide : UserSupportPort;
+        port leftSeatSide : SeatInterfacePort;
+        port rightSeatSide : SeatInterfacePort;
+    }
+
+    part def StructuralCore {
+        attribute boardMass : MassValue = 1.35 [kg];
+        attribute ratedUserMass : MassValue = 150.0 [kg];
+        attribute maximumDistributedLoad : ForceValue = 1471.0 [N];
+        attribute maximumDeflection : LengthValue = 0.015 [m];
+        attribute minimumSafetyFactor : Real = 2.0;
+
+        port loadInput : UserSupportPort;
+        port loadOutputA : SeatInterfacePort;
+        port loadOutputB : SeatInterfacePort;
+    }
+
+    part def AntiSlipPads {
+        attribute padCount : Integer = 4;
+        attribute padFrictionCoefficient : Real = 0.75;
+        attribute padCompressionLimit : LengthValue = 0.004 [m];
+
+        port seatAContact : SeatInterfacePort;
+        port seatBContact : SeatInterfacePort;
+    }
+
+    part def HandGripCutouts {
+        attribute gripCount : Integer = 2;
+        attribute gripOpeningLength : LengthValue = 0.11 [m];
+        attribute gripOpeningWidth : LengthValue = 0.035 [m];
+        attribute minimumGripClearance : LengthValue = 0.03 [m];
+    }
+
+    part def AlignmentGuide {
+        attribute maximumSeatGap : LengthValue = 0.20 [m];
+        attribute maximumHeightDifference : LengthValue = 0.10 [m];
+        attribute maximumBoardAngle : AngleValue = 15.0 [deg];
+
+        port seatA : SeatInterfacePort;
+        port seatB : SeatInterfacePort;
+        port safetyOut : SafetySignalPort;
+    }
+
+    part def LoadMonitor {
+        attribute measuredLoad : ForceValue;
+        attribute loadLimit : ForceValue = 1471.0 [N];
+        attribute overloadDetected : Boolean;
+        attribute responseTime : TimeValue = 0.10 [s];
+
+        port sensedLoad : UserSupportPort;
+        port safetyOut : SafetySignalPort;
+    }
+
+    part def CaregiverInterface {
+        attribute readyIndicator : Boolean;
+        attribute unsafeIndicator : Boolean;
+        attribute transferCompleteIndicator : Boolean;
+
+        port control : ControlPort;
+        port safetyIn : SafetySignalPort;
+    }
+
+    action def PrepareTransfer {
+        in user : User;
+        in command : CaregiverCommand;
+        out status : BoardStatus;
+
+        first start;
+        then verifyCommand;
+        then verifyUserSeated;
+        then reportReady;
+        then done;
+
+        action verifyCommand {
+            in command : CaregiverCommand;
+            out accepted : Boolean;
+        }
+
+        action verifyUserSeated {
+            in user : User;
+            out stable : Boolean;
+        }
+
+        action reportReady {
+            out status : BoardStatus;
+        }
+    }
+
+    action def BridgeSeatGap {
+        in seatALoad : SupportLoad;
+        in seatBLoad : SupportLoad;
+        out status : BoardStatus;
+
+        first positionBoard;
+        then checkSeatOverlap;
+        then checkAngle;
+        then lockFrictionContact;
+        then done;
+
+        action positionBoard;
+        action checkSeatOverlap;
+        action checkAngle;
+        action lockFrictionContact;
+    }
+
+    action def SupportLateralTransfer {
+        in user : User;
+        in appliedLoad : SupportLoad;
+        out status : BoardStatus;
+
+        first acceptUserLoad;
+        then distributeLoadAcrossCore;
+        then permitControlledSlide;
+        then confirmArrival;
+        then done;
+
+        action acceptUserLoad;
+        action distributeLoadAcrossCore;
+        action permitControlledSlide;
+        action confirmArrival;
+    }
+
+    action def StopTransferSafely {
+        in command : CaregiverCommand;
+        out status : BoardStatus;
+
+        first detectStopCondition;
+        then stabilizeUser;
+        then reportStopped;
+        then done;
+
+        action detectStopCondition;
+        action stabilizeUser;
+        action reportStopped;
+    }
+
+    state def TransferBoardOperatingState {
+        state idle;
+        state positioned;
+        state ready;
+        state transferring;
+        state complete;
+        state unsafe;
+
+        initial then idle;
+
+        transition idle_to_positioned
+            first idle
+            accept CaregiverCommand
+            if command.startTransfer
+            then positioned;
+
+        transition positioned_to_ready
+            first positioned
+            if status.locked and status.loadWithinLimit and status.surfaceDry
+            then ready;
+
+        transition ready_to_transferring
+            first ready
+            accept SupportLoad
+            if appliedLoad.verticalForce <= 1471.0 [N]
+            then transferring;
+
+        transition transferring_to_complete
+            first transferring
+            if status.transferComplete
+            then complete;
+
+        transition any_to_unsafe
+            first idle
+            accept CaregiverCommand
+            if command.emergencyStop
+            then unsafe;
+
+        transition positioned_to_unsafe
+            first positioned
+            if not status.locked
+            then unsafe;
+
+        transition transferring_to_unsafe
+            first transferring
+            if not status.loadWithinLimit
+            then unsafe;
+
+        transition unsafe_to_idle
+            first unsafe
+            accept CaregiverCommand
+            if command.stopTransfer
+            then idle;
+    }
+
+    part def TransferBoardSystem {
+        doc /* The TransferBoardSystem is a portable seated-transfer aid whose primary high-level function is to bridge the gap between two support surfaces and provide a stable, low-friction path so a seated user can move laterally from one surface to another with caregiver control and reduced lifting effort. */
+
+        attribute systemMass : MassValue = 1.65 [kg];
+        attribute ratedUserMass : MassValue = 150.0 [kg];
+        attribute supportedSeatGap : LengthValue = 0.20 [m];
+        attribute supportedHeightDifference : LengthValue = 0.10 [m];
+        attribute nominalTransferTime : TimeValue = 20.0 [s];
+
+        part surface : TransferSurface;
+        part core : StructuralCore;
+        part pads : AntiSlipPads;
+        part grips : HandGripCutouts;
+        part alignment : AlignmentGuide;
+        part loadMonitor : LoadMonitor;
+        part caregiverInterface : CaregiverInterface;
+
+        port userPort : UserSupportPort;
+        port originSeatPort : SeatInterfacePort;
+        port destinationSeatPort : SeatInterfacePort;
+        port caregiverPort : ControlPort;
+        port safetyPort : SafetySignalPort;
+
+        connect userPort to surface.userSide;
+        connect surface.userSide to core.loadInput;
+        connect surface.leftSeatSide to core.loadOutputA;
+        connect surface.rightSeatSide to core.loadOutputB;
+        connect originSeatPort to surface.leftSeatSide;
+        connect destinationSeatPort to surface.rightSeatSide;
+        connect originSeatPort to pads.seatAContact;
+        connect destinationSeatPort to pads.seatBContact;
+        connect originSeatPort to alignment.seatA;
+        connect destinationSeatPort to alignment.seatB;
+        connect userPort to loadMonitor.sensedLoad;
+        connect alignment.safetyOut to safetyPort;
+        connect loadMonitor.safetyOut to safetyPort;
+        connect caregiverPort to caregiverInterface.control;
+        connect safetyPort to caregiverInterface.safetyIn;
+
+        perform action prepare : PrepareTransfer;
+        perform action bridge : BridgeSeatGap;
+        perform action support : SupportLateralTransfer;
+        perform action stop : StopTransferSafely;
+
+        exhibit state operatingState : TransferBoardOperatingState;
+    }
+
+    requirement def TransferFunctionRequirement {
+        doc /* The system shall enable lateral seated transfer of a user between two adjacent support surfaces by bridging the gap and supporting the user load throughout the transfer. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.supportedSeatGap <= 0.20 [m]
+        }
+    }
+
+    requirement def LoadCapacityRequirement {
+        doc /* The transfer board shall support a user mass of at least 150 kg with a minimum structural safety factor of 2.0. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.ratedUserMass >= 150.0 [kg]
+        }
+    }
+
+    requirement def StabilityRequirement {
+        doc /* The board shall remain frictionally stable on both seat surfaces during transfer under normal caregiver-controlled use. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.pads.padFrictionCoefficient >= 0.70
+        }
+    }
+
+    requirement def GapAndAngleRequirement {
+        doc /* The board shall support transfers across a seat gap up to 0.20 m, a height difference up to 0.10 m, and an installed angle up to 15 degrees. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.supportedSeatGap <= 0.20 [m] and
+            board.supportedHeightDifference <= 0.10 [m] and
+            board.alignment.maximumBoardAngle <= 15.0 [deg]
+        }
+    }
+
+    requirement def UsabilityRequirement {
+        doc /* The board shall provide hand grip cutouts sized for caregiver placement, removal, and controlled positioning. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.grips.gripCount >= 2 and
+            board.grips.minimumGripClearance >= 0.03 [m]
+        }
+    }
+
+    requirement def SurfaceRequirement {
+        doc /* The user-contact surface shall permit controlled sliding while avoiding sharp edges or abrupt discontinuities. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.surface.surfaceFrictionCoefficient <= 0.25 and
+            board.surface.edgeRadius >= 0.01 [m]
+        }
+    }
+
+    requirement def SafetyMonitoringRequirement {
+        doc /* The board shall report unsafe conditions when user load exceeds the rated load or seat alignment is outside permitted limits. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.loadMonitor.loadLimit <= board.core.maximumDistributedLoad
+        }
+    }
+
+    satisfy TransferFunctionRequirement by TransferBoardSystem;
+    satisfy LoadCapacityRequirement by TransferBoardSystem::core;
+    satisfy StabilityRequirement by TransferBoardSystem::pads;
+    satisfy GapAndAngleRequirement by TransferBoardSystem::alignment;
+    satisfy UsabilityRequirement by TransferBoardSystem::grips;
+    satisfy SurfaceRequirement by TransferBoardSystem::surface;
+    satisfy SafetyMonitoringRequirement by TransferBoardSystem::loadMonitor;
+}
+tokens used
+3,089
+package TransferBoardSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    alias kg for SI::kilogram;
+    alias m for SI::metre;
+    alias deg for SI::degree;
+    alias N for SI::newton;
+    alias s for SI::second;
+
+    attribute def MassValue :> ScalarValues::Real {
+        unit = kg;
+    }
+
+    attribute def LengthValue :> ScalarValues::Real {
+        unit = m;
+    }
+
+    attribute def AngleValue :> ScalarValues::Real {
+        unit = deg;
+    }
+
+    attribute def ForceValue :> ScalarValues::Real {
+        unit = N;
+    }
+
+    attribute def TimeValue :> ScalarValues::Real {
+        unit = s;
+    }
+
+    item def User {
+        attribute bodyMass : MassValue;
+        attribute seatedPostureStable : Boolean;
+        attribute requiresAssistance : Boolean;
+    }
+
+    item def CaregiverCommand {
+        attribute startTransfer : Boolean;
+        attribute stopTransfer : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def BoardStatus {
+        attribute ready : Boolean;
+        attribute locked : Boolean;
+        attribute loadWithinLimit : Boolean;
+        attribute surfaceDry : Boolean;
+        attribute transferComplete : Boolean;
+    }
+
+    item def SupportLoad {
+        attribute verticalForce : ForceValue;
+        attribute shearForce : ForceValue;
+        attribute contactAreaLength : LengthValue;
+    }
+
+    port def UserSupportPort {
+        out item supportedUser : User;
+        in item appliedLoad : SupportLoad;
+    }
+
+    port def SeatInterfacePort {
+        in item seatLoad : SupportLoad;
+        out item alignmentStatus : BoardStatus;
+    }
+
+    port def ControlPort {
+        in item command : CaregiverCommand;
+        out item status : BoardStatus;
+    }
+
+    port def SafetySignalPort {
+        out item safetyStatus : BoardStatus;
+    }
+
+    part def TransferSurface {
+        attribute usableLength : LengthValue = 0.76 [m];
+        attribute usableWidth : LengthValue = 0.23 [m];
+        attribute thickness : LengthValue = 0.012 [m];
+        attribute surfaceFrictionCoefficient : Real = 0.18;
+        attribute edgeRadius : LengthValue = 0.015 [m];
+
+        port userSide : UserSupportPort;
+        port leftSeatSide : SeatInterfacePort;
+        port rightSeatSide : SeatInterfacePort;
+    }
+
+    part def StructuralCore {
+        attribute boardMass : MassValue = 1.35 [kg];
+        attribute ratedUserMass : MassValue = 150.0 [kg];
+        attribute maximumDistributedLoad : ForceValue = 1471.0 [N];
+        attribute maximumDeflection : LengthValue = 0.015 [m];
+        attribute minimumSafetyFactor : Real = 2.0;
+
+        port loadInput : UserSupportPort;
+        port loadOutputA : SeatInterfacePort;
+        port loadOutputB : SeatInterfacePort;
+    }
+
+    part def AntiSlipPads {
+        attribute padCount : Integer = 4;
+        attribute padFrictionCoefficient : Real = 0.75;
+        attribute padCompressionLimit : LengthValue = 0.004 [m];
+
+        port seatAContact : SeatInterfacePort;
+        port seatBContact : SeatInterfacePort;
+    }
+
+    part def HandGripCutouts {
+        attribute gripCount : Integer = 2;
+        attribute gripOpeningLength : LengthValue = 0.11 [m];
+        attribute gripOpeningWidth : LengthValue = 0.035 [m];
+        attribute minimumGripClearance : LengthValue = 0.03 [m];
+    }
+
+    part def AlignmentGuide {
+        attribute maximumSeatGap : LengthValue = 0.20 [m];
+        attribute maximumHeightDifference : LengthValue = 0.10 [m];
+        attribute maximumBoardAngle : AngleValue = 15.0 [deg];
+
+        port seatA : SeatInterfacePort;
+        port seatB : SeatInterfacePort;
+        port safetyOut : SafetySignalPort;
+    }
+
+    part def LoadMonitor {
+        attribute measuredLoad : ForceValue;
+        attribute loadLimit : ForceValue = 1471.0 [N];
+        attribute overloadDetected : Boolean;
+        attribute responseTime : TimeValue = 0.10 [s];
+
+        port sensedLoad : UserSupportPort;
+        port safetyOut : SafetySignalPort;
+    }
+
+    part def CaregiverInterface {
+        attribute readyIndicator : Boolean;
+        attribute unsafeIndicator : Boolean;
+        attribute transferCompleteIndicator : Boolean;
+
+        port control : ControlPort;
+        port safetyIn : SafetySignalPort;
+    }
+
+    action def PrepareTransfer {
+        in user : User;
+        in command : CaregiverCommand;
+        out status : BoardStatus;
+
+        first start;
+        then verifyCommand;
+        then verifyUserSeated;
+        then reportReady;
+        then done;
+
+        action verifyCommand {
+            in command : CaregiverCommand;
+            out accepted : Boolean;
+        }
+
+        action verifyUserSeated {
+            in user : User;
+            out stable : Boolean;
+        }
+
+        action reportReady {
+            out status : BoardStatus;
+        }
+    }
+
+    action def BridgeSeatGap {
+        in seatALoad : SupportLoad;
+        in seatBLoad : SupportLoad;
+        out status : BoardStatus;
+
+        first positionBoard;
+        then checkSeatOverlap;
+        then checkAngle;
+        then lockFrictionContact;
+        then done;
+
+        action positionBoard;
+        action checkSeatOverlap;
+        action checkAngle;
+        action lockFrictionContact;
+    }
+
+    action def SupportLateralTransfer {
+        in user : User;
+        in appliedLoad : SupportLoad;
+        out status : BoardStatus;
+
+        first acceptUserLoad;
+        then distributeLoadAcrossCore;
+        then permitControlledSlide;
+        then confirmArrival;
+        then done;
+
+        action acceptUserLoad;
+        action distributeLoadAcrossCore;
+        action permitControlledSlide;
+        action confirmArrival;
+    }
+
+    action def StopTransferSafely {
+        in command : CaregiverCommand;
+        out status : BoardStatus;
+
+        first detectStopCondition;
+        then stabilizeUser;
+        then reportStopped;
+        then done;
+
+        action detectStopCondition;
+        action stabilizeUser;
+        action reportStopped;
+    }
+
+    state def TransferBoardOperatingState {
+        state idle;
+        state positioned;
+        state ready;
+        state transferring;
+        state complete;
+        state unsafe;
+
+        initial then idle;
+
+        transition idle_to_positioned
+            first idle
+            accept CaregiverCommand
+            if command.startTransfer
+            then positioned;
+
+        transition positioned_to_ready
+            first positioned
+            if status.locked and status.loadWithinLimit and status.surfaceDry
+            then ready;
+
+        transition ready_to_transferring
+            first ready
+            accept SupportLoad
+            if appliedLoad.verticalForce <= 1471.0 [N]
+            then transferring;
+
+        transition transferring_to_complete
+            first transferring
+            if status.transferComplete
+            then complete;
+
+        transition any_to_unsafe
+            first idle
+            accept CaregiverCommand
+            if command.emergencyStop
+            then unsafe;
+
+        transition positioned_to_unsafe
+            first positioned
+            if not status.locked
+            then unsafe;
+
+        transition transferring_to_unsafe
+            first transferring
+            if not status.loadWithinLimit
+            then unsafe;
+
+        transition unsafe_to_idle
+            first unsafe
+            accept CaregiverCommand
+            if command.stopTransfer
+            then idle;
+    }
+
+    part def TransferBoardSystem {
+        doc /* The TransferBoardSystem is a portable seated-transfer aid whose primary high-level function is to bridge the gap between two support surfaces and provide a stable, low-friction path so a seated user can move laterally from one surface to another with caregiver control and reduced lifting effort. */
+
+        attribute systemMass : MassValue = 1.65 [kg];
+        attribute ratedUserMass : MassValue = 150.0 [kg];
+        attribute supportedSeatGap : LengthValue = 0.20 [m];
+        attribute supportedHeightDifference : LengthValue = 0.10 [m];
+        attribute nominalTransferTime : TimeValue = 20.0 [s];
+
+        part surface : TransferSurface;
+        part core : StructuralCore;
+        part pads : AntiSlipPads;
+        part grips : HandGripCutouts;
+        part alignment : AlignmentGuide;
+        part loadMonitor : LoadMonitor;
+        part caregiverInterface : CaregiverInterface;
+
+        port userPort : UserSupportPort;
+        port originSeatPort : SeatInterfacePort;
+        port destinationSeatPort : SeatInterfacePort;
+        port caregiverPort : ControlPort;
+        port safetyPort : SafetySignalPort;
+
+        connect userPort to surface.userSide;
+        connect surface.userSide to core.loadInput;
+        connect surface.leftSeatSide to core.loadOutputA;
+        connect surface.rightSeatSide to core.loadOutputB;
+        connect originSeatPort to surface.leftSeatSide;
+        connect destinationSeatPort to surface.rightSeatSide;
+        connect originSeatPort to pads.seatAContact;
+        connect destinationSeatPort to pads.seatBContact;
+        connect originSeatPort to alignment.seatA;
+        connect destinationSeatPort to alignment.seatB;
+        connect userPort to loadMonitor.sensedLoad;
+        connect alignment.safetyOut to safetyPort;
+        connect loadMonitor.safetyOut to safetyPort;
+        connect caregiverPort to caregiverInterface.control;
+        connect safetyPort to caregiverInterface.safetyIn;
+
+        perform action prepare : PrepareTransfer;
+        perform action bridge : BridgeSeatGap;
+        perform action support : SupportLateralTransfer;
+        perform action stop : StopTransferSafely;
+
+        exhibit state operatingState : TransferBoardOperatingState;
+    }
+
+    requirement def TransferFunctionRequirement {
+        doc /* The system shall enable lateral seated transfer of a user between two adjacent support surfaces by bridging the gap and supporting the user load throughout the transfer. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.supportedSeatGap <= 0.20 [m]
+        }
+    }
+
+    requirement def LoadCapacityRequirement {
+        doc /* The transfer board shall support a user mass of at least 150 kg with a minimum structural safety factor of 2.0. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.ratedUserMass >= 150.0 [kg]
+        }
+    }
+
+    requirement def StabilityRequirement {
+        doc /* The board shall remain frictionally stable on both seat surfaces during transfer under normal caregiver-controlled use. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.pads.padFrictionCoefficient >= 0.70
+        }
+    }
+
+    requirement def GapAndAngleRequirement {
+        doc /* The board shall support transfers across a seat gap up to 0.20 m, a height difference up to 0.10 m, and an installed angle up to 15 degrees. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.supportedSeatGap <= 0.20 [m] and
+            board.supportedHeightDifference <= 0.10 [m] and
+            board.alignment.maximumBoardAngle <= 15.0 [deg]
+        }
+    }
+
+    requirement def UsabilityRequirement {
+        doc /* The board shall provide hand grip cutouts sized for caregiver placement, removal, and controlled positioning. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.grips.gripCount >= 2 and
+            board.grips.minimumGripClearance >= 0.03 [m]
+        }
+    }
+
+    requirement def SurfaceRequirement {
+        doc /* The user-contact surface shall permit controlled sliding while avoiding sharp edges or abrupt discontinuities. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.surface.surfaceFrictionCoefficient <= 0.25 and
+            board.surface.edgeRadius >= 0.01 [m]
+        }
+    }
+
+    requirement def SafetyMonitoringRequirement {
+        doc /* The board shall report unsafe conditions when user load exceeds the rated load or seat alignment is outside permitted limits. */
+        subject board : TransferBoardSystem;
+        require constraint {
+            board.loadMonitor.loadLimit <= board.core.maximumDistributedLoad
+        }
+    }
+
+    satisfy TransferFunctionRequirement by TransferBoardSystem;
+    satisfy LoadCapacityRequirement by TransferBoardSystem::core;
+    satisfy StabilityRequirement by TransferBoardSystem::pads;
+    satisfy GapAndAngleRequirement by TransferBoardSystem::alignment;
+    satisfy UsabilityRequirement by TransferBoardSystem::grips;
+    satisfy SurfaceRequirement by TransferBoardSystem::surface;
+    satisfy SafetyMonitoringRequirement by TransferBoardSystem::loadMonitor;
+}

@@ -1,0 +1,795 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-yqwgjb27
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb437-8959-7f81-8bd0-8c16571acc80
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Thorpe tube flowmeter and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ThorpeTubeFlowmeterModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "K";
+    }
+
+    attribute def Length {
+        :> scalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Diameter {
+        :> scalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Density {
+        :> scalarValues::Real;
+        unit = "kg/m^3";
+    }
+
+    attribute def DynamicViscosity {
+        :> scalarValues::Real;
+        unit = "Pa*s";
+    }
+
+    attribute def Percentage {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def GasKind {
+        :> scalarValues::String;
+    }
+
+    item def MedicalGas {
+        attribute gasKind : GasKind;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute density : Density;
+        attribute dynamicViscosity : DynamicViscosity;
+        attribute volumetricFlowRate : FlowRate;
+    }
+
+    item def IndicatedFlow {
+        attribute gasKind : GasKind;
+        attribute displayedFlowRate : FlowRate;
+        attribute uncertainty : Percentage;
+    }
+
+    port def GasInletPort {
+        in item suppliedGas : MedicalGas;
+    }
+
+    port def GasOutletPort {
+        out item deliveredGas : MedicalGas;
+    }
+
+    port def FlowIndicationPort {
+        out item indicatedFlow : IndicatedFlow;
+    }
+
+    port def ControlPort {
+        in attribute requestedSetpoint : FlowRate;
+        out attribute actualSetpoint : FlowRate;
+    }
+
+    action def AdmitGas {
+        in item inletGas : MedicalGas;
+        out item meteredGas : MedicalGas;
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+    }
+
+    action def RegulateFlow {
+        in item suppliedGas : MedicalGas;
+        in attribute requestedFlow : FlowRate;
+        out item regulatedGas : MedicalGas;
+        out attribute needleValveOpening : Percentage;
+    }
+
+    action def LiftFloat {
+        in item regulatedGas : MedicalGas;
+        out attribute floatHeight : Length;
+        out attribute equilibriumReached : Boolean;
+    }
+
+    action def IndicateFlow {
+        in attribute floatHeight : Length;
+        in item regulatedGas : MedicalGas;
+        out item indicatedFlow : IndicatedFlow;
+    }
+
+    action def DeliverGas {
+        in item meteredGas : MedicalGas;
+        out item outletGas : MedicalGas;
+    }
+
+    state def FlowmeterOperatingState {
+        entry action initialize;
+
+        state Off;
+        state Standby;
+        state Flowing;
+        state StableIndication;
+        state Fault;
+
+        transition first Off;
+
+        transition Off_to_Standby
+            first Off
+            then Standby
+            accept PowerAvailable;
+
+        transition Standby_to_Flowing
+            first Standby
+            then Flowing
+            accept GasPressureAvailable
+            if inletPressure >= 200 [kPa];
+
+        transition Flowing_to_StableIndication
+            first Flowing
+            then StableIndication
+            accept FloatEquilibrated
+            if equilibriumReached == true;
+
+        transition StableIndication_to_Flowing
+            first StableIndication
+            then Flowing
+            accept SetpointChanged;
+
+        transition Any_to_Fault
+            first Standby
+            then Fault
+            accept TubeBlocked
+            if outletFlow < requestedSetpoint * 0.5;
+
+        transition Flowing_to_Fault
+            first Flowing
+            then Fault
+            accept OverRange
+            if outletFlow > maximumRatedFlow;
+
+        transition Fault_to_Standby
+            first Fault
+            then Standby
+            accept FaultCleared;
+    }
+
+    part def TaperedGlassTube {
+        attribute tubeLength : Length = 150 [mm];
+        attribute lowerBoreDiameter : Diameter = 4.0 [mm];
+        attribute upperBoreDiameter : Diameter = 12.0 [mm];
+        attribute maximumWorkingPressure : Pressure = 500 [kPa];
+
+        port inlet : GasInletPort;
+        port outlet : GasOutletPort;
+    }
+
+    part def Float {
+        attribute materialDensity : Density = 7800 [kg/m^3];
+        attribute diameter : Diameter = 3.8 [mm];
+        attribute heightPosition : Length;
+        attribute stable : Boolean;
+    }
+
+    part def NeedleValve {
+        attribute opening : Percentage;
+        attribute minimumControllableFlow : FlowRate = 0.1 [L/min];
+        attribute maximumControllableFlow : FlowRate = 15.0 [L/min];
+
+        port control : ControlPort;
+        port inlet : GasInletPort;
+        port outlet : GasOutletPort;
+    }
+
+    part def FlowScale {
+        attribute calibratedGasKind : GasKind = "oxygen";
+        attribute minimumMarkedFlow : FlowRate = 0.5 [L/min];
+        attribute maximumMarkedFlow : FlowRate = 15.0 [L/min];
+        attribute indicationAccuracy : Percentage = 5 [%];
+
+        port indication : FlowIndicationPort;
+    }
+
+    part def InletConnector {
+        attribute nominalSupplyPressure : Pressure = 345 [kPa];
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+    }
+
+    part def OutletConnector {
+        attribute maximumOutletBackPressure : Pressure = 30 [kPa];
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+    }
+
+    part def ThorpeTubeFlowmeter {
+        attribute supportedGasKind : GasKind = "oxygen";
+        attribute minimumRatedFlow : FlowRate = 0.5 [L/min];
+        attribute maximumRatedFlow : FlowRate = 15.0 [L/min];
+        attribute requestedSetpoint : FlowRate;
+        attribute outletFlow : FlowRate;
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute equilibriumReached : Boolean;
+
+        port gasSupply : GasInletPort;
+        port gasDelivery : GasOutletPort;
+        port flowReading : FlowIndicationPort;
+        port setpointControl : ControlPort;
+
+        part inletConnector : InletConnector;
+        part valve : NeedleValve;
+        part tube : TaperedGlassTube;
+        part float : Float;
+        part scale : FlowScale;
+        part outletConnector : OutletConnector;
+
+        connect gasSupply to inletConnector.gasIn;
+        connect inletConnector.gasOut to valve.inlet;
+        connect valve.outlet to tube.inlet;
+        connect tube.outlet to outletConnector.gasIn;
+        connect outletConnector.gasOut to gasDelivery;
+        connect setpointControl to valve.control;
+        connect scale.indication to flowReading;
+
+        perform action AdmitGas {
+            in inletGas = gasSupply.suppliedGas;
+            out meteredGas;
+            attribute inletPressure = gasSupply.suppliedGas.pressure;
+            attribute outletPressure = outletPressure;
+        }
+
+        perform action RegulateFlow {
+            in suppliedGas = gasSupply.suppliedGas;
+            in requestedFlow = requestedSetpoint;
+            out regulatedGas;
+            out needleValveOpening = valve.opening;
+        }
+
+        perform action LiftFloat {
+            in regulatedGas;
+            out floatHeight = float.heightPosition;
+            out equilibriumReached = float.stable;
+        }
+
+        perform action IndicateFlow {
+            in floatHeight = float.heightPosition;
+            in regulatedGas;
+            out indicatedFlow = flowReading.indicatedFlow;
+        }
+
+        perform action DeliverGas {
+            in meteredGas = regulatedGas;
+            out outletGas = gasDelivery.deliveredGas;
+        }
+
+        exhibit state FlowmeterOperatingState;
+
+        constraint flowWithinRatedRange {
+            requestedSetpoint >= minimumRatedFlow and requestedSetpoint <= maximumRatedFlow;
+        }
+
+        constraint outletFlowTracksSetpoint {
+            outletFlow >= requestedSetpoint * 0.95 and outletFlow <= requestedSetpoint * 1.05;
+        }
+
+        constraint floatHeightIncreasesWithFlow {
+            outletFlow > 0 [L/min] implies float.heightPosition > 0 [mm];
+        }
+
+        constraint gasCompatibility {
+            gasSupply.suppliedGas.gasKind == supportedGasKind;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The Thorpe tube flowmeter shall provide a high-level primary function of receiving a pressurized medical gas supply, controlling the gas flow through an adjustable valve, using a float in a vertically oriented tapered transparent tube to establish a visible equilibrium height proportional to volumetric flow rate, and delivering the metered gas while presenting the indicated flow rate to the user.
+        */
+
+        require constraint {
+            flowmeter.gasSupply.suppliedGas.pressure >= 200 [kPa] and
+            flowmeter.requestedSetpoint >= flowmeter.minimumRatedFlow and
+            flowmeter.requestedSetpoint <= flowmeter.maximumRatedFlow and
+            flowmeter.outletFlow >= flowmeter.requestedSetpoint * 0.95 and
+            flowmeter.outletFlow <= flowmeter.requestedSetpoint * 1.05
+        }
+    }
+
+    requirement def VisibleIndicationRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The Thorpe tube flowmeter shall indicate flow by the stable vertical position of the float against a calibrated scale visible to the operator.
+        */
+
+        require constraint {
+            flowmeter.float.stable == true implies
+            flowmeter.flowReading.indicatedFlow.displayedFlowRate >= flowmeter.minimumRatedFlow and
+            flowmeter.flowReading.indicatedFlow.displayedFlowRate <= flowmeter.maximumRatedFlow
+        }
+    }
+
+    requirement def GasDeliveryRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The Thorpe tube flowmeter shall deliver the same gas kind received at the inlet to the outlet after metering.
+        */
+
+        require constraint {
+            flowmeter.gasDelivery.deliveredGas.gasKind == flowmeter.gasSupply.suppliedGas.gasKind
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The indicated flow shall remain within five percent of actual delivered flow over the marked operating range when used with the calibrated gas.
+        */
+
+        require constraint {
+            flowmeter.flowReading.indicatedFlow.uncertainty <= 5 [%]
+        }
+    }
+
+    part thorpeTubeOxygenFlowmeter : ThorpeTubeFlowmeter {
+        attribute supportedGasKind = "oxygen";
+        attribute minimumRatedFlow = 0.5 [L/min];
+        attribute maximumRatedFlow = 15.0 [L/min];
+        attribute requestedSetpoint = 6.0 [L/min];
+
+        part inletConnector {
+            attribute nominalSupplyPressure = 345 [kPa];
+        }
+
+        part valve {
+            attribute opening = 42 [%];
+        }
+
+        part tube {
+            attribute tubeLength = 150 [mm];
+            attribute lowerBoreDiameter = 4.0 [mm];
+            attribute upperBoreDiameter = 12.0 [mm];
+        }
+
+        part float {
+            attribute heightPosition = 72 [mm];
+            attribute stable = true;
+        }
+
+        part scale {
+            attribute calibratedGasKind = "oxygen";
+            attribute minimumMarkedFlow = 0.5 [L/min];
+            attribute maximumMarkedFlow = 15.0 [L/min];
+            attribute indicationAccuracy = 5 [%];
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by thorpeTubeOxygenFlowmeter;
+    satisfy VisibleIndicationRequirement by thorpeTubeOxygenFlowmeter;
+    satisfy GasDeliveryRequirement by thorpeTubeOxygenFlowmeter;
+    satisfy AccuracyRequirement by thorpeTubeOxygenFlowmeter;
+}
+tokens used
+3,988
+package ThorpeTubeFlowmeterModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "K";
+    }
+
+    attribute def Length {
+        :> scalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Diameter {
+        :> scalarValues::Real;
+        unit = "mm";
+    }
+
+    attribute def Density {
+        :> scalarValues::Real;
+        unit = "kg/m^3";
+    }
+
+    attribute def DynamicViscosity {
+        :> scalarValues::Real;
+        unit = "Pa*s";
+    }
+
+    attribute def Percentage {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def GasKind {
+        :> scalarValues::String;
+    }
+
+    item def MedicalGas {
+        attribute gasKind : GasKind;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute density : Density;
+        attribute dynamicViscosity : DynamicViscosity;
+        attribute volumetricFlowRate : FlowRate;
+    }
+
+    item def IndicatedFlow {
+        attribute gasKind : GasKind;
+        attribute displayedFlowRate : FlowRate;
+        attribute uncertainty : Percentage;
+    }
+
+    port def GasInletPort {
+        in item suppliedGas : MedicalGas;
+    }
+
+    port def GasOutletPort {
+        out item deliveredGas : MedicalGas;
+    }
+
+    port def FlowIndicationPort {
+        out item indicatedFlow : IndicatedFlow;
+    }
+
+    port def ControlPort {
+        in attribute requestedSetpoint : FlowRate;
+        out attribute actualSetpoint : FlowRate;
+    }
+
+    action def AdmitGas {
+        in item inletGas : MedicalGas;
+        out item meteredGas : MedicalGas;
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+    }
+
+    action def RegulateFlow {
+        in item suppliedGas : MedicalGas;
+        in attribute requestedFlow : FlowRate;
+        out item regulatedGas : MedicalGas;
+        out attribute needleValveOpening : Percentage;
+    }
+
+    action def LiftFloat {
+        in item regulatedGas : MedicalGas;
+        out attribute floatHeight : Length;
+        out attribute equilibriumReached : Boolean;
+    }
+
+    action def IndicateFlow {
+        in attribute floatHeight : Length;
+        in item regulatedGas : MedicalGas;
+        out item indicatedFlow : IndicatedFlow;
+    }
+
+    action def DeliverGas {
+        in item meteredGas : MedicalGas;
+        out item outletGas : MedicalGas;
+    }
+
+    state def FlowmeterOperatingState {
+        entry action initialize;
+
+        state Off;
+        state Standby;
+        state Flowing;
+        state StableIndication;
+        state Fault;
+
+        transition first Off;
+
+        transition Off_to_Standby
+            first Off
+            then Standby
+            accept PowerAvailable;
+
+        transition Standby_to_Flowing
+            first Standby
+            then Flowing
+            accept GasPressureAvailable
+            if inletPressure >= 200 [kPa];
+
+        transition Flowing_to_StableIndication
+            first Flowing
+            then StableIndication
+            accept FloatEquilibrated
+            if equilibriumReached == true;
+
+        transition StableIndication_to_Flowing
+            first StableIndication
+            then Flowing
+            accept SetpointChanged;
+
+        transition Any_to_Fault
+            first Standby
+            then Fault
+            accept TubeBlocked
+            if outletFlow < requestedSetpoint * 0.5;
+
+        transition Flowing_to_Fault
+            first Flowing
+            then Fault
+            accept OverRange
+            if outletFlow > maximumRatedFlow;
+
+        transition Fault_to_Standby
+            first Fault
+            then Standby
+            accept FaultCleared;
+    }
+
+    part def TaperedGlassTube {
+        attribute tubeLength : Length = 150 [mm];
+        attribute lowerBoreDiameter : Diameter = 4.0 [mm];
+        attribute upperBoreDiameter : Diameter = 12.0 [mm];
+        attribute maximumWorkingPressure : Pressure = 500 [kPa];
+
+        port inlet : GasInletPort;
+        port outlet : GasOutletPort;
+    }
+
+    part def Float {
+        attribute materialDensity : Density = 7800 [kg/m^3];
+        attribute diameter : Diameter = 3.8 [mm];
+        attribute heightPosition : Length;
+        attribute stable : Boolean;
+    }
+
+    part def NeedleValve {
+        attribute opening : Percentage;
+        attribute minimumControllableFlow : FlowRate = 0.1 [L/min];
+        attribute maximumControllableFlow : FlowRate = 15.0 [L/min];
+
+        port control : ControlPort;
+        port inlet : GasInletPort;
+        port outlet : GasOutletPort;
+    }
+
+    part def FlowScale {
+        attribute calibratedGasKind : GasKind = "oxygen";
+        attribute minimumMarkedFlow : FlowRate = 0.5 [L/min];
+        attribute maximumMarkedFlow : FlowRate = 15.0 [L/min];
+        attribute indicationAccuracy : Percentage = 5 [%];
+
+        port indication : FlowIndicationPort;
+    }
+
+    part def InletConnector {
+        attribute nominalSupplyPressure : Pressure = 345 [kPa];
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+    }
+
+    part def OutletConnector {
+        attribute maximumOutletBackPressure : Pressure = 30 [kPa];
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+    }
+
+    part def ThorpeTubeFlowmeter {
+        attribute supportedGasKind : GasKind = "oxygen";
+        attribute minimumRatedFlow : FlowRate = 0.5 [L/min];
+        attribute maximumRatedFlow : FlowRate = 15.0 [L/min];
+        attribute requestedSetpoint : FlowRate;
+        attribute outletFlow : FlowRate;
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute equilibriumReached : Boolean;
+
+        port gasSupply : GasInletPort;
+        port gasDelivery : GasOutletPort;
+        port flowReading : FlowIndicationPort;
+        port setpointControl : ControlPort;
+
+        part inletConnector : InletConnector;
+        part valve : NeedleValve;
+        part tube : TaperedGlassTube;
+        part float : Float;
+        part scale : FlowScale;
+        part outletConnector : OutletConnector;
+
+        connect gasSupply to inletConnector.gasIn;
+        connect inletConnector.gasOut to valve.inlet;
+        connect valve.outlet to tube.inlet;
+        connect tube.outlet to outletConnector.gasIn;
+        connect outletConnector.gasOut to gasDelivery;
+        connect setpointControl to valve.control;
+        connect scale.indication to flowReading;
+
+        perform action AdmitGas {
+            in inletGas = gasSupply.suppliedGas;
+            out meteredGas;
+            attribute inletPressure = gasSupply.suppliedGas.pressure;
+            attribute outletPressure = outletPressure;
+        }
+
+        perform action RegulateFlow {
+            in suppliedGas = gasSupply.suppliedGas;
+            in requestedFlow = requestedSetpoint;
+            out regulatedGas;
+            out needleValveOpening = valve.opening;
+        }
+
+        perform action LiftFloat {
+            in regulatedGas;
+            out floatHeight = float.heightPosition;
+            out equilibriumReached = float.stable;
+        }
+
+        perform action IndicateFlow {
+            in floatHeight = float.heightPosition;
+            in regulatedGas;
+            out indicatedFlow = flowReading.indicatedFlow;
+        }
+
+        perform action DeliverGas {
+            in meteredGas = regulatedGas;
+            out outletGas = gasDelivery.deliveredGas;
+        }
+
+        exhibit state FlowmeterOperatingState;
+
+        constraint flowWithinRatedRange {
+            requestedSetpoint >= minimumRatedFlow and requestedSetpoint <= maximumRatedFlow;
+        }
+
+        constraint outletFlowTracksSetpoint {
+            outletFlow >= requestedSetpoint * 0.95 and outletFlow <= requestedSetpoint * 1.05;
+        }
+
+        constraint floatHeightIncreasesWithFlow {
+            outletFlow > 0 [L/min] implies float.heightPosition > 0 [mm];
+        }
+
+        constraint gasCompatibility {
+            gasSupply.suppliedGas.gasKind == supportedGasKind;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The Thorpe tube flowmeter shall provide a high-level primary function of receiving a pressurized medical gas supply, controlling the gas flow through an adjustable valve, using a float in a vertically oriented tapered transparent tube to establish a visible equilibrium height proportional to volumetric flow rate, and delivering the metered gas while presenting the indicated flow rate to the user.
+        */
+
+        require constraint {
+            flowmeter.gasSupply.suppliedGas.pressure >= 200 [kPa] and
+            flowmeter.requestedSetpoint >= flowmeter.minimumRatedFlow and
+            flowmeter.requestedSetpoint <= flowmeter.maximumRatedFlow and
+            flowmeter.outletFlow >= flowmeter.requestedSetpoint * 0.95 and
+            flowmeter.outletFlow <= flowmeter.requestedSetpoint * 1.05
+        }
+    }
+
+    requirement def VisibleIndicationRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The Thorpe tube flowmeter shall indicate flow by the stable vertical position of the float against a calibrated scale visible to the operator.
+        */
+
+        require constraint {
+            flowmeter.float.stable == true implies
+            flowmeter.flowReading.indicatedFlow.displayedFlowRate >= flowmeter.minimumRatedFlow and
+            flowmeter.flowReading.indicatedFlow.displayedFlowRate <= flowmeter.maximumRatedFlow
+        }
+    }
+
+    requirement def GasDeliveryRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The Thorpe tube flowmeter shall deliver the same gas kind received at the inlet to the outlet after metering.
+        */
+
+        require constraint {
+            flowmeter.gasDelivery.deliveredGas.gasKind == flowmeter.gasSupply.suppliedGas.gasKind
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject flowmeter : ThorpeTubeFlowmeter;
+
+        doc
+        /*
+         The indicated flow shall remain within five percent of actual delivered flow over the marked operating range when used with the calibrated gas.
+        */
+
+        require constraint {
+            flowmeter.flowReading.indicatedFlow.uncertainty <= 5 [%]
+        }
+    }
+
+    part thorpeTubeOxygenFlowmeter : ThorpeTubeFlowmeter {
+        attribute supportedGasKind = "oxygen";
+        attribute minimumRatedFlow = 0.5 [L/min];
+        attribute maximumRatedFlow = 15.0 [L/min];
+        attribute requestedSetpoint = 6.0 [L/min];
+
+        part inletConnector {
+            attribute nominalSupplyPressure = 345 [kPa];
+        }
+
+        part valve {
+            attribute opening = 42 [%];
+        }
+
+        part tube {
+            attribute tubeLength = 150 [mm];
+            attribute lowerBoreDiameter = 4.0 [mm];
+            attribute upperBoreDiameter = 12.0 [mm];
+        }
+
+        part float {
+            attribute heightPosition = 72 [mm];
+            attribute stable = true;
+        }
+
+        part scale {
+            attribute calibratedGasKind = "oxygen";
+            attribute minimumMarkedFlow = 0.5 [L/min];
+            attribute maximumMarkedFlow = 15.0 [L/min];
+            attribute indicationAccuracy = 5 [%];
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by thorpeTubeOxygenFlowmeter;
+    satisfy VisibleIndicationRequirement by thorpeTubeOxygenFlowmeter;
+    satisfy GasDeliveryRequirement by thorpeTubeOxygenFlowmeter;
+    satisfy AccuracyRequirement by thorpeTubeOxygenFlowmeter;
+}

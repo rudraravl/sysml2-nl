@@ -1,0 +1,1171 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-yah5v4ns
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2b6-67e6-7391-98c2-17d170359d83
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Hybrot and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HybrotSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Duration :> Real {
+        unit = "s";
+    }
+
+    attribute def Distance :> Real {
+        unit = "m";
+    }
+
+    attribute def Velocity :> Real {
+        unit = "m/s";
+    }
+
+    attribute def Acceleration :> Real {
+        unit = "m/s^2";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Concentration :> Real {
+        unit = "mol/L";
+    }
+
+    attribute def Probability :> Real {
+        unit = "1";
+    }
+
+    attribute def SpikeRate :> Real {
+        unit = "spikes/s";
+    }
+
+    attribute def SignalAmplitude :> Real {
+        unit = "V";
+    }
+
+    attribute def DirectionAngle :> Real {
+        unit = "deg";
+    }
+
+    attribute def Dimensionless :> Real {
+        unit = "1";
+    }
+
+    item def NeuralSpike {
+        attribute timestamp : Duration;
+        attribute electrodeId : Integer;
+        attribute amplitude : Voltage;
+        attribute confidence : Probability;
+    }
+
+    item def StimulationPulse {
+        attribute targetElectrodeId : Integer;
+        attribute pulseAmplitude : Voltage;
+        attribute pulseWidth : Duration;
+        attribute pulseFrequency : Frequency;
+        attribute pulseCount : Integer;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : Duration;
+        attribute frontRange : Distance;
+        attribute leftRange : Distance;
+        attribute rightRange : Distance;
+        attribute lightLevel : Dimensionless;
+        attribute contactDetected : Boolean;
+    }
+
+    item def MotorCommand {
+        attribute leftWheelVelocity : Velocity;
+        attribute rightWheelVelocity : Velocity;
+        attribute duration : Duration;
+        attribute priority : Integer;
+    }
+
+    item def RobotPose {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute heading : DirectionAngle;
+        attribute translationalVelocity : Velocity;
+        attribute angularVelocity : Frequency;
+    }
+
+    item def CultureHealthStatus {
+        attribute bathTemperature : Temperature;
+        attribute nutrientGlucose : Concentration;
+        attribute meanSpikeRate : SpikeRate;
+        attribute viabilityEstimate : Probability;
+        attribute contaminationDetected : Boolean;
+    }
+
+    item def NetworkIntent {
+        attribute forwardDrive : Dimensionless;
+        attribute turnBias : Dimensionless;
+        attribute avoidanceUrgency : Dimensionless;
+        attribute explorationGain : Dimensionless;
+    }
+
+    port def SpikeInputPort {
+        in item spike : NeuralSpike;
+    }
+
+    port def SpikeOutputPort {
+        out item spike : NeuralSpike;
+    }
+
+    port def StimulationInputPort {
+        in item pulse : StimulationPulse;
+    }
+
+    port def StimulationOutputPort {
+        out item pulse : StimulationPulse;
+    }
+
+    port def SensorOutputPort {
+        out item frame : SensorFrame;
+    }
+
+    port def SensorInputPort {
+        in item frame : SensorFrame;
+    }
+
+    port def MotorCommandInputPort {
+        in item command : MotorCommand;
+    }
+
+    port def MotorCommandOutputPort {
+        out item command : MotorCommand;
+    }
+
+    port def PoseOutputPort {
+        out item pose : RobotPose;
+    }
+
+    port def HealthOutputPort {
+        out item status : CultureHealthStatus;
+    }
+
+    port def IntentOutputPort {
+        out item intent : NetworkIntent;
+    }
+
+    port def IntentInputPort {
+        in item intent : NetworkIntent;
+    }
+
+    part def MicroElectrodeArray {
+        attribute electrodeCount : Integer = 60;
+        attribute samplingRate : Frequency = 25000;
+        attribute stimulationVoltageLimit : Voltage = 1.2;
+        attribute spikeDetectionThreshold : Voltage = 0.00004;
+
+        port neuralSpikes : SpikeOutputPort;
+        port stimulation : StimulationInputPort;
+    }
+
+    part def LivingNeuralCulture {
+        attribute neuronPopulationEstimate : Integer = 50000;
+        attribute incubationTemperature : Temperature = 37.0;
+        attribute nominalMeanSpikeRate : SpikeRate = 8.0;
+        attribute minimumViability : Probability = 0.70;
+        attribute nutrientGlucoseNominal : Concentration = 0.0055;
+
+        port sensoryStimulus : StimulationInputPort;
+        port spontaneousAndEvokedSpikes : SpikeOutputPort;
+        port health : HealthOutputPort;
+    }
+
+    part def NeuralSignalProcessor {
+        attribute binWidth : Duration = 0.050;
+        attribute refractoryFilterWindow : Duration = 0.002;
+        attribute minimumSpikeConfidence : Probability = 0.85;
+
+        port rawSpikes : SpikeInputPort;
+        port decodedIntent : IntentOutputPort;
+    }
+
+    part def SensoryEncoder {
+        attribute nearObstacleDistance : Distance = 0.25;
+        attribute farObstacleDistance : Distance = 1.50;
+        attribute maxPulseFrequency : Frequency = 20.0;
+        attribute nominalPulseWidth : Duration = 0.0004;
+
+        port sensorFrame : SensorInputPort;
+        port encodedStimulation : StimulationOutputPort;
+    }
+
+    part def ClosedLoopController {
+        attribute commandUpdatePeriod : Duration = 0.050;
+        attribute maximumWheelVelocity : Velocity = 0.35;
+        attribute avoidanceTurnGain : Dimensionless = 0.80;
+        attribute explorationDriveGain : Dimensionless = 0.45;
+
+        port networkIntent : IntentInputPort;
+        port currentSensors : SensorInputPort;
+        port motorCommand : MotorCommandOutputPort;
+    }
+
+    part def MobileRobotPlatform {
+        attribute wheelBase : Distance = 0.18;
+        attribute wheelRadius : Distance = 0.035;
+        attribute maximumAcceleration : Acceleration = 0.70;
+        attribute mass : Real = 1.8;
+
+        port motorCommand : MotorCommandInputPort;
+        port pose : PoseOutputPort;
+    }
+
+    part def EnvironmentalSensorSuite {
+        attribute rangeUpdateRate : Frequency = 30.0;
+        attribute rangeResolution : Distance = 0.005;
+        attribute contactDebounceTime : Duration = 0.020;
+
+        port sensedEnvironment : SensorOutputPort;
+    }
+
+    part def CultureSupportModule {
+        attribute bathTemperatureSetpoint : Temperature = 37.0;
+        attribute bathTemperatureTolerance : Temperature = 0.5;
+        attribute mediumExchangeInterval : Duration = 21600.0;
+        attribute contaminationAlarmThreshold : Probability = 0.05;
+
+        port healthStatus : HealthOutputPort;
+    }
+
+    part def SafetySupervisor {
+        attribute maxAllowedVelocity : Velocity = 0.35;
+        attribute emergencyStopDistance : Distance = 0.08;
+        attribute minimumCultureViability : Probability = 0.65;
+        attribute watchdogTimeout : Duration = 0.200;
+
+        port sensorFrame : SensorInputPort;
+        port cultureHealth : HealthOutputPort;
+        port safeMotorCommand : MotorCommandOutputPort;
+    }
+
+    action def EncodeSensorsAsNeuralStimulation {
+        in item sensors : SensorFrame;
+        out item pulses : StimulationPulse;
+
+        attribute obstacleIntensity : Dimensionless;
+        attribute selectedElectrode : Integer;
+
+        first start;
+        then computeObstacleIntensity;
+        then mapDirectionToElectrode;
+        then synthesizePulseTrain;
+        then done;
+
+        action computeObstacleIntensity {
+            out attribute obstacleIntensity : Dimensionless;
+        }
+
+        action mapDirectionToElectrode {
+            in attribute obstacleIntensity : Dimensionless;
+            out attribute selectedElectrode : Integer;
+        }
+
+        action synthesizePulseTrain {
+            in attribute selectedElectrode : Integer;
+            out item pulses : StimulationPulse;
+        }
+    }
+
+    action def DecodeNeuralActivityToIntent {
+        in item spike : NeuralSpike;
+        out item intent : NetworkIntent;
+
+        attribute leftPopulationRate : SpikeRate;
+        attribute rightPopulationRate : SpikeRate;
+        attribute avoidancePopulationRate : SpikeRate;
+
+        first acquireSpike;
+        then updatePopulationRates;
+        then estimateIntentVector;
+        then publishIntent;
+
+        action acquireSpike;
+        action updatePopulationRates {
+            out attribute leftPopulationRate : SpikeRate;
+            out attribute rightPopulationRate : SpikeRate;
+            out attribute avoidancePopulationRate : SpikeRate;
+        }
+
+        action estimateIntentVector {
+            in attribute leftPopulationRate : SpikeRate;
+            in attribute rightPopulationRate : SpikeRate;
+            in attribute avoidancePopulationRate : SpikeRate;
+            out item intent : NetworkIntent;
+        }
+
+        action publishIntent;
+    }
+
+    action def GenerateClosedLoopMotorCommand {
+        in item sensors : SensorFrame;
+        in item intent : NetworkIntent;
+        out item command : MotorCommand;
+
+        first readIntentAndSensors;
+        then arbitrateExplorationAndAvoidance;
+        then limitVelocity;
+        then issueCommand;
+
+        action readIntentAndSensors;
+        action arbitrateExplorationAndAvoidance;
+        action limitVelocity;
+        action issueCommand;
+    }
+
+    action def MaintainCultureHomeostasis {
+        in item health : CultureHealthStatus;
+        out item correctedHealth : CultureHealthStatus;
+
+        first monitorBath;
+        then regulateTemperature;
+        then manageMedium;
+        then reportCultureState;
+
+        action monitorBath;
+        action regulateTemperature;
+        action manageMedium;
+        action reportCultureState;
+    }
+
+    state def HybrotOperationalStateMachine {
+        state Off;
+        state Initializing;
+        state CultureStabilizing;
+        state CalibratingElectrodes;
+        state ClosedLoopExploration;
+        state ObstacleAvoidance;
+        state SafeStop;
+        state MaintenanceMode;
+        state Fault;
+
+        initial then Off;
+
+        transition powerOn
+            first Off
+            accept event PowerApplied
+            then Initializing;
+
+        transition initializationComplete
+            first Initializing
+            accept event HardwareReady
+            then CultureStabilizing;
+
+        transition cultureStable
+            first CultureStabilizing
+            accept event CultureHealthNominal
+            then CalibratingElectrodes;
+
+        transition calibrationComplete
+            first CalibratingElectrodes
+            accept event ElectrodeMapValid
+            then ClosedLoopExploration;
+
+        transition obstacleDetected
+            first ClosedLoopExploration
+            accept event NearObstacleDetected
+            then ObstacleAvoidance;
+
+        transition obstacleCleared
+            first ObstacleAvoidance
+            accept event PathClear
+            then ClosedLoopExploration;
+
+        transition emergencyStop
+            first ClosedLoopExploration
+            accept event UnsafeCondition
+            then SafeStop;
+
+        transition avoidanceEmergencyStop
+            first ObstacleAvoidance
+            accept event UnsafeCondition
+            then SafeStop;
+
+        transition recoverFromSafeStop
+            first SafeStop
+            accept event OperatorReset
+            then CultureStabilizing;
+
+        transition enterMaintenance
+            first CultureStabilizing
+            accept event MediumExchangeRequired
+            then MaintenanceMode;
+
+        transition exitMaintenance
+            first MaintenanceMode
+            accept event MaintenanceComplete
+            then CultureStabilizing;
+
+        transition unrecoverableFault
+            first SafeStop
+            accept event FaultConfirmed
+            then Fault;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject hybrot : HybrotSystem;
+
+        require constraint {
+            hybrot.primaryFunction == "Use a living neural culture interfaced through a micro-electrode array to transform environmental sensor patterns into adaptive mobile robot behavior."
+        }
+    }
+
+    requirement def ClosedLoopLatencyRequirement {
+        subject hybrot : HybrotSystem;
+
+        require constraint {
+            hybrot.closedLoopLatency <= 0.100
+        }
+    }
+
+    requirement def CultureViabilityRequirement {
+        subject culture : LivingNeuralCulture;
+
+        require constraint {
+            culture.minimumViability >= 0.70
+        }
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        subject controller : ClosedLoopController;
+
+        require constraint {
+            controller.maximumWheelVelocity <= 0.35
+        }
+    }
+
+    requirement def ElectrodeInterfaceRequirement {
+        subject mea : MicroElectrodeArray;
+
+        require constraint {
+            mea.electrodeCount >= 60 and mea.samplingRate >= 20000
+        }
+    }
+
+    requirement def SafetyStopRequirement {
+        subject supervisor : SafetySupervisor;
+
+        require constraint {
+            supervisor.emergencyStopDistance >= 0.08 and supervisor.watchdogTimeout <= 0.200
+        }
+    }
+
+    part def HybrotSystem {
+        attribute primaryFunction : String =
+            "Use a living neural culture interfaced through a micro-electrode array to transform environmental sensor patterns into adaptive mobile robot behavior.";
+
+        attribute closedLoopLatency : Duration = 0.080;
+        attribute missionDuration : Duration = 1800.0;
+        attribute nominalOperatingTemperature : Temperature = 37.0;
+
+        part neuralCulture : LivingNeuralCulture;
+        part microElectrodeArray : MicroElectrodeArray;
+        part signalProcessor : NeuralSignalProcessor;
+        part sensoryEncoder : SensoryEncoder;
+        part controller : ClosedLoopController;
+        part robotPlatform : MobileRobotPlatform;
+        part sensors : EnvironmentalSensorSuite;
+        part cultureSupport : CultureSupportModule;
+        part safetySupervisor : SafetySupervisor;
+
+        port environmentObservations : SensorOutputPort;
+        port robotPose : PoseOutputPort;
+        port cultureHealth : HealthOutputPort;
+
+        connection sensorToEncoder
+            connect sensors.sensedEnvironment to sensoryEncoder.sensorFrame;
+
+        connection sensorToController
+            connect sensors.sensedEnvironment to controller.currentSensors;
+
+        connection sensorToSafety
+            connect sensors.sensedEnvironment to safetySupervisor.sensorFrame;
+
+        connection encoderToMEA
+            connect sensoryEncoder.encodedStimulation to microElectrodeArray.stimulation;
+
+        connection meaStimulatesCulture
+            connect microElectrodeArray.stimulation to neuralCulture.sensoryStimulus;
+
+        connection cultureSpikesToMEA
+            connect neuralCulture.spontaneousAndEvokedSpikes to microElectrodeArray.neuralSpikes;
+
+        connection meaToSignalProcessor
+            connect microElectrodeArray.neuralSpikes to signalProcessor.rawSpikes;
+
+        connection decodedIntentToController
+            connect signalProcessor.decodedIntent to controller.networkIntent;
+
+        connection controllerToRobot
+            connect controller.motorCommand to robotPlatform.motorCommand;
+
+        connection cultureHealthToSupervisor
+            connect neuralCulture.health to safetySupervisor.cultureHealth;
+
+        connection supportHealthToSupervisor
+            connect cultureSupport.healthStatus to safetySupervisor.cultureHealth;
+
+        connection poseOut
+            connect robotPlatform.pose to robotPose;
+
+        connection healthOut
+            connect neuralCulture.health to cultureHealth;
+
+        perform action encodeSensors : EncodeSensorsAsNeuralStimulation;
+        perform action decodeIntent : DecodeNeuralActivityToIntent;
+        perform action generateMotorCommand : GenerateClosedLoopMotorCommand;
+        perform action maintainCulture : MaintainCultureHomeostasis;
+
+        exhibit state hybrotStates : HybrotOperationalStateMachine;
+    }
+
+    satisfy PrimaryFunctionRequirement by HybrotSystem;
+    satisfy ClosedLoopLatencyRequirement by HybrotSystem;
+    satisfy CultureViabilityRequirement by LivingNeuralCulture;
+    satisfy ObstacleAvoidanceRequirement by ClosedLoopController;
+    satisfy ElectrodeInterfaceRequirement by MicroElectrodeArray;
+    satisfy SafetyStopRequirement by SafetySupervisor;
+
+    part hybrotDemonstrator : HybrotSystem {
+        attribute closedLoopLatency = 0.075;
+        attribute missionDuration = 1200.0;
+
+        part neuralCulture {
+            attribute neuronPopulationEstimate = 65000;
+            attribute nominalMeanSpikeRate = 10.0;
+            attribute minimumViability = 0.78;
+        }
+
+        part microElectrodeArray {
+            attribute electrodeCount = 60;
+            attribute samplingRate = 25000;
+            attribute spikeDetectionThreshold = 0.000035;
+        }
+
+        part controller {
+            attribute commandUpdatePeriod = 0.050;
+            attribute maximumWheelVelocity = 0.30;
+            attribute avoidanceTurnGain = 0.90;
+            attribute explorationDriveGain = 0.40;
+        }
+
+        part robotPlatform {
+            attribute wheelBase = 0.18;
+            attribute wheelRadius = 0.035;
+            attribute maximumAcceleration = 0.60;
+        }
+
+        part safetySupervisor {
+            attribute emergencyStopDistance = 0.10;
+            attribute watchdogTimeout = 0.150;
+            attribute minimumCultureViability = 0.70;
+        }
+    }
+}
+tokens used
+5,070
+package HybrotSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Duration :> Real {
+        unit = "s";
+    }
+
+    attribute def Distance :> Real {
+        unit = "m";
+    }
+
+    attribute def Velocity :> Real {
+        unit = "m/s";
+    }
+
+    attribute def Acceleration :> Real {
+        unit = "m/s^2";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Concentration :> Real {
+        unit = "mol/L";
+    }
+
+    attribute def Probability :> Real {
+        unit = "1";
+    }
+
+    attribute def SpikeRate :> Real {
+        unit = "spikes/s";
+    }
+
+    attribute def SignalAmplitude :> Real {
+        unit = "V";
+    }
+
+    attribute def DirectionAngle :> Real {
+        unit = "deg";
+    }
+
+    attribute def Dimensionless :> Real {
+        unit = "1";
+    }
+
+    item def NeuralSpike {
+        attribute timestamp : Duration;
+        attribute electrodeId : Integer;
+        attribute amplitude : Voltage;
+        attribute confidence : Probability;
+    }
+
+    item def StimulationPulse {
+        attribute targetElectrodeId : Integer;
+        attribute pulseAmplitude : Voltage;
+        attribute pulseWidth : Duration;
+        attribute pulseFrequency : Frequency;
+        attribute pulseCount : Integer;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : Duration;
+        attribute frontRange : Distance;
+        attribute leftRange : Distance;
+        attribute rightRange : Distance;
+        attribute lightLevel : Dimensionless;
+        attribute contactDetected : Boolean;
+    }
+
+    item def MotorCommand {
+        attribute leftWheelVelocity : Velocity;
+        attribute rightWheelVelocity : Velocity;
+        attribute duration : Duration;
+        attribute priority : Integer;
+    }
+
+    item def RobotPose {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute heading : DirectionAngle;
+        attribute translationalVelocity : Velocity;
+        attribute angularVelocity : Frequency;
+    }
+
+    item def CultureHealthStatus {
+        attribute bathTemperature : Temperature;
+        attribute nutrientGlucose : Concentration;
+        attribute meanSpikeRate : SpikeRate;
+        attribute viabilityEstimate : Probability;
+        attribute contaminationDetected : Boolean;
+    }
+
+    item def NetworkIntent {
+        attribute forwardDrive : Dimensionless;
+        attribute turnBias : Dimensionless;
+        attribute avoidanceUrgency : Dimensionless;
+        attribute explorationGain : Dimensionless;
+    }
+
+    port def SpikeInputPort {
+        in item spike : NeuralSpike;
+    }
+
+    port def SpikeOutputPort {
+        out item spike : NeuralSpike;
+    }
+
+    port def StimulationInputPort {
+        in item pulse : StimulationPulse;
+    }
+
+    port def StimulationOutputPort {
+        out item pulse : StimulationPulse;
+    }
+
+    port def SensorOutputPort {
+        out item frame : SensorFrame;
+    }
+
+    port def SensorInputPort {
+        in item frame : SensorFrame;
+    }
+
+    port def MotorCommandInputPort {
+        in item command : MotorCommand;
+    }
+
+    port def MotorCommandOutputPort {
+        out item command : MotorCommand;
+    }
+
+    port def PoseOutputPort {
+        out item pose : RobotPose;
+    }
+
+    port def HealthOutputPort {
+        out item status : CultureHealthStatus;
+    }
+
+    port def IntentOutputPort {
+        out item intent : NetworkIntent;
+    }
+
+    port def IntentInputPort {
+        in item intent : NetworkIntent;
+    }
+
+    part def MicroElectrodeArray {
+        attribute electrodeCount : Integer = 60;
+        attribute samplingRate : Frequency = 25000;
+        attribute stimulationVoltageLimit : Voltage = 1.2;
+        attribute spikeDetectionThreshold : Voltage = 0.00004;
+
+        port neuralSpikes : SpikeOutputPort;
+        port stimulation : StimulationInputPort;
+    }
+
+    part def LivingNeuralCulture {
+        attribute neuronPopulationEstimate : Integer = 50000;
+        attribute incubationTemperature : Temperature = 37.0;
+        attribute nominalMeanSpikeRate : SpikeRate = 8.0;
+        attribute minimumViability : Probability = 0.70;
+        attribute nutrientGlucoseNominal : Concentration = 0.0055;
+
+        port sensoryStimulus : StimulationInputPort;
+        port spontaneousAndEvokedSpikes : SpikeOutputPort;
+        port health : HealthOutputPort;
+    }
+
+    part def NeuralSignalProcessor {
+        attribute binWidth : Duration = 0.050;
+        attribute refractoryFilterWindow : Duration = 0.002;
+        attribute minimumSpikeConfidence : Probability = 0.85;
+
+        port rawSpikes : SpikeInputPort;
+        port decodedIntent : IntentOutputPort;
+    }
+
+    part def SensoryEncoder {
+        attribute nearObstacleDistance : Distance = 0.25;
+        attribute farObstacleDistance : Distance = 1.50;
+        attribute maxPulseFrequency : Frequency = 20.0;
+        attribute nominalPulseWidth : Duration = 0.0004;
+
+        port sensorFrame : SensorInputPort;
+        port encodedStimulation : StimulationOutputPort;
+    }
+
+    part def ClosedLoopController {
+        attribute commandUpdatePeriod : Duration = 0.050;
+        attribute maximumWheelVelocity : Velocity = 0.35;
+        attribute avoidanceTurnGain : Dimensionless = 0.80;
+        attribute explorationDriveGain : Dimensionless = 0.45;
+
+        port networkIntent : IntentInputPort;
+        port currentSensors : SensorInputPort;
+        port motorCommand : MotorCommandOutputPort;
+    }
+
+    part def MobileRobotPlatform {
+        attribute wheelBase : Distance = 0.18;
+        attribute wheelRadius : Distance = 0.035;
+        attribute maximumAcceleration : Acceleration = 0.70;
+        attribute mass : Real = 1.8;
+
+        port motorCommand : MotorCommandInputPort;
+        port pose : PoseOutputPort;
+    }
+
+    part def EnvironmentalSensorSuite {
+        attribute rangeUpdateRate : Frequency = 30.0;
+        attribute rangeResolution : Distance = 0.005;
+        attribute contactDebounceTime : Duration = 0.020;
+
+        port sensedEnvironment : SensorOutputPort;
+    }
+
+    part def CultureSupportModule {
+        attribute bathTemperatureSetpoint : Temperature = 37.0;
+        attribute bathTemperatureTolerance : Temperature = 0.5;
+        attribute mediumExchangeInterval : Duration = 21600.0;
+        attribute contaminationAlarmThreshold : Probability = 0.05;
+
+        port healthStatus : HealthOutputPort;
+    }
+
+    part def SafetySupervisor {
+        attribute maxAllowedVelocity : Velocity = 0.35;
+        attribute emergencyStopDistance : Distance = 0.08;
+        attribute minimumCultureViability : Probability = 0.65;
+        attribute watchdogTimeout : Duration = 0.200;
+
+        port sensorFrame : SensorInputPort;
+        port cultureHealth : HealthOutputPort;
+        port safeMotorCommand : MotorCommandOutputPort;
+    }
+
+    action def EncodeSensorsAsNeuralStimulation {
+        in item sensors : SensorFrame;
+        out item pulses : StimulationPulse;
+
+        attribute obstacleIntensity : Dimensionless;
+        attribute selectedElectrode : Integer;
+
+        first start;
+        then computeObstacleIntensity;
+        then mapDirectionToElectrode;
+        then synthesizePulseTrain;
+        then done;
+
+        action computeObstacleIntensity {
+            out attribute obstacleIntensity : Dimensionless;
+        }
+
+        action mapDirectionToElectrode {
+            in attribute obstacleIntensity : Dimensionless;
+            out attribute selectedElectrode : Integer;
+        }
+
+        action synthesizePulseTrain {
+            in attribute selectedElectrode : Integer;
+            out item pulses : StimulationPulse;
+        }
+    }
+
+    action def DecodeNeuralActivityToIntent {
+        in item spike : NeuralSpike;
+        out item intent : NetworkIntent;
+
+        attribute leftPopulationRate : SpikeRate;
+        attribute rightPopulationRate : SpikeRate;
+        attribute avoidancePopulationRate : SpikeRate;
+
+        first acquireSpike;
+        then updatePopulationRates;
+        then estimateIntentVector;
+        then publishIntent;
+
+        action acquireSpike;
+        action updatePopulationRates {
+            out attribute leftPopulationRate : SpikeRate;
+            out attribute rightPopulationRate : SpikeRate;
+            out attribute avoidancePopulationRate : SpikeRate;
+        }
+
+        action estimateIntentVector {
+            in attribute leftPopulationRate : SpikeRate;
+            in attribute rightPopulationRate : SpikeRate;
+            in attribute avoidancePopulationRate : SpikeRate;
+            out item intent : NetworkIntent;
+        }
+
+        action publishIntent;
+    }
+
+    action def GenerateClosedLoopMotorCommand {
+        in item sensors : SensorFrame;
+        in item intent : NetworkIntent;
+        out item command : MotorCommand;
+
+        first readIntentAndSensors;
+        then arbitrateExplorationAndAvoidance;
+        then limitVelocity;
+        then issueCommand;
+
+        action readIntentAndSensors;
+        action arbitrateExplorationAndAvoidance;
+        action limitVelocity;
+        action issueCommand;
+    }
+
+    action def MaintainCultureHomeostasis {
+        in item health : CultureHealthStatus;
+        out item correctedHealth : CultureHealthStatus;
+
+        first monitorBath;
+        then regulateTemperature;
+        then manageMedium;
+        then reportCultureState;
+
+        action monitorBath;
+        action regulateTemperature;
+        action manageMedium;
+        action reportCultureState;
+    }
+
+    state def HybrotOperationalStateMachine {
+        state Off;
+        state Initializing;
+        state CultureStabilizing;
+        state CalibratingElectrodes;
+        state ClosedLoopExploration;
+        state ObstacleAvoidance;
+        state SafeStop;
+        state MaintenanceMode;
+        state Fault;
+
+        initial then Off;
+
+        transition powerOn
+            first Off
+            accept event PowerApplied
+            then Initializing;
+
+        transition initializationComplete
+            first Initializing
+            accept event HardwareReady
+            then CultureStabilizing;
+
+        transition cultureStable
+            first CultureStabilizing
+            accept event CultureHealthNominal
+            then CalibratingElectrodes;
+
+        transition calibrationComplete
+            first CalibratingElectrodes
+            accept event ElectrodeMapValid
+            then ClosedLoopExploration;
+
+        transition obstacleDetected
+            first ClosedLoopExploration
+            accept event NearObstacleDetected
+            then ObstacleAvoidance;
+
+        transition obstacleCleared
+            first ObstacleAvoidance
+            accept event PathClear
+            then ClosedLoopExploration;
+
+        transition emergencyStop
+            first ClosedLoopExploration
+            accept event UnsafeCondition
+            then SafeStop;
+
+        transition avoidanceEmergencyStop
+            first ObstacleAvoidance
+            accept event UnsafeCondition
+            then SafeStop;
+
+        transition recoverFromSafeStop
+            first SafeStop
+            accept event OperatorReset
+            then CultureStabilizing;
+
+        transition enterMaintenance
+            first CultureStabilizing
+            accept event MediumExchangeRequired
+            then MaintenanceMode;
+
+        transition exitMaintenance
+            first MaintenanceMode
+            accept event MaintenanceComplete
+            then CultureStabilizing;
+
+        transition unrecoverableFault
+            first SafeStop
+            accept event FaultConfirmed
+            then Fault;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject hybrot : HybrotSystem;
+
+        require constraint {
+            hybrot.primaryFunction == "Use a living neural culture interfaced through a micro-electrode array to transform environmental sensor patterns into adaptive mobile robot behavior."
+        }
+    }
+
+    requirement def ClosedLoopLatencyRequirement {
+        subject hybrot : HybrotSystem;
+
+        require constraint {
+            hybrot.closedLoopLatency <= 0.100
+        }
+    }
+
+    requirement def CultureViabilityRequirement {
+        subject culture : LivingNeuralCulture;
+
+        require constraint {
+            culture.minimumViability >= 0.70
+        }
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        subject controller : ClosedLoopController;
+
+        require constraint {
+            controller.maximumWheelVelocity <= 0.35
+        }
+    }
+
+    requirement def ElectrodeInterfaceRequirement {
+        subject mea : MicroElectrodeArray;
+
+        require constraint {
+            mea.electrodeCount >= 60 and mea.samplingRate >= 20000
+        }
+    }
+
+    requirement def SafetyStopRequirement {
+        subject supervisor : SafetySupervisor;
+
+        require constraint {
+            supervisor.emergencyStopDistance >= 0.08 and supervisor.watchdogTimeout <= 0.200
+        }
+    }
+
+    part def HybrotSystem {
+        attribute primaryFunction : String =
+            "Use a living neural culture interfaced through a micro-electrode array to transform environmental sensor patterns into adaptive mobile robot behavior.";
+
+        attribute closedLoopLatency : Duration = 0.080;
+        attribute missionDuration : Duration = 1800.0;
+        attribute nominalOperatingTemperature : Temperature = 37.0;
+
+        part neuralCulture : LivingNeuralCulture;
+        part microElectrodeArray : MicroElectrodeArray;
+        part signalProcessor : NeuralSignalProcessor;
+        part sensoryEncoder : SensoryEncoder;
+        part controller : ClosedLoopController;
+        part robotPlatform : MobileRobotPlatform;
+        part sensors : EnvironmentalSensorSuite;
+        part cultureSupport : CultureSupportModule;
+        part safetySupervisor : SafetySupervisor;
+
+        port environmentObservations : SensorOutputPort;
+        port robotPose : PoseOutputPort;
+        port cultureHealth : HealthOutputPort;
+
+        connection sensorToEncoder
+            connect sensors.sensedEnvironment to sensoryEncoder.sensorFrame;
+
+        connection sensorToController
+            connect sensors.sensedEnvironment to controller.currentSensors;
+
+        connection sensorToSafety
+            connect sensors.sensedEnvironment to safetySupervisor.sensorFrame;
+
+        connection encoderToMEA
+            connect sensoryEncoder.encodedStimulation to microElectrodeArray.stimulation;
+
+        connection meaStimulatesCulture
+            connect microElectrodeArray.stimulation to neuralCulture.sensoryStimulus;
+
+        connection cultureSpikesToMEA
+            connect neuralCulture.spontaneousAndEvokedSpikes to microElectrodeArray.neuralSpikes;
+
+        connection meaToSignalProcessor
+            connect microElectrodeArray.neuralSpikes to signalProcessor.rawSpikes;
+
+        connection decodedIntentToController
+            connect signalProcessor.decodedIntent to controller.networkIntent;
+
+        connection controllerToRobot
+            connect controller.motorCommand to robotPlatform.motorCommand;
+
+        connection cultureHealthToSupervisor
+            connect neuralCulture.health to safetySupervisor.cultureHealth;
+
+        connection supportHealthToSupervisor
+            connect cultureSupport.healthStatus to safetySupervisor.cultureHealth;
+
+        connection poseOut
+            connect robotPlatform.pose to robotPose;
+
+        connection healthOut
+            connect neuralCulture.health to cultureHealth;
+
+        perform action encodeSensors : EncodeSensorsAsNeuralStimulation;
+        perform action decodeIntent : DecodeNeuralActivityToIntent;
+        perform action generateMotorCommand : GenerateClosedLoopMotorCommand;
+        perform action maintainCulture : MaintainCultureHomeostasis;
+
+        exhibit state hybrotStates : HybrotOperationalStateMachine;
+    }
+
+    satisfy PrimaryFunctionRequirement by HybrotSystem;
+    satisfy ClosedLoopLatencyRequirement by HybrotSystem;
+    satisfy CultureViabilityRequirement by LivingNeuralCulture;
+    satisfy ObstacleAvoidanceRequirement by ClosedLoopController;
+    satisfy ElectrodeInterfaceRequirement by MicroElectrodeArray;
+    satisfy SafetyStopRequirement by SafetySupervisor;
+
+    part hybrotDemonstrator : HybrotSystem {
+        attribute closedLoopLatency = 0.075;
+        attribute missionDuration = 1200.0;
+
+        part neuralCulture {
+            attribute neuronPopulationEstimate = 65000;
+            attribute nominalMeanSpikeRate = 10.0;
+            attribute minimumViability = 0.78;
+        }
+
+        part microElectrodeArray {
+            attribute electrodeCount = 60;
+            attribute samplingRate = 25000;
+            attribute spikeDetectionThreshold = 0.000035;
+        }
+
+        part controller {
+            attribute commandUpdatePeriod = 0.050;
+            attribute maximumWheelVelocity = 0.30;
+            attribute avoidanceTurnGain = 0.90;
+            attribute explorationDriveGain = 0.40;
+        }
+
+        part robotPlatform {
+            attribute wheelBase = 0.18;
+            attribute wheelRadius = 0.035;
+            attribute maximumAcceleration = 0.60;
+        }
+
+        part safetySupervisor {
+            attribute emergencyStopDistance = 0.10;
+            attribute watchdogTimeout = 0.150;
+            attribute minimumCultureViability = 0.70;
+        }
+    }
+}

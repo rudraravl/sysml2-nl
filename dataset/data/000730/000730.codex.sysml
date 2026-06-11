@@ -1,0 +1,601 @@
+package PedorthistSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Money;
+    attribute def RiskScore :> Real;
+    attribute def SatisfactionScore :> Real;
+    attribute def FitScore :> Real;
+    attribute def Pressure :> Real;
+    attribute def TimeDuration :> Real;
+    attribute def Length :> Real;
+    attribute def Mass :> Real;
+
+    enum def AppointmentStatus {
+        enum scheduled;
+        enum checkedIn;
+        enum assessmentInProgress;
+        enum fabricationInProgress;
+        enum fittingInProgress;
+        enum completed;
+        enum followUpRequired;
+        enum referredOut;
+        enum cancelled;
+    }
+
+    enum def FootCondition {
+        enum diabetesRelatedRisk;
+        enum plantarFasciitis;
+        enum bunion;
+        enum hammertoe;
+        enum neuropathy;
+        enum arthritis;
+        enum limbLengthDiscrepancy;
+        enum postSurgicalRecovery;
+        enum pressureUlcerRisk;
+        enum generalFootPain;
+    }
+
+    enum def DeviceCategory {
+        enum therapeuticShoe;
+        enum customOrthotic;
+        enum shoeModification;
+        enum compressionSupport;
+        enum accommodativeInsert;
+        enum offloadingDevice;
+    }
+
+    enum def GaitPhase {
+        enum heelStrike;
+        enum footFlat;
+        enum midStance;
+        enum heelOff;
+        enum toeOff;
+        enum swing;
+    }
+
+    item def PatientProfile {
+        attribute patientId : String;
+        attribute age : Integer;
+        attribute bodyMass : Mass;
+        attribute primaryCondition : FootCondition;
+        attribute diabetesDiagnosed : Boolean;
+        attribute neuropathyObserved : Boolean;
+        attribute ulcerHistory : Boolean;
+        attribute reportedPainLevel : Integer;
+        attribute mobilityGoal : String;
+    }
+
+    item def ReferralOrder {
+        attribute referringProvider : String;
+        attribute diagnosisCode : String;
+        attribute requestedDevice : DeviceCategory;
+        attribute medicalNecessityStatement : String;
+        attribute urgent : Boolean;
+    }
+
+    item def AssessmentData {
+        attribute archHeight : Length;
+        attribute footLengthLeft : Length;
+        attribute footLengthRight : Length;
+        attribute forefootWidthLeft : Length;
+        attribute forefootWidthRight : Length;
+        attribute peakPlantarPressureLeft : Pressure;
+        attribute peakPlantarPressureRight : Pressure;
+        attribute gaitAsymmetry : Real;
+        attribute skinIntegrityRisk : RiskScore;
+        attribute fitTolerance : Length;
+        attribute recommendedCategory : DeviceCategory;
+    }
+
+    item def FootImpression {
+        attribute captureMethod : String;
+        attribute leftFootCaptured : Boolean;
+        attribute rightFootCaptured : Boolean;
+        attribute dimensionalAccuracy : Length;
+        attribute usableForFabrication : Boolean;
+    }
+
+    item def PedorthicPrescription {
+        attribute deviceCategory : DeviceCategory;
+        attribute offloadRegion : String;
+        attribute materialSpecification : String;
+        attribute shoeSize : String;
+        attribute modificationNotes : String;
+        attribute targetPressureReduction : Real;
+        attribute targetFitScore : FitScore;
+    }
+
+    item def TherapeuticDevice {
+        attribute deviceId : String;
+        attribute category : DeviceCategory;
+        attribute leftIncluded : Boolean;
+        attribute rightIncluded : Boolean;
+        attribute fabricated : Boolean;
+        attribute delivered : Boolean;
+        attribute measuredFitScore : FitScore;
+        attribute achievedPressureReduction : Real;
+        attribute breakInScheduleDays : Integer;
+    }
+
+    item def PatientEducationPacket {
+        attribute wearSchedule : String;
+        attribute skinInspectionInstructions : String;
+        attribute cleaningInstructions : String;
+        attribute warningSigns : String;
+        attribute followUpIntervalDays : Integer;
+    }
+
+    item def ClinicalRecord {
+        attribute encounterId : String;
+        attribute status : AppointmentStatus;
+        attribute assessmentSummary : String;
+        attribute planOfCare : String;
+        attribute deviceProvided : Boolean;
+        attribute followUpRequired : Boolean;
+        attribute referredToPhysician : Boolean;
+    }
+
+    port def PatientIntakePort {
+        in patient : PatientProfile;
+        in referral : ReferralOrder;
+        out consentAccepted : Boolean;
+    }
+
+    port def MeasurementPort {
+        out assessment : AssessmentData;
+        out impression : FootImpression;
+    }
+
+    port def PrescriptionPort {
+        in assessment : AssessmentData;
+        in impression : FootImpression;
+        out prescription : PedorthicPrescription;
+    }
+
+    port def FabricationPort {
+        in prescription : PedorthicPrescription;
+        out device : TherapeuticDevice;
+    }
+
+    port def FittingPort {
+        in patient : PatientProfile;
+        in device : TherapeuticDevice;
+        out adjustedDevice : TherapeuticDevice;
+        out education : PatientEducationPacket;
+    }
+
+    port def DocumentationPort {
+        in patient : PatientProfile;
+        in referral : ReferralOrder;
+        in assessment : AssessmentData;
+        in prescription : PedorthicPrescription;
+        in device : TherapeuticDevice;
+        out record : ClinicalRecord;
+    }
+
+    part def IntakeStation {
+        port intake : PatientIntakePort;
+        attribute averageCheckInTime : TimeDuration;
+        attribute verifiesReferral : Boolean;
+        attribute capturesMedicalHistory : Boolean;
+    }
+
+    part def ClinicalAssessmentStation {
+        port measurement : MeasurementPort;
+        attribute supportsVisualExam : Boolean;
+        attribute supportsRangeOfMotionExam : Boolean;
+        attribute supportsPressureMapping : Boolean;
+        attribute supportsGaitObservation : Boolean;
+    }
+
+    part def PrescriptionWorkbench {
+        port prescriptionPort : PrescriptionPort;
+        attribute availableDeviceCategories : DeviceCategory[1..*];
+        attribute minimumRequiredFitScore : FitScore;
+        attribute maximumAllowedSkinRisk : RiskScore;
+    }
+
+    part def FabricationLab {
+        port fabrication : FabricationPort;
+        attribute hasGrindingEquipment : Boolean;
+        attribute hasHeatMoldingEquipment : Boolean;
+        attribute hasShoeModificationTools : Boolean;
+        attribute averageFabricationTime : TimeDuration;
+    }
+
+    part def FittingRoom {
+        port fitting : FittingPort;
+        attribute hasMirrorWalkway : Boolean;
+        attribute hasPressureRecheckMat : Boolean;
+        attribute adjustmentTolerance : Length;
+    }
+
+    part def RecordSystem {
+        port documentation : DocumentationPort;
+        attribute storesAssessmentImages : Boolean;
+        attribute storesPrescriptionHistory : Boolean;
+        attribute supportsInsuranceDocumentation : Boolean;
+    }
+
+    part def PedorthistServiceSystem {
+        attribute primaryFunction : String = "Assess patient foot structure, gait, skin risk, footwear needs, and mobility goals to prescribe, fabricate, fit, and educate the patient on therapeutic footwear or pedorthic devices that improve comfort, protection, alignment, and functional walking.";
+
+        part intakeStation : IntakeStation {
+            attribute averageCheckInTime = 10.0;
+            attribute verifiesReferral = true;
+            attribute capturesMedicalHistory = true;
+        }
+
+        part assessmentStation : ClinicalAssessmentStation {
+            attribute supportsVisualExam = true;
+            attribute supportsRangeOfMotionExam = true;
+            attribute supportsPressureMapping = true;
+            attribute supportsGaitObservation = true;
+        }
+
+        part prescriptionWorkbench : PrescriptionWorkbench {
+            attribute minimumRequiredFitScore = 0.85;
+            attribute maximumAllowedSkinRisk = 0.70;
+        }
+
+        part fabricationLab : FabricationLab {
+            attribute hasGrindingEquipment = true;
+            attribute hasHeatMoldingEquipment = true;
+            attribute hasShoeModificationTools = true;
+            attribute averageFabricationTime = 90.0;
+        }
+
+        part fittingRoom : FittingRoom {
+            attribute hasMirrorWalkway = true;
+            attribute hasPressureRecheckMat = true;
+            attribute adjustmentTolerance = 2.0;
+        }
+
+        part recordSystem : RecordSystem {
+            attribute storesAssessmentImages = true;
+            attribute storesPrescriptionHistory = true;
+            attribute supportsInsuranceDocumentation = true;
+        }
+
+        connect intakeStation.intake to assessmentStation.measurement;
+        connect assessmentStation.measurement to prescriptionWorkbench.prescriptionPort;
+        connect prescriptionWorkbench.prescriptionPort to fabricationLab.fabrication;
+        connect fabricationLab.fabrication to fittingRoom.fitting;
+        connect fittingRoom.fitting to recordSystem.documentation;
+        connect assessmentStation.measurement to recordSystem.documentation;
+        connect prescriptionWorkbench.prescriptionPort to recordSystem.documentation;
+    }
+
+    action def ReceivePatient {
+        in patient : PatientProfile;
+        in referral : ReferralOrder;
+        out consentAccepted : Boolean;
+        out initialStatus : AppointmentStatus;
+
+        first start;
+        then verifyReferral;
+        then collectHistory;
+        then obtainConsent;
+        then finish;
+
+        action verifyReferral {
+            in referral : ReferralOrder;
+            out referralUsable : Boolean;
+        }
+
+        action collectHistory {
+            in patient : PatientProfile;
+            out historyComplete : Boolean;
+        }
+
+        action obtainConsent {
+            out consentAccepted : Boolean;
+        }
+
+        action finish {
+            out initialStatus : AppointmentStatus = AppointmentStatus::checkedIn;
+        }
+    }
+
+    action def PerformPedorthicAssessment {
+        in patient : PatientProfile;
+        out assessment : AssessmentData;
+        out impression : FootImpression;
+
+        first inspectSkin;
+        then measureFootDimensions;
+        then observeGait;
+        then mapPressure;
+        then captureImpression;
+        then classifyNeed;
+
+        action inspectSkin {
+            in patient : PatientProfile;
+            out skinIntegrityRisk : RiskScore;
+        }
+
+        action measureFootDimensions {
+            out footLengthLeft : Length;
+            out footLengthRight : Length;
+            out forefootWidthLeft : Length;
+            out forefootWidthRight : Length;
+            out archHeight : Length;
+        }
+
+        action observeGait {
+            out gaitAsymmetry : Real;
+            out dominantAbnormalPhase : GaitPhase;
+        }
+
+        action mapPressure {
+            out peakPlantarPressureLeft : Pressure;
+            out peakPlantarPressureRight : Pressure;
+        }
+
+        action captureImpression {
+            out impression : FootImpression;
+        }
+
+        action classifyNeed {
+            in patient : PatientProfile;
+            out recommendedCategory : DeviceCategory;
+        }
+    }
+
+    action def CreatePedorthicPrescription {
+        in patient : PatientProfile;
+        in assessment : AssessmentData;
+        in impression : FootImpression;
+        out prescription : PedorthicPrescription;
+
+        first evaluateRisk;
+        then selectDeviceCategory;
+        then specifyMaterials;
+        then defineOffloading;
+        then approvePrescription;
+
+        action evaluateRisk {
+            in assessment : AssessmentData;
+            out highRiskPatient : Boolean;
+        }
+
+        action selectDeviceCategory {
+            in assessment : AssessmentData;
+            out deviceCategory : DeviceCategory;
+        }
+
+        action specifyMaterials {
+            out materialSpecification : String;
+        }
+
+        action defineOffloading {
+            out offloadRegion : String;
+            out targetPressureReduction : Real;
+        }
+
+        action approvePrescription {
+            out prescriptionReady : Boolean;
+        }
+    }
+
+    action def FabricateOrModifyDevice {
+        in prescription : PedorthicPrescription;
+        out device : TherapeuticDevice;
+
+        first prepareMaterials;
+        then shapeDevice;
+        then modifyFootwear;
+        then inspectDevice;
+        then releaseForFitting;
+
+        action prepareMaterials {
+            in prescription : PedorthicPrescription;
+            out materialsReady : Boolean;
+        }
+
+        action shapeDevice {
+            out fabricatedInsert : Boolean;
+        }
+
+        action modifyFootwear {
+            out footwearModified : Boolean;
+        }
+
+        action inspectDevice {
+            out fabricationAccepted : Boolean;
+        }
+
+        action releaseForFitting {
+            out fabricated : Boolean = true;
+        }
+    }
+
+    action def FitAndEducatePatient {
+        in patient : PatientProfile;
+        in device : TherapeuticDevice;
+        out adjustedDevice : TherapeuticDevice;
+        out education : PatientEducationPacket;
+        out fitAccepted : Boolean;
+
+        first initialTryOn;
+        then checkStaticFit;
+        then checkDynamicFit;
+        then adjustDevice;
+        then verifyPressureReduction;
+        then teachUseAndCare;
+        then scheduleFollowUp;
+
+        action initialTryOn {
+            in device : TherapeuticDevice;
+            out patientCanDonDevice : Boolean;
+        }
+
+        action checkStaticFit {
+            out staticFitScore : FitScore;
+        }
+
+        action checkDynamicFit {
+            out walkingFitScore : FitScore;
+        }
+
+        action adjustDevice {
+            out adjustedDevice : TherapeuticDevice;
+        }
+
+        action verifyPressureReduction {
+            out achievedPressureReduction : Real;
+            out fitAccepted : Boolean;
+        }
+
+        action teachUseAndCare {
+            out education : PatientEducationPacket;
+        }
+
+        action scheduleFollowUp {
+            out followUpIntervalDays : Integer;
+        }
+    }
+
+    action def DocumentEncounter {
+        in patient : PatientProfile;
+        in referral : ReferralOrder;
+        in assessment : AssessmentData;
+        in prescription : PedorthicPrescription;
+        in device : TherapeuticDevice;
+        out record : ClinicalRecord;
+
+        first summarizeAssessment;
+        then recordPrescription;
+        then recordDeviceDelivery;
+        then determineDisposition;
+        then closeEncounter;
+
+        action summarizeAssessment {
+            out assessmentSummary : String;
+        }
+
+        action recordPrescription {
+            out planOfCare : String;
+        }
+
+        action recordDeviceDelivery {
+            out deviceProvided : Boolean;
+        }
+
+        action determineDisposition {
+            out followUpRequired : Boolean;
+            out referredToPhysician : Boolean;
+        }
+
+        action closeEncounter {
+            out status : AppointmentStatus;
+        }
+    }
+
+    state def PedorthistEncounterStateMachine {
+        entry action ReceivePatient;
+        state Scheduled;
+        state CheckedIn;
+        state Assessing;
+        state Prescribing;
+        state Fabricating;
+        state Fitting;
+        state Educating;
+        state Documenting;
+        state Completed;
+        state FollowUpRequired;
+        state ReferredOut;
+
+        transition first Scheduled then CheckedIn
+            accept patientArrives;
+
+        transition CheckedIn then Assessing
+            accept consentAccepted;
+
+        transition Assessing then ReferredOut
+            if assessment.skinIntegrityRisk > 0.85
+            accept urgentMedicalRiskDetected;
+
+        transition Assessing then Prescribing
+            if assessment.skinIntegrityRisk <= 0.85
+            accept assessmentCompleted;
+
+        transition Prescribing then Fabricating
+            accept prescriptionApproved;
+
+        transition Fabricating then Fitting
+            accept deviceReady;
+
+        transition Fitting then Fabricating
+            if device.measuredFitScore < 0.85
+            accept refabricationNeeded;
+
+        transition Fitting then Educating
+            if device.measuredFitScore >= 0.85
+            accept fittingAccepted;
+
+        transition Educating then Documenting
+            accept educationDelivered;
+
+        transition Documenting then FollowUpRequired
+            if record.followUpRequired == true
+            accept documentationCompleted;
+
+        transition Documenting then Completed
+            if record.followUpRequired == false and record.referredToPhysician == false
+            accept documentationCompleted;
+
+        transition FollowUpRequired then Scheduled
+            accept followUpScheduled;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The pedorthist service system shall provide a structured clinical workflow that assesses foot condition, gait, footwear fit, and patient mobility needs, then delivers therapeutic footwear, orthoses, or shoe modifications intended to improve comfort, reduce harmful pressure, protect vulnerable skin, and support walking function. */
+    }
+
+    requirement def AssessmentRequirement {
+        doc /* The system shall capture patient history, referral information, bilateral foot dimensions, skin risk observations, gait observations, plantar pressure data, and a usable foot impression before creating a pedorthic prescription. */
+        subject assessedSystem : PedorthistServiceSystem;
+    }
+
+    requirement def RiskReferralRequirement {
+        doc /* The system shall refer the patient to a physician or other qualified clinician when skin integrity risk is above the defined clinical threshold or when urgent medical signs are identified during assessment. */
+        subject assessedSystem : PedorthistServiceSystem;
+        require constraint { assessment.skinIntegrityRisk <= 0.85 or record.referredToPhysician == true }
+    }
+
+    requirement def FitVerificationRequirement {
+        doc /* The system shall verify that the delivered device achieves a measured fit score of at least 0.85 before normal delivery, or shall return the device for adjustment or refabrication. */
+        subject assessedSystem : PedorthistServiceSystem;
+        require constraint { device.measuredFitScore >= 0.85 or record.followUpRequired == true }
+    }
+
+    requirement def PressureReductionRequirement {
+        doc /* For offloading devices, the system shall target measurable plantar pressure reduction at the prescribed anatomical region and document the achieved reduction during fitting. */
+        subject assessedSystem : PedorthistServiceSystem;
+        require constraint { device.achievedPressureReduction >= prescription.targetPressureReduction }
+    }
+
+    requirement def EducationRequirement {
+        doc /* The system shall provide patient education covering wear schedule, break-in period, skin inspection, device cleaning, warning signs, and follow-up timing before encounter closure. */
+        subject assessedSystem : PedorthistServiceSystem;
+    }
+
+    requirement def DocumentationRequirement {
+        doc /* The system shall produce a clinical record containing assessment findings, prescription rationale, device details, fitting outcome, patient education, disposition, and follow-up plan. */
+        subject assessedSystem : PedorthistServiceSystem;
+    }
+
+    satisfy PrimaryFunctionRequirement by PedorthistServiceSystem;
+    satisfy AssessmentRequirement by ClinicalAssessmentStation;
+    satisfy RiskReferralRequirement by PedorthistEncounterStateMachine;
+    satisfy FitVerificationRequirement by FittingRoom;
+    satisfy PressureReductionRequirement by FittingRoom;
+    satisfy EducationRequirement by FitAndEducatePatient;
+    satisfy DocumentationRequirement by RecordSystem;
+
+    part pedorthistService : PedorthistServiceSystem;
+
+}

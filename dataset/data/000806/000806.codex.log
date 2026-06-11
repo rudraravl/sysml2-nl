@@ -1,0 +1,957 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-1kyto9sn
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb446-1e06-7a20-8c0f-079df73c8436
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Tube stripper and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TubeStripperSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    value def Force {
+        :> ISQ::force;
+        unit = "N";
+    }
+
+    value def Pressure {
+        :> ISQ::pressure;
+        unit = "Pa";
+    }
+
+    value def Length {
+        :> ISQ::length;
+        unit = "mm";
+    }
+
+    value def Speed {
+        :> ISQ::speed;
+        unit = "mm/s";
+    }
+
+    value def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = "degC";
+    }
+
+    value def Current {
+        :> ISQ::electricCurrent;
+        unit = "A";
+    }
+
+    value def Voltage {
+        :> ISQ::electricPotential;
+        unit = "V";
+    }
+
+    value def Time {
+        :> ISQ::time;
+        unit = "s";
+    }
+
+    item def Tube {
+        attribute outerDiameter : Length;
+        attribute wallThickness : Length;
+        attribute length : Length;
+        attribute materialName : String;
+        attribute filled : Boolean;
+    }
+
+    item def StrippedTube {
+        attribute strippedLength : Length;
+        attribute residualFluidVolumePercent : Real;
+        attribute tubeIntact : Boolean;
+    }
+
+    item def OperatorCommand {
+        attribute startRequested : Boolean;
+        attribute stopRequested : Boolean;
+        attribute emergencyStopRequested : Boolean;
+        attribute selectedTubeDiameter : Length;
+        attribute selectedStripLength : Length;
+    }
+
+    item def StatusMessage {
+        attribute ready : Boolean;
+        attribute running : Boolean;
+        attribute faulted : Boolean;
+        attribute completed : Boolean;
+        attribute messageText : String;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def MechanicalDriveTorque {
+        attribute torqueNm : Real;
+        attribute directionForward : Boolean;
+    }
+
+    port def TubeInputPort {
+        in item tubeIn : Tube;
+    }
+
+    port def TubeOutputPort {
+        out item tubeOut : StrippedTube;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def StatusPort {
+        out item status : StatusMessage;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DrivePort {
+        out item driveTorque : MechanicalDriveTorque;
+    }
+
+    port def SensorPort {
+        out item sensedStatus : StatusMessage;
+    }
+
+    part def TubeStripper {
+        attribute maximumTubeDiameter : Length = 25.0 [mm];
+        attribute minimumTubeDiameter : Length = 2.0 [mm];
+        attribute maximumStripLength : Length = 1000.0 [mm];
+        attribute nominalStripSpeed : Speed = 40.0 [mm/s];
+        attribute maximumRollerForce : Force = 350.0 [N];
+        attribute operatingTemperatureMin : Temperature = 5.0 [degC];
+        attribute operatingTemperatureMax : Temperature = 40.0 [degC];
+
+        port tubeIn : TubeInputPort;
+        port tubeOut : TubeOutputPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+        port powerIn : PowerPort;
+
+        part frame : StructuralFrame;
+        part driveSystem : RollerDriveSystem;
+        part compressionHead : CompressionHead;
+        part tubeGuide : TubeGuide;
+        part controller : ControlUnit;
+        part humanInterface : OperatorInterface;
+        part safetySystem : SafetyInterlockSystem;
+        part sensors : SensorSuite;
+
+        connect powerIn to controller.powerIn;
+        connect controller.driveCommand to driveSystem.driveInput;
+        connect driveSystem.mechanicalOutput to compressionHead.driveInput;
+        connect tubeIn to tubeGuide.tubeInput;
+        connect tubeGuide.guidedTubeOutput to compressionHead.tubeInput;
+        connect compressionHead.strippedTubeOutput to tubeOut;
+        connect commandIn to humanInterface.commandInput;
+        connect humanInterface.operatorCommandOutput to controller.commandInput;
+        connect sensors.sensorStatusOutput to controller.sensorInput;
+        connect safetySystem.safetyStatusOutput to controller.safetyInput;
+        connect controller.statusOutput to statusOut;
+    }
+
+    part def StructuralFrame {
+        attribute massKg : Real = 18.0;
+        attribute footprintWidth : Length = 450.0 [mm];
+        attribute footprintDepth : Length = 320.0 [mm];
+        attribute corrosionResistant : Boolean = true;
+    }
+
+    part def TubeGuide {
+        attribute guideOpeningDiameter : Length;
+        attribute alignmentTolerance : Length = 0.5 [mm];
+
+        port tubeInput : TubeInputPort;
+        port guidedTubeOutput : TubeInputPort;
+    }
+
+    part def CompressionHead {
+        attribute appliedCompressionForce : Force;
+        attribute rollerGap : Length;
+        attribute rollerSurfaceHardnessShoreA : Real = 70.0;
+        attribute maximumAllowedTubeDamageDepth : Length = 0.1 [mm];
+
+        port driveInput : DrivePort;
+        port tubeInput : TubeInputPort;
+        port strippedTubeOutput : TubeOutputPort;
+
+        perform action StripTubeAction;
+    }
+
+    part def RollerDriveSystem {
+        attribute motorVoltage : Voltage = 24.0 [V];
+        attribute peakCurrent : Current = 8.0 [A];
+        attribute commandedSpeed : Speed;
+        attribute actualSpeed : Speed;
+        attribute stallDetected : Boolean;
+
+        port driveInput : DrivePort;
+        port mechanicalOutput : DrivePort;
+
+        part motor : ElectricMotor;
+        part gearbox : Gearbox;
+        part rollerPair : RollerPair;
+    }
+
+    part def ElectricMotor {
+        attribute ratedVoltage : Voltage = 24.0 [V];
+        attribute ratedCurrent : Current = 4.5 [A];
+        attribute maximumCurrent : Current = 8.0 [A];
+        attribute shaftSpeedRpm : Real;
+    }
+
+    part def Gearbox {
+        attribute gearRatio : Real = 20.0;
+        attribute efficiencyPercent : Real = 86.0;
+    }
+
+    part def RollerPair {
+        attribute rollerDiameter : Length = 38.0 [mm];
+        attribute rollerWidth : Length = 35.0 [mm];
+        attribute contactForce : Force;
+        attribute synchronizedRotation : Boolean = true;
+    }
+
+    part def ControlUnit {
+        attribute controllerVoltage : Voltage = 24.0 [V];
+        attribute selectedStripLength : Length;
+        attribute selectedTubeDiameter : Length;
+        attribute cycleTimer : Time;
+        attribute cycleComplete : Boolean;
+
+        port powerIn : PowerPort;
+        port commandInput : CommandPort;
+        port sensorInput : SensorPort;
+        port safetyInput : SensorPort;
+        port driveCommand : DrivePort;
+        port statusOutput : StatusPort;
+
+        perform action ControlStripCycleAction;
+        exhibit state TubeStripperOperatingStateMachine;
+    }
+
+    part def OperatorInterface {
+        attribute startButtonPressed : Boolean;
+        attribute stopButtonPressed : Boolean;
+        attribute emergencyStopPressed : Boolean;
+        attribute displayedMessage : String;
+
+        port commandInput : CommandPort;
+        port operatorCommandOutput : CommandPort;
+    }
+
+    part def SafetyInterlockSystem {
+        attribute guardClosed : Boolean;
+        attribute emergencyStopHealthy : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute interlockSatisfied : Boolean;
+
+        port safetyStatusOutput : SensorPort;
+    }
+
+    part def SensorSuite {
+        attribute tubePresent : Boolean;
+        attribute rollerPosition : Length;
+        attribute measuredCompressionForce : Force;
+        attribute motorCurrent : Current;
+        attribute stripDistanceMeasured : Length;
+
+        port sensorStatusOutput : SensorPort;
+
+        part tubePresenceSensor : TubePresenceSensor;
+        part forceSensor : ForceSensor;
+        part encoder : RollerEncoder;
+        part currentSensor : MotorCurrentSensor;
+    }
+
+    part def TubePresenceSensor {
+        attribute detectionRange : Length = 30.0 [mm];
+        attribute tubeDetected : Boolean;
+    }
+
+    part def ForceSensor {
+        attribute measuredForce : Force;
+        attribute accuracyPercentFullScale : Real = 2.0;
+    }
+
+    part def RollerEncoder {
+        attribute pulsesPerRevolution : Integer = 1024;
+        attribute measuredTravel : Length;
+    }
+
+    part def MotorCurrentSensor {
+        attribute measuredCurrent : Current;
+        attribute overloadThreshold : Current = 7.5 [A];
+    }
+
+    action def StripTubeAction {
+        in item unprocessedTube : Tube;
+        in attribute requestedStripLength : Length;
+        in attribute requestedCompressionForce : Force;
+        out item processedTube : StrippedTube;
+
+        first start;
+        then clampTube;
+        then compressTubeWall;
+        then advanceRollers;
+        then expelFluidAndFlattenSegment;
+        then releaseTube;
+        then finish;
+
+        action start;
+        action clampTube;
+        action compressTubeWall;
+        action advanceRollers;
+        action expelFluidAndFlattenSegment;
+        action releaseTube;
+        action finish;
+    }
+
+    action def ControlStripCycleAction {
+        in item operatorCommand : OperatorCommand;
+        in item sensedStatus : StatusMessage;
+        out item machineStatus : StatusMessage;
+        out item driveCommand : MechanicalDriveTorque;
+
+        first validateCommand;
+        then verifySafetyInterlocks;
+        then setRollerGap;
+        then commandForwardMotion;
+        then monitorStripDistance;
+        then stopDrive;
+        then reportCompletion;
+
+        action validateCommand;
+        action verifySafetyInterlocks;
+        action setRollerGap;
+        action commandForwardMotion;
+        action monitorStripDistance;
+        action stopDrive;
+        action reportCompletion;
+    }
+
+    state def TubeStripperOperatingStateMachine {
+        state Off;
+        state Initializing;
+        state Ready;
+        state LoadingTube;
+        state Stripping;
+        state Completed;
+        state Faulted;
+        state EmergencyStopped;
+
+        entry action Off {
+            send StatusMessage {
+                ready = false;
+                running = false;
+                faulted = false;
+                completed = false;
+                messageText = "Power removed";
+            }
+        }
+
+        transition Off_to_Initializing
+            first Off
+            accept ElectricalPower
+            then Initializing;
+
+        transition Initializing_to_Ready
+            first Initializing
+            if safetySystem.interlockSatisfied
+            then Ready;
+
+        transition Ready_to_LoadingTube
+            first Ready
+            accept Tube
+            then LoadingTube;
+
+        transition LoadingTube_to_Stripping
+            first LoadingTube
+            accept OperatorCommand
+            if command.startRequested and not command.emergencyStopRequested
+            then Stripping;
+
+        transition Stripping_to_Completed
+            first Stripping
+            if controller.cycleComplete
+            then Completed;
+
+        transition Completed_to_Ready
+            first Completed
+            accept OperatorCommand
+            if not command.startRequested
+            then Ready;
+
+        transition Ready_to_Faulted
+            first Ready
+            if sensors.motorCurrent > 7.5 [A]
+            then Faulted;
+
+        transition Stripping_to_Faulted
+            first Stripping
+            if safetySystem.overloadDetected
+            then Faulted;
+
+        transition Faulted_to_Ready
+            first Faulted
+            accept OperatorCommand
+            if command.stopRequested and safetySystem.interlockSatisfied
+            then Ready;
+
+        transition Off_to_EmergencyStopped
+            first Off
+            accept OperatorCommand
+            if command.emergencyStopRequested
+            then EmergencyStopped;
+
+        transition Ready_to_EmergencyStopped
+            first Ready
+            accept OperatorCommand
+            if command.emergencyStopRequested
+            then EmergencyStopped;
+
+        transition Stripping_to_EmergencyStopped
+            first Stripping
+            accept OperatorCommand
+            if command.emergencyStopRequested
+            then EmergencyStopped;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        id = "REQ-TS-001";
+        text = "The tube stripper shall remove residual fluid from a flexible tube by compressing the tube wall and advancing the tube through driven rollers over a commanded strip length.";
+    }
+
+    requirement def TubeCompatibilityRequirement {
+        id = "REQ-TS-002";
+        text = "The tube stripper shall process flexible tubes with outer diameters from 2 mm to 25 mm without puncturing or cutting the tube.";
+    }
+
+    requirement def StripLengthRequirement {
+        id = "REQ-TS-003";
+        text = "The tube stripper shall support commanded strip lengths from 25 mm to 1000 mm.";
+    }
+
+    requirement def ResidualFluidRequirement {
+        id = "REQ-TS-004";
+        text = "The tube stripper shall reduce residual fluid volume in the stripped segment to no more than 5 percent of the initial residual volume for compatible tubes.";
+    }
+
+    requirement def SafetyRequirement {
+        id = "REQ-TS-005";
+        text = "The tube stripper shall stop roller motion within 0.5 seconds when an emergency stop command, open guard condition, or overload condition is detected.";
+    }
+
+    requirement def StatusReportingRequirement {
+        id = "REQ-TS-006";
+        text = "The tube stripper shall report ready, running, completed, and faulted operating states to the operator interface.";
+    }
+
+    requirement def TubeIntegrityRequirement {
+        id = "REQ-TS-007";
+        text = "The tube stripper shall complete a stripping cycle without creating cuts, punctures, or wall damage deeper than 0.1 mm.";
+    }
+
+    satisfy PrimaryFunctionRequirement by TubeStripper;
+    satisfy TubeCompatibilityRequirement by TubeGuide;
+    satisfy TubeCompatibilityRequirement by CompressionHead;
+    satisfy StripLengthRequirement by ControlUnit;
+    satisfy ResidualFluidRequirement by CompressionHead;
+    satisfy SafetyRequirement by SafetyInterlockSystem;
+    satisfy SafetyRequirement by ControlUnit;
+    satisfy StatusReportingRequirement by OperatorInterface;
+    satisfy StatusReportingRequirement by ControlUnit;
+    satisfy TubeIntegrityRequirement by CompressionHead;
+
+    part tubeStripperSystem : TubeStripper {
+        attribute maximumTubeDiameter = 25.0 [mm];
+        attribute minimumTubeDiameter = 2.0 [mm];
+        attribute maximumStripLength = 1000.0 [mm];
+        attribute nominalStripSpeed = 40.0 [mm/s];
+    }
+}
+tokens used
+3,409
+package TubeStripperSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    value def Force {
+        :> ISQ::force;
+        unit = "N";
+    }
+
+    value def Pressure {
+        :> ISQ::pressure;
+        unit = "Pa";
+    }
+
+    value def Length {
+        :> ISQ::length;
+        unit = "mm";
+    }
+
+    value def Speed {
+        :> ISQ::speed;
+        unit = "mm/s";
+    }
+
+    value def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = "degC";
+    }
+
+    value def Current {
+        :> ISQ::electricCurrent;
+        unit = "A";
+    }
+
+    value def Voltage {
+        :> ISQ::electricPotential;
+        unit = "V";
+    }
+
+    value def Time {
+        :> ISQ::time;
+        unit = "s";
+    }
+
+    item def Tube {
+        attribute outerDiameter : Length;
+        attribute wallThickness : Length;
+        attribute length : Length;
+        attribute materialName : String;
+        attribute filled : Boolean;
+    }
+
+    item def StrippedTube {
+        attribute strippedLength : Length;
+        attribute residualFluidVolumePercent : Real;
+        attribute tubeIntact : Boolean;
+    }
+
+    item def OperatorCommand {
+        attribute startRequested : Boolean;
+        attribute stopRequested : Boolean;
+        attribute emergencyStopRequested : Boolean;
+        attribute selectedTubeDiameter : Length;
+        attribute selectedStripLength : Length;
+    }
+
+    item def StatusMessage {
+        attribute ready : Boolean;
+        attribute running : Boolean;
+        attribute faulted : Boolean;
+        attribute completed : Boolean;
+        attribute messageText : String;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def MechanicalDriveTorque {
+        attribute torqueNm : Real;
+        attribute directionForward : Boolean;
+    }
+
+    port def TubeInputPort {
+        in item tubeIn : Tube;
+    }
+
+    port def TubeOutputPort {
+        out item tubeOut : StrippedTube;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def StatusPort {
+        out item status : StatusMessage;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DrivePort {
+        out item driveTorque : MechanicalDriveTorque;
+    }
+
+    port def SensorPort {
+        out item sensedStatus : StatusMessage;
+    }
+
+    part def TubeStripper {
+        attribute maximumTubeDiameter : Length = 25.0 [mm];
+        attribute minimumTubeDiameter : Length = 2.0 [mm];
+        attribute maximumStripLength : Length = 1000.0 [mm];
+        attribute nominalStripSpeed : Speed = 40.0 [mm/s];
+        attribute maximumRollerForce : Force = 350.0 [N];
+        attribute operatingTemperatureMin : Temperature = 5.0 [degC];
+        attribute operatingTemperatureMax : Temperature = 40.0 [degC];
+
+        port tubeIn : TubeInputPort;
+        port tubeOut : TubeOutputPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+        port powerIn : PowerPort;
+
+        part frame : StructuralFrame;
+        part driveSystem : RollerDriveSystem;
+        part compressionHead : CompressionHead;
+        part tubeGuide : TubeGuide;
+        part controller : ControlUnit;
+        part humanInterface : OperatorInterface;
+        part safetySystem : SafetyInterlockSystem;
+        part sensors : SensorSuite;
+
+        connect powerIn to controller.powerIn;
+        connect controller.driveCommand to driveSystem.driveInput;
+        connect driveSystem.mechanicalOutput to compressionHead.driveInput;
+        connect tubeIn to tubeGuide.tubeInput;
+        connect tubeGuide.guidedTubeOutput to compressionHead.tubeInput;
+        connect compressionHead.strippedTubeOutput to tubeOut;
+        connect commandIn to humanInterface.commandInput;
+        connect humanInterface.operatorCommandOutput to controller.commandInput;
+        connect sensors.sensorStatusOutput to controller.sensorInput;
+        connect safetySystem.safetyStatusOutput to controller.safetyInput;
+        connect controller.statusOutput to statusOut;
+    }
+
+    part def StructuralFrame {
+        attribute massKg : Real = 18.0;
+        attribute footprintWidth : Length = 450.0 [mm];
+        attribute footprintDepth : Length = 320.0 [mm];
+        attribute corrosionResistant : Boolean = true;
+    }
+
+    part def TubeGuide {
+        attribute guideOpeningDiameter : Length;
+        attribute alignmentTolerance : Length = 0.5 [mm];
+
+        port tubeInput : TubeInputPort;
+        port guidedTubeOutput : TubeInputPort;
+    }
+
+    part def CompressionHead {
+        attribute appliedCompressionForce : Force;
+        attribute rollerGap : Length;
+        attribute rollerSurfaceHardnessShoreA : Real = 70.0;
+        attribute maximumAllowedTubeDamageDepth : Length = 0.1 [mm];
+
+        port driveInput : DrivePort;
+        port tubeInput : TubeInputPort;
+        port strippedTubeOutput : TubeOutputPort;
+
+        perform action StripTubeAction;
+    }
+
+    part def RollerDriveSystem {
+        attribute motorVoltage : Voltage = 24.0 [V];
+        attribute peakCurrent : Current = 8.0 [A];
+        attribute commandedSpeed : Speed;
+        attribute actualSpeed : Speed;
+        attribute stallDetected : Boolean;
+
+        port driveInput : DrivePort;
+        port mechanicalOutput : DrivePort;
+
+        part motor : ElectricMotor;
+        part gearbox : Gearbox;
+        part rollerPair : RollerPair;
+    }
+
+    part def ElectricMotor {
+        attribute ratedVoltage : Voltage = 24.0 [V];
+        attribute ratedCurrent : Current = 4.5 [A];
+        attribute maximumCurrent : Current = 8.0 [A];
+        attribute shaftSpeedRpm : Real;
+    }
+
+    part def Gearbox {
+        attribute gearRatio : Real = 20.0;
+        attribute efficiencyPercent : Real = 86.0;
+    }
+
+    part def RollerPair {
+        attribute rollerDiameter : Length = 38.0 [mm];
+        attribute rollerWidth : Length = 35.0 [mm];
+        attribute contactForce : Force;
+        attribute synchronizedRotation : Boolean = true;
+    }
+
+    part def ControlUnit {
+        attribute controllerVoltage : Voltage = 24.0 [V];
+        attribute selectedStripLength : Length;
+        attribute selectedTubeDiameter : Length;
+        attribute cycleTimer : Time;
+        attribute cycleComplete : Boolean;
+
+        port powerIn : PowerPort;
+        port commandInput : CommandPort;
+        port sensorInput : SensorPort;
+        port safetyInput : SensorPort;
+        port driveCommand : DrivePort;
+        port statusOutput : StatusPort;
+
+        perform action ControlStripCycleAction;
+        exhibit state TubeStripperOperatingStateMachine;
+    }
+
+    part def OperatorInterface {
+        attribute startButtonPressed : Boolean;
+        attribute stopButtonPressed : Boolean;
+        attribute emergencyStopPressed : Boolean;
+        attribute displayedMessage : String;
+
+        port commandInput : CommandPort;
+        port operatorCommandOutput : CommandPort;
+    }
+
+    part def SafetyInterlockSystem {
+        attribute guardClosed : Boolean;
+        attribute emergencyStopHealthy : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute interlockSatisfied : Boolean;
+
+        port safetyStatusOutput : SensorPort;
+    }
+
+    part def SensorSuite {
+        attribute tubePresent : Boolean;
+        attribute rollerPosition : Length;
+        attribute measuredCompressionForce : Force;
+        attribute motorCurrent : Current;
+        attribute stripDistanceMeasured : Length;
+
+        port sensorStatusOutput : SensorPort;
+
+        part tubePresenceSensor : TubePresenceSensor;
+        part forceSensor : ForceSensor;
+        part encoder : RollerEncoder;
+        part currentSensor : MotorCurrentSensor;
+    }
+
+    part def TubePresenceSensor {
+        attribute detectionRange : Length = 30.0 [mm];
+        attribute tubeDetected : Boolean;
+    }
+
+    part def ForceSensor {
+        attribute measuredForce : Force;
+        attribute accuracyPercentFullScale : Real = 2.0;
+    }
+
+    part def RollerEncoder {
+        attribute pulsesPerRevolution : Integer = 1024;
+        attribute measuredTravel : Length;
+    }
+
+    part def MotorCurrentSensor {
+        attribute measuredCurrent : Current;
+        attribute overloadThreshold : Current = 7.5 [A];
+    }
+
+    action def StripTubeAction {
+        in item unprocessedTube : Tube;
+        in attribute requestedStripLength : Length;
+        in attribute requestedCompressionForce : Force;
+        out item processedTube : StrippedTube;
+
+        first start;
+        then clampTube;
+        then compressTubeWall;
+        then advanceRollers;
+        then expelFluidAndFlattenSegment;
+        then releaseTube;
+        then finish;
+
+        action start;
+        action clampTube;
+        action compressTubeWall;
+        action advanceRollers;
+        action expelFluidAndFlattenSegment;
+        action releaseTube;
+        action finish;
+    }
+
+    action def ControlStripCycleAction {
+        in item operatorCommand : OperatorCommand;
+        in item sensedStatus : StatusMessage;
+        out item machineStatus : StatusMessage;
+        out item driveCommand : MechanicalDriveTorque;
+
+        first validateCommand;
+        then verifySafetyInterlocks;
+        then setRollerGap;
+        then commandForwardMotion;
+        then monitorStripDistance;
+        then stopDrive;
+        then reportCompletion;
+
+        action validateCommand;
+        action verifySafetyInterlocks;
+        action setRollerGap;
+        action commandForwardMotion;
+        action monitorStripDistance;
+        action stopDrive;
+        action reportCompletion;
+    }
+
+    state def TubeStripperOperatingStateMachine {
+        state Off;
+        state Initializing;
+        state Ready;
+        state LoadingTube;
+        state Stripping;
+        state Completed;
+        state Faulted;
+        state EmergencyStopped;
+
+        entry action Off {
+            send StatusMessage {
+                ready = false;
+                running = false;
+                faulted = false;
+                completed = false;
+                messageText = "Power removed";
+            }
+        }
+
+        transition Off_to_Initializing
+            first Off
+            accept ElectricalPower
+            then Initializing;
+
+        transition Initializing_to_Ready
+            first Initializing
+            if safetySystem.interlockSatisfied
+            then Ready;
+
+        transition Ready_to_LoadingTube
+            first Ready
+            accept Tube
+            then LoadingTube;
+
+        transition LoadingTube_to_Stripping
+            first LoadingTube
+            accept OperatorCommand
+            if command.startRequested and not command.emergencyStopRequested
+            then Stripping;
+
+        transition Stripping_to_Completed
+            first Stripping
+            if controller.cycleComplete
+            then Completed;
+
+        transition Completed_to_Ready
+            first Completed
+            accept OperatorCommand
+            if not command.startRequested
+            then Ready;
+
+        transition Ready_to_Faulted
+            first Ready
+            if sensors.motorCurrent > 7.5 [A]
+            then Faulted;
+
+        transition Stripping_to_Faulted
+            first Stripping
+            if safetySystem.overloadDetected
+            then Faulted;
+
+        transition Faulted_to_Ready
+            first Faulted
+            accept OperatorCommand
+            if command.stopRequested and safetySystem.interlockSatisfied
+            then Ready;
+
+        transition Off_to_EmergencyStopped
+            first Off
+            accept OperatorCommand
+            if command.emergencyStopRequested
+            then EmergencyStopped;
+
+        transition Ready_to_EmergencyStopped
+            first Ready
+            accept OperatorCommand
+            if command.emergencyStopRequested
+            then EmergencyStopped;
+
+        transition Stripping_to_EmergencyStopped
+            first Stripping
+            accept OperatorCommand
+            if command.emergencyStopRequested
+            then EmergencyStopped;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        id = "REQ-TS-001";
+        text = "The tube stripper shall remove residual fluid from a flexible tube by compressing the tube wall and advancing the tube through driven rollers over a commanded strip length.";
+    }
+
+    requirement def TubeCompatibilityRequirement {
+        id = "REQ-TS-002";
+        text = "The tube stripper shall process flexible tubes with outer diameters from 2 mm to 25 mm without puncturing or cutting the tube.";
+    }
+
+    requirement def StripLengthRequirement {
+        id = "REQ-TS-003";
+        text = "The tube stripper shall support commanded strip lengths from 25 mm to 1000 mm.";
+    }
+
+    requirement def ResidualFluidRequirement {
+        id = "REQ-TS-004";
+        text = "The tube stripper shall reduce residual fluid volume in the stripped segment to no more than 5 percent of the initial residual volume for compatible tubes.";
+    }
+
+    requirement def SafetyRequirement {
+        id = "REQ-TS-005";
+        text = "The tube stripper shall stop roller motion within 0.5 seconds when an emergency stop command, open guard condition, or overload condition is detected.";
+    }
+
+    requirement def StatusReportingRequirement {
+        id = "REQ-TS-006";
+        text = "The tube stripper shall report ready, running, completed, and faulted operating states to the operator interface.";
+    }
+
+    requirement def TubeIntegrityRequirement {
+        id = "REQ-TS-007";
+        text = "The tube stripper shall complete a stripping cycle without creating cuts, punctures, or wall damage deeper than 0.1 mm.";
+    }
+
+    satisfy PrimaryFunctionRequirement by TubeStripper;
+    satisfy TubeCompatibilityRequirement by TubeGuide;
+    satisfy TubeCompatibilityRequirement by CompressionHead;
+    satisfy StripLengthRequirement by ControlUnit;
+    satisfy ResidualFluidRequirement by CompressionHead;
+    satisfy SafetyRequirement by SafetyInterlockSystem;
+    satisfy SafetyRequirement by ControlUnit;
+    satisfy StatusReportingRequirement by OperatorInterface;
+    satisfy StatusReportingRequirement by ControlUnit;
+    satisfy TubeIntegrityRequirement by CompressionHead;
+
+    part tubeStripperSystem : TubeStripper {
+        attribute maximumTubeDiameter = 25.0 [mm];
+        attribute minimumTubeDiameter = 2.0 [mm];
+        attribute maximumStripLength = 1000.0 [mm];
+        attribute nominalStripSpeed = 40.0 [mm/s];
+    }
+}

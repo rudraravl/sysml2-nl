@@ -1,0 +1,1075 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2ltsjyka
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4e1-f19d-7c02-b3db-bf62e0be93b3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a pumping subsystem that moves fluid using a Turbopump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PumpingSubsystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def VolumetricFlowRate :> ISQ::volumeFlowRate {
+        unit = l / min;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = bar;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = K;
+    }
+
+    attribute def RotationalSpeed :> ISQ::angularVelocity {
+        unit = rev / min;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = kW;
+    }
+
+    attribute def Efficiency :> ScalarValues::Real {
+        range = "0.0 .. 1.0";
+    }
+
+    attribute def Density :> ISQ::massDensity {
+        unit = kg / m^3;
+    }
+
+    attribute def Viscosity :> ISQ::dynamicViscosity {
+        unit = Pa * s;
+    }
+
+    item def WorkingFluid {
+        attribute density : Density = 998 [kg / m^3];
+        attribute dynamicViscosity : Viscosity = 0.001 [Pa * s];
+        attribute temperature : Temperature;
+        attribute vaporPressure : Pressure;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ISQ::electricPotentialDifference;
+        attribute current : ISQ::electricCurrent;
+        attribute frequency : ISQ::frequency;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute torque : ISQ::torque;
+        attribute transmittedPower : Power;
+    }
+
+    item def ControlCommand {
+        attribute requestedSpeed : RotationalSpeed;
+        attribute enablePump : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def Telemetry {
+        attribute measuredInletPressure : Pressure;
+        attribute measuredOutletPressure : Pressure;
+        attribute measuredFlowRate : VolumetricFlowRate;
+        attribute measuredSpeed : RotationalSpeed;
+        attribute measuredTemperature : Temperature;
+        attribute faultActive : Boolean;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : WorkingFluid;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : WorkingFluid;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    port def ElectricalPowerPort {
+        in item electricalInput : ElectricalEnergy;
+    }
+
+    port def MechanicalDrivePort {
+        out item mechanicalOutput : MechanicalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetry : Telemetry;
+    }
+
+    port def VentDrainPort {
+        out item drainedFluid : WorkingFluid;
+        attribute drainFlowRate : VolumetricFlowRate;
+    }
+
+    action def StartPump {
+        in requestedSpeed : RotationalSpeed;
+        out startupComplete : Boolean;
+    }
+
+    action def StopPump {
+        out stopped : Boolean;
+    }
+
+    action def RegulateSpeed {
+        in targetSpeed : RotationalSpeed;
+        in actualSpeed : RotationalSpeed;
+        out motorTorqueCommand : ISQ::torque;
+    }
+
+    action def PressurizeFluid {
+        in inletPressure : Pressure;
+        in inletFlowRate : VolumetricFlowRate;
+        in impellerSpeed : RotationalSpeed;
+        out outletPressure : Pressure;
+        out outletFlowRate : VolumetricFlowRate;
+    }
+
+    action def DetectCavitation {
+        in inletPressure : Pressure;
+        in fluidVaporPressure : Pressure;
+        in inletTemperature : Temperature;
+        out cavitationDetected : Boolean;
+    }
+
+    action def ShutDownOnFault {
+        in faultActive : Boolean;
+        out driveDisabled : Boolean;
+        out isolationClosed : Boolean;
+    }
+
+    state def PumpOperatingState {
+        entry action initializeTelemetry;
+
+        state Off;
+        state Priming;
+        state Starting;
+        state Running;
+        state Regulating;
+        state Faulted;
+        state Shutdown;
+
+        initial then Off;
+
+        transition Off_to_Priming
+            first Off
+            accept ControlCommand
+            if command.enablePump and not command.emergencyStop
+            then Priming;
+
+        transition Priming_to_Starting
+            first Priming
+            if primed == true
+            then Starting;
+
+        transition Starting_to_Running
+            first Starting
+            if measuredSpeed >= minimumStableSpeed
+            then Running;
+
+        transition Running_to_Regulating
+            first Running
+            if speedError > speedTolerance
+            then Regulating;
+
+        transition Regulating_to_Running
+            first Regulating
+            if speedError <= speedTolerance
+            then Running;
+
+        transition Any_to_Faulted
+            first Off, Priming, Starting, Running, Regulating
+            if faultActive or command.emergencyStop
+            then Faulted;
+
+        transition Faulted_to_Shutdown
+            first Faulted
+            then Shutdown;
+
+        transition Shutdown_to_Off
+            first Shutdown
+            if measuredSpeed <= 10 [rev / min]
+            then Off;
+
+        attribute primed : Boolean;
+        attribute faultActive : Boolean;
+        attribute measuredSpeed : RotationalSpeed;
+        attribute minimumStableSpeed : RotationalSpeed = 1500 [rev / min];
+        attribute speedError : RotationalSpeed;
+        attribute speedTolerance : RotationalSpeed = 50 [rev / min];
+        attribute command : ControlCommand;
+    }
+
+    part def Filter {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute nominalMicronRating : ScalarValues::Real = 25.0;
+        attribute cleanPressureDrop : Pressure = 0.05 [bar];
+        attribute cloggedPressureDropLimit : Pressure = 0.7 [bar];
+        attribute contaminationLoad : ScalarValues::Real;
+    }
+
+    part def InletValve {
+        port upstream : FluidInletPort;
+        port downstream : FluidOutletPort;
+        port control : ControlInputPort;
+
+        attribute openFraction : ScalarValues::Real = 0.0;
+        attribute fullOpenPressureDrop : Pressure = 0.03 [bar];
+        attribute leakageFlowWhenClosed : VolumetricFlowRate = 0.02 [l / min];
+    }
+
+    part def OutletCheckValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute crackingPressure : Pressure = 0.2 [bar];
+        attribute reverseLeakageFlow : VolumetricFlowRate = 0.01 [l / min];
+        attribute isOpen : Boolean;
+    }
+
+    part def ElectricMotor {
+        port electricalPower : ElectricalPowerPort;
+        port shaft : MechanicalDrivePort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute ratedPower : Power = 22 [kW];
+        attribute ratedSpeed : RotationalSpeed = 3600 [rev / min];
+        attribute maximumSpeed : RotationalSpeed = 4200 [rev / min];
+        attribute minimumCommandedSpeed : RotationalSpeed = 800 [rev / min];
+        attribute motorEfficiency : Efficiency = 0.92;
+        attribute windingTemperature : Temperature;
+        attribute overTemperatureLimit : Temperature = 413 [K];
+
+        perform action regulateMotor : RegulateSpeed;
+    }
+
+    part def Impeller {
+        port shaftInput : MechanicalDrivePort;
+        port fluidInlet : FluidInletPort;
+        port fluidOutlet : FluidOutletPort;
+
+        attribute diameter : ISQ::length = 0.16 [m];
+        attribute bladeCount : Integer = 7;
+        attribute nominalSpeed : RotationalSpeed = 3600 [rev / min];
+        attribute designFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute designPressureRise : Pressure = 8.0 [bar];
+        attribute hydraulicEfficiency : Efficiency = 0.78;
+
+        perform action pressurize : PressurizeFluid;
+    }
+
+    part def VoluteCasing {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port drain : VentDrainPort;
+
+        attribute maximumAllowablePressure : Pressure = 16 [bar];
+        attribute casingVolume : ISQ::volume = 0.004 [m^3];
+        attribute pressureLossAtDesignFlow : Pressure = 0.15 [bar];
+    }
+
+    part def SealAssembly {
+        port drain : VentDrainPort;
+
+        attribute allowableLeakageFlow : VolumetricFlowRate = 0.05 [l / min];
+        attribute measuredLeakageFlow : VolumetricFlowRate;
+        attribute sealFlushFlow : VolumetricFlowRate = 1.0 [l / min];
+    }
+
+    part def BearingAssembly {
+        attribute bearingTemperature : Temperature;
+        attribute warningTemperature : Temperature = 358 [K];
+        attribute tripTemperature : Temperature = 373 [K];
+        attribute vibrationRms : ISQ::speed;
+        attribute vibrationTripLimit : ISQ::speed = 0.0071 [m / s];
+    }
+
+    part def PressureSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute measurementRangeMin : Pressure = 0 [bar];
+        attribute measurementRangeMax : Pressure = 20 [bar];
+        attribute accuracy : Pressure = 0.05 [bar];
+        attribute sampledPressure : Pressure;
+    }
+
+    part def FlowSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute minimumRange : VolumetricFlowRate = 0 [l / min];
+        attribute maximumRange : VolumetricFlowRate = 400 [l / min];
+        attribute accuracy : VolumetricFlowRate = 2 [l / min];
+        attribute sampledFlowRate : VolumetricFlowRate;
+    }
+
+    part def TemperatureSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute measurementRangeMin : Temperature = 273 [K];
+        attribute measurementRangeMax : Temperature = 423 [K];
+        attribute accuracy : Temperature = 1 [K];
+        attribute sampledTemperature : Temperature;
+    }
+
+    part def PumpController {
+        port commandIn : ControlInputPort;
+        port telemetryOut : TelemetryOutputPort;
+        port motorCommand : ControlInputPort;
+        port inletValveCommand : ControlInputPort;
+
+        attribute targetOutletPressure : Pressure = 9.0 [bar];
+        attribute targetFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute commandedSpeed : RotationalSpeed;
+        attribute cavitationMargin : Pressure = 0.5 [bar];
+        attribute faultLatched : Boolean;
+
+        perform action detectCavitation : DetectCavitation;
+        perform action faultShutdown : ShutDownOnFault;
+
+        exhibit state controllerState : PumpOperatingState;
+    }
+
+    part def Turbopump {
+        port fluidIn : FluidInletPort;
+        port fluidOut : FluidOutletPort;
+        port electricalPower : ElectricalPowerPort;
+        port command : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+        port drain : VentDrainPort;
+
+        part motor : ElectricMotor;
+        part impeller : Impeller;
+        part casing : VoluteCasing;
+        part seal : SealAssembly;
+        part bearings : BearingAssembly;
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part temperatureSensor : TemperatureSensor;
+
+        attribute ratedFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute minimumContinuousFlowRate : VolumetricFlowRate = 60 [l / min];
+        attribute ratedPressureRise : Pressure = 8.0 [bar];
+        attribute maximumDischargePressure : Pressure = 14 [bar];
+        attribute netPositiveSuctionHeadRequired : Pressure = 0.8 [bar];
+        attribute overallEfficiency : Efficiency = 0.72;
+        attribute dryRunPermitted : Boolean = false;
+
+        connect electricalPower to motor.electricalPower;
+        connect command to motor.control;
+        connect motor.shaft to impeller.shaftInput;
+        connect fluidIn to casing.inlet;
+        connect casing.inlet to impeller.fluidInlet;
+        connect impeller.fluidOutlet to casing.outlet;
+        connect casing.outlet to fluidOut;
+        connect casing.drain to drain;
+        connect seal.drain to drain;
+        connect fluidIn to inletPressureSensor.sensedFluid;
+        connect fluidOut to outletPressureSensor.sensedFluid;
+        connect fluidOut to flowSensor.sensedFluid;
+        connect fluidIn to temperatureSensor.sensedFluid;
+        connect motor.telemetry to telemetry;
+        connect inletPressureSensor.telemetry to telemetry;
+        connect outletPressureSensor.telemetry to telemetry;
+        connect flowSensor.telemetry to telemetry;
+        connect temperatureSensor.telemetry to telemetry;
+
+        perform action start : StartPump;
+        perform action stop : StopPump;
+    }
+
+    part def PumpingSubsystem {
+        port suctionInlet : FluidInletPort;
+        port dischargeOutlet : FluidOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port externalCommand : ControlInputPort;
+        port subsystemTelemetry : TelemetryOutputPort;
+        port drainOutlet : VentDrainPort;
+
+        part suctionFilter : Filter;
+        part isolationValve : InletValve;
+        part turbopump : Turbopump;
+        part dischargeCheckValve : OutletCheckValve;
+        part controller : PumpController;
+
+        attribute requiredNominalFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute allowableFlowRateRangeLow : VolumetricFlowRate = 60 [l / min];
+        attribute allowableFlowRateRangeHigh : VolumetricFlowRate = 300 [l / min];
+        attribute requiredPressureRise : Pressure = 8.0 [bar];
+        attribute maximumInletTemperature : Temperature = 333 [K];
+        attribute minimumInletPressure : Pressure = 1.2 [bar];
+        attribute maximumOutletPressure : Pressure = 14 [bar];
+        attribute continuousDutyCycle : Boolean = true;
+
+        connect suctionInlet to suctionFilter.inlet;
+        connect suctionFilter.outlet to isolationValve.upstream;
+        connect isolationValve.downstream to turbopump.fluidIn;
+        connect turbopump.fluidOut to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeOutlet;
+        connect electricalSupply to turbopump.electricalPower;
+        connect externalCommand to controller.commandIn;
+        connect controller.motorCommand to turbopump.command;
+        connect controller.inletValveCommand to isolationValve.control;
+        connect turbopump.telemetry to controller.telemetryOut;
+        connect controller.telemetryOut to subsystemTelemetry;
+        connect turbopump.drain to drainOutlet;
+
+        exhibit state operatingState : PumpOperatingState;
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.requiredNominalFlowRate == 240 [l / min]
+        }
+
+        require constraint {
+            subsystem.requiredPressureRise >= 8.0 [bar]
+        }
+
+        require constraint {
+            subsystem.maximumOutletPressure <= 14 [bar]
+        }
+
+        require constraint {
+            subsystem.turbopump.minimumContinuousFlowRate <= subsystem.allowableFlowRateRangeLow
+        }
+
+        require constraint {
+            subsystem.turbopump.ratedFlowRate >= subsystem.requiredNominalFlowRate
+        }
+
+        require constraint {
+            subsystem.turbopump.ratedPressureRise >= subsystem.requiredPressureRise
+        }
+    }
+
+    requirement def CavitationProtectionRequirement {
+        subject pump : Turbopump;
+
+        require constraint {
+            pump.netPositiveSuctionHeadRequired <= 0.8 [bar]
+        }
+
+        require constraint {
+            pump.dryRunPermitted == false
+        }
+    }
+
+    requirement def SafetyShutdownRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.turbopump.maximumDischargePressure <= subsystem.maximumOutletPressure
+        }
+
+        require constraint {
+            subsystem.turbopump.motor.overTemperatureLimit <= 413 [K]
+        }
+
+        require constraint {
+            subsystem.turbopump.bearings.tripTemperature <= 373 [K]
+        }
+    }
+
+    requirement def LeakageRequirement {
+        subject pump : Turbopump;
+
+        require constraint {
+            pump.seal.allowableLeakageFlow <= 0.05 [l / min]
+        }
+    }
+
+    part pumpingSubsystem : PumpingSubsystem {
+        attribute requiredNominalFlowRate = 240 [l / min];
+        attribute requiredPressureRise = 8.0 [bar];
+        attribute maximumInletTemperature = 333 [K];
+        attribute minimumInletPressure = 1.2 [bar];
+        attribute maximumOutletPressure = 14 [bar];
+
+        part turbopump {
+            attribute ratedFlowRate = 260 [l / min];
+            attribute minimumContinuousFlowRate = 55 [l / min];
+            attribute ratedPressureRise = 8.5 [bar];
+            attribute maximumDischargePressure = 14 [bar];
+            attribute netPositiveSuctionHeadRequired = 0.75 [bar];
+            attribute overallEfficiency = 0.72;
+
+            part motor {
+                attribute ratedPower = 22 [kW];
+                attribute ratedSpeed = 3600 [rev / min];
+                attribute maximumSpeed = 4200 [rev / min];
+                attribute motorEfficiency = 0.92;
+            }
+
+            part impeller {
+                attribute diameter = 0.16 [m];
+                attribute bladeCount = 7;
+                attribute designFlowRate = 240 [l / min];
+                attribute designPressureRise = 8.0 [bar];
+                attribute hydraulicEfficiency = 0.78;
+            }
+        }
+    }
+
+    satisfy PumpingSubsystemRequirement by pumpingSubsystem;
+    satisfy CavitationProtectionRequirement by pumpingSubsystem.turbopump;
+    satisfy SafetyShutdownRequirement by pumpingSubsystem;
+    satisfy LeakageRequirement by pumpingSubsystem.turbopump;
+}
+tokens used
+5,261
+package PumpingSubsystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def VolumetricFlowRate :> ISQ::volumeFlowRate {
+        unit = l / min;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = bar;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = K;
+    }
+
+    attribute def RotationalSpeed :> ISQ::angularVelocity {
+        unit = rev / min;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = kW;
+    }
+
+    attribute def Efficiency :> ScalarValues::Real {
+        range = "0.0 .. 1.0";
+    }
+
+    attribute def Density :> ISQ::massDensity {
+        unit = kg / m^3;
+    }
+
+    attribute def Viscosity :> ISQ::dynamicViscosity {
+        unit = Pa * s;
+    }
+
+    item def WorkingFluid {
+        attribute density : Density = 998 [kg / m^3];
+        attribute dynamicViscosity : Viscosity = 0.001 [Pa * s];
+        attribute temperature : Temperature;
+        attribute vaporPressure : Pressure;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ISQ::electricPotentialDifference;
+        attribute current : ISQ::electricCurrent;
+        attribute frequency : ISQ::frequency;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute torque : ISQ::torque;
+        attribute transmittedPower : Power;
+    }
+
+    item def ControlCommand {
+        attribute requestedSpeed : RotationalSpeed;
+        attribute enablePump : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def Telemetry {
+        attribute measuredInletPressure : Pressure;
+        attribute measuredOutletPressure : Pressure;
+        attribute measuredFlowRate : VolumetricFlowRate;
+        attribute measuredSpeed : RotationalSpeed;
+        attribute measuredTemperature : Temperature;
+        attribute faultActive : Boolean;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : WorkingFluid;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : WorkingFluid;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    port def ElectricalPowerPort {
+        in item electricalInput : ElectricalEnergy;
+    }
+
+    port def MechanicalDrivePort {
+        out item mechanicalOutput : MechanicalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetry : Telemetry;
+    }
+
+    port def VentDrainPort {
+        out item drainedFluid : WorkingFluid;
+        attribute drainFlowRate : VolumetricFlowRate;
+    }
+
+    action def StartPump {
+        in requestedSpeed : RotationalSpeed;
+        out startupComplete : Boolean;
+    }
+
+    action def StopPump {
+        out stopped : Boolean;
+    }
+
+    action def RegulateSpeed {
+        in targetSpeed : RotationalSpeed;
+        in actualSpeed : RotationalSpeed;
+        out motorTorqueCommand : ISQ::torque;
+    }
+
+    action def PressurizeFluid {
+        in inletPressure : Pressure;
+        in inletFlowRate : VolumetricFlowRate;
+        in impellerSpeed : RotationalSpeed;
+        out outletPressure : Pressure;
+        out outletFlowRate : VolumetricFlowRate;
+    }
+
+    action def DetectCavitation {
+        in inletPressure : Pressure;
+        in fluidVaporPressure : Pressure;
+        in inletTemperature : Temperature;
+        out cavitationDetected : Boolean;
+    }
+
+    action def ShutDownOnFault {
+        in faultActive : Boolean;
+        out driveDisabled : Boolean;
+        out isolationClosed : Boolean;
+    }
+
+    state def PumpOperatingState {
+        entry action initializeTelemetry;
+
+        state Off;
+        state Priming;
+        state Starting;
+        state Running;
+        state Regulating;
+        state Faulted;
+        state Shutdown;
+
+        initial then Off;
+
+        transition Off_to_Priming
+            first Off
+            accept ControlCommand
+            if command.enablePump and not command.emergencyStop
+            then Priming;
+
+        transition Priming_to_Starting
+            first Priming
+            if primed == true
+            then Starting;
+
+        transition Starting_to_Running
+            first Starting
+            if measuredSpeed >= minimumStableSpeed
+            then Running;
+
+        transition Running_to_Regulating
+            first Running
+            if speedError > speedTolerance
+            then Regulating;
+
+        transition Regulating_to_Running
+            first Regulating
+            if speedError <= speedTolerance
+            then Running;
+
+        transition Any_to_Faulted
+            first Off, Priming, Starting, Running, Regulating
+            if faultActive or command.emergencyStop
+            then Faulted;
+
+        transition Faulted_to_Shutdown
+            first Faulted
+            then Shutdown;
+
+        transition Shutdown_to_Off
+            first Shutdown
+            if measuredSpeed <= 10 [rev / min]
+            then Off;
+
+        attribute primed : Boolean;
+        attribute faultActive : Boolean;
+        attribute measuredSpeed : RotationalSpeed;
+        attribute minimumStableSpeed : RotationalSpeed = 1500 [rev / min];
+        attribute speedError : RotationalSpeed;
+        attribute speedTolerance : RotationalSpeed = 50 [rev / min];
+        attribute command : ControlCommand;
+    }
+
+    part def Filter {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute nominalMicronRating : ScalarValues::Real = 25.0;
+        attribute cleanPressureDrop : Pressure = 0.05 [bar];
+        attribute cloggedPressureDropLimit : Pressure = 0.7 [bar];
+        attribute contaminationLoad : ScalarValues::Real;
+    }
+
+    part def InletValve {
+        port upstream : FluidInletPort;
+        port downstream : FluidOutletPort;
+        port control : ControlInputPort;
+
+        attribute openFraction : ScalarValues::Real = 0.0;
+        attribute fullOpenPressureDrop : Pressure = 0.03 [bar];
+        attribute leakageFlowWhenClosed : VolumetricFlowRate = 0.02 [l / min];
+    }
+
+    part def OutletCheckValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute crackingPressure : Pressure = 0.2 [bar];
+        attribute reverseLeakageFlow : VolumetricFlowRate = 0.01 [l / min];
+        attribute isOpen : Boolean;
+    }
+
+    part def ElectricMotor {
+        port electricalPower : ElectricalPowerPort;
+        port shaft : MechanicalDrivePort;
+        port control : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute ratedPower : Power = 22 [kW];
+        attribute ratedSpeed : RotationalSpeed = 3600 [rev / min];
+        attribute maximumSpeed : RotationalSpeed = 4200 [rev / min];
+        attribute minimumCommandedSpeed : RotationalSpeed = 800 [rev / min];
+        attribute motorEfficiency : Efficiency = 0.92;
+        attribute windingTemperature : Temperature;
+        attribute overTemperatureLimit : Temperature = 413 [K];
+
+        perform action regulateMotor : RegulateSpeed;
+    }
+
+    part def Impeller {
+        port shaftInput : MechanicalDrivePort;
+        port fluidInlet : FluidInletPort;
+        port fluidOutlet : FluidOutletPort;
+
+        attribute diameter : ISQ::length = 0.16 [m];
+        attribute bladeCount : Integer = 7;
+        attribute nominalSpeed : RotationalSpeed = 3600 [rev / min];
+        attribute designFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute designPressureRise : Pressure = 8.0 [bar];
+        attribute hydraulicEfficiency : Efficiency = 0.78;
+
+        perform action pressurize : PressurizeFluid;
+    }
+
+    part def VoluteCasing {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port drain : VentDrainPort;
+
+        attribute maximumAllowablePressure : Pressure = 16 [bar];
+        attribute casingVolume : ISQ::volume = 0.004 [m^3];
+        attribute pressureLossAtDesignFlow : Pressure = 0.15 [bar];
+    }
+
+    part def SealAssembly {
+        port drain : VentDrainPort;
+
+        attribute allowableLeakageFlow : VolumetricFlowRate = 0.05 [l / min];
+        attribute measuredLeakageFlow : VolumetricFlowRate;
+        attribute sealFlushFlow : VolumetricFlowRate = 1.0 [l / min];
+    }
+
+    part def BearingAssembly {
+        attribute bearingTemperature : Temperature;
+        attribute warningTemperature : Temperature = 358 [K];
+        attribute tripTemperature : Temperature = 373 [K];
+        attribute vibrationRms : ISQ::speed;
+        attribute vibrationTripLimit : ISQ::speed = 0.0071 [m / s];
+    }
+
+    part def PressureSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute measurementRangeMin : Pressure = 0 [bar];
+        attribute measurementRangeMax : Pressure = 20 [bar];
+        attribute accuracy : Pressure = 0.05 [bar];
+        attribute sampledPressure : Pressure;
+    }
+
+    part def FlowSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute minimumRange : VolumetricFlowRate = 0 [l / min];
+        attribute maximumRange : VolumetricFlowRate = 400 [l / min];
+        attribute accuracy : VolumetricFlowRate = 2 [l / min];
+        attribute sampledFlowRate : VolumetricFlowRate;
+    }
+
+    part def TemperatureSensor {
+        port sensedFluid : FluidInletPort;
+        port telemetry : TelemetryOutputPort;
+
+        attribute measurementRangeMin : Temperature = 273 [K];
+        attribute measurementRangeMax : Temperature = 423 [K];
+        attribute accuracy : Temperature = 1 [K];
+        attribute sampledTemperature : Temperature;
+    }
+
+    part def PumpController {
+        port commandIn : ControlInputPort;
+        port telemetryOut : TelemetryOutputPort;
+        port motorCommand : ControlInputPort;
+        port inletValveCommand : ControlInputPort;
+
+        attribute targetOutletPressure : Pressure = 9.0 [bar];
+        attribute targetFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute commandedSpeed : RotationalSpeed;
+        attribute cavitationMargin : Pressure = 0.5 [bar];
+        attribute faultLatched : Boolean;
+
+        perform action detectCavitation : DetectCavitation;
+        perform action faultShutdown : ShutDownOnFault;
+
+        exhibit state controllerState : PumpOperatingState;
+    }
+
+    part def Turbopump {
+        port fluidIn : FluidInletPort;
+        port fluidOut : FluidOutletPort;
+        port electricalPower : ElectricalPowerPort;
+        port command : ControlInputPort;
+        port telemetry : TelemetryOutputPort;
+        port drain : VentDrainPort;
+
+        part motor : ElectricMotor;
+        part impeller : Impeller;
+        part casing : VoluteCasing;
+        part seal : SealAssembly;
+        part bearings : BearingAssembly;
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part flowSensor : FlowSensor;
+        part temperatureSensor : TemperatureSensor;
+
+        attribute ratedFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute minimumContinuousFlowRate : VolumetricFlowRate = 60 [l / min];
+        attribute ratedPressureRise : Pressure = 8.0 [bar];
+        attribute maximumDischargePressure : Pressure = 14 [bar];
+        attribute netPositiveSuctionHeadRequired : Pressure = 0.8 [bar];
+        attribute overallEfficiency : Efficiency = 0.72;
+        attribute dryRunPermitted : Boolean = false;
+
+        connect electricalPower to motor.electricalPower;
+        connect command to motor.control;
+        connect motor.shaft to impeller.shaftInput;
+        connect fluidIn to casing.inlet;
+        connect casing.inlet to impeller.fluidInlet;
+        connect impeller.fluidOutlet to casing.outlet;
+        connect casing.outlet to fluidOut;
+        connect casing.drain to drain;
+        connect seal.drain to drain;
+        connect fluidIn to inletPressureSensor.sensedFluid;
+        connect fluidOut to outletPressureSensor.sensedFluid;
+        connect fluidOut to flowSensor.sensedFluid;
+        connect fluidIn to temperatureSensor.sensedFluid;
+        connect motor.telemetry to telemetry;
+        connect inletPressureSensor.telemetry to telemetry;
+        connect outletPressureSensor.telemetry to telemetry;
+        connect flowSensor.telemetry to telemetry;
+        connect temperatureSensor.telemetry to telemetry;
+
+        perform action start : StartPump;
+        perform action stop : StopPump;
+    }
+
+    part def PumpingSubsystem {
+        port suctionInlet : FluidInletPort;
+        port dischargeOutlet : FluidOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port externalCommand : ControlInputPort;
+        port subsystemTelemetry : TelemetryOutputPort;
+        port drainOutlet : VentDrainPort;
+
+        part suctionFilter : Filter;
+        part isolationValve : InletValve;
+        part turbopump : Turbopump;
+        part dischargeCheckValve : OutletCheckValve;
+        part controller : PumpController;
+
+        attribute requiredNominalFlowRate : VolumetricFlowRate = 240 [l / min];
+        attribute allowableFlowRateRangeLow : VolumetricFlowRate = 60 [l / min];
+        attribute allowableFlowRateRangeHigh : VolumetricFlowRate = 300 [l / min];
+        attribute requiredPressureRise : Pressure = 8.0 [bar];
+        attribute maximumInletTemperature : Temperature = 333 [K];
+        attribute minimumInletPressure : Pressure = 1.2 [bar];
+        attribute maximumOutletPressure : Pressure = 14 [bar];
+        attribute continuousDutyCycle : Boolean = true;
+
+        connect suctionInlet to suctionFilter.inlet;
+        connect suctionFilter.outlet to isolationValve.upstream;
+        connect isolationValve.downstream to turbopump.fluidIn;
+        connect turbopump.fluidOut to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeOutlet;
+        connect electricalSupply to turbopump.electricalPower;
+        connect externalCommand to controller.commandIn;
+        connect controller.motorCommand to turbopump.command;
+        connect controller.inletValveCommand to isolationValve.control;
+        connect turbopump.telemetry to controller.telemetryOut;
+        connect controller.telemetryOut to subsystemTelemetry;
+        connect turbopump.drain to drainOutlet;
+
+        exhibit state operatingState : PumpOperatingState;
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.requiredNominalFlowRate == 240 [l / min]
+        }
+
+        require constraint {
+            subsystem.requiredPressureRise >= 8.0 [bar]
+        }
+
+        require constraint {
+            subsystem.maximumOutletPressure <= 14 [bar]
+        }
+
+        require constraint {
+            subsystem.turbopump.minimumContinuousFlowRate <= subsystem.allowableFlowRateRangeLow
+        }
+
+        require constraint {
+            subsystem.turbopump.ratedFlowRate >= subsystem.requiredNominalFlowRate
+        }
+
+        require constraint {
+            subsystem.turbopump.ratedPressureRise >= subsystem.requiredPressureRise
+        }
+    }
+
+    requirement def CavitationProtectionRequirement {
+        subject pump : Turbopump;
+
+        require constraint {
+            pump.netPositiveSuctionHeadRequired <= 0.8 [bar]
+        }
+
+        require constraint {
+            pump.dryRunPermitted == false
+        }
+    }
+
+    requirement def SafetyShutdownRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.turbopump.maximumDischargePressure <= subsystem.maximumOutletPressure
+        }
+
+        require constraint {
+            subsystem.turbopump.motor.overTemperatureLimit <= 413 [K]
+        }
+
+        require constraint {
+            subsystem.turbopump.bearings.tripTemperature <= 373 [K]
+        }
+    }
+
+    requirement def LeakageRequirement {
+        subject pump : Turbopump;
+
+        require constraint {
+            pump.seal.allowableLeakageFlow <= 0.05 [l / min]
+        }
+    }
+
+    part pumpingSubsystem : PumpingSubsystem {
+        attribute requiredNominalFlowRate = 240 [l / min];
+        attribute requiredPressureRise = 8.0 [bar];
+        attribute maximumInletTemperature = 333 [K];
+        attribute minimumInletPressure = 1.2 [bar];
+        attribute maximumOutletPressure = 14 [bar];
+
+        part turbopump {
+            attribute ratedFlowRate = 260 [l / min];
+            attribute minimumContinuousFlowRate = 55 [l / min];
+            attribute ratedPressureRise = 8.5 [bar];
+            attribute maximumDischargePressure = 14 [bar];
+            attribute netPositiveSuctionHeadRequired = 0.75 [bar];
+            attribute overallEfficiency = 0.72;
+
+            part motor {
+                attribute ratedPower = 22 [kW];
+                attribute ratedSpeed = 3600 [rev / min];
+                attribute maximumSpeed = 4200 [rev / min];
+                attribute motorEfficiency = 0.92;
+            }
+
+            part impeller {
+                attribute diameter = 0.16 [m];
+                attribute bladeCount = 7;
+                attribute designFlowRate = 240 [l / min];
+                attribute designPressureRise = 8.0 [bar];
+                attribute hydraulicEfficiency = 0.78;
+            }
+        }
+    }
+
+    satisfy PumpingSubsystemRequirement by pumpingSubsystem;
+    satisfy CavitationProtectionRequirement by pumpingSubsystem.turbopump;
+    satisfy SafetyShutdownRequirement by pumpingSubsystem;
+    satisfy LeakageRequirement by pumpingSubsystem.turbopump;
+}

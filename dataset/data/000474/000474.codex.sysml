@@ -1,0 +1,374 @@
+package MitraClipTherapySystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    item def Blood;
+    item def MitralLeafletTissue;
+    item def ImagingData;
+    item def ControlCommand;
+    item def ClipPositionData;
+    item def HemodynamicData;
+    item def SterileSaline;
+    item def ImplantStatus;
+
+    enum def ClipState {
+        enum undeployed;
+        enum open;
+        enum grasping;
+        enum closed;
+        enum locked;
+        enum released;
+    }
+
+    enum def ProcedurePhase {
+        enum prepared;
+        enum transseptalAccess;
+        enum navigation;
+        enum leafletCapture;
+        enum regurgitationAssessment;
+        enum deployment;
+        enum withdrawal;
+        enum completed;
+        enum aborted;
+    }
+
+    attribute def LengthValue :> length;
+    attribute def AreaValue :> area;
+    attribute def VolumeFlowRateValue :> volumeFlowRate;
+    attribute def PressureValue :> pressure;
+    attribute def ForceValue :> force;
+    attribute def AngleValue :> planeAngle;
+    attribute def TimeValue :> time;
+    attribute def CountValue :> Integer;
+
+    port def BloodFlowPort {
+        inout item blood: Blood;
+        attribute pressure: PressureValue;
+        attribute regurgitantFlowRate: VolumeFlowRateValue;
+    }
+
+    port def TissueInterfacePort {
+        inout item tissue: MitralLeafletTissue;
+        attribute appliedGripForce: ForceValue;
+        attribute leafletInsertionDepth: LengthValue;
+    }
+
+    port def ImagingPort {
+        in item imagingData: ImagingData;
+        out item clipPositionData: ClipPositionData;
+    }
+
+    port def CommandPort {
+        in item command: ControlCommand;
+        out item status: ImplantStatus;
+    }
+
+    port def FlushPort {
+        in item flushMedium: SterileSaline;
+        attribute flushPressure: PressureValue;
+    }
+
+    part def MitralValve {
+        port leftAtrialSide: BloodFlowPort;
+        port leftVentricularSide: BloodFlowPort;
+        port anteriorLeaflet: TissueInterfacePort;
+        port posteriorLeaflet: TissueInterfacePort;
+
+        attribute annulusDiameter: LengthValue = 34 [mm];
+        attribute baselineRegurgitantOrificeArea: AreaValue = 0.42 [cm^2];
+        attribute postRepairRegurgitantOrificeArea: AreaValue;
+        attribute meanTransmitralGradient: PressureValue;
+        attribute leafletThickness: LengthValue = 2.5 [mm];
+    }
+
+    part def PatientHeart {
+        part mitralValve: MitralValve;
+        port venousAccess: BloodFlowPort;
+        port leftAtrium: BloodFlowPort;
+        port leftVentricle: BloodFlowPort;
+
+        connect leftAtrium to mitralValve.leftAtrialSide;
+        connect leftVentricle to mitralValve.leftVentricularSide;
+    }
+
+    part def ClipImplant {
+        port anteriorGripper: TissueInterfacePort;
+        port posteriorGripper: TissueInterfacePort;
+        port atrialBloodInterface: BloodFlowPort;
+        port ventricularBloodInterface: BloodFlowPort;
+        port implantCommand: CommandPort;
+
+        attribute armSpanOpen: LengthValue = 20 [mm];
+        attribute armSpanClosed: LengthValue = 4 [mm];
+        attribute armAngleOpen: AngleValue = 120 [deg];
+        attribute maximumLeafletGripForce: ForceValue = 6 [N];
+        attribute nominalLeafletGripForce: ForceValue = 3.5 [N];
+        attribute minimumLeafletInsertionDepth: LengthValue = 5 [mm];
+        attribute clipState: ClipState = ClipState::undeployed;
+        attribute residualRegurgitantOrificeAreaTarget: AreaValue = 0.20 [cm^2];
+    }
+
+    part def SteerableGuideCatheter {
+        port proximalCommand: CommandPort;
+        port distalExit: CommandPort;
+        port flushInlet: FlushPort;
+        port bloodInterface: BloodFlowPort;
+
+        attribute outerDiameter: LengthValue = 24 [Fr];
+        attribute usableLength: LengthValue = 80 [cm];
+        attribute steeringAngleRange: AngleValue = 180 [deg];
+        attribute maximumFlushPressure: PressureValue = 300 [mmHg];
+    }
+
+    part def ClipDeliverySystem {
+        port operatorCommand: CommandPort;
+        port imagingInput: ImagingPort;
+        port distalClipControl: CommandPort;
+        port flushInlet: FlushPort;
+
+        part deliveryCatheter {
+            port proximalCommand: CommandPort;
+            port distalCommand: CommandPort;
+            port imagingReference: ImagingPort;
+            attribute shaftLength: LengthValue = 120 [cm];
+            attribute tipDeflectionRange: AngleValue = 270 [deg];
+            attribute rotationalControlResolution: AngleValue = 5 [deg];
+        }
+
+        part actuatorHandle {
+            port commandInput: CommandPort;
+            port catheterOutput: CommandPort;
+            attribute armOpenCloseTravel: LengthValue = 15 [mm];
+            attribute lockActuationTravel: LengthValue = 8 [mm];
+            attribute releaseActuationTravel: LengthValue = 10 [mm];
+        }
+
+        connect operatorCommand to actuatorHandle.commandInput;
+        connect actuatorHandle.catheterOutput to deliveryCatheter.proximalCommand;
+        connect deliveryCatheter.distalCommand to distalClipControl;
+        connect imagingInput to deliveryCatheter.imagingReference;
+    }
+
+    part def EchocardiographySubsystem {
+        port imageOutput: ImagingPort;
+        port hemodynamicOutput: ImagingPort;
+
+        attribute frameRate: CountValue = 30;
+        attribute spatialResolution: LengthValue = 1 [mm];
+        attribute colorDopplerRegurgitationGrade: CountValue;
+        attribute measuredTransmitralGradient: PressureValue;
+    }
+
+    part def HemodynamicMonitor {
+        port pressureInput: BloodFlowPort;
+        port dataOutput: ImagingPort;
+
+        attribute leftAtrialPressure: PressureValue;
+        attribute leftVentricularPressure: PressureValue;
+        attribute regurgitantVolumePerBeat: volume = 60 [mL];
+    }
+
+    part def MitraClipBasedSystem {
+        port operatorInterface: CommandPort;
+        port venousInterface: BloodFlowPort;
+
+        part patientHeart: PatientHeart;
+        part guideCatheter: SteerableGuideCatheter;
+        part deliverySystem: ClipDeliverySystem;
+        part clip: ClipImplant;
+        part echo: EchocardiographySubsystem;
+        part monitor: HemodynamicMonitor;
+
+        attribute primaryFunctionDescription: String =
+            "Percutaneously approximate the anterior and posterior mitral valve leaflets to reduce mitral regurgitation while preserving forward transmitral blood flow.";
+        attribute targetRegurgitationReduction: Real = 0.50;
+        attribute maximumAllowedMeanTransmitralGradient: PressureValue = 5 [mmHg];
+        attribute targetProcedureTime: TimeValue = 120 [min];
+
+        connect operatorInterface to deliverySystem.operatorCommand;
+        connect venousInterface to patientHeart.venousAccess;
+        connect guideCatheter.distalExit to deliverySystem.operatorCommand;
+        connect deliverySystem.distalClipControl to clip.implantCommand;
+        connect echo.imageOutput to deliverySystem.imagingInput;
+        connect monitor.pressureInput to patientHeart.leftAtrium;
+        connect clip.anteriorGripper to patientHeart.mitralValve.anteriorLeaflet;
+        connect clip.posteriorGripper to patientHeart.mitralValve.posteriorLeaflet;
+        connect clip.atrialBloodInterface to patientHeart.mitralValve.leftAtrialSide;
+        connect clip.ventricularBloodInterface to patientHeart.mitralValve.leftVentricularSide;
+    }
+
+    action def NavigateToMitralValve {
+        in system: MitraClipBasedSystem;
+        out positionData: ClipPositionData;
+
+        first start;
+        then advanceGuideCatheter;
+        then crossInteratrialSeptum;
+        then steerDeliveryCatheter;
+        then alignClipAboveRegurgitantJet;
+        then done;
+
+        action advanceGuideCatheter;
+        action crossInteratrialSeptum;
+        action steerDeliveryCatheter;
+        action alignClipAboveRegurgitantJet;
+    }
+
+    action def CaptureLeaflets {
+        in system: MitraClipBasedSystem;
+        in anteriorLeaflet: MitralLeafletTissue;
+        in posteriorLeaflet: MitralLeafletTissue;
+        out capturedTissue: MitralLeafletTissue;
+
+        first openClipArms;
+        then positionBelowLeafletFreeEdges;
+        then lowerGrippers;
+        then closeClipArms;
+        then verifyLeafletInsertion;
+        then done;
+
+        action openClipArms;
+        action positionBelowLeafletFreeEdges;
+        action lowerGrippers;
+        action closeClipArms;
+        action verifyLeafletInsertion;
+    }
+
+    action def ReduceMitralRegurgitation {
+        in system: MitraClipBasedSystem;
+        out residualRegurgitation: HemodynamicData;
+
+        first prepareSystem;
+        then navigate: NavigateToMitralValve;
+        then capture: CaptureLeaflets;
+        then assessRegurgitation;
+        then lockClip;
+        then releaseClip;
+        then withdrawDeliverySystem;
+        then done;
+
+        action prepareSystem;
+        action assessRegurgitation;
+        action lockClip;
+        action releaseClip;
+        action withdrawDeliverySystem;
+    }
+
+    state def ClipProcedureStateMachine {
+        entry action initializeProcedure;
+
+        state Prepared;
+        state TransseptalAccess;
+        state Navigating;
+        state LeafletCapture;
+        state Assessment;
+        state Locked;
+        state Released;
+        state Withdrawn;
+        state Completed;
+        state Aborted;
+
+        transition first Prepared;
+        transition Prepared then TransseptalAccess accept ControlCommand;
+        transition TransseptalAccess then Navigating accept ClipPositionData;
+        transition Navigating then LeafletCapture accept ImagingData;
+        transition LeafletCapture then Assessment accept ImplantStatus;
+        transition Assessment then LeafletCapture
+            if residualRegurgitationTooHigh;
+        transition Assessment then Locked
+            if regurgitationReducedAndGradientAcceptable;
+        transition Locked then Released accept ControlCommand;
+        transition Released then Withdrawn accept ImplantStatus;
+        transition Withdrawn then Completed;
+        transition Prepared then Aborted if unsafeAccess;
+        transition Navigating then Aborted if unstableHemodynamics;
+        transition LeafletCapture then Aborted if inadequateLeafletInsertion;
+
+        action initializeProcedure;
+        action residualRegurgitationTooHigh;
+        action regurgitationReducedAndGradientAcceptable;
+        action unsafeAccess;
+        action unstableHemodynamics;
+        action inadequateLeafletInsertion;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system: MitraClipBasedSystem;
+
+        require constraint {
+            system.targetRegurgitationReduction >= 0.50
+        }
+
+        require constraint {
+            system.patientHeart.mitralValve.meanTransmitralGradient <= system.maximumAllowedMeanTransmitralGradient
+        }
+    }
+
+    requirement def LeafletApproximationRequirement {
+        subject clip: ClipImplant;
+
+        require constraint {
+            clip.nominalLeafletGripForce >= 2 [N] and
+            clip.nominalLeafletGripForce <= clip.maximumLeafletGripForce
+        }
+
+        require constraint {
+            clip.minimumLeafletInsertionDepth >= 5 [mm]
+        }
+    }
+
+    requirement def ClipDeploymentRequirement {
+        subject system: MitraClipBasedSystem;
+
+        require constraint {
+            system.clip.clipState == ClipState::locked or
+            system.clip.clipState == ClipState::released
+        }
+    }
+
+    requirement def HemodynamicSafetyRequirement {
+        subject valve: MitralValve;
+
+        require constraint {
+            valve.postRepairRegurgitantOrificeArea < valve.baselineRegurgitantOrificeArea
+        }
+
+        require constraint {
+            valve.meanTransmitralGradient <= 5 [mmHg]
+        }
+    }
+
+    requirement def ImagingGuidanceRequirement {
+        subject echo: EchocardiographySubsystem;
+
+        require constraint {
+            echo.frameRate >= 20
+        }
+
+        require constraint {
+            echo.spatialResolution <= 2 [mm]
+        }
+    }
+
+    requirement def FlushPressureRequirement {
+        subject catheter: SteerableGuideCatheter;
+
+        require constraint {
+            catheter.flushInlet.flushPressure <= catheter.maximumFlushPressure
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MitraClipBasedSystem;
+    satisfy LeafletApproximationRequirement by ClipImplant;
+    satisfy ClipDeploymentRequirement by MitraClipBasedSystem;
+    satisfy HemodynamicSafetyRequirement by MitralValve;
+    satisfy ImagingGuidanceRequirement by EchocardiographySubsystem;
+    satisfy FlushPressureRequirement by SteerableGuideCatheter;
+
+    part mitraClipSystem: MitraClipBasedSystem;
+
+    perform action ReduceMitralRegurgitation {
+        in system = mitraClipSystem;
+    }
+}

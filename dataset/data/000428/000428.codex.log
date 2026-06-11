@@ -1,0 +1,713 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_9zldhfx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2d8-b2a1-7cd1-9bc7-0fc380e6d982
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Blindsight and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package BlindsightSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Distance :> ISQ::length {
+        :>> unit = SI::metre;
+    }
+
+    attribute def Duration :> ISQ::time {
+        :>> unit = SI::second;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        :>> unit = SI::hertz;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        :>> unit = SI::radian;
+    }
+
+    attribute def Speed :> ISQ::speed {
+        :>> unit = SI::metrePerSecond;
+    }
+
+    attribute def Probability {
+        value : Real;
+    }
+
+    attribute def ConfidenceScore {
+        value : Real;
+    }
+
+    attribute def BatteryCharge {
+        value : Real;
+    }
+
+    item def PhotonicScene {
+        attribute ambientIlluminance : Real;
+        attribute fieldOfView : Angle;
+        attribute captureRange : Distance;
+    }
+
+    item def NeuralLikeFeatureMap {
+        attribute edgeDensity : Real;
+        attribute motionSalience : Real;
+        attribute contrastGradient : Real;
+        attribute confidence : ConfidenceScore;
+    }
+
+    item def HazardCue {
+        attribute direction : Angle;
+        attribute distance : Distance;
+        attribute urgency : Probability;
+        attribute recommendedMotion : MotionInstruction;
+    }
+
+    item def MotionInstruction {
+        attribute turnAngle : Angle;
+        attribute stepSpeed : Speed;
+        attribute stopRequired : Boolean;
+    }
+
+    item def UserIntent {
+        attribute desiredHeading : Angle;
+        attribute walkingSpeed : Speed;
+    }
+
+    item def HapticPattern {
+        attribute pulseFrequency : Frequency;
+        attribute pulseDuration : Duration;
+        attribute leftIntensity : Real;
+        attribute rightIntensity : Real;
+    }
+
+    item def AudioPattern {
+        attribute toneFrequency : Frequency;
+        attribute toneDuration : Duration;
+        attribute spatialDirection : Angle;
+    }
+
+    port def OpticalInputPort {
+        in item scene : PhotonicScene;
+    }
+
+    port def IntentInputPort {
+        in item intent : UserIntent;
+    }
+
+    port def FeatureMapPort {
+        out item featureMap : NeuralLikeFeatureMap;
+    }
+
+    port def CuePort {
+        out item cue : HazardCue;
+    }
+
+    port def HapticOutputPort {
+        out item pattern : HapticPattern;
+    }
+
+    port def AudioOutputPort {
+        out item pattern : AudioPattern;
+    }
+
+    port def PowerPort {
+        in item availableCharge : BatteryCharge;
+    }
+
+    action def CaptureScene {
+        in item opticalScene : PhotonicScene;
+        out item sampledScene : PhotonicScene;
+    }
+
+    action def ExtractPreconsciousFeatures {
+        in item sampledScene : PhotonicScene;
+        out item featureMap : NeuralLikeFeatureMap;
+    }
+
+    action def DetectNavigationalHazard {
+        in item featureMap : NeuralLikeFeatureMap;
+        in item intent : UserIntent;
+        out item cue : HazardCue;
+    }
+
+    action def EncodeHapticCue {
+        in item cue : HazardCue;
+        out item pattern : HapticPattern;
+    }
+
+    action def EncodeAudioCue {
+        in item cue : HazardCue;
+        out item pattern : AudioPattern;
+    }
+
+    action def DeliverCue {
+        in item hapticPattern : HapticPattern;
+        in item audioPattern : AudioPattern;
+    }
+
+    action def BlindsightPerceptionCycle {
+        in item scene : PhotonicScene;
+        in item intent : UserIntent;
+        out item cue : HazardCue;
+
+        action capture : CaptureScene;
+        action extract : ExtractPreconsciousFeatures;
+        action detect : DetectNavigationalHazard;
+
+        flow scene to capture.opticalScene;
+        flow capture.sampledScene to extract.sampledScene;
+        flow extract.featureMap to detect.featureMap;
+        flow intent to detect.intent;
+        flow detect.cue to cue;
+    }
+
+    state def BlindsightOperatingStates {
+        state Off;
+        state Initializing;
+        state Monitoring;
+        state Cueing;
+        state Degraded;
+        state Faulted;
+
+        transition first Off then Initializing;
+        transition Initializing then Monitoring
+            accept after 2 [s];
+
+        transition Monitoring then Cueing
+            accept when hazardUrgency.value > 0.35;
+
+        transition Cueing then Monitoring
+            accept when hazardUrgency.value <= 0.20;
+
+        transition Monitoring then Degraded
+            accept when perceptionConfidence.value < 0.55;
+
+        transition Degraded then Monitoring
+            accept when perceptionConfidence.value >= 0.70;
+
+        transition Initializing then Faulted
+            accept when selfTestPassed == false;
+
+        transition Monitoring then Faulted
+            accept when powerRemaining.value <= 0.03;
+
+        transition Cueing then Faulted
+            accept when powerRemaining.value <= 0.03;
+    }
+
+    part def LowLevelOpticalArray {
+        port opticalIn : OpticalInputPort;
+        port featuresOut : FeatureMapPort;
+
+        attribute horizontalFieldOfView : Angle = 2.09 [rad];
+        attribute effectiveRange : Distance = 8.0 [m];
+        attribute frameRate : Frequency = 30 [Hz];
+
+        perform action capture : CaptureScene;
+        perform action extract : ExtractPreconsciousFeatures;
+    }
+
+    part def MotionAndHazardInterpreter {
+        port featuresIn : FeatureMapPort;
+        port intentIn : IntentInputPort;
+        port cueOut : CuePort;
+
+        attribute minimumObstacleDistance : Distance = 0.6 [m];
+        attribute reactionWindow : Duration = 1.2 [s];
+        attribute hazardUrgency : Probability;
+
+        perform action detect : DetectNavigationalHazard;
+    }
+
+    part def HapticCueBelt {
+        port cueIn : CuePort;
+        port hapticOut : HapticOutputPort;
+
+        attribute actuatorCount : Integer = 8;
+        attribute maximumPulseFrequency : Frequency = 220 [Hz];
+
+        perform action encode : EncodeHapticCue;
+    }
+
+    part def BoneConductionAudioCue {
+        port cueIn : CuePort;
+        port audioOut : AudioOutputPort;
+
+        attribute minimumToneFrequency : Frequency = 300 [Hz];
+        attribute maximumToneFrequency : Frequency = 3000 [Hz];
+
+        perform action encode : EncodeAudioCue;
+    }
+
+    part def PowerManager {
+        port powerOut : PowerPort;
+
+        attribute nominalRuntime : Duration = 10 [h];
+        attribute powerRemaining : BatteryCharge;
+        attribute lowPowerThreshold : BatteryCharge = 0.15;
+    }
+
+    part def BlindsightAssistiveSystem {
+        doc
+        /* Primary function: provide a user with non-conscious, low-latency spatial guidance by converting optical scene features into haptic and audio cues for obstacle avoidance and heading correction. */
+
+        port opticalInput : OpticalInputPort;
+        port userIntentInput : IntentInputPort;
+        port hapticOutput : HapticOutputPort;
+        port audioOutput : AudioOutputPort;
+
+        part opticalArray : LowLevelOpticalArray;
+        part interpreter : MotionAndHazardInterpreter;
+        part hapticBelt : HapticCueBelt;
+        part audioCue : BoneConductionAudioCue;
+        part powerManager : PowerManager;
+
+        attribute perceptionConfidence : ConfidenceScore;
+        attribute hazardUrgency : Probability;
+        attribute selfTestPassed : Boolean;
+        attribute powerRemaining : BatteryCharge;
+
+        connection opticalFeed connect opticalInput to opticalArray.opticalIn;
+        connection featureFeed connect opticalArray.featuresOut to interpreter.featuresIn;
+        connection intentFeed connect userIntentInput to interpreter.intentIn;
+        connection hapticCueFeed connect interpreter.cueOut to hapticBelt.cueIn;
+        connection audioCueFeed connect interpreter.cueOut to audioCue.cueIn;
+        connection hapticDelivery connect hapticBelt.hapticOut to hapticOutput;
+        connection audioDelivery connect audioCue.audioOut to audioOutput;
+
+        perform action perceptionCycle : BlindsightPerceptionCycle;
+        exhibit state operatingStates : BlindsightOperatingStates;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.perceptionConfidence.value >= 0.70
+        }
+
+        doc
+        /* The system shall transform optical scene information into actionable nonvisual cues that support obstacle avoidance without requiring conscious visual interpretation. */
+    }
+
+    requirement def LowLatencyCueRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.interpreter.reactionWindow <= 1.2 [s]
+        }
+
+        doc
+        /* The system shall deliver hazard cues quickly enough to support walking-speed navigation. */
+    }
+
+    requirement def FieldCoverageRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.opticalArray.horizontalFieldOfView >= 2.09 [rad]
+        }
+
+        doc
+        /* The optical sensing function shall cover a forward field sufficient for near-body navigation. */
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.interpreter.minimumObstacleDistance >= 0.6 [m]
+        }
+
+        doc
+        /* The system shall identify obstacles that intrude into the user motion corridor. */
+    }
+
+    requirement def MultimodalCueRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.hapticBelt.actuatorCount >= 8
+        }
+
+        doc
+        /* The system shall provide directional haptic cues and supplemental spatial audio cues for urgent hazards. */
+    }
+
+    requirement def RuntimeRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.powerManager.nominalRuntime >= 10 [h]
+        }
+
+        doc
+        /* The system shall operate for a full daily mobility interval before recharge. */
+    }
+
+    satisfy PrimaryFunctionRequirement by BlindsightAssistiveSystem;
+    satisfy LowLatencyCueRequirement by MotionAndHazardInterpreter;
+    satisfy FieldCoverageRequirement by LowLevelOpticalArray;
+    satisfy ObstacleAvoidanceRequirement by MotionAndHazardInterpreter;
+    satisfy MultimodalCueRequirement by HapticCueBelt;
+    satisfy RuntimeRequirement by PowerManager;
+}
+tokens used
+4,235
+package BlindsightSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Distance :> ISQ::length {
+        :>> unit = SI::metre;
+    }
+
+    attribute def Duration :> ISQ::time {
+        :>> unit = SI::second;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        :>> unit = SI::hertz;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        :>> unit = SI::radian;
+    }
+
+    attribute def Speed :> ISQ::speed {
+        :>> unit = SI::metrePerSecond;
+    }
+
+    attribute def Probability {
+        value : Real;
+    }
+
+    attribute def ConfidenceScore {
+        value : Real;
+    }
+
+    attribute def BatteryCharge {
+        value : Real;
+    }
+
+    item def PhotonicScene {
+        attribute ambientIlluminance : Real;
+        attribute fieldOfView : Angle;
+        attribute captureRange : Distance;
+    }
+
+    item def NeuralLikeFeatureMap {
+        attribute edgeDensity : Real;
+        attribute motionSalience : Real;
+        attribute contrastGradient : Real;
+        attribute confidence : ConfidenceScore;
+    }
+
+    item def HazardCue {
+        attribute direction : Angle;
+        attribute distance : Distance;
+        attribute urgency : Probability;
+        attribute recommendedMotion : MotionInstruction;
+    }
+
+    item def MotionInstruction {
+        attribute turnAngle : Angle;
+        attribute stepSpeed : Speed;
+        attribute stopRequired : Boolean;
+    }
+
+    item def UserIntent {
+        attribute desiredHeading : Angle;
+        attribute walkingSpeed : Speed;
+    }
+
+    item def HapticPattern {
+        attribute pulseFrequency : Frequency;
+        attribute pulseDuration : Duration;
+        attribute leftIntensity : Real;
+        attribute rightIntensity : Real;
+    }
+
+    item def AudioPattern {
+        attribute toneFrequency : Frequency;
+        attribute toneDuration : Duration;
+        attribute spatialDirection : Angle;
+    }
+
+    port def OpticalInputPort {
+        in item scene : PhotonicScene;
+    }
+
+    port def IntentInputPort {
+        in item intent : UserIntent;
+    }
+
+    port def FeatureMapPort {
+        out item featureMap : NeuralLikeFeatureMap;
+    }
+
+    port def CuePort {
+        out item cue : HazardCue;
+    }
+
+    port def HapticOutputPort {
+        out item pattern : HapticPattern;
+    }
+
+    port def AudioOutputPort {
+        out item pattern : AudioPattern;
+    }
+
+    port def PowerPort {
+        in item availableCharge : BatteryCharge;
+    }
+
+    action def CaptureScene {
+        in item opticalScene : PhotonicScene;
+        out item sampledScene : PhotonicScene;
+    }
+
+    action def ExtractPreconsciousFeatures {
+        in item sampledScene : PhotonicScene;
+        out item featureMap : NeuralLikeFeatureMap;
+    }
+
+    action def DetectNavigationalHazard {
+        in item featureMap : NeuralLikeFeatureMap;
+        in item intent : UserIntent;
+        out item cue : HazardCue;
+    }
+
+    action def EncodeHapticCue {
+        in item cue : HazardCue;
+        out item pattern : HapticPattern;
+    }
+
+    action def EncodeAudioCue {
+        in item cue : HazardCue;
+        out item pattern : AudioPattern;
+    }
+
+    action def DeliverCue {
+        in item hapticPattern : HapticPattern;
+        in item audioPattern : AudioPattern;
+    }
+
+    action def BlindsightPerceptionCycle {
+        in item scene : PhotonicScene;
+        in item intent : UserIntent;
+        out item cue : HazardCue;
+
+        action capture : CaptureScene;
+        action extract : ExtractPreconsciousFeatures;
+        action detect : DetectNavigationalHazard;
+
+        flow scene to capture.opticalScene;
+        flow capture.sampledScene to extract.sampledScene;
+        flow extract.featureMap to detect.featureMap;
+        flow intent to detect.intent;
+        flow detect.cue to cue;
+    }
+
+    state def BlindsightOperatingStates {
+        state Off;
+        state Initializing;
+        state Monitoring;
+        state Cueing;
+        state Degraded;
+        state Faulted;
+
+        transition first Off then Initializing;
+        transition Initializing then Monitoring
+            accept after 2 [s];
+
+        transition Monitoring then Cueing
+            accept when hazardUrgency.value > 0.35;
+
+        transition Cueing then Monitoring
+            accept when hazardUrgency.value <= 0.20;
+
+        transition Monitoring then Degraded
+            accept when perceptionConfidence.value < 0.55;
+
+        transition Degraded then Monitoring
+            accept when perceptionConfidence.value >= 0.70;
+
+        transition Initializing then Faulted
+            accept when selfTestPassed == false;
+
+        transition Monitoring then Faulted
+            accept when powerRemaining.value <= 0.03;
+
+        transition Cueing then Faulted
+            accept when powerRemaining.value <= 0.03;
+    }
+
+    part def LowLevelOpticalArray {
+        port opticalIn : OpticalInputPort;
+        port featuresOut : FeatureMapPort;
+
+        attribute horizontalFieldOfView : Angle = 2.09 [rad];
+        attribute effectiveRange : Distance = 8.0 [m];
+        attribute frameRate : Frequency = 30 [Hz];
+
+        perform action capture : CaptureScene;
+        perform action extract : ExtractPreconsciousFeatures;
+    }
+
+    part def MotionAndHazardInterpreter {
+        port featuresIn : FeatureMapPort;
+        port intentIn : IntentInputPort;
+        port cueOut : CuePort;
+
+        attribute minimumObstacleDistance : Distance = 0.6 [m];
+        attribute reactionWindow : Duration = 1.2 [s];
+        attribute hazardUrgency : Probability;
+
+        perform action detect : DetectNavigationalHazard;
+    }
+
+    part def HapticCueBelt {
+        port cueIn : CuePort;
+        port hapticOut : HapticOutputPort;
+
+        attribute actuatorCount : Integer = 8;
+        attribute maximumPulseFrequency : Frequency = 220 [Hz];
+
+        perform action encode : EncodeHapticCue;
+    }
+
+    part def BoneConductionAudioCue {
+        port cueIn : CuePort;
+        port audioOut : AudioOutputPort;
+
+        attribute minimumToneFrequency : Frequency = 300 [Hz];
+        attribute maximumToneFrequency : Frequency = 3000 [Hz];
+
+        perform action encode : EncodeAudioCue;
+    }
+
+    part def PowerManager {
+        port powerOut : PowerPort;
+
+        attribute nominalRuntime : Duration = 10 [h];
+        attribute powerRemaining : BatteryCharge;
+        attribute lowPowerThreshold : BatteryCharge = 0.15;
+    }
+
+    part def BlindsightAssistiveSystem {
+        doc
+        /* Primary function: provide a user with non-conscious, low-latency spatial guidance by converting optical scene features into haptic and audio cues for obstacle avoidance and heading correction. */
+
+        port opticalInput : OpticalInputPort;
+        port userIntentInput : IntentInputPort;
+        port hapticOutput : HapticOutputPort;
+        port audioOutput : AudioOutputPort;
+
+        part opticalArray : LowLevelOpticalArray;
+        part interpreter : MotionAndHazardInterpreter;
+        part hapticBelt : HapticCueBelt;
+        part audioCue : BoneConductionAudioCue;
+        part powerManager : PowerManager;
+
+        attribute perceptionConfidence : ConfidenceScore;
+        attribute hazardUrgency : Probability;
+        attribute selfTestPassed : Boolean;
+        attribute powerRemaining : BatteryCharge;
+
+        connection opticalFeed connect opticalInput to opticalArray.opticalIn;
+        connection featureFeed connect opticalArray.featuresOut to interpreter.featuresIn;
+        connection intentFeed connect userIntentInput to interpreter.intentIn;
+        connection hapticCueFeed connect interpreter.cueOut to hapticBelt.cueIn;
+        connection audioCueFeed connect interpreter.cueOut to audioCue.cueIn;
+        connection hapticDelivery connect hapticBelt.hapticOut to hapticOutput;
+        connection audioDelivery connect audioCue.audioOut to audioOutput;
+
+        perform action perceptionCycle : BlindsightPerceptionCycle;
+        exhibit state operatingStates : BlindsightOperatingStates;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.perceptionConfidence.value >= 0.70
+        }
+
+        doc
+        /* The system shall transform optical scene information into actionable nonvisual cues that support obstacle avoidance without requiring conscious visual interpretation. */
+    }
+
+    requirement def LowLatencyCueRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.interpreter.reactionWindow <= 1.2 [s]
+        }
+
+        doc
+        /* The system shall deliver hazard cues quickly enough to support walking-speed navigation. */
+    }
+
+    requirement def FieldCoverageRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.opticalArray.horizontalFieldOfView >= 2.09 [rad]
+        }
+
+        doc
+        /* The optical sensing function shall cover a forward field sufficient for near-body navigation. */
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.interpreter.minimumObstacleDistance >= 0.6 [m]
+        }
+
+        doc
+        /* The system shall identify obstacles that intrude into the user motion corridor. */
+    }
+
+    requirement def MultimodalCueRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.hapticBelt.actuatorCount >= 8
+        }
+
+        doc
+        /* The system shall provide directional haptic cues and supplemental spatial audio cues for urgent hazards. */
+    }
+
+    requirement def RuntimeRequirement {
+        subject system : BlindsightAssistiveSystem;
+
+        require constraint {
+            system.powerManager.nominalRuntime >= 10 [h]
+        }
+
+        doc
+        /* The system shall operate for a full daily mobility interval before recharge. */
+    }
+
+    satisfy PrimaryFunctionRequirement by BlindsightAssistiveSystem;
+    satisfy LowLatencyCueRequirement by MotionAndHazardInterpreter;
+    satisfy FieldCoverageRequirement by LowLevelOpticalArray;
+    satisfy ObstacleAvoidanceRequirement by MotionAndHazardInterpreter;
+    satisfy MultimodalCueRequirement by HapticCueBelt;
+    satisfy RuntimeRequirement by PowerManager;
+}

@@ -1,0 +1,492 @@
+package VideoscopeSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def LengthValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def MassValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def TemperatureValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def VoltageValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def CurrentValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def PowerValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def ResolutionValue {
+    attribute horizontalPixels : Integer;
+    attribute verticalPixels : Integer;
+  }
+
+  attribute def FrameRateValue {
+    attribute framesPerSecond : Real;
+    attribute unit : String = "Hz";
+  }
+
+  attribute def BendAngleValue {
+    attribute degrees : Real;
+    attribute unit : String = "deg";
+  }
+
+  item def OpticalImage {
+    attribute resolution : ResolutionValue;
+    attribute frameRate : FrameRateValue;
+    attribute illuminationLevelLux : Real;
+  }
+
+  item def VideoFrame {
+    attribute resolution : ResolutionValue;
+    attribute timestampSeconds : Real;
+    attribute exposureMilliseconds : Real;
+    attribute gainDecibels : Real;
+  }
+
+  item def EncodedVideoStream {
+    attribute resolution : ResolutionValue;
+    attribute frameRate : FrameRateValue;
+    attribute bitRateMbps : Real;
+    attribute codec : String;
+  }
+
+  item def OperatorCommand {
+    attribute commandKind : String;
+    attribute requestedBend : BendAngleValue;
+    attribute illuminationPercent : Real;
+    attribute captureRequested : Boolean;
+  }
+
+  item def DiagnosticStatus {
+    attribute batteryPercent : Real;
+    attribute probeTemperature : TemperatureValue;
+    attribute faultCode : String;
+    attribute ready : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : VoltageValue;
+    attribute current : CurrentValue;
+    attribute power : PowerValue;
+  }
+
+  item def Illumination {
+    attribute opticalPowerMilliwatts : Real;
+    attribute colorTemperatureKelvin : Real;
+  }
+
+  port def OpticalInputPort {
+    in item image : OpticalImage;
+  }
+
+  port def VideoOutputPort {
+    out item stream : EncodedVideoStream;
+  }
+
+  port def CommandInputPort {
+    in item command : OperatorCommand;
+  }
+
+  port def StatusOutputPort {
+    out item status : DiagnosticStatus;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+  }
+
+  port def LightOutputPort {
+    out item light : Illumination;
+  }
+
+  port def FramePort {
+    inout item frame : VideoFrame;
+  }
+
+  port def MechanicalBendPort {
+    in item command : OperatorCommand;
+    out attribute actualBend : BendAngleValue;
+  }
+
+  action def CaptureScene {
+    in item sceneImage : OpticalImage;
+    out item rawFrame : VideoFrame;
+
+    attribute exposureMilliseconds : Real = 8.0;
+    attribute analogGainDecibels : Real = 6.0;
+  }
+
+  action def ProcessVideo {
+    in item rawFrame : VideoFrame;
+    out item stream : EncodedVideoStream;
+
+    attribute noiseReductionEnabled : Boolean = true;
+    attribute edgeEnhancementEnabled : Boolean = true;
+    attribute codec : String = "H.264";
+  }
+
+  action def IlluminateTarget {
+    in attribute requestedPercent : Real;
+    out item light : Illumination;
+
+    attribute maximumOpticalPowerMilliwatts : Real = 220.0;
+  }
+
+  action def ArticulateProbeTip {
+    in item command : OperatorCommand;
+    out attribute achievedBend : BendAngleValue;
+
+    attribute maximumBendDegrees : Real = 180.0;
+    attribute responseTimeMilliseconds : Real = 250.0;
+  }
+
+  action def PresentInspectionVideo {
+    in item stream : EncodedVideoStream;
+    out item displayedStream : EncodedVideoStream;
+
+    attribute displayBrightnessNits : Real = 650.0;
+  }
+
+  action def PerformSelfTest {
+    out item status : DiagnosticStatus;
+
+    attribute checksBattery : Boolean = true;
+    attribute checksCamera : Boolean = true;
+    attribute checksIllumination : Boolean = true;
+    attribute checksArticulation : Boolean = true;
+  }
+
+  state def VideoscopeOperatingState {
+    entry action PerformSelfTest;
+
+    state Off;
+    state Starting;
+    state Ready;
+    state Inspecting;
+    state CapturingStill;
+    state Fault;
+    state ShuttingDown;
+
+    transition first Off;
+    transition Off_to_Starting
+      first Off
+      then Starting
+      accept OperatorCommand
+      if commandKind == "PowerOn";
+
+    transition Starting_to_Ready
+      first Starting
+      then Ready
+      if ready == true;
+
+    transition Starting_to_Fault
+      first Starting
+      then Fault
+      if ready == false;
+
+    transition Ready_to_Inspecting
+      first Ready
+      then Inspecting
+      accept OperatorCommand
+      if commandKind == "StartInspection";
+
+    transition Inspecting_to_CapturingStill
+      first Inspecting
+      then CapturingStill
+      accept OperatorCommand
+      if captureRequested == true;
+
+    transition CapturingStill_to_Inspecting
+      first CapturingStill
+      then Inspecting;
+
+    transition Inspecting_to_Ready
+      first Inspecting
+      then Ready
+      accept OperatorCommand
+      if commandKind == "StopInspection";
+
+    transition Ready_to_ShuttingDown
+      first Ready
+      then ShuttingDown
+      accept OperatorCommand
+      if commandKind == "PowerOff";
+
+    transition Inspecting_to_Fault
+      first Inspecting
+      then Fault
+      if faultCode != "NONE";
+
+    transition Fault_to_ShuttingDown
+      first Fault
+      then ShuttingDown
+      accept OperatorCommand
+      if commandKind == "PowerOff";
+
+    transition ShuttingDown_to_Off
+      first ShuttingDown
+      then Off;
+  }
+
+  part def Videoscope {
+    attribute primaryFunction : String =
+      "Provide remote visual inspection by illuminating an inaccessible target area, capturing optical images through an insertion probe, processing the images into a video stream, and presenting real-time inspection video to an operator.";
+
+    attribute mass : MassValue = (value = 2.4, unit = "kg");
+    attribute insertionTubeLength : LengthValue = (value = 2.0, unit = "m");
+    attribute distalTipDiameter : LengthValue = (value = 6.0, unit = "mm");
+    attribute operatingTemperatureMin : TemperatureValue = (value = -10.0, unit = "degC");
+    attribute operatingTemperatureMax : TemperatureValue = (value = 50.0, unit = "degC");
+    attribute ingressProtectionRating : String = "IP67 probe assembly";
+
+    port operatorCommands : CommandInputPort;
+    port inspectionVideo : VideoOutputPort;
+    port systemStatus : StatusOutputPort;
+    port externalPower : PowerPort;
+
+    part controlHandle : ControlHandle;
+    part insertionProbe : InsertionProbe;
+    part distalImagingHead : DistalImagingHead;
+    part lightEngine : LightEngine;
+    part videoProcessor : VideoProcessor;
+    part displayModule : DisplayModule;
+    part powerSubsystem : PowerSubsystem;
+    part storageModule : StorageModule;
+
+    perform action selfTest : PerformSelfTest;
+    perform action illuminate : IlluminateTarget;
+    perform action capture : CaptureScene;
+    perform action process : ProcessVideo;
+    perform action present : PresentInspectionVideo;
+    perform action articulate : ArticulateProbeTip;
+
+    exhibit state operatingState : VideoscopeOperatingState;
+
+    connect operatorCommands to controlHandle.commandInput;
+    connect controlHandle.articulationCommand to insertionProbe.bendCommand;
+    connect controlHandle.illuminationCommand to lightEngine.commandInput;
+    connect externalPower to powerSubsystem.externalPowerInput;
+    connect powerSubsystem.conditionedPower to controlHandle.powerInput;
+    connect powerSubsystem.conditionedPower to lightEngine.powerInput;
+    connect powerSubsystem.conditionedPower to videoProcessor.powerInput;
+    connect powerSubsystem.conditionedPower to displayModule.powerInput;
+    connect powerSubsystem.conditionedPower to storageModule.powerInput;
+    connect powerSubsystem.conditionedPower to distalImagingHead.powerInput;
+    connect lightEngine.lightOutput to insertionProbe.lightInput;
+    connect insertionProbe.deliveredLight to distalImagingHead.illuminationInput;
+    connect distalImagingHead.opticalInput to insertionProbe.sceneInput;
+    connect distalImagingHead.rawFrameOutput to videoProcessor.rawFrameInput;
+    connect videoProcessor.videoStreamOutput to displayModule.videoInput;
+    connect videoProcessor.videoStreamOutput to inspectionVideo;
+    connect videoProcessor.videoStreamOutput to storageModule.videoInput;
+    connect displayModule.statusOutput to systemStatus;
+    connect powerSubsystem.statusOutput to systemStatus;
+  }
+
+  part def ControlHandle {
+    attribute enclosureMaterial : String = "glass-filled polycarbonate";
+    attribute joystickResolutionDegrees : Real = 1.0;
+
+    port commandInput : CommandInputPort;
+    port illuminationCommand : CommandInputPort;
+    port articulationCommand : CommandInputPort;
+    port powerInput : PowerPort;
+  }
+
+  part def InsertionProbe {
+    attribute length : LengthValue = (value = 2.0, unit = "m");
+    attribute outerDiameter : LengthValue = (value = 6.0, unit = "mm");
+    attribute minimumBendRadius : LengthValue = (value = 30.0, unit = "mm");
+    attribute sheathMaterial : String = "tungsten braid with polyurethane jacket";
+
+    port bendCommand : MechanicalBendPort;
+    port sceneInput : OpticalInputPort;
+    port lightInput : LightOutputPort;
+    port deliveredLight : LightOutputPort;
+  }
+
+  part def DistalImagingHead {
+    attribute sensorType : String = "CMOS";
+    attribute sensorResolution : ResolutionValue = (horizontalPixels = 1920, verticalPixels = 1080);
+    attribute fieldOfViewDegrees : Real = 120.0;
+    attribute depthOfFieldNear : LengthValue = (value = 5.0, unit = "mm");
+    attribute depthOfFieldFar : LengthValue = (value = 100.0, unit = "mm");
+    attribute maximumTipTemperature : TemperatureValue = (value = 60.0, unit = "degC");
+
+    port opticalInput : OpticalInputPort;
+    port illuminationInput : LightOutputPort;
+    port rawFrameOutput : FramePort;
+    port powerInput : PowerPort;
+  }
+
+  part def LightEngine {
+    attribute sourceType : String = "white LED";
+    attribute maximumOpticalPowerMilliwatts : Real = 220.0;
+    attribute colorTemperatureKelvin : Real = 5700.0;
+    attribute dimmingRangePercentMin : Real = 5.0;
+    attribute dimmingRangePercentMax : Real = 100.0;
+
+    port commandInput : CommandInputPort;
+    port lightOutput : LightOutputPort;
+    port powerInput : PowerPort;
+
+    perform action illuminateTarget : IlluminateTarget;
+  }
+
+  part def VideoProcessor {
+    attribute processorType : String = "embedded image signal processor";
+    attribute supportedCodec : String = "H.264";
+    attribute outputResolution : ResolutionValue = (horizontalPixels = 1920, verticalPixels = 1080);
+    attribute outputFrameRate : FrameRateValue = (framesPerSecond = 30.0, unit = "Hz");
+    attribute latencyMilliseconds : Real = 80.0;
+
+    port rawFrameInput : FramePort;
+    port videoStreamOutput : VideoOutputPort;
+    port powerInput : PowerPort;
+
+    perform action processVideo : ProcessVideo;
+  }
+
+  part def DisplayModule {
+    attribute diagonalSize : LengthValue = (value = 5.0, unit = "in");
+    attribute resolution : ResolutionValue = (horizontalPixels = 1280, verticalPixels = 720);
+    attribute brightnessNits : Real = 650.0;
+    attribute touchEnabled : Boolean = true;
+
+    port videoInput : VideoOutputPort;
+    port statusOutput : StatusOutputPort;
+    port powerInput : PowerPort;
+
+    perform action presentVideo : PresentInspectionVideo;
+  }
+
+  part def PowerSubsystem {
+    attribute batteryCapacityWattHours : Real = 48.0;
+    attribute nominalVoltage : VoltageValue = (value = 14.4, unit = "V");
+    attribute maximumContinuousPower : PowerValue = (value = 36.0, unit = "W");
+    attribute runtimeAtNominalLoadHours : Real = 3.0;
+
+    port externalPowerInput : PowerPort;
+    port conditionedPower : PowerPort;
+    port statusOutput : StatusOutputPort;
+  }
+
+  part def StorageModule {
+    attribute memoryCapacityGigabytes : Real = 128.0;
+    attribute fileSystem : String = "exFAT";
+    attribute stillImageFormat : String = "JPEG";
+    attribute videoFileFormat : String = "MP4";
+
+    port videoInput : VideoOutputPort;
+    port powerInput : PowerPort;
+  }
+
+  requirement def PrimaryInspectionFunction {
+    subject videoscope : Videoscope;
+
+    doc
+    /*
+     The videoscope shall provide remote visual inspection of inaccessible internal areas by illuminating the target, capturing images at the distal tip, processing captured frames, and displaying real-time video to an operator.
+    */
+
+    require constraint {
+      videoscope.videoProcessor.outputFrameRate.framesPerSecond >= 30.0 and
+      videoscope.videoProcessor.outputResolution.horizontalPixels >= 1280 and
+      videoscope.videoProcessor.outputResolution.verticalPixels >= 720
+    }
+  }
+
+  requirement def ProbeAccessRequirement {
+    subject probe : InsertionProbe;
+
+    doc
+    /*
+     The insertion probe shall fit through an access opening no larger than 8 mm diameter and provide at least 2 m of reach.
+    */
+
+    require constraint {
+      probe.outerDiameter.value <= 8.0 and
+      probe.length.value >= 2.0
+    }
+  }
+
+  requirement def IlluminationRequirement {
+    subject lightEngine : LightEngine;
+
+    doc
+    /*
+     The illumination subsystem shall provide adjustable white light sufficient for close-range inspection in dark enclosed spaces.
+    */
+
+    require constraint {
+      lightEngine.maximumOpticalPowerMilliwatts >= 200.0 and
+      lightEngine.dimmingRangePercentMin <= 10.0 and
+      lightEngine.dimmingRangePercentMax == 100.0
+    }
+  }
+
+  requirement def ArticulationRequirement {
+    subject probe : InsertionProbe;
+
+    doc
+    /*
+     The distal section shall support commanded articulation sufficient to inspect around bends and view side walls.
+    */
+
+    require constraint {
+      probe.minimumBendRadius.value <= 35.0
+    }
+  }
+
+  requirement def EnvironmentalRequirement {
+    subject videoscope : Videoscope;
+
+    doc
+    /*
+     The videoscope shall operate across typical industrial inspection temperatures and protect the probe against dust and temporary immersion.
+    */
+
+    require constraint {
+      videoscope.operatingTemperatureMin.value <= -10.0 and
+      videoscope.operatingTemperatureMax.value >= 50.0
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject processor : VideoProcessor;
+
+    doc
+    /*
+     The video processing chain shall maintain low latency so operator steering and displayed imagery remain coordinated.
+    */
+
+    require constraint {
+      processor.latencyMilliseconds <= 100.0
+    }
+  }
+
+  satisfy PrimaryInspectionFunction by Videoscope;
+  satisfy ProbeAccessRequirement by Videoscope::insertionProbe;
+  satisfy IlluminationRequirement by Videoscope::lightEngine;
+  satisfy EnvironmentalRequirement by Videoscope;
+  satisfy LatencyRequirement by Videoscope::videoProcessor;
+
+}

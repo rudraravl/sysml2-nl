@@ -1,0 +1,1045 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-q64ebihx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2db-1701-74b2-b305-d64aa650471e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Cancer Diagnostic Probe and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CancerDiagnosticProbeModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Probability;
+  attribute def ConfidenceScore :> Probability;
+  attribute def RiskScore :> Probability;
+
+  attribute def TemperatureCelsius;
+  attribute def PressureKiloPascal;
+  attribute def VoltageVolt;
+  attribute def CurrentMilliAmpere;
+  attribute def PowerWatt;
+  attribute def DurationSecond;
+  attribute def LengthMillimeter;
+  attribute def MassMilligram;
+  attribute def ConcentrationNanoMolar;
+  attribute def FluorescenceIntensity;
+  attribute def WavelengthNanoMeter;
+  attribute def DataRateMbps;
+
+  item def TissueSample {
+    attribute sampleId : String;
+    attribute originSite : String;
+    attribute mass : MassMilligram;
+    attribute viableCellFraction : Probability;
+  }
+
+  item def BiomarkerPanel {
+    attribute ctDNAConcentration : ConcentrationNanoMolar;
+    attribute methylationIndex : Probability;
+    attribute proteinMarkerLevel : ConcentrationNanoMolar;
+    attribute fluorescenceSignal : FluorescenceIntensity;
+  }
+
+  item def DiagnosticResult {
+    attribute resultId : String;
+    attribute malignancyRisk : RiskScore;
+    attribute confidence : ConfidenceScore;
+    attribute detectedCancerClass : CancerClass;
+    attribute recommendedDisposition : ClinicalDisposition;
+    attribute generatedAtUtc : String;
+  }
+
+  item def ProbeCommand {
+    attribute commandId : String;
+    attribute commandType : ProbeCommandKind;
+    attribute requestedBy : String;
+  }
+
+  item def ProbeStatus {
+    attribute probeTemperature : TemperatureCelsius;
+    attribute batteryStateOfCharge : Probability;
+    attribute sterileBarrierIntact : Boolean;
+    attribute opticalModuleReady : Boolean;
+    attribute biosensorArrayReady : Boolean;
+    attribute lastCalibrationValid : Boolean;
+  }
+
+  item def SterileConsumableCartridge {
+    attribute cartridgeId : String;
+    attribute expirationDate : String;
+    attribute sterile : Boolean;
+    attribute reagentVolume : VolumeMilliLiter;
+  }
+
+  attribute def VolumeMilliLiter;
+
+  enum def ProbeCommandKind {
+    enum calibrate;
+    enum beginAcquisition;
+    enum abortProcedure;
+    enum runSelfTest;
+    enum transmitReport;
+  }
+
+  enum def CancerClass {
+    enum noMalignancyDetected;
+    enum epithelialCarcinomaPattern;
+    enum hematologicMalignancyPattern;
+    enum melanocyticPattern;
+    enum indeterminateAtypia;
+  }
+
+  enum def ClinicalDisposition {
+    enum routineFollowUp;
+    enum repeatSample;
+    enum specialistReview;
+    enum urgentOncologyReferral;
+  }
+
+  port def TissueInterfacePort {
+    in item tissueIn : TissueSample;
+    out item opticalReturn : BiomarkerPanel;
+  }
+
+  port def CartridgePort {
+    in item cartridge : SterileConsumableCartridge;
+    out item reagentFlow : BiomarkerPanel;
+  }
+
+  port def DiagnosticDataPort {
+    out item result : DiagnosticResult;
+    out item status : ProbeStatus;
+    in item command : ProbeCommand;
+  }
+
+  port def PowerPort {
+    in attribute inputVoltage : VoltageVolt;
+    out attribute consumedPower : PowerWatt;
+  }
+
+  port def ThermalPort {
+    out attribute surfaceTemperature : TemperatureCelsius;
+  }
+
+  part def CancerDiagnosticProbe {
+    attribute mass : MassMilligram = 42000;
+    attribute distalTipDiameter : LengthMillimeter = 3.8;
+    attribute maximumInsertionDepth : LengthMillimeter = 120;
+    attribute nominalInputVoltage : VoltageVolt = 12;
+    attribute maximumPowerDraw : PowerWatt = 18;
+    attribute diagnosticSensitivityTarget : Probability = 0.95;
+    attribute diagnosticSpecificityTarget : Probability = 0.90;
+    attribute maximumSurfaceTemperature : TemperatureCelsius = 41.0;
+    attribute acquisitionDuration : DurationSecond = 45;
+
+    port tissuePort : TissueInterfacePort;
+    port cartridgePort : CartridgePort;
+    port dataPort : DiagnosticDataPort;
+    port powerPort : PowerPort;
+    port thermalPort : ThermalPort;
+
+    part sterileProbeTip : SterileProbeTip;
+    part opticalSpectroscopyModule : OpticalSpectroscopyModule;
+    part electrochemicalBiosensorArray : ElectrochemicalBiosensorArray;
+    part microfluidicSampler : MicrofluidicSampler;
+    part thermalController : ThermalController;
+    part embeddedDiagnosticComputer : EmbeddedDiagnosticComputer;
+    part clinicianConsoleInterface : ClinicianConsoleInterface;
+    part powerManager : PowerManager;
+
+    connect tissuePort to sterileProbeTip.tissueContact;
+    connect sterileProbeTip.sampleOutlet to microfluidicSampler.sampleInlet;
+    connect cartridgePort to microfluidicSampler.cartridgeInlet;
+    connect microfluidicSampler.preparedSampleOutlet to electrochemicalBiosensorArray.sampleInlet;
+    connect sterileProbeTip.opticalWindow to opticalSpectroscopyModule.opticalPath;
+    connect opticalSpectroscopyModule.spectralDataOut to embeddedDiagnosticComputer.opticalDataIn;
+    connect electrochemicalBiosensorArray.biomarkerDataOut to embeddedDiagnosticComputer.biosensorDataIn;
+    connect embeddedDiagnosticComputer.resultOut to clinicianConsoleInterface.resultIn;
+    connect clinicianConsoleInterface.externalDataPort to dataPort;
+    connect powerPort to powerManager.externalPowerIn;
+    connect powerManager.lowVoltageBus to opticalSpectroscopyModule.powerIn;
+    connect powerManager.lowVoltageBus to electrochemicalBiosensorArray.powerIn;
+    connect powerManager.lowVoltageBus to embeddedDiagnosticComputer.powerIn;
+    connect thermalController.heatSinkInterface to opticalSpectroscopyModule.thermalPort;
+    connect thermalController.heatSinkInterface to electrochemicalBiosensorArray.thermalPort;
+    connect thermalController.externalThermalPort to thermalPort;
+
+    perform action diagnoseCancer;
+    exhibit state probeOperationalState;
+  }
+
+  part def SterileProbeTip {
+    attribute length : LengthMillimeter = 135;
+    attribute diameter : LengthMillimeter = 3.8;
+    attribute sterileBarrierIntegrity : Boolean = true;
+    attribute opticalWindowTransmission : Probability = 0.92;
+
+    port tissueContact : TissueInterfacePort;
+    port sampleOutlet : SamplePort;
+    port opticalWindow : OpticalPathPort;
+  }
+
+  part def MicrofluidicSampler {
+    attribute sampleVolume : VolumeMilliLiter = 0.05;
+    attribute mixingDuration : DurationSecond = 8;
+    attribute maximumChannelPressure : PressureKiloPascal = 85;
+
+    port sampleInlet : SamplePort;
+    port cartridgeInlet : CartridgePort;
+    port preparedSampleOutlet : PreparedSamplePort;
+
+    perform action prepareBiomarkerPanel;
+  }
+
+  part def OpticalSpectroscopyModule {
+    attribute excitationWavelength : WavelengthNanoMeter = 405;
+    attribute emissionBandLower : WavelengthNanoMeter = 450;
+    attribute emissionBandUpper : WavelengthNanoMeter = 720;
+    attribute detectorIntegrationTime : DurationSecond = 2.5;
+    attribute opticalNoiseFloor : FluorescenceIntensity = 12;
+
+    port opticalPath : OpticalPathPort;
+    port spectralDataOut : BiomarkerDataPort;
+    port powerIn : InternalPowerPort;
+    port thermalPort : ThermalPort;
+
+    perform action acquireFluorescenceSpectrum;
+  }
+
+  part def ElectrochemicalBiosensorArray {
+    attribute electrodeCount : Integer = 64;
+    attribute detectionLimit : ConcentrationNanoMolar = 0.25;
+    attribute samplingCurrent : CurrentMilliAmpere = 18;
+    attribute assayDuration : DurationSecond = 30;
+
+    port sampleInlet : PreparedSamplePort;
+    port biomarkerDataOut : BiomarkerDataPort;
+    port powerIn : InternalPowerPort;
+    port thermalPort : ThermalPort;
+
+    perform action quantifyCancerBiomarkers;
+  }
+
+  part def ThermalController {
+    attribute targetInternalTemperature : TemperatureCelsius = 37.0;
+    attribute maximumAllowedTipTemperature : TemperatureCelsius = 41.0;
+    attribute coolingCapacity : PowerWatt = 6;
+
+    port heatSinkInterface : ThermalPort;
+    port externalThermalPort : ThermalPort;
+
+    perform action regulateTemperature;
+  }
+
+  part def EmbeddedDiagnosticComputer {
+    attribute processorClockRateMHz : Integer = 800;
+    attribute modelVersion : String = "CDP-RiskClassifier-3.2";
+    attribute minimumReportableConfidence : ConfidenceScore = 0.80;
+    attribute maximumInferenceDuration : DurationSecond = 5;
+
+    port opticalDataIn : BiomarkerDataPort;
+    port biosensorDataIn : BiomarkerDataPort;
+    port resultOut : DiagnosticResultPort;
+    port powerIn : InternalPowerPort;
+
+    perform action classifyCancerRisk;
+  }
+
+  part def ClinicianConsoleInterface {
+    attribute displayRefreshRateHz : Integer = 60;
+    attribute encryptedDataRate : DataRateMbps = 100;
+    attribute localAlarmEnabled : Boolean = true;
+
+    port resultIn : DiagnosticResultPort;
+    port externalDataPort : DiagnosticDataPort;
+  }
+
+  part def PowerManager {
+    attribute batteryCapacityWh : PowerWatt = 60;
+    attribute conversionEfficiency : Probability = 0.91;
+    attribute regulatedVoltage : VoltageVolt = 5;
+
+    port externalPowerIn : PowerPort;
+    port lowVoltageBus : InternalPowerPort;
+  }
+
+  port def SamplePort {
+    in item sample : TissueSample;
+  }
+
+  port def PreparedSamplePort {
+    out item preparedPanel : BiomarkerPanel;
+  }
+
+  port def OpticalPathPort {
+    in item tissue : TissueSample;
+    out item opticalMarkers : BiomarkerPanel;
+  }
+
+  port def BiomarkerDataPort {
+    out item biomarkerPanel : BiomarkerPanel;
+  }
+
+  port def DiagnosticResultPort {
+    out item diagnosticResult : DiagnosticResult;
+  }
+
+  port def InternalPowerPort {
+    in attribute voltage : VoltageVolt;
+    out attribute powerDraw : PowerWatt;
+  }
+
+  action def DiagnoseCancer {
+    in item tissueSample : TissueSample;
+    in item cartridge : SterileConsumableCartridge;
+    out item diagnosticResult : DiagnosticResult;
+
+    first start;
+    then action verifySterility {
+      in item cartridge;
+      out attribute sterileReady : Boolean;
+    }
+    then action acquireSample {
+      in item tissueSample;
+      out item capturedSample : TissueSample;
+    }
+    then action prepareBiomarkerPanel {
+      in item capturedSample;
+      in item cartridge;
+      out item preparedPanel : BiomarkerPanel;
+    }
+    then fork acquisitionFork;
+    then action acquireFluorescenceSpectrum {
+      in item capturedSample;
+      out item opticalPanel : BiomarkerPanel;
+    }
+    then join acquisitionJoin;
+
+    first acquisitionFork;
+    then action quantifyCancerBiomarkers {
+      in item preparedPanel;
+      out item biosensorPanel : BiomarkerPanel;
+    }
+    then acquisitionJoin;
+
+    then action classifyCancerRisk {
+      in item opticalPanel;
+      in item biosensorPanel;
+      out item diagnosticResult : DiagnosticResult;
+    }
+    then action presentResult {
+      in item diagnosticResult;
+    }
+    then done;
+  }
+
+  action def PrepareBiomarkerPanel {
+    in item capturedSample : TissueSample;
+    in item cartridge : SterileConsumableCartridge;
+    out item preparedPanel : BiomarkerPanel;
+  }
+
+  action def AcquireFluorescenceSpectrum {
+    in item capturedSample : TissueSample;
+    out item opticalPanel : BiomarkerPanel;
+  }
+
+  action def QuantifyCancerBiomarkers {
+    in item preparedPanel : BiomarkerPanel;
+    out item biosensorPanel : BiomarkerPanel;
+  }
+
+  action def ClassifyCancerRisk {
+    in item opticalPanel : BiomarkerPanel;
+    in item biosensorPanel : BiomarkerPanel;
+    out item diagnosticResult : DiagnosticResult;
+  }
+
+  action def RegulateTemperature {
+    in attribute measuredTipTemperature : TemperatureCelsius;
+    out attribute commandedCoolingPower : PowerWatt;
+  }
+
+  state def ProbeOperationalState {
+    entry action initializeElectronics;
+
+    state poweredOff;
+    state selfTest;
+    state ready;
+    state cartridgeLoaded;
+    state calibrated;
+    state acquiring;
+    state analyzing;
+    state reporting;
+    state fault;
+
+    transition initial then poweredOff;
+    transition poweredOff_to_selfTest
+      first poweredOff
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::runSelfTest
+      then selfTest;
+
+    transition selfTest_to_ready
+      first selfTest
+      if opticalModuleReady and biosensorArrayReady and sterileBarrierIntact
+      then ready;
+
+    transition selfTest_to_fault
+      first selfTest
+      if not opticalModuleReady or not biosensorArrayReady
+      then fault;
+
+    transition ready_to_cartridgeLoaded
+      first ready
+      accept SterileConsumableCartridge
+      if sterile == true
+      then cartridgeLoaded;
+
+    transition cartridgeLoaded_to_calibrated
+      first cartridgeLoaded
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::calibrate
+      then calibrated;
+
+    transition calibrated_to_acquiring
+      first calibrated
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::beginAcquisition
+      then acquiring;
+
+    transition acquiring_to_analyzing
+      first acquiring
+      after 45 [s]
+      then analyzing;
+
+    transition analyzing_to_reporting
+      first analyzing
+      after 5 [s]
+      then reporting;
+
+    transition reporting_to_ready
+      first reporting
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::transmitReport
+      then ready;
+
+    transition any_to_fault
+      first ready
+      if probeTemperature > 41.0
+      then fault;
+
+    transition acquisition_abort
+      first acquiring
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::abortProcedure
+      then ready;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject probe : CancerDiagnosticProbe;
+
+    doc /* The Cancer Diagnostic Probe shall acquire tissue-associated optical and biochemical signals through a sterile minimally invasive tip, process the signals locally, and produce a clinically interpretable malignancy risk result during a single diagnostic procedure. */
+
+    require constraint {
+      probe.acquisitionDuration <= 60;
+    }
+  }
+
+  requirement def DiagnosticAccuracyRequirement {
+    subject probe : CancerDiagnosticProbe;
+
+    doc /* The probe shall meet or exceed target diagnostic performance for intended high-level screening support. */
+
+    require constraint {
+      probe.diagnosticSensitivityTarget >= 0.95 and
+      probe.diagnosticSpecificityTarget >= 0.90;
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    subject probe : CancerDiagnosticProbe;
+
+    doc /* The probe shall prevent patient-contacting surfaces from exceeding a safe diagnostic operating temperature. */
+
+    require constraint {
+      probe.maximumSurfaceTemperature <= 41.0;
+    }
+  }
+
+  requirement def SterilityRequirement {
+    subject tip : SterileProbeTip;
+
+    doc /* The patient-contacting probe tip shall maintain a sterile barrier during sample acquisition. */
+
+    require constraint {
+      tip.sterileBarrierIntegrity == true;
+    }
+  }
+
+  requirement def ReportConfidenceRequirement {
+    subject computer : EmbeddedDiagnosticComputer;
+
+    doc /* The diagnostic computer shall label low-confidence classifications for clinical review instead of reporting them as definitive results. */
+
+    require constraint {
+      computer.minimumReportableConfidence >= 0.80;
+    }
+  }
+
+  requirement def DataSecurityRequirement {
+    subject interface : ClinicianConsoleInterface;
+
+    doc /* The probe shall transmit diagnostic result and status data through an encrypted clinical interface. */
+
+    require constraint {
+      interface.encryptedDataRate >= 10;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by CancerDiagnosticProbe;
+  satisfy DiagnosticAccuracyRequirement by CancerDiagnosticProbe;
+  satisfy ThermalSafetyRequirement by CancerDiagnosticProbe;
+  satisfy SterilityRequirement by SterileProbeTip;
+  satisfy ReportConfidenceRequirement by EmbeddedDiagnosticComputer;
+  satisfy DataSecurityRequirement by ClinicianConsoleInterface;
+
+  part cancerDiagnosticProbeSystem : CancerDiagnosticProbe {
+    attribute mass = 42000;
+    attribute distalTipDiameter = 3.8;
+    attribute maximumInsertionDepth = 120;
+    attribute nominalInputVoltage = 12;
+    attribute maximumPowerDraw = 18;
+    attribute diagnosticSensitivityTarget = 0.95;
+    attribute diagnosticSpecificityTarget = 0.90;
+    attribute maximumSurfaceTemperature = 41.0;
+    attribute acquisitionDuration = 45;
+  }
+
+}
+tokens used
+5,017
+package CancerDiagnosticProbeModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Probability;
+  attribute def ConfidenceScore :> Probability;
+  attribute def RiskScore :> Probability;
+
+  attribute def TemperatureCelsius;
+  attribute def PressureKiloPascal;
+  attribute def VoltageVolt;
+  attribute def CurrentMilliAmpere;
+  attribute def PowerWatt;
+  attribute def DurationSecond;
+  attribute def LengthMillimeter;
+  attribute def MassMilligram;
+  attribute def ConcentrationNanoMolar;
+  attribute def FluorescenceIntensity;
+  attribute def WavelengthNanoMeter;
+  attribute def DataRateMbps;
+
+  item def TissueSample {
+    attribute sampleId : String;
+    attribute originSite : String;
+    attribute mass : MassMilligram;
+    attribute viableCellFraction : Probability;
+  }
+
+  item def BiomarkerPanel {
+    attribute ctDNAConcentration : ConcentrationNanoMolar;
+    attribute methylationIndex : Probability;
+    attribute proteinMarkerLevel : ConcentrationNanoMolar;
+    attribute fluorescenceSignal : FluorescenceIntensity;
+  }
+
+  item def DiagnosticResult {
+    attribute resultId : String;
+    attribute malignancyRisk : RiskScore;
+    attribute confidence : ConfidenceScore;
+    attribute detectedCancerClass : CancerClass;
+    attribute recommendedDisposition : ClinicalDisposition;
+    attribute generatedAtUtc : String;
+  }
+
+  item def ProbeCommand {
+    attribute commandId : String;
+    attribute commandType : ProbeCommandKind;
+    attribute requestedBy : String;
+  }
+
+  item def ProbeStatus {
+    attribute probeTemperature : TemperatureCelsius;
+    attribute batteryStateOfCharge : Probability;
+    attribute sterileBarrierIntact : Boolean;
+    attribute opticalModuleReady : Boolean;
+    attribute biosensorArrayReady : Boolean;
+    attribute lastCalibrationValid : Boolean;
+  }
+
+  item def SterileConsumableCartridge {
+    attribute cartridgeId : String;
+    attribute expirationDate : String;
+    attribute sterile : Boolean;
+    attribute reagentVolume : VolumeMilliLiter;
+  }
+
+  attribute def VolumeMilliLiter;
+
+  enum def ProbeCommandKind {
+    enum calibrate;
+    enum beginAcquisition;
+    enum abortProcedure;
+    enum runSelfTest;
+    enum transmitReport;
+  }
+
+  enum def CancerClass {
+    enum noMalignancyDetected;
+    enum epithelialCarcinomaPattern;
+    enum hematologicMalignancyPattern;
+    enum melanocyticPattern;
+    enum indeterminateAtypia;
+  }
+
+  enum def ClinicalDisposition {
+    enum routineFollowUp;
+    enum repeatSample;
+    enum specialistReview;
+    enum urgentOncologyReferral;
+  }
+
+  port def TissueInterfacePort {
+    in item tissueIn : TissueSample;
+    out item opticalReturn : BiomarkerPanel;
+  }
+
+  port def CartridgePort {
+    in item cartridge : SterileConsumableCartridge;
+    out item reagentFlow : BiomarkerPanel;
+  }
+
+  port def DiagnosticDataPort {
+    out item result : DiagnosticResult;
+    out item status : ProbeStatus;
+    in item command : ProbeCommand;
+  }
+
+  port def PowerPort {
+    in attribute inputVoltage : VoltageVolt;
+    out attribute consumedPower : PowerWatt;
+  }
+
+  port def ThermalPort {
+    out attribute surfaceTemperature : TemperatureCelsius;
+  }
+
+  part def CancerDiagnosticProbe {
+    attribute mass : MassMilligram = 42000;
+    attribute distalTipDiameter : LengthMillimeter = 3.8;
+    attribute maximumInsertionDepth : LengthMillimeter = 120;
+    attribute nominalInputVoltage : VoltageVolt = 12;
+    attribute maximumPowerDraw : PowerWatt = 18;
+    attribute diagnosticSensitivityTarget : Probability = 0.95;
+    attribute diagnosticSpecificityTarget : Probability = 0.90;
+    attribute maximumSurfaceTemperature : TemperatureCelsius = 41.0;
+    attribute acquisitionDuration : DurationSecond = 45;
+
+    port tissuePort : TissueInterfacePort;
+    port cartridgePort : CartridgePort;
+    port dataPort : DiagnosticDataPort;
+    port powerPort : PowerPort;
+    port thermalPort : ThermalPort;
+
+    part sterileProbeTip : SterileProbeTip;
+    part opticalSpectroscopyModule : OpticalSpectroscopyModule;
+    part electrochemicalBiosensorArray : ElectrochemicalBiosensorArray;
+    part microfluidicSampler : MicrofluidicSampler;
+    part thermalController : ThermalController;
+    part embeddedDiagnosticComputer : EmbeddedDiagnosticComputer;
+    part clinicianConsoleInterface : ClinicianConsoleInterface;
+    part powerManager : PowerManager;
+
+    connect tissuePort to sterileProbeTip.tissueContact;
+    connect sterileProbeTip.sampleOutlet to microfluidicSampler.sampleInlet;
+    connect cartridgePort to microfluidicSampler.cartridgeInlet;
+    connect microfluidicSampler.preparedSampleOutlet to electrochemicalBiosensorArray.sampleInlet;
+    connect sterileProbeTip.opticalWindow to opticalSpectroscopyModule.opticalPath;
+    connect opticalSpectroscopyModule.spectralDataOut to embeddedDiagnosticComputer.opticalDataIn;
+    connect electrochemicalBiosensorArray.biomarkerDataOut to embeddedDiagnosticComputer.biosensorDataIn;
+    connect embeddedDiagnosticComputer.resultOut to clinicianConsoleInterface.resultIn;
+    connect clinicianConsoleInterface.externalDataPort to dataPort;
+    connect powerPort to powerManager.externalPowerIn;
+    connect powerManager.lowVoltageBus to opticalSpectroscopyModule.powerIn;
+    connect powerManager.lowVoltageBus to electrochemicalBiosensorArray.powerIn;
+    connect powerManager.lowVoltageBus to embeddedDiagnosticComputer.powerIn;
+    connect thermalController.heatSinkInterface to opticalSpectroscopyModule.thermalPort;
+    connect thermalController.heatSinkInterface to electrochemicalBiosensorArray.thermalPort;
+    connect thermalController.externalThermalPort to thermalPort;
+
+    perform action diagnoseCancer;
+    exhibit state probeOperationalState;
+  }
+
+  part def SterileProbeTip {
+    attribute length : LengthMillimeter = 135;
+    attribute diameter : LengthMillimeter = 3.8;
+    attribute sterileBarrierIntegrity : Boolean = true;
+    attribute opticalWindowTransmission : Probability = 0.92;
+
+    port tissueContact : TissueInterfacePort;
+    port sampleOutlet : SamplePort;
+    port opticalWindow : OpticalPathPort;
+  }
+
+  part def MicrofluidicSampler {
+    attribute sampleVolume : VolumeMilliLiter = 0.05;
+    attribute mixingDuration : DurationSecond = 8;
+    attribute maximumChannelPressure : PressureKiloPascal = 85;
+
+    port sampleInlet : SamplePort;
+    port cartridgeInlet : CartridgePort;
+    port preparedSampleOutlet : PreparedSamplePort;
+
+    perform action prepareBiomarkerPanel;
+  }
+
+  part def OpticalSpectroscopyModule {
+    attribute excitationWavelength : WavelengthNanoMeter = 405;
+    attribute emissionBandLower : WavelengthNanoMeter = 450;
+    attribute emissionBandUpper : WavelengthNanoMeter = 720;
+    attribute detectorIntegrationTime : DurationSecond = 2.5;
+    attribute opticalNoiseFloor : FluorescenceIntensity = 12;
+
+    port opticalPath : OpticalPathPort;
+    port spectralDataOut : BiomarkerDataPort;
+    port powerIn : InternalPowerPort;
+    port thermalPort : ThermalPort;
+
+    perform action acquireFluorescenceSpectrum;
+  }
+
+  part def ElectrochemicalBiosensorArray {
+    attribute electrodeCount : Integer = 64;
+    attribute detectionLimit : ConcentrationNanoMolar = 0.25;
+    attribute samplingCurrent : CurrentMilliAmpere = 18;
+    attribute assayDuration : DurationSecond = 30;
+
+    port sampleInlet : PreparedSamplePort;
+    port biomarkerDataOut : BiomarkerDataPort;
+    port powerIn : InternalPowerPort;
+    port thermalPort : ThermalPort;
+
+    perform action quantifyCancerBiomarkers;
+  }
+
+  part def ThermalController {
+    attribute targetInternalTemperature : TemperatureCelsius = 37.0;
+    attribute maximumAllowedTipTemperature : TemperatureCelsius = 41.0;
+    attribute coolingCapacity : PowerWatt = 6;
+
+    port heatSinkInterface : ThermalPort;
+    port externalThermalPort : ThermalPort;
+
+    perform action regulateTemperature;
+  }
+
+  part def EmbeddedDiagnosticComputer {
+    attribute processorClockRateMHz : Integer = 800;
+    attribute modelVersion : String = "CDP-RiskClassifier-3.2";
+    attribute minimumReportableConfidence : ConfidenceScore = 0.80;
+    attribute maximumInferenceDuration : DurationSecond = 5;
+
+    port opticalDataIn : BiomarkerDataPort;
+    port biosensorDataIn : BiomarkerDataPort;
+    port resultOut : DiagnosticResultPort;
+    port powerIn : InternalPowerPort;
+
+    perform action classifyCancerRisk;
+  }
+
+  part def ClinicianConsoleInterface {
+    attribute displayRefreshRateHz : Integer = 60;
+    attribute encryptedDataRate : DataRateMbps = 100;
+    attribute localAlarmEnabled : Boolean = true;
+
+    port resultIn : DiagnosticResultPort;
+    port externalDataPort : DiagnosticDataPort;
+  }
+
+  part def PowerManager {
+    attribute batteryCapacityWh : PowerWatt = 60;
+    attribute conversionEfficiency : Probability = 0.91;
+    attribute regulatedVoltage : VoltageVolt = 5;
+
+    port externalPowerIn : PowerPort;
+    port lowVoltageBus : InternalPowerPort;
+  }
+
+  port def SamplePort {
+    in item sample : TissueSample;
+  }
+
+  port def PreparedSamplePort {
+    out item preparedPanel : BiomarkerPanel;
+  }
+
+  port def OpticalPathPort {
+    in item tissue : TissueSample;
+    out item opticalMarkers : BiomarkerPanel;
+  }
+
+  port def BiomarkerDataPort {
+    out item biomarkerPanel : BiomarkerPanel;
+  }
+
+  port def DiagnosticResultPort {
+    out item diagnosticResult : DiagnosticResult;
+  }
+
+  port def InternalPowerPort {
+    in attribute voltage : VoltageVolt;
+    out attribute powerDraw : PowerWatt;
+  }
+
+  action def DiagnoseCancer {
+    in item tissueSample : TissueSample;
+    in item cartridge : SterileConsumableCartridge;
+    out item diagnosticResult : DiagnosticResult;
+
+    first start;
+    then action verifySterility {
+      in item cartridge;
+      out attribute sterileReady : Boolean;
+    }
+    then action acquireSample {
+      in item tissueSample;
+      out item capturedSample : TissueSample;
+    }
+    then action prepareBiomarkerPanel {
+      in item capturedSample;
+      in item cartridge;
+      out item preparedPanel : BiomarkerPanel;
+    }
+    then fork acquisitionFork;
+    then action acquireFluorescenceSpectrum {
+      in item capturedSample;
+      out item opticalPanel : BiomarkerPanel;
+    }
+    then join acquisitionJoin;
+
+    first acquisitionFork;
+    then action quantifyCancerBiomarkers {
+      in item preparedPanel;
+      out item biosensorPanel : BiomarkerPanel;
+    }
+    then acquisitionJoin;
+
+    then action classifyCancerRisk {
+      in item opticalPanel;
+      in item biosensorPanel;
+      out item diagnosticResult : DiagnosticResult;
+    }
+    then action presentResult {
+      in item diagnosticResult;
+    }
+    then done;
+  }
+
+  action def PrepareBiomarkerPanel {
+    in item capturedSample : TissueSample;
+    in item cartridge : SterileConsumableCartridge;
+    out item preparedPanel : BiomarkerPanel;
+  }
+
+  action def AcquireFluorescenceSpectrum {
+    in item capturedSample : TissueSample;
+    out item opticalPanel : BiomarkerPanel;
+  }
+
+  action def QuantifyCancerBiomarkers {
+    in item preparedPanel : BiomarkerPanel;
+    out item biosensorPanel : BiomarkerPanel;
+  }
+
+  action def ClassifyCancerRisk {
+    in item opticalPanel : BiomarkerPanel;
+    in item biosensorPanel : BiomarkerPanel;
+    out item diagnosticResult : DiagnosticResult;
+  }
+
+  action def RegulateTemperature {
+    in attribute measuredTipTemperature : TemperatureCelsius;
+    out attribute commandedCoolingPower : PowerWatt;
+  }
+
+  state def ProbeOperationalState {
+    entry action initializeElectronics;
+
+    state poweredOff;
+    state selfTest;
+    state ready;
+    state cartridgeLoaded;
+    state calibrated;
+    state acquiring;
+    state analyzing;
+    state reporting;
+    state fault;
+
+    transition initial then poweredOff;
+    transition poweredOff_to_selfTest
+      first poweredOff
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::runSelfTest
+      then selfTest;
+
+    transition selfTest_to_ready
+      first selfTest
+      if opticalModuleReady and biosensorArrayReady and sterileBarrierIntact
+      then ready;
+
+    transition selfTest_to_fault
+      first selfTest
+      if not opticalModuleReady or not biosensorArrayReady
+      then fault;
+
+    transition ready_to_cartridgeLoaded
+      first ready
+      accept SterileConsumableCartridge
+      if sterile == true
+      then cartridgeLoaded;
+
+    transition cartridgeLoaded_to_calibrated
+      first cartridgeLoaded
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::calibrate
+      then calibrated;
+
+    transition calibrated_to_acquiring
+      first calibrated
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::beginAcquisition
+      then acquiring;
+
+    transition acquiring_to_analyzing
+      first acquiring
+      after 45 [s]
+      then analyzing;
+
+    transition analyzing_to_reporting
+      first analyzing
+      after 5 [s]
+      then reporting;
+
+    transition reporting_to_ready
+      first reporting
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::transmitReport
+      then ready;
+
+    transition any_to_fault
+      first ready
+      if probeTemperature > 41.0
+      then fault;
+
+    transition acquisition_abort
+      first acquiring
+      accept ProbeCommand
+      if commandType == ProbeCommandKind::abortProcedure
+      then ready;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject probe : CancerDiagnosticProbe;
+
+    doc /* The Cancer Diagnostic Probe shall acquire tissue-associated optical and biochemical signals through a sterile minimally invasive tip, process the signals locally, and produce a clinically interpretable malignancy risk result during a single diagnostic procedure. */
+
+    require constraint {
+      probe.acquisitionDuration <= 60;
+    }
+  }
+
+  requirement def DiagnosticAccuracyRequirement {
+    subject probe : CancerDiagnosticProbe;
+
+    doc /* The probe shall meet or exceed target diagnostic performance for intended high-level screening support. */
+
+    require constraint {
+      probe.diagnosticSensitivityTarget >= 0.95 and
+      probe.diagnosticSpecificityTarget >= 0.90;
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    subject probe : CancerDiagnosticProbe;
+
+    doc /* The probe shall prevent patient-contacting surfaces from exceeding a safe diagnostic operating temperature. */
+
+    require constraint {
+      probe.maximumSurfaceTemperature <= 41.0;
+    }
+  }
+
+  requirement def SterilityRequirement {
+    subject tip : SterileProbeTip;
+
+    doc /* The patient-contacting probe tip shall maintain a sterile barrier during sample acquisition. */
+
+    require constraint {
+      tip.sterileBarrierIntegrity == true;
+    }
+  }
+
+  requirement def ReportConfidenceRequirement {
+    subject computer : EmbeddedDiagnosticComputer;
+
+    doc /* The diagnostic computer shall label low-confidence classifications for clinical review instead of reporting them as definitive results. */
+
+    require constraint {
+      computer.minimumReportableConfidence >= 0.80;
+    }
+  }
+
+  requirement def DataSecurityRequirement {
+    subject interface : ClinicianConsoleInterface;
+
+    doc /* The probe shall transmit diagnostic result and status data through an encrypted clinical interface. */
+
+    require constraint {
+      interface.encryptedDataRate >= 10;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by CancerDiagnosticProbe;
+  satisfy DiagnosticAccuracyRequirement by CancerDiagnosticProbe;
+  satisfy ThermalSafetyRequirement by CancerDiagnosticProbe;
+  satisfy SterilityRequirement by SterileProbeTip;
+  satisfy ReportConfidenceRequirement by EmbeddedDiagnosticComputer;
+  satisfy DataSecurityRequirement by ClinicianConsoleInterface;
+
+  part cancerDiagnosticProbeSystem : CancerDiagnosticProbe {
+    attribute mass = 42000;
+    attribute distalTipDiameter = 3.8;
+    attribute maximumInsertionDepth = 120;
+    attribute nominalInputVoltage = 12;
+    attribute maximumPowerDraw = 18;
+    attribute diagnosticSensitivityTarget = 0.95;
+    attribute diagnosticSpecificityTarget = 0.90;
+    attribute maximumSurfaceTemperature = 41.0;
+    attribute acquisitionDuration = 45;
+  }
+
+}

@@ -1,0 +1,365 @@
+package StentSystemModel {
+
+    private import ScalarValues::*;
+    private import SI::*;
+    private import ISQ::*;
+
+    doc /* 
+     * System: Vascular Stent
+     * Primary function: maintain patency of a narrowed or weakened blood vessel
+     * by expanding into a deployed cylindrical scaffold that supports the vessel wall
+     * while allowing blood to flow through the lumen.
+     */
+
+    value def Millimeter :> LengthUnit {
+        doc /* millimeter length unit */
+    }
+
+    value def Newton :> ForceUnit {
+        doc /* newton force unit */
+    }
+
+    value def Pascal :> PressureUnit {
+        doc /* pascal pressure unit */
+    }
+
+    value def CubicMillimeterPerSecond {
+        doc /* volumetric flow rate unit */
+    }
+
+    value type Length {
+        unit = Millimeter;
+    }
+
+    value type RadialForce {
+        unit = Newton;
+    }
+
+    value type Pressure {
+        unit = Pascal;
+    }
+
+    value type FlowRate {
+        unit = CubicMillimeterPerSecond;
+    }
+
+    value type Percent {
+        doc /* dimensionless percentage */
+    }
+
+    value type TimeSeconds {
+        unit = s;
+    }
+
+    item def Blood {
+        attribute oxygenSaturation: Percent;
+        attribute viscosity: Real;
+        attribute pressure: Pressure;
+    }
+
+    item def VesselWall {
+        attribute wallThickness: Length;
+        attribute elasticModulus: Pressure;
+        attribute plaqueBurden: Percent;
+    }
+
+    item def RadialSupportLoad {
+        attribute magnitude: RadialForce;
+        attribute contactArea: Real;
+    }
+
+    item def DeploymentCommand {
+        attribute targetDiameter: Length;
+        attribute expansionDuration: TimeSeconds;
+    }
+
+    item def DeploymentStatus {
+        attribute deployedDiameter: Length;
+        attribute appositionPercent: Percent;
+        attribute recoilPercent: Percent;
+        attribute flowRestored: Boolean;
+    }
+
+    port def BloodFlowPort {
+        inout item blood: Blood;
+        attribute lumenDiameter: Length;
+        attribute flowRate: FlowRate;
+        attribute pressure: Pressure;
+    }
+
+    port def VesselInterfacePort {
+        inout item wall: VesselWall;
+        out item supportLoad: RadialSupportLoad;
+        attribute contactPressure: Pressure;
+        attribute appositionPercent: Percent;
+    }
+
+    port def DeploymentPort {
+        in item command: DeploymentCommand;
+        out item status: DeploymentStatus;
+    }
+
+    part def StentStrut {
+        attribute strutWidth: Length;
+        attribute strutThickness: Length;
+        attribute strutLength: Length;
+        attribute materialYieldStrength: Pressure;
+        attribute isExpanded: Boolean;
+    }
+
+    part def StentCell {
+        part proximalCrown: StentStrut;
+        part distalCrown: StentStrut;
+        part connector: StentStrut;
+
+        attribute cellOpenArea: Real;
+        attribute expansionRatio: Real;
+        attribute fatigueMargin: Real;
+    }
+
+    part def StentScaffold {
+        part cells[120]: StentCell;
+
+        attribute compressedOuterDiameter: Length = 1.20;
+        attribute nominalDeployedOuterDiameter: Length = 3.50;
+        attribute nominalLength: Length = 18.00;
+        attribute radialStrength: RadialForce = 0.85;
+        attribute percentMetalCoverage: Percent = 12.0;
+        attribute foreshorteningPercent: Percent = 3.0;
+
+        port bloodPath: BloodFlowPort;
+        port vesselContact: VesselInterfacePort;
+    }
+
+    part def DeliveryBalloon {
+        attribute foldedDiameter: Length = 1.10;
+        attribute inflatedDiameter: Length = 3.50;
+        attribute inflationPressure: Pressure = 1215900.0;
+        attribute inflationTime: TimeSeconds = 8.0;
+
+        port bloodPath: BloodFlowPort;
+        port deploy: DeploymentPort;
+    }
+
+    part def LesionSegment {
+        attribute preTreatmentLumenDiameter: Length = 0.90;
+        attribute referenceVesselDiameter: Length = 3.50;
+        attribute lesionLength: Length = 14.00;
+        attribute stenosisPercent: Percent = 74.0;
+        attribute vesselPressure: Pressure = 13332.0;
+
+        port proximalFlow: BloodFlowPort;
+        port distalFlow: BloodFlowPort;
+        port vesselWall: VesselInterfacePort;
+    }
+
+    part def VascularStentSystem {
+        part scaffold: StentScaffold;
+        part balloon: DeliveryBalloon;
+        part treatedSegment: LesionSegment;
+
+        port proximalBlood: BloodFlowPort;
+        port distalBlood: BloodFlowPort;
+        port deploymentControl: DeploymentPort;
+        port vesselSupport: VesselInterfacePort;
+
+        attribute targetDeployedDiameter: Length = 3.50;
+        attribute minimumPostDeploymentLumenDiameter: Length = 3.00;
+        attribute minimumAppositionPercent: Percent = 95.0;
+        attribute maximumElasticRecoilPercent: Percent = 8.0;
+        attribute requiredFlowRate: FlowRate = 85.0;
+        attribute primaryFunctionAchieved: Boolean;
+
+        connect proximalBlood to treatedSegment.proximalFlow;
+        connect treatedSegment.distalFlow to distalBlood;
+        connect treatedSegment.vesselWall to scaffold.vesselContact;
+        connect scaffold.bloodPath to treatedSegment.proximalFlow;
+        connect balloon.bloodPath to proximalBlood;
+        connect deploymentControl to balloon.deploy;
+        connect scaffold.vesselContact to vesselSupport;
+    }
+
+    action def CompressStent {
+        inout part scaffold: StentScaffold;
+        out attribute compressedDiameter: Length;
+
+        action reduceDiameter;
+        action verifyCrimpIntegrity;
+
+        first reduceDiameter then verifyCrimpIntegrity;
+
+        bind compressedDiameter = scaffold.compressedOuterDiameter;
+    }
+
+    action def PositionStent {
+        inout part system: VascularStentSystem;
+        in attribute lesionCenterOffset: Length;
+        out attribute positioned: Boolean;
+
+        action navigateToLesion;
+        action alignScaffoldWithLesion;
+        action confirmCoverage;
+
+        first navigateToLesion then alignScaffoldWithLesion then confirmCoverage;
+
+        bind positioned = true;
+    }
+
+    action def DeployStent {
+        inout part system: VascularStentSystem;
+        in item command: DeploymentCommand;
+        out item status: DeploymentStatus;
+
+        action inflateBalloon;
+        action plasticallyExpandScaffold;
+        action pressScaffoldAgainstVesselWall;
+        action deflateBalloon;
+        action verifyLumenGain;
+
+        first inflateBalloon
+            then plasticallyExpandScaffold
+            then pressScaffoldAgainstVesselWall
+            then deflateBalloon
+            then verifyLumenGain;
+
+        bind status.deployedDiameter = command.targetDiameter;
+        bind status.appositionPercent = system.minimumAppositionPercent;
+        bind status.recoilPercent = 5.0;
+        bind status.flowRestored = true;
+    }
+
+    action def MaintainVesselPatency {
+        inout part system: VascularStentSystem;
+        inout item blood: Blood;
+        inout item wall: VesselWall;
+        out attribute lumenMaintained: Boolean;
+
+        action resistVesselCollapse;
+        action holdPlaqueAgainstWall;
+        action preserveOpenBloodPath;
+        action distributeRadialSupportLoad;
+
+        first resistVesselCollapse
+            then holdPlaqueAgainstWall
+            then preserveOpenBloodPath
+            then distributeRadialSupportLoad;
+
+        bind lumenMaintained =
+            system.scaffold.nominalDeployedOuterDiameter >= system.minimumPostDeploymentLumenDiameter;
+    }
+
+    state def StentLifecycle {
+        entry action initialize;
+
+        state Compressed {
+            entry action CompressStent;
+        }
+
+        state Positioned {
+            entry action PositionStent;
+        }
+
+        state Expanding {
+            entry action DeployStent;
+        }
+
+        state Deployed {
+            entry action MaintainVesselPatency;
+        }
+
+        state Monitoring {
+            do action evaluateFlowAndSupport;
+        }
+
+        transition initial then Compressed;
+        transition Compressed then Positioned
+            accept DeploymentCommand;
+        transition Positioned then Expanding
+            accept DeploymentCommand;
+        transition Expanding then Deployed
+            if deploymentComplete;
+        transition Deployed then Monitoring
+            if bloodFlowRestored;
+        transition Monitoring then Deployed
+            if supportAdequate;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The stent shall maintain an open blood-flow lumen in the treated vessel segment by providing radial mechanical support to the vessel wall after deployment. */
+
+        subject stentSystem: VascularStentSystem;
+
+        require constraint {
+            stentSystem.primaryFunctionAchieved == true
+        }
+    }
+
+    requirement def LumenDiameterRequirement {
+        doc /* After deployment, the treated vessel lumen diameter shall be at least 3.00 mm. */
+
+        subject stentSystem: VascularStentSystem;
+
+        require constraint {
+            stentSystem.scaffold.nominalDeployedOuterDiameter >=
+            stentSystem.minimumPostDeploymentLumenDiameter
+        }
+    }
+
+    requirement def AppositionRequirement {
+        doc /* The deployed scaffold shall contact the vessel wall over at least 95 percent of its intended support surface. */
+
+        subject stentSystem: VascularStentSystem;
+
+        require constraint {
+            stentSystem.vesselSupport.appositionPercent >=
+            stentSystem.minimumAppositionPercent
+        }
+    }
+
+    requirement def RecoilRequirement {
+        doc /* Elastic recoil after deployment shall not reduce the achieved diameter by more than 8 percent. */
+
+        subject status: DeploymentStatus;
+
+        require constraint {
+            status.recoilPercent <= 8.0
+        }
+    }
+
+    requirement def FlowRestorationRequirement {
+        doc /* The deployed stent shall permit blood flow through the treated segment at or above the required flow rate. */
+
+        subject stentSystem: VascularStentSystem;
+
+        require constraint {
+            stentSystem.distalBlood.flowRate >=
+            stentSystem.requiredFlowRate
+        }
+    }
+
+    requirement def VesselSupportRequirement {
+        doc /* The scaffold shall generate sufficient outward radial support to resist vessel collapse and plaque encroachment. */
+
+        subject scaffold: StentScaffold;
+
+        require constraint {
+            scaffold.radialStrength >= 0.75
+        }
+    }
+
+    part vascularStentSystem: VascularStentSystem {
+        attribute primaryFunctionAchieved = true;
+
+        perform action maintainPatency: MaintainVesselPatency {
+            inout system = vascularStentSystem;
+        }
+
+        exhibit state lifecycle: StentLifecycle;
+    }
+
+    satisfy PrimaryFunctionRequirement by vascularStentSystem;
+    satisfy LumenDiameterRequirement by vascularStentSystem;
+    satisfy AppositionRequirement by vascularStentSystem;
+    satisfy FlowRestorationRequirement by vascularStentSystem;
+    satisfy VesselSupportRequirement by vascularStentSystem.scaffold;
+}

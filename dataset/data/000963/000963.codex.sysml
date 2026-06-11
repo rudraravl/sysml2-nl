@@ -1,0 +1,351 @@
+package ActigraphyModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value type SampleRate specializes Real {
+    unit = "Hz";
+  }
+
+  value type AccelerationMagnitude specializes Real {
+    unit = "m/s^2";
+  }
+
+  value type BatteryCharge specializes Real {
+    unit = "%";
+  }
+
+  value type TimeDuration specializes Real {
+    unit = "s";
+  }
+
+  value type MemoryCapacity specializes Real {
+    unit = "MB";
+  }
+
+  value type StepCount specializes Integer;
+  value type SleepScore specializes Real;
+  value type ActivityIntensity specializes Real;
+
+  item def RawAccelerationSample {
+    attribute timestamp : TimeDuration;
+    attribute xAxis : AccelerationMagnitude;
+    attribute yAxis : AccelerationMagnitude;
+    attribute zAxis : AccelerationMagnitude;
+  }
+
+  item def MotionEpoch {
+    attribute startTime : TimeDuration;
+    attribute duration : TimeDuration;
+    attribute vectorMagnitudeMean : AccelerationMagnitude;
+    attribute vectorMagnitudePeak : AccelerationMagnitude;
+    attribute zeroCrossings : Integer;
+  }
+
+  item def ActivitySummary {
+    attribute intervalStart : TimeDuration;
+    attribute intervalDuration : TimeDuration;
+    attribute steps : StepCount;
+    attribute sedentarySeconds : TimeDuration;
+    attribute lightActivitySeconds : TimeDuration;
+    attribute moderateActivitySeconds : TimeDuration;
+    attribute vigorousActivitySeconds : TimeDuration;
+    attribute dominantIntensity : ActivityIntensity;
+  }
+
+  item def SleepSummary {
+    attribute sleepStart : TimeDuration;
+    attribute sleepEnd : TimeDuration;
+    attribute totalSleepTime : TimeDuration;
+    attribute wakeAfterSleepOnset : TimeDuration;
+    attribute awakenings : Integer;
+    attribute sleepEfficiency : SleepScore;
+  }
+
+  item def UserProfile {
+    attribute userId : String;
+    attribute ageYears : Integer;
+    attribute heightCm : Real;
+    attribute weightKg : Real;
+    attribute dominantWrist : String;
+  }
+
+  item def AlertMessage {
+    attribute timestamp : TimeDuration;
+    attribute severity : String;
+    attribute text : String;
+  }
+
+  port def MotionSamplePort {
+    out item sample : RawAccelerationSample;
+  }
+
+  port def MotionEpochPort {
+    in item sample : RawAccelerationSample;
+    out item epoch : MotionEpoch;
+  }
+
+  port def SummaryPort {
+    out item activity : ActivitySummary;
+    out item sleep : SleepSummary;
+  }
+
+  port def ProfilePort {
+    in item profile : UserProfile;
+  }
+
+  port def AlertPort {
+    out item alert : AlertMessage;
+  }
+
+  port def PowerPort {
+    out attribute chargeRemaining : BatteryCharge;
+  }
+
+  port def WirelessPort {
+    in item profile : UserProfile;
+    out item activity : ActivitySummary;
+    out item sleep : SleepSummary;
+    out item alert : AlertMessage;
+  }
+
+  action def SampleMotion {
+    in attribute samplingRate : SampleRate;
+    out item sample : RawAccelerationSample;
+  }
+
+  action def FilterMotionNoise {
+    in item rawSample : RawAccelerationSample;
+    out item filteredSample : RawAccelerationSample;
+  }
+
+  action def AggregateEpoch {
+    in item filteredSample : RawAccelerationSample;
+    in attribute epochLength : TimeDuration;
+    out item epoch : MotionEpoch;
+  }
+
+  action def ClassifyActivity {
+    in item epoch : MotionEpoch;
+    out item summary : ActivitySummary;
+  }
+
+  action def EstimateSleep {
+    in item epoch : MotionEpoch;
+    in item profile : UserProfile;
+    out item sleep : SleepSummary;
+  }
+
+  action def SynchronizeData {
+    in item activity : ActivitySummary;
+    in item sleep : SleepSummary;
+    out item transmittedActivity : ActivitySummary;
+    out item transmittedSleep : SleepSummary;
+  }
+
+  state def ActigraphyOperatingState {
+    state Off;
+    state Initializing;
+    state Monitoring;
+    state Processing;
+    state Syncing;
+    state LowBattery;
+    state Fault;
+
+    transition first Off then Initializing;
+    transition Initializing then Monitoring;
+    transition Monitoring then Processing;
+    transition Processing then Monitoring;
+    transition Monitoring then Syncing;
+    transition Syncing then Monitoring;
+    transition Monitoring then LowBattery;
+    transition LowBattery then Off;
+    transition Monitoring then Fault;
+    transition Processing then Fault;
+    transition Syncing then Fault;
+  }
+
+  part def TriAxialAccelerometer {
+    attribute samplingRate : SampleRate = 50.0;
+    attribute measurementRange : AccelerationMagnitude = 78.48;
+    attribute noiseDensity : AccelerationMagnitude = 0.002;
+
+    port motionOut : MotionSamplePort;
+
+    perform action sampleMotion : SampleMotion {
+      in samplingRate = samplingRate;
+      out sample = motionOut.sample;
+    }
+  }
+
+  part def MotionProcessor {
+    attribute epochLength : TimeDuration = 60.0;
+    attribute sedentaryThreshold : AccelerationMagnitude = 0.15;
+    attribute moderateThreshold : AccelerationMagnitude = 1.20;
+    attribute vigorousThreshold : AccelerationMagnitude = 2.50;
+
+    port epochPort : MotionEpochPort;
+    port profileIn : ProfilePort;
+    port summaryOut : SummaryPort;
+
+    perform action filterNoise : FilterMotionNoise {
+      in rawSample = epochPort.sample;
+    }
+
+    perform action aggregateEpoch : AggregateEpoch {
+      in filteredSample = filterNoise.filteredSample;
+      in epochLength = epochLength;
+      out epoch = epochPort.epoch;
+    }
+
+    perform action classifyActivity : ClassifyActivity {
+      in epoch = aggregateEpoch.epoch;
+      out summary = summaryOut.activity;
+    }
+
+    perform action estimateSleep : EstimateSleep {
+      in epoch = aggregateEpoch.epoch;
+      in profile = profileIn.profile;
+      out sleep = summaryOut.sleep;
+    }
+  }
+
+  part def LocalDataStore {
+    attribute capacity : MemoryCapacity = 512.0;
+    attribute retainedDays : Integer = 30;
+
+    port summaryIn : SummaryPort;
+  }
+
+  part def BatterySubsystem {
+    attribute nominalCharge : BatteryCharge = 100.0;
+    attribute lowBatteryThreshold : BatteryCharge = 15.0;
+    attribute minimumOperatingCharge : BatteryCharge = 5.0;
+    attribute expectedRuntime : TimeDuration = 604800.0;
+
+    port powerOut : PowerPort;
+    port alertOut : AlertPort;
+  }
+
+  part def WirelessCommunicator {
+    attribute syncInterval : TimeDuration = 3600.0;
+    attribute maximumTransmissionLatency : TimeDuration = 30.0;
+
+    port wireless : WirelessPort;
+    port summaryIn : SummaryPort;
+    port alertIn : AlertPort;
+
+    perform action synchronize : SynchronizeData {
+      in activity = summaryIn.activity;
+      in sleep = summaryIn.sleep;
+      out transmittedActivity = wireless.activity;
+      out transmittedSleep = wireless.sleep;
+    }
+  }
+
+  part def UserInterface {
+    port wireless : WirelessPort;
+    port alertIn : AlertPort;
+    port profileOut : ProfilePort;
+  }
+
+  part def ActigraphyDevice {
+    attribute primaryFunction : String =
+      "Continuously measure wrist motion, transform acceleration into activity and sleep metrics, store summaries, and synchronize interpreted actigraphy results for review.";
+
+    part accelerometer : TriAxialAccelerometer;
+    part processor : MotionProcessor;
+    part storage : LocalDataStore;
+    part battery : BatterySubsystem;
+    part communicator : WirelessCommunicator;
+
+    port externalWireless : WirelessPort;
+    port profileIn : ProfilePort;
+    port alertOut : AlertPort;
+
+    connection accelToProcessor connect accelerometer.motionOut to processor.epochPort;
+    connection processorToStorage connect processor.summaryOut to storage.summaryIn;
+    connection processorToCommunicator connect processor.summaryOut to communicator.summaryIn;
+    connection batteryToDeviceAlert connect battery.alertOut to alertOut;
+    connection batteryToCommunicatorAlert connect battery.alertOut to communicator.alertIn;
+    connection wirelessExternal connect communicator.wireless to externalWireless;
+    connection profileToProcessor connect profileIn to processor.profileIn;
+
+    exhibit state operatingState : ActigraphyOperatingState;
+  }
+
+  part def ActigraphySystem {
+    part device : ActigraphyDevice;
+    part mobileApplication : UserInterface;
+
+    connection userProfileToDevice connect mobileApplication.profileOut to device.profileIn;
+    connection deviceToApplication connect device.externalWireless to mobileApplication.wireless;
+    connection deviceAlertsToApplication connect device.alertOut to mobileApplication.alertIn;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ActigraphySystem;
+
+    require constraint {
+      system.device.primaryFunction ==
+      "Continuously measure wrist motion, transform acceleration into activity and sleep metrics, store summaries, and synchronize interpreted actigraphy results for review."
+    }
+  }
+
+  requirement def SamplingRequirement {
+    subject sensor : TriAxialAccelerometer;
+
+    require constraint {
+      sensor.samplingRate >= 25.0 and sensor.samplingRate <= 100.0
+    }
+  }
+
+  requirement def EpochProcessingRequirement {
+    subject processor : MotionProcessor;
+
+    require constraint {
+      processor.epochLength == 60.0
+    }
+  }
+
+  requirement def DataRetentionRequirement {
+    subject store : LocalDataStore;
+
+    require constraint {
+      store.retainedDays >= 14 and store.capacity >= 128.0
+    }
+  }
+
+  requirement def BatteryRuntimeRequirement {
+    subject battery : BatterySubsystem;
+
+    require constraint {
+      battery.expectedRuntime >= 604800.0
+    }
+  }
+
+  requirement def LowBatteryAlertRequirement {
+    subject battery : BatterySubsystem;
+
+    require constraint {
+      battery.lowBatteryThreshold >= 10.0 and battery.lowBatteryThreshold <= 20.0
+    }
+  }
+
+  requirement def SynchronizationRequirement {
+    subject communicator : WirelessCommunicator;
+
+    require constraint {
+      communicator.maximumTransmissionLatency <= 30.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by ActigraphySystem;
+  satisfy SamplingRequirement by TriAxialAccelerometer;
+  satisfy EpochProcessingRequirement by MotionProcessor;
+  satisfy DataRetentionRequirement by LocalDataStore;
+  satisfy BatteryRuntimeRequirement by BatterySubsystem;
+  satisfy LowBatteryAlertRequirement by BatterySubsystem;
+  satisfy SynchronizationRequirement by WirelessCommunicator;
+}

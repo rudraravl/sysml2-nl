@@ -1,0 +1,1199 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-73wdyms9
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb485-9d0d-7d00-a49f-8423af1062b7
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Eccentric reducer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EccentricReducerSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        value : Real;
+        unit : String = "mm";
+    }
+
+    attribute def PressureValue {
+        value : Real;
+        unit : String = "kPa";
+    }
+
+    attribute def FlowRateValue {
+        value : Real;
+        unit : String = "m^3/s";
+    }
+
+    attribute def TemperatureValue {
+        value : Real;
+        unit : String = "degC";
+    }
+
+    attribute def RoughnessValue {
+        value : Real;
+        unit : String = "um";
+    }
+
+    attribute def AngleValue {
+        value : Real;
+        unit : String = "deg";
+    }
+
+    enum def MaterialKind {
+        enum carbonSteel;
+        enum stainlessSteel;
+        enum ductileIron;
+        enum pvc;
+        enum copperNickel;
+    }
+
+    enum def OrientationKind {
+        enum flatTop;
+        enum flatBottom;
+        enum flatSideLeft;
+        enum flatSideRight;
+    }
+
+    enum def FlowRegimeKind {
+        enum stagnant;
+        enum laminar;
+        enum transitional;
+        enum turbulent;
+    }
+
+    enum def ReducerHealthKind {
+        enum uninstalled;
+        enum ready;
+        enum inService;
+        enum fouled;
+        enum eroded;
+        enum leaking;
+        enum blocked;
+        enum failed;
+    }
+
+    item def ProcessFluid {
+        attribute density : Real = 998.0;
+        attribute dynamicViscosity : Real = 0.001;
+        attribute vaporPressure : PressureValue;
+        attribute temperature : TemperatureValue;
+        attribute suspendedSolidsFraction : Real = 0.0;
+        attribute corrosivityIndex : Real = 0.0;
+    }
+
+    item def FluidStream {
+        item fluid : ProcessFluid;
+        attribute volumetricFlowRate : FlowRateValue;
+        attribute staticPressure : PressureValue;
+        attribute meanVelocity : Real;
+        attribute temperature : TemperatureValue;
+        attribute flowRegime : FlowRegimeKind;
+        attribute containsEntrainedGas : Boolean = false;
+        attribute containsSettledSolids : Boolean = false;
+    }
+
+    item def MechanicalLoad {
+        attribute axialForce : Real;
+        attribute bendingMoment : Real;
+        attribute torsionalMoment : Real;
+        attribute vibrationAcceleration : Real;
+    }
+
+    item def InspectionFinding {
+        attribute wallLossPercent : Real;
+        attribute gasketCompressionLossPercent : Real;
+        attribute internalDepositThickness : LengthValue;
+        attribute leakDetected : Boolean;
+        attribute externalCorrosionDetected : Boolean;
+    }
+
+    port def FluidPort {
+        inout item stream : FluidStream;
+        attribute nominalDiameter : LengthValue;
+        attribute pressureRating : PressureValue;
+        attribute centerlineElevation : LengthValue;
+    }
+
+    port def MechanicalPort {
+        inout item load : MechanicalLoad;
+        attribute boltCircleDiameter : LengthValue;
+        attribute flangeFaceFlatness : LengthValue;
+    }
+
+    port def DrainVentPort {
+        inout item bleedStream : FluidStream;
+        attribute connectionDiameter : LengthValue;
+        attribute normallyPlugged : Boolean = true;
+    }
+
+    part def CircularPipeSection {
+        attribute nominalDiameter : LengthValue;
+        attribute insideDiameter : LengthValue;
+        attribute wallThickness : LengthValue;
+        attribute centerlineElevation : LengthValue;
+        attribute material : MaterialKind;
+        attribute internalRoughness : RoughnessValue;
+
+        port upstream : FluidPort {
+            attribute nominalDiameter = nominalDiameter;
+            attribute centerlineElevation = centerlineElevation;
+        }
+
+        port downstream : FluidPort {
+            attribute nominalDiameter = nominalDiameter;
+            attribute centerlineElevation = centerlineElevation;
+        }
+    }
+
+    part def Flange {
+        attribute nominalDiameter : LengthValue;
+        attribute pressureRating : PressureValue;
+        attribute faceType : String;
+        attribute boltCount : Integer;
+        attribute boltDiameter : LengthValue;
+        attribute gasketSeatingWidth : LengthValue;
+        attribute material : MaterialKind;
+
+        port fluidFace : FluidPort {
+            attribute nominalDiameter = nominalDiameter;
+            attribute pressureRating = pressureRating;
+        }
+
+        port mechanicalFace : MechanicalPort {
+            attribute boltCircleDiameter : LengthValue { value = 0.0; unit = "mm"; }
+        }
+    }
+
+    part def Gasket {
+        attribute innerDiameter : LengthValue;
+        attribute outerDiameter : LengthValue;
+        attribute compressedThickness : LengthValue;
+        attribute allowableTemperature : TemperatureValue;
+        attribute allowablePressure : PressureValue;
+        attribute materialName : String;
+        attribute compressionPercent : Real;
+
+        port wetFaceA : FluidPort;
+        port wetFaceB : FluidPort;
+        port clampedFace : MechanicalPort;
+    }
+
+    part def ReducerShell {
+        attribute largeEndInsideDiameter : LengthValue;
+        attribute smallEndInsideDiameter : LengthValue;
+        attribute reducerLength : LengthValue;
+        attribute offsetDistance : LengthValue;
+        attribute taperAngle : AngleValue;
+        attribute wallThickness : LengthValue;
+        attribute material : MaterialKind;
+        attribute internalRoughness : RoughnessValue;
+        attribute orientation : OrientationKind;
+        attribute corrosionAllowance : LengthValue;
+        attribute minimumRemainingWall : LengthValue;
+
+        port largeEnd : FluidPort {
+            attribute nominalDiameter = largeEndInsideDiameter;
+        }
+
+        port smallEnd : FluidPort {
+            attribute nominalDiameter = smallEndInsideDiameter;
+        }
+
+        port shellSupport : MechanicalPort;
+        port lowPointDrain : DrainVentPort;
+        port highPointVent : DrainVentPort;
+    }
+
+    part def SupportSaddle {
+        attribute padWidth : LengthValue;
+        attribute padLength : LengthValue;
+        attribute elastomerThickness : LengthValue;
+        attribute maximumAllowableLoad : Real;
+
+        port pipeInterface : MechanicalPort;
+        port structureInterface : MechanicalPort;
+    }
+
+    part def EccentricReducerAssembly {
+        attribute primaryFunction : String =
+            "Transition a process-fluid stream between two different pipe diameters while maintaining one pipe edge at a constant elevation to limit gas pockets or solids accumulation.";
+        attribute largeNominalDiameter : LengthValue;
+        attribute smallNominalDiameter : LengthValue;
+        attribute ratedPressure : PressureValue;
+        attribute designTemperature : TemperatureValue;
+        attribute designFlowRate : FlowRateValue;
+        attribute allowablePressureDrop : PressureValue;
+        attribute orientation : OrientationKind;
+        attribute installedSlope : AngleValue;
+        attribute health : ReducerHealthKind = ReducerHealthKind::uninstalled;
+
+        port inlet : FluidPort {
+            attribute nominalDiameter = largeNominalDiameter;
+            attribute pressureRating = ratedPressure;
+        }
+
+        port outlet : FluidPort {
+            attribute nominalDiameter = smallNominalDiameter;
+            attribute pressureRating = ratedPressure;
+        }
+
+        port inletPipeLoad : MechanicalPort;
+        port outletPipeLoad : MechanicalPort;
+        port baseSupport : MechanicalPort;
+        port drain : DrainVentPort;
+        port vent : DrainVentPort;
+
+        part inletFlange : Flange {
+            attribute nominalDiameter = largeNominalDiameter;
+            attribute pressureRating = ratedPressure;
+            attribute faceType = "raised face";
+            attribute boltCount = 12;
+            attribute boltDiameter : LengthValue { value = 24.0; unit = "mm"; }
+            attribute gasketSeatingWidth : LengthValue { value = 18.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+        }
+
+        part outletFlange : Flange {
+            attribute nominalDiameter = smallNominalDiameter;
+            attribute pressureRating = ratedPressure;
+            attribute faceType = "raised face";
+            attribute boltCount = 8;
+            attribute boltDiameter : LengthValue { value = 20.0; unit = "mm"; }
+            attribute gasketSeatingWidth : LengthValue { value = 15.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+        }
+
+        part inletGasket : Gasket {
+            attribute innerDiameter = largeNominalDiameter;
+            attribute outerDiameter : LengthValue { value = 390.0; unit = "mm"; }
+            attribute compressedThickness : LengthValue { value = 3.0; unit = "mm"; }
+            attribute allowableTemperature = designTemperature;
+            attribute allowablePressure = ratedPressure;
+            attribute materialName = "spiral wound graphite filled stainless steel";
+            attribute compressionPercent = 28.0;
+        }
+
+        part outletGasket : Gasket {
+            attribute innerDiameter = smallNominalDiameter;
+            attribute outerDiameter : LengthValue { value = 275.0; unit = "mm"; }
+            attribute compressedThickness : LengthValue { value = 3.0; unit = "mm"; }
+            attribute allowableTemperature = designTemperature;
+            attribute allowablePressure = ratedPressure;
+            attribute materialName = "spiral wound graphite filled stainless steel";
+            attribute compressionPercent = 28.0;
+        }
+
+        part shell : ReducerShell {
+            attribute largeEndInsideDiameter = largeNominalDiameter;
+            attribute smallEndInsideDiameter = smallNominalDiameter;
+            attribute reducerLength : LengthValue { value = 450.0; unit = "mm"; }
+            attribute offsetDistance : LengthValue { value = 75.0; unit = "mm"; }
+            attribute taperAngle : AngleValue { value = 9.5; unit = "deg"; }
+            attribute wallThickness : LengthValue { value = 8.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+            attribute internalRoughness : RoughnessValue { value = 45.0; unit = "um"; }
+            attribute orientation = orientation;
+            attribute corrosionAllowance : LengthValue { value = 1.5; unit = "mm"; }
+            attribute minimumRemainingWall : LengthValue { value = 5.5; unit = "mm"; }
+        }
+
+        part support : SupportSaddle {
+            attribute padWidth : LengthValue { value = 160.0; unit = "mm"; }
+            attribute padLength : LengthValue { value = 280.0; unit = "mm"; }
+            attribute elastomerThickness : LengthValue { value = 6.0; unit = "mm"; }
+            attribute maximumAllowableLoad = 18000.0;
+        }
+
+        connect inlet to inletFlange.fluidFace;
+        connect inletFlange.fluidFace to inletGasket.wetFaceA;
+        connect inletGasket.wetFaceB to shell.largeEnd;
+        connect shell.smallEnd to outletGasket.wetFaceA;
+        connect outletGasket.wetFaceB to outletFlange.fluidFace;
+        connect outletFlange.fluidFace to outlet;
+
+        connect inletPipeLoad to inletFlange.mechanicalFace;
+        connect outletPipeLoad to outletFlange.mechanicalFace;
+        connect shell.shellSupport to support.pipeInterface;
+        connect support.structureInterface to baseSupport;
+        connect shell.lowPointDrain to drain;
+        connect shell.highPointVent to vent;
+    }
+
+    action def EqualizeDiameterTransition {
+        in item incoming : FluidStream;
+        in attribute largeDiameter : LengthValue;
+        in attribute smallDiameter : LengthValue;
+        in attribute offset : LengthValue;
+        out item outgoing : FluidStream;
+        out attribute predictedPressureDrop : PressureValue;
+        out attribute velocityIncreaseRatio : Real;
+
+        action computeVelocityRatio {
+            out attribute ratio : Real;
+        }
+
+        action computeMinorLoss {
+            in attribute ratio : Real;
+            out attribute loss : PressureValue;
+        }
+
+        action preserveFlatSideElevation {
+            in attribute offsetValue : LengthValue;
+            out attribute elevationDiscontinuity : LengthValue;
+        }
+
+        first start;
+        then computeVelocityRatio;
+        then computeMinorLoss;
+        then preserveFlatSideElevation;
+        then done;
+
+        bind velocityIncreaseRatio = computeVelocityRatio.ratio;
+        bind predictedPressureDrop = computeMinorLoss.loss;
+        bind outgoing.fluid = incoming.fluid;
+        bind outgoing.temperature = incoming.temperature;
+        bind outgoing.volumetricFlowRate = incoming.volumetricFlowRate;
+    }
+
+    action def DrainLowPoint {
+        inout item retainedLiquidOrSolids : FluidStream;
+        out attribute drainedVolume : Real;
+        out attribute drainComplete : Boolean;
+
+        action openDrainPlug;
+        action dischargeUntilClear;
+        action closeDrainPlug;
+
+        first start;
+        then openDrainPlug;
+        then dischargeUntilClear;
+        then closeDrainPlug;
+        then done;
+
+        bind drainComplete = true;
+    }
+
+    action def InspectReducer {
+        in part inspectedAssembly : EccentricReducerAssembly;
+        out item finding : InspectionFinding;
+        out attribute serviceAcceptable : Boolean;
+
+        action measureWallThickness;
+        action inspectGasketFaces;
+        action checkLeakTightness;
+        action checkInternalDeposits;
+        action classifyCondition;
+
+        first start;
+        then measureWallThickness;
+        then inspectGasketFaces;
+        then checkLeakTightness;
+        then checkInternalDeposits;
+        then classifyCondition;
+        then done;
+    }
+
+    state def ReducerOperationalStates {
+        entry action initializeCondition;
+
+        state Uninstalled;
+        state InstalledDry;
+        state ReadyForService;
+        state Flowing;
+        state Fouled;
+        state Leaking;
+        state Blocked;
+        state Maintenance;
+        state Failed;
+
+        transition initial then Uninstalled;
+        transition install from Uninstalled to InstalledDry;
+        transition hydrotestPassed from InstalledDry to ReadyForService;
+        transition startFlow from ReadyForService to Flowing;
+        transition stopFlow from Flowing to ReadyForService;
+        transition depositsDetected from Flowing to Fouled;
+        transition cleanInPlace from Fouled to Flowing;
+        transition leakDetected from ReadyForService to Leaking;
+        transition leakDetectedDuringFlow from Flowing to Leaking;
+        transition isolateForRepair from Leaking to Maintenance;
+        transition blockageDetected from Flowing to Blocked;
+        transition depressurizeBlockedLine from Blocked to Maintenance;
+        transition repairComplete from Maintenance to ReadyForService;
+        transition wallBelowMinimum from Flowing to Failed;
+        transition ruptureDetected from Leaking to Failed;
+    }
+
+    requirement def DiameterTransitionRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.largeNominalDiameter.value > reducer.smallNominalDiameter.value
+        }
+
+        doc /* The assembly shall provide a transition from a larger pipe diameter to a smaller pipe diameter without reversing the intended flow direction. */
+    }
+
+    requirement def EccentricOffsetRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.shell.offsetDistance.value == (reducer.largeNominalDiameter.value - reducer.smallNominalDiameter.value) / 2.0
+        }
+
+        doc /* The reducer shall align one side of the large and small pipe bores to create an eccentric flat-side geometry. */
+    }
+
+    requirement def AntiPocketOrientationRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.orientation == OrientationKind::flatTop or reducer.orientation == OrientationKind::flatBottom
+        }
+
+        doc /* The installed orientation shall support the process objective of reducing trapped gas for liquid service or reducing settled solids for slurry service. */
+    }
+
+    requirement def PressureContainmentRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.ratedPressure.value >= 1600.0
+        }
+
+        doc /* The reducer pressure boundary shall withstand the specified design pressure with flange, gasket, and shell ratings at least equal to the line rating. */
+    }
+
+    requirement def PressureDropRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.allowablePressureDrop.value <= 15.0
+        }
+
+        doc /* The reducer shall limit hydraulic loss so the pressure drop across the transition remains within the allowable value at design flow. */
+    }
+
+    requirement def WallThicknessRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.shell.wallThickness.value >= reducer.shell.minimumRemainingWall.value + reducer.shell.corrosionAllowance.value
+        }
+
+        doc /* The shell wall shall include sufficient thickness for structural integrity and corrosion allowance throughout service life. */
+    }
+
+    requirement def LeakTightJointRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.inletGasket.compressionPercent >= 20.0 and
+            reducer.inletGasket.compressionPercent <= 35.0 and
+            reducer.outletGasket.compressionPercent >= 20.0 and
+            reducer.outletGasket.compressionPercent <= 35.0
+        }
+
+        doc /* Bolted flange joints shall compress gaskets within the acceptable sealing range to prevent external leakage. */
+    }
+
+    requirement def DrainVentRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.drain.connectionDiameter.value >= 15.0 and
+            reducer.vent.connectionDiameter.value >= 15.0
+        }
+
+        doc /* The reducer shall provide drain and vent connections suitable for safe depressurization, inspection, and removal of retained fluid. */
+    }
+
+    requirement def SupportLoadRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.support.maximumAllowableLoad >= 12000.0
+        }
+
+        doc /* The support saddle shall carry expected pipe and fluid loads without overstressing the reducer shell or connected piping. */
+    }
+
+    part def PumpDischargeReducerSystem {
+        attribute systemPurpose : String =
+            "Use an eccentric reducer to adapt a pump discharge or process line between unequal pipe diameters while preserving hydraulic continuity and controlling gas or solids accumulation.";
+        attribute designService : String = "treated water transfer";
+        attribute targetFlowRegime : FlowRegimeKind = FlowRegimeKind::turbulent;
+
+        part upstreamPipe : CircularPipeSection {
+            attribute nominalDiameter : LengthValue { value = 300.0; unit = "mm"; }
+            attribute insideDiameter : LengthValue { value = 303.0; unit = "mm"; }
+            attribute wallThickness : LengthValue { value = 8.0; unit = "mm"; }
+            attribute centerlineElevation : LengthValue { value = 1200.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+            attribute internalRoughness : RoughnessValue { value = 45.0; unit = "um"; }
+        }
+
+        part reducer : EccentricReducerAssembly {
+            attribute largeNominalDiameter : LengthValue { value = 300.0; unit = "mm"; }
+            attribute smallNominalDiameter : LengthValue { value = 150.0; unit = "mm"; }
+            attribute ratedPressure : PressureValue { value = 1600.0; unit = "kPa"; }
+            attribute designTemperature : TemperatureValue { value = 60.0; unit = "degC"; }
+            attribute designFlowRate : FlowRateValue { value = 0.14; unit = "m^3/s"; }
+            attribute allowablePressureDrop : PressureValue { value = 12.0; unit = "kPa"; }
+            attribute orientation = OrientationKind::flatTop;
+            attribute installedSlope : AngleValue { value = 0.0; unit = "deg"; }
+        }
+
+        part downstreamPipe : CircularPipeSection {
+            attribute nominalDiameter : LengthValue { value = 150.0; unit = "mm"; }
+            attribute insideDiameter : LengthValue { value = 154.0; unit = "mm"; }
+            attribute wallThickness : LengthValue { value = 6.0; unit = "mm"; }
+            attribute centerlineElevation : LengthValue { value = 1200.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+            attribute internalRoughness : RoughnessValue { value = 45.0; unit = "um"; }
+        }
+
+        item designInletStream : FluidStream {
+            attribute volumetricFlowRate : FlowRateValue { value = 0.14; unit = "m^3/s"; }
+            attribute staticPressure : PressureValue { value = 950.0; unit = "kPa"; }
+            attribute meanVelocity = 1.96;
+            attribute temperature : TemperatureValue { value = 25.0; unit = "degC"; }
+            attribute flowRegime = FlowRegimeKind::turbulent;
+            attribute containsEntrainedGas = true;
+            attribute containsSettledSolids = false;
+
+            item fluid : ProcessFluid {
+                attribute density = 998.0;
+                attribute dynamicViscosity = 0.001;
+                attribute vaporPressure : PressureValue { value = 3.2; unit = "kPa"; }
+                attribute temperature : TemperatureValue { value = 25.0; unit = "degC"; }
+                attribute suspendedSolidsFraction = 0.002;
+                attribute corrosivityIndex = 0.15;
+            }
+        }
+
+        action transitionFlow : EqualizeDiameterTransition {
+            in incoming = designInletStream;
+            in largeDiameter = reducer.largeNominalDiameter;
+            in smallDiameter = reducer.smallNominalDiameter;
+            in offset = reducer.shell.offsetDistance;
+        }
+
+        state operatingState : ReducerOperationalStates;
+
+        satisfy DiameterTransitionRequirement by reducer;
+        satisfy EccentricOffsetRequirement by reducer;
+        satisfy AntiPocketOrientationRequirement by reducer;
+        satisfy PressureContainmentRequirement by reducer;
+        satisfy PressureDropRequirement by reducer;
+        satisfy WallThicknessRequirement by reducer;
+        satisfy LeakTightJointRequirement by reducer;
+        satisfy DrainVentRequirement by reducer;
+        satisfy SupportLoadRequirement by reducer;
+
+        connect upstreamPipe.downstream to reducer.inlet;
+        connect reducer.outlet to downstreamPipe.upstream;
+    }
+}
+tokens used
+5,024
+package EccentricReducerSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        value : Real;
+        unit : String = "mm";
+    }
+
+    attribute def PressureValue {
+        value : Real;
+        unit : String = "kPa";
+    }
+
+    attribute def FlowRateValue {
+        value : Real;
+        unit : String = "m^3/s";
+    }
+
+    attribute def TemperatureValue {
+        value : Real;
+        unit : String = "degC";
+    }
+
+    attribute def RoughnessValue {
+        value : Real;
+        unit : String = "um";
+    }
+
+    attribute def AngleValue {
+        value : Real;
+        unit : String = "deg";
+    }
+
+    enum def MaterialKind {
+        enum carbonSteel;
+        enum stainlessSteel;
+        enum ductileIron;
+        enum pvc;
+        enum copperNickel;
+    }
+
+    enum def OrientationKind {
+        enum flatTop;
+        enum flatBottom;
+        enum flatSideLeft;
+        enum flatSideRight;
+    }
+
+    enum def FlowRegimeKind {
+        enum stagnant;
+        enum laminar;
+        enum transitional;
+        enum turbulent;
+    }
+
+    enum def ReducerHealthKind {
+        enum uninstalled;
+        enum ready;
+        enum inService;
+        enum fouled;
+        enum eroded;
+        enum leaking;
+        enum blocked;
+        enum failed;
+    }
+
+    item def ProcessFluid {
+        attribute density : Real = 998.0;
+        attribute dynamicViscosity : Real = 0.001;
+        attribute vaporPressure : PressureValue;
+        attribute temperature : TemperatureValue;
+        attribute suspendedSolidsFraction : Real = 0.0;
+        attribute corrosivityIndex : Real = 0.0;
+    }
+
+    item def FluidStream {
+        item fluid : ProcessFluid;
+        attribute volumetricFlowRate : FlowRateValue;
+        attribute staticPressure : PressureValue;
+        attribute meanVelocity : Real;
+        attribute temperature : TemperatureValue;
+        attribute flowRegime : FlowRegimeKind;
+        attribute containsEntrainedGas : Boolean = false;
+        attribute containsSettledSolids : Boolean = false;
+    }
+
+    item def MechanicalLoad {
+        attribute axialForce : Real;
+        attribute bendingMoment : Real;
+        attribute torsionalMoment : Real;
+        attribute vibrationAcceleration : Real;
+    }
+
+    item def InspectionFinding {
+        attribute wallLossPercent : Real;
+        attribute gasketCompressionLossPercent : Real;
+        attribute internalDepositThickness : LengthValue;
+        attribute leakDetected : Boolean;
+        attribute externalCorrosionDetected : Boolean;
+    }
+
+    port def FluidPort {
+        inout item stream : FluidStream;
+        attribute nominalDiameter : LengthValue;
+        attribute pressureRating : PressureValue;
+        attribute centerlineElevation : LengthValue;
+    }
+
+    port def MechanicalPort {
+        inout item load : MechanicalLoad;
+        attribute boltCircleDiameter : LengthValue;
+        attribute flangeFaceFlatness : LengthValue;
+    }
+
+    port def DrainVentPort {
+        inout item bleedStream : FluidStream;
+        attribute connectionDiameter : LengthValue;
+        attribute normallyPlugged : Boolean = true;
+    }
+
+    part def CircularPipeSection {
+        attribute nominalDiameter : LengthValue;
+        attribute insideDiameter : LengthValue;
+        attribute wallThickness : LengthValue;
+        attribute centerlineElevation : LengthValue;
+        attribute material : MaterialKind;
+        attribute internalRoughness : RoughnessValue;
+
+        port upstream : FluidPort {
+            attribute nominalDiameter = nominalDiameter;
+            attribute centerlineElevation = centerlineElevation;
+        }
+
+        port downstream : FluidPort {
+            attribute nominalDiameter = nominalDiameter;
+            attribute centerlineElevation = centerlineElevation;
+        }
+    }
+
+    part def Flange {
+        attribute nominalDiameter : LengthValue;
+        attribute pressureRating : PressureValue;
+        attribute faceType : String;
+        attribute boltCount : Integer;
+        attribute boltDiameter : LengthValue;
+        attribute gasketSeatingWidth : LengthValue;
+        attribute material : MaterialKind;
+
+        port fluidFace : FluidPort {
+            attribute nominalDiameter = nominalDiameter;
+            attribute pressureRating = pressureRating;
+        }
+
+        port mechanicalFace : MechanicalPort {
+            attribute boltCircleDiameter : LengthValue { value = 0.0; unit = "mm"; }
+        }
+    }
+
+    part def Gasket {
+        attribute innerDiameter : LengthValue;
+        attribute outerDiameter : LengthValue;
+        attribute compressedThickness : LengthValue;
+        attribute allowableTemperature : TemperatureValue;
+        attribute allowablePressure : PressureValue;
+        attribute materialName : String;
+        attribute compressionPercent : Real;
+
+        port wetFaceA : FluidPort;
+        port wetFaceB : FluidPort;
+        port clampedFace : MechanicalPort;
+    }
+
+    part def ReducerShell {
+        attribute largeEndInsideDiameter : LengthValue;
+        attribute smallEndInsideDiameter : LengthValue;
+        attribute reducerLength : LengthValue;
+        attribute offsetDistance : LengthValue;
+        attribute taperAngle : AngleValue;
+        attribute wallThickness : LengthValue;
+        attribute material : MaterialKind;
+        attribute internalRoughness : RoughnessValue;
+        attribute orientation : OrientationKind;
+        attribute corrosionAllowance : LengthValue;
+        attribute minimumRemainingWall : LengthValue;
+
+        port largeEnd : FluidPort {
+            attribute nominalDiameter = largeEndInsideDiameter;
+        }
+
+        port smallEnd : FluidPort {
+            attribute nominalDiameter = smallEndInsideDiameter;
+        }
+
+        port shellSupport : MechanicalPort;
+        port lowPointDrain : DrainVentPort;
+        port highPointVent : DrainVentPort;
+    }
+
+    part def SupportSaddle {
+        attribute padWidth : LengthValue;
+        attribute padLength : LengthValue;
+        attribute elastomerThickness : LengthValue;
+        attribute maximumAllowableLoad : Real;
+
+        port pipeInterface : MechanicalPort;
+        port structureInterface : MechanicalPort;
+    }
+
+    part def EccentricReducerAssembly {
+        attribute primaryFunction : String =
+            "Transition a process-fluid stream between two different pipe diameters while maintaining one pipe edge at a constant elevation to limit gas pockets or solids accumulation.";
+        attribute largeNominalDiameter : LengthValue;
+        attribute smallNominalDiameter : LengthValue;
+        attribute ratedPressure : PressureValue;
+        attribute designTemperature : TemperatureValue;
+        attribute designFlowRate : FlowRateValue;
+        attribute allowablePressureDrop : PressureValue;
+        attribute orientation : OrientationKind;
+        attribute installedSlope : AngleValue;
+        attribute health : ReducerHealthKind = ReducerHealthKind::uninstalled;
+
+        port inlet : FluidPort {
+            attribute nominalDiameter = largeNominalDiameter;
+            attribute pressureRating = ratedPressure;
+        }
+
+        port outlet : FluidPort {
+            attribute nominalDiameter = smallNominalDiameter;
+            attribute pressureRating = ratedPressure;
+        }
+
+        port inletPipeLoad : MechanicalPort;
+        port outletPipeLoad : MechanicalPort;
+        port baseSupport : MechanicalPort;
+        port drain : DrainVentPort;
+        port vent : DrainVentPort;
+
+        part inletFlange : Flange {
+            attribute nominalDiameter = largeNominalDiameter;
+            attribute pressureRating = ratedPressure;
+            attribute faceType = "raised face";
+            attribute boltCount = 12;
+            attribute boltDiameter : LengthValue { value = 24.0; unit = "mm"; }
+            attribute gasketSeatingWidth : LengthValue { value = 18.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+        }
+
+        part outletFlange : Flange {
+            attribute nominalDiameter = smallNominalDiameter;
+            attribute pressureRating = ratedPressure;
+            attribute faceType = "raised face";
+            attribute boltCount = 8;
+            attribute boltDiameter : LengthValue { value = 20.0; unit = "mm"; }
+            attribute gasketSeatingWidth : LengthValue { value = 15.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+        }
+
+        part inletGasket : Gasket {
+            attribute innerDiameter = largeNominalDiameter;
+            attribute outerDiameter : LengthValue { value = 390.0; unit = "mm"; }
+            attribute compressedThickness : LengthValue { value = 3.0; unit = "mm"; }
+            attribute allowableTemperature = designTemperature;
+            attribute allowablePressure = ratedPressure;
+            attribute materialName = "spiral wound graphite filled stainless steel";
+            attribute compressionPercent = 28.0;
+        }
+
+        part outletGasket : Gasket {
+            attribute innerDiameter = smallNominalDiameter;
+            attribute outerDiameter : LengthValue { value = 275.0; unit = "mm"; }
+            attribute compressedThickness : LengthValue { value = 3.0; unit = "mm"; }
+            attribute allowableTemperature = designTemperature;
+            attribute allowablePressure = ratedPressure;
+            attribute materialName = "spiral wound graphite filled stainless steel";
+            attribute compressionPercent = 28.0;
+        }
+
+        part shell : ReducerShell {
+            attribute largeEndInsideDiameter = largeNominalDiameter;
+            attribute smallEndInsideDiameter = smallNominalDiameter;
+            attribute reducerLength : LengthValue { value = 450.0; unit = "mm"; }
+            attribute offsetDistance : LengthValue { value = 75.0; unit = "mm"; }
+            attribute taperAngle : AngleValue { value = 9.5; unit = "deg"; }
+            attribute wallThickness : LengthValue { value = 8.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+            attribute internalRoughness : RoughnessValue { value = 45.0; unit = "um"; }
+            attribute orientation = orientation;
+            attribute corrosionAllowance : LengthValue { value = 1.5; unit = "mm"; }
+            attribute minimumRemainingWall : LengthValue { value = 5.5; unit = "mm"; }
+        }
+
+        part support : SupportSaddle {
+            attribute padWidth : LengthValue { value = 160.0; unit = "mm"; }
+            attribute padLength : LengthValue { value = 280.0; unit = "mm"; }
+            attribute elastomerThickness : LengthValue { value = 6.0; unit = "mm"; }
+            attribute maximumAllowableLoad = 18000.0;
+        }
+
+        connect inlet to inletFlange.fluidFace;
+        connect inletFlange.fluidFace to inletGasket.wetFaceA;
+        connect inletGasket.wetFaceB to shell.largeEnd;
+        connect shell.smallEnd to outletGasket.wetFaceA;
+        connect outletGasket.wetFaceB to outletFlange.fluidFace;
+        connect outletFlange.fluidFace to outlet;
+
+        connect inletPipeLoad to inletFlange.mechanicalFace;
+        connect outletPipeLoad to outletFlange.mechanicalFace;
+        connect shell.shellSupport to support.pipeInterface;
+        connect support.structureInterface to baseSupport;
+        connect shell.lowPointDrain to drain;
+        connect shell.highPointVent to vent;
+    }
+
+    action def EqualizeDiameterTransition {
+        in item incoming : FluidStream;
+        in attribute largeDiameter : LengthValue;
+        in attribute smallDiameter : LengthValue;
+        in attribute offset : LengthValue;
+        out item outgoing : FluidStream;
+        out attribute predictedPressureDrop : PressureValue;
+        out attribute velocityIncreaseRatio : Real;
+
+        action computeVelocityRatio {
+            out attribute ratio : Real;
+        }
+
+        action computeMinorLoss {
+            in attribute ratio : Real;
+            out attribute loss : PressureValue;
+        }
+
+        action preserveFlatSideElevation {
+            in attribute offsetValue : LengthValue;
+            out attribute elevationDiscontinuity : LengthValue;
+        }
+
+        first start;
+        then computeVelocityRatio;
+        then computeMinorLoss;
+        then preserveFlatSideElevation;
+        then done;
+
+        bind velocityIncreaseRatio = computeVelocityRatio.ratio;
+        bind predictedPressureDrop = computeMinorLoss.loss;
+        bind outgoing.fluid = incoming.fluid;
+        bind outgoing.temperature = incoming.temperature;
+        bind outgoing.volumetricFlowRate = incoming.volumetricFlowRate;
+    }
+
+    action def DrainLowPoint {
+        inout item retainedLiquidOrSolids : FluidStream;
+        out attribute drainedVolume : Real;
+        out attribute drainComplete : Boolean;
+
+        action openDrainPlug;
+        action dischargeUntilClear;
+        action closeDrainPlug;
+
+        first start;
+        then openDrainPlug;
+        then dischargeUntilClear;
+        then closeDrainPlug;
+        then done;
+
+        bind drainComplete = true;
+    }
+
+    action def InspectReducer {
+        in part inspectedAssembly : EccentricReducerAssembly;
+        out item finding : InspectionFinding;
+        out attribute serviceAcceptable : Boolean;
+
+        action measureWallThickness;
+        action inspectGasketFaces;
+        action checkLeakTightness;
+        action checkInternalDeposits;
+        action classifyCondition;
+
+        first start;
+        then measureWallThickness;
+        then inspectGasketFaces;
+        then checkLeakTightness;
+        then checkInternalDeposits;
+        then classifyCondition;
+        then done;
+    }
+
+    state def ReducerOperationalStates {
+        entry action initializeCondition;
+
+        state Uninstalled;
+        state InstalledDry;
+        state ReadyForService;
+        state Flowing;
+        state Fouled;
+        state Leaking;
+        state Blocked;
+        state Maintenance;
+        state Failed;
+
+        transition initial then Uninstalled;
+        transition install from Uninstalled to InstalledDry;
+        transition hydrotestPassed from InstalledDry to ReadyForService;
+        transition startFlow from ReadyForService to Flowing;
+        transition stopFlow from Flowing to ReadyForService;
+        transition depositsDetected from Flowing to Fouled;
+        transition cleanInPlace from Fouled to Flowing;
+        transition leakDetected from ReadyForService to Leaking;
+        transition leakDetectedDuringFlow from Flowing to Leaking;
+        transition isolateForRepair from Leaking to Maintenance;
+        transition blockageDetected from Flowing to Blocked;
+        transition depressurizeBlockedLine from Blocked to Maintenance;
+        transition repairComplete from Maintenance to ReadyForService;
+        transition wallBelowMinimum from Flowing to Failed;
+        transition ruptureDetected from Leaking to Failed;
+    }
+
+    requirement def DiameterTransitionRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.largeNominalDiameter.value > reducer.smallNominalDiameter.value
+        }
+
+        doc /* The assembly shall provide a transition from a larger pipe diameter to a smaller pipe diameter without reversing the intended flow direction. */
+    }
+
+    requirement def EccentricOffsetRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.shell.offsetDistance.value == (reducer.largeNominalDiameter.value - reducer.smallNominalDiameter.value) / 2.0
+        }
+
+        doc /* The reducer shall align one side of the large and small pipe bores to create an eccentric flat-side geometry. */
+    }
+
+    requirement def AntiPocketOrientationRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.orientation == OrientationKind::flatTop or reducer.orientation == OrientationKind::flatBottom
+        }
+
+        doc /* The installed orientation shall support the process objective of reducing trapped gas for liquid service or reducing settled solids for slurry service. */
+    }
+
+    requirement def PressureContainmentRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.ratedPressure.value >= 1600.0
+        }
+
+        doc /* The reducer pressure boundary shall withstand the specified design pressure with flange, gasket, and shell ratings at least equal to the line rating. */
+    }
+
+    requirement def PressureDropRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.allowablePressureDrop.value <= 15.0
+        }
+
+        doc /* The reducer shall limit hydraulic loss so the pressure drop across the transition remains within the allowable value at design flow. */
+    }
+
+    requirement def WallThicknessRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.shell.wallThickness.value >= reducer.shell.minimumRemainingWall.value + reducer.shell.corrosionAllowance.value
+        }
+
+        doc /* The shell wall shall include sufficient thickness for structural integrity and corrosion allowance throughout service life. */
+    }
+
+    requirement def LeakTightJointRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.inletGasket.compressionPercent >= 20.0 and
+            reducer.inletGasket.compressionPercent <= 35.0 and
+            reducer.outletGasket.compressionPercent >= 20.0 and
+            reducer.outletGasket.compressionPercent <= 35.0
+        }
+
+        doc /* Bolted flange joints shall compress gaskets within the acceptable sealing range to prevent external leakage. */
+    }
+
+    requirement def DrainVentRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.drain.connectionDiameter.value >= 15.0 and
+            reducer.vent.connectionDiameter.value >= 15.0
+        }
+
+        doc /* The reducer shall provide drain and vent connections suitable for safe depressurization, inspection, and removal of retained fluid. */
+    }
+
+    requirement def SupportLoadRequirement {
+        subject reducer : EccentricReducerAssembly;
+
+        require constraint {
+            reducer.support.maximumAllowableLoad >= 12000.0
+        }
+
+        doc /* The support saddle shall carry expected pipe and fluid loads without overstressing the reducer shell or connected piping. */
+    }
+
+    part def PumpDischargeReducerSystem {
+        attribute systemPurpose : String =
+            "Use an eccentric reducer to adapt a pump discharge or process line between unequal pipe diameters while preserving hydraulic continuity and controlling gas or solids accumulation.";
+        attribute designService : String = "treated water transfer";
+        attribute targetFlowRegime : FlowRegimeKind = FlowRegimeKind::turbulent;
+
+        part upstreamPipe : CircularPipeSection {
+            attribute nominalDiameter : LengthValue { value = 300.0; unit = "mm"; }
+            attribute insideDiameter : LengthValue { value = 303.0; unit = "mm"; }
+            attribute wallThickness : LengthValue { value = 8.0; unit = "mm"; }
+            attribute centerlineElevation : LengthValue { value = 1200.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+            attribute internalRoughness : RoughnessValue { value = 45.0; unit = "um"; }
+        }
+
+        part reducer : EccentricReducerAssembly {
+            attribute largeNominalDiameter : LengthValue { value = 300.0; unit = "mm"; }
+            attribute smallNominalDiameter : LengthValue { value = 150.0; unit = "mm"; }
+            attribute ratedPressure : PressureValue { value = 1600.0; unit = "kPa"; }
+            attribute designTemperature : TemperatureValue { value = 60.0; unit = "degC"; }
+            attribute designFlowRate : FlowRateValue { value = 0.14; unit = "m^3/s"; }
+            attribute allowablePressureDrop : PressureValue { value = 12.0; unit = "kPa"; }
+            attribute orientation = OrientationKind::flatTop;
+            attribute installedSlope : AngleValue { value = 0.0; unit = "deg"; }
+        }
+
+        part downstreamPipe : CircularPipeSection {
+            attribute nominalDiameter : LengthValue { value = 150.0; unit = "mm"; }
+            attribute insideDiameter : LengthValue { value = 154.0; unit = "mm"; }
+            attribute wallThickness : LengthValue { value = 6.0; unit = "mm"; }
+            attribute centerlineElevation : LengthValue { value = 1200.0; unit = "mm"; }
+            attribute material = MaterialKind::carbonSteel;
+            attribute internalRoughness : RoughnessValue { value = 45.0; unit = "um"; }
+        }
+
+        item designInletStream : FluidStream {
+            attribute volumetricFlowRate : FlowRateValue { value = 0.14; unit = "m^3/s"; }
+            attribute staticPressure : PressureValue { value = 950.0; unit = "kPa"; }
+            attribute meanVelocity = 1.96;
+            attribute temperature : TemperatureValue { value = 25.0; unit = "degC"; }
+            attribute flowRegime = FlowRegimeKind::turbulent;
+            attribute containsEntrainedGas = true;
+            attribute containsSettledSolids = false;
+
+            item fluid : ProcessFluid {
+                attribute density = 998.0;
+                attribute dynamicViscosity = 0.001;
+                attribute vaporPressure : PressureValue { value = 3.2; unit = "kPa"; }
+                attribute temperature : TemperatureValue { value = 25.0; unit = "degC"; }
+                attribute suspendedSolidsFraction = 0.002;
+                attribute corrosivityIndex = 0.15;
+            }
+        }
+
+        action transitionFlow : EqualizeDiameterTransition {
+            in incoming = designInletStream;
+            in largeDiameter = reducer.largeNominalDiameter;
+            in smallDiameter = reducer.smallNominalDiameter;
+            in offset = reducer.shell.offsetDistance;
+        }
+
+        state operatingState : ReducerOperationalStates;
+
+        satisfy DiameterTransitionRequirement by reducer;
+        satisfy EccentricOffsetRequirement by reducer;
+        satisfy AntiPocketOrientationRequirement by reducer;
+        satisfy PressureContainmentRequirement by reducer;
+        satisfy PressureDropRequirement by reducer;
+        satisfy WallThicknessRequirement by reducer;
+        satisfy LeakTightJointRequirement by reducer;
+        satisfy DrainVentRequirement by reducer;
+        satisfy SupportLoadRequirement by reducer;
+
+        connect upstreamPipe.downstream to reducer.inlet;
+        connect reducer.outlet to downstreamPipe.upstream;
+    }
+}

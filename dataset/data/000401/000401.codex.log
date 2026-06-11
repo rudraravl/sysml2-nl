@@ -1,0 +1,1089 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-f_35e7vs
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2be-6ec9-79b3-8f3d-f052618cbdc2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Android and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AndroidSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percentage : Real {
+        unit = "%";
+    }
+
+    attribute def DataRate : Real {
+        unit = "Mb/s";
+    }
+
+    attribute def StorageCapacity : Real {
+        unit = "GB";
+    }
+
+    attribute def EnergyCapacity : Real {
+        unit = "Wh";
+    }
+
+    attribute def ComputeLoad : Real {
+        unit = "%";
+    }
+
+    attribute def TemperatureCelsius : Real {
+        unit = "degC";
+    }
+
+    attribute def DistanceMeters : Real {
+        unit = "m";
+    }
+
+    attribute def ForceNewtons : Real {
+        unit = "N";
+    }
+
+    item def VoiceCommand {
+        attribute phrase : String;
+        attribute confidence : Percentage;
+        attribute languageCode : String;
+    }
+
+    item def VisualFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Real;
+        attribute exposureLevel : Percentage;
+    }
+
+    item def TactileStimulus {
+        attribute contactForce : ForceNewtons;
+        attribute contactLocation : String;
+    }
+
+    item def NavigationGoal {
+        attribute destinationName : String;
+        attribute targetDistance : DistanceMeters;
+        attribute priority : Integer;
+    }
+
+    item def TaskPlan {
+        attribute taskName : String;
+        attribute estimatedDuration : Time;
+        attribute safetyCritical : Boolean;
+    }
+
+    item def SpeechResponse {
+        attribute text : String;
+        attribute volume : Percentage;
+        attribute emotionTone : String;
+    }
+
+    item def MotionCommand {
+        attribute targetJoint : String;
+        attribute targetPositionDegrees : Real;
+        attribute maxTorque : ForceNewtons;
+        attribute duration : Time;
+    }
+
+    item def SystemAlert {
+        attribute severity : Integer;
+        attribute message : String;
+        attribute requiresShutdown : Boolean;
+    }
+
+    port def AudioInputPort {
+        in item voice : VoiceCommand;
+    }
+
+    port def CameraInputPort {
+        in item frame : VisualFrame;
+    }
+
+    port def TouchInputPort {
+        in item touch : TactileStimulus;
+    }
+
+    port def GoalInputPort {
+        in item goal : NavigationGoal;
+    }
+
+    port def SpeechOutputPort {
+        out item response : SpeechResponse;
+    }
+
+    port def MotionOutputPort {
+        out item motion : MotionCommand;
+    }
+
+    port def AlertOutputPort {
+        out item alert : SystemAlert;
+    }
+
+    port def PowerPort {
+        inout attribute voltage : ElectricPotential;
+        inout attribute current : ElectricCurrent;
+    }
+
+    port def DataPort {
+        inout attribute throughput : DataRate;
+        inout item taskPlan : TaskPlan;
+    }
+
+    part def SensorSuite {
+        port audioIn : AudioInputPort;
+        port cameraIn : CameraInputPort;
+        port touchIn : TouchInputPort;
+
+        attribute ambientNoise : Percentage;
+        attribute visualConfidence : Percentage;
+        attribute tactileConfidence : Percentage;
+
+        action senseEnvironment {
+            in item voice : VoiceCommand;
+            in item image : VisualFrame;
+            in item touch : TactileStimulus;
+            out item fusedObservation : TaskPlan;
+
+            first start;
+            then validateInputs;
+            then classifyHumanIntent;
+            then publishObservation;
+            then done;
+
+            action validateInputs;
+            action classifyHumanIntent;
+            action publishObservation;
+        }
+    }
+
+    part def CognitiveController {
+        port sensorData : DataPort;
+        port goalIn : GoalInputPort;
+        port speechOut : SpeechOutputPort;
+        port motionOut : MotionOutputPort;
+        port alertOut : AlertOutputPort;
+
+        attribute processorLoad : ComputeLoad;
+        attribute memoryUsage : StorageCapacity;
+        attribute decisionConfidence : Percentage;
+        attribute activeMission : String;
+
+        action interpretAndPlan {
+            in item observation : TaskPlan;
+            in item goal : NavigationGoal;
+            out item plan : TaskPlan;
+
+            first receiveInputs;
+            then assessContext;
+            then choosePrimaryFunction;
+            then generatePlan;
+            then complete;
+
+            action receiveInputs;
+            action assessContext;
+            action choosePrimaryFunction;
+            action generatePlan;
+        }
+
+        action communicate {
+            in item plan : TaskPlan;
+            out item response : SpeechResponse;
+
+            first composeMessage;
+            then setTone;
+            then transmitSpeech;
+
+            action composeMessage;
+            action setTone;
+            action transmitSpeech;
+        }
+    }
+
+    part def MobilitySubsystem {
+        port commandIn : DataPort;
+        port motionOut : MotionOutputPort;
+        port power : PowerPort;
+
+        attribute walkingSpeed : Speed;
+        attribute balanceMargin : Percentage;
+        attribute obstacleDistance : DistanceMeters;
+        attribute actuatorTemperature : TemperatureCelsius;
+
+        action executeMotion {
+            in item command : MotionCommand;
+
+            first checkBalance;
+            then checkObstacleClearance;
+            then driveActuators;
+            then stabilizePosture;
+            then finishMotion;
+
+            action checkBalance;
+            action checkObstacleClearance;
+            action driveActuators;
+            action stabilizePosture;
+        }
+    }
+
+    part def ManipulationSubsystem {
+        port commandIn : DataPort;
+        port motionOut : MotionOutputPort;
+        port power : PowerPort;
+
+        attribute gripForce : ForceNewtons;
+        attribute payloadMass : Mass;
+        attribute handPositionAccuracy : DistanceMeters;
+
+        action manipulateObject {
+            in item command : MotionCommand;
+
+            first locateObject;
+            then alignHand;
+            then applyGrip;
+            then verifyHold;
+            then releaseOrCarry;
+
+            action locateObject;
+            action alignHand;
+            action applyGrip;
+            action verifyHold;
+            action releaseOrCarry;
+        }
+    }
+
+    part def HumanInteractionSubsystem {
+        port speechOut : SpeechOutputPort;
+        port audioIn : AudioInputPort;
+        port alertOut : AlertOutputPort;
+
+        attribute speechClarity : Percentage;
+        attribute userRecognitionConfidence : Percentage;
+
+        action assistHuman {
+            in item command : VoiceCommand;
+            out item response : SpeechResponse;
+
+            first listen;
+            then inferNeed;
+            then explainAction;
+            then requestConfirmation;
+            then provideAssistance;
+
+            action listen;
+            action inferNeed;
+            action explainAction;
+            action requestConfirmation;
+            action provideAssistance;
+        }
+    }
+
+    part def PowerSubsystem {
+        port powerBus : PowerPort;
+        port alertOut : AlertOutputPort;
+
+        attribute batteryCapacity : EnergyCapacity;
+        attribute batteryStateOfCharge : Percentage;
+        attribute nominalVoltage : ElectricPotential;
+        attribute thermalLimit : TemperatureCelsius;
+        attribute currentTemperature : TemperatureCelsius;
+
+        action managePower {
+            first measureBattery;
+            then estimateRemainingRuntime;
+            then allocatePower;
+            then protectThermalLimits;
+            then publishPowerStatus;
+
+            action measureBattery;
+            action estimateRemainingRuntime;
+            action allocatePower;
+            action protectThermalLimits;
+            action publishPowerStatus;
+        }
+    }
+
+    part def Android {
+        port voiceCommandInput : AudioInputPort;
+        port visualInput : CameraInputPort;
+        port touchInput : TouchInputPort;
+        port navigationGoalInput : GoalInputPort;
+        port speechOutput : SpeechOutputPort;
+        port motionOutput : MotionOutputPort;
+        port alertOutput : AlertOutputPort;
+
+        part sensors : SensorSuite;
+        part cognition : CognitiveController;
+        part mobility : MobilitySubsystem;
+        part manipulation : ManipulationSubsystem;
+        part interaction : HumanInteractionSubsystem;
+        part power : PowerSubsystem;
+
+        attribute mass : Mass = 82 [kg];
+        attribute height : DistanceMeters = 1.72;
+        attribute operatingRuntime : Time;
+        attribute primaryFunction : String = "Assist humans by perceiving commands and environment, planning safe actions, communicating intent, moving through human spaces, and manipulating everyday objects.";
+
+        connect voiceCommandInput to sensors.audioIn;
+        connect visualInput to sensors.cameraIn;
+        connect touchInput to sensors.touchIn;
+        connect navigationGoalInput to cognition.goalIn;
+        connect cognition.speechOut to speechOutput;
+        connect cognition.motionOut to mobility.commandIn;
+        connect cognition.motionOut to manipulation.commandIn;
+        connect cognition.alertOut to alertOutput;
+        connect interaction.speechOut to speechOutput;
+        connect interaction.alertOut to alertOutput;
+        connect power.powerBus to mobility.power;
+        connect power.powerBus to manipulation.power;
+        connect power.alertOut to alertOutput;
+
+        state def AndroidOperationalState {
+            entry action initializeSelfTest;
+
+            state Off;
+            state Booting;
+            state Idle;
+            state Listening;
+            state Planning;
+            state Assisting;
+            state Navigating;
+            state Manipulating;
+            state Charging;
+            state Fault;
+
+            transition first Off then Booting;
+            transition Booting then Idle
+                accept after 8 [s];
+
+            transition Idle then Listening
+                accept VoiceCommand;
+
+            transition Listening then Planning
+                accept NavigationGoal;
+
+            transition Planning then Assisting
+                if cognition.decisionConfidence >= 75 [%];
+
+            transition Assisting then Navigating
+                if mobility.obstacleDistance > 0.75 [m];
+
+            transition Assisting then Manipulating
+                if manipulation.payloadMass <= 8 [kg];
+
+            transition Navigating then Idle
+                accept after 30 [s];
+
+            transition Manipulating then Idle
+                accept after 20 [s];
+
+            transition Idle then Charging
+                if power.batteryStateOfCharge < 20 [%];
+
+            transition Charging then Idle
+                if power.batteryStateOfCharge >= 90 [%];
+
+            transition Idle then Fault
+                if power.currentTemperature > power.thermalLimit;
+
+            transition Listening then Fault
+                if cognition.processorLoad > 95 [%];
+
+            transition Planning then Fault
+                if cognition.decisionConfidence < 30 [%];
+
+            transition Fault then Off
+                accept SystemAlert;
+
+            action initializeSelfTest;
+        }
+
+        action performPrimaryAssistanceMission {
+            in item spokenCommand : VoiceCommand;
+            in item currentView : VisualFrame;
+            in item contactInput : TactileStimulus;
+            in item requestedGoal : NavigationGoal;
+            out item response : SpeechResponse;
+            out item issuedMotion : MotionCommand;
+            out item alert : SystemAlert;
+
+            first captureHumanIntent;
+            then buildTaskPlan;
+            then announcePlan;
+            then moveIfRequired;
+            then manipulateIfRequired;
+            then confirmCompletion;
+
+            action captureHumanIntent {
+                in item spokenCommand : VoiceCommand;
+                in item currentView : VisualFrame;
+                in item contactInput : TactileStimulus;
+                out item observation : TaskPlan;
+            }
+
+            action buildTaskPlan {
+                in item observation : TaskPlan;
+                in item requestedGoal : NavigationGoal;
+                out item plan : TaskPlan;
+            }
+
+            action announcePlan {
+                in item plan : TaskPlan;
+                out item response : SpeechResponse;
+            }
+
+            action moveIfRequired {
+                in item plan : TaskPlan;
+                out item issuedMotion : MotionCommand;
+            }
+
+            action manipulateIfRequired {
+                in item plan : TaskPlan;
+                out item issuedMotion : MotionCommand;
+            }
+
+            action confirmCompletion {
+                out item response : SpeechResponse;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.primaryFunction == "Assist humans by perceiving commands and environment, planning safe actions, communicating intent, moving through human spaces, and manipulating everyday objects."
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.mobility.obstacleDistance >= 0.50 [m]
+        }
+    }
+
+    requirement def PowerEnduranceRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.power.batteryCapacity >= 900 [Wh]
+        }
+    }
+
+    requirement def HumanInteractionRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.interaction.speechClarity >= 85 [%] and android.interaction.userRecognitionConfidence >= 80 [%]
+        }
+    }
+
+    requirement def ManipulationRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.manipulation.payloadMass <= 8 [kg] and android.manipulation.handPositionAccuracy <= 0.02 [m]
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.power.currentTemperature <= android.power.thermalLimit
+        }
+    }
+
+    part androidAssistant : Android {
+        attribute operatingRuntime = 6 [h];
+
+        part redefines power {
+            attribute batteryCapacity = 1200 [Wh];
+            attribute batteryStateOfCharge = 86 [%];
+            attribute nominalVoltage = 48 [V];
+            attribute thermalLimit = 65 [degC];
+            attribute currentTemperature = 38 [degC];
+        }
+
+        part redefines cognition {
+            attribute processorLoad = 42 [%];
+            attribute memoryUsage = 18 [GB];
+            attribute decisionConfidence = 91 [%];
+            attribute activeMission = "Household assistance and safe human collaboration";
+        }
+
+        part redefines mobility {
+            attribute walkingSpeed = 1.2 [m/s];
+            attribute balanceMargin = 78 [%];
+            attribute obstacleDistance = 1.4 [m];
+            attribute actuatorTemperature = 41 [degC];
+        }
+
+        part redefines manipulation {
+            attribute gripForce = 45 [N];
+            attribute payloadMass = 4.5 [kg];
+            attribute handPositionAccuracy = 0.01 [m];
+        }
+
+        part redefines interaction {
+            attribute speechClarity = 93 [%];
+            attribute userRecognitionConfidence = 88 [%];
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by androidAssistant;
+    satisfy SafetyRequirement by androidAssistant;
+    satisfy PowerEnduranceRequirement by androidAssistant;
+    satisfy HumanInteractionRequirement by androidAssistant;
+    satisfy ManipulationRequirement by androidAssistant;
+    satisfy ThermalProtectionRequirement by androidAssistant;
+}
+tokens used
+4,558
+package AndroidSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percentage : Real {
+        unit = "%";
+    }
+
+    attribute def DataRate : Real {
+        unit = "Mb/s";
+    }
+
+    attribute def StorageCapacity : Real {
+        unit = "GB";
+    }
+
+    attribute def EnergyCapacity : Real {
+        unit = "Wh";
+    }
+
+    attribute def ComputeLoad : Real {
+        unit = "%";
+    }
+
+    attribute def TemperatureCelsius : Real {
+        unit = "degC";
+    }
+
+    attribute def DistanceMeters : Real {
+        unit = "m";
+    }
+
+    attribute def ForceNewtons : Real {
+        unit = "N";
+    }
+
+    item def VoiceCommand {
+        attribute phrase : String;
+        attribute confidence : Percentage;
+        attribute languageCode : String;
+    }
+
+    item def VisualFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Real;
+        attribute exposureLevel : Percentage;
+    }
+
+    item def TactileStimulus {
+        attribute contactForce : ForceNewtons;
+        attribute contactLocation : String;
+    }
+
+    item def NavigationGoal {
+        attribute destinationName : String;
+        attribute targetDistance : DistanceMeters;
+        attribute priority : Integer;
+    }
+
+    item def TaskPlan {
+        attribute taskName : String;
+        attribute estimatedDuration : Time;
+        attribute safetyCritical : Boolean;
+    }
+
+    item def SpeechResponse {
+        attribute text : String;
+        attribute volume : Percentage;
+        attribute emotionTone : String;
+    }
+
+    item def MotionCommand {
+        attribute targetJoint : String;
+        attribute targetPositionDegrees : Real;
+        attribute maxTorque : ForceNewtons;
+        attribute duration : Time;
+    }
+
+    item def SystemAlert {
+        attribute severity : Integer;
+        attribute message : String;
+        attribute requiresShutdown : Boolean;
+    }
+
+    port def AudioInputPort {
+        in item voice : VoiceCommand;
+    }
+
+    port def CameraInputPort {
+        in item frame : VisualFrame;
+    }
+
+    port def TouchInputPort {
+        in item touch : TactileStimulus;
+    }
+
+    port def GoalInputPort {
+        in item goal : NavigationGoal;
+    }
+
+    port def SpeechOutputPort {
+        out item response : SpeechResponse;
+    }
+
+    port def MotionOutputPort {
+        out item motion : MotionCommand;
+    }
+
+    port def AlertOutputPort {
+        out item alert : SystemAlert;
+    }
+
+    port def PowerPort {
+        inout attribute voltage : ElectricPotential;
+        inout attribute current : ElectricCurrent;
+    }
+
+    port def DataPort {
+        inout attribute throughput : DataRate;
+        inout item taskPlan : TaskPlan;
+    }
+
+    part def SensorSuite {
+        port audioIn : AudioInputPort;
+        port cameraIn : CameraInputPort;
+        port touchIn : TouchInputPort;
+
+        attribute ambientNoise : Percentage;
+        attribute visualConfidence : Percentage;
+        attribute tactileConfidence : Percentage;
+
+        action senseEnvironment {
+            in item voice : VoiceCommand;
+            in item image : VisualFrame;
+            in item touch : TactileStimulus;
+            out item fusedObservation : TaskPlan;
+
+            first start;
+            then validateInputs;
+            then classifyHumanIntent;
+            then publishObservation;
+            then done;
+
+            action validateInputs;
+            action classifyHumanIntent;
+            action publishObservation;
+        }
+    }
+
+    part def CognitiveController {
+        port sensorData : DataPort;
+        port goalIn : GoalInputPort;
+        port speechOut : SpeechOutputPort;
+        port motionOut : MotionOutputPort;
+        port alertOut : AlertOutputPort;
+
+        attribute processorLoad : ComputeLoad;
+        attribute memoryUsage : StorageCapacity;
+        attribute decisionConfidence : Percentage;
+        attribute activeMission : String;
+
+        action interpretAndPlan {
+            in item observation : TaskPlan;
+            in item goal : NavigationGoal;
+            out item plan : TaskPlan;
+
+            first receiveInputs;
+            then assessContext;
+            then choosePrimaryFunction;
+            then generatePlan;
+            then complete;
+
+            action receiveInputs;
+            action assessContext;
+            action choosePrimaryFunction;
+            action generatePlan;
+        }
+
+        action communicate {
+            in item plan : TaskPlan;
+            out item response : SpeechResponse;
+
+            first composeMessage;
+            then setTone;
+            then transmitSpeech;
+
+            action composeMessage;
+            action setTone;
+            action transmitSpeech;
+        }
+    }
+
+    part def MobilitySubsystem {
+        port commandIn : DataPort;
+        port motionOut : MotionOutputPort;
+        port power : PowerPort;
+
+        attribute walkingSpeed : Speed;
+        attribute balanceMargin : Percentage;
+        attribute obstacleDistance : DistanceMeters;
+        attribute actuatorTemperature : TemperatureCelsius;
+
+        action executeMotion {
+            in item command : MotionCommand;
+
+            first checkBalance;
+            then checkObstacleClearance;
+            then driveActuators;
+            then stabilizePosture;
+            then finishMotion;
+
+            action checkBalance;
+            action checkObstacleClearance;
+            action driveActuators;
+            action stabilizePosture;
+        }
+    }
+
+    part def ManipulationSubsystem {
+        port commandIn : DataPort;
+        port motionOut : MotionOutputPort;
+        port power : PowerPort;
+
+        attribute gripForce : ForceNewtons;
+        attribute payloadMass : Mass;
+        attribute handPositionAccuracy : DistanceMeters;
+
+        action manipulateObject {
+            in item command : MotionCommand;
+
+            first locateObject;
+            then alignHand;
+            then applyGrip;
+            then verifyHold;
+            then releaseOrCarry;
+
+            action locateObject;
+            action alignHand;
+            action applyGrip;
+            action verifyHold;
+            action releaseOrCarry;
+        }
+    }
+
+    part def HumanInteractionSubsystem {
+        port speechOut : SpeechOutputPort;
+        port audioIn : AudioInputPort;
+        port alertOut : AlertOutputPort;
+
+        attribute speechClarity : Percentage;
+        attribute userRecognitionConfidence : Percentage;
+
+        action assistHuman {
+            in item command : VoiceCommand;
+            out item response : SpeechResponse;
+
+            first listen;
+            then inferNeed;
+            then explainAction;
+            then requestConfirmation;
+            then provideAssistance;
+
+            action listen;
+            action inferNeed;
+            action explainAction;
+            action requestConfirmation;
+            action provideAssistance;
+        }
+    }
+
+    part def PowerSubsystem {
+        port powerBus : PowerPort;
+        port alertOut : AlertOutputPort;
+
+        attribute batteryCapacity : EnergyCapacity;
+        attribute batteryStateOfCharge : Percentage;
+        attribute nominalVoltage : ElectricPotential;
+        attribute thermalLimit : TemperatureCelsius;
+        attribute currentTemperature : TemperatureCelsius;
+
+        action managePower {
+            first measureBattery;
+            then estimateRemainingRuntime;
+            then allocatePower;
+            then protectThermalLimits;
+            then publishPowerStatus;
+
+            action measureBattery;
+            action estimateRemainingRuntime;
+            action allocatePower;
+            action protectThermalLimits;
+            action publishPowerStatus;
+        }
+    }
+
+    part def Android {
+        port voiceCommandInput : AudioInputPort;
+        port visualInput : CameraInputPort;
+        port touchInput : TouchInputPort;
+        port navigationGoalInput : GoalInputPort;
+        port speechOutput : SpeechOutputPort;
+        port motionOutput : MotionOutputPort;
+        port alertOutput : AlertOutputPort;
+
+        part sensors : SensorSuite;
+        part cognition : CognitiveController;
+        part mobility : MobilitySubsystem;
+        part manipulation : ManipulationSubsystem;
+        part interaction : HumanInteractionSubsystem;
+        part power : PowerSubsystem;
+
+        attribute mass : Mass = 82 [kg];
+        attribute height : DistanceMeters = 1.72;
+        attribute operatingRuntime : Time;
+        attribute primaryFunction : String = "Assist humans by perceiving commands and environment, planning safe actions, communicating intent, moving through human spaces, and manipulating everyday objects.";
+
+        connect voiceCommandInput to sensors.audioIn;
+        connect visualInput to sensors.cameraIn;
+        connect touchInput to sensors.touchIn;
+        connect navigationGoalInput to cognition.goalIn;
+        connect cognition.speechOut to speechOutput;
+        connect cognition.motionOut to mobility.commandIn;
+        connect cognition.motionOut to manipulation.commandIn;
+        connect cognition.alertOut to alertOutput;
+        connect interaction.speechOut to speechOutput;
+        connect interaction.alertOut to alertOutput;
+        connect power.powerBus to mobility.power;
+        connect power.powerBus to manipulation.power;
+        connect power.alertOut to alertOutput;
+
+        state def AndroidOperationalState {
+            entry action initializeSelfTest;
+
+            state Off;
+            state Booting;
+            state Idle;
+            state Listening;
+            state Planning;
+            state Assisting;
+            state Navigating;
+            state Manipulating;
+            state Charging;
+            state Fault;
+
+            transition first Off then Booting;
+            transition Booting then Idle
+                accept after 8 [s];
+
+            transition Idle then Listening
+                accept VoiceCommand;
+
+            transition Listening then Planning
+                accept NavigationGoal;
+
+            transition Planning then Assisting
+                if cognition.decisionConfidence >= 75 [%];
+
+            transition Assisting then Navigating
+                if mobility.obstacleDistance > 0.75 [m];
+
+            transition Assisting then Manipulating
+                if manipulation.payloadMass <= 8 [kg];
+
+            transition Navigating then Idle
+                accept after 30 [s];
+
+            transition Manipulating then Idle
+                accept after 20 [s];
+
+            transition Idle then Charging
+                if power.batteryStateOfCharge < 20 [%];
+
+            transition Charging then Idle
+                if power.batteryStateOfCharge >= 90 [%];
+
+            transition Idle then Fault
+                if power.currentTemperature > power.thermalLimit;
+
+            transition Listening then Fault
+                if cognition.processorLoad > 95 [%];
+
+            transition Planning then Fault
+                if cognition.decisionConfidence < 30 [%];
+
+            transition Fault then Off
+                accept SystemAlert;
+
+            action initializeSelfTest;
+        }
+
+        action performPrimaryAssistanceMission {
+            in item spokenCommand : VoiceCommand;
+            in item currentView : VisualFrame;
+            in item contactInput : TactileStimulus;
+            in item requestedGoal : NavigationGoal;
+            out item response : SpeechResponse;
+            out item issuedMotion : MotionCommand;
+            out item alert : SystemAlert;
+
+            first captureHumanIntent;
+            then buildTaskPlan;
+            then announcePlan;
+            then moveIfRequired;
+            then manipulateIfRequired;
+            then confirmCompletion;
+
+            action captureHumanIntent {
+                in item spokenCommand : VoiceCommand;
+                in item currentView : VisualFrame;
+                in item contactInput : TactileStimulus;
+                out item observation : TaskPlan;
+            }
+
+            action buildTaskPlan {
+                in item observation : TaskPlan;
+                in item requestedGoal : NavigationGoal;
+                out item plan : TaskPlan;
+            }
+
+            action announcePlan {
+                in item plan : TaskPlan;
+                out item response : SpeechResponse;
+            }
+
+            action moveIfRequired {
+                in item plan : TaskPlan;
+                out item issuedMotion : MotionCommand;
+            }
+
+            action manipulateIfRequired {
+                in item plan : TaskPlan;
+                out item issuedMotion : MotionCommand;
+            }
+
+            action confirmCompletion {
+                out item response : SpeechResponse;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.primaryFunction == "Assist humans by perceiving commands and environment, planning safe actions, communicating intent, moving through human spaces, and manipulating everyday objects."
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.mobility.obstacleDistance >= 0.50 [m]
+        }
+    }
+
+    requirement def PowerEnduranceRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.power.batteryCapacity >= 900 [Wh]
+        }
+    }
+
+    requirement def HumanInteractionRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.interaction.speechClarity >= 85 [%] and android.interaction.userRecognitionConfidence >= 80 [%]
+        }
+    }
+
+    requirement def ManipulationRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.manipulation.payloadMass <= 8 [kg] and android.manipulation.handPositionAccuracy <= 0.02 [m]
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject android : Android;
+
+        require constraint {
+            android.power.currentTemperature <= android.power.thermalLimit
+        }
+    }
+
+    part androidAssistant : Android {
+        attribute operatingRuntime = 6 [h];
+
+        part redefines power {
+            attribute batteryCapacity = 1200 [Wh];
+            attribute batteryStateOfCharge = 86 [%];
+            attribute nominalVoltage = 48 [V];
+            attribute thermalLimit = 65 [degC];
+            attribute currentTemperature = 38 [degC];
+        }
+
+        part redefines cognition {
+            attribute processorLoad = 42 [%];
+            attribute memoryUsage = 18 [GB];
+            attribute decisionConfidence = 91 [%];
+            attribute activeMission = "Household assistance and safe human collaboration";
+        }
+
+        part redefines mobility {
+            attribute walkingSpeed = 1.2 [m/s];
+            attribute balanceMargin = 78 [%];
+            attribute obstacleDistance = 1.4 [m];
+            attribute actuatorTemperature = 41 [degC];
+        }
+
+        part redefines manipulation {
+            attribute gripForce = 45 [N];
+            attribute payloadMass = 4.5 [kg];
+            attribute handPositionAccuracy = 0.01 [m];
+        }
+
+        part redefines interaction {
+            attribute speechClarity = 93 [%];
+            attribute userRecognitionConfidence = 88 [%];
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by androidAssistant;
+    satisfy SafetyRequirement by androidAssistant;
+    satisfy PowerEnduranceRequirement by androidAssistant;
+    satisfy HumanInteractionRequirement by androidAssistant;
+    satisfy ManipulationRequirement by androidAssistant;
+    satisfy ThermalProtectionRequirement by androidAssistant;
+}

@@ -1,0 +1,606 @@
+package ArgusRetinalProsthesisModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    unit degree;
+    unit pixel;
+    unit pulse;
+    unit lux;
+    unit frame;
+
+    value def Percent {
+        unit = "%";
+    }
+
+    value def VisualAngle {
+        unit = degree;
+        quantity = "plane angle";
+    }
+
+    value def PixelCount {
+        unit = pixel;
+        quantity = "image sample count";
+    }
+
+    value def LightLevel {
+        unit = lux;
+        quantity = "illuminance";
+    }
+
+    value def FrameRate {
+        unit = frame / s;
+        quantity = "image frame frequency";
+    }
+
+    value def PulseRate {
+        unit = pulse / s;
+        quantity = "electrical stimulation pulse frequency";
+    }
+
+    value def ChargePerPhase {
+        unit = uC;
+        quantity = "electric charge";
+    }
+
+    value def ElectrodeImpedance {
+        unit = kOhm;
+        quantity = "electrical resistance";
+    }
+
+    value def StimulationCurrent {
+        unit = uA;
+        quantity = "electric current";
+    }
+
+    value def Latency {
+        unit = ms;
+        quantity = "duration";
+    }
+
+    enum def ImplantMode {
+        enum off;
+        enum standby;
+        enum imaging;
+        enum stimulating;
+        enum fault;
+        enum clinicianProgramming;
+    }
+
+    enum def StimulationPatternKind {
+        enum none;
+        enum edgeEnhanced;
+        enum contrastMapped;
+        enum motionHighlighted;
+        enum diagnosticSweep;
+    }
+
+    item def SceneLight {
+        attribute illuminance : LightLevel;
+        attribute fieldOfViewHorizontal : VisualAngle;
+        attribute fieldOfViewVertical : VisualAngle;
+    }
+
+    item def VideoFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute rate : FrameRate;
+        attribute grayscaleDepth : Integer;
+        attribute timestamp : Time;
+    }
+
+    item def ProcessedVisionFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute contrastGain : Real;
+        attribute edgeEnhancement : Percent;
+        attribute brightnessNormalization : Percent;
+        attribute timestamp : Time;
+    }
+
+    item def ElectrodeCommand {
+        attribute electrodeIndex : Integer;
+        attribute currentAmplitude : StimulationCurrent;
+        attribute pulseWidth : Time;
+        attribute chargePerPhase : ChargePerPhase;
+        attribute pulseRate : PulseRate;
+        attribute enabled : Boolean;
+    }
+
+    item def StimulationPattern {
+        attribute patternKind : StimulationPatternKind;
+        attribute commandCount : Integer;
+        attribute frameTimestamp : Time;
+    }
+
+    item def TelemetryPacket {
+        attribute implantTemperature : TemperatureValue;
+        attribute batteryLevel : Percent;
+        attribute linkQuality : Percent;
+        attribute electrodeImpedanceMean : ElectrodeImpedance;
+        attribute faultCode : Integer;
+    }
+
+    item def PatientControlCommand {
+        attribute requestedMode : ImplantMode;
+        attribute brightnessLevel : Percent;
+        attribute contrastLevel : Percent;
+        attribute stimulationIntensity : Percent;
+    }
+
+    port def OpticalInputPort {
+        in scene : SceneLight;
+    }
+
+    port def VideoOutputPort {
+        out frame : VideoFrame;
+    }
+
+    port def VideoInputPort {
+        in frame : VideoFrame;
+    }
+
+    port def ProcessedFramePort {
+        out processedFrame : ProcessedVisionFrame;
+    }
+
+    port def ProcessedFrameInputPort {
+        in processedFrame : ProcessedVisionFrame;
+    }
+
+    port def StimulationPatternPort {
+        out pattern : StimulationPattern;
+    }
+
+    port def StimulationPatternInputPort {
+        in pattern : StimulationPattern;
+    }
+
+    port def ElectrodeCommandPort {
+        out command : ElectrodeCommand;
+    }
+
+    port def ElectrodeCommandInputPort {
+        in command : ElectrodeCommand;
+    }
+
+    port def TelemetryOutPort {
+        out telemetry : TelemetryPacket;
+    }
+
+    port def TelemetryInPort {
+        in telemetry : TelemetryPacket;
+    }
+
+    port def PatientControlInPort {
+        in controlCommand : PatientControlCommand;
+    }
+
+    port def PatientControlOutPort {
+        out controlCommand : PatientControlCommand;
+    }
+
+    port def PowerSupplyPort {
+        out supplyVoltage : Voltage;
+        out availablePower : Power;
+    }
+
+    port def PowerLoadPort {
+        in supplyVoltage : Voltage;
+        in availablePower : Power;
+    }
+
+    part def ExternalCamera {
+        port opticalIn : OpticalInputPort;
+        port videoOut : VideoOutputPort;
+
+        attribute horizontalFieldOfView : VisualAngle = 60 [degree];
+        attribute verticalFieldOfView : VisualAngle = 40 [degree];
+        attribute frameRate : FrameRate = 30 [frame / s];
+        attribute imageWidth : PixelCount = 640 [pixel];
+        attribute imageHeight : PixelCount = 480 [pixel];
+        attribute lowLightThreshold : LightLevel = 2 [lux];
+
+        action captureScene {
+            in scene : SceneLight;
+            out frame : VideoFrame;
+            first start;
+            then sampleOptics;
+            then convertToVideoFrame;
+            then outputFrame;
+        }
+    }
+
+    part def VideoProcessingUnit {
+        port videoIn : VideoInputPort;
+        port processedOut : ProcessedFramePort;
+        port patientControlIn : PatientControlInPort;
+        port telemetryIn : TelemetryInPort;
+        port powerLoad : PowerLoadPort;
+
+        attribute brightnessSetting : Percent = 50 [%];
+        attribute contrastSetting : Percent = 55 [%];
+        attribute edgeEnhancementSetting : Percent = 65 [%];
+        attribute outputFrameRate : FrameRate = 30 [frame / s];
+        attribute maximumProcessingLatency : Latency = 50 [ms];
+
+        action preprocessVideo {
+            in frame : VideoFrame;
+            in brightness : Percent;
+            in contrast : Percent;
+            out processedFrame : ProcessedVisionFrame;
+            first receiveFrame;
+            then normalizeBrightness;
+            then enhanceContrast;
+            then detectEdges;
+            then downsampleForElectrodeArray;
+            then publishProcessedFrame;
+        }
+    }
+
+    part def PatternEncoder {
+        port processedIn : ProcessedFrameInputPort;
+        port patternOut : StimulationPatternPort;
+        port patientControlIn : PatientControlInPort;
+
+        attribute electrodeRows : Integer = 6;
+        attribute electrodeColumns : Integer = 10;
+        attribute electrodeCount : Integer = 60;
+        attribute defaultPatternKind : StimulationPatternKind = StimulationPatternKind::edgeEnhanced;
+        attribute maximumEncodingLatency : Latency = 20 [ms];
+
+        action encodeVisualFeatures {
+            in processedFrame : ProcessedVisionFrame;
+            out pattern : StimulationPattern;
+            first mapLuminanceToElectrodeGrid;
+            then applySafetyLimits;
+            then selectPulseTiming;
+            then generatePattern;
+        }
+    }
+
+    part def WirelessTelemetryLink {
+        port patternIn : StimulationPatternInputPort;
+        port patternOut : StimulationPatternPort;
+        port telemetryIn : TelemetryInPort;
+        port telemetryOut : TelemetryOutPort;
+
+        attribute carrierFrequency : Frequency = 13.56 [MHz];
+        attribute minimumLinkQuality : Percent = 80 [%];
+        attribute maximumTransferLatency : Latency = 10 [ms];
+
+        action transferPattern {
+            in pattern : StimulationPattern;
+            out transmittedPattern : StimulationPattern;
+            first encodePacket;
+            then transmitAcrossInductiveLink;
+            then verifyChecksum;
+            then deliverPattern;
+        }
+
+        action transferTelemetry {
+            in telemetry : TelemetryPacket;
+            out externalTelemetry : TelemetryPacket;
+            first receiveTelemetry;
+            then encodeTelemetryPacket;
+            then transmitTelemetry;
+        }
+    }
+
+    part def PatientController {
+        port controlOut : PatientControlOutPort;
+        port telemetryIn : TelemetryInPort;
+
+        attribute selectedMode : ImplantMode = ImplantMode::standby;
+        attribute requestedBrightness : Percent = 50 [%];
+        attribute requestedContrast : Percent = 50 [%];
+        attribute requestedIntensity : Percent = 45 [%];
+
+        action adjustSettings {
+            out command : PatientControlCommand;
+            first readUserInputs;
+            then constrainSettings;
+            then publishControlCommand;
+        }
+    }
+
+    part def ImplantReceiver {
+        port patternIn : StimulationPatternInputPort;
+        port commandOut : ElectrodeCommandPort;
+        port telemetryOut : TelemetryOutPort;
+        port powerLoad : PowerLoadPort;
+
+        attribute implantMode : ImplantMode = ImplantMode::standby;
+        attribute receiverTemperature : TemperatureValue = 37 [degC];
+        attribute minimumOperatingVoltage : Voltage = 2.8 [V];
+        attribute maximumImplantTemperature : TemperatureValue = 42 [degC];
+
+        action decodeReceivedPattern {
+            in pattern : StimulationPattern;
+            out command : ElectrodeCommand;
+            first receivePattern;
+            then authenticatePattern;
+            then decodeElectrodeCommands;
+            then enforceThermalAndChargeLimits;
+            then outputCommand;
+        }
+
+        state machine implantReceiverStateMachine {
+            state off;
+            state standby;
+            state stimulating;
+            state clinicianProgramming;
+            state fault;
+
+            initial then off;
+
+            transition powerAvailable
+                first off
+                then standby;
+
+            transition validPatternReceived
+                first standby
+                then stimulating;
+
+            transition stimulationFrameCompleted
+                first stimulating
+                then standby;
+
+            transition programmingRequested
+                first standby
+                then clinicianProgramming;
+
+            transition programmingCompleted
+                first clinicianProgramming
+                then standby;
+
+            transition safetyLimitExceeded
+                first standby
+                then fault;
+
+            transition safetyLimitExceededDuringStimulation
+                first stimulating
+                then fault;
+
+            transition resetAfterFault
+                first fault
+                then standby;
+        }
+    }
+
+    part def ElectrodeArray {
+        port commandIn : ElectrodeCommandInputPort;
+        port telemetryOut : TelemetryOutPort;
+
+        attribute rows : Integer = 6;
+        attribute columns : Integer = 10;
+        attribute electrodeCount : Integer = 60;
+        attribute electrodeDiameter : LengthValue = 200 [um];
+        attribute nominalImpedance : ElectrodeImpedance = 20 [kOhm];
+        attribute maximumChargePerPhase : ChargePerPhase = 1.0 [uC];
+        attribute maximumCurrentAmplitude : StimulationCurrent = 500 [uA];
+
+        part electrodes[60] : RetinalElectrode;
+
+        action stimulateRetina {
+            in command : ElectrodeCommand;
+            first validateElectrodeAddress;
+            then shapeBiphasicPulse;
+            then deliverCurrentToElectrode;
+            then measureImpedance;
+            then publishTelemetry;
+        }
+    }
+
+    part def RetinalElectrode {
+        attribute electrodeIndex : Integer;
+        attribute impedance : ElectrodeImpedance = 20 [kOhm];
+        attribute enabled : Boolean = true;
+        attribute maximumCurrentAmplitude : StimulationCurrent = 500 [uA];
+        attribute maximumChargePerPhase : ChargePerPhase = 1.0 [uC];
+    }
+
+    part def EpiretinalImplant {
+        port patternIn : StimulationPatternInputPort;
+        port telemetryOut : TelemetryOutPort;
+        port powerLoad : PowerLoadPort;
+
+        part receiver : ImplantReceiver;
+        part electrodeArray : ElectrodeArray;
+
+        connect patternIn to receiver.patternIn;
+        connect receiver.commandOut to electrodeArray.commandIn;
+        connect receiver.telemetryOut to telemetryOut;
+        connect electrodeArray.telemetryOut to telemetryOut;
+        connect powerLoad to receiver.powerLoad;
+    }
+
+    part def ExternalPowerModule {
+        port powerOut : PowerSupplyPort;
+
+        attribute batteryCapacity : EnergyValue = 8 [Wh];
+        attribute nominalVoltage : Voltage = 5 [V];
+        attribute maximumOutputPower : Power = 2 [W];
+        attribute lowBatteryThreshold : Percent = 15 [%];
+
+        action providePower {
+            out supplyVoltage : Voltage;
+            out availablePower : Power;
+            first monitorBattery;
+            then regulateVoltage;
+            then supplyExternalElectronics;
+        }
+    }
+
+    part def ArgusBasedRetinalProsthesisSystem {
+        doc /* Primary function: capture visual scenes with an external camera, transform them into simplified stimulation patterns, and deliver controlled electrical pulses to an epiretinal electrode array so a person with severe outer-retinal degeneration can perceive spatial light patterns that support high-level orientation and object localization. */
+
+        port opticalSceneIn : OpticalInputPort;
+
+        part camera : ExternalCamera;
+        part processor : VideoProcessingUnit;
+        part encoder : PatternEncoder;
+        part telemetryLink : WirelessTelemetryLink;
+        part patientController : PatientController;
+        part implant : EpiretinalImplant;
+        part externalPower : ExternalPowerModule;
+
+        attribute endToEndLatencyLimit : Latency = 100 [ms];
+        attribute supportedElectrodeCount : Integer = 60;
+        attribute nominalFrameRate : FrameRate = 30 [frame / s];
+        attribute minimumTelemetryLinkQuality : Percent = 80 [%];
+        attribute intendedUseRequiresFunctionalOpticNerve : Boolean = true;
+
+        connect opticalSceneIn to camera.opticalIn;
+        connect camera.videoOut to processor.videoIn;
+        connect processor.processedOut to encoder.processedIn;
+        connect encoder.patternOut to telemetryLink.patternIn;
+        connect telemetryLink.patternOut to implant.patternIn;
+        connect implant.telemetryOut to telemetryLink.telemetryIn;
+        connect telemetryLink.telemetryOut to processor.telemetryIn;
+        connect telemetryLink.telemetryOut to patientController.telemetryIn;
+        connect patientController.controlOut to processor.patientControlIn;
+        connect patientController.controlOut to encoder.patientControlIn;
+        connect externalPower.powerOut to processor.powerLoad;
+        connect externalPower.powerOut to implant.powerLoad;
+
+        action restoreFunctionalLightPerception {
+            in scene : SceneLight;
+            out telemetry : TelemetryPacket;
+            first captureSceneWithCamera;
+            then processVideoForSalientContrast;
+            then encodeFrameAsElectrodeStimulationPattern;
+            then transmitPatternToImplant;
+            then stimulateRetinalGanglionCells;
+            then reportImplantStatus;
+        }
+
+        state machine operatingStateMachine {
+            state off;
+            state standby;
+            state activeVision;
+            state lowPower;
+            state clinicianProgramming;
+            state fault;
+
+            initial then off;
+
+            transition turnOn
+                first off
+                then standby;
+
+            transition beginVisionUse
+                first standby
+                then activeVision;
+
+            transition pauseVisionUse
+                first activeVision
+                then standby;
+
+            transition batteryLow
+                first activeVision
+                then lowPower;
+
+            transition batteryRecovered
+                first lowPower
+                then standby;
+
+            transition enterProgramming
+                first standby
+                then clinicianProgramming;
+
+            transition exitProgramming
+                first clinicianProgramming
+                then standby;
+
+            transition detectedUnsafeCondition
+                first activeVision
+                then fault;
+
+            transition resetSystem
+                first fault
+                then standby;
+
+            transition turnOff
+                first standby
+                then off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ArgusBasedRetinalProsthesisSystem;
+
+        doc /* The system shall convert optical scene information into controlled epiretinal electrical stimulation intended to produce useful light perception for orientation, mobility, and object localization. */
+
+        require constraint {
+            system.nominalFrameRate >= 25 [frame / s]
+        }
+
+        require constraint {
+            system.supportedElectrodeCount == 60
+        }
+    }
+
+    requirement def EndToEndLatencyRequirement {
+        subject system : ArgusBasedRetinalProsthesisSystem;
+
+        doc /* The system shall deliver stimulation commands corresponding to a captured video frame within a time compatible with head-mounted camera use. */
+
+        require constraint {
+            system.endToEndLatencyLimit <= 100 [ms]
+        }
+    }
+
+    requirement def StimulationSafetyRequirement {
+        subject implant : EpiretinalImplant;
+
+        doc /* The implant shall limit electrode stimulation to charge-balanced biphasic pulses and remain within thermal and charge safety constraints. */
+
+        require constraint {
+            implant.electrodeArray.maximumChargePerPhase <= 1.0 [uC]
+        }
+
+        require constraint {
+            implant.electrodeArray.maximumCurrentAmplitude <= 500 [uA]
+        }
+
+        require constraint {
+            implant.receiver.maximumImplantTemperature <= 42 [degC]
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        subject system : ArgusBasedRetinalProsthesisSystem;
+
+        doc /* The system shall provide telemetry for implant status, link quality, battery status, electrode impedance, and fault reporting. */
+
+        require constraint {
+            system.minimumTelemetryLinkQuality >= 80 [%]
+        }
+    }
+
+    requirement def PatientAdjustabilityRequirement {
+        subject controller : PatientController;
+
+        doc /* The system shall allow the patient to adjust brightness, contrast, stimulation intensity, and operating mode within bounded values. */
+
+        require constraint {
+            controller.requestedBrightness >= 0 [%] and controller.requestedBrightness <= 100 [%]
+        }
+
+        require constraint {
+            controller.requestedContrast >= 0 [%] and controller.requestedContrast <= 100 [%]
+        }
+
+        require constraint {
+            controller.requestedIntensity >= 0 [%] and controller.requestedIntensity <= 100 [%]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ArgusBasedRetinalProsthesisSystem;
+    satisfy EndToEndLatencyRequirement by ArgusBasedRetinalProsthesisSystem;
+    satisfy StimulationSafetyRequirement by EpiretinalImplant;
+    satisfy TelemetryRequirement by ArgusBasedRetinalProsthesisSystem;
+    satisfy PatientAdjustabilityRequirement by PatientController;
+}

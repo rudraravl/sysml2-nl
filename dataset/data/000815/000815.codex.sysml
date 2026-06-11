@@ -1,0 +1,489 @@
+package VacuumBellSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "Pa";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "m^3";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "m^3/s";
+    }
+
+    attribute def Force {
+        :> ScalarValues::Real;
+        unit = "N";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "K";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ScalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def BooleanSignal {
+        :> ScalarValues::Boolean;
+    }
+
+    item def Gas {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute volumetricFlow : FlowRate;
+    }
+
+    item def AmbientAir :> Gas {
+        attribute pressure : Pressure = 101325 [Pa];
+        attribute temperature : Temperature = 293.15 [K];
+    }
+
+    item def EvacuatedGas :> Gas {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def ControlSignal {
+        attribute enabled : BooleanSignal;
+    }
+
+    item def PressureMeasurement {
+        attribute measuredPressure : Pressure;
+        attribute valid : BooleanSignal;
+    }
+
+    port def GasPort {
+        inout gas : Gas;
+    }
+
+    port def VacuumPort {
+        out evacuatedGas : EvacuatedGas;
+    }
+
+    port def AirInletPort {
+        in ambientAir : AmbientAir;
+    }
+
+    port def PowerPort {
+        in power : ElectricalPower;
+    }
+
+    port def SignalPort {
+        inout signal : ControlSignal;
+    }
+
+    port def MeasurementPort {
+        out pressureMeasurement : PressureMeasurement;
+    }
+
+    part def VacuumBell {
+        attribute internalVolume : Volume;
+        attribute internalPressure : Pressure;
+        attribute targetPressure : Pressure;
+        attribute maximumLeakRate : FlowRate;
+        attribute maximumEvacuationTime : TimeDuration;
+        attribute sealCompressionForce : Force;
+
+        port chamberGasPort : GasPort;
+        port evacuationPort : VacuumPort;
+        port ventPort : AirInletPort;
+        port powerInput : PowerPort;
+        port commandPort : SignalPort;
+        port pressureOutput : MeasurementPort;
+
+        part bellJar : BellJar;
+        part basePlate : BasePlate;
+        part sealingGasket : SealingGasket;
+        part vacuumPump : VacuumPump;
+        part ventValve : VentValve;
+        part isolationValve : IsolationValve;
+        part pressureSensor : PressureSensor;
+        part controller : VacuumBellController;
+        part protectedSpecimen : Specimen;
+
+        connect bellJar.lowerFlange to sealingGasket.upperSealFace;
+        connect sealingGasket.lowerSealFace to basePlate.sealLand;
+        connect basePlate.vacuumOpening to isolationValve.chamberSide;
+        connect isolationValve.pumpSide to vacuumPump.inlet;
+        connect vacuumPump.exhaust to chamberGasPort;
+        connect basePlate.ventOpening to ventValve.chamberSide;
+        connect ventValve.ambientSide to ventPort;
+        connect basePlate.sensorOpening to pressureSensor.processPort;
+        connect pressureSensor.measurementOutput to controller.pressureInput;
+        connect controller.pumpCommand to vacuumPump.commandInput;
+        connect controller.isolationValveCommand to isolationValve.commandInput;
+        connect controller.ventValveCommand to ventValve.commandInput;
+        connect powerInput to controller.powerInput;
+        connect commandPort to controller.externalCommand;
+        connect pressureSensor.measurementOutput to pressureOutput;
+
+        perform action establishVacuum;
+        exhibit state vacuumBellOperatingState;
+    }
+
+    part def BellJar {
+        attribute enclosedVolume : Volume;
+        attribute ratedExternalPressure : Pressure = 101325 [Pa];
+
+        port lowerFlange : GasPort;
+    }
+
+    part def BasePlate {
+        attribute flatnessTolerance : LengthValue;
+        attribute structuralLoadCapacity : Force;
+
+        port sealLand : GasPort;
+        port vacuumOpening : GasPort;
+        port ventOpening : AirInletPort;
+        port sensorOpening : GasPort;
+    }
+
+    part def SealingGasket {
+        attribute requiredCompressionForce : Force;
+        attribute leakRateAtTargetPressure : FlowRate;
+
+        port upperSealFace : GasPort;
+        port lowerSealFace : GasPort;
+    }
+
+    part def VacuumPump {
+        attribute nominalPumpingSpeed : FlowRate;
+        attribute ultimatePressure : Pressure;
+        attribute operatingVoltage : Voltage;
+        attribute running : BooleanSignal;
+
+        port inlet : GasPort;
+        port exhaust : VacuumPort;
+        port commandInput : SignalPort;
+        port powerInput : PowerPort;
+
+        perform action pumpGas;
+    }
+
+    part def VentValve {
+        attribute open : BooleanSignal;
+        attribute conductance : FlowRate;
+
+        port chamberSide : AirInletPort;
+        port ambientSide : AirInletPort;
+        port commandInput : SignalPort;
+    }
+
+    part def IsolationValve {
+        attribute open : BooleanSignal;
+        attribute conductance : FlowRate;
+
+        port chamberSide : GasPort;
+        port pumpSide : GasPort;
+        port commandInput : SignalPort;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeLow : Pressure = 1 [Pa];
+        attribute measurementRangeHigh : Pressure = 101325 [Pa];
+        attribute accuracy : Pressure = 50 [Pa];
+
+        port processPort : GasPort;
+        port measurementOutput : MeasurementPort;
+    }
+
+    part def VacuumBellController {
+        attribute commandedEvacuation : BooleanSignal;
+        attribute commandedVent : BooleanSignal;
+        attribute pressureSetpoint : Pressure;
+        attribute evacuationTimeout : TimeDuration;
+
+        port powerInput : PowerPort;
+        port externalCommand : SignalPort;
+        port pressureInput : MeasurementPort;
+        port pumpCommand : SignalPort;
+        port isolationValveCommand : SignalPort;
+        port ventValveCommand : SignalPort;
+
+        perform action controlEvacuationCycle;
+        exhibit state controllerState;
+    }
+
+    part def Specimen {
+        attribute allowablePressure : Pressure;
+        attribute occupiedVolume : Volume;
+
+        port exposedSurface : GasPort;
+    }
+
+    action def EstablishVacuum {
+        in initialGas : AmbientAir;
+        in targetPressure : Pressure;
+        out removedGas : EvacuatedGas;
+        out achievedPressure : Pressure;
+
+        first start;
+        then closeVentValve;
+        then openIsolationValve;
+        then startPump;
+        then monitorPressure;
+        then holdVacuum;
+
+        action start;
+        action closeVentValve;
+        action openIsolationValve;
+        action startPump;
+        action monitorPressure;
+        action holdVacuum;
+
+        flow initialGas from start to openIsolationValve;
+        flow removedGas from startPump to holdVacuum;
+        flow achievedPressure from monitorPressure to holdVacuum;
+    }
+
+    action def PumpGas {
+        in chamberGas : Gas;
+        in pumpEnabled : BooleanSignal;
+        out evacuatedGas : EvacuatedGas;
+
+        first receiveGas;
+        then compressAndDischarge;
+        then reportFlow;
+
+        action receiveGas;
+        action compressAndDischarge;
+        action reportFlow;
+    }
+
+    action def ControlEvacuationCycle {
+        in requestedVacuum : BooleanSignal;
+        in requestedVent : BooleanSignal;
+        in measuredPressure : Pressure;
+        in targetPressure : Pressure;
+        out pumpEnable : BooleanSignal;
+        out isolationOpen : BooleanSignal;
+        out ventOpen : BooleanSignal;
+
+        first evaluateCommand;
+        then setValvePositions;
+        then setPumpState;
+        then supervisePressure;
+
+        action evaluateCommand;
+        action setValvePositions;
+        action setPumpState;
+        action supervisePressure;
+    }
+
+    state def VacuumBellOperatingState {
+        entry action initialize;
+
+        state idle;
+        state sealing;
+        state evacuating;
+        state vacuumHeld;
+        state venting;
+        state fault;
+
+        transition first idle;
+        transition idleToSealing
+            first idle
+            then sealing
+            accept ControlSignal
+            if commandPort.signal.enabled == true;
+
+        transition sealingToEvacuating
+            first sealing
+            then evacuating
+            if sealingGasket.leakRateAtTargetPressure <= maximumLeakRate;
+
+        transition evacuatingToHeld
+            first evacuating
+            then vacuumHeld
+            if internalPressure <= targetPressure;
+
+        transition evacuatingToFault
+            first evacuating
+            then fault
+            if internalPressure > targetPressure after maximumEvacuationTime;
+
+        transition heldToVenting
+            first vacuumHeld
+            then venting
+            accept ControlSignal
+            if commandPort.signal.enabled == false;
+
+        transition ventingToIdle
+            first venting
+            then idle
+            if internalPressure >= 100000 [Pa];
+
+        transition anyFault
+            first vacuumHeld
+            then fault
+            if pressureSensor.pressureMeasurement.valid == false;
+
+        action initialize;
+    }
+
+    state def ControllerState {
+        state standby;
+        state evacuateCommanded;
+        state maintainVacuum;
+        state ventCommanded;
+        state alarm;
+
+        transition first standby;
+
+        transition standbyToEvacuate
+            first standby
+            then evacuateCommanded
+            if commandedEvacuation == true;
+
+        transition evacuateToMaintain
+            first evacuateCommanded
+            then maintainVacuum
+            if pressureSetpoint >= pressureInput.pressureMeasurement.measuredPressure;
+
+        transition maintainToVent
+            first maintainVacuum
+            then ventCommanded
+            if commandedVent == true;
+
+        transition ventToStandby
+            first ventCommanded
+            then standby
+            if commandedVent == false;
+
+        transition timeoutAlarm
+            first evacuateCommanded
+            then alarm
+            after evacuationTimeout;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The vacuum bell shall enclose a specimen and remove gas from the enclosed chamber volume to create and maintain a controlled low-pressure environment. */
+        subject vacuumBell : VacuumBell;
+
+        require constraint {
+            vacuumBell.internalPressure <= vacuumBell.targetPressure
+        }
+    }
+
+    requirement def SealIntegrityRequirement {
+        doc /* The sealing interface shall limit gas ingress sufficiently to maintain the requested vacuum level during operation. */
+        subject vacuumBell : VacuumBell;
+
+        require constraint {
+            vacuumBell.sealingGasket.leakRateAtTargetPressure <= vacuumBell.maximumLeakRate
+        }
+    }
+
+    requirement def EvacuationTimeRequirement {
+        doc /* The vacuum bell shall reach target pressure within the specified maximum evacuation time when the pump and valves are operating normally. */
+        subject vacuumBell : VacuumBell;
+
+        require constraint {
+            vacuumBell.maximumEvacuationTime <= 120 [s]
+        }
+    }
+
+    requirement def SafeVentingRequirement {
+        doc /* The vacuum bell shall admit ambient air through a controlled vent path before the bell jar is opened. */
+        subject vacuumBell : VacuumBell;
+
+        require constraint {
+            vacuumBell.ventValve.open == true implies vacuumBell.isolationValve.open == false
+        }
+    }
+
+    requirement def PressureMeasurementRequirement {
+        doc /* The system shall continuously provide chamber pressure measurement for automatic evacuation control and operator awareness. */
+        subject sensor : PressureSensor;
+
+        require constraint {
+            sensor.measurementRangeLow <= 1 [Pa] and sensor.measurementRangeHigh >= 101325 [Pa]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by VacuumBell;
+    satisfy SealIntegrityRequirement by SealingGasket;
+    satisfy EvacuationTimeRequirement by VacuumPump;
+    satisfy SafeVentingRequirement by VentValve;
+    satisfy PressureMeasurementRequirement by PressureSensor;
+
+    part vacuumBellSystem : VacuumBell {
+        attribute internalVolume = 0.018 [m^3];
+        attribute internalPressure = 101325 [Pa];
+        attribute targetPressure = 5000 [Pa];
+        attribute maximumLeakRate = 0.000001 [m^3/s];
+        attribute maximumEvacuationTime = 120 [s];
+        attribute sealCompressionForce = 350 [N];
+
+        part bellJar {
+            attribute enclosedVolume = 0.018 [m^3];
+            attribute ratedExternalPressure = 101325 [Pa];
+        }
+
+        part sealingGasket {
+            attribute requiredCompressionForce = 300 [N];
+            attribute leakRateAtTargetPressure = 0.0000005 [m^3/s];
+        }
+
+        part vacuumPump {
+            attribute nominalPumpingSpeed = 0.0012 [m^3/s];
+            attribute ultimatePressure = 100 [Pa];
+            attribute operatingVoltage = 24 [V];
+            attribute running = false;
+        }
+
+        part ventValve {
+            attribute open = false;
+            attribute conductance = 0.0004 [m^3/s];
+        }
+
+        part isolationValve {
+            attribute open = false;
+            attribute conductance = 0.001 [m^3/s];
+        }
+
+        part pressureSensor {
+            attribute measurementRangeLow = 1 [Pa];
+            attribute measurementRangeHigh = 101325 [Pa];
+            attribute accuracy = 50 [Pa];
+        }
+
+        part controller {
+            attribute commandedEvacuation = false;
+            attribute commandedVent = false;
+            attribute pressureSetpoint = 5000 [Pa];
+            attribute evacuationTimeout = 120 [s];
+        }
+
+        part protectedSpecimen {
+            attribute allowablePressure = 101325 [Pa];
+            attribute occupiedVolume = 0.002 [m^3];
+        }
+    }
+}

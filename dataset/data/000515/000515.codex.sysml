@@ -1,0 +1,576 @@
+package TranscranialMagneticStimulationSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def MagneticFluxDensity {
+    unit = "T";
+    quantityKind = "magnetic flux density";
+  }
+
+  value def MagneticFieldGradient {
+    unit = "T/m";
+    quantityKind = "magnetic field spatial gradient";
+  }
+
+  value def ElectricFieldStrength {
+    unit = "V/m";
+    quantityKind = "electric field strength";
+  }
+
+  value def PulseEnergy {
+    unit = "J";
+    quantityKind = "energy";
+  }
+
+  value def PulseWidth {
+    unit = "us";
+    quantityKind = "time";
+  }
+
+  value def PulseRate {
+    unit = "Hz";
+    quantityKind = "frequency";
+  }
+
+  value def CoilTemperature {
+    unit = "degC";
+    quantityKind = "temperature";
+  }
+
+  value def CapacitorVoltage {
+    unit = "V";
+    quantityKind = "electric potential";
+  }
+
+  value def PositionError {
+    unit = "mm";
+    quantityKind = "length";
+  }
+
+  value def OrientationError {
+    unit = "deg";
+    quantityKind = "plane angle";
+  }
+
+  value def StimulationIntensity {
+    unit = "%MT";
+    quantityKind = "relative motor threshold intensity";
+  }
+
+  item def TherapyPlan {
+    attribute protocolName : String;
+    attribute targetRegion : String;
+    attribute prescribedIntensity : StimulationIntensity;
+    attribute prescribedFrequency : PulseRate;
+    attribute prescribedPulseCount : Integer;
+    attribute trainDuration : Time;
+    attribute interTrainInterval : Time;
+  }
+
+  item def PulseCommand {
+    attribute intensity : StimulationIntensity;
+    attribute pulseWidth : PulseWidth;
+    attribute pulseEnergy : PulseEnergy;
+    attribute pulseIndex : Integer;
+    attribute enabled : Boolean;
+  }
+
+  item def CapacitorChargeStatus {
+    attribute voltage : CapacitorVoltage;
+    attribute storedEnergy : PulseEnergy;
+    attribute ready : Boolean;
+  }
+
+  item def MagneticPulse {
+    attribute peakField : MagneticFluxDensity;
+    attribute fieldGradient : MagneticFieldGradient;
+    attribute pulseWidth : PulseWidth;
+    attribute pulseEnergy : PulseEnergy;
+  }
+
+  item def InducedCorticalField {
+    attribute peakElectricField : ElectricFieldStrength;
+    attribute stimulatedRegion : String;
+    attribute estimatedDepth : Length;
+    attribute withinTherapeuticRange : Boolean;
+  }
+
+  item def CoilPose {
+    attribute scalpPositionError : PositionError;
+    attribute angularError : OrientationError;
+    attribute contactDetected : Boolean;
+    attribute targetAligned : Boolean;
+  }
+
+  item def SafetyEvent {
+    attribute eventCode : String;
+    attribute severity : String;
+    attribute message : String;
+    attribute requiresShutdown : Boolean;
+  }
+
+  item def SessionRecord {
+    attribute patientIdentifier : String;
+    attribute protocolName : String;
+    attribute deliveredPulseCount : Integer;
+    attribute aborted : Boolean;
+    attribute maximumCoilTemperature : CoilTemperature;
+    attribute completionTime : Time;
+  }
+
+  port def TherapyPlanPort {
+    in item plan : TherapyPlan;
+  }
+
+  port def PulseCommandPort {
+    out item command : PulseCommand;
+  }
+
+  port def ChargeStatusPort {
+    in item status : CapacitorChargeStatus;
+  }
+
+  port def MagneticPulsePort {
+    out item pulse : MagneticPulse;
+  }
+
+  port def CorticalFieldPort {
+    out item field : InducedCorticalField;
+  }
+
+  port def CoilPosePort {
+    out item pose : CoilPose;
+  }
+
+  port def SafetyEventPort {
+    out item event : SafetyEvent;
+  }
+
+  port def SessionRecordPort {
+    out item record : SessionRecord;
+  }
+
+  port def ThermalStatusPort {
+    out attribute temperature : CoilTemperature;
+    out attribute overheated : Boolean;
+  }
+
+  port def UserCommandPort {
+    in attribute startRequested : Boolean;
+    in attribute pauseRequested : Boolean;
+    in attribute stopRequested : Boolean;
+    in attribute emergencyStopPressed : Boolean;
+  }
+
+  action def ValidateTherapyPlan {
+    in item plan : TherapyPlan;
+    out attribute valid : Boolean;
+    out item event : SafetyEvent;
+  }
+
+  action def ChargeCapacitorBank {
+    in item command : PulseCommand;
+    out item status : CapacitorChargeStatus;
+  }
+
+  action def DeliverMagneticPulse {
+    in item command : PulseCommand;
+    in item status : CapacitorChargeStatus;
+    out item pulse : MagneticPulse;
+  }
+
+  action def EstimateInducedCorticalField {
+    in item pulse : MagneticPulse;
+    in item pose : CoilPose;
+    out item field : InducedCorticalField;
+  }
+
+  action def MonitorCoilTemperature {
+    out attribute temperature : CoilTemperature;
+    out attribute overheated : Boolean;
+  }
+
+  action def VerifyCoilAlignment {
+    out item pose : CoilPose;
+  }
+
+  action def RecordSessionResult {
+    in item plan : TherapyPlan;
+    in attribute deliveredPulseCount : Integer;
+    in attribute aborted : Boolean;
+    in attribute maximumTemperature : CoilTemperature;
+    out item record : SessionRecord;
+  }
+
+  state def TreatmentSessionStateMachine {
+    in attribute startRequested : Boolean;
+    in attribute pauseRequested : Boolean;
+    in attribute stopRequested : Boolean;
+    in attribute emergencyStopPressed : Boolean;
+    in item plan : TherapyPlan;
+    in item pose : CoilPose;
+    in attribute coilTemperature : CoilTemperature;
+    in item chargeStatus : CapacitorChargeStatus;
+    out attribute stimulationEnabled : Boolean;
+    out attribute deliveredPulseCount : Integer;
+    out item safetyEvent : SafetyEvent;
+
+    state idle;
+    state planLoaded;
+    state alignmentCheck;
+    state ready;
+    state charging;
+    state stimulating;
+    state paused;
+    state cooling;
+    state complete;
+    state fault;
+    state emergencyStopped;
+
+    transition first idle;
+
+    transition idle_to_planLoaded
+      first idle
+      then planLoaded
+      accept plan;
+
+    transition planLoaded_to_alignmentCheck
+      first planLoaded
+      then alignmentCheck
+      if startRequested;
+
+    transition alignmentCheck_to_ready
+      first alignmentCheck
+      then ready
+      if pose.targetAligned and pose.contactDetected;
+
+    transition alignmentCheck_to_fault
+      first alignmentCheck
+      then fault
+      if not pose.contactDetected;
+
+    transition ready_to_charging
+      first ready
+      then charging
+      if coilTemperature < 40 [degC];
+
+    transition charging_to_stimulating
+      first charging
+      then stimulating
+      if chargeStatus.ready;
+
+    transition stimulating_to_charging
+      first stimulating
+      then charging
+      if deliveredPulseCount < plan.prescribedPulseCount and not pauseRequested and not stopRequested;
+
+    transition stimulating_to_complete
+      first stimulating
+      then complete
+      if deliveredPulseCount >= plan.prescribedPulseCount;
+
+    transition stimulating_to_paused
+      first stimulating
+      then paused
+      if pauseRequested;
+
+    transition paused_to_alignmentCheck
+      first paused
+      then alignmentCheck
+      if startRequested;
+
+    transition ready_to_cooling
+      first ready
+      then cooling
+      if coilTemperature >= 40 [degC];
+
+    transition charging_to_cooling
+      first charging
+      then cooling
+      if coilTemperature >= 40 [degC];
+
+    transition stimulating_to_cooling
+      first stimulating
+      then cooling
+      if coilTemperature >= 40 [degC];
+
+    transition cooling_to_ready
+      first cooling
+      then ready
+      if coilTemperature <= 35 [degC];
+
+    transition any_to_fault
+      first idle
+      then fault
+      if stopRequested;
+
+    transition any_to_emergencyStopped
+      first idle
+      then emergencyStopped
+      if emergencyStopPressed;
+  }
+
+  part def OperatorConsole {
+    port therapyPlanInput : TherapyPlanPort;
+    port userCommands : UserCommandPort;
+    port sessionOutput : SessionRecordPort;
+    attribute displayedPulseCount : Integer;
+    attribute displayedCoilTemperature : CoilTemperature;
+    attribute audibleAlarmActive : Boolean;
+  }
+
+  part def TreatmentController {
+    port planIn : TherapyPlanPort;
+    port commandOut : PulseCommandPort;
+    port chargeStatusIn : ChargeStatusPort;
+    port coilPoseIn : CoilPosePort;
+    port thermalIn : ThermalStatusPort;
+    port safetyOut : SafetyEventPort;
+    port recordOut : SessionRecordPort;
+    port userCommands : UserCommandPort;
+
+    attribute activePlan : TherapyPlan;
+    attribute deliveredPulseCount : Integer;
+    attribute stimulationEnabled : Boolean;
+    attribute validated : Boolean;
+
+    perform action validatePlan : ValidateTherapyPlan;
+    perform action recordResult : RecordSessionResult;
+    exhibit state sessionControl : TreatmentSessionStateMachine;
+  }
+
+  part def PowerSubsystem {
+    part mainsIsolator {
+      attribute isolationResistance : Resistance = 50 [Mohm];
+      attribute leakageCurrent : Current = 50 [uA];
+    }
+
+    part capacitorBank {
+      attribute voltage : CapacitorVoltage;
+      attribute maximumVoltage : CapacitorVoltage = 2800 [V];
+      attribute storedEnergy : PulseEnergy;
+      attribute maximumStoredEnergy : PulseEnergy = 500 [J];
+      port statusOut : ChargeStatusPort;
+    }
+
+    part highVoltageCharger {
+      attribute chargeRate : Real;
+      attribute enabled : Boolean;
+      port commandIn : PulseCommandPort;
+      port statusOut : ChargeStatusPort;
+      perform action charge : ChargeCapacitorBank;
+    }
+  }
+
+  part def PulseGenerator {
+    port commandIn : PulseCommandPort;
+    port chargeStatusIn : ChargeStatusPort;
+    port magneticPulseOut : MagneticPulsePort;
+    port safetyOut : SafetyEventPort;
+
+    part dischargeSwitch {
+      attribute switchType : String = "solid-state thyristor array";
+      attribute peakCurrent : Current = 8000 [A];
+      attribute armed : Boolean;
+    }
+
+    part pulseShapingNetwork {
+      attribute nominalPulseWidth : PulseWidth = 280 [us];
+      attribute waveformShape : String = "biphasic";
+    }
+
+    perform action deliverPulse : DeliverMagneticPulse;
+  }
+
+  part def StimulationCoilAssembly {
+    port magneticPulseIn : MagneticPulsePort;
+    port corticalFieldOut : CorticalFieldPort;
+    port thermalOut : ThermalStatusPort;
+    port poseOut : CoilPosePort;
+
+    part figureEightCoil {
+      attribute windingMaterial : String = "copper";
+      attribute turnsPerLobe : Integer = 14;
+      attribute lobeDiameter : Length = 70 [mm];
+      attribute peakSurfaceField : MagneticFluxDensity = 2.2 [T];
+      attribute nominalFieldGradient : MagneticFieldGradient = 45 [T/m];
+    }
+
+    part coolingChannel {
+      attribute coolantFlowRate : Real;
+      attribute inletTemperature : CoilTemperature;
+      attribute outletTemperature : CoilTemperature;
+    }
+
+    part temperatureSensor {
+      attribute measuredTemperature : CoilTemperature;
+      attribute overTemperatureLimit : CoilTemperature = 41 [degC];
+      port thermalStatus : ThermalStatusPort;
+      perform action monitorTemperature : MonitorCoilTemperature;
+    }
+
+    part poseTracker {
+      attribute scalpPositionError : PositionError;
+      attribute angularError : OrientationError;
+      attribute contactDetected : Boolean;
+      attribute targetAligned : Boolean;
+      port poseStatus : CoilPosePort;
+      perform action verifyAlignment : VerifyCoilAlignment;
+    }
+
+    perform action estimateField : EstimateInducedCorticalField;
+  }
+
+  part def PatientInterface {
+    port inducedFieldIn : CorticalFieldPort;
+    port safetyOut : SafetyEventPort;
+
+    part corticalTarget {
+      attribute anatomicalRegion : String = "left dorsolateral prefrontal cortex";
+      attribute estimatedStimulationDepth : Length = 25 [mm];
+      attribute therapeuticElectricFieldMinimum : ElectricFieldStrength = 80 [V/m];
+      attribute therapeuticElectricFieldMaximum : ElectricFieldStrength = 160 [V/m];
+    }
+
+    part patientStopSwitch {
+      attribute pressed : Boolean;
+    }
+  }
+
+  part def SafetySupervisor {
+    port safetyEventsIn : SafetyEventPort;
+    port thermalIn : ThermalStatusPort;
+    port poseIn : CoilPosePort;
+    port commandGateOut : PulseCommandPort;
+
+    attribute inhibitsPulseDelivery : Boolean;
+    attribute lastSafetyEvent : SafetyEvent;
+
+    requirement maxCoilTemperatureRequirement {
+      doc /* Coil temperature shall remain below the patient-contact safety limit during stimulation. */
+      require constraint { thermalIn::temperature <= 41 [degC] }
+    }
+
+    requirement coilAlignmentRequirement {
+      doc /* Pulse delivery shall be inhibited unless the stimulation coil is in contact and aligned with the prescribed cortical target. */
+      require constraint { poseIn::pose.contactDetected and poseIn::pose.targetAligned }
+    }
+
+    requirement emergencyStopRequirement {
+      doc /* Activation of an emergency stop shall inhibit further capacitor discharge within one control cycle. */
+      require constraint { inhibitsPulseDelivery == true }
+    }
+  }
+
+  part def NavigationSubsystem {
+    port poseOut : CoilPosePort;
+
+    part headTracker {
+      attribute trackingAccuracy : PositionError = 1.5 [mm];
+    }
+
+    part coilTracker {
+      attribute trackingAccuracy : PositionError = 1.0 [mm];
+    }
+
+    part targetRegistration {
+      attribute targetRegion : String = "left dorsolateral prefrontal cortex";
+      attribute registrationError : PositionError = 2.0 [mm];
+    }
+  }
+
+  part def TMSSystem {
+    attribute primaryFunction : String =
+      "Deliver controlled, non-invasive magnetic pulses through a scalp-positioned coil to induce localized cortical electric fields for neuromodulation.";
+
+    part console : OperatorConsole;
+    part controller : TreatmentController;
+    part power : PowerSubsystem;
+    part pulseGenerator : PulseGenerator;
+    part coilAssembly : StimulationCoilAssembly;
+    part patientInterface : PatientInterface;
+    part safetySupervisor : SafetySupervisor;
+    part navigation : NavigationSubsystem;
+
+    port therapyPlan : TherapyPlanPort;
+    port treatmentRecord : SessionRecordPort;
+    port corticalFieldOutput : CorticalFieldPort;
+    port safetyAlarm : SafetyEventPort;
+
+    connect therapyPlan to console.therapyPlanInput;
+    connect console.therapyPlanInput to controller.planIn;
+    connect console.userCommands to controller.userCommands;
+
+    connect controller.commandOut to power.highVoltageCharger.commandIn;
+    connect power.capacitorBank.statusOut to controller.chargeStatusIn;
+    connect power.capacitorBank.statusOut to pulseGenerator.chargeStatusIn;
+
+    connect controller.commandOut to safetySupervisor.commandGateOut;
+    connect safetySupervisor.commandGateOut to pulseGenerator.commandIn;
+
+    connect pulseGenerator.magneticPulseOut to coilAssembly.magneticPulseIn;
+    connect coilAssembly.corticalFieldOut to patientInterface.inducedFieldIn;
+    connect coilAssembly.corticalFieldOut to corticalFieldOutput;
+
+    connect navigation.poseOut to controller.coilPoseIn;
+    connect navigation.poseOut to safetySupervisor.poseIn;
+    connect coilAssembly.thermalOut to controller.thermalIn;
+    connect coilAssembly.thermalOut to safetySupervisor.thermalIn;
+
+    connect pulseGenerator.safetyOut to safetySupervisor.safetyEventsIn;
+    connect patientInterface.safetyOut to safetySupervisor.safetyEventsIn;
+    connect controller.safetyOut to safetyAlarm;
+
+    connect controller.recordOut to console.sessionOutput;
+    connect controller.recordOut to treatmentRecord;
+  }
+
+  requirement primaryFunctionRequirement {
+    doc /* The system shall provide non-invasive transcranial magnetic stimulation by generating controlled magnetic pulses that induce therapeutic electric fields in a selected cortical target. */
+    subject tms : TMSSystem;
+    require constraint {
+      tms.primaryFunction ==
+      "Deliver controlled, non-invasive magnetic pulses through a scalp-positioned coil to induce localized cortical electric fields for neuromodulation."
+    }
+  }
+
+  requirement pulseControlRequirement {
+    doc /* The system shall deliver pulses according to the active therapy plan intensity, frequency, pulse width, and total pulse count. */
+    subject controller : TreatmentController;
+    require constraint {
+      controller.deliveredPulseCount <= controller.activePlan.prescribedPulseCount
+    }
+  }
+
+  requirement inducedFieldRequirement {
+    doc /* The stimulation coil shall induce a cortical electric field within the therapeutic range at the selected target region when pulse delivery is enabled. */
+    subject coil : StimulationCoilAssembly;
+    require constraint {
+      coil.figureEightCoil.peakSurfaceField <= 2.5 [T]
+    }
+  }
+
+  requirement capacitorSafetyRequirement {
+    doc /* The capacitor bank shall not exceed its maximum stored energy or maximum charging voltage. */
+    subject power : PowerSubsystem;
+    require constraint {
+      power.capacitorBank.voltage <= power.capacitorBank.maximumVoltage and
+      power.capacitorBank.storedEnergy <= power.capacitorBank.maximumStoredEnergy
+    }
+  }
+
+  requirement treatmentTraceabilityRequirement {
+    doc /* The system shall produce a session record containing protocol name, delivered pulse count, abort status, maximum coil temperature, and completion time. */
+    subject system : TMSSystem;
+    require constraint {
+      system.controller.recordOut::record.deliveredPulseCount >= 0
+    }
+  }
+
+  satisfy primaryFunctionRequirement by TMSSystem;
+  satisfy pulseControlRequirement by TreatmentController;
+  satisfy inducedFieldRequirement by StimulationCoilAssembly;
+  satisfy capacitorSafetyRequirement by PowerSubsystem;
+  satisfy treatmentTraceabilityRequirement by TMSSystem;
+}

@@ -1,0 +1,615 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-22_436rv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb44d-196e-7fd2-9d44-fb66f8d8862e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Vaccine vial monitor and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VaccineVialMonitorModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def TemperatureC :> Real;
+  attribute def TimeHour :> Real;
+  attribute def ExposureIndex :> Real;
+  attribute def OpticalDensity :> Real;
+  attribute def DiameterMM :> Real;
+  attribute def Percent :> Real;
+
+  enum def VialStatus {
+    enum nominal;
+    enum caution;
+    enum discard;
+    enum unreadable;
+  }
+
+  enum def VisualContrast {
+    enum outerDarker;
+    enum equal;
+    enum innerDarker;
+    enum indeterminate;
+  }
+
+  item def AmbientThermalCondition {
+    attribute temperature : TemperatureC;
+    attribute duration : TimeHour;
+  }
+
+  item def HeatExposureDose {
+    attribute cumulativeIndex : ExposureIndex;
+    attribute equivalentTimeAt37C : TimeHour;
+  }
+
+  item def VisualIndicatorSignal {
+    attribute centerOpticalDensity : OpticalDensity;
+    attribute referenceRingOpticalDensity : OpticalDensity;
+    attribute contrast : VisualContrast;
+    attribute interpretedStatus : VialStatus;
+  }
+
+  item def UserDecision {
+    attribute vaccineUsable : Boolean;
+    attribute status : VialStatus;
+  }
+
+  port def ThermalExposurePort {
+    in item ambientCondition : AmbientThermalCondition;
+  }
+
+  port def VisualReadPort {
+    out item visualSignal : VisualIndicatorSignal;
+  }
+
+  port def DecisionPort {
+    out item decision : UserDecision;
+  }
+
+  part def VaccineVial {
+    attribute fillVolumeML : Real;
+    attribute vaccineName : String;
+    attribute lotIdentifier : String;
+    attribute requiredStorageMinC : TemperatureC = 2.0;
+    attribute requiredStorageMaxC : TemperatureC = 8.0;
+
+    port monitorInterface : ThermalExposurePort;
+  }
+
+  part def HeatSensitiveLabel {
+    attribute labelDiameter : DiameterMM = 12.0;
+    attribute centerPatchDiameter : DiameterMM = 5.0;
+    attribute referenceRingDiameter : DiameterMM = 9.0;
+    attribute initialCenterOpticalDensity : OpticalDensity = 0.15;
+    attribute referenceRingOpticalDensity : OpticalDensity = 0.65;
+    attribute activationEnergyFactor : Real = 1.0;
+    attribute responseThresholdIndex : ExposureIndex = 1.0;
+
+    port thermalInput : ThermalExposurePort;
+    port visualOutput : VisualReadPort;
+  }
+
+  part def ChemicalIndicatorPatch {
+    attribute reactionProgress : Percent;
+    attribute centerOpticalDensity : OpticalDensity;
+    attribute cumulativeExposure : ExposureIndex;
+
+    port thermalInput : ThermalExposurePort;
+  }
+
+  part def ReferenceColorRing {
+    attribute opticalDensity : OpticalDensity = 0.65;
+    attribute colorStabilityIndex : Real = 0.98;
+  }
+
+  part def HumanObserver {
+    attribute minimumReadableContrast : OpticalDensity = 0.05;
+
+    port visualInput : VisualReadPort;
+    port decisionOutput : DecisionPort;
+  }
+
+  part def VaccineVialMonitorSystem {
+    attribute primaryFunction : String =
+      "Indicate cumulative heat exposure of a vaccine vial so a user can decide whether the vaccine remains usable.";
+
+    part vial : VaccineVial;
+    part label : HeatSensitiveLabel;
+    part patch : ChemicalIndicatorPatch;
+    part ring : ReferenceColorRing;
+    part observer : HumanObserver;
+
+    port environmentInput : ThermalExposurePort;
+    port userOutput : DecisionPort;
+
+    connect environmentInput to label.thermalInput;
+    connect label.thermalInput to patch.thermalInput;
+    connect label.visualOutput to observer.visualInput;
+    connect observer.decisionOutput to userOutput;
+  }
+
+  action def AccumulateHeatExposure {
+    in item condition : AmbientThermalCondition;
+    in previousIndex : ExposureIndex;
+    out newDose : HeatExposureDose;
+
+    attribute rateMultiplier : Real;
+    attribute incrementalIndex : ExposureIndex;
+
+    action computeRate {
+      in temperature : TemperatureC;
+      out multiplier : Real;
+    }
+
+    action integrateDose {
+      in duration : TimeHour;
+      in multiplier : Real;
+      in previous : ExposureIndex;
+      out updated : ExposureIndex;
+    }
+
+    bind condition.temperature = computeRate.temperature;
+    bind computeRate.multiplier = integrateDose.multiplier;
+    bind condition.duration = integrateDose.duration;
+    bind previousIndex = integrateDose.previous;
+    bind integrateDose.updated = newDose.cumulativeIndex;
+  }
+
+  action def DarkenIndicatorPatch {
+    in dose : HeatExposureDose;
+    out centerDensity : OpticalDensity;
+    out reactionProgress : Percent;
+  }
+
+  action def ComparePatchToReference {
+    in centerDensity : OpticalDensity;
+    in ringDensity : OpticalDensity;
+    out contrast : VisualContrast;
+    out status : VialStatus;
+  }
+
+  action def InterpretVialUsability {
+    in signal : VisualIndicatorSignal;
+    out decision : UserDecision;
+  }
+
+  state def VVMOperationalStates {
+    attribute exposure : ExposureIndex;
+    attribute status : VialStatus;
+
+    state Unexposed {
+      entry action {
+        exposure = 0.0;
+        status = VialStatus::nominal;
+      }
+    }
+
+    state Monitoring {
+      entry action AccumulateHeatExposure;
+    }
+
+    state Caution {
+      entry action {
+        status = VialStatus::caution;
+      }
+    }
+
+    state Discard {
+      entry action {
+        status = VialStatus::discard;
+      }
+    }
+
+    state Unreadable {
+      entry action {
+        status = VialStatus::unreadable;
+      }
+    }
+
+    transition first Unexposed then Monitoring;
+
+    transition Monitoring_to_Caution
+      first Monitoring
+      then Caution
+      if exposure >= 0.75 and exposure < 1.0;
+
+    transition Caution_to_Discard
+      first Caution
+      then Discard
+      if exposure >= 1.0;
+
+    transition Monitoring_to_Discard
+      first Monitoring
+      then Discard
+      if exposure >= 1.0;
+
+    transition Any_to_Unreadable
+      first Monitoring
+      then Unreadable
+      if exposure < 0.0;
+  }
+
+  constraint def ValidStorageTemperature {
+    in t : TemperatureC;
+    assert t >= 2.0 and t <= 8.0;
+  }
+
+  constraint def DiscardWhenPatchMatchesOrDarker {
+    in centerDensity : OpticalDensity;
+    in ringDensity : OpticalDensity;
+    assert centerDensity >= ringDensity;
+  }
+
+  constraint def ExposureIndexRange {
+    in index : ExposureIndex;
+    assert index >= 0.0;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : VaccineVialMonitorSystem;
+
+    require constraint {
+      system.primaryFunction ==
+      "Indicate cumulative heat exposure of a vaccine vial so a user can decide whether the vaccine remains usable."
+    }
+  }
+
+  requirement def HeatExposureSensingRequirement {
+    subject label : HeatSensitiveLabel;
+
+    require constraint {
+      label.responseThresholdIndex == 1.0
+    }
+  }
+
+  requirement def IrreversibleIndicationRequirement {
+    subject patch : ChemicalIndicatorPatch;
+
+    require constraint {
+      patch.cumulativeExposure >= 0.0
+    }
+  }
+
+  requirement def DiscardIndicationRequirement {
+    subject signal : VisualIndicatorSignal;
+
+    require constraint {
+      signal.contrast == VisualContrast::equal or
+      signal.contrast == VisualContrast::innerDarker implies
+      signal.interpretedStatus == VialStatus::discard
+    }
+  }
+
+  requirement def UserDecisionRequirement {
+    subject decision : UserDecision;
+
+    require constraint {
+      decision.status == VialStatus::discard implies
+      decision.vaccineUsable == false
+    }
+  }
+
+  requirement def ReadabilityRequirement {
+    subject observer : HumanObserver;
+
+    require constraint {
+      observer.minimumReadableContrast <= 0.05
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by VaccineVialMonitorSystem;
+  satisfy HeatExposureSensingRequirement by HeatSensitiveLabel;
+  satisfy IrreversibleIndicationRequirement by ChemicalIndicatorPatch;
+  satisfy DiscardIndicationRequirement by VisualIndicatorSignal;
+  satisfy UserDecisionRequirement by UserDecision;
+  satisfy ReadabilityRequirement by HumanObserver;
+}
+tokens used
+3,676
+package VaccineVialMonitorModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def TemperatureC :> Real;
+  attribute def TimeHour :> Real;
+  attribute def ExposureIndex :> Real;
+  attribute def OpticalDensity :> Real;
+  attribute def DiameterMM :> Real;
+  attribute def Percent :> Real;
+
+  enum def VialStatus {
+    enum nominal;
+    enum caution;
+    enum discard;
+    enum unreadable;
+  }
+
+  enum def VisualContrast {
+    enum outerDarker;
+    enum equal;
+    enum innerDarker;
+    enum indeterminate;
+  }
+
+  item def AmbientThermalCondition {
+    attribute temperature : TemperatureC;
+    attribute duration : TimeHour;
+  }
+
+  item def HeatExposureDose {
+    attribute cumulativeIndex : ExposureIndex;
+    attribute equivalentTimeAt37C : TimeHour;
+  }
+
+  item def VisualIndicatorSignal {
+    attribute centerOpticalDensity : OpticalDensity;
+    attribute referenceRingOpticalDensity : OpticalDensity;
+    attribute contrast : VisualContrast;
+    attribute interpretedStatus : VialStatus;
+  }
+
+  item def UserDecision {
+    attribute vaccineUsable : Boolean;
+    attribute status : VialStatus;
+  }
+
+  port def ThermalExposurePort {
+    in item ambientCondition : AmbientThermalCondition;
+  }
+
+  port def VisualReadPort {
+    out item visualSignal : VisualIndicatorSignal;
+  }
+
+  port def DecisionPort {
+    out item decision : UserDecision;
+  }
+
+  part def VaccineVial {
+    attribute fillVolumeML : Real;
+    attribute vaccineName : String;
+    attribute lotIdentifier : String;
+    attribute requiredStorageMinC : TemperatureC = 2.0;
+    attribute requiredStorageMaxC : TemperatureC = 8.0;
+
+    port monitorInterface : ThermalExposurePort;
+  }
+
+  part def HeatSensitiveLabel {
+    attribute labelDiameter : DiameterMM = 12.0;
+    attribute centerPatchDiameter : DiameterMM = 5.0;
+    attribute referenceRingDiameter : DiameterMM = 9.0;
+    attribute initialCenterOpticalDensity : OpticalDensity = 0.15;
+    attribute referenceRingOpticalDensity : OpticalDensity = 0.65;
+    attribute activationEnergyFactor : Real = 1.0;
+    attribute responseThresholdIndex : ExposureIndex = 1.0;
+
+    port thermalInput : ThermalExposurePort;
+    port visualOutput : VisualReadPort;
+  }
+
+  part def ChemicalIndicatorPatch {
+    attribute reactionProgress : Percent;
+    attribute centerOpticalDensity : OpticalDensity;
+    attribute cumulativeExposure : ExposureIndex;
+
+    port thermalInput : ThermalExposurePort;
+  }
+
+  part def ReferenceColorRing {
+    attribute opticalDensity : OpticalDensity = 0.65;
+    attribute colorStabilityIndex : Real = 0.98;
+  }
+
+  part def HumanObserver {
+    attribute minimumReadableContrast : OpticalDensity = 0.05;
+
+    port visualInput : VisualReadPort;
+    port decisionOutput : DecisionPort;
+  }
+
+  part def VaccineVialMonitorSystem {
+    attribute primaryFunction : String =
+      "Indicate cumulative heat exposure of a vaccine vial so a user can decide whether the vaccine remains usable.";
+
+    part vial : VaccineVial;
+    part label : HeatSensitiveLabel;
+    part patch : ChemicalIndicatorPatch;
+    part ring : ReferenceColorRing;
+    part observer : HumanObserver;
+
+    port environmentInput : ThermalExposurePort;
+    port userOutput : DecisionPort;
+
+    connect environmentInput to label.thermalInput;
+    connect label.thermalInput to patch.thermalInput;
+    connect label.visualOutput to observer.visualInput;
+    connect observer.decisionOutput to userOutput;
+  }
+
+  action def AccumulateHeatExposure {
+    in item condition : AmbientThermalCondition;
+    in previousIndex : ExposureIndex;
+    out newDose : HeatExposureDose;
+
+    attribute rateMultiplier : Real;
+    attribute incrementalIndex : ExposureIndex;
+
+    action computeRate {
+      in temperature : TemperatureC;
+      out multiplier : Real;
+    }
+
+    action integrateDose {
+      in duration : TimeHour;
+      in multiplier : Real;
+      in previous : ExposureIndex;
+      out updated : ExposureIndex;
+    }
+
+    bind condition.temperature = computeRate.temperature;
+    bind computeRate.multiplier = integrateDose.multiplier;
+    bind condition.duration = integrateDose.duration;
+    bind previousIndex = integrateDose.previous;
+    bind integrateDose.updated = newDose.cumulativeIndex;
+  }
+
+  action def DarkenIndicatorPatch {
+    in dose : HeatExposureDose;
+    out centerDensity : OpticalDensity;
+    out reactionProgress : Percent;
+  }
+
+  action def ComparePatchToReference {
+    in centerDensity : OpticalDensity;
+    in ringDensity : OpticalDensity;
+    out contrast : VisualContrast;
+    out status : VialStatus;
+  }
+
+  action def InterpretVialUsability {
+    in signal : VisualIndicatorSignal;
+    out decision : UserDecision;
+  }
+
+  state def VVMOperationalStates {
+    attribute exposure : ExposureIndex;
+    attribute status : VialStatus;
+
+    state Unexposed {
+      entry action {
+        exposure = 0.0;
+        status = VialStatus::nominal;
+      }
+    }
+
+    state Monitoring {
+      entry action AccumulateHeatExposure;
+    }
+
+    state Caution {
+      entry action {
+        status = VialStatus::caution;
+      }
+    }
+
+    state Discard {
+      entry action {
+        status = VialStatus::discard;
+      }
+    }
+
+    state Unreadable {
+      entry action {
+        status = VialStatus::unreadable;
+      }
+    }
+
+    transition first Unexposed then Monitoring;
+
+    transition Monitoring_to_Caution
+      first Monitoring
+      then Caution
+      if exposure >= 0.75 and exposure < 1.0;
+
+    transition Caution_to_Discard
+      first Caution
+      then Discard
+      if exposure >= 1.0;
+
+    transition Monitoring_to_Discard
+      first Monitoring
+      then Discard
+      if exposure >= 1.0;
+
+    transition Any_to_Unreadable
+      first Monitoring
+      then Unreadable
+      if exposure < 0.0;
+  }
+
+  constraint def ValidStorageTemperature {
+    in t : TemperatureC;
+    assert t >= 2.0 and t <= 8.0;
+  }
+
+  constraint def DiscardWhenPatchMatchesOrDarker {
+    in centerDensity : OpticalDensity;
+    in ringDensity : OpticalDensity;
+    assert centerDensity >= ringDensity;
+  }
+
+  constraint def ExposureIndexRange {
+    in index : ExposureIndex;
+    assert index >= 0.0;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : VaccineVialMonitorSystem;
+
+    require constraint {
+      system.primaryFunction ==
+      "Indicate cumulative heat exposure of a vaccine vial so a user can decide whether the vaccine remains usable."
+    }
+  }
+
+  requirement def HeatExposureSensingRequirement {
+    subject label : HeatSensitiveLabel;
+
+    require constraint {
+      label.responseThresholdIndex == 1.0
+    }
+  }
+
+  requirement def IrreversibleIndicationRequirement {
+    subject patch : ChemicalIndicatorPatch;
+
+    require constraint {
+      patch.cumulativeExposure >= 0.0
+    }
+  }
+
+  requirement def DiscardIndicationRequirement {
+    subject signal : VisualIndicatorSignal;
+
+    require constraint {
+      signal.contrast == VisualContrast::equal or
+      signal.contrast == VisualContrast::innerDarker implies
+      signal.interpretedStatus == VialStatus::discard
+    }
+  }
+
+  requirement def UserDecisionRequirement {
+    subject decision : UserDecision;
+
+    require constraint {
+      decision.status == VialStatus::discard implies
+      decision.vaccineUsable == false
+    }
+  }
+
+  requirement def ReadabilityRequirement {
+    subject observer : HumanObserver;
+
+    require constraint {
+      observer.minimumReadableContrast <= 0.05
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by VaccineVialMonitorSystem;
+  satisfy HeatExposureSensingRequirement by HeatSensitiveLabel;
+  satisfy IrreversibleIndicationRequirement by ChemicalIndicatorPatch;
+  satisfy DiscardIndicationRequirement by VisualIndicatorSignal;
+  satisfy UserDecisionRequirement by UserDecision;
+  satisfy ReadabilityRequirement by HumanObserver;
+}

@@ -1,0 +1,472 @@
+package MarchOfMachinesSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        range = "0..100";
+        unit = "%";
+    }
+
+    attribute def MachineCount :> Integer;
+    attribute def ThreatLevel :> Integer;
+    attribute def Distance_m :> Real { unit = "m"; }
+    attribute def Speed_mps :> Real { unit = "m/s"; }
+    attribute def Power_kW :> Real { unit = "kW"; }
+    attribute def Energy_kWh :> Real { unit = "kWh"; }
+    attribute def Latency_ms :> Real { unit = "ms"; }
+
+    item def CommandPacket {
+        attribute priority : ThreatLevel;
+        attribute targetSector : String;
+        attribute objective : String;
+        attribute issuedAt_s : Real { unit = "s"; }
+    }
+
+    item def TelemetryPacket {
+        attribute unitId : String;
+        attribute integrity : Percent;
+        attribute energyReserve : Energy_kWh;
+        attribute positionX : Distance_m;
+        attribute positionY : Distance_m;
+        attribute currentSpeed : Speed_mps;
+        attribute localThreat : ThreatLevel;
+    }
+
+    item def PowerFlow {
+        attribute availablePower : Power_kW;
+        attribute storageEnergy : Energy_kWh;
+    }
+
+    item def MaterialFlow {
+        attribute alloyMass_kg : Real { unit = "kg"; }
+        attribute componentCount : MachineCount;
+    }
+
+    port def CommandPort {
+        out command : CommandPacket;
+        in telemetry : TelemetryPacket;
+    }
+
+    port def TelemetryPort {
+        out telemetry : TelemetryPacket;
+        in command : CommandPacket;
+    }
+
+    port def PowerPort {
+        in powerIn : PowerFlow;
+        out powerStatus : PowerFlow;
+    }
+
+    port def MaterialPort {
+        in materialIn : MaterialFlow;
+        out materialOut : MaterialFlow;
+    }
+
+    part def MachineUnit {
+        attribute unitId : String;
+        attribute structuralIntegrity : Percent;
+        attribute energyReserve : Energy_kWh;
+        attribute maximumSpeed : Speed_mps;
+        attribute sensorRange : Distance_m;
+
+        port commandLink : TelemetryPort;
+        port powerBus : PowerPort;
+
+        action patrolSector {
+            in sectorId : String;
+            out report : TelemetryPacket;
+        }
+
+        action advanceInFormation {
+            in assignedSpeed : Speed_mps;
+            in bearing_deg : Real { unit = "deg"; }
+            out marchTelemetry : TelemetryPacket;
+        }
+
+        action repairSelf {
+            in repairPower : Power_kW;
+            out restoredIntegrity : Percent;
+        }
+
+        state machine operationalBehavior {
+            state Dormant;
+            state Booting;
+            state AwaitingOrders;
+            state Marching;
+            state EngagingObstacle;
+            state SelfRepairing;
+            state Disabled;
+
+            initial then Dormant;
+
+            transition Dormant_to_Booting
+                first Dormant
+                then Booting;
+
+            transition Booting_to_AwaitingOrders
+                first Booting
+                then AwaitingOrders;
+
+            transition AwaitingOrders_to_Marching
+                first AwaitingOrders
+                accept command
+                then Marching;
+
+            transition Marching_to_EngagingObstacle
+                first Marching
+                accept telemetry
+                if localThreat >= 6
+                then EngagingObstacle;
+
+            transition EngagingObstacle_to_Marching
+                first EngagingObstacle
+                if structuralIntegrity > 45
+                then Marching;
+
+            transition Marching_to_SelfRepairing
+                first Marching
+                if structuralIntegrity < 45
+                then SelfRepairing;
+
+            transition SelfRepairing_to_Marching
+                first SelfRepairing
+                if structuralIntegrity >= 75
+                then Marching;
+
+            transition Any_to_Disabled
+                first Marching
+                if structuralIntegrity <= 5
+                then Disabled;
+        }
+    }
+
+    part def CommandCore {
+        attribute activeCampaignName : String;
+        attribute commandLatencyLimit : Latency_ms;
+        attribute globalThreatEstimate : ThreatLevel;
+        attribute coordinatedUnits : MachineCount;
+
+        port commandNetwork : CommandPort;
+
+        action evaluateBattlefield {
+            in fleetTelemetry : TelemetryPacket;
+            out campaignThreat : ThreatLevel;
+        }
+
+        action issueMarchOrders {
+            in objectiveSector : String;
+            in desiredUnitCount : MachineCount;
+            out command : CommandPacket;
+        }
+
+        state machine campaignControl {
+            state Observing;
+            state Planning;
+            state OrderingAdvance;
+            state ReallocatingForces;
+            state HoldingPosition;
+
+            initial then Observing;
+
+            transition Observing_to_Planning
+                first Observing
+                accept telemetry
+                then Planning;
+
+            transition Planning_to_OrderingAdvance
+                first Planning
+                if globalThreatEstimate < 8
+                then OrderingAdvance;
+
+            transition Planning_to_ReallocatingForces
+                first Planning
+                if globalThreatEstimate >= 8
+                then ReallocatingForces;
+
+            transition OrderingAdvance_to_Observing
+                first OrderingAdvance
+                then Observing;
+
+            transition ReallocatingForces_to_HoldingPosition
+                first ReallocatingForces
+                if coordinatedUnits < 100
+                then HoldingPosition;
+
+            transition HoldingPosition_to_Observing
+                first HoldingPosition
+                accept telemetry
+                then Observing;
+        }
+    }
+
+    part def FabricationForge {
+        attribute productionRate_unitsPerHour : Real { unit = "1/h"; }
+        attribute alloyReserve_kg : Real { unit = "kg"; }
+        attribute energyDemand : Power_kW;
+
+        port materialInput : MaterialPort;
+        port powerInput : PowerPort;
+        port commandNetwork : TelemetryPort;
+
+        action fabricateMachineUnit {
+            in alloy : MaterialFlow;
+            in power : PowerFlow;
+            out newUnit : MachineUnit;
+        }
+
+        action recycleDamagedUnit {
+            in damagedMass_kg : Real { unit = "kg"; }
+            out recoveredMaterial : MaterialFlow;
+        }
+    }
+
+    part def EnergySpire {
+        attribute generationCapacity : Power_kW;
+        attribute storedEnergy : Energy_kWh;
+        attribute reserveThreshold : Percent;
+
+        port powerOutput : PowerPort;
+        port commandNetwork : TelemetryPort;
+
+        action distributePower {
+            in requestedPower : Power_kW;
+            out deliveredPower : PowerFlow;
+        }
+
+        action rationPower {
+            in fleetPriority : ThreatLevel;
+            out rationedPower : PowerFlow;
+        }
+    }
+
+    part def SensorMast {
+        attribute scanRadius : Distance_m;
+        attribute refreshPeriod_s : Real { unit = "s"; }
+        attribute detectionConfidence : Percent;
+
+        port commandNetwork : TelemetryPort;
+
+        action scanTerrain {
+            out terrainTelemetry : TelemetryPacket;
+        }
+
+        action classifyObstacle {
+            in rawThreat : ThreatLevel;
+            out classifiedThreat : ThreatLevel;
+        }
+    }
+
+    part def MarchFormation {
+        attribute formationWidth : Distance_m;
+        attribute formationDepth : Distance_m;
+        attribute nominalAdvanceSpeed : Speed_mps;
+        attribute unitSpacing : Distance_m;
+
+        part vanguard[20] : MachineUnit;
+        part mainColumn[80] : MachineUnit;
+        part rearGuard[15] : MachineUnit;
+
+        port commandNetwork : TelemetryPort;
+        port powerDistribution : PowerPort;
+
+        action synchronizeAdvance {
+            in marchCommand : CommandPacket;
+            out formationTelemetry : TelemetryPacket;
+        }
+
+        action compressFormation {
+            in obstacleDensity : ThreatLevel;
+            out adjustedSpacing : Distance_m;
+        }
+    }
+
+    part def MarchOfMachines {
+        attribute primaryFunction : String =
+            "Coordinate autonomous machine units into a self-sustaining advancing formation that surveys territory, fabricates reinforcements, distributes power, and executes high-level march objectives under centralized command.";
+        attribute totalOperationalUnits : MachineCount;
+        attribute missionEnergyReserve : Energy_kWh;
+        attribute maximumSustainableRange : Distance_m;
+        attribute acceptableCommandLatency : Latency_ms;
+
+        part core : CommandCore;
+        part forge : FabricationForge;
+        part spire : EnergySpire;
+        part mast : SensorMast;
+        part formation : MarchFormation;
+
+        port externalCommand : CommandPort;
+        port externalTelemetry : TelemetryPort;
+
+        connection commandToFormation
+            connect core.commandNetwork to formation.commandNetwork;
+
+        connection commandToForge
+            connect core.commandNetwork to forge.commandNetwork;
+
+        connection commandToSpire
+            connect core.commandNetwork to spire.commandNetwork;
+
+        connection commandToMast
+            connect core.commandNetwork to mast.commandNetwork;
+
+        connection spireToFormation
+            connect spire.powerOutput to formation.powerDistribution;
+
+        connection spireToForge
+            connect spire.powerOutput to forge.powerInput;
+
+        connection externalCommandToCore
+            connect externalCommand to core.commandNetwork;
+
+        connection externalTelemetryFromCore
+            connect externalTelemetry to core.commandNetwork;
+
+        action conductMachineMarch {
+            in campaignObjective : String;
+            in targetSector : String;
+            out campaignStatus : TelemetryPacket;
+
+            first startSurveillance : mast.scanTerrain;
+            then assess : core.evaluateBattlefield;
+            then orderAdvance : core.issueMarchOrders;
+            then moveFormation : formation.synchronizeAdvance;
+            then sustainPower : spire.distributePower;
+            then reinforce : forge.fabricateMachineUnit;
+        }
+
+        state machine systemLifecycle {
+            state Assembly;
+            state Standby;
+            state Surveying;
+            state Advancing;
+            state Reinforcing;
+            state Consolidating;
+            state EmergencyHold;
+            state Shutdown;
+
+            initial then Assembly;
+
+            transition Assembly_to_Standby
+                first Assembly
+                if totalOperationalUnits >= 100
+                then Standby;
+
+            transition Standby_to_Surveying
+                first Standby
+                accept command
+                then Surveying;
+
+            transition Surveying_to_Advancing
+                first Surveying
+                if core.globalThreatEstimate < 8
+                then Advancing;
+
+            transition Advancing_to_Reinforcing
+                first Advancing
+                if totalOperationalUnits < 90
+                then Reinforcing;
+
+            transition Reinforcing_to_Advancing
+                first Reinforcing
+                if totalOperationalUnits >= 110
+                then Advancing;
+
+            transition Advancing_to_Consolidating
+                first Advancing
+                if missionEnergyReserve < 2500 [kWh]
+                then Consolidating;
+
+            transition Consolidating_to_Standby
+                first Consolidating
+                if missionEnergyReserve >= 5000 [kWh]
+                then Standby;
+
+            transition Surveying_to_EmergencyHold
+                first Surveying
+                if core.globalThreatEstimate >= 9
+                then EmergencyHold;
+
+            transition Advancing_to_EmergencyHold
+                first Advancing
+                if acceptableCommandLatency > 250 [ms]
+                then EmergencyHold;
+
+            transition EmergencyHold_to_Shutdown
+                first EmergencyHold
+                if totalOperationalUnits < 25
+                then Shutdown;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The March of Machines shall coordinate autonomous mechanical units into an advancing formation that can survey, move, sustain power, and reinforce itself while executing a high-level campaign objective.";
+    }
+
+    requirement def CommandLatencyRequirement {
+        doc "The command system shall maintain end-to-end command latency at or below 250 ms during active marching operations.";
+    }
+
+    requirement def FormationContinuityRequirement {
+        doc "The formation shall remain operational while at least 75 percent of assigned machine units report structural integrity above 45 percent.";
+    }
+
+    requirement def SelfSustainmentRequirement {
+        doc "The system shall maintain enough stored energy to support at least 8 hours of march operation at nominal advance speed.";
+    }
+
+    requirement def ReinforcementRequirement {
+        doc "The fabrication forge shall be able to produce replacement machine units whenever total operational units drop below 90.";
+    }
+
+    requirement def SurveyRequirement {
+        doc "The sensor mast shall classify terrain obstacles and threats before the formation enters a target sector.";
+    }
+
+    satisfy PrimaryFunctionRequirement by MarchOfMachines;
+    satisfy CommandLatencyRequirement by MarchOfMachines::core;
+    satisfy FormationContinuityRequirement by MarchOfMachines::formation;
+    satisfy SelfSustainmentRequirement by MarchOfMachines::spire;
+    satisfy ReinforcementRequirement by MarchOfMachines::forge;
+    satisfy SurveyRequirement by MarchOfMachines::mast;
+
+    part marchSystem : MarchOfMachines {
+        attribute totalOperationalUnits = 115;
+        attribute missionEnergyReserve = 6400 [kWh];
+        attribute maximumSustainableRange = 120000 [m];
+        attribute acceptableCommandLatency = 120 [ms];
+
+        part core {
+            attribute activeCampaignName = "Iron Horizon";
+            attribute commandLatencyLimit = 250 [ms];
+            attribute globalThreatEstimate = 4;
+            attribute coordinatedUnits = 115;
+        }
+
+        part forge {
+            attribute productionRate_unitsPerHour = 6 [1/h];
+            attribute alloyReserve_kg = 18000 [kg];
+            attribute energyDemand = 900 [kW];
+        }
+
+        part spire {
+            attribute generationCapacity = 2200 [kW];
+            attribute storedEnergy = 6400 [kWh];
+            attribute reserveThreshold = 25 [%];
+        }
+
+        part mast {
+            attribute scanRadius = 5000 [m];
+            attribute refreshPeriod_s = 3 [s];
+            attribute detectionConfidence = 94 [%];
+        }
+
+        part formation {
+            attribute formationWidth = 600 [m];
+            attribute formationDepth = 1800 [m];
+            attribute nominalAdvanceSpeed = 1.8 [m/s];
+            attribute unitSpacing = 12 [m];
+        }
+    }
+}

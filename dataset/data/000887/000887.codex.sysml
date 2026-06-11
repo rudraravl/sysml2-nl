@@ -1,0 +1,427 @@
+package HandPumpPumpingSubsystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> scalarValues::Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate :> scalarValues::Real {
+        unit = "L/min";
+    }
+
+    attribute def Volume :> scalarValues::Real {
+        unit = "L";
+    }
+
+    attribute def Force :> scalarValues::Real {
+        unit = "N";
+    }
+
+    attribute def StrokeRate :> scalarValues::Real {
+        unit = "stroke/min";
+    }
+
+    attribute def StrokeLength :> scalarValues::Real {
+        unit = "mm";
+    }
+
+    attribute def Efficiency :> scalarValues::Real {
+        unit = "1";
+    }
+
+    attribute def ContaminationLevel :> scalarValues::Real {
+        unit = "mg/L";
+    }
+
+    item def Fluid {
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+        attribute temperature : TemperatureValue;
+        attribute contamination : ContaminationLevel;
+    }
+
+    item def MechanicalInput {
+        attribute appliedForce : Force;
+        attribute strokeRate : StrokeRate;
+        attribute strokeLength : StrokeLength;
+    }
+
+    item def MaintenanceSignal {
+        attribute sealWearDetected : Boolean;
+        attribute filterBlockedDetected : Boolean;
+        attribute primingRequired : Boolean;
+    }
+
+    port def FluidPort {
+        inout item fluid : Fluid;
+    }
+
+    port def MechanicalPort {
+        in item command : MechanicalInput;
+    }
+
+    port def DiagnosticPort {
+        out item status : MaintenanceSignal;
+    }
+
+    part def Reservoir {
+        attribute capacity : Volume = 25.0;
+        attribute minimumOperatingVolume : Volume = 1.5;
+        attribute currentVolume : Volume;
+
+        port outlet : FluidPort;
+
+        state def ReservoirState {
+            state normal;
+            state lowFluid;
+            state empty;
+
+            transition first normal;
+            transition normal to lowFluid if currentVolume <= minimumOperatingVolume;
+            transition lowFluid to empty if currentVolume <= 0.1;
+            transition lowFluid to normal if currentVolume > minimumOperatingVolume;
+        }
+    }
+
+    part def IntakeLine {
+        attribute internalVolume : Volume = 0.15;
+        attribute pressureDropAtRatedFlow : Pressure = 4.0;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+    }
+
+    part def SuctionCheckValve {
+        attribute crackingPressure : Pressure = 2.0;
+        attribute reverseLeakageLimit : FlowRate = 0.02;
+
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        state def ValveState {
+            state closed;
+            state open;
+
+            transition first closed;
+            transition closed to open if downstream.fluid.pressure < upstream.fluid.pressure - crackingPressure;
+            transition open to closed if downstream.fluid.pressure >= upstream.fluid.pressure;
+        }
+    }
+
+    part def PumpCylinder {
+        attribute sweptVolumePerStroke : Volume = 0.18;
+        attribute chamberPressure : Pressure;
+        attribute displacedVolume : Volume;
+
+        port suction : FluidPort;
+        port discharge : FluidPort;
+
+        action drawFluid {
+            in item inletFluid : Fluid;
+            out item chamberFluid : Fluid;
+        }
+
+        action expelFluid {
+            in item chamberFluid : Fluid;
+            out item outletFluid : Fluid;
+        }
+    }
+
+    part def HandLever {
+        attribute maximumOperatorForce : Force = 180.0;
+        attribute nominalStrokeLength : StrokeLength = 220.0;
+        attribute nominalStrokeRate : StrokeRate = 35.0;
+
+        port humanInput : MechanicalPort;
+        port pistonDrive : MechanicalPort;
+    }
+
+    part def PistonAssembly {
+        attribute sealWearFraction : Efficiency;
+        attribute volumetricEfficiency : Efficiency = 0.82;
+        attribute requiredPrimingVolume : Volume = 0.25;
+
+        port driveInput : MechanicalPort;
+        port chamberInterface : MechanicalPort;
+
+        state def PistonState {
+            state idle;
+            state suctionStroke;
+            state dischargeStroke;
+            state priming;
+            state degradedSeal;
+
+            transition first idle;
+            transition idle to suctionStroke if driveInput.command.appliedForce > 20.0;
+            transition suctionStroke to dischargeStroke after 1.0 [s];
+            transition dischargeStroke to suctionStroke after 1.0 [s];
+            transition suctionStroke to priming if sealWearFraction < 0.55;
+            transition dischargeStroke to degradedSeal if sealWearFraction < 0.40;
+            transition priming to suctionStroke if sealWearFraction >= 0.55;
+        }
+    }
+
+    part def DischargeCheckValve {
+        attribute crackingPressure : Pressure = 3.0;
+        attribute reverseLeakageLimit : FlowRate = 0.01;
+
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        state def ValveState {
+            state closed;
+            state open;
+
+            transition first closed;
+            transition closed to open if upstream.fluid.pressure > downstream.fluid.pressure + crackingPressure;
+            transition open to closed if upstream.fluid.pressure <= downstream.fluid.pressure;
+        }
+    }
+
+    part def OutletLine {
+        attribute internalVolume : Volume = 0.20;
+        attribute pressureDropAtRatedFlow : Pressure = 6.0;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+    }
+
+    part def OutletFilter {
+        attribute nominalMicronRating : Real = 100.0;
+        attribute cleanPressureDrop : Pressure = 5.0;
+        attribute blockedPressureDrop : Pressure = 35.0;
+        attribute capturedContaminantMass : MassValue;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        state def FilterState {
+            state clean;
+            state loading;
+            state blocked;
+
+            transition first clean;
+            transition clean to loading if capturedContaminantMass > 5.0 [g];
+            transition loading to blocked if capturedContaminantMass > 20.0 [g];
+            transition blocked to clean if capturedContaminantMass <= 1.0 [g];
+        }
+    }
+
+    part def DeliveryNozzle {
+        attribute minimumUsefulFlow : FlowRate = 1.5;
+        attribute maximumOutletPressure : Pressure = 250.0;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+    }
+
+    part def PressureReliefValve {
+        attribute reliefSetPressure : Pressure = 275.0;
+        attribute reseatPressure : Pressure = 240.0;
+
+        port highPressureSide : FluidPort;
+        port returnSide : FluidPort;
+
+        state def ReliefState {
+            state seated;
+            state relieving;
+
+            transition first seated;
+            transition seated to relieving if highPressureSide.fluid.pressure >= reliefSetPressure;
+            transition relieving to seated if highPressureSide.fluid.pressure <= reseatPressure;
+        }
+    }
+
+    part def DiagnosticIndicator {
+        port diagnostics : DiagnosticPort;
+
+        action evaluateCondition {
+            in item suctionFluid : Fluid;
+            in item dischargeFluid : Fluid;
+            out item signal : MaintenanceSignal;
+        }
+    }
+
+    part def HandPumpSubsystem {
+        attribute ratedFlow : FlowRate = 5.0;
+        attribute minimumDeliveredFlow : FlowRate = 3.0;
+        attribute maximumDischargePressure : Pressure = 250.0;
+        attribute nominalOperatorForce : Force = 120.0;
+        attribute nominalVolumetricEfficiency : Efficiency = 0.82;
+
+        port fluidSupply : FluidPort;
+        port fluidDelivery : FluidPort;
+        port operatorInput : MechanicalPort;
+        port maintenanceOutput : DiagnosticPort;
+
+        part reservoir : Reservoir {
+            attribute capacity = 25.0;
+            attribute minimumOperatingVolume = 1.5;
+        }
+
+        part intakeLine : IntakeLine;
+        part suctionValve : SuctionCheckValve;
+        part cylinder : PumpCylinder;
+        part lever : HandLever;
+        part piston : PistonAssembly;
+        part dischargeValve : DischargeCheckValve;
+        part outletLine : OutletLine;
+        part filter : OutletFilter;
+        part nozzle : DeliveryNozzle;
+        part reliefValve : PressureReliefValve;
+        part indicator : DiagnosticIndicator;
+
+        connect fluidSupply to reservoir.outlet;
+        connect reservoir.outlet to intakeLine.inlet;
+        connect intakeLine.outlet to suctionValve.upstream;
+        connect suctionValve.downstream to cylinder.suction;
+        connect cylinder.discharge to dischargeValve.upstream;
+        connect dischargeValve.downstream to outletLine.inlet;
+        connect outletLine.outlet to filter.inlet;
+        connect filter.outlet to nozzle.inlet;
+        connect nozzle.outlet to fluidDelivery;
+
+        connect outletLine.outlet to reliefValve.highPressureSide;
+        connect reliefValve.returnSide to reservoir.outlet;
+
+        connect operatorInput to lever.humanInput;
+        connect lever.pistonDrive to piston.driveInput;
+        connect piston.chamberInterface to cylinder.suction;
+
+        connect indicator.diagnostics to maintenanceOutput;
+
+        action pumpCycle {
+            in item manualStroke : MechanicalInput;
+            inout item inletFluid : Fluid;
+            out item deliveredFluid : Fluid;
+
+            first start;
+            then suctionPhase;
+            then compressionPhase;
+            then deliveryPhase;
+            then recoveryPhase;
+            then done;
+
+            action start {
+                out item acceptedStroke : MechanicalInput;
+            }
+
+            action suctionPhase {
+                in item acceptedStroke : MechanicalInput;
+                out item drawnFluid : Fluid;
+            }
+
+            action compressionPhase {
+                in item drawnFluid : Fluid;
+                out item pressurizedFluid : Fluid;
+            }
+
+            action deliveryPhase {
+                in item pressurizedFluid : Fluid;
+                out item deliveredFluid : Fluid;
+            }
+
+            action recoveryPhase {
+                in item deliveredFluid : Fluid;
+                out item resetFluid : Fluid;
+            }
+        }
+
+        state def OperatingState {
+            state unprimed;
+            state ready;
+            state pumping;
+            state relievingPressure;
+            state lowSupply;
+            state maintenanceRequired;
+
+            transition first unprimed;
+            transition unprimed to ready if reservoir.currentVolume >= piston.requiredPrimingVolume;
+            transition ready to pumping if operatorInput.command.appliedForce >= 40.0;
+            transition pumping to ready if operatorInput.command.appliedForce < 20.0;
+            transition pumping to relievingPressure if outletLine.outlet.fluid.pressure >= reliefValve.reliefSetPressure;
+            transition relievingPressure to pumping if outletLine.outlet.fluid.pressure <= reliefValve.reseatPressure;
+            transition ready to lowSupply if reservoir.currentVolume <= reservoir.minimumOperatingVolume;
+            transition pumping to lowSupply if reservoir.currentVolume <= reservoir.minimumOperatingVolume;
+            transition pumping to maintenanceRequired if piston.sealWearFraction < 0.40;
+            transition pumping to maintenanceRequired if filter.capturedContaminantMass > 20.0 [g];
+            transition maintenanceRequired to ready if piston.sealWearFraction >= 0.75 and filter.capturedContaminantMass <= 1.0 [g];
+        }
+    }
+
+    requirement def MoveFluidByHandPumpRequirement {
+        subject subsystem : HandPumpSubsystem;
+
+        require constraint {
+            subsystem.minimumDeliveredFlow >= 3.0 and
+            subsystem.maximumDischargePressure <= 250.0
+        }
+
+        doc /* The pumping subsystem shall move fluid from a supply reservoir to a delivery outlet using only mechanical energy applied to a hand-operated pump lever. */
+    }
+
+    requirement def CheckValveIsolationRequirement {
+        subject subsystem : HandPumpSubsystem;
+
+        require constraint {
+            subsystem.suctionValve.reverseLeakageLimit <= 0.02 and
+            subsystem.dischargeValve.reverseLeakageLimit <= 0.01
+        }
+
+        doc /* The suction and discharge check valves shall prevent backflow during alternating suction and discharge strokes. */
+    }
+
+    requirement def ReliefProtectionRequirement {
+        subject subsystem : HandPumpSubsystem;
+
+        require constraint {
+            subsystem.reliefValve.reliefSetPressure <= 275.0 and
+            subsystem.maximumDischargePressure <= subsystem.reliefValve.reliefSetPressure
+        }
+
+        doc /* The subsystem shall include pressure relief to prevent excessive outlet pressure during blocked or restricted delivery conditions. */
+    }
+
+    requirement def ManualOperabilityRequirement {
+        subject subsystem : HandPumpSubsystem;
+
+        require constraint {
+            subsystem.nominalOperatorForce <= 180.0 and
+            subsystem.lever.nominalStrokeRate <= 40.0
+        }
+
+        doc /* The subsystem shall be operable by a person using repeated hand lever strokes without external power. */
+    }
+
+    requirement def FiltrationRequirement {
+        subject subsystem : HandPumpSubsystem;
+
+        require constraint {
+            subsystem.filter.nominalMicronRating <= 100.0
+        }
+
+        doc /* The delivered fluid shall pass through an outlet filter before leaving the pumping subsystem. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject subsystem : HandPumpSubsystem;
+
+        require constraint {
+            subsystem.indicator.diagnostics.status.primingRequired == true or
+            subsystem.indicator.diagnostics.status.sealWearDetected == true or
+            subsystem.indicator.diagnostics.status.filterBlockedDetected == true
+        }
+
+        doc /* The subsystem shall provide maintenance indication for loss of prime, worn piston seal, or blocked filter conditions. */
+    }
+
+    satisfy MoveFluidByHandPumpRequirement by HandPumpSubsystem;
+    satisfy CheckValveIsolationRequirement by HandPumpSubsystem;
+    satisfy ReliefProtectionRequirement by HandPumpSubsystem;
+    satisfy ManualOperabilityRequirement by HandPumpSubsystem;
+    satisfy FiltrationRequirement by HandPumpSubsystem;
+    satisfy DiagnosticRequirement by HandPumpSubsystem;
+}

@@ -1,0 +1,755 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-m33meczq
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3be-9cff-7f80-9427-5a1e2dbc2c48
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Lead shielding and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LeadShieldingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def RadiationDoseRate :> ISQ::absorbedDoseRate {
+        unit = SI::sievert / SI::hour;
+    }
+
+    attribute def Thickness :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def MassDensity :> ISQ::massDensity {
+        unit = SI::kilogram / SI::metre^3;
+    }
+
+    attribute def SurfaceArea :> ISQ::area {
+        unit = SI::metre^2;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def AttenuationRatio :> ScalarValues::Real {
+        doc /* Ratio of outgoing dose rate to incoming dose rate. */
+    }
+
+    attribute def IntegrityMargin :> ScalarValues::Real {
+        doc /* Dimensionless remaining structural and sealing margin. */
+    }
+
+    item def IonizingRadiation {
+        attribute energyKeV : Real;
+        attribute doseRate : RadiationDoseRate;
+        attribute radiationKind : String;
+    }
+
+    item def ShieldedRadiation {
+        attribute residualDoseRate : RadiationDoseRate;
+        attribute attenuationRatio : AttenuationRatio;
+    }
+
+    item def ThermalLoad {
+        attribute heatFlux : ISQ::heatFlux;
+        attribute ambientTemperature : Temperature;
+    }
+
+    item def InspectionStatus {
+        attribute passed : Boolean;
+        attribute measuredSurfaceDoseRate : RadiationDoseRate;
+        attribute measuredIntegrityMargin : IntegrityMargin;
+    }
+
+    port def RadiationInputPort {
+        in item incidentRadiation : IonizingRadiation;
+    }
+
+    port def RadiationOutputPort {
+        out item transmittedRadiation : ShieldedRadiation;
+    }
+
+    port def ThermalPort {
+        in item thermalLoad : ThermalLoad;
+    }
+
+    port def InspectionPort {
+        out item inspectionStatus : InspectionStatus;
+    }
+
+    part def LeadShieldingSystem {
+        attribute nominalLeadDensity : MassDensity = 11340 [SI::kilogram / SI::metre^3];
+        attribute minimumShieldThickness : Thickness = 25 [SI::millimetre];
+        attribute maximumSurfaceDoseRate : RadiationDoseRate = 0.5 [SI::microsievert / SI::hour];
+        attribute requiredAttenuationRatio : AttenuationRatio = 0.01;
+        attribute operatingTemperatureLimit : Temperature = 60 [SI::degreeCelsius];
+
+        port radiationIn : RadiationInputPort;
+        port radiationOut : RadiationOutputPort;
+        port thermalIn : ThermalPort;
+        port inspectionOut : InspectionPort;
+
+        part leadBarrier : LeadBarrier {
+            attribute thickness = 32 [SI::millimetre];
+            attribute surfaceArea = 2.4 [SI::metre^2];
+        }
+
+        part enclosureFrame : StructuralFrame {
+            attribute frameMaterial = "stainless steel";
+            attribute supportLoadCapacity = 1200 [SI::kilogram];
+        }
+
+        part accessJoint : ShieldedAccessJoint {
+            attribute overlapThickness = 40 [SI::millimetre];
+            attribute jointGap = 0.8 [SI::millimetre];
+        }
+
+        part outerCladding : ProtectiveCladding {
+            attribute claddingMaterial = "powder coated steel";
+            attribute corrosionAllowance = 1.5 [SI::millimetre];
+        }
+
+        part doseMonitor : RadiationDoseMonitor {
+            attribute alarmThreshold = 0.5 [SI::microsievert / SI::hour];
+            attribute samplePeriod = 1 [SI::second];
+        }
+
+        part temperatureSensor : ShieldTemperatureSensor {
+            attribute warningTemperature = 50 [SI::degreeCelsius];
+            attribute shutdownTemperature = 60 [SI::degreeCelsius];
+        }
+
+        part inspectionController : ShieldingInspectionController;
+
+        connection incidentPath connect radiationIn.incidentRadiation to leadBarrier.incidentRadiation;
+        connection attenuatedPath connect leadBarrier.attenuatedRadiation to accessJoint.incidentRadiation;
+        connection jointPath connect accessJoint.transmittedRadiation to radiationOut.transmittedRadiation;
+        connection monitorTap connect accessJoint.transmittedRadiation to doseMonitor.measuredRadiation;
+        connection thermalPath connect thermalIn.thermalLoad to temperatureSensor.thermalLoad;
+        connection inspectionPath connect inspectionController.status to inspectionOut.inspectionStatus;
+
+        perform action attenuateRadiation;
+        perform action inspectShieldIntegrity;
+        perform action monitorOperatingSafety;
+
+        state machine operatingStates {
+            state idle;
+            state shielding;
+            state warning;
+            state maintenanceRequired;
+            state shutdown;
+
+            entry; then idle;
+
+            transition idle_to_shielding
+                first idle
+                accept IonizingRadiation
+                then shielding;
+
+            transition shielding_to_warning
+                first shielding
+                if doseMonitor.currentDoseRate > maximumSurfaceDoseRate or
+                   temperatureSensor.currentTemperature > 50 [SI::degreeCelsius]
+                then warning;
+
+            transition warning_to_shielding
+                first warning
+                if doseMonitor.currentDoseRate <= maximumSurfaceDoseRate and
+                   temperatureSensor.currentTemperature <= 50 [SI::degreeCelsius] and
+                   inspectionController.currentIntegrityMargin >= 1.0
+                then shielding;
+
+            transition warning_to_maintenance
+                first warning
+                if inspectionController.currentIntegrityMargin < 1.0
+                then maintenanceRequired;
+
+            transition shielding_to_shutdown
+                first shielding
+                if temperatureSensor.currentTemperature >= operatingTemperatureLimit or
+                   doseMonitor.currentDoseRate > 2.0 [SI::microsievert / SI::hour]
+                then shutdown;
+
+            transition maintenance_to_idle
+                first maintenanceRequired
+                accept InspectionStatus
+                if inspectionController.lastInspectionPassed
+                then idle;
+        }
+    }
+
+    part def LeadBarrier {
+        attribute thickness : Thickness;
+        attribute surfaceArea : SurfaceArea;
+        attribute leadDensity : MassDensity = 11340 [SI::kilogram / SI::metre^3];
+        attribute linearAttenuationCoefficient : Real = 0.52;
+        attribute calculatedAttenuationRatio : AttenuationRatio;
+
+        in item incidentRadiation : IonizingRadiation;
+        out item attenuatedRadiation : ShieldedRadiation;
+
+        action calculateAttenuation {
+            in item source : IonizingRadiation;
+            out item result : ShieldedRadiation;
+            attribute effectiveThicknessCm : Real;
+            attribute ratio : AttenuationRatio;
+
+            first start;
+            then assign effectiveThicknessCm := thickness / 10 [SI::millimetre];
+            then assign ratio := exp(-linearAttenuationCoefficient * effectiveThicknessCm);
+            then assign result.residualDoseRate := source.doseRate * ratio;
+            then assign result.attenuationRatio := ratio;
+            then done;
+        }
+    }
+
+    part def ShieldedAccessJoint {
+        attribute overlapThickness : Thickness;
+        attribute jointGap : Thickness;
+        attribute leakageFactor : AttenuationRatio = 0.002;
+
+        in item incidentRadiation : ShieldedRadiation;
+        out item transmittedRadiation : ShieldedRadiation;
+
+        action limitJointStreaming {
+            in item incoming : ShieldedRadiation;
+            out item outgoing : ShieldedRadiation;
+
+            first start;
+            then assign outgoing.residualDoseRate := incoming.residualDoseRate * (1.0 + leakageFactor);
+            then assign outgoing.attenuationRatio := incoming.attenuationRatio * (1.0 + leakageFactor);
+            then done;
+        }
+    }
+
+    part def StructuralFrame {
+        attribute frameMaterial : String;
+        attribute supportLoadCapacity : ISQ::mass;
+        attribute deflectionLimit : ISQ::length = 2 [SI::millimetre];
+
+        port mechanicalSupport;
+    }
+
+    part def ProtectiveCladding {
+        attribute claddingMaterial : String;
+        attribute corrosionAllowance : Thickness;
+        attribute surfaceTemperature : Temperature;
+    }
+
+    part def RadiationDoseMonitor {
+        attribute alarmThreshold : RadiationDoseRate;
+        attribute samplePeriod : ISQ::time;
+        attribute currentDoseRate : RadiationDoseRate = 0 [SI::microsievert / SI::hour];
+        attribute alarmActive : Boolean = false;
+
+        in item measuredRadiation : ShieldedRadiation;
+
+        action sampleDoseRate {
+            first start;
+            then assign currentDoseRate := measuredRadiation.residualDoseRate;
+            then assign alarmActive := currentDoseRate > alarmThreshold;
+            then done;
+        }
+    }
+
+    part def ShieldTemperatureSensor {
+        attribute warningTemperature : Temperature;
+        attribute shutdownTemperature : Temperature;
+        attribute currentTemperature : Temperature = 20 [SI::degreeCelsius];
+
+        in item thermalLoad : ThermalLoad;
+
+        action updateTemperature {
+            first start;
+            then assign currentTemperature := thermalLoad.ambientTemperature;
+            then done;
+        }
+    }
+
+    part def ShieldingInspectionController {
+        attribute currentIntegrityMargin : IntegrityMargin = 1.25;
+        attribute lastInspectionPassed : Boolean = true;
+
+        out item status : InspectionStatus;
+
+        action inspect {
+            first start;
+            then assign lastInspectionPassed := currentIntegrityMargin >= 1.0;
+            then assign status.passed := lastInspectionPassed;
+            then assign status.measuredIntegrityMargin := currentIntegrityMargin;
+            then done;
+        }
+    }
+
+    action def attenuateRadiation {
+        in item incident : IonizingRadiation;
+        out item shielded : ShieldedRadiation;
+
+        first receiveRadiation;
+        then reduceDoseRate;
+        then suppressScatteredLeakage;
+        then deliverResidualRadiation;
+        then done;
+    }
+
+    action def inspectShieldIntegrity {
+        out item inspectionStatus : InspectionStatus;
+
+        first verifyLeadThickness;
+        then verifyJointOverlap;
+        then verifyCladdingCondition;
+        then measureSurfaceDoseRate;
+        then reportStatus;
+        then done;
+    }
+
+    action def monitorOperatingSafety {
+        first sampleRadiationDose;
+        then sampleShieldTemperature;
+        then evaluateAlarmLimits;
+        then done;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The lead shielding system shall reduce ionizing radiation exposure by interposing a high-density lead barrier between the radiation source and protected area. */
+    }
+
+    requirement def DoseReductionRequirement {
+        attribute incomingDoseRate : RadiationDoseRate;
+        attribute outgoingDoseRate : RadiationDoseRate;
+
+        require constraint {
+            outgoingDoseRate <= incomingDoseRate * 0.01
+        }
+
+        doc /* The system shall attenuate transmitted radiation to no more than one percent of the incident dose rate under nominal conditions. */
+    }
+
+    requirement def SurfaceDoseRequirement {
+        require constraint {
+            LeadShieldingSystem::doseMonitor.currentDoseRate <= LeadShieldingSystem::maximumSurfaceDoseRate
+        }
+
+        doc /* The accessible external surface dose rate shall remain below the operating exposure limit. */
+    }
+
+    requirement def MinimumThicknessRequirement {
+        require constraint {
+            LeadShieldingSystem::leadBarrier.thickness >= LeadShieldingSystem::minimumShieldThickness
+        }
+
+        doc /* The lead barrier shall maintain at least the minimum required shielding thickness over the protected area. */
+    }
+
+    requirement def ThermalSafetyRequirement {
+        require constraint {
+            LeadShieldingSystem::temperatureSensor.currentTemperature <= LeadShieldingSystem::operatingTemperatureLimit
+        }
+
+        doc /* The shielding assembly shall remain within its allowable operating temperature limit. */
+    }
+
+    requirement def JointStreamingRequirement {
+        require constraint {
+            LeadShieldingSystem::accessJoint.jointGap <= 1.0 [SI::millimetre]
+        }
+
+        doc /* Shielded access joints shall restrict direct radiation streaming through gaps and interfaces. */
+    }
+
+    requirement def InspectionRequirement {
+        require constraint {
+            LeadShieldingSystem::inspectionController.currentIntegrityMargin >= 1.0
+        }
+
+        doc /* The shielding assembly shall pass integrity inspection before continued service after a warning or maintenance event. */
+    }
+
+    satisfy PrimaryFunctionRequirement by LeadShieldingSystem;
+    satisfy DoseReductionRequirement by LeadShieldingSystem::leadBarrier;
+    satisfy SurfaceDoseRequirement by LeadShieldingSystem::doseMonitor;
+    satisfy MinimumThicknessRequirement by LeadShieldingSystem::leadBarrier;
+    satisfy ThermalSafetyRequirement by LeadShieldingSystem::temperatureSensor;
+    satisfy JointStreamingRequirement by LeadShieldingSystem::accessJoint;
+    satisfy InspectionRequirement by LeadShieldingSystem::inspectionController;
+}
+tokens used
+4,082
+package LeadShieldingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def RadiationDoseRate :> ISQ::absorbedDoseRate {
+        unit = SI::sievert / SI::hour;
+    }
+
+    attribute def Thickness :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def MassDensity :> ISQ::massDensity {
+        unit = SI::kilogram / SI::metre^3;
+    }
+
+    attribute def SurfaceArea :> ISQ::area {
+        unit = SI::metre^2;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def AttenuationRatio :> ScalarValues::Real {
+        doc /* Ratio of outgoing dose rate to incoming dose rate. */
+    }
+
+    attribute def IntegrityMargin :> ScalarValues::Real {
+        doc /* Dimensionless remaining structural and sealing margin. */
+    }
+
+    item def IonizingRadiation {
+        attribute energyKeV : Real;
+        attribute doseRate : RadiationDoseRate;
+        attribute radiationKind : String;
+    }
+
+    item def ShieldedRadiation {
+        attribute residualDoseRate : RadiationDoseRate;
+        attribute attenuationRatio : AttenuationRatio;
+    }
+
+    item def ThermalLoad {
+        attribute heatFlux : ISQ::heatFlux;
+        attribute ambientTemperature : Temperature;
+    }
+
+    item def InspectionStatus {
+        attribute passed : Boolean;
+        attribute measuredSurfaceDoseRate : RadiationDoseRate;
+        attribute measuredIntegrityMargin : IntegrityMargin;
+    }
+
+    port def RadiationInputPort {
+        in item incidentRadiation : IonizingRadiation;
+    }
+
+    port def RadiationOutputPort {
+        out item transmittedRadiation : ShieldedRadiation;
+    }
+
+    port def ThermalPort {
+        in item thermalLoad : ThermalLoad;
+    }
+
+    port def InspectionPort {
+        out item inspectionStatus : InspectionStatus;
+    }
+
+    part def LeadShieldingSystem {
+        attribute nominalLeadDensity : MassDensity = 11340 [SI::kilogram / SI::metre^3];
+        attribute minimumShieldThickness : Thickness = 25 [SI::millimetre];
+        attribute maximumSurfaceDoseRate : RadiationDoseRate = 0.5 [SI::microsievert / SI::hour];
+        attribute requiredAttenuationRatio : AttenuationRatio = 0.01;
+        attribute operatingTemperatureLimit : Temperature = 60 [SI::degreeCelsius];
+
+        port radiationIn : RadiationInputPort;
+        port radiationOut : RadiationOutputPort;
+        port thermalIn : ThermalPort;
+        port inspectionOut : InspectionPort;
+
+        part leadBarrier : LeadBarrier {
+            attribute thickness = 32 [SI::millimetre];
+            attribute surfaceArea = 2.4 [SI::metre^2];
+        }
+
+        part enclosureFrame : StructuralFrame {
+            attribute frameMaterial = "stainless steel";
+            attribute supportLoadCapacity = 1200 [SI::kilogram];
+        }
+
+        part accessJoint : ShieldedAccessJoint {
+            attribute overlapThickness = 40 [SI::millimetre];
+            attribute jointGap = 0.8 [SI::millimetre];
+        }
+
+        part outerCladding : ProtectiveCladding {
+            attribute claddingMaterial = "powder coated steel";
+            attribute corrosionAllowance = 1.5 [SI::millimetre];
+        }
+
+        part doseMonitor : RadiationDoseMonitor {
+            attribute alarmThreshold = 0.5 [SI::microsievert / SI::hour];
+            attribute samplePeriod = 1 [SI::second];
+        }
+
+        part temperatureSensor : ShieldTemperatureSensor {
+            attribute warningTemperature = 50 [SI::degreeCelsius];
+            attribute shutdownTemperature = 60 [SI::degreeCelsius];
+        }
+
+        part inspectionController : ShieldingInspectionController;
+
+        connection incidentPath connect radiationIn.incidentRadiation to leadBarrier.incidentRadiation;
+        connection attenuatedPath connect leadBarrier.attenuatedRadiation to accessJoint.incidentRadiation;
+        connection jointPath connect accessJoint.transmittedRadiation to radiationOut.transmittedRadiation;
+        connection monitorTap connect accessJoint.transmittedRadiation to doseMonitor.measuredRadiation;
+        connection thermalPath connect thermalIn.thermalLoad to temperatureSensor.thermalLoad;
+        connection inspectionPath connect inspectionController.status to inspectionOut.inspectionStatus;
+
+        perform action attenuateRadiation;
+        perform action inspectShieldIntegrity;
+        perform action monitorOperatingSafety;
+
+        state machine operatingStates {
+            state idle;
+            state shielding;
+            state warning;
+            state maintenanceRequired;
+            state shutdown;
+
+            entry; then idle;
+
+            transition idle_to_shielding
+                first idle
+                accept IonizingRadiation
+                then shielding;
+
+            transition shielding_to_warning
+                first shielding
+                if doseMonitor.currentDoseRate > maximumSurfaceDoseRate or
+                   temperatureSensor.currentTemperature > 50 [SI::degreeCelsius]
+                then warning;
+
+            transition warning_to_shielding
+                first warning
+                if doseMonitor.currentDoseRate <= maximumSurfaceDoseRate and
+                   temperatureSensor.currentTemperature <= 50 [SI::degreeCelsius] and
+                   inspectionController.currentIntegrityMargin >= 1.0
+                then shielding;
+
+            transition warning_to_maintenance
+                first warning
+                if inspectionController.currentIntegrityMargin < 1.0
+                then maintenanceRequired;
+
+            transition shielding_to_shutdown
+                first shielding
+                if temperatureSensor.currentTemperature >= operatingTemperatureLimit or
+                   doseMonitor.currentDoseRate > 2.0 [SI::microsievert / SI::hour]
+                then shutdown;
+
+            transition maintenance_to_idle
+                first maintenanceRequired
+                accept InspectionStatus
+                if inspectionController.lastInspectionPassed
+                then idle;
+        }
+    }
+
+    part def LeadBarrier {
+        attribute thickness : Thickness;
+        attribute surfaceArea : SurfaceArea;
+        attribute leadDensity : MassDensity = 11340 [SI::kilogram / SI::metre^3];
+        attribute linearAttenuationCoefficient : Real = 0.52;
+        attribute calculatedAttenuationRatio : AttenuationRatio;
+
+        in item incidentRadiation : IonizingRadiation;
+        out item attenuatedRadiation : ShieldedRadiation;
+
+        action calculateAttenuation {
+            in item source : IonizingRadiation;
+            out item result : ShieldedRadiation;
+            attribute effectiveThicknessCm : Real;
+            attribute ratio : AttenuationRatio;
+
+            first start;
+            then assign effectiveThicknessCm := thickness / 10 [SI::millimetre];
+            then assign ratio := exp(-linearAttenuationCoefficient * effectiveThicknessCm);
+            then assign result.residualDoseRate := source.doseRate * ratio;
+            then assign result.attenuationRatio := ratio;
+            then done;
+        }
+    }
+
+    part def ShieldedAccessJoint {
+        attribute overlapThickness : Thickness;
+        attribute jointGap : Thickness;
+        attribute leakageFactor : AttenuationRatio = 0.002;
+
+        in item incidentRadiation : ShieldedRadiation;
+        out item transmittedRadiation : ShieldedRadiation;
+
+        action limitJointStreaming {
+            in item incoming : ShieldedRadiation;
+            out item outgoing : ShieldedRadiation;
+
+            first start;
+            then assign outgoing.residualDoseRate := incoming.residualDoseRate * (1.0 + leakageFactor);
+            then assign outgoing.attenuationRatio := incoming.attenuationRatio * (1.0 + leakageFactor);
+            then done;
+        }
+    }
+
+    part def StructuralFrame {
+        attribute frameMaterial : String;
+        attribute supportLoadCapacity : ISQ::mass;
+        attribute deflectionLimit : ISQ::length = 2 [SI::millimetre];
+
+        port mechanicalSupport;
+    }
+
+    part def ProtectiveCladding {
+        attribute claddingMaterial : String;
+        attribute corrosionAllowance : Thickness;
+        attribute surfaceTemperature : Temperature;
+    }
+
+    part def RadiationDoseMonitor {
+        attribute alarmThreshold : RadiationDoseRate;
+        attribute samplePeriod : ISQ::time;
+        attribute currentDoseRate : RadiationDoseRate = 0 [SI::microsievert / SI::hour];
+        attribute alarmActive : Boolean = false;
+
+        in item measuredRadiation : ShieldedRadiation;
+
+        action sampleDoseRate {
+            first start;
+            then assign currentDoseRate := measuredRadiation.residualDoseRate;
+            then assign alarmActive := currentDoseRate > alarmThreshold;
+            then done;
+        }
+    }
+
+    part def ShieldTemperatureSensor {
+        attribute warningTemperature : Temperature;
+        attribute shutdownTemperature : Temperature;
+        attribute currentTemperature : Temperature = 20 [SI::degreeCelsius];
+
+        in item thermalLoad : ThermalLoad;
+
+        action updateTemperature {
+            first start;
+            then assign currentTemperature := thermalLoad.ambientTemperature;
+            then done;
+        }
+    }
+
+    part def ShieldingInspectionController {
+        attribute currentIntegrityMargin : IntegrityMargin = 1.25;
+        attribute lastInspectionPassed : Boolean = true;
+
+        out item status : InspectionStatus;
+
+        action inspect {
+            first start;
+            then assign lastInspectionPassed := currentIntegrityMargin >= 1.0;
+            then assign status.passed := lastInspectionPassed;
+            then assign status.measuredIntegrityMargin := currentIntegrityMargin;
+            then done;
+        }
+    }
+
+    action def attenuateRadiation {
+        in item incident : IonizingRadiation;
+        out item shielded : ShieldedRadiation;
+
+        first receiveRadiation;
+        then reduceDoseRate;
+        then suppressScatteredLeakage;
+        then deliverResidualRadiation;
+        then done;
+    }
+
+    action def inspectShieldIntegrity {
+        out item inspectionStatus : InspectionStatus;
+
+        first verifyLeadThickness;
+        then verifyJointOverlap;
+        then verifyCladdingCondition;
+        then measureSurfaceDoseRate;
+        then reportStatus;
+        then done;
+    }
+
+    action def monitorOperatingSafety {
+        first sampleRadiationDose;
+        then sampleShieldTemperature;
+        then evaluateAlarmLimits;
+        then done;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The lead shielding system shall reduce ionizing radiation exposure by interposing a high-density lead barrier between the radiation source and protected area. */
+    }
+
+    requirement def DoseReductionRequirement {
+        attribute incomingDoseRate : RadiationDoseRate;
+        attribute outgoingDoseRate : RadiationDoseRate;
+
+        require constraint {
+            outgoingDoseRate <= incomingDoseRate * 0.01
+        }
+
+        doc /* The system shall attenuate transmitted radiation to no more than one percent of the incident dose rate under nominal conditions. */
+    }
+
+    requirement def SurfaceDoseRequirement {
+        require constraint {
+            LeadShieldingSystem::doseMonitor.currentDoseRate <= LeadShieldingSystem::maximumSurfaceDoseRate
+        }
+
+        doc /* The accessible external surface dose rate shall remain below the operating exposure limit. */
+    }
+
+    requirement def MinimumThicknessRequirement {
+        require constraint {
+            LeadShieldingSystem::leadBarrier.thickness >= LeadShieldingSystem::minimumShieldThickness
+        }
+
+        doc /* The lead barrier shall maintain at least the minimum required shielding thickness over the protected area. */
+    }
+
+    requirement def ThermalSafetyRequirement {
+        require constraint {
+            LeadShieldingSystem::temperatureSensor.currentTemperature <= LeadShieldingSystem::operatingTemperatureLimit
+        }
+
+        doc /* The shielding assembly shall remain within its allowable operating temperature limit. */
+    }
+
+    requirement def JointStreamingRequirement {
+        require constraint {
+            LeadShieldingSystem::accessJoint.jointGap <= 1.0 [SI::millimetre]
+        }
+
+        doc /* Shielded access joints shall restrict direct radiation streaming through gaps and interfaces. */
+    }
+
+    requirement def InspectionRequirement {
+        require constraint {
+            LeadShieldingSystem::inspectionController.currentIntegrityMargin >= 1.0
+        }
+
+        doc /* The shielding assembly shall pass integrity inspection before continued service after a warning or maintenance event. */
+    }
+
+    satisfy PrimaryFunctionRequirement by LeadShieldingSystem;
+    satisfy DoseReductionRequirement by LeadShieldingSystem::leadBarrier;
+    satisfy SurfaceDoseRequirement by LeadShieldingSystem::doseMonitor;
+    satisfy MinimumThicknessRequirement by LeadShieldingSystem::leadBarrier;
+    satisfy ThermalSafetyRequirement by LeadShieldingSystem::temperatureSensor;
+    satisfy JointStreamingRequirement by LeadShieldingSystem::accessJoint;
+    satisfy InspectionRequirement by LeadShieldingSystem::inspectionController;
+}

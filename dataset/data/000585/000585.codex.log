@@ -1,0 +1,1179 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-mh6iiis5
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb370-4cad-7e73-bb80-01fa367ee325
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Dielectric heating and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DielectricHeatingSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def TimeDuration :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def Distance :> ISQ::length {
+    unit = SI::meter;
+  }
+
+  attribute def MassFlowRate :> ISQ::massFlowRate {
+    unit = SI::kilogramPerSecond;
+  }
+
+  attribute def RelativePermittivity :> ScalarValues::Real;
+  attribute def LossTangent :> ScalarValues::Real;
+  attribute def DutyCycle :> ScalarValues::Real;
+  attribute def Efficiency :> ScalarValues::Real;
+
+  item def ElectricalEnergy {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute frequency : Frequency;
+    attribute power : Power;
+  }
+
+  item def ThermalEnergy {
+    attribute heatRate : Power;
+    attribute temperature : Temperature;
+  }
+
+  item def ProcessMaterial {
+    attribute dielectricConstant : RelativePermittivity;
+    attribute dielectricLossTangent : LossTangent;
+    attribute inletTemperature : Temperature;
+    attribute targetTemperature : Temperature;
+    attribute massFlow : MassFlowRate;
+  }
+
+  item def CoolingFluid {
+    attribute inletTemperature : Temperature;
+    attribute outletTemperature : Temperature;
+    attribute flowRate : MassFlowRate;
+  }
+
+  item def ControlCommand {
+    attribute requestedPower : Power;
+    attribute requestedFrequency : Frequency;
+    attribute electrodeGap : Distance;
+    attribute enableHeating : Boolean;
+  }
+
+  item def SensorTelemetry {
+    attribute measuredTemperature : Temperature;
+    attribute measuredVoltage : Voltage;
+    attribute measuredCurrent : Current;
+    attribute measuredForwardPower : Power;
+    attribute measuredReflectedPower : Power;
+    attribute interlockClosed : Boolean;
+  }
+
+  port def RFPowerPort {
+    out item rfEnergy : ElectricalEnergy;
+  }
+
+  port def ElectricalInputPort {
+    in item utilityPower : ElectricalEnergy;
+  }
+
+  port def MaterialInletPort {
+    in item feed : ProcessMaterial;
+  }
+
+  port def MaterialOutletPort {
+    out item heatedMaterial : ProcessMaterial;
+  }
+
+  port def HeatTransferPort {
+    out item thermalEnergy : ThermalEnergy;
+  }
+
+  port def CoolingPort {
+    inout item coolant : CoolingFluid;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : SensorTelemetry;
+  }
+
+  port def SafetyPort {
+    out item shutdownCommand : ControlCommand;
+  }
+
+  part def DielectricHeatingSystem {
+    attribute nominalFrequency : Frequency = 27.12 [SI::megahertz];
+    attribute maximumRFPower : Power = 5000 [SI::watt];
+    attribute nominalElectrodeGap : Distance = 0.045 [SI::meter];
+    attribute minimumEfficiency : Efficiency = 0.72;
+    attribute maximumProductTemperature : Temperature = 393.15 [SI::kelvin];
+
+    port electricalInput : ElectricalInputPort;
+    port materialInlet : MaterialInletPort;
+    port materialOutlet : MaterialOutletPort;
+    port coolingLoop : CoolingPort;
+    port operatorCommand : CommandPort;
+    port systemTelemetry : TelemetryPort;
+
+    part powerSupply : RFPowerGenerator;
+    part matchingNetwork : ImpedanceMatchingNetwork;
+    part applicator : DielectricApplicator;
+    part materialHandler : MaterialTransport;
+    part coolingSubsystem : CoolingSubsystem;
+    part controller : HeatingController;
+    part protection : SafetyInterlockSystem;
+    part sensors : SensorSuite;
+
+    connect electricalInput to powerSupply.acInput;
+    connect powerSupply.rfOutput to matchingNetwork.rfInput;
+    connect matchingNetwork.tunedRFOutput to applicator.electrodeInput;
+    connect materialInlet to materialHandler.inlet;
+    connect materialHandler.processZone to applicator.materialCavity;
+    connect applicator.outlet to materialOutlet;
+    connect applicator.heatReject to coolingSubsystem.heatInput;
+    connect coolingSubsystem.coolantInterface to coolingLoop;
+    connect operatorCommand to controller.commandInput;
+    connect sensors.telemetryOutput to controller.sensorInput;
+    connect sensors.telemetryOutput to systemTelemetry;
+    connect controller.rfCommandOutput to powerSupply.commandInput;
+    connect controller.matchCommandOutput to matchingNetwork.commandInput;
+    connect controller.transportCommandOutput to materialHandler.commandInput;
+    connect protection.shutdownOutput to powerSupply.safetyInput;
+    connect protection.shutdownOutput to controller.safetyInput;
+    connect sensors.telemetryOutput to protection.telemetryInput;
+  }
+
+  part def RFPowerGenerator {
+    attribute outputFrequency : Frequency = 27.12 [SI::megahertz];
+    attribute ratedPower : Power = 5000 [SI::watt];
+    attribute dcBusVoltage : Voltage = 650 [SI::volt];
+    attribute conversionEfficiency : Efficiency = 0.86;
+
+    port acInput : ElectricalInputPort;
+    port rfOutput : RFPowerPort;
+    port commandInput : CommandPort;
+    port safetyInput : CommandPort;
+
+    perform action GenerateRFPower {
+      in item command : ControlCommand;
+      in item utilityPower : ElectricalEnergy;
+      out item rfEnergy : ElectricalEnergy;
+
+      first start;
+      then validateEnable;
+      then synthesizeCarrier;
+      then amplifyCarrier;
+      then deliverRF;
+      then done;
+
+      action validateEnable;
+      action synthesizeCarrier;
+      action amplifyCarrier;
+      action deliverRF;
+    }
+  }
+
+  part def ImpedanceMatchingNetwork {
+    attribute minimumVSWR : Real = 1.0;
+    attribute maximumAllowedVSWR : Real = 1.8;
+    attribute tuningResponseTime : TimeDuration = 2.0 [SI::second];
+
+    port rfInput : RFPowerPort;
+    port tunedRFOutput : RFPowerPort;
+    port commandInput : CommandPort;
+
+    part variableCapacitorA : VacuumVariableCapacitor;
+    part variableCapacitorB : VacuumVariableCapacitor;
+    part tuningInductor : RFInductor;
+
+    perform action TuneImpedance {
+      in item telemetry : SensorTelemetry;
+      out item command : ControlCommand;
+
+      first sampleForwardAndReflectedPower;
+      then calculateReflectionCoefficient;
+      then adjustReactiveElements;
+      then verifyAcceptedPower;
+      then done;
+
+      action sampleForwardAndReflectedPower;
+      action calculateReflectionCoefficient;
+      action adjustReactiveElements;
+      action verifyAcceptedPower;
+    }
+  }
+
+  part def VacuumVariableCapacitor {
+    attribute minimumCapacitance : Real = 20.0;
+    attribute maximumCapacitance : Real = 1000.0;
+    attribute voltageRating : Voltage = 15000 [SI::volt];
+  }
+
+  part def RFInductor {
+    attribute inductance : Real = 1.8;
+    attribute currentRating : Current = 40 [SI::ampere];
+  }
+
+  part def DielectricApplicator {
+    attribute cavityFrequency : Frequency = 27.12 [SI::megahertz];
+    attribute electrodeGap : Distance = 0.045 [SI::meter];
+    attribute fieldUniformityIndex : Real = 0.88;
+    attribute maximumElectrodeVoltage : Voltage = 12000 [SI::volt];
+
+    port electrodeInput : RFPowerPort;
+    port materialCavity : MaterialInletPort;
+    port outlet : MaterialOutletPort;
+    port heatReject : HeatTransferPort;
+
+    part upperElectrode : Electrode;
+    part lowerElectrode : Electrode;
+    part shieldedCavity : RFShieldedCavity;
+    part productLoad : DielectricLoad;
+
+    connect upperElectrode.opposingFace to lowerElectrode.opposingFace;
+
+    perform action ConvertElectricFieldToHeat {
+      in item rfEnergy : ElectricalEnergy;
+      in item feed : ProcessMaterial;
+      out item heatedMaterial : ProcessMaterial;
+      out item rejectedHeat : ThermalEnergy;
+
+      first establishAlternatingElectricField;
+      then polarizeDielectricMaterial;
+      then dissipateMolecularLosses;
+      then raiseMaterialTemperature;
+      then dischargeHeatedMaterial;
+      then done;
+
+      action establishAlternatingElectricField;
+      action polarizeDielectricMaterial;
+      action dissipateMolecularLosses;
+      action raiseMaterialTemperature;
+      action dischargeHeatedMaterial;
+    }
+  }
+
+  part def Electrode {
+    attribute surfaceArea : Real = 0.18;
+    attribute waterCooled : Boolean = true;
+    port opposingFace : RFPowerPort;
+  }
+
+  part def RFShieldedCavity {
+    attribute shieldingEffectiveness : Real = 80.0;
+    attribute accessDoorClosed : Boolean = true;
+  }
+
+  part def DielectricLoad {
+    attribute dielectricConstant : RelativePermittivity = 18.0;
+    attribute lossTangent : LossTangent = 0.12;
+    attribute loadMassFlow : MassFlowRate = 0.05 [SI::kilogramPerSecond];
+  }
+
+  part def MaterialTransport {
+    attribute conveyorSpeed : Real = 0.08;
+    attribute residenceTime : TimeDuration = 45 [SI::second];
+
+    port inlet : MaterialInletPort;
+    port processZone : MaterialOutletPort;
+    port commandInput : CommandPort;
+
+    perform action MeterMaterialFlow {
+      in item feed : ProcessMaterial;
+      out item conditionedFeed : ProcessMaterial;
+
+      first acceptFeed;
+      then regulateFlowRate;
+      then centerMaterialBetweenElectrodes;
+      then releaseToApplicator;
+      then done;
+
+      action acceptFeed;
+      action regulateFlowRate;
+      action centerMaterialBetweenElectrodes;
+      action releaseToApplicator;
+    }
+  }
+
+  part def CoolingSubsystem {
+    attribute nominalCoolantFlow : MassFlowRate = 0.12 [SI::kilogramPerSecond];
+    attribute maximumOutletTemperature : Temperature = 323.15 [SI::kelvin];
+
+    port heatInput : HeatTransferPort;
+    port coolantInterface : CoolingPort;
+
+    part pump : CoolantPump;
+    part heatExchanger : HeatExchanger;
+
+    connect pump.coolantOutlet to heatExchanger.coolantInlet;
+  }
+
+  part def CoolantPump {
+    attribute ratedFlow : MassFlowRate = 0.15 [SI::kilogramPerSecond];
+    attribute motorPower : Power = 180 [SI::watt];
+    port coolantOutlet : CoolingPort;
+  }
+
+  part def HeatExchanger {
+    attribute heatRemovalCapacity : Power = 1500 [SI::watt];
+    port coolantInlet : CoolingPort;
+  }
+
+  part def SensorSuite {
+    port telemetryOutput : TelemetryPort;
+
+    part temperatureSensor : InfraredTemperatureSensor;
+    part voltageProbe : RFVoltageProbe;
+    part currentProbe : RFCurrentProbe;
+    part powerMeter : DirectionalPowerMeter;
+    part doorSwitch : InterlockSwitch;
+  }
+
+  part def InfraredTemperatureSensor {
+    attribute rangeMinimum : Temperature = 273.15 [SI::kelvin];
+    attribute rangeMaximum : Temperature = 473.15 [SI::kelvin];
+    attribute responseTime : TimeDuration = 0.25 [SI::second];
+  }
+
+  part def RFVoltageProbe {
+    attribute maximumVoltage : Voltage = 15000 [SI::volt];
+  }
+
+  part def RFCurrentProbe {
+    attribute maximumCurrent : Current = 50 [SI::ampere];
+  }
+
+  part def DirectionalPowerMeter {
+    attribute maximumForwardPower : Power = 6000 [SI::watt];
+    attribute reflectedPowerTripLevel : Power = 750 [SI::watt];
+  }
+
+  part def InterlockSwitch {
+    attribute closed : Boolean = true;
+  }
+
+  part def HeatingController {
+    attribute controlPeriod : TimeDuration = 0.1 [SI::second];
+    attribute targetTemperature : Temperature = 363.15 [SI::kelvin];
+    attribute maximumRampRate : Real = 2.0;
+
+    port commandInput : CommandPort;
+    port sensorInput : TelemetryPort;
+    port rfCommandOutput : CommandPort;
+    port matchCommandOutput : CommandPort;
+    port transportCommandOutput : CommandPort;
+    port safetyInput : CommandPort;
+
+    perform action ClosedLoopTemperatureControl {
+      in item command : ControlCommand;
+      in item telemetry : SensorTelemetry;
+      out item rfCommand : ControlCommand;
+
+      first readSetpoint;
+      then compareTemperature;
+      then calculatePowerDemand;
+      then limitPowerAndRampRate;
+      then issueRFCommand;
+      then done;
+
+      action readSetpoint;
+      action compareTemperature;
+      action calculatePowerDemand;
+      action limitPowerAndRampRate;
+      action issueRFCommand;
+    }
+
+    state def ControllerStateMachine {
+      entry action InitializeController;
+
+      state Off;
+      state Standby;
+      state Precheck;
+      state Heating;
+      state Holding;
+      state Fault;
+      state Shutdown;
+
+      transition first Off then Standby;
+      transition Standby then Precheck accept ControlCommand;
+      transition Precheck then Heating if interlocksValid;
+      transition Heating then Holding if targetTemperatureReached;
+      transition Holding then Heating if temperatureBelowDeadband;
+      transition Heating then Fault if reflectedPowerHigh;
+      transition Heating then Fault if productOverTemperature;
+      transition Precheck then Fault if interlockOpen;
+      transition Fault then Shutdown;
+      transition Shutdown then Standby accept ControlCommand;
+
+      attribute interlocksValid : Boolean;
+      attribute targetTemperatureReached : Boolean;
+      attribute temperatureBelowDeadband : Boolean;
+      attribute reflectedPowerHigh : Boolean;
+      attribute productOverTemperature : Boolean;
+      attribute interlockOpen : Boolean;
+    }
+  }
+
+  part def SafetyInterlockSystem {
+    attribute maximumReflectedPower : Power = 750 [SI::watt];
+    attribute maximumCavityTemperature : Temperature = 333.15 [SI::kelvin];
+    attribute shutdownLatency : TimeDuration = 0.05 [SI::second];
+
+    port telemetryInput : TelemetryPort;
+    port shutdownOutput : SafetyPort;
+
+    perform action EvaluateSafetyInterlocks {
+      in item telemetry : SensorTelemetry;
+      out item shutdownCommand : ControlCommand;
+
+      first checkDoorInterlock;
+      then checkReflectedPower;
+      then checkOverTemperature;
+      then checkCurrentLimit;
+      then commandShutdownWhenUnsafe;
+      then done;
+
+      action checkDoorInterlock;
+      action checkReflectedPower;
+      action checkOverTemperature;
+      action checkCurrentLimit;
+      action commandShutdownWhenUnsafe;
+    }
+  }
+
+  action def PrimaryHeatingFunction {
+    in item unheatedMaterial : ProcessMaterial;
+    in item utilityPower : ElectricalEnergy;
+    out item heatedMaterial : ProcessMaterial;
+    out item telemetry : SensorTelemetry;
+
+    first receiveMaterialAndPower;
+    then convertUtilityPowerToRadioFrequencyEnergy;
+    then applyAlternatingElectricFieldAcrossMaterial;
+    then dissipateDielectricLossesWithinMaterial;
+    then regulateTemperatureToSetpoint;
+    then dischargeHeatedMaterial;
+    then reportOperatingTelemetry;
+    then done;
+
+    action receiveMaterialAndPower;
+    action convertUtilityPowerToRadioFrequencyEnergy;
+    action applyAlternatingElectricFieldAcrossMaterial;
+    action dissipateDielectricLossesWithinMaterial;
+    action regulateTemperatureToSetpoint;
+    action dischargeHeatedMaterial;
+    action reportOperatingTelemetry;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     * The dielectric heating system shall raise the temperature of a dielectric process material
+     * by applying a controlled alternating electric field that causes molecular polarization losses
+     * inside the material, converting RF electrical energy directly into volumetric heat.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.maximumRFPower >= 5000 [SI::watt]
+    }
+  }
+
+  requirement def FrequencyRequirement {
+    doc
+    /*
+     * The system shall operate at an industrial radio-frequency dielectric heating band centered
+     * on 27.12 MHz to provide controlled volumetric heating of compatible dielectric materials.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.nominalFrequency == 27.12 [SI::megahertz]
+    }
+  }
+
+  requirement def TemperatureControlRequirement {
+    doc
+    /*
+     * The system shall control outlet material temperature to the commanded target temperature
+     * without exceeding the defined maximum product temperature.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.maximumProductTemperature <= 393.15 [SI::kelvin]
+    }
+  }
+
+  requirement def EfficiencyRequirement {
+    doc
+    /*
+     * The dielectric heating system shall transfer at least 72 percent of accepted RF power into
+     * useful heat within the dielectric load during normal tuned operation.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.minimumEfficiency >= 0.72
+    }
+  }
+
+  requirement def SafetyRequirement {
+    doc
+    /*
+     * The system shall disable RF output when a door interlock opens, reflected power exceeds
+     * the trip threshold, or product temperature exceeds the allowed limit.
+     */
+
+    subject protectionSystem : SafetyInterlockSystem;
+
+    require constraint {
+      protectionSystem.shutdownLatency <= 0.05 [SI::second]
+    }
+  }
+
+  requirement def CoolingRequirement {
+    doc
+    /*
+     * The system shall remove waste heat from electrodes, RF components, and cavity structures
+     * so that coolant outlet temperature remains below the specified limit during continuous operation.
+     */
+
+    subject coolingSystem : CoolingSubsystem;
+
+    require constraint {
+      coolingSystem.maximumOutletTemperature <= 323.15 [SI::kelvin]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by DielectricHeatingSystem;
+  satisfy FrequencyRequirement by DielectricHeatingSystem;
+  satisfy TemperatureControlRequirement by DielectricHeatingSystem;
+  satisfy EfficiencyRequirement by DielectricHeatingSystem;
+  satisfy SafetyRequirement by SafetyInterlockSystem;
+  satisfy CoolingRequirement by CoolingSubsystem;
+
+  part dielectricHeater : DielectricHeatingSystem;
+
+}
+tokens used
+5,319
+package DielectricHeatingSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def TimeDuration :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def Distance :> ISQ::length {
+    unit = SI::meter;
+  }
+
+  attribute def MassFlowRate :> ISQ::massFlowRate {
+    unit = SI::kilogramPerSecond;
+  }
+
+  attribute def RelativePermittivity :> ScalarValues::Real;
+  attribute def LossTangent :> ScalarValues::Real;
+  attribute def DutyCycle :> ScalarValues::Real;
+  attribute def Efficiency :> ScalarValues::Real;
+
+  item def ElectricalEnergy {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute frequency : Frequency;
+    attribute power : Power;
+  }
+
+  item def ThermalEnergy {
+    attribute heatRate : Power;
+    attribute temperature : Temperature;
+  }
+
+  item def ProcessMaterial {
+    attribute dielectricConstant : RelativePermittivity;
+    attribute dielectricLossTangent : LossTangent;
+    attribute inletTemperature : Temperature;
+    attribute targetTemperature : Temperature;
+    attribute massFlow : MassFlowRate;
+  }
+
+  item def CoolingFluid {
+    attribute inletTemperature : Temperature;
+    attribute outletTemperature : Temperature;
+    attribute flowRate : MassFlowRate;
+  }
+
+  item def ControlCommand {
+    attribute requestedPower : Power;
+    attribute requestedFrequency : Frequency;
+    attribute electrodeGap : Distance;
+    attribute enableHeating : Boolean;
+  }
+
+  item def SensorTelemetry {
+    attribute measuredTemperature : Temperature;
+    attribute measuredVoltage : Voltage;
+    attribute measuredCurrent : Current;
+    attribute measuredForwardPower : Power;
+    attribute measuredReflectedPower : Power;
+    attribute interlockClosed : Boolean;
+  }
+
+  port def RFPowerPort {
+    out item rfEnergy : ElectricalEnergy;
+  }
+
+  port def ElectricalInputPort {
+    in item utilityPower : ElectricalEnergy;
+  }
+
+  port def MaterialInletPort {
+    in item feed : ProcessMaterial;
+  }
+
+  port def MaterialOutletPort {
+    out item heatedMaterial : ProcessMaterial;
+  }
+
+  port def HeatTransferPort {
+    out item thermalEnergy : ThermalEnergy;
+  }
+
+  port def CoolingPort {
+    inout item coolant : CoolingFluid;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : SensorTelemetry;
+  }
+
+  port def SafetyPort {
+    out item shutdownCommand : ControlCommand;
+  }
+
+  part def DielectricHeatingSystem {
+    attribute nominalFrequency : Frequency = 27.12 [SI::megahertz];
+    attribute maximumRFPower : Power = 5000 [SI::watt];
+    attribute nominalElectrodeGap : Distance = 0.045 [SI::meter];
+    attribute minimumEfficiency : Efficiency = 0.72;
+    attribute maximumProductTemperature : Temperature = 393.15 [SI::kelvin];
+
+    port electricalInput : ElectricalInputPort;
+    port materialInlet : MaterialInletPort;
+    port materialOutlet : MaterialOutletPort;
+    port coolingLoop : CoolingPort;
+    port operatorCommand : CommandPort;
+    port systemTelemetry : TelemetryPort;
+
+    part powerSupply : RFPowerGenerator;
+    part matchingNetwork : ImpedanceMatchingNetwork;
+    part applicator : DielectricApplicator;
+    part materialHandler : MaterialTransport;
+    part coolingSubsystem : CoolingSubsystem;
+    part controller : HeatingController;
+    part protection : SafetyInterlockSystem;
+    part sensors : SensorSuite;
+
+    connect electricalInput to powerSupply.acInput;
+    connect powerSupply.rfOutput to matchingNetwork.rfInput;
+    connect matchingNetwork.tunedRFOutput to applicator.electrodeInput;
+    connect materialInlet to materialHandler.inlet;
+    connect materialHandler.processZone to applicator.materialCavity;
+    connect applicator.outlet to materialOutlet;
+    connect applicator.heatReject to coolingSubsystem.heatInput;
+    connect coolingSubsystem.coolantInterface to coolingLoop;
+    connect operatorCommand to controller.commandInput;
+    connect sensors.telemetryOutput to controller.sensorInput;
+    connect sensors.telemetryOutput to systemTelemetry;
+    connect controller.rfCommandOutput to powerSupply.commandInput;
+    connect controller.matchCommandOutput to matchingNetwork.commandInput;
+    connect controller.transportCommandOutput to materialHandler.commandInput;
+    connect protection.shutdownOutput to powerSupply.safetyInput;
+    connect protection.shutdownOutput to controller.safetyInput;
+    connect sensors.telemetryOutput to protection.telemetryInput;
+  }
+
+  part def RFPowerGenerator {
+    attribute outputFrequency : Frequency = 27.12 [SI::megahertz];
+    attribute ratedPower : Power = 5000 [SI::watt];
+    attribute dcBusVoltage : Voltage = 650 [SI::volt];
+    attribute conversionEfficiency : Efficiency = 0.86;
+
+    port acInput : ElectricalInputPort;
+    port rfOutput : RFPowerPort;
+    port commandInput : CommandPort;
+    port safetyInput : CommandPort;
+
+    perform action GenerateRFPower {
+      in item command : ControlCommand;
+      in item utilityPower : ElectricalEnergy;
+      out item rfEnergy : ElectricalEnergy;
+
+      first start;
+      then validateEnable;
+      then synthesizeCarrier;
+      then amplifyCarrier;
+      then deliverRF;
+      then done;
+
+      action validateEnable;
+      action synthesizeCarrier;
+      action amplifyCarrier;
+      action deliverRF;
+    }
+  }
+
+  part def ImpedanceMatchingNetwork {
+    attribute minimumVSWR : Real = 1.0;
+    attribute maximumAllowedVSWR : Real = 1.8;
+    attribute tuningResponseTime : TimeDuration = 2.0 [SI::second];
+
+    port rfInput : RFPowerPort;
+    port tunedRFOutput : RFPowerPort;
+    port commandInput : CommandPort;
+
+    part variableCapacitorA : VacuumVariableCapacitor;
+    part variableCapacitorB : VacuumVariableCapacitor;
+    part tuningInductor : RFInductor;
+
+    perform action TuneImpedance {
+      in item telemetry : SensorTelemetry;
+      out item command : ControlCommand;
+
+      first sampleForwardAndReflectedPower;
+      then calculateReflectionCoefficient;
+      then adjustReactiveElements;
+      then verifyAcceptedPower;
+      then done;
+
+      action sampleForwardAndReflectedPower;
+      action calculateReflectionCoefficient;
+      action adjustReactiveElements;
+      action verifyAcceptedPower;
+    }
+  }
+
+  part def VacuumVariableCapacitor {
+    attribute minimumCapacitance : Real = 20.0;
+    attribute maximumCapacitance : Real = 1000.0;
+    attribute voltageRating : Voltage = 15000 [SI::volt];
+  }
+
+  part def RFInductor {
+    attribute inductance : Real = 1.8;
+    attribute currentRating : Current = 40 [SI::ampere];
+  }
+
+  part def DielectricApplicator {
+    attribute cavityFrequency : Frequency = 27.12 [SI::megahertz];
+    attribute electrodeGap : Distance = 0.045 [SI::meter];
+    attribute fieldUniformityIndex : Real = 0.88;
+    attribute maximumElectrodeVoltage : Voltage = 12000 [SI::volt];
+
+    port electrodeInput : RFPowerPort;
+    port materialCavity : MaterialInletPort;
+    port outlet : MaterialOutletPort;
+    port heatReject : HeatTransferPort;
+
+    part upperElectrode : Electrode;
+    part lowerElectrode : Electrode;
+    part shieldedCavity : RFShieldedCavity;
+    part productLoad : DielectricLoad;
+
+    connect upperElectrode.opposingFace to lowerElectrode.opposingFace;
+
+    perform action ConvertElectricFieldToHeat {
+      in item rfEnergy : ElectricalEnergy;
+      in item feed : ProcessMaterial;
+      out item heatedMaterial : ProcessMaterial;
+      out item rejectedHeat : ThermalEnergy;
+
+      first establishAlternatingElectricField;
+      then polarizeDielectricMaterial;
+      then dissipateMolecularLosses;
+      then raiseMaterialTemperature;
+      then dischargeHeatedMaterial;
+      then done;
+
+      action establishAlternatingElectricField;
+      action polarizeDielectricMaterial;
+      action dissipateMolecularLosses;
+      action raiseMaterialTemperature;
+      action dischargeHeatedMaterial;
+    }
+  }
+
+  part def Electrode {
+    attribute surfaceArea : Real = 0.18;
+    attribute waterCooled : Boolean = true;
+    port opposingFace : RFPowerPort;
+  }
+
+  part def RFShieldedCavity {
+    attribute shieldingEffectiveness : Real = 80.0;
+    attribute accessDoorClosed : Boolean = true;
+  }
+
+  part def DielectricLoad {
+    attribute dielectricConstant : RelativePermittivity = 18.0;
+    attribute lossTangent : LossTangent = 0.12;
+    attribute loadMassFlow : MassFlowRate = 0.05 [SI::kilogramPerSecond];
+  }
+
+  part def MaterialTransport {
+    attribute conveyorSpeed : Real = 0.08;
+    attribute residenceTime : TimeDuration = 45 [SI::second];
+
+    port inlet : MaterialInletPort;
+    port processZone : MaterialOutletPort;
+    port commandInput : CommandPort;
+
+    perform action MeterMaterialFlow {
+      in item feed : ProcessMaterial;
+      out item conditionedFeed : ProcessMaterial;
+
+      first acceptFeed;
+      then regulateFlowRate;
+      then centerMaterialBetweenElectrodes;
+      then releaseToApplicator;
+      then done;
+
+      action acceptFeed;
+      action regulateFlowRate;
+      action centerMaterialBetweenElectrodes;
+      action releaseToApplicator;
+    }
+  }
+
+  part def CoolingSubsystem {
+    attribute nominalCoolantFlow : MassFlowRate = 0.12 [SI::kilogramPerSecond];
+    attribute maximumOutletTemperature : Temperature = 323.15 [SI::kelvin];
+
+    port heatInput : HeatTransferPort;
+    port coolantInterface : CoolingPort;
+
+    part pump : CoolantPump;
+    part heatExchanger : HeatExchanger;
+
+    connect pump.coolantOutlet to heatExchanger.coolantInlet;
+  }
+
+  part def CoolantPump {
+    attribute ratedFlow : MassFlowRate = 0.15 [SI::kilogramPerSecond];
+    attribute motorPower : Power = 180 [SI::watt];
+    port coolantOutlet : CoolingPort;
+  }
+
+  part def HeatExchanger {
+    attribute heatRemovalCapacity : Power = 1500 [SI::watt];
+    port coolantInlet : CoolingPort;
+  }
+
+  part def SensorSuite {
+    port telemetryOutput : TelemetryPort;
+
+    part temperatureSensor : InfraredTemperatureSensor;
+    part voltageProbe : RFVoltageProbe;
+    part currentProbe : RFCurrentProbe;
+    part powerMeter : DirectionalPowerMeter;
+    part doorSwitch : InterlockSwitch;
+  }
+
+  part def InfraredTemperatureSensor {
+    attribute rangeMinimum : Temperature = 273.15 [SI::kelvin];
+    attribute rangeMaximum : Temperature = 473.15 [SI::kelvin];
+    attribute responseTime : TimeDuration = 0.25 [SI::second];
+  }
+
+  part def RFVoltageProbe {
+    attribute maximumVoltage : Voltage = 15000 [SI::volt];
+  }
+
+  part def RFCurrentProbe {
+    attribute maximumCurrent : Current = 50 [SI::ampere];
+  }
+
+  part def DirectionalPowerMeter {
+    attribute maximumForwardPower : Power = 6000 [SI::watt];
+    attribute reflectedPowerTripLevel : Power = 750 [SI::watt];
+  }
+
+  part def InterlockSwitch {
+    attribute closed : Boolean = true;
+  }
+
+  part def HeatingController {
+    attribute controlPeriod : TimeDuration = 0.1 [SI::second];
+    attribute targetTemperature : Temperature = 363.15 [SI::kelvin];
+    attribute maximumRampRate : Real = 2.0;
+
+    port commandInput : CommandPort;
+    port sensorInput : TelemetryPort;
+    port rfCommandOutput : CommandPort;
+    port matchCommandOutput : CommandPort;
+    port transportCommandOutput : CommandPort;
+    port safetyInput : CommandPort;
+
+    perform action ClosedLoopTemperatureControl {
+      in item command : ControlCommand;
+      in item telemetry : SensorTelemetry;
+      out item rfCommand : ControlCommand;
+
+      first readSetpoint;
+      then compareTemperature;
+      then calculatePowerDemand;
+      then limitPowerAndRampRate;
+      then issueRFCommand;
+      then done;
+
+      action readSetpoint;
+      action compareTemperature;
+      action calculatePowerDemand;
+      action limitPowerAndRampRate;
+      action issueRFCommand;
+    }
+
+    state def ControllerStateMachine {
+      entry action InitializeController;
+
+      state Off;
+      state Standby;
+      state Precheck;
+      state Heating;
+      state Holding;
+      state Fault;
+      state Shutdown;
+
+      transition first Off then Standby;
+      transition Standby then Precheck accept ControlCommand;
+      transition Precheck then Heating if interlocksValid;
+      transition Heating then Holding if targetTemperatureReached;
+      transition Holding then Heating if temperatureBelowDeadband;
+      transition Heating then Fault if reflectedPowerHigh;
+      transition Heating then Fault if productOverTemperature;
+      transition Precheck then Fault if interlockOpen;
+      transition Fault then Shutdown;
+      transition Shutdown then Standby accept ControlCommand;
+
+      attribute interlocksValid : Boolean;
+      attribute targetTemperatureReached : Boolean;
+      attribute temperatureBelowDeadband : Boolean;
+      attribute reflectedPowerHigh : Boolean;
+      attribute productOverTemperature : Boolean;
+      attribute interlockOpen : Boolean;
+    }
+  }
+
+  part def SafetyInterlockSystem {
+    attribute maximumReflectedPower : Power = 750 [SI::watt];
+    attribute maximumCavityTemperature : Temperature = 333.15 [SI::kelvin];
+    attribute shutdownLatency : TimeDuration = 0.05 [SI::second];
+
+    port telemetryInput : TelemetryPort;
+    port shutdownOutput : SafetyPort;
+
+    perform action EvaluateSafetyInterlocks {
+      in item telemetry : SensorTelemetry;
+      out item shutdownCommand : ControlCommand;
+
+      first checkDoorInterlock;
+      then checkReflectedPower;
+      then checkOverTemperature;
+      then checkCurrentLimit;
+      then commandShutdownWhenUnsafe;
+      then done;
+
+      action checkDoorInterlock;
+      action checkReflectedPower;
+      action checkOverTemperature;
+      action checkCurrentLimit;
+      action commandShutdownWhenUnsafe;
+    }
+  }
+
+  action def PrimaryHeatingFunction {
+    in item unheatedMaterial : ProcessMaterial;
+    in item utilityPower : ElectricalEnergy;
+    out item heatedMaterial : ProcessMaterial;
+    out item telemetry : SensorTelemetry;
+
+    first receiveMaterialAndPower;
+    then convertUtilityPowerToRadioFrequencyEnergy;
+    then applyAlternatingElectricFieldAcrossMaterial;
+    then dissipateDielectricLossesWithinMaterial;
+    then regulateTemperatureToSetpoint;
+    then dischargeHeatedMaterial;
+    then reportOperatingTelemetry;
+    then done;
+
+    action receiveMaterialAndPower;
+    action convertUtilityPowerToRadioFrequencyEnergy;
+    action applyAlternatingElectricFieldAcrossMaterial;
+    action dissipateDielectricLossesWithinMaterial;
+    action regulateTemperatureToSetpoint;
+    action dischargeHeatedMaterial;
+    action reportOperatingTelemetry;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     * The dielectric heating system shall raise the temperature of a dielectric process material
+     * by applying a controlled alternating electric field that causes molecular polarization losses
+     * inside the material, converting RF electrical energy directly into volumetric heat.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.maximumRFPower >= 5000 [SI::watt]
+    }
+  }
+
+  requirement def FrequencyRequirement {
+    doc
+    /*
+     * The system shall operate at an industrial radio-frequency dielectric heating band centered
+     * on 27.12 MHz to provide controlled volumetric heating of compatible dielectric materials.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.nominalFrequency == 27.12 [SI::megahertz]
+    }
+  }
+
+  requirement def TemperatureControlRequirement {
+    doc
+    /*
+     * The system shall control outlet material temperature to the commanded target temperature
+     * without exceeding the defined maximum product temperature.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.maximumProductTemperature <= 393.15 [SI::kelvin]
+    }
+  }
+
+  requirement def EfficiencyRequirement {
+    doc
+    /*
+     * The dielectric heating system shall transfer at least 72 percent of accepted RF power into
+     * useful heat within the dielectric load during normal tuned operation.
+     */
+
+    subject heatingSystem : DielectricHeatingSystem;
+
+    require constraint {
+      heatingSystem.minimumEfficiency >= 0.72
+    }
+  }
+
+  requirement def SafetyRequirement {
+    doc
+    /*
+     * The system shall disable RF output when a door interlock opens, reflected power exceeds
+     * the trip threshold, or product temperature exceeds the allowed limit.
+     */
+
+    subject protectionSystem : SafetyInterlockSystem;
+
+    require constraint {
+      protectionSystem.shutdownLatency <= 0.05 [SI::second]
+    }
+  }
+
+  requirement def CoolingRequirement {
+    doc
+    /*
+     * The system shall remove waste heat from electrodes, RF components, and cavity structures
+     * so that coolant outlet temperature remains below the specified limit during continuous operation.
+     */
+
+    subject coolingSystem : CoolingSubsystem;
+
+    require constraint {
+      coolingSystem.maximumOutletTemperature <= 323.15 [SI::kelvin]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by DielectricHeatingSystem;
+  satisfy FrequencyRequirement by DielectricHeatingSystem;
+  satisfy TemperatureControlRequirement by DielectricHeatingSystem;
+  satisfy EfficiencyRequirement by DielectricHeatingSystem;
+  satisfy SafetyRequirement by SafetyInterlockSystem;
+  satisfy CoolingRequirement by CoolingSubsystem;
+
+  part dielectricHeater : DielectricHeatingSystem;
+
+}

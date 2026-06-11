@@ -1,0 +1,406 @@
+package UnnasBootSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> scalarValues::Real;
+    unit = "mmHg";
+  }
+
+  attribute def Length {
+    :> scalarValues::Real;
+    unit = "cm";
+  }
+
+  attribute def Time {
+    :> scalarValues::Real;
+    unit = "h";
+  }
+
+  attribute def Mass {
+    :> scalarValues::Real;
+    unit = "g";
+  }
+
+  attribute def MoistureFraction {
+    :> scalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def ZincOxideConcentration {
+    :> scalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def SkinIntegrityScore {
+    :> scalarValues::Real;
+    unit = "score";
+  }
+
+  item def ZincOxidePaste {
+    attribute concentration : ZincOxideConcentration;
+    attribute retainedMoisture : MoistureFraction;
+    attribute antimicrobialBarrierEffect : scalarValues::Boolean;
+  }
+
+  item def Exudate {
+    attribute volumeRate : scalarValues::Real;
+    attribute unit = "mL/h";
+    attribute contaminationRisk : scalarValues::Real;
+  }
+
+  item def CompressionLoad {
+    attribute interfacePressure : Pressure;
+    attribute pressureGradient : Pressure;
+    attribute sustainedDuration : Time;
+  }
+
+  item def SkinCondition {
+    attribute integrity : SkinIntegrityScore;
+    attribute macerationRisk : scalarValues::Real;
+    attribute irritationPresent : scalarValues::Boolean;
+  }
+
+  item def VenousReturn {
+    attribute flowImprovement : scalarValues::Real;
+    attribute edemaReductionRate : scalarValues::Real;
+  }
+
+  port def PasteDeliveryPort {
+    out item paste : ZincOxidePaste;
+  }
+
+  port def ExudateAbsorptionPort {
+    in item woundExudate : Exudate;
+  }
+
+  port def CompressionInterfacePort {
+    out item compression : CompressionLoad;
+  }
+
+  port def SkinContactPort {
+    inout item skinStatus : SkinCondition;
+  }
+
+  port def VenousSupportPort {
+    out item venousEffect : VenousReturn;
+  }
+
+  part def UnnasBoot {
+    attribute bootLength : Length = 90;
+    attribute nominalWearTime : Time = 168;
+    attribute targetAnklePressure : Pressure = 30;
+    attribute targetCalfPressure : Pressure = 18;
+    attribute primaryFunction : String =
+      "Provide sustained semi-rigid therapeutic compression and zinc-oxide-based protective contact to support venous return, reduce edema, protect peri-wound skin, and promote healing of venous leg ulcers.";
+
+    port pastePort : PasteDeliveryPort;
+    port absorptionPort : ExudateAbsorptionPort;
+    port compressionPort : CompressionInterfacePort;
+    port skinPort : SkinContactPort;
+    port venousPort : VenousSupportPort;
+
+    part medicatedGauze : MedicatedGauzeLayer;
+    part compressionWrap : CompressionLayer;
+    part outerCohesiveBandage : RetentionLayer;
+    part woundContactZone : WoundInterface;
+    part lowerLeg : PatientLowerLeg;
+
+    connect medicatedGauze.pastePort to pastePort;
+    connect medicatedGauze.absorptionPort to absorptionPort;
+    connect compressionWrap.compressionPort to compressionPort;
+    connect woundContactZone.skinPort to skinPort;
+    connect lowerLeg.venousPort to venousPort;
+
+    connect medicatedGauze.contactPort to woundContactZone.layerContactPort;
+    connect compressionWrap.innerContactPort to medicatedGauze.outerContactPort;
+    connect outerCohesiveBandage.innerContactPort to compressionWrap.outerContactPort;
+    connect woundContactZone.legContactPort to lowerLeg.skinContactPort;
+  }
+
+  part def MedicatedGauzeLayer {
+    attribute gauzeWidth : Length = 10;
+    attribute pasteMass : Mass = 45;
+    attribute zincOxidePercent : ZincOxideConcentration = 10;
+    attribute initialMoisture : MoistureFraction = 32;
+
+    port pastePort : PasteDeliveryPort;
+    port absorptionPort : ExudateAbsorptionPort;
+    port contactPort : SkinContactPort;
+    port outerContactPort : SkinContactPort;
+
+    action maintainMoistProtectiveBarrier {
+      in item incomingExudate : Exudate;
+      out item conditionedSkin : SkinCondition;
+      out item deliveredPaste : ZincOxidePaste;
+
+      first start;
+      then evaluateExudate;
+      then distributePaste;
+      then protectSkin;
+      then done;
+
+      action evaluateExudate;
+      action distributePaste;
+      action protectSkin;
+    }
+  }
+
+  part def CompressionLayer {
+    attribute elasticRecovery : scalarValues::Real = 0.65;
+    attribute appliedOverlapPercent : scalarValues::Real = 50;
+    attribute anklePressure : Pressure = 30;
+    attribute calfPressure : Pressure = 18;
+
+    port innerContactPort : SkinContactPort;
+    port outerContactPort : SkinContactPort;
+    port compressionPort : CompressionInterfacePort;
+
+    action generateGraduatedCompression {
+      out item load : CompressionLoad;
+
+      first start;
+      then conformToLeg;
+      then setSemiRigidCast;
+      then sustainPressure;
+      then done;
+
+      action conformToLeg;
+      action setSemiRigidCast;
+      action sustainPressure;
+    }
+  }
+
+  part def RetentionLayer {
+    attribute wrapWidth : Length = 10;
+    attribute slippageResistance : scalarValues::Real = 0.8;
+    attribute breathabilityIndex : scalarValues::Real = 0.6;
+
+    port innerContactPort : SkinContactPort;
+
+    action retainDressingPosition {
+      first start;
+      then anchorDistalEnd;
+      then stabilizeWrap;
+      then allowInspectionAccess;
+      then done;
+
+      action anchorDistalEnd;
+      action stabilizeWrap;
+      action allowInspectionAccess;
+    }
+  }
+
+  part def WoundInterface {
+    attribute woundArea : scalarValues::Real;
+    attribute areaUnit = "cm^2";
+    attribute acceptableMacerationRisk : scalarValues::Real = 0.25;
+
+    port layerContactPort : SkinContactPort;
+    port legContactPort : SkinContactPort;
+    port skinPort : SkinContactPort;
+
+    action exchangeMoistureAndProtectSkin {
+      inout item skin : SkinCondition;
+      in item exudate : Exudate;
+
+      first start;
+      then absorbExcessExudate;
+      then maintainMoistHealingEnvironment;
+      then limitPeriwoundIrritation;
+      then done;
+
+      action absorbExcessExudate;
+      action maintainMoistHealingEnvironment;
+      action limitPeriwoundIrritation;
+    }
+  }
+
+  part def PatientLowerLeg {
+    attribute ankleCircumference : Length;
+    attribute calfCircumference : Length;
+    attribute venousInsufficiencyPresent : scalarValues::Boolean = true;
+    attribute edemaGrade : scalarValues::Real;
+
+    port skinContactPort : SkinContactPort;
+    port venousPort : VenousSupportPort;
+
+    action respondToCompression {
+      in item load : CompressionLoad;
+      out item response : VenousReturn;
+
+      first start;
+      then opposeVenousHypertension;
+      then improveCalfMusclePumpEfficiency;
+      then reduceInterstitialFluid;
+      then done;
+
+      action opposeVenousHypertension;
+      action improveCalfMusclePumpEfficiency;
+      action reduceInterstitialFluid;
+    }
+  }
+
+  state def BootTherapyStateMachine {
+    state initial;
+    state Applied;
+    state Conforming;
+    state TherapeuticCompression;
+    state Monitoring;
+    state ReplaceRequired;
+    state Removed;
+    state final;
+
+    transition initial_to_Applied
+      first initial
+      then Applied;
+
+    transition Applied_to_Conforming
+      first Applied
+      then Conforming;
+
+    transition Conforming_to_TherapeuticCompression
+      first Conforming
+      then TherapeuticCompression;
+
+    transition TherapeuticCompression_to_Monitoring
+      first TherapeuticCompression
+      then Monitoring;
+
+    transition Monitoring_to_TherapeuticCompression
+      first Monitoring
+      then TherapeuticCompression
+      if skinIntegrityAcceptable and pressureWithinRange and wearTimeLessThanLimit;
+
+    transition Monitoring_to_ReplaceRequired
+      first Monitoring
+      then ReplaceRequired
+      if excessiveDrainage or wrapSlippage or pressureOutOfRange or skinIrritationDetected;
+
+    transition TherapeuticCompression_to_ReplaceRequired
+      first TherapeuticCompression
+      then ReplaceRequired
+      if wearTimeLimitReached;
+
+    transition ReplaceRequired_to_Removed
+      first ReplaceRequired
+      then Removed;
+
+    transition Removed_to_final
+      first Removed
+      then final;
+
+    attribute skinIntegrityAcceptable : scalarValues::Boolean;
+    attribute pressureWithinRange : scalarValues::Boolean;
+    attribute wearTimeLessThanLimit : scalarValues::Boolean;
+    attribute excessiveDrainage : scalarValues::Boolean;
+    attribute wrapSlippage : scalarValues::Boolean;
+    attribute pressureOutOfRange : scalarValues::Boolean;
+    attribute skinIrritationDetected : scalarValues::Boolean;
+    attribute wearTimeLimitReached : scalarValues::Boolean;
+  }
+
+  action def ApplyUnnasBoot {
+    in item patientSkin : SkinCondition;
+    out item appliedCompression : CompressionLoad;
+    out item protectedSkin : SkinCondition;
+
+    first inspectSkinAndWound;
+    then cleanseAndPrepareLeg;
+    then applyMedicatedGauzeFromToeBaseToBelowKnee;
+    then applyGraduatedCompressionWithOverlap;
+    then secureOuterRetentionLayer;
+    then verifyPerfusionAndComfort;
+    then documentBaselinePressure;
+    then done;
+
+    action inspectSkinAndWound;
+    action cleanseAndPrepareLeg;
+    action applyMedicatedGauzeFromToeBaseToBelowKnee;
+    action applyGraduatedCompressionWithOverlap;
+    action secureOuterRetentionLayer;
+    action verifyPerfusionAndComfort;
+    action documentBaselinePressure;
+  }
+
+  action def MonitorUnnasBootTherapy {
+    in item currentSkin : SkinCondition;
+    in item currentCompression : CompressionLoad;
+    out item continueTherapy : scalarValues::Boolean;
+
+    first checkToeColorTemperatureAndSensation;
+    then assessPainAndTightness;
+    then inspectDrainageStrikeThrough;
+    then estimateSlippage;
+    then determineContinueOrReplace;
+    then done;
+
+    action checkToeColorTemperatureAndSensation;
+    action assessPainAndTightness;
+    action inspectDrainageStrikeThrough;
+    action estimateSlippage;
+    action determineContinueOrReplace;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject boot : UnnasBoot;
+
+    require constraint {
+      boot.targetAnklePressure >= 20 and
+      boot.targetAnklePressure <= 40 and
+      boot.targetCalfPressure < boot.targetAnklePressure
+    }
+
+    doc /* The Unna's boot shall provide sustained, graduated, semi-rigid compression while maintaining a zinc-oxide protective interface for venous leg ulcer care. */
+  }
+
+  requirement def SkinProtectionRequirement {
+    subject woundInterface : WoundInterface;
+
+    require constraint {
+      woundInterface.acceptableMacerationRisk <= 0.25
+    }
+
+    doc /* The wound interface shall protect peri-wound skin by managing exudate and maintaining a moist but non-macerating contact environment. */
+  }
+
+  requirement def WearDurationRequirement {
+    subject boot : UnnasBoot;
+
+    require constraint {
+      boot.nominalWearTime <= 168
+    }
+
+    doc /* The boot shall be suitable for monitored wear for up to seven days before replacement or removal, subject to clinical assessment. */
+  }
+
+  requirement def CompressionGradientRequirement {
+    subject boot : UnnasBoot;
+
+    require constraint {
+      boot.targetAnklePressure > boot.targetCalfPressure
+    }
+
+    doc /* The boot shall apply greater distal compression at the ankle than proximal compression near the calf to assist venous return. */
+  }
+
+  requirement def SafetyMonitoringRequirement {
+    subject therapyState : BootTherapyStateMachine;
+
+    doc /* Therapy shall transition to replacement or removal when excessive drainage, slippage, pressure abnormality, skin irritation, or wear-time limit is detected. */
+  }
+
+  part unnaBootTherapySystem {
+    part boot : UnnasBoot;
+    perform action apply : ApplyUnnasBoot;
+    perform action monitor : MonitorUnnasBootTherapy;
+    exhibit state therapyLifecycle : BootTherapyStateMachine;
+
+    satisfy PrimaryFunctionRequirement by boot;
+    satisfy WearDurationRequirement by boot;
+    satisfy CompressionGradientRequirement by boot;
+    satisfy SafetyMonitoringRequirement by therapyLifecycle;
+  }
+}

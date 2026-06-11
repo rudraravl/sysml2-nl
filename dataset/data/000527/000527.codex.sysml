@@ -1,0 +1,762 @@
+package AirlockSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def GasFlowRate {
+        :> ScalarValues::Real;
+        unit = "L/s";
+    }
+
+    attribute def ElectricPotential {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent {
+        :> ScalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def Force {
+        :> ScalarValues::Real;
+        unit = "N";
+    }
+
+    enum def DoorPosition {
+        enum open;
+        enum closed;
+        enum moving;
+        enum faulted;
+    }
+
+    enum def LockStateKind {
+        enum idleEqualizedWithZoneA;
+        enum idleEqualizedWithZoneB;
+        enum sealed;
+        enum depressurizing;
+        enum pressurizing;
+        enum transferReadyToZoneA;
+        enum transferReadyToZoneB;
+        enum emergencyVent;
+        enum fault;
+    }
+
+    enum def AccessCommandKind {
+        enum requestEntryFromZoneA;
+        enum requestEntryFromZoneB;
+        enum requestExitToZoneA;
+        enum requestExitToZoneB;
+        enum cancel;
+        enum emergencyOpen;
+        enum resetFault;
+    }
+
+    enum def AlarmSeverity {
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    item def Person {
+        attribute identifier : String;
+        attribute suited : Boolean;
+        attribute authorized : Boolean;
+        attribute massKg : Real;
+    }
+
+    item def AirMixture {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute oxygenFraction : Percent;
+        attribute carbonDioxideFraction : Percent;
+        attribute humidity : Percent;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    item def ControlSignal {
+        attribute command : AccessCommandKind;
+        attribute authenticated : Boolean;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def StatusMessage {
+        attribute lockState : LockStateKind;
+        attribute zoneAPressure : Pressure;
+        attribute zoneBPressure : Pressure;
+        attribute chamberPressure : Pressure;
+        attribute innerDoorPosition : DoorPosition;
+        attribute outerDoorPosition : DoorPosition;
+        attribute alarmActive : Boolean;
+        attribute alarmSeverity : AlarmSeverity;
+    }
+
+    item def AlarmEvent {
+        attribute severity : AlarmSeverity;
+        attribute message : String;
+        attribute latched : Boolean;
+    }
+
+    port def GasPort {
+        inout gas : AirMixture;
+    }
+
+    port def PersonnelPort {
+        inout occupant : Person;
+    }
+
+    port def PowerPort {
+        in power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in command : ControlSignal;
+    }
+
+    port def StatusPort {
+        out status : StatusMessage;
+    }
+
+    port def AlarmPort {
+        out alarm : AlarmEvent;
+    }
+
+    part def PressureSensor {
+        port samplePort : GasPort;
+        attribute measuredPressure : Pressure;
+        attribute accuracy : Pressure = 0.25;
+        attribute samplePeriod : TimeDuration = 0.1;
+
+        action updatePressure {
+            in gasSample : AirMixture;
+            out sensedPressure : Pressure;
+        }
+    }
+
+    part def AtmosphereSensor {
+        port samplePort : GasPort;
+        attribute measuredOxygenFraction : Percent;
+        attribute measuredCarbonDioxideFraction : Percent;
+        attribute measuredTemperature : Temperature;
+        attribute measuredHumidity : Percent;
+        attribute oxygenAccuracy : Percent = 0.5;
+        attribute carbonDioxideAccuracy : Percent = 0.1;
+
+        action updateAtmosphere {
+            in gasSample : AirMixture;
+            out oxygen : Percent;
+            out carbonDioxide : Percent;
+            out temperature : Temperature;
+            out humidity : Percent;
+        }
+    }
+
+    part def MotorizedDoor {
+        port passage : PersonnelPort;
+        port powerInput : PowerPort;
+        attribute position : DoorPosition = DoorPosition::closed;
+        attribute sealEngaged : Boolean = true;
+        attribute latchEngaged : Boolean = true;
+        attribute maxSealForce : Force = 4500.0;
+        attribute openingTime : TimeDuration = 4.0;
+        attribute closingTime : TimeDuration = 4.5;
+
+        action openDoor {
+            in permitted : Boolean;
+            out finalPosition : DoorPosition;
+        }
+
+        action closeDoor {
+            out finalPosition : DoorPosition;
+            out sealed : Boolean;
+        }
+
+        action lockDoor {
+            out latched : Boolean;
+        }
+
+        action unlockDoor {
+            in permitted : Boolean;
+            out latched : Boolean;
+        }
+
+        state def DoorController {
+            state closed;
+            state unlocking;
+            state opening;
+            state open;
+            state closing;
+            state sealing;
+            state failed;
+
+            initial then closed;
+
+            transition closed_to_unlocking
+                first closed
+                accept ControlSignal
+                if command.authenticated
+                then unlocking;
+
+            transition unlocking_to_opening
+                first unlocking
+                if latchEngaged == false
+                then opening;
+
+            transition opening_to_open
+                first opening
+                if position == DoorPosition::open
+                then open;
+
+            transition open_to_closing
+                first open
+                accept ControlSignal
+                if command.command == AccessCommandKind::cancel
+                then closing;
+
+            transition closing_to_sealing
+                first closing
+                if position == DoorPosition::closed
+                then sealing;
+
+            transition sealing_to_closed
+                first sealing
+                if sealEngaged and latchEngaged
+                then closed;
+
+            transition any_to_failed
+                first closed
+                accept AlarmEvent
+                if alarm.severity == AlarmSeverity::critical
+                then failed;
+        }
+    }
+
+    part def VentValve {
+        port upstream : GasPort;
+        port downstream : GasPort;
+        port powerInput : PowerPort;
+        attribute openFraction : Percent = 0.0;
+        attribute maxFlowRate : GasFlowRate = 120.0;
+        attribute failClosed : Boolean = true;
+
+        action setOpening {
+            in requestedOpening : Percent;
+            out actualOpening : Percent;
+        }
+
+        action closeValve {
+            out actualOpening : Percent;
+        }
+    }
+
+    part def VacuumPump {
+        port inlet : GasPort;
+        port outlet : GasPort;
+        port powerInput : PowerPort;
+        attribute enabled : Boolean = false;
+        attribute nominalFlowRate : GasFlowRate = 80.0;
+        attribute minimumOperatingPressure : Pressure = 5.0;
+
+        action startPump {
+            out running : Boolean;
+        }
+
+        action stopPump {
+            out running : Boolean;
+        }
+    }
+
+    part def ControlPanel {
+        port commandOutput : CommandPort;
+        port statusInput : StatusPort;
+        port alarmInput : AlarmPort;
+        attribute userAuthenticated : Boolean = false;
+
+        action authenticateUser {
+            in credentialAccepted : Boolean;
+            out authenticated : Boolean;
+        }
+
+        action submitCommand {
+            in selectedCommand : AccessCommandKind;
+            out issuedCommand : ControlSignal;
+        }
+
+        action displayStatus {
+            in message : StatusMessage;
+        }
+
+        action displayAlarm {
+            in event : AlarmEvent;
+        }
+    }
+
+    part def AirlockController {
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port alarmOutput : AlarmPort;
+        port powerInput : PowerPort;
+
+        attribute currentState : LockStateKind = LockStateKind::idleEqualizedWithZoneA;
+        attribute targetPressure : Pressure = 101.3;
+        attribute pressureTolerance : Pressure = 1.0;
+        attribute minimumSafeOxygen : Percent = 19.5;
+        attribute maximumSafeOxygen : Percent = 23.5;
+        attribute maximumSafeCarbonDioxide : Percent = 0.5;
+        attribute maximumCycleTime : TimeDuration = 180.0;
+        attribute interlockHealthy : Boolean = true;
+        attribute chamberOccupied : Boolean = false;
+
+        action evaluateAccessRequest {
+            in command : ControlSignal;
+            in chamberPressure : Pressure;
+            in zoneAPressure : Pressure;
+            in zoneBPressure : Pressure;
+            out accepted : Boolean;
+            out destinationState : LockStateKind;
+        }
+
+        action enforceDoorInterlock {
+            in innerDoor : DoorPosition;
+            in outerDoor : DoorPosition;
+            out innerPermitted : Boolean;
+            out outerPermitted : Boolean;
+        }
+
+        action regulatePressure {
+            in measuredPressure : Pressure;
+            in target : Pressure;
+            out pressurizeValveOpening : Percent;
+            out ventValveOpening : Percent;
+            out pumpEnabled : Boolean;
+        }
+
+        action validateAtmosphere {
+            in oxygen : Percent;
+            in carbonDioxide : Percent;
+            in temperature : Temperature;
+            out safeForOccupancy : Boolean;
+        }
+
+        action publishStatus {
+            in lockState : LockStateKind;
+            in chamberPressure : Pressure;
+            in zoneAPressure : Pressure;
+            in zoneBPressure : Pressure;
+            in innerDoor : DoorPosition;
+            in outerDoor : DoorPosition;
+            out status : StatusMessage;
+        }
+
+        action raiseAlarm {
+            in severity : AlarmSeverity;
+            in text : String;
+            out event : AlarmEvent;
+        }
+
+        state def AirlockOperatingStateMachine {
+            state idleEqualizedWithZoneA;
+            state sealed;
+            state depressurizing;
+            state transferReadyToZoneB;
+            state idleEqualizedWithZoneB;
+            state pressurizing;
+            state transferReadyToZoneA;
+            state emergencyVent;
+            state fault;
+
+            initial then idleEqualizedWithZoneA;
+
+            transition zoneA_request_to_sealed
+                first idleEqualizedWithZoneA
+                accept ControlSignal
+                if command.command == AccessCommandKind::requestEntryFromZoneA and command.authenticated
+                then sealed;
+
+            transition sealed_to_depressurizing
+                first sealed
+                if chamberOccupied and interlockHealthy
+                then depressurizing;
+
+            transition depressurizing_to_readyB
+                first depressurizing
+                if abs(chamberPressure - zoneBPressure) <= pressureTolerance
+                then transferReadyToZoneB;
+
+            transition readyB_to_idleB
+                first transferReadyToZoneB
+                accept ControlSignal
+                if command.command == AccessCommandKind::requestExitToZoneB
+                then idleEqualizedWithZoneB;
+
+            transition zoneB_request_to_sealed
+                first idleEqualizedWithZoneB
+                accept ControlSignal
+                if command.command == AccessCommandKind::requestEntryFromZoneB and command.authenticated
+                then sealed;
+
+            transition sealed_to_pressurizing
+                first sealed
+                if chamberOccupied and interlockHealthy
+                then pressurizing;
+
+            transition pressurizing_to_readyA
+                first pressurizing
+                if abs(chamberPressure - zoneAPressure) <= pressureTolerance
+                then transferReadyToZoneA;
+
+            transition readyA_to_idleA
+                first transferReadyToZoneA
+                accept ControlSignal
+                if command.command == AccessCommandKind::requestExitToZoneA
+                then idleEqualizedWithZoneA;
+
+            transition any_to_emergencyVent
+                first depressurizing
+                accept ControlSignal
+                if command.command == AccessCommandKind::emergencyOpen and command.authenticated
+                then emergencyVent;
+
+            transition emergencyVent_to_fault
+                first emergencyVent
+                if abs(chamberPressure - zoneAPressure) > pressureTolerance and abs(chamberPressure - zoneBPressure) > pressureTolerance
+                then fault;
+
+            transition fault_to_idleA
+                first fault
+                accept ControlSignal
+                if command.command == AccessCommandKind::resetFault and command.authenticated
+                then idleEqualizedWithZoneA;
+        }
+    }
+
+    part def AirlockSystem {
+        attribute primaryFunction : String = "Provide controlled transfer of personnel between two zones at different atmospheric conditions while preventing simultaneous exposure, uncontrolled pressure loss, and unsafe atmosphere entry.";
+
+        port zoneAPersonnelInterface : PersonnelPort;
+        port zoneBPersonnelInterface : PersonnelPort;
+        port zoneAGasInterface : GasPort;
+        port zoneBGasInterface : GasPort;
+        port mainPowerInput : PowerPort;
+        port operatorCommandInput : CommandPort;
+        port operatorStatusOutput : StatusPort;
+        port systemAlarmOutput : AlarmPort;
+
+        attribute zoneAPressure : Pressure = 101.3;
+        attribute zoneBPressure : Pressure = 30.0;
+        attribute chamberPressure : Pressure = 101.3;
+        attribute chamberVolumeLiters : Real = 8500.0;
+        attribute nominalCycleTime : TimeDuration = 95.0;
+        attribute maximumOccupancy : Integer = 2;
+
+        part chamberAtmosphere : AirMixture {
+            attribute pressure = 101.3;
+            attribute temperature = 22.0;
+            attribute oxygenFraction = 20.9;
+            attribute carbonDioxideFraction = 0.04;
+            attribute humidity = 45.0;
+        }
+
+        part innerDoor : MotorizedDoor;
+        part outerDoor : MotorizedDoor;
+        part controller : AirlockController;
+        part chamberPressureSensor : PressureSensor;
+        part zoneAPressureSensor : PressureSensor;
+        part zoneBPressureSensor : PressureSensor;
+        part atmosphereSensor : AtmosphereSensor;
+        part pressurizationValve : VentValve;
+        part depressurizationValve : VentValve;
+        part equalizationPump : VacuumPump;
+        part localPanel : ControlPanel;
+
+        connection innerPassage
+            connect zoneAPersonnelInterface to innerDoor.passage;
+
+        connection outerPassage
+            connect outerDoor.passage to zoneBPersonnelInterface;
+
+        connection zoneAToInnerDoorGasReference
+            connect zoneAGasInterface to zoneAPressureSensor.samplePort;
+
+        connection zoneBToOuterDoorGasReference
+            connect zoneBGasInterface to zoneBPressureSensor.samplePort;
+
+        connection chamberToPressureSensor
+            connect chamberPressureSensor.samplePort to pressurizationValve.downstream;
+
+        connection chamberToAtmosphereSensor
+            connect atmosphereSensor.samplePort to pressurizationValve.downstream;
+
+        connection pressurizationSource
+            connect zoneAGasInterface to pressurizationValve.upstream;
+
+        connection pressurizationToChamber
+            connect pressurizationValve.downstream to chamberPressureSensor.samplePort;
+
+        connection chamberToDepressurizationValve
+            connect chamberPressureSensor.samplePort to depressurizationValve.upstream;
+
+        connection depressurizationSink
+            connect depressurizationValve.downstream to zoneBGasInterface;
+
+        connection pumpInlet
+            connect equalizationPump.inlet to depressurizationValve.upstream;
+
+        connection pumpOutlet
+            connect equalizationPump.outlet to zoneBGasInterface;
+
+        connection mainPowerToController
+            connect mainPowerInput to controller.powerInput;
+
+        connection mainPowerToInnerDoor
+            connect mainPowerInput to innerDoor.powerInput;
+
+        connection mainPowerToOuterDoor
+            connect mainPowerInput to outerDoor.powerInput;
+
+        connection mainPowerToPressurizationValve
+            connect mainPowerInput to pressurizationValve.powerInput;
+
+        connection mainPowerToDepressurizationValve
+            connect mainPowerInput to depressurizationValve.powerInput;
+
+        connection mainPowerToPump
+            connect mainPowerInput to equalizationPump.powerInput;
+
+        connection panelCommandToController
+            connect localPanel.commandOutput to controller.commandInput;
+
+        connection operatorCommandToController
+            connect operatorCommandInput to controller.commandInput;
+
+        connection controllerStatusToPanel
+            connect controller.statusOutput to localPanel.statusInput;
+
+        connection controllerStatusToOperator
+            connect controller.statusOutput to operatorStatusOutput;
+
+        connection controllerAlarmToPanel
+            connect controller.alarmOutput to localPanel.alarmInput;
+
+        connection controllerAlarmToOperator
+            connect controller.alarmOutput to systemAlarmOutput;
+    }
+
+    action def NormalTransferFromZoneAToZoneB {
+        in person : Person;
+        in command : ControlSignal;
+        out transferred : Boolean;
+
+        first start;
+        then verifyAuthorization;
+        then openInnerDoor;
+        then closeAndSealInnerDoor;
+        then depressurizeChamber;
+        then verifyZoneBEqualization;
+        then openOuterDoor;
+        then completeTransfer;
+
+        action verifyAuthorization {
+            in command : ControlSignal;
+            out accepted : Boolean;
+        }
+
+        action openInnerDoor {
+            in accepted : Boolean;
+            out doorOpen : Boolean;
+        }
+
+        action closeAndSealInnerDoor {
+            in personInside : Boolean;
+            out sealed : Boolean;
+        }
+
+        action depressurizeChamber {
+            in sealed : Boolean;
+            out chamberPressure : Pressure;
+        }
+
+        action verifyZoneBEqualization {
+            in chamberPressure : Pressure;
+            in zoneBPressure : Pressure;
+            out equalized : Boolean;
+        }
+
+        action openOuterDoor {
+            in equalized : Boolean;
+            out doorOpen : Boolean;
+        }
+
+        action completeTransfer {
+            in doorOpen : Boolean;
+            out transferred : Boolean;
+        }
+    }
+
+    action def NormalTransferFromZoneBToZoneA {
+        in person : Person;
+        in command : ControlSignal;
+        out transferred : Boolean;
+
+        first start;
+        then verifyAuthorization;
+        then openOuterDoor;
+        then closeAndSealOuterDoor;
+        then pressurizeChamber;
+        then verifyZoneAEqualization;
+        then openInnerDoor;
+        then completeTransfer;
+
+        action verifyAuthorization {
+            in command : ControlSignal;
+            out accepted : Boolean;
+        }
+
+        action openOuterDoor {
+            in accepted : Boolean;
+            out doorOpen : Boolean;
+        }
+
+        action closeAndSealOuterDoor {
+            in personInside : Boolean;
+            out sealed : Boolean;
+        }
+
+        action pressurizeChamber {
+            in sealed : Boolean;
+            out chamberPressure : Pressure;
+        }
+
+        action verifyZoneAEqualization {
+            in chamberPressure : Pressure;
+            in zoneAPressure : Pressure;
+            out equalized : Boolean;
+        }
+
+        action openInnerDoor {
+            in equalized : Boolean;
+            out doorOpen : Boolean;
+        }
+
+        action completeTransfer {
+            in doorOpen : Boolean;
+            out transferred : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            system.primaryFunction == "Provide controlled transfer of personnel between two zones at different atmospheric conditions while preventing simultaneous exposure, uncontrolled pressure loss, and unsafe atmosphere entry."
+        }
+    }
+
+    requirement def DoorInterlockRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            not (system.innerDoor.position == DoorPosition::open and system.outerDoor.position == DoorPosition::open)
+        }
+    }
+
+    requirement def PressureEqualizationBeforeDoorOpenRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            (system.innerDoor.position == DoorPosition::open implies abs(system.chamberPressure - system.zoneAPressure) <= system.controller.pressureTolerance) and
+            (system.outerDoor.position == DoorPosition::open implies abs(system.chamberPressure - system.zoneBPressure) <= system.controller.pressureTolerance)
+        }
+    }
+
+    requirement def SafeAtmosphereRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            system.chamberAtmosphere.oxygenFraction >= system.controller.minimumSafeOxygen and
+            system.chamberAtmosphere.oxygenFraction <= system.controller.maximumSafeOxygen and
+            system.chamberAtmosphere.carbonDioxideFraction <= system.controller.maximumSafeCarbonDioxide
+        }
+    }
+
+    requirement def CycleTimeRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            system.nominalCycleTime <= system.controller.maximumCycleTime
+        }
+    }
+
+    requirement def FailClosedValveRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            system.pressurizationValve.failClosed == true and
+            system.depressurizationValve.failClosed == true
+        }
+    }
+
+    requirement def OccupancyLimitRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            system.maximumOccupancy <= 2
+        }
+    }
+
+    requirement def AlarmOnUnsafeAtmosphereRequirement {
+        subject system : AirlockSystem;
+
+        require constraint {
+            (system.chamberAtmosphere.oxygenFraction < system.controller.minimumSafeOxygen or
+             system.chamberAtmosphere.oxygenFraction > system.controller.maximumSafeOxygen or
+             system.chamberAtmosphere.carbonDioxideFraction > system.controller.maximumSafeCarbonDioxide)
+            implies system.controller.currentState == LockStateKind::fault
+        }
+    }
+
+    satisfy PrimaryFunctionSatisfaction
+        satisfy PrimaryFunctionRequirement by AirlockSystem;
+
+    satisfy DoorInterlockSatisfaction
+        satisfy DoorInterlockRequirement by AirlockSystem::controller;
+
+    satisfy PressureEqualizationSatisfaction
+        satisfy PressureEqualizationBeforeDoorOpenRequirement by AirlockSystem::chamberPressureSensor;
+
+    satisfy SafeAtmosphereSatisfaction
+        satisfy SafeAtmosphereRequirement by AirlockSystem::atmosphereSensor;
+
+    satisfy CycleTimeSatisfaction
+        satisfy CycleTimeRequirement by AirlockSystem::controller;
+
+    satisfy FailClosedValveSatisfaction
+        satisfy FailClosedValveRequirement by AirlockSystem::pressurizationValve;
+
+    satisfy OccupancyLimitSatisfaction
+        satisfy OccupancyLimitRequirement by AirlockSystem;
+}

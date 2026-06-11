@@ -1,0 +1,569 @@
+package ContrastEnhancedUltrasound {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def FrequencyMHz {
+        :>> unit = "MHz";
+        attribute value : Real;
+    }
+
+    attribute def AcousticPressureKPa {
+        :>> unit = "kPa";
+        attribute value : Real;
+    }
+
+    attribute def MechanicalIndex {
+        attribute value : Real;
+    }
+
+    attribute def FrameRateHz {
+        :>> unit = "Hz";
+        attribute value : Real;
+    }
+
+    attribute def DoseMl {
+        :>> unit = "mL";
+        attribute value : Real;
+    }
+
+    attribute def FlowRateMlPerSec {
+        :>> unit = "mL/s";
+        attribute value : Real;
+    }
+
+    attribute def TimeSec {
+        :>> unit = "s";
+        attribute value : Real;
+    }
+
+    attribute def TemperatureC {
+        :>> unit = "degC";
+        attribute value : Real;
+    }
+
+    attribute def VoltageV {
+        :>> unit = "V";
+        attribute value : Real;
+    }
+
+    item def UltrasoundPulse {
+        attribute centerFrequency : FrequencyMHz;
+        attribute peakNegativePressure : AcousticPressureKPa;
+        attribute mechanicalIndex : MechanicalIndex;
+        attribute pulseDuration : TimeSec;
+    }
+
+    item def EchoSignal {
+        attribute receiveFrequency : FrequencyMHz;
+        attribute amplitude : Real;
+        attribute phase : Real;
+        attribute timeOfFlight : TimeSec;
+        attribute contrastNonlinearComponent : Real;
+    }
+
+    item def MicrobubbleContrastAgent {
+        attribute dose : DoseMl;
+        attribute concentration : Real;
+        attribute injectionRate : FlowRateMlPerSec;
+        attribute elapsedSinceInjection : TimeSec;
+    }
+
+    item def BModeImageFrame {
+        attribute frameRate : FrameRateHz;
+        attribute dynamicRange : Real;
+        attribute depthCm : Real;
+    }
+
+    item def ContrastImageFrame {
+        attribute frameRate : FrameRateHz;
+        attribute contrastIntensity : Real;
+        attribute tissueSuppressionRatio : Real;
+        attribute perfusionIndex : Real;
+    }
+
+    item def FusedCEUSImage {
+        attribute grayscaleWeight : Real;
+        attribute contrastOverlayWeight : Real;
+        attribute timestamp : TimeSec;
+    }
+
+    item def PatientPhysiology {
+        attribute heartRateBpm : Real;
+        attribute bodyTemperature : TemperatureC;
+        attribute targetOrganDepthCm : Real;
+    }
+
+    item def OperatorCommand {
+        attribute requestedMode : String;
+        attribute gainSetting : Real;
+        attribute depthSettingCm : Real;
+        attribute freezeRequested : Boolean;
+        attribute captureRequested : Boolean;
+    }
+
+    item def DiagnosticStudyRecord {
+        attribute studyIdentifier : String;
+        attribute targetAnatomy : String;
+        attribute primaryFunctionSummary : String;
+        attribute acquisitionDuration : TimeSec;
+    }
+
+    port def AcousticTransmitPort {
+        out item pulse : UltrasoundPulse;
+    }
+
+    port def AcousticReceivePort {
+        in item echo : EchoSignal;
+    }
+
+    port def ProbeAcousticPort {
+        in item echo : EchoSignal;
+        out item pulse : UltrasoundPulse;
+    }
+
+    port def ContrastAgentPort {
+        out item agent : MicrobubbleContrastAgent;
+    }
+
+    port def PatientVascularPort {
+        in item agent : MicrobubbleContrastAgent;
+        in item pulse : UltrasoundPulse;
+        out item echo : EchoSignal;
+        out item physiology : PatientPhysiology;
+    }
+
+    port def ImageStreamPort {
+        out item frame : FusedCEUSImage;
+    }
+
+    port def OperatorInputPort {
+        in item command : OperatorCommand;
+    }
+
+    port def ArchivePort {
+        out item record : DiagnosticStudyRecord;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : VoltageV;
+    }
+
+    part def UltrasoundConsole {
+        port operatorInput : OperatorInputPort;
+        port imageOut : ImageStreamPort;
+        port archiveOut : ArchivePort;
+        port powerIn : PowerPort;
+        port txOut : AcousticTransmitPort;
+        port rxIn : AcousticReceivePort;
+
+        part beamformer : DigitalBeamformer;
+        part imageProcessor : CEUSImageProcessor;
+        part safetyController : AcousticSafetyController;
+        part display : ClinicalDisplay;
+        part recorder : StudyRecorder;
+
+        attribute selectedFrequency : FrequencyMHz;
+        attribute selectedMechanicalIndex : MechanicalIndex;
+        attribute selectedFrameRate : FrameRateHz;
+
+        connect txOut to beamformer.transmitOut;
+        connect rxIn to beamformer.receiveIn;
+        connect beamformer.echoDataOut to imageProcessor.echoDataIn;
+        connect imageProcessor.fusedImageOut to display.imageIn;
+        connect imageProcessor.fusedImageOut to recorder.imageIn;
+        connect recorder.archiveOut to archiveOut;
+        connect operatorInput to safetyController.commandIn;
+        connect safetyController.safeTxOut to txOut;
+    }
+
+    part def DigitalBeamformer {
+        port transmitOut : AcousticTransmitPort;
+        port receiveIn : AcousticReceivePort;
+        port echoDataOut : AcousticReceivePort;
+
+        attribute transmitApertureElements : Integer;
+        attribute receiveApertureElements : Integer;
+        attribute focusingDepthCm : Real;
+        attribute pulseRepetitionFrequencyHz : Real;
+    }
+
+    part def CEUSImageProcessor {
+        port echoDataIn : AcousticReceivePort;
+        port fusedImageOut : ImageStreamPort;
+
+        part tissueSignalSeparator : NonlinearSignalSeparator;
+        part perfusionAnalyzer : PerfusionAnalyzer;
+        part overlayRenderer : ContrastOverlayRenderer;
+
+        attribute tissueSuppressionThreshold : Real;
+        attribute contrastGain : Real;
+        attribute persistenceLevel : Real;
+    }
+
+    part def NonlinearSignalSeparator {
+        attribute harmonicFrequency : FrequencyMHz;
+        attribute pulseInversionEnabled : Boolean;
+        attribute nonlinearResponseThreshold : Real;
+    }
+
+    part def PerfusionAnalyzer {
+        attribute arrivalTime : TimeSec;
+        attribute timeToPeak : TimeSec;
+        attribute washInSlope : Real;
+        attribute washOutSlope : Real;
+        attribute peakEnhancement : Real;
+    }
+
+    part def ContrastOverlayRenderer {
+        attribute overlayOpacity : Real;
+        attribute colorMapName : String;
+        attribute grayscaleBlendRatio : Real;
+    }
+
+    part def AcousticSafetyController {
+        port commandIn : OperatorInputPort;
+        port safeTxOut : AcousticTransmitPort;
+
+        attribute maximumMechanicalIndex : MechanicalIndex = 0.20;
+        attribute maximumProbeSurfaceTemperature : TemperatureC = 43.0;
+        attribute outputLimited : Boolean;
+    }
+
+    part def ClinicalDisplay {
+        port imageIn : ImageStreamPort;
+
+        attribute diagonalSizeIn : Real;
+        attribute luminanceCdPerM2 : Real;
+        attribute contrastRatio : Real;
+    }
+
+    part def StudyRecorder {
+        port imageIn : ImageStreamPort;
+        port archiveOut : ArchivePort;
+
+        attribute storageFormat : String;
+        attribute compressionRatio : Real;
+        attribute retainedFrames : Integer;
+    }
+
+    part def ContrastInjector {
+        port agentOut : ContrastAgentPort;
+        port powerIn : PowerPort;
+
+        attribute programmedDose : DoseMl;
+        attribute programmedFlowRate : FlowRateMlPerSec;
+        attribute salineFlushVolume : DoseMl;
+        attribute injectionArmed : Boolean;
+    }
+
+    part def UltrasoundProbe {
+        port acousticFace : ProbeAcousticPort;
+        port powerIn : PowerPort;
+
+        part transducerArray : MatrixArrayTransducer;
+        part matchingLayer : AcousticMatchingLayer;
+        part temperatureSensor : ProbeTemperatureSensor;
+
+        attribute nominalFrequency : FrequencyMHz;
+        attribute elementCount : Integer;
+        attribute footprintWidthMm : Real;
+
+        connect acousticFace to transducerArray.acousticPort;
+    }
+
+    part def MatrixArrayTransducer {
+        port acousticPort : ProbeAcousticPort;
+
+        attribute elementCount : Integer;
+        attribute bandwidthMHz : Real;
+        attribute steeringAngleDeg : Real;
+    }
+
+    part def AcousticMatchingLayer {
+        attribute acousticImpedanceMRayl : Real;
+        attribute attenuationDbPerCm : Real;
+    }
+
+    part def ProbeTemperatureSensor {
+        attribute measuredSurfaceTemperature : TemperatureC;
+        attribute samplingPeriod : TimeSec;
+    }
+
+    part def PatientWithTargetOrgan {
+        port vascularAccess : PatientVascularPort;
+
+        part bloodstream : VascularCompartment;
+        part targetOrgan : PerfusedOrganRegion;
+
+        attribute physiology : PatientPhysiology;
+    }
+
+    part def VascularCompartment {
+        attribute circulatingContrastDose : DoseMl;
+        attribute cardiacOutputLPerMin : Real;
+        attribute microbubbleDestructionRate : Real;
+    }
+
+    part def PerfusedOrganRegion {
+        attribute organName : String;
+        attribute depthCm : Real;
+        attribute vascularVolumeFraction : Real;
+        attribute perfusionMlPerMinPer100g : Real;
+        attribute lesionEnhancementPattern : String;
+    }
+
+    part def ContrastEnhancedUltrasoundSystem {
+        port powerInput : PowerPort;
+        port userCommands : OperatorInputPort;
+        port displayedImages : ImageStreamPort;
+        port archivedStudy : ArchivePort;
+
+        part console : UltrasoundConsole;
+        part probe : UltrasoundProbe;
+        part injector : ContrastInjector;
+        part patient : PatientWithTargetOrgan;
+
+        attribute primaryFunction : String =
+            "Use low-mechanical-index ultrasound imaging with intravascular microbubble contrast to visualize and quantify tissue perfusion in a target organ in real time.";
+
+        attribute operatingFrequency : FrequencyMHz = 2.5;
+        attribute contrastMechanicalIndex : MechanicalIndex = 0.08;
+        attribute imagingFrameRate : FrameRateHz = 20.0;
+        attribute contrastDose : DoseMl = 2.4;
+
+        connect powerInput to console.powerIn;
+        connect powerInput to probe.powerIn;
+        connect powerInput to injector.powerIn;
+        connect userCommands to console.operatorInput;
+        connect console.imageOut to displayedImages;
+        connect console.archiveOut to archivedStudy;
+        connect console.txOut to probe.acousticFace;
+        connect probe.acousticFace to console.rxIn;
+        connect probe.acousticFace to patient.vascularAccess;
+        connect injector.agentOut to patient.vascularAccess;
+    }
+
+    state def CEUSOperationalStateMachine {
+        entry action InitializeSystem;
+
+        state PoweredOff;
+        state SelfTest;
+        state ReadyForBMode;
+        state BModeLocalization;
+        state ContrastArmed;
+        state ContrastInjection;
+        state LowMIContrastImaging;
+        state PerfusionAnalysis;
+        state FrozenReview;
+        state StudyArchived;
+        state FaultSafe;
+
+        first PoweredOff;
+
+        transition PowerOn
+            first PoweredOff
+            then SelfTest;
+
+        transition SelfTestPassed
+            first SelfTest
+            then ReadyForBMode;
+
+        transition SelfTestFailed
+            first SelfTest
+            then FaultSafe;
+
+        transition StartLocalization
+            first ReadyForBMode
+            then BModeLocalization;
+
+        transition TargetFound
+            first BModeLocalization
+            then ContrastArmed;
+
+        transition InjectContrast
+            first ContrastArmed
+            then ContrastInjection;
+
+        transition MicrobubblesDetected
+            first ContrastInjection
+            then LowMIContrastImaging;
+
+        transition CapturePerfusionSequence
+            first LowMIContrastImaging
+            then PerfusionAnalysis;
+
+        transition FreezeImage
+            first LowMIContrastImaging
+            then FrozenReview;
+
+        transition ResumeImaging
+            first FrozenReview
+            then LowMIContrastImaging;
+
+        transition ArchiveStudy
+            first PerfusionAnalysis
+            then StudyArchived;
+
+        transition OverTemperature
+            first LowMIContrastImaging
+            then FaultSafe;
+
+        transition ExcessMechanicalIndex
+            first LowMIContrastImaging
+            then FaultSafe;
+    }
+
+    action def PerformCEUSStudy {
+        in item command : OperatorCommand;
+        in item patientPhysiology : PatientPhysiology;
+        in item contrastAgent : MicrobubbleContrastAgent;
+        out item studyRecord : DiagnosticStudyRecord;
+
+        action PowerAndSelfTest;
+        action AcquireBModeAnatomy;
+        action ConfigureLowMechanicalIndexMode;
+        action InjectMicrobubbleContrast;
+        action TransmitContrastPreservingPulses;
+        action ReceiveNonlinearMicrobubbleEchoes;
+        action SuppressLinearTissueSignal;
+        action RenderContrastOverlay;
+        action QuantifyPerfusion;
+        action StoreDiagnosticStudy;
+
+        first PowerAndSelfTest;
+        then AcquireBModeAnatomy;
+        then ConfigureLowMechanicalIndexMode;
+        then InjectMicrobubbleContrast;
+        then TransmitContrastPreservingPulses;
+        then ReceiveNonlinearMicrobubbleEchoes;
+        then SuppressLinearTissueSignal;
+        then RenderContrastOverlay;
+        then QuantifyPerfusion;
+        then StoreDiagnosticStudy;
+    }
+
+    action def LimitAcousticOutput {
+        in item requestedPulse : UltrasoundPulse;
+        out item approvedPulse : UltrasoundPulse;
+
+        constraint MechanicalIndexLimit {
+            requestedPulse.mechanicalIndex.value <= 0.20;
+        }
+
+        constraint ContrastPreservationLimit {
+            requestedPulse.peakNegativePressure.value <= 180.0;
+        }
+    }
+
+    action def CalculatePerfusionMetrics {
+        in item contrastFrame : ContrastImageFrame;
+        out attribute arrivalTime : TimeSec;
+        out attribute timeToPeak : TimeSec;
+        out attribute peakEnhancement : Real;
+        out attribute washInSlope : Real;
+        out attribute washOutSlope : Real;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject ceus : ContrastEnhancedUltrasoundSystem;
+
+        require constraint {
+            ceus.primaryFunction ==
+            "Use low-mechanical-index ultrasound imaging with intravascular microbubble contrast to visualize and quantify tissue perfusion in a target organ in real time."
+        }
+    }
+
+    requirement def LowMechanicalIndexRequirement {
+        subject ceus : ContrastEnhancedUltrasoundSystem;
+
+        require constraint {
+            ceus.contrastMechanicalIndex.value <= 0.20
+        }
+    }
+
+    requirement def RealTimeImagingRequirement {
+        subject ceus : ContrastEnhancedUltrasoundSystem;
+
+        require constraint {
+            ceus.imagingFrameRate.value >= 10.0
+        }
+    }
+
+    requirement def ContrastDoseRequirement {
+        subject ceus : ContrastEnhancedUltrasoundSystem;
+
+        require constraint {
+            ceus.contrastDose.value >= 0.5 and ceus.contrastDose.value <= 5.0
+        }
+    }
+
+    requirement def TissueSuppressionRequirement {
+        subject processor : CEUSImageProcessor;
+
+        require constraint {
+            processor.tissueSuppressionThreshold >= 0.75
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject safety : AcousticSafetyController;
+
+        require constraint {
+            safety.maximumProbeSurfaceTemperature.value <= 43.0
+        }
+    }
+
+    requirement def DiagnosticRecordRequirement {
+        subject record : DiagnosticStudyRecord;
+
+        require constraint {
+            record.primaryFunctionSummary ==
+            "Real-time visualization and quantification of tissue perfusion using microbubble contrast-enhanced ultrasound."
+        }
+    }
+
+    part ceusSystem : ContrastEnhancedUltrasoundSystem {
+        attribute operatingFrequency : FrequencyMHz = 2.5;
+        attribute contrastMechanicalIndex : MechanicalIndex = 0.08;
+        attribute imagingFrameRate : FrameRateHz = 20.0;
+        attribute contrastDose : DoseMl = 2.4;
+
+        part console {
+            attribute selectedFrequency : FrequencyMHz = 2.5;
+            attribute selectedMechanicalIndex : MechanicalIndex = 0.08;
+            attribute selectedFrameRate : FrameRateHz = 20.0;
+        }
+
+        part probe {
+            attribute nominalFrequency : FrequencyMHz = 2.5;
+            attribute elementCount : Integer = 192;
+            attribute footprintWidthMm : Real = 38.0;
+        }
+
+        part injector {
+            attribute programmedDose : DoseMl = 2.4;
+            attribute programmedFlowRate : FlowRateMlPerSec = 1.0;
+            attribute salineFlushVolume : DoseMl = 10.0;
+            attribute injectionArmed : Boolean = true;
+        }
+
+        part patient {
+            part targetOrgan {
+                attribute organName : String = "liver";
+                attribute depthCm : Real = 7.5;
+                attribute vascularVolumeFraction : Real = 0.18;
+                attribute perfusionMlPerMinPer100g : Real = 92.0;
+                attribute lesionEnhancementPattern : String = "arterial hyperenhancement with delayed washout";
+            }
+        }
+
+        exhibit state ceusLifecycle : CEUSOperationalStateMachine;
+        perform action ceusWorkflow : PerformCEUSStudy;
+    }
+
+    satisfy PrimaryFunctionRequirement by ceusSystem;
+    satisfy LowMechanicalIndexRequirement by ceusSystem;
+    satisfy RealTimeImagingRequirement by ceusSystem;
+    satisfy ContrastDoseRequirement by ceusSystem;
+}

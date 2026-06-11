@@ -1,0 +1,488 @@
+package VitalcallSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def BooleanValue :> ScalarValues::Boolean;
+    attribute def TextValue :> ScalarValues::String;
+
+    value type def Percent {
+        unit = "%";
+        quantity kind = dimensionless;
+    }
+
+    value type def Second {
+        unit = "s";
+        quantity kind = time;
+    }
+
+    value type def Minute {
+        unit = "min";
+        quantity kind = time;
+    }
+
+    value type def Volt {
+        unit = "V";
+        quantity kind = electricPotential;
+    }
+
+    value type def Meter {
+        unit = "m";
+        quantity kind = length;
+    }
+
+    value type def DecibelMilliwatt {
+        unit = "dBm";
+        quantity kind = dimensionless;
+    }
+
+    value type def MessagePriority {
+        enum values = low, normal, urgent, critical;
+    }
+
+    value type def AlarmStateKind {
+        enum values = idle, alarmDetected, awaitingUserCancel, transmitting, acknowledged, escalated, resolved, faulted;
+    }
+
+    item def EmergencyAlarm {
+        attribute alarmId : TextValue;
+        attribute source : TextValue;
+        attribute priority : MessagePriority = critical;
+        attribute timestampUtc : TextValue;
+        attribute alarmReason : TextValue;
+    }
+
+    item def VoiceAudio {
+        attribute codec : TextValue = "wideband voice";
+        attribute sampleRateHz : Real;
+        attribute encrypted : BooleanValue = true;
+    }
+
+    item def StatusReport {
+        attribute batteryCharge : Percent;
+        attribute mainsPowerAvailable : BooleanValue;
+        attribute cellularSignalStrength : DecibelMilliwatt;
+        attribute pendantLinkAvailable : BooleanValue;
+        attribute systemState : AlarmStateKind;
+    }
+
+    item def LocationEstimate {
+        attribute locationText : TextValue;
+        attribute confidence : Percent;
+        attribute indoorRange : Meter;
+    }
+
+    item def CancelCommand {
+        attribute reason : TextValue;
+        attribute issuedByUser : BooleanValue = true;
+    }
+
+    port def AlarmOutputPort {
+        out item alarm : EmergencyAlarm;
+        out item status : StatusReport;
+        out item location : LocationEstimate;
+    }
+
+    port def AlarmInputPort {
+        in item alarm : EmergencyAlarm;
+        in item status : StatusReport;
+        in item location : LocationEstimate;
+    }
+
+    port def VoicePort {
+        inout item audio : VoiceAudio;
+    }
+
+    port def UserCommandPort {
+        in item cancel : CancelCommand;
+        out item status : StatusReport;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Volt;
+        out attribute powerAvailable : BooleanValue;
+    }
+
+    port def WirelessPendantPort {
+        in item pendantAlarm : EmergencyAlarm;
+        out attribute supervisionSignal : BooleanValue;
+    }
+
+    port def MonitoringCentrePort {
+        in item alarm : EmergencyAlarm;
+        in item status : StatusReport;
+        in item location : LocationEstimate;
+        inout item voice : VoiceAudio;
+        out attribute acknowledgementReceived : BooleanValue;
+    }
+
+    part def VitalcallSystem {
+        attribute primaryFunction : TextValue =
+            "Detect or receive a user emergency request, establish communication with a monitoring centre, and provide alarm, status, and location information so assistance can be coordinated.";
+        attribute maximumAlarmTransmissionTime : Second = 10 [s];
+        attribute cancellationWindow : Second = 15 [s];
+        attribute batteryReserveDuration : Minute = 1440 [min];
+        attribute nominalOperatingVoltage : Volt = 12 [V];
+        attribute coverageRadius : Meter = 80 [m];
+
+        port userCommands : UserCommandPort;
+        port monitoringLink : MonitoringCentrePort;
+        port powerInput : PowerPort;
+
+        part baseUnit : BaseUnit;
+        part wearablePendant : WearablePendant;
+        part speakerphone : Speakerphone;
+        part alarmProcessor : AlarmProcessor;
+        part communicationsModule : CommunicationsModule;
+        part backupBattery : BackupBattery;
+        part selfTestManager : SelfTestManager;
+
+        connect powerInput to baseUnit.externalPower;
+        connect baseUnit.internalPower to backupBattery.loadPower;
+        connect wearablePendant.radioPort to baseUnit.pendantReceiver;
+        connect baseUnit.localAlarmOut to alarmProcessor.alarmIn;
+        connect alarmProcessor.alarmOut to communicationsModule.alarmTransmit;
+        connect communicationsModule.monitoringCentre to monitoringLink;
+        connect speakerphone.voiceLink to communicationsModule.voiceLink;
+        connect userCommands to alarmProcessor.userCommand;
+        connect selfTestManager.statusOut to communicationsModule.statusIn;
+    }
+
+    part def BaseUnit {
+        attribute enclosureTamperDetected : BooleanValue = false;
+        attribute mainsPowerAvailable : BooleanValue = true;
+        attribute audiblePromptVolume : Percent = 70 [%];
+
+        port externalPower : PowerPort;
+        port internalPower : PowerPort;
+        port pendantReceiver : WirelessPendantPort;
+        port localAlarmOut : AlarmOutputPort;
+
+        part emergencyButton : EmergencyButton;
+        part pendantRadioReceiver : PendantRadioReceiver;
+        part statusIndicator : StatusIndicator;
+
+        connect pendantReceiver to pendantRadioReceiver.radioPort;
+        connect emergencyButton.buttonAlarmOut to localAlarmOut;
+        connect pendantRadioReceiver.receiverAlarmOut to localAlarmOut;
+    }
+
+    part def WearablePendant {
+        attribute waterResistant : BooleanValue = true;
+        attribute minimumBatteryLife : Minute = 525600 [min];
+        attribute radioRange : Meter = 80 [m];
+
+        port radioPort : WirelessPendantPort;
+
+        part pendantButton : EmergencyButton;
+        part fallDetector : FallDetector;
+
+        connect pendantButton.buttonAlarmOut to radioPort;
+        connect fallDetector.fallAlarmOut to radioPort;
+    }
+
+    part def EmergencyButton {
+        attribute pressDurationThreshold : Second = 1.5 [s];
+        attribute illuminated : BooleanValue = true;
+
+        port buttonAlarmOut : AlarmOutputPort;
+
+        action pressButton {
+            out item generatedAlarm : EmergencyAlarm;
+            generatedAlarm.alarmReason = "Manual emergency button activation";
+            generatedAlarm.source = "EmergencyButton";
+            generatedAlarm.priority = critical;
+        }
+    }
+
+    part def FallDetector {
+        attribute enabled : BooleanValue = true;
+        attribute sensitivity : Percent = 85 [%];
+        attribute confirmationDelay : Second = 20 [s];
+
+        port fallAlarmOut : AlarmOutputPort;
+
+        action detectFall {
+            out item generatedAlarm : EmergencyAlarm;
+            generatedAlarm.alarmReason = "Possible fall detected";
+            generatedAlarm.source = "WearablePendantFallDetector";
+            generatedAlarm.priority = urgent;
+        }
+    }
+
+    part def PendantRadioReceiver {
+        attribute supervisionInterval : Minute = 60 [min];
+        attribute lastSignalStrength : DecibelMilliwatt = -68 [dBm];
+
+        port radioPort : WirelessPendantPort;
+        port receiverAlarmOut : AlarmOutputPort;
+    }
+
+    part def Speakerphone {
+        attribute handsFree : BooleanValue = true;
+        attribute echoCancellationEnabled : BooleanValue = true;
+        attribute microphoneRange : Meter = 6 [m];
+
+        port voiceLink : VoicePort;
+
+        action startTwoWayVoice {
+            in item alarm : EmergencyAlarm;
+            out item voiceSession : VoiceAudio;
+            voiceSession.codec = "Opus wideband";
+            voiceSession.sampleRateHz = 16000;
+            voiceSession.encrypted = true;
+        }
+    }
+
+    part def CommunicationsModule {
+        attribute primaryBearer : TextValue = "cellular";
+        attribute backupBearer : TextValue = "IP";
+        attribute minimumSignalStrength : DecibelMilliwatt = -110 [dBm];
+        attribute retryInterval : Second = 5 [s];
+        attribute maximumRetryCount : Integer = 5;
+
+        port alarmTransmit : AlarmInputPort;
+        port statusIn : AlarmInputPort;
+        port voiceLink : VoicePort;
+        port monitoringCentre : MonitoringCentrePort;
+
+        action transmitAlarm {
+            in item alarm : EmergencyAlarm;
+            in item status : StatusReport;
+            in item location : LocationEstimate;
+            out attribute acceptedByNetwork : BooleanValue;
+        }
+
+        action retryTransmission {
+            in item alarm : EmergencyAlarm;
+            out attribute retryCount : Integer;
+        }
+    }
+
+    part def AlarmProcessor {
+        attribute currentState : AlarmStateKind = idle;
+        attribute cancelWindow : Second = 15 [s];
+        attribute acknowledgementTimeout : Second = 30 [s];
+
+        port alarmIn : AlarmInputPort;
+        port alarmOut : AlarmOutputPort;
+        port userCommand : UserCommandPort;
+
+        part locationProvider : LocationProvider;
+
+        state def AlarmHandling {
+            entry action initialize {
+                currentState = idle;
+            }
+
+            state idle;
+            state alarmDetected;
+            state awaitingUserCancel;
+            state transmitting;
+            state acknowledged;
+            state escalated;
+            state resolved;
+            state faulted;
+
+            transition idle_to_alarmDetected
+                first idle
+                then alarmDetected
+                accept item EmergencyAlarm;
+
+            transition alarmDetected_to_awaitingUserCancel
+                first alarmDetected
+                then awaitingUserCancel;
+
+            transition awaitingUserCancel_to_resolved
+                first awaitingUserCancel
+                then resolved
+                accept item CancelCommand;
+
+            transition awaitingUserCancel_to_transmitting
+                first awaitingUserCancel
+                then transmitting
+                after 15 [s];
+
+            transition transmitting_to_acknowledged
+                first transmitting
+                then acknowledged
+                if monitoringAcknowledgementReceived;
+
+            transition transmitting_to_escalated
+                first transmitting
+                then escalated
+                after 30 [s];
+
+            transition acknowledged_to_resolved
+                first acknowledged
+                then resolved
+                accept item CancelCommand;
+
+            transition escalated_to_faulted
+                first escalated
+                then faulted
+                if networkUnavailable;
+
+            transition resolved_to_idle
+                first resolved
+                then idle;
+        }
+
+        attribute monitoringAcknowledgementReceived : BooleanValue = false;
+        attribute networkUnavailable : BooleanValue = false;
+
+        action classifyAlarm {
+            in item incomingAlarm : EmergencyAlarm;
+            out item classifiedAlarm : EmergencyAlarm;
+            classifiedAlarm.priority = critical;
+        }
+
+        action publishAlarm {
+            in item classifiedAlarm : EmergencyAlarm;
+            in item location : LocationEstimate;
+            out item status : StatusReport;
+            status.systemState = transmitting;
+        }
+    }
+
+    part def LocationProvider {
+        attribute fixedPremisesAddress : TextValue = "Registered subscriber premises";
+        attribute confidence : Percent = 95 [%];
+        attribute indoorUncertainty : Meter = 10 [m];
+
+        action estimateLocation {
+            out item location : LocationEstimate;
+            location.locationText = fixedPremisesAddress;
+            location.confidence = confidence;
+            location.indoorRange = indoorUncertainty;
+        }
+    }
+
+    part def BackupBattery {
+        attribute chargeLevel : Percent = 100 [%];
+        attribute lowBatteryThreshold : Percent = 20 [%];
+        attribute reserveDuration : Minute = 1440 [min];
+
+        port loadPower : PowerPort;
+
+        state def BatteryManagement {
+            state charging;
+            state standby;
+            state supplyingLoad;
+            state lowBattery;
+            state depleted;
+
+            transition charging_to_standby
+                first charging
+                then standby
+                if chargeLevel >= 98 [%];
+
+            transition standby_to_supplyingLoad
+                first standby
+                then supplyingLoad
+                if mainsPowerLost;
+
+            transition supplyingLoad_to_lowBattery
+                first supplyingLoad
+                then lowBattery
+                if chargeLevel <= 20 [%];
+
+            transition lowBattery_to_depleted
+                first lowBattery
+                then depleted
+                if chargeLevel <= 5 [%];
+
+            transition supplyingLoad_to_charging
+                first supplyingLoad
+                then charging
+                if mainsPowerRestored;
+        }
+
+        attribute mainsPowerLost : BooleanValue = false;
+        attribute mainsPowerRestored : BooleanValue = false;
+    }
+
+    part def SelfTestManager {
+        attribute testInterval : Minute = 1440 [min];
+        attribute lastTestPassed : BooleanValue = true;
+
+        port statusOut : AlarmOutputPort;
+
+        action performSelfTest {
+            out item report : StatusReport;
+            report.batteryCharge = 100 [%];
+            report.mainsPowerAvailable = true;
+            report.cellularSignalStrength = -75 [dBm];
+            report.pendantLinkAvailable = true;
+            report.systemState = idle;
+        }
+    }
+
+    part def StatusIndicator {
+        attribute powerLedOn : BooleanValue = true;
+        attribute alarmLedOn : BooleanValue = false;
+        attribute faultLedOn : BooleanValue = false;
+        attribute audibleAlertActive : BooleanValue = false;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Vitalcall system shall provide a high-level personal emergency response function by allowing a user to initiate an alarm, automatically detecting selected emergency conditions, communicating the alarm to a monitoring centre, and enabling two-way voice communication for assistance coordination. */
+    }
+
+    requirement def AlarmTransmissionRequirement {
+        attribute maxTransmissionTime : Second = 10 [s];
+        doc /* The Vitalcall system shall transmit a confirmed emergency alarm to the monitoring centre within the maximum transmission time after the cancellation window expires. */
+    }
+
+    requirement def UserCancellationRequirement {
+        attribute cancelWindow : Second = 15 [s];
+        doc /* The Vitalcall system shall allow the user to cancel an accidental activation during the cancellation window before alarm transmission. */
+    }
+
+    requirement def BackupPowerRequirement {
+        attribute minimumReserveDuration : Minute = 1440 [min];
+        doc /* The Vitalcall system shall continue operating from backup battery power for at least the minimum reserve duration when external power is unavailable. */
+    }
+
+    requirement def TwoWayVoiceRequirement {
+        doc /* The Vitalcall system shall establish hands-free two-way voice communication between the user premises and the monitoring centre after an alarm is acknowledged. */
+    }
+
+    requirement def StatusReportingRequirement {
+        doc /* The Vitalcall system shall report battery level, power status, communication status, pendant supervision status, and alarm state to the monitoring centre. */
+    }
+
+    requirement def PendantCoverageRequirement {
+        attribute minimumIndoorCoverageRadius : Meter = 80 [m];
+        doc /* The wearable pendant shall initiate an emergency alarm from anywhere within the specified indoor coverage radius of the base unit. */
+    }
+
+    satisfy PrimaryFunctionRequirement by VitalcallSystem;
+    satisfy AlarmTransmissionRequirement by VitalcallSystem::alarmProcessor;
+    satisfy BackupPowerRequirement by VitalcallSystem::backupBattery;
+    satisfy TwoWayVoiceRequirement by VitalcallSystem::speakerphone;
+    satisfy StatusReportingRequirement by VitalcallSystem::selfTestManager;
+    satisfy PendantCoverageRequirement by VitalcallSystem::wearablePendant;
+
+    requirement def SystemSafetyConstraint {
+        doc /* A communication failure shall not clear an active alarm; the alarm shall remain escalated or faulted until monitoring acknowledgement, user cancellation after contact, or service intervention occurs. */
+    }
+
+    assert constraint AlarmNotClearedByCommunicationFailure {
+        VitalcallSystem::alarmProcessor.currentState == faulted implies
+        VitalcallSystem::alarmProcessor.networkUnavailable == true;
+    }
+
+    assert constraint BatteryReserveMeetsRequirement {
+        VitalcallSystem::backupBattery.reserveDuration >= 1440 [min];
+    }
+
+    assert constraint AlarmTimingMeetsRequirement {
+        VitalcallSystem::maximumAlarmTransmissionTime <= 10 [s];
+    }
+
+    assert constraint PendantRangeMeetsRequirement {
+        VitalcallSystem::coverageRadius >= 80 [m];
+    }
+}

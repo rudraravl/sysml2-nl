@@ -1,0 +1,424 @@
+package DermatologyInstrumentSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Nanometer;
+  value def Millimeter;
+  value def Micrometer;
+  value def Watt;
+  value def JoulePerSquareCentimeter;
+  value def Celsius;
+  value def Second;
+  value def Milliliter;
+  value def Pixel;
+  value def Percent;
+
+  item def SkinSurface {
+    attribute anatomicalRegion : String;
+    attribute lesionDiameter : Real unit Millimeter;
+    attribute pigmentationIndex : Real unit Percent;
+    attribute hydrationLevel : Real unit Percent;
+  }
+
+  item def OpticalImage {
+    attribute width : Integer unit Pixel;
+    attribute height : Integer unit Pixel;
+    attribute magnification : Real;
+    attribute polarized : Boolean;
+  }
+
+  item def DiagnosticFinding {
+    attribute lesionAsymmetryScore : Real;
+    attribute borderIrregularityScore : Real;
+    attribute colorVariationScore : Real;
+    attribute diameterMm : Real unit Millimeter;
+    attribute suspectedCondition : String;
+    attribute confidence : Real unit Percent;
+  }
+
+  item def LaserBeam {
+    attribute wavelength : Real unit Nanometer;
+    attribute pulseDuration : Real unit Second;
+    attribute fluence : Real unit JoulePerSquareCentimeter;
+    attribute spotDiameter : Real unit Millimeter;
+    attribute enabled : Boolean;
+  }
+
+  item def CryogenSpray {
+    attribute temperature : Real unit Celsius;
+    attribute volumeDelivered : Real unit Milliliter;
+    attribute sprayDuration : Real unit Second;
+  }
+
+  item def TissueSample {
+    attribute punchDiameter : Real unit Millimeter;
+    attribute sampleDepth : Real unit Millimeter;
+    attribute preserved : Boolean;
+    attribute containerId : String;
+  }
+
+  item def ClinicalCommand {
+    attribute requestedMode : String;
+    attribute targetFluence : Real unit JoulePerSquareCentimeter;
+    attribute targetWavelength : Real unit Nanometer;
+    attribute exposureTime : Real unit Second;
+  }
+
+  port def SkinContactPort {
+    inout item skin : SkinSurface;
+  }
+
+  port def ImagePort {
+    out item image : OpticalImage;
+  }
+
+  port def FindingPort {
+    out item finding : DiagnosticFinding;
+  }
+
+  port def CommandPort {
+    in item command : ClinicalCommand;
+  }
+
+  port def LaserOutputPort {
+    out item beam : LaserBeam;
+  }
+
+  port def CryogenOutputPort {
+    out item spray : CryogenSpray;
+  }
+
+  port def SamplePort {
+    out item sample : TissueSample;
+  }
+
+  port def PowerPort {
+    in attribute voltage : Real unit SI::Volt;
+    in attribute current : Real unit SI::Ampere;
+  }
+
+  port def DataPort {
+    inout item image : OpticalImage;
+    inout item finding : DiagnosticFinding;
+  }
+
+  part def Dermatoscope {
+    port skinInterface : SkinContactPort;
+    port imageOut : ImagePort;
+    port powerIn : PowerPort;
+
+    attribute illuminationWavelength : Real unit Nanometer = 570.0;
+    attribute magnification : Real = 10.0;
+    attribute fieldOfView : Real unit Millimeter = 25.0;
+    attribute polarizationEnabled : Boolean = true;
+
+    action captureDermoscopicImage {
+      in item targetSkin : SkinSurface;
+      out item capturedImage : OpticalImage;
+
+      first start;
+      then illuminate;
+      then focus;
+      then exposeSensor;
+      then outputImage;
+      then done;
+    }
+
+    state def DermatoscopeStates {
+      state Off;
+      state Standby;
+      state Illuminating;
+      state Capturing;
+      state Fault;
+
+      transition initial then Off;
+      transition Off_to_Standby first Off then Standby;
+      transition Standby_to_Illuminating first Standby then Illuminating;
+      transition Illuminating_to_Capturing first Illuminating then Capturing;
+      transition Capturing_to_Standby first Capturing then Standby;
+      transition Any_to_Fault first Standby then Fault;
+    }
+  }
+
+  part def ImageAnalysisProcessor {
+    port imageIn : DataPort;
+    port findingOut : FindingPort;
+    port powerIn : PowerPort;
+
+    attribute minimumImageWidth : Integer unit Pixel = 1920;
+    attribute minimumImageHeight : Integer unit Pixel = 1080;
+    attribute algorithmVersion : String = "ABCDE-v2.4";
+
+    action analyzeLesion {
+      in item image : OpticalImage;
+      out item finding : DiagnosticFinding;
+
+      first receiveImage;
+      then normalizeIllumination;
+      then segmentLesionBoundary;
+      then computeAsymmetry;
+      then computeBorderIrregularity;
+      then computeColorVariation;
+      then estimateDiameter;
+      then classifyFinding;
+      then done;
+    }
+  }
+
+  part def DermatologicLaser {
+    port commandIn : CommandPort;
+    port beamOut : LaserOutputPort;
+    port skinInterface : SkinContactPort;
+    port powerIn : PowerPort;
+
+    attribute selectableWavelengthMin : Real unit Nanometer = 532.0;
+    attribute selectableWavelengthMax : Real unit Nanometer = 1064.0;
+    attribute maximumFluence : Real unit JoulePerSquareCentimeter = 40.0;
+    attribute maximumAveragePower : Real unit Watt = 20.0;
+    attribute coolingDelay : Real unit Second = 2.0;
+
+    action deliverTherapeuticPulse {
+      in item command : ClinicalCommand;
+      out item emittedBeam : LaserBeam;
+
+      first validateCommand;
+      then armLaser;
+      then verifySkinContact;
+      then emitPulse;
+      then recordDose;
+      then disarmLaser;
+      then done;
+    }
+
+    state def LaserStates {
+      state Disabled;
+      state Ready;
+      state Armed;
+      state Emitting;
+      state Cooling;
+      state Fault;
+
+      transition initial then Disabled;
+      transition Disabled_to_Ready first Disabled then Ready;
+      transition Ready_to_Armed first Ready then Armed;
+      transition Armed_to_Emitting first Armed then Emitting;
+      transition Emitting_to_Cooling first Emitting then Cooling;
+      transition Cooling_to_Ready first Cooling then Ready;
+      transition Ready_to_Fault first Ready then Fault;
+      transition Armed_to_Fault first Armed then Fault;
+    }
+  }
+
+  part def CryotherapyApplicator {
+    port commandIn : CommandPort;
+    port sprayOut : CryogenOutputPort;
+    port skinInterface : SkinContactPort;
+
+    attribute cryogenTemperature : Real unit Celsius = -196.0;
+    attribute maximumSprayDuration : Real unit Second = 30.0;
+    attribute nozzleDiameter : Real unit Millimeter = 1.0;
+
+    action freezeTargetLesion {
+      in item command : ClinicalCommand;
+      out item deliveredSpray : CryogenSpray;
+
+      first verifyApplicatorPosition;
+      then openCryogenValve;
+      then monitorSprayDuration;
+      then closeCryogenValve;
+      then confirmFreezeMargin;
+      then done;
+    }
+  }
+
+  part def BiopsyPunchInstrument {
+    port skinInterface : SkinContactPort;
+    port sampleOut : SamplePort;
+
+    attribute availablePunchDiameter : Real unit Millimeter = 4.0;
+    attribute maximumSampleDepth : Real unit Millimeter = 6.0;
+    attribute sterile : Boolean = true;
+
+    action obtainDiagnosticSample {
+      in item targetSkin : SkinSurface;
+      out item tissue : TissueSample;
+
+      first verifySterility;
+      then alignPunch;
+      then rotateAndAdvance;
+      then liftSample;
+      then preserveSample;
+      then done;
+    }
+  }
+
+  part def ClinicianConsole {
+    port commandOut : CommandPort;
+    port dataPort : DataPort;
+    port powerIn : PowerPort;
+
+    attribute displayWidth : Integer unit Pixel = 2560;
+    attribute displayHeight : Integer unit Pixel = 1440;
+    attribute operatorAuthenticated : Boolean;
+
+    action selectClinicalWorkflow {
+      out item command : ClinicalCommand;
+
+      first authenticateUser;
+      then chooseDiagnosticOrTreatmentMode;
+      then enterParameters;
+      then confirmProcedure;
+      then issueCommand;
+      then done;
+    }
+  }
+
+  part def DermatologyInstrumentSuite {
+    part dermatoscope : Dermatoscope;
+    part processor : ImageAnalysisProcessor;
+    part laser : DermatologicLaser;
+    part cryotherapyApplicator : CryotherapyApplicator;
+    part biopsyPunch : BiopsyPunchInstrument;
+    part console : ClinicianConsole;
+
+    port patientSkin : SkinContactPort;
+    port mainsPower : PowerPort;
+
+    connection skinToDermatoscope connect patientSkin to dermatoscope.skinInterface;
+    connection skinToLaser connect patientSkin to laser.skinInterface;
+    connection skinToCryotherapy connect patientSkin to cryotherapyApplicator.skinInterface;
+    connection skinToBiopsyPunch connect patientSkin to biopsyPunch.skinInterface;
+
+    connection dermatoscopeImageToProcessor connect dermatoscope.imageOut to processor.imageIn;
+    connection processorFindingToConsole connect processor.findingOut to console.dataPort;
+
+    connection consoleCommandToLaser connect console.commandOut to laser.commandIn;
+    connection consoleCommandToCryotherapy connect console.commandOut to cryotherapyApplicator.commandIn;
+
+    connection powerToDermatoscope connect mainsPower to dermatoscope.powerIn;
+    connection powerToProcessor connect mainsPower to processor.powerIn;
+    connection powerToLaser connect mainsPower to laser.powerIn;
+    connection powerToConsole connect mainsPower to console.powerIn;
+
+    action performDermatologyAssessmentAndTreatment {
+      inout item skin : SkinSurface;
+      out item finding : DiagnosticFinding;
+      out item tissue : TissueSample;
+
+      first initializeInstruments;
+      then captureDermoscopicImage;
+      then analyzeLesion;
+      then presentFinding;
+      then selectTreatmentOrBiopsy;
+      then deliverLaserOrCryotherapyWhenIndicated;
+      then obtainBiopsyWhenIndicated;
+      then storeClinicalRecord;
+      then done;
+    }
+
+    state def SuiteStates {
+      state PoweredOff;
+      state SelfTest;
+      state Ready;
+      state Imaging;
+      state Analyzing;
+      state Treating;
+      state Sampling;
+      state RecordComplete;
+      state Fault;
+
+      transition initial then PoweredOff;
+      transition PowerOn first PoweredOff then SelfTest;
+      transition SelfTestPassed first SelfTest then Ready;
+      transition BeginImaging first Ready then Imaging;
+      transition ImageCaptured first Imaging then Analyzing;
+      transition FindingAvailable first Analyzing then Ready;
+      transition BeginTreatment first Ready then Treating;
+      transition TreatmentComplete first Treating then RecordComplete;
+      transition BeginSampling first Ready then Sampling;
+      transition SamplePreserved first Sampling then RecordComplete;
+      transition ResetForNextPatient first RecordComplete then Ready;
+      transition FaultDetectedFromReady first Ready then Fault;
+      transition FaultDetectedFromImaging first Imaging then Fault;
+      transition FaultDetectedFromTreating first Treating then Fault;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject suite : DermatologyInstrumentSuite;
+
+    doc
+    /*
+     The dermatology instrument suite shall support high-level clinical evaluation and intervention by imaging skin, analyzing lesion features, presenting diagnostic findings, and enabling controlled dermatologic treatment or biopsy sampling.
+    */
+
+    require constraint {
+      suite.dermatoscope.magnification >= 10.0
+    }
+  }
+
+  requirement def DermoscopicImageQualityRequirement {
+    subject dermatoscope : Dermatoscope;
+
+    require constraint {
+      dermatoscope.fieldOfView >= 20.0
+    }
+
+    require constraint {
+      dermatoscope.polarizationEnabled == true
+    }
+  }
+
+  requirement def LaserSafetyRequirement {
+    subject laser : DermatologicLaser;
+
+    require constraint {
+      laser.maximumFluence <= 40.0
+    }
+
+    require constraint {
+      laser.selectableWavelengthMin >= 500.0 and laser.selectableWavelengthMax <= 1100.0
+    }
+  }
+
+  requirement def CryotherapyDeliveryRequirement {
+    subject applicator : CryotherapyApplicator;
+
+    require constraint {
+      applicator.cryogenTemperature <= -150.0
+    }
+
+    require constraint {
+      applicator.maximumSprayDuration <= 30.0
+    }
+  }
+
+  requirement def BiopsySterilityRequirement {
+    subject biopsyPunch : BiopsyPunchInstrument;
+
+    require constraint {
+      biopsyPunch.sterile == true
+    }
+
+    require constraint {
+      biopsyPunch.maximumSampleDepth <= 6.0
+    }
+  }
+
+  requirement def ClinicalRecordRequirement {
+    subject suite : DermatologyInstrumentSuite;
+
+    doc
+    /*
+     The system shall associate each captured image, diagnostic finding, delivered treatment dose, and tissue sample identifier with the active patient encounter.
+    */
+  }
+
+  satisfy PrimaryFunctionRequirement by DermatologyInstrumentSuite;
+  satisfy DermoscopicImageQualityRequirement by Dermatoscope;
+  satisfy LaserSafetyRequirement by DermatologicLaser;
+  satisfy CryotherapyDeliveryRequirement by CryotherapyApplicator;
+  satisfy BiopsySterilityRequirement by BiopsyPunchInstrument;
+  satisfy ClinicalRecordRequirement by DermatologyInstrumentSuite;
+}

@@ -1,0 +1,473 @@
+package SzczecinWaterPumpSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = l / s;
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = kPa;
+    }
+
+    attribute def WaterLevel {
+        :> ScalarValues::Real;
+        unit = m;
+    }
+
+    attribute def ElectricPower {
+        :> ScalarValues::Real;
+        unit = kW;
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = V;
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = degC;
+    }
+
+    attribute def Turbidity {
+        :> ScalarValues::Real;
+        unit = NTU;
+    }
+
+    attribute def PumpSpeed {
+        :> ScalarValues::Real;
+        unit = rpm;
+    }
+
+    attribute def Availability {
+        :> ScalarValues::Real;
+        unit = one;
+    }
+
+    item def RawWater {
+        attribute flowRate : FlowRate;
+        attribute turbidity : Turbidity;
+        attribute temperature : Temperature;
+    }
+
+    item def PressurizedWater {
+        attribute flowRate : FlowRate;
+        attribute pressure : Pressure;
+        attribute turbidity : Turbidity;
+        attribute temperature : Temperature;
+    }
+
+    item def ElectricEnergy {
+        attribute voltage : Voltage;
+        attribute power : ElectricPower;
+    }
+
+    item def ControlSignal {
+        attribute requestedSpeed : PumpSpeed;
+        attribute startCommand : Boolean;
+        attribute stopCommand : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def PumpStatus {
+        attribute running : Boolean;
+        attribute healthy : Boolean;
+        attribute actualSpeed : PumpSpeed;
+        attribute dischargePressure : Pressure;
+        attribute motorPower : ElectricPower;
+    }
+
+    port def WaterInletPort {
+        in item water : RawWater;
+    }
+
+    port def WaterOutletPort {
+        out item water : PressurizedWater;
+    }
+
+    port def PowerInputPort {
+        in item energy : ElectricEnergy;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item status : PumpStatus;
+    }
+
+    port def SensorOutputPort {
+        out item status : PumpStatus;
+    }
+
+    part def IntakeBasin {
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+
+        attribute basinLevel : WaterLevel;
+        attribute minimumOperatingLevel : WaterLevel = 1.2 [m];
+        attribute maximumOperatingLevel : WaterLevel = 5.5 [m];
+        attribute sedimentAlarm : Boolean;
+
+        action retainAndBufferWater {
+            in item incoming : RawWater;
+            out item buffered : RawWater;
+        }
+    }
+
+    part def VariableSpeedPump {
+        port suction : WaterInletPort;
+        port discharge : WaterOutletPort;
+        port power : PowerInputPort;
+        port control : ControlInputPort;
+        port status : StatusOutputPort;
+
+        attribute ratedFlow : FlowRate = 420.0 [l / s];
+        attribute ratedHeadPressure : Pressure = 720.0 [kPa];
+        attribute ratedPower : ElectricPower = 560.0 [kW];
+        attribute minimumSpeed : PumpSpeed = 450.0 [rpm];
+        attribute maximumSpeed : PumpSpeed = 1480.0 [rpm];
+        attribute available : Boolean = true;
+
+        action pumpWater {
+            in item suctionWater : RawWater;
+            in item electricalInput : ElectricEnergy;
+            in item speedRequest : ControlSignal;
+            out item dischargeWater : PressurizedWater;
+            out item currentStatus : PumpStatus;
+        }
+
+        state def PumpOperatingState {
+            state idle;
+            state starting;
+            state running;
+            state stopping;
+            state faulted;
+
+            transition first idle;
+            transition idle_to_starting
+                first idle
+                then starting
+                accept ControlSignal
+                if command.startCommand and not command.emergencyStop;
+
+            transition starting_to_running
+                first starting
+                then running
+                if available;
+
+            transition running_to_stopping
+                first running
+                then stopping
+                accept ControlSignal
+                if command.stopCommand;
+
+            transition stopping_to_idle
+                first stopping
+                then idle;
+
+            transition any_to_faulted
+                first idle
+                then faulted
+                accept ControlSignal
+                if command.emergencyStop;
+
+            transition running_to_faulted
+                first running
+                then faulted
+                accept ControlSignal
+                if command.emergencyStop;
+
+            transition faulted_to_idle
+                first faulted
+                then idle
+                accept ControlSignal
+                if not command.emergencyStop and command.stopCommand;
+        }
+
+        perform pumpWater;
+        exhibit stateMachine : PumpOperatingState;
+    }
+
+    part def PressureHeader {
+        port inletA : WaterInletPort;
+        port inletB : WaterInletPort;
+        port inletC : WaterInletPort;
+        port outlet : WaterOutletPort;
+
+        attribute headerPressure : Pressure;
+        attribute targetPressure : Pressure = 610.0 [kPa];
+        attribute highPressureLimit : Pressure = 790.0 [kPa];
+        attribute lowPressureLimit : Pressure = 480.0 [kPa];
+
+        action combinePumpDischarges {
+            in item pumpAFlow : PressurizedWater;
+            in item pumpBFlow : PressurizedWater;
+            in item pumpCFlow : PressurizedWater;
+            out item stationDischarge : PressurizedWater;
+        }
+    }
+
+    part def WaterQualityMonitor {
+        port sampleIn : WaterInletPort;
+        port statusOut : SensorOutputPort;
+
+        attribute measuredTurbidity : Turbidity;
+        attribute measuredTemperature : Temperature;
+        attribute maximumTurbidity : Turbidity = 1.0 [NTU];
+
+        action evaluateWaterQuality {
+            in item sampledWater : RawWater;
+            out item qualityStatus : PumpStatus;
+        }
+    }
+
+    part def PowerDistributionPanel {
+        port gridInput : PowerInputPort;
+        port pumpAOutput : PowerInputPort;
+        port pumpBOutput : PowerInputPort;
+        port pumpCOutput : PowerInputPort;
+        port controllerOutput : PowerInputPort;
+
+        attribute nominalVoltage : Voltage = 6000.0 [V];
+        attribute installedCapacity : ElectricPower = 1800.0 [kW];
+        attribute backupGeneratorAvailable : Boolean = true;
+
+        action distributeElectricalPower {
+            in item gridEnergy : ElectricEnergy;
+            out item pumpAEnergy : ElectricEnergy;
+            out item pumpBEnergy : ElectricEnergy;
+            out item pumpCEnergy : ElectricEnergy;
+        }
+    }
+
+    part def PumpController {
+        port pumpACommand : ControlInputPort;
+        port pumpBCommand : ControlInputPort;
+        port pumpCCommand : ControlInputPort;
+        port pumpAStatus : StatusOutputPort;
+        port pumpBStatus : StatusOutputPort;
+        port pumpCStatus : StatusOutputPort;
+
+        attribute demandedFlow : FlowRate;
+        attribute targetDischargePressure : Pressure = 610.0 [kPa];
+        attribute minimumDeliveredFlow : FlowRate = 650.0 [l / s];
+        attribute maximumDeliveredFlow : FlowRate = 1150.0 [l / s];
+        attribute activePumpCount : Integer;
+
+        action regulatePressureAndFlow {
+            in item statusA : PumpStatus;
+            in item statusB : PumpStatus;
+            in item statusC : PumpStatus;
+            out item commandA : ControlSignal;
+            out item commandB : ControlSignal;
+            out item commandC : ControlSignal;
+        }
+
+        state def ControlMode {
+            state standby;
+            state normalPressureControl;
+            state peakDemand;
+            state degradedService;
+            state emergencyShutdown;
+
+            transition first standby;
+
+            transition standby_to_normal
+                first standby
+                then normalPressureControl
+                if demandedFlow > 0.0 [l / s];
+
+            transition normal_to_peak
+                first normalPressureControl
+                then peakDemand
+                if demandedFlow > 900.0 [l / s];
+
+            transition peak_to_normal
+                first peakDemand
+                then normalPressureControl
+                if demandedFlow <= 850.0 [l / s];
+
+            transition normal_to_degraded
+                first normalPressureControl
+                then degradedService
+                if activePumpCount < 2;
+
+            transition degraded_to_normal
+                first degradedService
+                then normalPressureControl
+                if activePumpCount >= 2;
+
+            transition normal_to_shutdown
+                first normalPressureControl
+                then emergencyShutdown;
+
+            transition peak_to_shutdown
+                first peakDemand
+                then emergencyShutdown;
+
+            transition degraded_to_shutdown
+                first degradedService
+                then emergencyShutdown;
+        }
+
+        perform regulatePressureAndFlow;
+        exhibit stateMachine : ControlMode;
+    }
+
+    part def MunicipalDistributionInterface {
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+
+        attribute requiredPressure : Pressure = 560.0 [kPa];
+        attribute deliveredFlow : FlowRate;
+        attribute suppliedDistrict : String = "Szczecin municipal distribution network";
+
+        action deliverWaterToDistrict {
+            in item stationWater : PressurizedWater;
+            out item networkWater : PressurizedWater;
+        }
+    }
+
+    part def SzczecinWaterPumpStation {
+        port riverOrReservoirIntake : WaterInletPort;
+        port electricalGridSupply : PowerInputPort;
+        port municipalWaterSupply : WaterOutletPort;
+
+        part basin : IntakeBasin;
+        part pumpA : VariableSpeedPump {
+            attribute ratedFlow = 420.0 [l / s];
+            attribute ratedPower = 560.0 [kW];
+        }
+        part pumpB : VariableSpeedPump {
+            attribute ratedFlow = 420.0 [l / s];
+            attribute ratedPower = 560.0 [kW];
+        }
+        part pumpC : VariableSpeedPump {
+            attribute ratedFlow = 420.0 [l / s];
+            attribute ratedPower = 560.0 [kW];
+        }
+        part header : PressureHeader;
+        part qualityMonitor : WaterQualityMonitor;
+        part powerPanel : PowerDistributionPanel;
+        part controller : PumpController;
+        part distributionInterface : MunicipalDistributionInterface;
+
+        attribute stationName : String = "Szczecin Water Pump Station";
+        attribute primaryFunction : String = "Lift, pressurize, and regulate treated or intake water flow for reliable delivery into the Szczecin municipal water distribution network.";
+        attribute nominalStationFlow : FlowRate = 840.0 [l / s];
+        attribute peakStationFlow : FlowRate = 1260.0 [l / s];
+        attribute normalDischargePressure : Pressure = 610.0 [kPa];
+        attribute requiredAvailability : Availability = 0.995 [one];
+
+        connect riverOrReservoirIntake to basin.inlet;
+        connect basin.outlet to pumpA.suction;
+        connect basin.outlet to pumpB.suction;
+        connect basin.outlet to pumpC.suction;
+
+        connect pumpA.discharge to header.inletA;
+        connect pumpB.discharge to header.inletB;
+        connect pumpC.discharge to header.inletC;
+        connect header.outlet to distributionInterface.inlet;
+        connect distributionInterface.outlet to municipalWaterSupply;
+
+        connect electricalGridSupply to powerPanel.gridInput;
+        connect powerPanel.pumpAOutput to pumpA.power;
+        connect powerPanel.pumpBOutput to pumpB.power;
+        connect powerPanel.pumpCOutput to pumpC.power;
+
+        connect controller.pumpACommand to pumpA.control;
+        connect controller.pumpBCommand to pumpB.control;
+        connect controller.pumpCCommand to pumpC.control;
+
+        connect pumpA.status to controller.pumpAStatus;
+        connect pumpB.status to controller.pumpBStatus;
+        connect pumpC.status to controller.pumpCStatus;
+
+        connect basin.outlet to qualityMonitor.sampleIn;
+
+        action provideMunicipalWaterPressure {
+            in item rawSupply : RawWater;
+            in item gridEnergy : ElectricEnergy;
+            out item pressurizedSupply : PressurizedWater;
+
+            first start powerPanel.distributeElectricalPower;
+            then start basin.retainAndBufferWater;
+            then start qualityMonitor.evaluateWaterQuality;
+            then start controller.regulatePressureAndFlow;
+            then start pumpA.pumpWater;
+            then start pumpB.pumpWater;
+            then start pumpC.pumpWater;
+            then start header.combinePumpDischarges;
+            then start distributionInterface.deliverWaterToDistrict;
+        }
+
+        perform provideMunicipalWaterPressure;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Szczecin water pump station shall receive water from an intake or upstream treatment source, maintain hydraulic continuity, raise pressure, regulate flow, and discharge water to the Szczecin municipal distribution network. */
+        subject station : SzczecinWaterPumpStation;
+
+        require constraint {
+            station.nominalStationFlow >= 650.0 [l / s]
+        }
+
+        require constraint {
+            station.normalDischargePressure >= 560.0 [kPa]
+        }
+    }
+
+    requirement def RedundancyRequirement {
+        doc /* The station shall provide continued water delivery when any single pump is unavailable by operating the remaining pumps in degraded or peak-controlled mode. */
+        subject station : SzczecinWaterPumpStation;
+
+        require constraint {
+            station.pumpA.available or station.pumpB.available or station.pumpC.available
+        }
+    }
+
+    requirement def WaterQualityProtectionRequirement {
+        doc /* The station shall monitor water quality at the intake basin and prevent unmanaged delivery when measured turbidity exceeds the configured water quality limit. */
+        subject monitor : WaterQualityMonitor;
+
+        require constraint {
+            monitor.measuredTurbidity <= monitor.maximumTurbidity
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* The discharge header shall keep normal operating pressure below the mechanical high-pressure limit and above the minimum pressure required by the municipal interface. */
+        subject station : SzczecinWaterPumpStation;
+
+        require constraint {
+            station.header.headerPressure <= station.header.highPressureLimit
+        }
+
+        require constraint {
+            station.header.headerPressure >= station.distributionInterface.requiredPressure
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The pumping system shall be configured for high municipal service availability through redundant pumps, controlled startup and shutdown, emergency stop handling, and backup electrical supply. */
+        subject station : SzczecinWaterPumpStation;
+
+        require constraint {
+            station.requiredAvailability >= 0.995 [one]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SzczecinWaterPumpStation;
+    satisfy RedundancyRequirement by SzczecinWaterPumpStation;
+    satisfy WaterQualityProtectionRequirement by WaterQualityMonitor;
+    satisfy PressureSafetyRequirement by PressureHeader;
+    satisfy AvailabilityRequirement by SzczecinWaterPumpStation;
+
+}

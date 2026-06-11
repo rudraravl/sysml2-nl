@@ -1,0 +1,943 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-n64v9_7e
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb492-31c8-7702-be70-257f93f38e54
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a pumping subsystem that moves fluid using a Froth pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FrothPumpSubsystemModel {
+  private import ScalarValues::*;
+  private import SI::*;
+
+  value def Pressure :> Real;
+  value def FlowRate :> Real;
+  value def Density :> Real;
+  value def Temperature :> Real;
+  value def Speed :> Real;
+  value def Power :> Real;
+  value def Level :> Real;
+  value def VolumeFraction :> Real;
+  value def TimeDuration :> Real;
+
+  item def FrothSlurry {
+    attribute density : Density;
+    attribute temperature : Temperature;
+    attribute gasVolumeFraction : VolumeFraction;
+    attribute solidsMassFraction : Real;
+    attribute particleSizeD80 : Real;
+  }
+
+  item def ProcessWater {
+    attribute temperature : Temperature;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute frequency : Real;
+  }
+
+  item def ControlSignal {
+    attribute command : String;
+    attribute value : Real;
+  }
+
+  item def StatusSignal {
+    attribute state : String;
+    attribute measuredValue : Real;
+    attribute alarmActive : Boolean;
+  }
+
+  port def SlurryInletPort {
+    in item slurry : FrothSlurry;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  port def SlurryOutletPort {
+    out item slurry : FrothSlurry;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  port def UtilityWaterPort {
+    in item water : ProcessWater;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlSignal;
+  }
+
+  port def TelemetryPort {
+    out item status : StatusSignal;
+  }
+
+  part def FrothPump {
+    port suction : SlurryInletPort;
+    port discharge : SlurryOutletPort;
+    port sealWater : UtilityWaterPort;
+    port electricalSupply : PowerPort;
+    port controlInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute ratedFlow : FlowRate = 180.0;
+    attribute minimumStableFlow : FlowRate = 45.0;
+    attribute ratedDischargePressure : Pressure = 520.0;
+    attribute maximumGasVolumeFraction : VolumeFraction = 0.65;
+    attribute impellerSpeed : Speed = 720.0;
+    attribute absorbedPower : Power = 110.0;
+    attribute casingPressureLimit : Pressure = 900.0;
+    attribute netPositiveSuctionHeadRequired : Real = 3.2;
+
+    perform action pumpFrothSlurry : PumpFrothSlurry;
+    exhibit state pumpState : FrothPumpStateMachine;
+  }
+
+  part def FeedSump {
+    port outlet : SlurryOutletPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute workingVolume : Real = 12.0;
+    attribute lowLevelTrip : Level = 0.35;
+    attribute highLevelStart : Level = 0.70;
+    attribute measuredLevel : Level;
+    attribute frothDepth : Level;
+  }
+
+  part def DischargeHeader {
+    port inlet : SlurryInletPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute designPressure : Pressure = 1000.0;
+    attribute measuredPressure : Pressure;
+    attribute maximumAllowablePressure : Pressure = 850.0;
+  }
+
+  part def VariableFrequencyDrive {
+    port electricalSupply : PowerPort;
+    port motorOutput : PowerPort;
+    port commandInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute minimumFrequency : Real = 20.0;
+    attribute maximumFrequency : Real = 60.0;
+    attribute commandedFrequency : Real;
+    attribute faulted : Boolean = false;
+  }
+
+  part def PumpMotor {
+    port electricalInput : PowerPort;
+    port shaftOutput : PowerPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute ratedPower : Power = 132.0;
+    attribute ratedVoltage : Real = 480.0;
+    attribute ratedSpeed : Speed = 1180.0;
+    attribute windingTemperature : Temperature;
+  }
+
+  part def SealWaterSystem {
+    port waterOutlet : UtilityWaterPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute minimumSealWaterPressure : Pressure = 350.0;
+    attribute measuredSealWaterPressure : Pressure;
+    attribute sealWaterFlow : FlowRate;
+  }
+
+  part def PumpController {
+    port commandOutput : CommandPort;
+    port driveCommandOutput : CommandPort;
+    port sumpStatusInput : TelemetryPort;
+    port pumpStatusInput : TelemetryPort;
+    port headerStatusInput : TelemetryPort;
+    port sealWaterStatusInput : TelemetryPort;
+    port operatorCommandInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute targetFlowRate : FlowRate = 150.0;
+    attribute startPermissive : Boolean;
+    attribute shutdownCommanded : Boolean;
+    attribute alarmActive : Boolean;
+
+    perform action controlPump : ControlFrothPump;
+    exhibit state controllerState : PumpControllerStateMachine;
+  }
+
+  part def FrothPumpingSubsystem {
+    port slurryFeed : SlurryInletPort;
+    port slurryDischarge : SlurryOutletPort;
+    port electricalSupply : PowerPort;
+    port sealWaterSupply : UtilityWaterPort;
+    port operatorCommand : CommandPort;
+    port subsystemTelemetry : TelemetryPort;
+
+    part sump : FeedSump;
+    part pump : FrothPump;
+    part drive : VariableFrequencyDrive;
+    part motor : PumpMotor;
+    part sealWaterSystem : SealWaterSystem;
+    part header : DischargeHeader;
+    part controller : PumpController;
+
+    connect slurryFeed to sump.outlet;
+    connect sump.outlet to pump.suction;
+    connect pump.discharge to header.inlet;
+    connect header.inlet to slurryDischarge;
+
+    connect electricalSupply to drive.electricalSupply;
+    connect drive.motorOutput to motor.electricalInput;
+    connect motor.shaftOutput to pump.electricalSupply;
+
+    connect sealWaterSupply to sealWaterSystem.waterOutlet;
+    connect sealWaterSystem.waterOutlet to pump.sealWater;
+
+    connect operatorCommand to controller.operatorCommandInput;
+    connect controller.commandOutput to pump.controlInput;
+    connect controller.driveCommandOutput to drive.commandInput;
+
+    connect sump.telemetryOutput to controller.sumpStatusInput;
+    connect pump.telemetryOutput to controller.pumpStatusInput;
+    connect header.telemetryOutput to controller.headerStatusInput;
+    connect sealWaterSystem.telemetryOutput to controller.sealWaterStatusInput;
+    connect controller.telemetryOutput to subsystemTelemetry;
+
+    attribute designFlowRate : FlowRate = 150.0;
+    attribute turndownFlowRate : FlowRate = 60.0;
+    attribute maximumContinuousFlowRate : FlowRate = 210.0;
+    attribute maximumFrothGasVolumeFraction : VolumeFraction = 0.60;
+    attribute availabilityTarget : Real = 0.97;
+
+    perform action operateSubsystem : OperateFrothPumpingSubsystem;
+  }
+
+  action def PumpFrothSlurry {
+    in item inletSlurry : FrothSlurry;
+    in attribute commandedSpeed : Speed;
+    out item dischargedSlurry : FrothSlurry;
+    out attribute producedFlow : FlowRate;
+    out attribute dischargePressure : Pressure;
+
+    first startImpeller;
+    then entrainFroth;
+    then impartHead;
+    then dischargeMixture;
+
+    action startImpeller;
+    action entrainFroth;
+    action impartHead;
+    action dischargeMixture;
+  }
+
+  action def ControlFrothPump {
+    in attribute sumpLevel : Level;
+    in attribute dischargePressure : Pressure;
+    in attribute sealWaterPressure : Pressure;
+    in attribute requestedFlow : FlowRate;
+    out item pumpCommand : ControlSignal;
+    out item driveCommand : ControlSignal;
+    out item controllerStatus : StatusSignal;
+
+    first evaluatePermissives;
+    then selectOperatingMode;
+    then computeSpeedCommand;
+    then issueCommands;
+    then publishStatus;
+
+    action evaluatePermissives;
+    action selectOperatingMode;
+    action computeSpeedCommand;
+    action issueCommands;
+    action publishStatus;
+  }
+
+  action def OperateFrothPumpingSubsystem {
+    in item feed : FrothSlurry;
+    in item power : ElectricalPower;
+    in item water : ProcessWater;
+    out item deliveredSlurry : FrothSlurry;
+    out item status : StatusSignal;
+
+    first receiveFeed;
+    then maintainSumpInventory;
+    then startWhenPermitted;
+    then regulateFlow;
+    then protectEquipment;
+    then deliverToHeader;
+
+    action receiveFeed;
+    action maintainSumpInventory;
+    action startWhenPermitted;
+    action regulateFlow;
+    action protectEquipment;
+    action deliverToHeader;
+  }
+
+  state def FrothPumpStateMachine {
+    state Off;
+    state Starting;
+    state Priming;
+    state Running;
+    state Flushing;
+    state Tripped;
+    state Stopping;
+
+    initial then Off;
+
+    transition Off_to_Starting
+      first Off
+      accept ControlSignal
+      if command == "START"
+      then Starting;
+
+    transition Starting_to_Priming
+      first Starting
+      if sealWaterPressure >= 350.0
+      then Priming;
+
+    transition Priming_to_Running
+      first Priming
+      if suctionFlowRate >= 45.0
+      then Running;
+
+    transition Running_to_Flushing
+      first Running
+      accept ControlSignal
+      if command == "FLUSH"
+      then Flushing;
+
+    transition Running_to_Stopping
+      first Running
+      accept ControlSignal
+      if command == "STOP"
+      then Stopping;
+
+    transition Running_to_Tripped
+      first Running
+      if dischargePressure > 850.0 or sumpLevel < 0.35 or gasVolumeFraction > 0.65
+      then Tripped;
+
+    transition Flushing_to_Stopping
+      first Flushing
+      after 120.0
+      then Stopping;
+
+    transition Stopping_to_Off
+      first Stopping
+      after 20.0
+      then Off;
+
+    transition Tripped_to_Off
+      first Tripped
+      accept ControlSignal
+      if command == "RESET"
+      then Off;
+  }
+
+  state def PumpControllerStateMachine {
+    state Idle;
+    state Ready;
+    state AutoStarting;
+    state FlowControl;
+    state ProtectiveShutdown;
+    state ManualStop;
+
+    initial then Idle;
+
+    transition Idle_to_Ready
+      first Idle
+      if sumpLevel >= 0.70 and sealWaterPressure >= 350.0
+      then Ready;
+
+    transition Ready_to_AutoStarting
+      first Ready
+      accept ControlSignal
+      if command == "AUTO"
+      then AutoStarting;
+
+    transition AutoStarting_to_FlowControl
+      first AutoStarting
+      if pumpState == "Running"
+      then FlowControl;
+
+    transition FlowControl_to_ProtectiveShutdown
+      first FlowControl
+      if dischargePressure > 850.0 or sumpLevel < 0.35
+      then ProtectiveShutdown;
+
+    transition FlowControl_to_ManualStop
+      first FlowControl
+      accept ControlSignal
+      if command == "STOP"
+      then ManualStop;
+
+    transition ManualStop_to_Idle
+      first ManualStop
+      if pumpState == "Off"
+      then Idle;
+
+    transition ProtectiveShutdown_to_Idle
+      first ProtectiveShutdown
+      accept ControlSignal
+      if command == "RESET"
+      then Idle;
+  }
+
+  requirement def MoveFrothSlurryRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.designFlowRate >= 150.0
+    }
+
+    doc /* The pumping subsystem shall move froth slurry from the feed sump to the discharge header at the specified design flow rate. */
+  }
+
+  requirement def FrothHandlingRequirement {
+    subject pump : FrothPump;
+
+    require constraint {
+      pump.maximumGasVolumeFraction >= 0.60
+    }
+
+    doc /* The froth pump shall handle slurry containing up to 60 percent gas by volume without loss of pumping function. */
+  }
+
+  requirement def MinimumFlowRequirement {
+    subject pump : FrothPump;
+
+    require constraint {
+      pump.minimumStableFlow <= 60.0
+    }
+
+    doc /* The pump shall remain stable at the subsystem turndown flow rate. */
+  }
+
+  requirement def DischargePressureProtectionRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.header.maximumAllowablePressure <= subsystem.header.designPressure
+    }
+
+    doc /* The subsystem shall shut down or reduce speed before discharge header pressure exceeds the allowable limit. */
+  }
+
+  requirement def SealWaterPermissiveRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.sealWaterSystem.minimumSealWaterPressure >= 350.0
+    }
+
+    doc /* Pump start shall be inhibited unless seal water pressure is available at or above the required minimum. */
+  }
+
+  requirement def SumpLevelProtectionRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.sump.lowLevelTrip == 0.35
+    }
+
+    doc /* The subsystem shall trip the pump before the feed sump level falls below the configured low-level limit. */
+  }
+
+  requirement def AvailabilityRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.availabilityTarget >= 0.97
+    }
+
+    doc /* The pumping subsystem shall be designed for at least 97 percent operating availability. */
+  }
+
+  satisfy MoveFrothSlurryRequirement by FrothPumpingSubsystem;
+  satisfy FrothHandlingRequirement by FrothPump;
+  satisfy MinimumFlowRequirement by FrothPump;
+  satisfy DischargePressureProtectionRequirement by FrothPumpingSubsystem;
+  satisfy SealWaterPermissiveRequirement by FrothPumpingSubsystem;
+  satisfy SumpLevelProtectionRequirement by FrothPumpingSubsystem;
+  satisfy AvailabilityRequirement by FrothPumpingSubsystem;
+}
+tokens used
+11,351
+package FrothPumpSubsystemModel {
+  private import ScalarValues::*;
+  private import SI::*;
+
+  value def Pressure :> Real;
+  value def FlowRate :> Real;
+  value def Density :> Real;
+  value def Temperature :> Real;
+  value def Speed :> Real;
+  value def Power :> Real;
+  value def Level :> Real;
+  value def VolumeFraction :> Real;
+  value def TimeDuration :> Real;
+
+  item def FrothSlurry {
+    attribute density : Density;
+    attribute temperature : Temperature;
+    attribute gasVolumeFraction : VolumeFraction;
+    attribute solidsMassFraction : Real;
+    attribute particleSizeD80 : Real;
+  }
+
+  item def ProcessWater {
+    attribute temperature : Temperature;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute frequency : Real;
+  }
+
+  item def ControlSignal {
+    attribute command : String;
+    attribute value : Real;
+  }
+
+  item def StatusSignal {
+    attribute state : String;
+    attribute measuredValue : Real;
+    attribute alarmActive : Boolean;
+  }
+
+  port def SlurryInletPort {
+    in item slurry : FrothSlurry;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  port def SlurryOutletPort {
+    out item slurry : FrothSlurry;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  port def UtilityWaterPort {
+    in item water : ProcessWater;
+    attribute pressure : Pressure;
+    attribute flowRate : FlowRate;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlSignal;
+  }
+
+  port def TelemetryPort {
+    out item status : StatusSignal;
+  }
+
+  part def FrothPump {
+    port suction : SlurryInletPort;
+    port discharge : SlurryOutletPort;
+    port sealWater : UtilityWaterPort;
+    port electricalSupply : PowerPort;
+    port controlInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute ratedFlow : FlowRate = 180.0;
+    attribute minimumStableFlow : FlowRate = 45.0;
+    attribute ratedDischargePressure : Pressure = 520.0;
+    attribute maximumGasVolumeFraction : VolumeFraction = 0.65;
+    attribute impellerSpeed : Speed = 720.0;
+    attribute absorbedPower : Power = 110.0;
+    attribute casingPressureLimit : Pressure = 900.0;
+    attribute netPositiveSuctionHeadRequired : Real = 3.2;
+
+    perform action pumpFrothSlurry : PumpFrothSlurry;
+    exhibit state pumpState : FrothPumpStateMachine;
+  }
+
+  part def FeedSump {
+    port outlet : SlurryOutletPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute workingVolume : Real = 12.0;
+    attribute lowLevelTrip : Level = 0.35;
+    attribute highLevelStart : Level = 0.70;
+    attribute measuredLevel : Level;
+    attribute frothDepth : Level;
+  }
+
+  part def DischargeHeader {
+    port inlet : SlurryInletPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute designPressure : Pressure = 1000.0;
+    attribute measuredPressure : Pressure;
+    attribute maximumAllowablePressure : Pressure = 850.0;
+  }
+
+  part def VariableFrequencyDrive {
+    port electricalSupply : PowerPort;
+    port motorOutput : PowerPort;
+    port commandInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute minimumFrequency : Real = 20.0;
+    attribute maximumFrequency : Real = 60.0;
+    attribute commandedFrequency : Real;
+    attribute faulted : Boolean = false;
+  }
+
+  part def PumpMotor {
+    port electricalInput : PowerPort;
+    port shaftOutput : PowerPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute ratedPower : Power = 132.0;
+    attribute ratedVoltage : Real = 480.0;
+    attribute ratedSpeed : Speed = 1180.0;
+    attribute windingTemperature : Temperature;
+  }
+
+  part def SealWaterSystem {
+    port waterOutlet : UtilityWaterPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute minimumSealWaterPressure : Pressure = 350.0;
+    attribute measuredSealWaterPressure : Pressure;
+    attribute sealWaterFlow : FlowRate;
+  }
+
+  part def PumpController {
+    port commandOutput : CommandPort;
+    port driveCommandOutput : CommandPort;
+    port sumpStatusInput : TelemetryPort;
+    port pumpStatusInput : TelemetryPort;
+    port headerStatusInput : TelemetryPort;
+    port sealWaterStatusInput : TelemetryPort;
+    port operatorCommandInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+
+    attribute targetFlowRate : FlowRate = 150.0;
+    attribute startPermissive : Boolean;
+    attribute shutdownCommanded : Boolean;
+    attribute alarmActive : Boolean;
+
+    perform action controlPump : ControlFrothPump;
+    exhibit state controllerState : PumpControllerStateMachine;
+  }
+
+  part def FrothPumpingSubsystem {
+    port slurryFeed : SlurryInletPort;
+    port slurryDischarge : SlurryOutletPort;
+    port electricalSupply : PowerPort;
+    port sealWaterSupply : UtilityWaterPort;
+    port operatorCommand : CommandPort;
+    port subsystemTelemetry : TelemetryPort;
+
+    part sump : FeedSump;
+    part pump : FrothPump;
+    part drive : VariableFrequencyDrive;
+    part motor : PumpMotor;
+    part sealWaterSystem : SealWaterSystem;
+    part header : DischargeHeader;
+    part controller : PumpController;
+
+    connect slurryFeed to sump.outlet;
+    connect sump.outlet to pump.suction;
+    connect pump.discharge to header.inlet;
+    connect header.inlet to slurryDischarge;
+
+    connect electricalSupply to drive.electricalSupply;
+    connect drive.motorOutput to motor.electricalInput;
+    connect motor.shaftOutput to pump.electricalSupply;
+
+    connect sealWaterSupply to sealWaterSystem.waterOutlet;
+    connect sealWaterSystem.waterOutlet to pump.sealWater;
+
+    connect operatorCommand to controller.operatorCommandInput;
+    connect controller.commandOutput to pump.controlInput;
+    connect controller.driveCommandOutput to drive.commandInput;
+
+    connect sump.telemetryOutput to controller.sumpStatusInput;
+    connect pump.telemetryOutput to controller.pumpStatusInput;
+    connect header.telemetryOutput to controller.headerStatusInput;
+    connect sealWaterSystem.telemetryOutput to controller.sealWaterStatusInput;
+    connect controller.telemetryOutput to subsystemTelemetry;
+
+    attribute designFlowRate : FlowRate = 150.0;
+    attribute turndownFlowRate : FlowRate = 60.0;
+    attribute maximumContinuousFlowRate : FlowRate = 210.0;
+    attribute maximumFrothGasVolumeFraction : VolumeFraction = 0.60;
+    attribute availabilityTarget : Real = 0.97;
+
+    perform action operateSubsystem : OperateFrothPumpingSubsystem;
+  }
+
+  action def PumpFrothSlurry {
+    in item inletSlurry : FrothSlurry;
+    in attribute commandedSpeed : Speed;
+    out item dischargedSlurry : FrothSlurry;
+    out attribute producedFlow : FlowRate;
+    out attribute dischargePressure : Pressure;
+
+    first startImpeller;
+    then entrainFroth;
+    then impartHead;
+    then dischargeMixture;
+
+    action startImpeller;
+    action entrainFroth;
+    action impartHead;
+    action dischargeMixture;
+  }
+
+  action def ControlFrothPump {
+    in attribute sumpLevel : Level;
+    in attribute dischargePressure : Pressure;
+    in attribute sealWaterPressure : Pressure;
+    in attribute requestedFlow : FlowRate;
+    out item pumpCommand : ControlSignal;
+    out item driveCommand : ControlSignal;
+    out item controllerStatus : StatusSignal;
+
+    first evaluatePermissives;
+    then selectOperatingMode;
+    then computeSpeedCommand;
+    then issueCommands;
+    then publishStatus;
+
+    action evaluatePermissives;
+    action selectOperatingMode;
+    action computeSpeedCommand;
+    action issueCommands;
+    action publishStatus;
+  }
+
+  action def OperateFrothPumpingSubsystem {
+    in item feed : FrothSlurry;
+    in item power : ElectricalPower;
+    in item water : ProcessWater;
+    out item deliveredSlurry : FrothSlurry;
+    out item status : StatusSignal;
+
+    first receiveFeed;
+    then maintainSumpInventory;
+    then startWhenPermitted;
+    then regulateFlow;
+    then protectEquipment;
+    then deliverToHeader;
+
+    action receiveFeed;
+    action maintainSumpInventory;
+    action startWhenPermitted;
+    action regulateFlow;
+    action protectEquipment;
+    action deliverToHeader;
+  }
+
+  state def FrothPumpStateMachine {
+    state Off;
+    state Starting;
+    state Priming;
+    state Running;
+    state Flushing;
+    state Tripped;
+    state Stopping;
+
+    initial then Off;
+
+    transition Off_to_Starting
+      first Off
+      accept ControlSignal
+      if command == "START"
+      then Starting;
+
+    transition Starting_to_Priming
+      first Starting
+      if sealWaterPressure >= 350.0
+      then Priming;
+
+    transition Priming_to_Running
+      first Priming
+      if suctionFlowRate >= 45.0
+      then Running;
+
+    transition Running_to_Flushing
+      first Running
+      accept ControlSignal
+      if command == "FLUSH"
+      then Flushing;
+
+    transition Running_to_Stopping
+      first Running
+      accept ControlSignal
+      if command == "STOP"
+      then Stopping;
+
+    transition Running_to_Tripped
+      first Running
+      if dischargePressure > 850.0 or sumpLevel < 0.35 or gasVolumeFraction > 0.65
+      then Tripped;
+
+    transition Flushing_to_Stopping
+      first Flushing
+      after 120.0
+      then Stopping;
+
+    transition Stopping_to_Off
+      first Stopping
+      after 20.0
+      then Off;
+
+    transition Tripped_to_Off
+      first Tripped
+      accept ControlSignal
+      if command == "RESET"
+      then Off;
+  }
+
+  state def PumpControllerStateMachine {
+    state Idle;
+    state Ready;
+    state AutoStarting;
+    state FlowControl;
+    state ProtectiveShutdown;
+    state ManualStop;
+
+    initial then Idle;
+
+    transition Idle_to_Ready
+      first Idle
+      if sumpLevel >= 0.70 and sealWaterPressure >= 350.0
+      then Ready;
+
+    transition Ready_to_AutoStarting
+      first Ready
+      accept ControlSignal
+      if command == "AUTO"
+      then AutoStarting;
+
+    transition AutoStarting_to_FlowControl
+      first AutoStarting
+      if pumpState == "Running"
+      then FlowControl;
+
+    transition FlowControl_to_ProtectiveShutdown
+      first FlowControl
+      if dischargePressure > 850.0 or sumpLevel < 0.35
+      then ProtectiveShutdown;
+
+    transition FlowControl_to_ManualStop
+      first FlowControl
+      accept ControlSignal
+      if command == "STOP"
+      then ManualStop;
+
+    transition ManualStop_to_Idle
+      first ManualStop
+      if pumpState == "Off"
+      then Idle;
+
+    transition ProtectiveShutdown_to_Idle
+      first ProtectiveShutdown
+      accept ControlSignal
+      if command == "RESET"
+      then Idle;
+  }
+
+  requirement def MoveFrothSlurryRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.designFlowRate >= 150.0
+    }
+
+    doc /* The pumping subsystem shall move froth slurry from the feed sump to the discharge header at the specified design flow rate. */
+  }
+
+  requirement def FrothHandlingRequirement {
+    subject pump : FrothPump;
+
+    require constraint {
+      pump.maximumGasVolumeFraction >= 0.60
+    }
+
+    doc /* The froth pump shall handle slurry containing up to 60 percent gas by volume without loss of pumping function. */
+  }
+
+  requirement def MinimumFlowRequirement {
+    subject pump : FrothPump;
+
+    require constraint {
+      pump.minimumStableFlow <= 60.0
+    }
+
+    doc /* The pump shall remain stable at the subsystem turndown flow rate. */
+  }
+
+  requirement def DischargePressureProtectionRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.header.maximumAllowablePressure <= subsystem.header.designPressure
+    }
+
+    doc /* The subsystem shall shut down or reduce speed before discharge header pressure exceeds the allowable limit. */
+  }
+
+  requirement def SealWaterPermissiveRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.sealWaterSystem.minimumSealWaterPressure >= 350.0
+    }
+
+    doc /* Pump start shall be inhibited unless seal water pressure is available at or above the required minimum. */
+  }
+
+  requirement def SumpLevelProtectionRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.sump.lowLevelTrip == 0.35
+    }
+
+    doc /* The subsystem shall trip the pump before the feed sump level falls below the configured low-level limit. */
+  }
+
+  requirement def AvailabilityRequirement {
+    subject subsystem : FrothPumpingSubsystem;
+
+    require constraint {
+      subsystem.availabilityTarget >= 0.97
+    }
+
+    doc /* The pumping subsystem shall be designed for at least 97 percent operating availability. */
+  }
+
+  satisfy MoveFrothSlurryRequirement by FrothPumpingSubsystem;
+  satisfy FrothHandlingRequirement by FrothPump;
+  satisfy MinimumFlowRequirement by FrothPump;
+  satisfy DischargePressureProtectionRequirement by FrothPumpingSubsystem;
+  satisfy SealWaterPermissiveRequirement by FrothPumpingSubsystem;
+  satisfy SumpLevelProtectionRequirement by FrothPumpingSubsystem;
+  satisfy AvailabilityRequirement by FrothPumpingSubsystem;
+}

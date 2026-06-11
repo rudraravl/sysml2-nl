@@ -1,0 +1,611 @@
+package SlurryPumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def VolumeFlowRate :> ISQ::volumeFlowRate {
+        unit = "m^3/h";
+    }
+
+    attribute def PressureHead {
+        :>> quantityKind = "pressure";
+        unit = "kPa";
+    }
+
+    attribute def RotationalSpeed {
+        :>> quantityKind = "rotationalFrequency";
+        unit = "rpm";
+    }
+
+    attribute def SolidsConcentration {
+        :>> quantityKind = "dimensionless";
+        unit = "%";
+    }
+
+    attribute def ParticleSize {
+        :>> quantityKind = "length";
+        unit = "mm";
+    }
+
+    attribute def Temperature {
+        :>> quantityKind = "thermodynamicTemperature";
+        unit = "degC";
+    }
+
+    attribute def MotorPower {
+        :>> quantityKind = "power";
+        unit = "kW";
+    }
+
+    attribute def VibrationVelocity {
+        :>> quantityKind = "velocity";
+        unit = "mm/s";
+    }
+
+    attribute def SealFlushFlow {
+        :>> quantityKind = "volumeFlowRate";
+        unit = "L/min";
+    }
+
+    item def Slurry {
+        attribute density : MassDensity;
+        attribute solidsConcentration : SolidsConcentration;
+        attribute maxParticleSize : ParticleSize;
+        attribute temperature : Temperature;
+        attribute corrosive : Boolean;
+        attribute abrasiveIndex : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute frequency : Frequency;
+        attribute realPower : MotorPower;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : Real;
+        attribute valid : Boolean;
+        attribute timestamp_s : Real;
+    }
+
+    item def AlarmSignal {
+        attribute active : Boolean;
+        attribute severity : Integer;
+        attribute messageCode : String;
+    }
+
+    port def SlurryPort {
+        inout item slurry : Slurry;
+        attribute pressure : PressureHead;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item alarm : AlarmSignal;
+    }
+
+    port def InstrumentPort {
+        out item measurement : ControlSignal;
+    }
+
+    part def SlurryPump {
+        port suction : SlurryPort;
+        port discharge : SlurryPort;
+        port powerIn : PowerPort;
+        port control : ControlPort;
+
+        attribute ratedFlow : VolumeFlowRate = 320.0;
+        attribute ratedDifferentialPressure : PressureHead = 620.0;
+        attribute ratedSpeed : RotationalSpeed = 1480.0;
+        attribute minimumContinuousStableFlow : VolumeFlowRate = 96.0;
+        attribute maximumSolidsConcentration : SolidsConcentration = 45.0;
+        attribute maximumParticleSize : ParticleSize = 12.0;
+        attribute hydraulicEfficiency : Real = 0.72;
+        attribute casingPressureLimit : PressureHead = 1600.0;
+        attribute running : Boolean = false;
+
+        part impeller {
+            attribute diameter : LengthValue = 0.42 [m];
+            attribute materialHardness_HB : Real = 650.0;
+            attribute wearAllowance : LengthValue = 0.008 [m];
+        }
+
+        part voluteCasing {
+            attribute linerMaterial : String = "high-chrome white iron";
+            attribute drainableVolume : VolumeValue = 0.18 [m^3];
+            attribute maximumAllowableWorkingPressure : PressureHead = 1600.0;
+        }
+
+        part mechanicalSeal {
+            attribute flushRequired : Boolean = true;
+            attribute minimumFlushFlow : SealFlushFlow = 8.0;
+            attribute maximumSealTemperature : Temperature = 85.0;
+        }
+
+        action startPump {
+            in commandSpeed : RotationalSpeed;
+            first startMotor;
+            then openDischargeGradually;
+            then confirmFlow;
+
+            action startMotor {
+                running = true;
+            }
+
+            action openDischargeGradually {
+                discharge.flowRate = minimumContinuousStableFlow;
+            }
+
+            action confirmFlow {
+                assert discharge.flowRate >= minimumContinuousStableFlow;
+            }
+        }
+
+        action stopPump {
+            first rampDown;
+            then isolate;
+
+            action rampDown {
+                discharge.flowRate = 0.0;
+            }
+
+            action isolate {
+                running = false;
+            }
+        }
+
+        action pumpSlurry {
+            in inletSlurry : Slurry;
+            out outletSlurry : Slurry;
+
+            outletSlurry = inletSlurry;
+            assert inletSlurry.solidsConcentration <= maximumSolidsConcentration;
+            assert inletSlurry.maxParticleSize <= maximumParticleSize;
+            assert discharge.pressure - suction.pressure <= casingPressureLimit;
+        }
+
+        state def PumpOperatingState {
+            entry; then Off;
+
+            state Off;
+            state Starting;
+            state Running;
+            state Degraded;
+            state Tripped;
+            state Stopping;
+
+            transition Off_to_Starting
+                first Off
+                accept ControlSignal
+                if control.command.commandValue > 0.0 and control.command.valid
+                then Starting;
+
+            transition Starting_to_Running
+                first Starting
+                if discharge.flowRate >= minimumContinuousStableFlow
+                then Running;
+
+            transition Running_to_Degraded
+                first Running
+                if discharge.flowRate < minimumContinuousStableFlow or mechanicalSeal.minimumFlushFlow > 0.0
+                then Degraded;
+
+            transition Degraded_to_Running
+                first Degraded
+                if discharge.flowRate >= minimumContinuousStableFlow
+                then Running;
+
+            transition Running_to_Tripped
+                first Running
+                if discharge.pressure > casingPressureLimit
+                then Tripped;
+
+            transition Degraded_to_Tripped
+                first Degraded
+                if discharge.pressure > casingPressureLimit
+                then Tripped;
+
+            transition Running_to_Stopping
+                first Running
+                accept ControlSignal
+                if control.command.commandValue == 0.0 and control.command.valid
+                then Stopping;
+
+            transition Degraded_to_Stopping
+                first Degraded
+                accept ControlSignal
+                if control.command.commandValue == 0.0 and control.command.valid
+                then Stopping;
+
+            transition Stopping_to_Off
+                first Stopping
+                if discharge.flowRate == 0.0
+                then Off;
+        }
+    }
+
+    part def ElectricMotor {
+        port powerIn : PowerPort;
+        port shaftCommand : ControlPort;
+
+        attribute ratedPower : MotorPower = 250.0;
+        attribute ratedVoltage : ElectricPotential = 4160.0 [V];
+        attribute ratedSpeed : RotationalSpeed = 1480.0;
+        attribute serviceFactor : Real = 1.15;
+        attribute enclosure : String = "TEFC severe-duty";
+        attribute energized : Boolean = false;
+
+        action energize {
+            energized = true;
+        }
+
+        action deEnergize {
+            energized = false;
+        }
+    }
+
+    part def VariableFrequencyDrive {
+        port incomingPower : PowerPort;
+        port outgoingPower : PowerPort;
+        port control : ControlPort;
+
+        attribute minimumFrequency : Frequency = 20.0 [Hz];
+        attribute maximumFrequency : Frequency = 60.0 [Hz];
+        attribute commandedFrequency : Frequency = 0.0 [Hz];
+        attribute efficiency : Real = 0.97;
+
+        action regulateSpeed {
+            in desiredFlow : VolumeFlowRate;
+            out frequencyCommand : Frequency;
+            frequencyCommand = 20.0 [Hz] + (desiredFlow / 320.0) * 40.0 [Hz];
+        }
+    }
+
+    part def SuctionTank {
+        port outlet : SlurryPort;
+
+        attribute workingVolume : VolumeValue = 12.0 [m^3];
+        attribute lowLowLevel : LengthValue = 0.35 [m];
+        attribute normalLevel : LengthValue = 2.1 [m];
+        attribute highLevel : LengthValue = 2.8 [m];
+        attribute slurryInventory : Slurry;
+    }
+
+    part def DischargeHeader {
+        port inlet : SlurryPort;
+        port outlet : SlurryPort;
+
+        attribute designPressure : PressureHead = 1400.0;
+        attribute nominalDiameter : LengthValue = 0.2 [m];
+        attribute erosionAllowance : LengthValue = 0.004 [m];
+    }
+
+    part def IsolationValve {
+        port upstream : SlurryPort;
+        port downstream : SlurryPort;
+        port control : ControlPort;
+
+        attribute openFraction : Real = 1.0;
+        attribute failPosition : String = "closed";
+        attribute pressureClass : PressureHead = 1600.0;
+
+        action openValve {
+            openFraction = 1.0;
+        }
+
+        action closeValve {
+            openFraction = 0.0;
+        }
+    }
+
+    part def CheckValve {
+        port upstream : SlurryPort;
+        port downstream : SlurryPort;
+
+        attribute crackingPressure : PressureHead = 8.0;
+        attribute backflowPrevented : Boolean = true;
+    }
+
+    part def FlowTransmitter {
+        port processTap : SlurryPort;
+        port signalOut : InstrumentPort;
+
+        attribute rangeLow : VolumeFlowRate = 0.0;
+        attribute rangeHigh : VolumeFlowRate = 500.0;
+        attribute accuracyPercentSpan : Real = 0.5;
+    }
+
+    part def PressureTransmitter {
+        port processTap : SlurryPort;
+        port signalOut : InstrumentPort;
+
+        attribute rangeLow : PressureHead = 0.0;
+        attribute rangeHigh : PressureHead = 2000.0;
+        attribute accuracyPercentSpan : Real = 0.25;
+    }
+
+    part def VibrationSensor {
+        port signalOut : InstrumentPort;
+
+        attribute alertLimit : VibrationVelocity = 7.1;
+        attribute tripLimit : VibrationVelocity = 11.0;
+        attribute measuredVelocity : VibrationVelocity = 0.0;
+    }
+
+    part def SealFlushSkid {
+        port control : ControlPort;
+
+        attribute flushFlow : SealFlushFlow = 10.0;
+        attribute flushPressureMargin : PressureHead = 150.0;
+        attribute filterRating : ParticleSize = 0.025;
+        attribute available : Boolean = true;
+
+        action provideFlush {
+            assert available;
+            assert flushFlow >= 8.0;
+        }
+    }
+
+    part def PumpController {
+        port operatorCommand : ControlPort;
+        port vfdCommand : ControlPort;
+        port pumpCommand : ControlPort;
+        port suctionPressureIn : InstrumentPort;
+        port dischargePressureIn : InstrumentPort;
+        port flowIn : InstrumentPort;
+        port vibrationIn : InstrumentPort;
+        port sealFlushCommand : ControlPort;
+
+        attribute requestedFlow : VolumeFlowRate = 250.0;
+        attribute lowFlowAlarmLimit : VolumeFlowRate = 96.0;
+        attribute highPressureTripLimit : PressureHead = 1500.0;
+        attribute vibrationTripLimit : VibrationVelocity = 11.0;
+        attribute automaticMode : Boolean = true;
+
+        action computeSpeedCommand {
+            in measuredFlow : VolumeFlowRate;
+            out speedDemandPercent : Real;
+
+            speedDemandPercent = requestedFlow / 320.0 * 100.0;
+        }
+
+        action protectPump {
+            in measuredDischargePressure : PressureHead;
+            in measuredFlow : VolumeFlowRate;
+            in measuredVibration : VibrationVelocity;
+            out tripRequired : Boolean;
+
+            tripRequired =
+                measuredDischargePressure >= highPressureTripLimit or
+                measuredFlow < lowFlowAlarmLimit or
+                measuredVibration >= vibrationTripLimit;
+        }
+
+        state def ControlState {
+            entry; then Idle;
+
+            state Idle;
+            state Ready;
+            state Starting;
+            state FlowControl;
+            state Shutdown;
+            state TripLockout;
+
+            transition Idle_to_Ready
+                first Idle
+                if automaticMode
+                then Ready;
+
+            transition Ready_to_Starting
+                first Ready
+                accept ControlSignal
+                if operatorCommand.command.valid and operatorCommand.command.commandValue > 0.0
+                then Starting;
+
+            transition Starting_to_FlowControl
+                first Starting
+                if flowIn.measurement.commandValue >= lowFlowAlarmLimit
+                then FlowControl;
+
+            transition FlowControl_to_Shutdown
+                first FlowControl
+                accept ControlSignal
+                if operatorCommand.command.valid and operatorCommand.command.commandValue == 0.0
+                then Shutdown;
+
+            transition FlowControl_to_TripLockout
+                first FlowControl
+                if dischargePressureIn.measurement.commandValue >= highPressureTripLimit
+                then TripLockout;
+
+            transition Starting_to_TripLockout
+                first Starting
+                if dischargePressureIn.measurement.commandValue >= highPressureTripLimit
+                then TripLockout;
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                if flowIn.measurement.commandValue == 0.0
+                then Idle;
+        }
+    }
+
+    part def PumpingSubsystem {
+        port suctionInterface : SlurryPort;
+        port dischargeInterface : SlurryPort;
+        port electricalSupply : PowerPort;
+        port operatorInterface : ControlPort;
+
+        attribute designFlow : VolumeFlowRate = 320.0;
+        attribute normalOperatingFlow : VolumeFlowRate = 250.0;
+        attribute designDifferentialPressure : PressureHead = 620.0;
+        attribute allowableSolidsConcentration : SolidsConcentration = 45.0;
+        attribute allowableParticleSize : ParticleSize = 12.0;
+        attribute availabilityTarget : Real = 0.97;
+
+        part suctionTank : SuctionTank;
+        part suctionIsolationValve : IsolationValve;
+        part pump : SlurryPump;
+        part motor : ElectricMotor;
+        part vfd : VariableFrequencyDrive;
+        part dischargeCheckValve : CheckValve;
+        part dischargeIsolationValve : IsolationValve;
+        part dischargeHeader : DischargeHeader;
+        part flowTransmitter : FlowTransmitter;
+        part suctionPressureTransmitter : PressureTransmitter;
+        part dischargePressureTransmitter : PressureTransmitter;
+        part vibrationSensor : VibrationSensor;
+        part sealFlushSkid : SealFlushSkid;
+        part controller : PumpController;
+
+        connect suctionInterface to suctionTank.outlet;
+        connect suctionTank.outlet to suctionIsolationValve.upstream;
+        connect suctionIsolationValve.downstream to pump.suction;
+        connect pump.discharge to dischargeCheckValve.upstream;
+        connect dischargeCheckValve.downstream to dischargeIsolationValve.upstream;
+        connect dischargeIsolationValve.downstream to dischargeHeader.inlet;
+        connect dischargeHeader.outlet to dischargeInterface;
+
+        connect electricalSupply to vfd.incomingPower;
+        connect vfd.outgoingPower to motor.powerIn;
+        connect motor.shaftCommand to pump.control;
+
+        connect operatorInterface to controller.operatorCommand;
+        connect controller.vfdCommand to vfd.control;
+        connect controller.pumpCommand to pump.control;
+        connect controller.sealFlushCommand to sealFlushSkid.control;
+
+        connect flowTransmitter.processTap to dischargeHeader.inlet;
+        connect suctionPressureTransmitter.processTap to pump.suction;
+        connect dischargePressureTransmitter.processTap to pump.discharge;
+        connect flowTransmitter.signalOut to controller.flowIn;
+        connect suctionPressureTransmitter.signalOut to controller.suctionPressureIn;
+        connect dischargePressureTransmitter.signalOut to controller.dischargePressureIn;
+        connect vibrationSensor.signalOut to controller.vibrationIn;
+
+        action transferSlurry {
+            in feedSlurry : Slurry;
+            out deliveredSlurry : Slurry;
+
+            first verifyFeed;
+            then startAuxiliaries;
+            then startMainPump;
+            then regulateFlow;
+            then deliver;
+
+            action verifyFeed {
+                assert feedSlurry.solidsConcentration <= allowableSolidsConcentration;
+                assert feedSlurry.maxParticleSize <= allowableParticleSize;
+                assert suctionTank.normalLevel > suctionTank.lowLowLevel;
+            }
+
+            action startAuxiliaries {
+                sealFlushSkid.provideFlush;
+                suctionIsolationValve.openValve;
+                dischargeIsolationValve.openValve;
+            }
+
+            action startMainPump {
+                motor.energize;
+                pump.startPump(commandSpeed = pump.ratedSpeed);
+            }
+
+            action regulateFlow {
+                assert pump.discharge.flowRate >= pump.minimumContinuousStableFlow;
+                assert pump.discharge.flowRate <= pump.ratedFlow;
+            }
+
+            action deliver {
+                deliveredSlurry = feedSlurry;
+            }
+        }
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+    }
+
+    requirement flowCapacityRequirement : PumpingSubsystemRequirement {
+        doc /* The pumping subsystem shall deliver slurry at a normal operating flow of at least 250 m^3/h and a design flow of 320 m^3/h. */
+        require constraint {
+            subsystem.normalOperatingFlow >= 250.0 and
+            subsystem.designFlow >= 320.0
+        }
+    }
+
+    requirement pressureRequirement : PumpingSubsystemRequirement {
+        doc /* The pumping subsystem shall provide at least 620 kPa differential pressure across the slurry pump at design flow. */
+        require constraint {
+            subsystem.designDifferentialPressure >= 620.0
+        }
+    }
+
+    requirement slurryCompatibilityRequirement : PumpingSubsystemRequirement {
+        doc /* The slurry pump shall handle slurry containing up to 45 percent solids by mass and particles up to 12 mm without exceeding rated casing pressure. */
+        require constraint {
+            subsystem.pump.maximumSolidsConcentration >= 45.0 and
+            subsystem.pump.maximumParticleSize >= 12.0 and
+            subsystem.pump.casingPressureLimit >= 1600.0
+        }
+    }
+
+    requirement minimumFlowProtectionRequirement : PumpingSubsystemRequirement {
+        doc /* The controller shall detect low-flow operation below the pump minimum continuous stable flow and place the subsystem into a protected degraded or shutdown condition. */
+        require constraint {
+            subsystem.controller.lowFlowAlarmLimit >= subsystem.pump.minimumContinuousStableFlow
+        }
+    }
+
+    requirement sealFlushRequirement : PumpingSubsystemRequirement {
+        doc /* The subsystem shall provide mechanical seal flush flow of at least 8 L/min whenever the pump is running. */
+        require constraint {
+            subsystem.sealFlushSkid.flushFlow >= subsystem.pump.mechanicalSeal.minimumFlushFlow
+        }
+    }
+
+    requirement highPressureTripRequirement : PumpingSubsystemRequirement {
+        doc /* The controller shall trip the slurry pump before discharge pressure exceeds the pump casing pressure limit. */
+        require constraint {
+            subsystem.controller.highPressureTripLimit < subsystem.pump.casingPressureLimit
+        }
+    }
+
+    requirement vibrationProtectionRequirement : PumpingSubsystemRequirement {
+        doc /* The subsystem shall alarm at elevated vibration and trip the pump at or above 11 mm/s vibration velocity. */
+        require constraint {
+            subsystem.vibrationSensor.tripLimit <= subsystem.controller.vibrationTripLimit
+        }
+    }
+
+    requirement backflowPreventionRequirement : PumpingSubsystemRequirement {
+        doc /* The discharge line shall include a check valve to prevent reverse slurry flow into the pump. */
+        require constraint {
+            subsystem.dischargeCheckValve.backflowPrevented == true
+        }
+    }
+
+    requirement availabilityRequirement : PumpingSubsystemRequirement {
+        doc /* The slurry pumping subsystem shall be designed for an availability target of at least 97 percent. */
+        require constraint {
+            subsystem.availabilityTarget >= 0.97
+        }
+    }
+
+    satisfy flowCapacityRequirement by PumpingSubsystem;
+    satisfy pressureRequirement by PumpingSubsystem;
+    satisfy slurryCompatibilityRequirement by SlurryPump;
+    satisfy minimumFlowProtectionRequirement by PumpController;
+    satisfy sealFlushRequirement by SealFlushSkid;
+    satisfy highPressureTripRequirement by PumpController;
+    satisfy vibrationProtectionRequirement by VibrationSensor;
+    satisfy backflowPreventionRequirement by CheckValve;
+    satisfy availabilityRequirement by PumpingSubsystem;
+
+}

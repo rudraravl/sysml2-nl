@@ -1,0 +1,658 @@
+package ElectromagneticPumpingSubsystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> scalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> scalarValues::Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Volume :> scalarValues::Real {
+        unit = "m^3";
+    }
+
+    attribute def Temperature :> scalarValues::Real {
+        unit = "K";
+    }
+
+    attribute def Voltage :> scalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def Current :> scalarValues::Real {
+        unit = "A";
+    }
+
+    attribute def Power :> scalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def Resistance :> scalarValues::Real {
+        unit = "ohm";
+    }
+
+    attribute def MagneticFluxDensity :> scalarValues::Real {
+        unit = "T";
+    }
+
+    attribute def Frequency :> scalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def Efficiency :> scalarValues::Real {
+        unit = "1";
+    }
+
+    attribute def TimeDuration :> scalarValues::Real {
+        unit = "s";
+    }
+
+    item def WorkingFluid {
+        attribute density : Real;
+        attribute dynamicViscosity : Real;
+        attribute electricalConductivity : Real;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute volumetricFlowRate : FlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute frequency : Frequency;
+        attribute power : Power;
+    }
+
+    item def MagneticField {
+        attribute fluxDensity : MagneticFluxDensity;
+        attribute excitationFrequency : Frequency;
+    }
+
+    port def FluidPort {
+        inout item fluid : WorkingFluid;
+        attribute pressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalEnergy;
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    port def ControlPort {
+        in attribute enableCommand : Boolean;
+        in attribute requestedFlowRate : FlowRate;
+        in attribute requestedPressureRise : Pressure;
+        out attribute pumpReady : Boolean;
+        out attribute faultActive : Boolean;
+        out attribute operatingMode : PumpMode;
+    }
+
+    port def SignalPort {
+        out attribute measuredFlowRate : FlowRate;
+        out attribute measuredInletPressure : Pressure;
+        out attribute measuredOutletPressure : Pressure;
+        out attribute measuredCoilTemperature : Temperature;
+        out attribute measuredCurrent : Current;
+    }
+
+    enum def PumpMode {
+        enum off;
+        enum standby;
+        enum priming;
+        enum pumping;
+        enum regulating;
+        enum faulted;
+        enum shutdown;
+    }
+
+    enum def FaultCode {
+        enum noFault;
+        enum overCurrent;
+        enum overTemperature;
+        enum dryRun;
+        enum blockedOutlet;
+        enum lowInletPressure;
+        enum sensorFailure;
+    }
+
+    part def ElectromagneticPump {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port electricalInput : ElectricalPowerPort;
+        port control : ControlPort;
+        port telemetry : SignalPort;
+
+        attribute nominalFlowRate : FlowRate = 0.00025;
+        attribute maximumFlowRate : FlowRate = 0.00042;
+        attribute minimumFlowRate : FlowRate = 0.00003;
+        attribute nominalPressureRise : Pressure = 180000.0;
+        attribute maximumPressureRise : Pressure = 350000.0;
+        attribute ratedVoltage : Voltage = 48.0;
+        attribute ratedCurrent : Current = 8.0;
+        attribute maximumCurrent : Current = 12.0;
+        attribute coilResistance : Resistance = 4.8;
+        attribute nominalMagneticFluxDensity : MagneticFluxDensity = 0.85;
+        attribute driveFrequency : Frequency = 120.0;
+        attribute hydraulicEfficiency : Efficiency = 0.62;
+        attribute maximumCoilTemperature : Temperature = 393.15;
+        attribute minimumInletPressure : Pressure = 50000.0;
+        attribute primingDuration : TimeDuration = 4.0;
+
+        part inletValve : CheckValve {
+            attribute crackingPressure = 2500.0;
+        }
+
+        part outletValve : CheckValve {
+            attribute crackingPressure = 3000.0;
+        }
+
+        part coilAssembly : ElectromagneticActuator;
+        part pumpChamber : PumpChamber;
+        part flowSensor : FlowSensor;
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part temperatureSensor : TemperatureSensor;
+        part controller : PumpController;
+
+        connect inlet to inletValve.upstream;
+        connect inletValve.downstream to pumpChamber.inlet;
+        connect pumpChamber.outlet to outletValve.upstream;
+        connect outletValve.downstream to outlet;
+
+        connect electricalInput to coilAssembly.powerPort;
+        connect control to controller.commandPort;
+        connect controller.actuatorCommand to coilAssembly.commandPort;
+
+        connect pumpChamber.fieldInput to coilAssembly.fieldPort;
+
+        connect flowSensor.sensedFluidPort to outlet;
+        connect inletPressureSensor.sensedFluidPort to inlet;
+        connect outletPressureSensor.sensedFluidPort to outlet;
+        connect temperatureSensor.sensedThermalPort to coilAssembly.thermalPort;
+
+        connect flowSensor.signalPort to controller.flowFeedback;
+        connect inletPressureSensor.signalPort to controller.inletPressureFeedback;
+        connect outletPressureSensor.signalPort to controller.outletPressureFeedback;
+        connect temperatureSensor.signalPort to controller.temperatureFeedback;
+
+        connect controller.telemetryPort to telemetry;
+
+        perform behavior pumpOperation : PumpOperation;
+    }
+
+    part def ElectromagneticActuator {
+        port powerPort : ElectricalPowerPort;
+        port commandPort : ActuatorCommandPort;
+        port fieldPort : MagneticFieldPort;
+        port thermalPort : ThermalPort;
+
+        attribute appliedVoltage : Voltage;
+        attribute coilCurrent : Current;
+        attribute windingResistance : Resistance = 4.8;
+        attribute fluxDensity : MagneticFluxDensity;
+        attribute electricalPower : Power;
+        attribute coilTemperature : Temperature;
+        attribute dutyCycle : Real;
+
+        action generateMagneticField {
+            in attribute voltageCommand : Voltage;
+            in attribute dutyCycleCommand : Real;
+            out item generatedField : MagneticField;
+
+            assert constraint {
+                dutyCycleCommand >= 0.0 and dutyCycleCommand <= 1.0
+            }
+
+            generatedField.fluxDensity = nominalFlux(voltageCommand, dutyCycleCommand);
+            generatedField.excitationFrequency = 120.0;
+        }
+    }
+
+    port def ActuatorCommandPort {
+        in attribute voltageCommand : Voltage;
+        in attribute dutyCycleCommand : Real;
+        in attribute excitationFrequencyCommand : Frequency;
+    }
+
+    port def MagneticFieldPort {
+        out item field : MagneticField;
+    }
+
+    port def ThermalPort {
+        out attribute temperature : Temperature;
+    }
+
+    part def PumpChamber {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port fieldInput : MagneticFieldPort;
+
+        attribute chamberVolume : Volume = 0.000018;
+        attribute pressureRise : Pressure;
+        attribute inducedBodyForce : Real;
+        attribute internalLeakageFlow : FlowRate = 0.000004;
+        attribute netFlowRate : FlowRate;
+
+        constraint massContinuity {
+            inlet.flowRate + internalLeakageFlow == outlet.flowRate;
+        }
+
+        constraint electromagneticPressureGeneration {
+            pressureRise <= 350000.0;
+        }
+    }
+
+    part def CheckValve {
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        attribute crackingPressure : Pressure;
+        attribute reverseLeakageFlow : FlowRate = 0.0000002;
+
+        constraint forwardOpening {
+            downstream.pressure - upstream.pressure <= crackingPressure or downstream.flowRate <= reverseLeakageFlow;
+        }
+    }
+
+    part def FlowSensor {
+        port sensedFluidPort : FluidPort;
+        port signalPort : FlowSignalPort;
+
+        attribute rangeMinimum : FlowRate = 0.0;
+        attribute rangeMaximum : FlowRate = 0.0005;
+        attribute accuracy : FlowRate = 0.000005;
+        attribute measuredFlowRate : FlowRate;
+    }
+
+    part def PressureSensor {
+        port sensedFluidPort : FluidPort;
+        port signalPort : PressureSignalPort;
+
+        attribute rangeMinimum : Pressure = 0.0;
+        attribute rangeMaximum : Pressure = 600000.0;
+        attribute accuracy : Pressure = 1500.0;
+        attribute measuredPressure : Pressure;
+    }
+
+    part def TemperatureSensor {
+        port sensedThermalPort : ThermalPort;
+        port signalPort : TemperatureSignalPort;
+
+        attribute rangeMinimum : Temperature = 253.15;
+        attribute rangeMaximum : Temperature = 423.15;
+        attribute accuracy : Temperature = 1.5;
+        attribute measuredTemperature : Temperature;
+    }
+
+    port def FlowSignalPort {
+        out attribute flowRate : FlowRate;
+        out attribute valid : Boolean;
+    }
+
+    port def PressureSignalPort {
+        out attribute pressure : Pressure;
+        out attribute valid : Boolean;
+    }
+
+    port def TemperatureSignalPort {
+        out attribute temperature : Temperature;
+        out attribute valid : Boolean;
+    }
+
+    part def PumpController {
+        port commandPort : ControlPort;
+        port actuatorCommand : ActuatorCommandPort;
+        port flowFeedback : FlowSignalPort;
+        port inletPressureFeedback : PressureSignalPort;
+        port outletPressureFeedback : PressureSignalPort;
+        port temperatureFeedback : TemperatureSignalPort;
+        port telemetryPort : SignalPort;
+
+        attribute commandedFlowRate : FlowRate;
+        attribute commandedPressureRise : Pressure;
+        attribute measuredFlowRate : FlowRate;
+        attribute measuredPressureRise : Pressure;
+        attribute measuredCoilTemperature : Temperature;
+        attribute measuredCurrent : Current;
+        attribute voltageCommand : Voltage;
+        attribute dutyCycleCommand : Real;
+        attribute activeFault : FaultCode = FaultCode::noFault;
+        attribute mode : PumpMode = PumpMode::off;
+
+        action regulateFlow {
+            in attribute requestedFlowRate : FlowRate;
+            in attribute measuredFlowRate : FlowRate;
+            in attribute measuredPressureRise : Pressure;
+            out attribute dutyCycleCommand : Real;
+            out attribute voltageCommand : Voltage;
+
+            dutyCycleCommand = clamp((requestedFlowRate - measuredFlowRate) / 0.00042, 0.0, 1.0);
+            voltageCommand = 48.0 * dutyCycleCommand;
+        }
+
+        action detectFaults {
+            in attribute inletPressure : Pressure;
+            in attribute outletPressure : Pressure;
+            in attribute coilTemperature : Temperature;
+            in attribute current : Current;
+            in attribute sensorValidity : Boolean;
+            out attribute faultCode : FaultCode;
+
+            if current > 12.0 then faultCode = FaultCode::overCurrent;
+            else if coilTemperature > 393.15 then faultCode = FaultCode::overTemperature;
+            else if inletPressure < 50000.0 then faultCode = FaultCode::lowInletPressure;
+            else if outletPressure - inletPressure > 350000.0 then faultCode = FaultCode::blockedOutlet;
+            else if not sensorValidity then faultCode = FaultCode::sensorFailure;
+            else faultCode = FaultCode::noFault;
+        }
+    }
+
+    state def PumpOperation {
+        in attribute enableCommand : Boolean;
+        in attribute requestedFlowRate : FlowRate;
+        in attribute measuredFlowRate : FlowRate;
+        in attribute inletPressure : Pressure;
+        in attribute outletPressure : Pressure;
+        in attribute coilTemperature : Temperature;
+        in attribute current : Current;
+        out attribute mode : PumpMode;
+        out attribute faultCode : FaultCode;
+
+        state off;
+        state standby;
+        state priming;
+        state pumping;
+        state regulating;
+        state faulted;
+        state shutdown;
+
+        initial then off;
+
+        transition off_to_standby
+            first off
+            accept enableCommand
+            if enableCommand == true
+            then standby;
+
+        transition standby_to_priming
+            first standby
+            if inletPressure >= 50000.0
+            then priming;
+
+        transition priming_to_pumping
+            first priming
+            after 4.0
+            then pumping;
+
+        transition pumping_to_regulating
+            first pumping
+            if measuredFlowRate > 0.00003
+            then regulating;
+
+        transition regulating_to_faulted_overcurrent
+            first regulating
+            if current > 12.0
+            then faulted;
+
+        transition regulating_to_faulted_overtemperature
+            first regulating
+            if coilTemperature > 393.15
+            then faulted;
+
+        transition regulating_to_faulted_low_inlet
+            first regulating
+            if inletPressure < 50000.0
+            then faulted;
+
+        transition regulating_to_faulted_blocked_outlet
+            first regulating
+            if outletPressure - inletPressure > 350000.0
+            then faulted;
+
+        transition regulating_to_shutdown
+            first regulating
+            if enableCommand == false
+            then shutdown;
+
+        transition pumping_to_shutdown
+            first pumping
+            if enableCommand == false
+            then shutdown;
+
+        transition shutdown_to_off
+            first shutdown
+            after 2.0
+            then off;
+    }
+
+    part def PumpingSubsystem {
+        port suctionPort : FluidPort;
+        port dischargePort : FluidPort;
+        port powerInput : ElectricalPowerPort;
+        port controlInterface : ControlPort;
+        port telemetryInterface : SignalPort;
+
+        attribute requiredNominalFlowRate : FlowRate = 0.00025;
+        attribute requiredMinimumFlowRate : FlowRate = 0.00020;
+        attribute requiredPressureRise : Pressure = 180000.0;
+        attribute allowablePressureRise : Pressure = 350000.0;
+        attribute allowableInputVoltageMinimum : Voltage = 42.0;
+        attribute allowableInputVoltageMaximum : Voltage = 56.0;
+        attribute maximumSteadyCurrent : Current = 8.0;
+        attribute maximumTransientCurrent : Current = 12.0;
+        attribute maximumFluidTemperature : Temperature = 353.15;
+        attribute maximumCoilTemperature : Temperature = 393.15;
+
+        part inletFilter : FluidFilter {
+            attribute nominalPoreSize = 0.00008;
+            attribute cleanPressureDrop = 1200.0;
+        }
+
+        part electromagneticPump : ElectromagneticPump;
+
+        part dischargeAccumulator : Accumulator {
+            attribute gasPrechargePressure = 120000.0;
+            attribute usableVolume = 0.00008;
+        }
+
+        part reliefValve : ReliefValve {
+            attribute openingPressure = 380000.0;
+        }
+
+        part controllerHousing : ElectronicsHousing {
+            attribute ingressProtectionRating = "IP67";
+        }
+
+        connect suctionPort to inletFilter.inlet;
+        connect inletFilter.outlet to electromagneticPump.inlet;
+        connect electromagneticPump.outlet to dischargeAccumulator.inlet;
+        connect dischargeAccumulator.outlet to dischargePort;
+        connect dischargePort to reliefValve.inlet;
+        connect reliefValve.outlet to suctionPort;
+
+        connect powerInput to electromagneticPump.electricalInput;
+        connect controlInterface to electromagneticPump.control;
+        connect electromagneticPump.telemetry to telemetryInterface;
+    }
+
+    part def FluidFilter {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute nominalPoreSize : Real;
+        attribute cleanPressureDrop : Pressure;
+        attribute cloggedPressureDrop : Pressure = 25000.0;
+
+        constraint filterPressureLoss {
+            inlet.pressure - outlet.pressure >= cleanPressureDrop;
+        }
+    }
+
+    part def Accumulator {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute gasPrechargePressure : Pressure;
+        attribute usableVolume : Volume;
+        attribute dampingRatio : Real = 0.35;
+
+        action dampPulsation {
+            in attribute inletFlowRipple : FlowRate;
+            out attribute outletFlowRipple : FlowRate;
+
+            outletFlowRipple = inletFlowRipple * 0.35;
+        }
+    }
+
+    part def ReliefValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute openingPressure : Pressure;
+        attribute reseatPressure : Pressure = 340000.0;
+        attribute bypassFlowRate : FlowRate;
+
+        constraint reliefOpening {
+            if inlet.pressure >= openingPressure then bypassFlowRate > 0.0 else bypassFlowRate == 0.0;
+        }
+    }
+
+    part def ElectronicsHousing {
+        attribute ingressProtectionRating : String;
+        attribute ambientTemperatureMinimum : Temperature = 233.15;
+        attribute ambientTemperatureMaximum : Temperature = 333.15;
+        attribute thermalResistanceToAmbient : Real = 4.2;
+    }
+
+    requirement def PumpFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.dischargePort.flowRate >= subsystem.requiredMinimumFlowRate
+        }
+
+        doc /* The pumping subsystem shall move working fluid from the suction port to the discharge port whenever enabled and supplied with valid electrical power. */
+    }
+
+    requirement def ElectromagneticActuationRequirement {
+        subject pump : ElectromagneticPump;
+
+        require constraint {
+            pump.coilAssembly.fluxDensity >= 0.65 and pump.coilAssembly.fluxDensity <= 1.10
+        }
+
+        doc /* The pump shall generate pumping force using an electromagnetic actuator coupled to the pump chamber. */
+    }
+
+    requirement def PressureRiseRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.dischargePort.pressure - subsystem.suctionPort.pressure >= subsystem.requiredPressureRise
+        }
+
+        doc /* The subsystem shall provide the specified pressure rise at nominal operating flow. */
+    }
+
+    requirement def ElectricalLimitRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.powerInput.voltage >= subsystem.allowableInputVoltageMinimum and
+            subsystem.powerInput.voltage <= subsystem.allowableInputVoltageMaximum and
+            subsystem.electromagneticPump.coilAssembly.coilCurrent <= subsystem.maximumTransientCurrent
+        }
+
+        doc /* The subsystem shall remain within voltage and current limits during electromagnetic pump operation. */
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.electromagneticPump.coilAssembly.coilTemperature <= subsystem.maximumCoilTemperature
+        }
+
+        doc /* The controller shall prevent continued operation above the allowable coil temperature. */
+    }
+
+    requirement def BackflowPreventionRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.electromagneticPump.inletValve.reverseLeakageFlow <= 0.0000002 and
+            subsystem.electromagneticPump.outletValve.reverseLeakageFlow <= 0.0000002
+        }
+
+        doc /* The pump shall limit reverse flow using check valves at the chamber inlet and outlet. */
+    }
+
+    requirement def FaultResponseRequirement {
+        subject pump : ElectromagneticPump;
+
+        require constraint {
+            pump.controller.activeFault != FaultCode::noFault implies pump.controller.mode == PumpMode::faulted
+        }
+
+        doc /* The pump controller shall transition to faulted mode when overcurrent, overtemperature, low inlet pressure, blocked outlet, dry run, or sensor failure is detected. */
+    }
+
+    requirement def TelemetryRequirement {
+        subject pump : ElectromagneticPump;
+
+        require constraint {
+            pump.telemetry.measuredFlowRate == pump.controller.measuredFlowRate and
+            pump.telemetry.measuredCoilTemperature == pump.controller.measuredCoilTemperature
+        }
+
+        doc /* The pump shall report flow, pressure, temperature, current, readiness, and active fault state through the telemetry interface. */
+    }
+
+    constraint def FlowWithinCapability {
+        in requested : FlowRate;
+        in maximum : FlowRate;
+
+        requested <= maximum;
+    }
+
+    constraint def SafePressureRise {
+        in inletPressure : Pressure;
+        in outletPressure : Pressure;
+        in maxRise : Pressure;
+
+        outletPressure - inletPressure <= maxRise;
+    }
+
+    calc def nominalFlux {
+        in voltage : Voltage;
+        in dutyCycle : Real;
+        return flux : MagneticFluxDensity;
+
+        flux = 0.85 * dutyCycle * voltage / 48.0;
+    }
+
+    calc def clamp {
+        in value : Real;
+        in lower : Real;
+        in upper : Real;
+        return limited : Real;
+
+        if value < lower then limited = lower;
+        else if value > upper then limited = upper;
+        else limited = value;
+    }
+
+    part electromagneticPumpingSubsystem : PumpingSubsystem {
+        attribute requiredNominalFlowRate = 0.00025;
+        attribute requiredPressureRise = 180000.0;
+        attribute allowablePressureRise = 350000.0;
+    }
+
+}

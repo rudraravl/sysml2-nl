@@ -1,0 +1,684 @@
+package MarinePumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Volume :> Real {
+        unit = "L";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Power :> Real {
+        unit = "kW";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def Seawater {
+        attribute salinity : Real;
+        attribute temperature : Temperature;
+        attribute suspendedSolidsFraction : Percent;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute frequency : Real;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommandKind;
+        attribute requestedFlow : FlowRate;
+    }
+
+    item def PumpStatus {
+        attribute mode : PumpOperatingModeKind;
+        attribute measuredFlow : FlowRate;
+        attribute dischargePressure : Pressure;
+        attribute motorCurrent : Current;
+        attribute alarmActive : Boolean;
+    }
+
+    enum def PumpCommandKind {
+        enum idle;
+        enum start;
+        enum stop;
+        enum setFlow;
+        enum emergencyStop;
+        enum resetFault;
+    }
+
+    enum def PumpOperatingModeKind {
+        enum off;
+        enum priming;
+        enum running;
+        enum standby;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    port def FluidPort {
+        inout item fluid : Seawater;
+        attribute pressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item signal : ControlSignal;
+    }
+
+    port def StatusOutputPort {
+        out item status : PumpStatus;
+    }
+
+    port def DrainPort {
+        out item drainedFluid : Seawater;
+    }
+
+    part def MarinePump {
+        attribute ratedFlow : FlowRate = 450.0;
+        attribute ratedDischargePressure : Pressure = 620.0;
+        attribute minimumSuctionPressure : Pressure = 35.0;
+        attribute maximumFluidTemperature : Temperature = 55.0;
+        attribute nominalSpeed : RotationalSpeed = 1750.0;
+        attribute hydraulicEfficiency : Percent = 72.0;
+        attribute currentSpeed : RotationalSpeed;
+        attribute commandedFlow : FlowRate;
+        attribute measuredFlow : FlowRate;
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute casingTemperature : Temperature;
+        attribute vibrationLevel : Real;
+        attribute isPrimed : Boolean;
+        attribute isFaulted : Boolean;
+
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port electricalSupply : PowerPort;
+        port control : ControlInputPort;
+        port status : StatusOutputPort;
+
+        action primePump {
+            in attribute availableSuctionPressure : Pressure;
+            out attribute primed : Boolean;
+
+            first startPrime;
+            then verifySuctionPressure;
+            then fillCasing;
+            then removeAir;
+            then confirmPrime;
+
+            action startPrime;
+            action verifySuctionPressure;
+            action fillCasing;
+            action removeAir;
+            action confirmPrime;
+        }
+
+        action regulateFlow {
+            in attribute targetFlow : FlowRate;
+            in attribute actualFlow : FlowRate;
+            out attribute speedDemand : RotationalSpeed;
+
+            first compareFlow;
+            then calculateSpeedCorrection;
+            then limitSpeedCommand;
+            then applySpeedCommand;
+
+            action compareFlow;
+            action calculateSpeedCorrection;
+            action limitSpeedCommand;
+            action applySpeedCommand;
+        }
+
+        action shutdownPump {
+            first rampDownSpeed;
+            then closeInternalCheck;
+            then deenergizeMotor;
+
+            action rampDownSpeed;
+            action closeInternalCheck;
+            action deenergizeMotor;
+        }
+
+        state def PumpLifecycle {
+            state off;
+            state priming;
+            state running;
+            state standby;
+            state faulted;
+            state emergencyStopped;
+
+            initial then off;
+
+            transition off_to_priming
+                first off
+                accept ControlSignal
+                if signal.command == PumpCommandKind::start
+                then priming;
+
+            transition priming_to_running
+                first priming
+                if isPrimed == true
+                then running;
+
+            transition priming_to_faulted
+                first priming
+                if suctionPressure < minimumSuctionPressure
+                then faulted;
+
+            transition running_to_standby
+                first running
+                accept ControlSignal
+                if signal.command == PumpCommandKind::idle
+                then standby;
+
+            transition standby_to_running
+                first standby
+                accept ControlSignal
+                if signal.command == PumpCommandKind::setFlow
+                then running;
+
+            transition running_to_off
+                first running
+                accept ControlSignal
+                if signal.command == PumpCommandKind::stop
+                then off;
+
+            transition standby_to_off
+                first standby
+                accept ControlSignal
+                if signal.command == PumpCommandKind::stop
+                then off;
+
+            transition any_to_emergencyStopped
+                first off
+                accept ControlSignal
+                if signal.command == PumpCommandKind::emergencyStop
+                then emergencyStopped;
+
+            transition running_to_faulted
+                first running
+                if casingTemperature > maximumFluidTemperature or dischargePressure > ratedDischargePressure * 1.15
+                then faulted;
+
+            transition faulted_to_off
+                first faulted
+                accept ControlSignal
+                if signal.command == PumpCommandKind::resetFault
+                then off;
+
+            transition emergencyStopped_to_off
+                first emergencyStopped
+                accept ControlSignal
+                if signal.command == PumpCommandKind::resetFault
+                then off;
+        }
+
+        perform lifecycle : PumpLifecycle;
+    }
+
+    part def SeaChestStrainer {
+        attribute meshSize : Real = 3.0;
+        attribute differentialPressure : Pressure;
+        attribute cloggingPercent : Percent;
+        attribute maximumDifferentialPressure : Pressure = 70.0;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port drain : DrainPort;
+
+        action flushStrainer {
+            first isolateStrainer;
+            then openDrain;
+            then backflushMesh;
+            then closeDrain;
+            then restoreFlow;
+
+            action isolateStrainer;
+            action openDrain;
+            action backflushMesh;
+            action closeDrain;
+            action restoreFlow;
+        }
+    }
+
+    part def IsolationValve {
+        attribute openingPercent : Percent;
+        attribute failPositionOpen : Boolean = false;
+
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        action openValve {
+            out attribute finalOpening : Percent;
+        }
+
+        action closeValve {
+            out attribute finalOpening : Percent;
+        }
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure = 12.0;
+        attribute reverseFlowDetected : Boolean;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeMin : Pressure = 0.0;
+        attribute measurementRangeMax : Pressure = 1000.0;
+        attribute measuredPressure : Pressure;
+        attribute accuracy : Percent = 1.0;
+
+        port processConnection : FluidPort;
+        port status : StatusOutputPort;
+    }
+
+    part def FlowSensor {
+        attribute measurementRangeMin : FlowRate = 0.0;
+        attribute measurementRangeMax : FlowRate = 700.0;
+        attribute measuredFlow : FlowRate;
+        attribute accuracy : Percent = 1.5;
+
+        port processConnection : FluidPort;
+        port status : StatusOutputPort;
+    }
+
+    part def MotorController {
+        attribute inputVoltage : Voltage = 440.0;
+        attribute ratedCurrent : Current = 38.0;
+        attribute outputPower : Power = 18.5;
+        attribute speedCommand : RotationalSpeed;
+        attribute overloadTripCurrent : Current = 46.0;
+        attribute energized : Boolean;
+
+        port electricalInput : PowerPort;
+        port pumpPowerOutput : PowerPort;
+        port controlInput : ControlInputPort;
+        port statusOutput : StatusOutputPort;
+
+        action rampMotor {
+            in attribute targetSpeed : RotationalSpeed;
+            in attribute rampTime : TimeDuration;
+            out attribute achievedSpeed : RotationalSpeed;
+        }
+
+        action tripMotor {
+            first detectOverload;
+            then removeOutputPower;
+            then reportTrip;
+
+            action detectOverload;
+            action removeOutputPower;
+            action reportTrip;
+        }
+    }
+
+    part def PumpController {
+        attribute targetFlow : FlowRate = 350.0;
+        attribute lowSuctionPressureLimit : Pressure = 35.0;
+        attribute highDischargePressureLimit : Pressure = 720.0;
+        attribute minimumAllowedFlow : FlowRate = 50.0;
+        attribute maximumAllowedFlow : FlowRate = 450.0;
+        attribute alarmActive : Boolean;
+        attribute permissiveToStart : Boolean;
+
+        port commandInput : ControlInputPort;
+        port pumpCommandOutput : ControlInputPort;
+        port motorCommandOutput : ControlInputPort;
+        port pumpStatusInput : StatusOutputPort;
+        port statusOutput : StatusOutputPort;
+
+        action evaluateStartPermissives {
+            in attribute suctionPressure : Pressure;
+            in attribute dischargeValveOpen : Percent;
+            out attribute startPermitted : Boolean;
+        }
+
+        action protectPump {
+            in attribute suctionPressure : Pressure;
+            in attribute dischargePressure : Pressure;
+            in attribute motorCurrent : Current;
+            out attribute shutdownRequired : Boolean;
+        }
+
+        state def ControllerLifecycle {
+            state disabled;
+            state ready;
+            state commandingStart;
+            state regulating;
+            state alarm;
+            state emergencyShutdown;
+
+            initial then disabled;
+
+            transition disabled_to_ready
+                first disabled
+                accept ControlSignal
+                if signal.command == PumpCommandKind::resetFault
+                then ready;
+
+            transition ready_to_commandingStart
+                first ready
+                accept ControlSignal
+                if signal.command == PumpCommandKind::start and permissiveToStart == true
+                then commandingStart;
+
+            transition commandingStart_to_regulating
+                first commandingStart
+                if alarmActive == false
+                then regulating;
+
+            transition regulating_to_alarm
+                first regulating
+                if alarmActive == true
+                then alarm;
+
+            transition alarm_to_ready
+                first alarm
+                accept ControlSignal
+                if signal.command == PumpCommandKind::resetFault
+                then ready;
+
+            transition regulating_to_emergencyShutdown
+                first regulating
+                accept ControlSignal
+                if signal.command == PumpCommandKind::emergencyStop
+                then emergencyShutdown;
+
+            transition emergencyShutdown_to_disabled
+                first emergencyShutdown
+                accept ControlSignal
+                if signal.command == PumpCommandKind::resetFault
+                then disabled;
+        }
+
+        perform controllerLifecycle : ControllerLifecycle;
+    }
+
+    part def DischargeManifold {
+        attribute designPressure : Pressure = 850.0;
+        attribute headerVolume : Volume = 42.0;
+
+        port inlet : FluidPort;
+        port serviceOutlet : FluidPort;
+        port recirculationOutlet : FluidPort;
+    }
+
+    part def RecirculationLine {
+        attribute minimumRecirculationFlow : FlowRate = 50.0;
+
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+    }
+
+    part def MarinePumpingSubsystem {
+        attribute requiredFlow : FlowRate = 350.0;
+        attribute requiredDischargePressure : Pressure = 500.0;
+        attribute availableSuctionPressure : Pressure = 80.0;
+        attribute operatingFluidTemperature : Temperature = 28.0;
+        attribute subsystemAvailability : Percent = 98.0;
+
+        port seawaterInlet : FluidPort;
+        port serviceDischarge : FluidPort;
+        port electricalFeed : PowerPort;
+        port operatorCommand : ControlInputPort;
+        port operatorStatus : StatusOutputPort;
+        port wasteDrain : DrainPort;
+
+        part inletIsolationValve : IsolationValve {
+            attribute openingPercent = 100.0;
+        }
+
+        part strainer : SeaChestStrainer;
+
+        part suctionPressureSensor : PressureSensor;
+
+        part marinePump : MarinePump {
+            attribute ratedFlow = 450.0;
+            attribute ratedDischargePressure = 620.0;
+            attribute nominalSpeed = 1750.0;
+        }
+
+        part motorController : MotorController;
+
+        part dischargeCheckValve : CheckValve;
+
+        part dischargeIsolationValve : IsolationValve {
+            attribute openingPercent = 100.0;
+        }
+
+        part dischargePressureSensor : PressureSensor;
+
+        part dischargeFlowSensor : FlowSensor;
+
+        part manifold : DischargeManifold;
+
+        part recirculationLine : RecirculationLine;
+
+        part recirculationValve : IsolationValve {
+            attribute openingPercent = 20.0;
+        }
+
+        part controller : PumpController {
+            attribute targetFlow = 350.0;
+            attribute lowSuctionPressureLimit = 35.0;
+            attribute highDischargePressureLimit = 720.0;
+        }
+
+        connect seawaterInlet to inletIsolationValve.upstream;
+        connect inletIsolationValve.downstream to strainer.inlet;
+        connect strainer.outlet to suctionPressureSensor.processConnection;
+        connect suctionPressureSensor.processConnection to marinePump.suction;
+        connect marinePump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeIsolationValve.upstream;
+        connect dischargeIsolationValve.downstream to dischargePressureSensor.processConnection;
+        connect dischargePressureSensor.processConnection to dischargeFlowSensor.processConnection;
+        connect dischargeFlowSensor.processConnection to manifold.inlet;
+        connect manifold.serviceOutlet to serviceDischarge;
+        connect manifold.recirculationOutlet to recirculationValve.upstream;
+        connect recirculationValve.downstream to recirculationLine.inlet;
+        connect recirculationLine.outlet to marinePump.suction;
+        connect strainer.drain to wasteDrain;
+
+        connect electricalFeed to motorController.electricalInput;
+        connect motorController.pumpPowerOutput to marinePump.electricalSupply;
+
+        connect operatorCommand to controller.commandInput;
+        connect controller.pumpCommandOutput to marinePump.control;
+        connect controller.motorCommandOutput to motorController.controlInput;
+        connect marinePump.status to controller.pumpStatusInput;
+        connect controller.statusOutput to operatorStatus;
+
+        action startSubsystem {
+            first receiveStartCommand;
+            then verifyElectricalFeed;
+            then openInletAndDischargeValves;
+            then verifySuctionPressure;
+            then primeMarinePump;
+            then energizeMotorController;
+            then acceleratePump;
+            then regulateDischargeFlow;
+            then reportRunningStatus;
+
+            action receiveStartCommand;
+            action verifyElectricalFeed;
+            action openInletAndDischargeValves;
+            action verifySuctionPressure;
+            action primeMarinePump;
+            action energizeMotorController;
+            action acceleratePump;
+            action regulateDischargeFlow;
+            action reportRunningStatus;
+        }
+
+        action normalStopSubsystem {
+            first receiveStopCommand;
+            then reducePumpSpeed;
+            then stopMotorController;
+            then closeDischargeIsolation;
+            then reportStoppedStatus;
+
+            action receiveStopCommand;
+            action reducePumpSpeed;
+            action stopMotorController;
+            action closeDischargeIsolation;
+            action reportStoppedStatus;
+        }
+
+        action emergencyStopSubsystem {
+            first detectEmergencyStop;
+            then tripMotorController;
+            then closeIsolationValves;
+            then openRecirculationReliefPath;
+            then annunciateEmergencyStop;
+
+            action detectEmergencyStop;
+            action tripMotorController;
+            action closeIsolationValves;
+            action openRecirculationReliefPath;
+            action annunciateEmergencyStop;
+        }
+    }
+
+    requirement def MoveFluidUsingMarinePump {
+        doc /* The pumping subsystem shall move seawater from the inlet to the service discharge using a marine-rated pump. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.requiredFlow >= 300.0 and
+            subsystem.requiredFlow <= subsystem.marinePump.ratedFlow
+        }
+    }
+
+    requirement def MaintainDischargePressure {
+        doc /* The subsystem shall provide discharge pressure sufficient for downstream marine service users. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.requiredDischargePressure >= 500.0 and
+            subsystem.requiredDischargePressure <= subsystem.marinePump.ratedDischargePressure
+        }
+    }
+
+    requirement def ProtectAgainstLowSuctionPressure {
+        doc /* The controller shall prevent operation when suction pressure is below the marine pump minimum suction pressure. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.controller.lowSuctionPressureLimit >= subsystem.marinePump.minimumSuctionPressure
+        }
+    }
+
+    requirement def ProvideMinimumRecirculation {
+        doc /* The subsystem shall maintain a minimum recirculation path to protect the pump from dead-heading during low downstream demand. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.recirculationLine.minimumRecirculationFlow >= 50.0
+        }
+    }
+
+    requirement def FilterIncomingFluid {
+        doc /* The subsystem shall strain incoming seawater before it reaches the marine pump suction. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.strainer.meshSize <= 3.0 and
+            subsystem.strainer.maximumDifferentialPressure <= 70.0
+        }
+    }
+
+    requirement def PreventReverseFlow {
+        doc /* The subsystem shall include a discharge check valve to prevent reverse flow through the marine pump. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.dischargeCheckValve.crackingPressure <= 15.0
+        }
+    }
+
+    requirement def ElectricalCompatibility {
+        doc /* The motor controller shall operate from the shipboard electrical feed and provide sufficient power for the marine pump. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.motorController.inputVoltage == 440.0 and
+            subsystem.motorController.outputPower >= 18.5
+        }
+    }
+
+    requirement def OverpressureProtection {
+        doc /* The controller shall command shutdown if discharge pressure exceeds the allowable high discharge pressure limit. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.controller.highDischargePressureLimit <= 720.0
+        }
+    }
+
+    requirement def OperatorMonitoring {
+        doc /* The subsystem shall provide operator-visible status including operating mode, flow, discharge pressure, motor current, and alarm condition. */
+
+        subject subsystem : MarinePumpingSubsystem;
+
+        require constraint {
+            subsystem.operatorStatus.status.measuredFlow >= 0.0
+        }
+    }
+
+    satisfy MoveFluidUsingMarinePump by MarinePumpingSubsystem;
+    satisfy MaintainDischargePressure by MarinePumpingSubsystem;
+    satisfy ProtectAgainstLowSuctionPressure by PumpController;
+    satisfy ProvideMinimumRecirculation by RecirculationLine;
+    satisfy FilterIncomingFluid by SeaChestStrainer;
+    satisfy PreventReverseFlow by CheckValve;
+    satisfy ElectricalCompatibility by MotorController;
+    satisfy OverpressureProtection by PumpController;
+    satisfy OperatorMonitoring by PumpController;
+}

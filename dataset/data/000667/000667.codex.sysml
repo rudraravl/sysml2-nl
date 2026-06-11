@@ -1,0 +1,393 @@
+package LiquidNitrogenCoolingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def CelsiusTemperature :> ISQ::temperature {
+        unit = "degC";
+    }
+
+    value def KelvinTemperature :> ISQ::temperature {
+        unit = "K";
+    }
+
+    value def Pressure_kPa :> ISQ::pressure {
+        unit = "kPa";
+    }
+
+    value def Volume_L :> ISQ::volume {
+        unit = "L";
+    }
+
+    value def MassFlowRate_kg_per_s :> ISQ::massFlowRate {
+        unit = "kg/s";
+    }
+
+    value def HeatRate_W :> ISQ::power {
+        unit = "W";
+    }
+
+    value def Time_s :> ISQ::time {
+        unit = "s";
+    }
+
+    value def Percent :> Real {
+        unit = "%";
+    }
+
+    item def LiquidNitrogen {
+        attribute temperature : CelsiusTemperature;
+        attribute pressure : Pressure_kPa;
+        attribute purity : Percent;
+        attribute phase : NitrogenPhase;
+    }
+
+    enum def NitrogenPhase {
+        enum liquid;
+        enum twoPhase;
+        enum gas;
+    }
+
+    item def NitrogenVapor {
+        attribute temperature : CelsiusTemperature;
+        attribute pressure : Pressure_kPa;
+        attribute oxygenConcentration : Percent;
+    }
+
+    item def ThermalEnergy {
+        attribute heatTransferRate : HeatRate_W;
+        attribute sourceTemperature : CelsiusTemperature;
+        attribute sinkTemperature : CelsiusTemperature;
+    }
+
+    item def ControlSignal {
+        attribute commandPercent : Percent;
+        attribute timestamp : Time_s;
+    }
+
+    item def SensorReading {
+        attribute measuredTemperature : CelsiusTemperature;
+        attribute measuredPressure : Pressure_kPa;
+        attribute measuredLevel : Percent;
+        attribute valid : Boolean;
+    }
+
+    port def LiquidNitrogenInlet {
+        in item ln2 : LiquidNitrogen;
+    }
+
+    port def LiquidNitrogenOutlet {
+        out item ln2 : LiquidNitrogen;
+    }
+
+    port def VaporOutlet {
+        out item vapor : NitrogenVapor;
+    }
+
+    port def ThermalInterface {
+        in item heatLoad : ThermalEnergy;
+    }
+
+    port def SignalInput {
+        in item signal : ControlSignal;
+    }
+
+    port def SignalOutput {
+        out item signal : ControlSignal;
+    }
+
+    port def SensorOutput {
+        out item reading : SensorReading;
+    }
+
+    part def VacuumInsulatedDewar {
+        attribute capacity : Volume_L = 180 [L];
+        attribute workingPressure : Pressure_kPa = 220 [kPa];
+        attribute minimumUsableLevel : Percent = 8 [%];
+
+        port fillPort : LiquidNitrogenInlet;
+        port supplyPort : LiquidNitrogenOutlet;
+        port ventPort : VaporOutlet;
+        port levelTelemetry : SensorOutput;
+        port pressureTelemetry : SensorOutput;
+    }
+
+    part def CryogenicTransferLine {
+        attribute nominalFlowRate : MassFlowRate_kg_per_s = 0.045 [kg/s];
+        attribute maximumPressureDrop : Pressure_kPa = 18 [kPa];
+
+        port inlet : LiquidNitrogenInlet;
+        port outlet : LiquidNitrogenOutlet;
+        port boilOffVent : VaporOutlet;
+    }
+
+    part def ProportionalCryogenicValve {
+        attribute commandedOpening : Percent;
+        attribute failClosed : Boolean = true;
+
+        port inlet : LiquidNitrogenInlet;
+        port outlet : LiquidNitrogenOutlet;
+        port command : SignalInput;
+        port positionFeedback : SensorOutput;
+    }
+
+    part def CryogenicHeatExchanger {
+        attribute maximumCoolingCapacity : HeatRate_W = 4500 [W];
+        attribute targetOutletTemperature : CelsiusTemperature = -160 [degC];
+
+        port coolantIn : LiquidNitrogenInlet;
+        port coolantOut : VaporOutlet;
+        port loadInterface : ThermalInterface;
+        port temperatureTelemetry : SensorOutput;
+    }
+
+    part def VentStack {
+        attribute minimumDischargeHeight : Real = 2.5;
+        attribute maximumBackPressure : Pressure_kPa = 15 [kPa];
+
+        port vaporIn : VaporOutlet;
+        port atmosphereDischarge : VaporOutlet;
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeLow : CelsiusTemperature = -210 [degC];
+        attribute measurementRangeHigh : CelsiusTemperature = 50 [degC];
+        attribute accuracy : CelsiusTemperature = 1 [degC];
+
+        port measuredValue : SensorOutput;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeHigh : Pressure_kPa = 600 [kPa];
+        attribute accuracy : Pressure_kPa = 2 [kPa];
+
+        port measuredValue : SensorOutput;
+    }
+
+    part def OxygenDeficiencyMonitor {
+        attribute alarmThreshold : Percent = 19.5 [%];
+
+        port roomAirReading : SensorOutput;
+        port alarmSignal : SignalOutput;
+    }
+
+    part def CryogenicController {
+        attribute setpointTemperature : CelsiusTemperature = -150 [degC];
+        attribute highPressureLimit : Pressure_kPa = 350 [kPa];
+        attribute lowLevelLimit : Percent = 10 [%];
+
+        port temperatureInput : SensorOutput;
+        port pressureInput : SensorOutput;
+        port levelInput : SensorOutput;
+        port oxygenInput : SensorOutput;
+        port valveCommand : SignalOutput;
+        port shutdownCommand : SignalOutput;
+    }
+
+    action def RegulateCooling {
+        in targetTemperature : CelsiusTemperature;
+        in measuredTemperature : CelsiusTemperature;
+        in measuredPressure : Pressure_kPa;
+        in measuredLevel : Percent;
+        out valveOpening : Percent;
+
+        action compareTemperature;
+        action checkPressureLimit;
+        action checkInventory;
+        action computeOpening;
+    }
+
+    action def EmergencyShutdown {
+        in measuredPressure : Pressure_kPa;
+        in oxygenConcentration : Percent;
+        in tankLevel : Percent;
+        out closeValveCommand : ControlSignal;
+        out ventCommand : ControlSignal;
+
+        action closeSupplyValve;
+        action isolateDewar;
+        action routeVaporToVent;
+        action issueAlarm;
+    }
+
+    state def CoolingSystemOperatingState {
+        entry action initializeTelemetry;
+
+        state Idle;
+        state Filling;
+        state Standby;
+        state Cooling;
+        state PressureRelief;
+        state LowInventory;
+        state OxygenDeficiencyAlarm;
+        state Shutdown;
+
+        transition first Idle;
+
+        transition Idle_to_Filling
+            first Idle
+            then Filling
+            accept ControlSignal
+            if signal.commandPercent > 0 [%];
+
+        transition Filling_to_Standby
+            first Filling
+            then Standby
+            if levelTelemetry.reading.measuredLevel >= 95 [%];
+
+        transition Standby_to_Cooling
+            first Standby
+            then Cooling
+            if temperatureTelemetry.reading.measuredTemperature > setpointTemperature;
+
+        transition Cooling_to_Standby
+            first Cooling
+            then Standby
+            if temperatureTelemetry.reading.measuredTemperature <= setpointTemperature;
+
+        transition Cooling_to_PressureRelief
+            first Cooling
+            then PressureRelief
+            if pressureTelemetry.reading.measuredPressure >= 350 [kPa];
+
+        transition PressureRelief_to_Standby
+            first PressureRelief
+            then Standby
+            if pressureTelemetry.reading.measuredPressure <= 240 [kPa];
+
+        transition Standby_to_LowInventory
+            first Standby
+            then LowInventory
+            if levelTelemetry.reading.measuredLevel <= 10 [%];
+
+        transition Cooling_to_LowInventory
+            first Cooling
+            then LowInventory
+            if levelTelemetry.reading.measuredLevel <= 10 [%];
+
+        transition Any_to_OxygenDeficiencyAlarm
+            first Cooling
+            then OxygenDeficiencyAlarm
+            if roomAirReading.reading.oxygenConcentration < 19.5 [%];
+
+        transition Alarm_to_Shutdown
+            first OxygenDeficiencyAlarm
+            then Shutdown;
+
+        transition LowInventory_to_Shutdown
+            first LowInventory
+            then Shutdown;
+    }
+
+    part def LiquidNitrogenCryogenicCoolingSystem {
+        doc /* Primary function: store liquid nitrogen safely and use its cryogenic boiling process to remove heat from a protected thermal load, maintaining the load at a commanded low temperature while venting nitrogen vapor safely. */
+
+        attribute requiredCoolingTemperature : CelsiusTemperature = -150 [degC];
+        attribute maximumHeatLoad : HeatRate_W = 3500 [W];
+        attribute nominalSupplyPressure : Pressure_kPa = 220 [kPa];
+        attribute minimumRoomOxygen : Percent = 19.5 [%];
+
+        port fillConnection : LiquidNitrogenInlet;
+        port cooledLoadInterface : ThermalInterface;
+        port safeVentDischarge : VaporOutlet;
+        port operatorSetpoint : SignalInput;
+        port systemStatus : SensorOutput;
+
+        part dewar : VacuumInsulatedDewar;
+        part transferLine : CryogenicTransferLine;
+        part flowValve : ProportionalCryogenicValve;
+        part heatExchanger : CryogenicHeatExchanger;
+        part ventStack : VentStack;
+        part controller : CryogenicController;
+        part loadTemperatureSensor : TemperatureSensor;
+        part tankPressureSensor : PressureSensor;
+        part oxygenMonitor : OxygenDeficiencyMonitor;
+
+        connect fillConnection to dewar.fillPort;
+        connect dewar.supplyPort to transferLine.inlet;
+        connect transferLine.outlet to flowValve.inlet;
+        connect flowValve.outlet to heatExchanger.coolantIn;
+        connect cooledLoadInterface to heatExchanger.loadInterface;
+        connect heatExchanger.coolantOut to ventStack.vaporIn;
+        connect dewar.ventPort to ventStack.vaporIn;
+        connect transferLine.boilOffVent to ventStack.vaporIn;
+        connect ventStack.atmosphereDischarge to safeVentDischarge;
+
+        connect loadTemperatureSensor.measuredValue to controller.temperatureInput;
+        connect tankPressureSensor.measuredValue to controller.pressureInput;
+        connect dewar.levelTelemetry to controller.levelInput;
+        connect oxygenMonitor.roomAirReading to controller.oxygenInput;
+        connect controller.valveCommand to flowValve.command;
+        connect operatorSetpoint to controller.valveCommand;
+
+        perform action regulate : RegulateCooling {
+            in targetTemperature = requiredCoolingTemperature;
+            in measuredTemperature = loadTemperatureSensor.measuredValue.reading.measuredTemperature;
+            in measuredPressure = tankPressureSensor.measuredValue.reading.measuredPressure;
+            in measuredLevel = dewar.levelTelemetry.reading.measuredLevel;
+            out valveOpening = flowValve.commandedOpening;
+        }
+
+        exhibit state operatingState : CoolingSystemOperatingState;
+    }
+
+    requirement def PrimaryCoolingFunction {
+        subject system : LiquidNitrogenCryogenicCoolingSystem;
+
+        require constraint {
+            system.maximumHeatLoad <= system.heatExchanger.maximumCoolingCapacity
+        }
+
+        doc /* The system shall remove heat from the connected thermal load using liquid nitrogen as the cryogenic coolant. */
+    }
+
+    requirement def MaintainTargetTemperature {
+        subject system : LiquidNitrogenCryogenicCoolingSystem;
+
+        require constraint {
+            system.loadTemperatureSensor.measurementRangeLow <= system.requiredCoolingTemperature and
+            system.requiredCoolingTemperature <= system.loadTemperatureSensor.measurementRangeHigh
+        }
+
+        doc /* The system shall regulate liquid nitrogen flow to maintain the protected load at or below the commanded cryogenic temperature. */
+    }
+
+    requirement def SafePressureContainment {
+        subject system : LiquidNitrogenCryogenicCoolingSystem;
+
+        require constraint {
+            system.nominalSupplyPressure < system.controller.highPressureLimit and
+            system.dewar.workingPressure < system.controller.highPressureLimit
+        }
+
+        doc /* The system shall detect excessive pressure and transition to pressure relief before tank or line pressure exceeds the safety limit. */
+    }
+
+    requirement def SafeVentilation {
+        subject system : LiquidNitrogenCryogenicCoolingSystem;
+
+        require constraint {
+            system.minimumRoomOxygen >= system.oxygenMonitor.alarmThreshold
+        }
+
+        doc /* The system shall route nitrogen vapor to a vent stack and command shutdown when oxygen concentration falls below the oxygen-deficiency threshold. */
+    }
+
+    requirement def InventoryProtection {
+        subject system : LiquidNitrogenCryogenicCoolingSystem;
+
+        require constraint {
+            system.dewar.minimumUsableLevel <= system.controller.lowLevelLimit
+        }
+
+        doc /* The system shall stop active cooling when liquid nitrogen inventory is too low to sustain stable flow. */
+    }
+
+    satisfy PrimaryCoolingFunction by LiquidNitrogenCryogenicCoolingSystem;
+    satisfy MaintainTargetTemperature by LiquidNitrogenCryogenicCoolingSystem;
+    satisfy SafePressureContainment by LiquidNitrogenCryogenicCoolingSystem;
+    satisfy SafeVentilation by LiquidNitrogenCryogenicCoolingSystem;
+    satisfy InventoryProtection by LiquidNitrogenCryogenicCoolingSystem;
+
+}

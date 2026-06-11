@@ -1,0 +1,582 @@
+package PathologyInstrumentationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    attribute def VolumeValue :> Real {
+        unit = "mL";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def LengthValue :> Real {
+        unit = "um";
+    }
+
+    attribute def SpeedValue :> Real {
+        unit = "mm/s";
+    }
+
+    attribute def PowerValue :> Real {
+        unit = "W";
+    }
+
+    attribute def PressureValue :> Real {
+        unit = "kPa";
+    }
+
+    attribute def PercentageValue :> Real {
+        unit = "%";
+    }
+
+    item def TissueSpecimen {
+        attribute specimenId : String;
+        attribute tissueType : String;
+        attribute fixationComplete : Boolean;
+        attribute sectionThickness : LengthValue;
+        attribute stainCoverage : PercentageValue;
+        attribute diagnosticReady : Boolean;
+    }
+
+    item def Reagent {
+        attribute reagentName : String;
+        attribute volume : VolumeValue;
+        attribute concentration : PercentageValue;
+        attribute expirationValid : Boolean;
+    }
+
+    item def Slide {
+        attribute slideId : String;
+        attribute barcode : String;
+        attribute specimenMounted : Boolean;
+        attribute stained : Boolean;
+        attribute scanned : Boolean;
+    }
+
+    item def DigitalImage {
+        attribute imageId : String;
+        attribute magnification : Real;
+        attribute resolutionMicronsPerPixel : LengthValue;
+        attribute focusQuality : PercentageValue;
+        attribute diagnosticQuality : Boolean;
+    }
+
+    item def WasteFluid {
+        attribute volume : VolumeValue;
+        attribute biohazardous : Boolean;
+        attribute chemicalHazardous : Boolean;
+    }
+
+    item def DiagnosticResult {
+        attribute caseId : String;
+        attribute imageReviewed : Boolean;
+        attribute pathologistSignedOut : Boolean;
+        attribute resultSummary : String;
+    }
+
+    port def SpecimenInPort {
+        in item specimen : TissueSpecimen;
+    }
+
+    port def SpecimenOutPort {
+        out item specimen : TissueSpecimen;
+    }
+
+    port def SlideInPort {
+        in item slide : Slide;
+    }
+
+    port def SlideOutPort {
+        out item slide : Slide;
+    }
+
+    port def ReagentPort {
+        in item reagent : Reagent;
+    }
+
+    port def WastePort {
+        out item waste : WasteFluid;
+    }
+
+    port def ImageOutPort {
+        out item image : DigitalImage;
+    }
+
+    port def ResultOutPort {
+        out item result : DiagnosticResult;
+    }
+
+    port def ControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        out attribute readyStatus : Boolean;
+        out attribute alarmStatus : Boolean;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Real;
+        in attribute availablePower : PowerValue;
+    }
+
+    part def GrossingStation {
+        port specimenIn : SpecimenInPort;
+        port specimenOut : SpecimenOutPort;
+        port control : ControlPort;
+
+        attribute illuminationPower : PowerValue = 45.0;
+        attribute captureEnabled : Boolean;
+        attribute operatorShieldClosed : Boolean;
+
+        action documentAndTrimSpecimen {
+            in item rawSpecimen : TissueSpecimen;
+            out item cassetteSpecimen : TissueSpecimen;
+        }
+    }
+
+    part def TissueProcessor {
+        port specimenIn : SpecimenInPort;
+        port specimenOut : SpecimenOutPort;
+        port reagentIn : ReagentPort;
+        port wasteOut : WastePort;
+        port control : ControlPort;
+        port power : PowerPort;
+
+        attribute chamberTemperature : TemperatureValue = 60.0;
+        attribute chamberPressure : PressureValue = 80.0;
+        attribute processingDuration : TimeValue = 14400.0;
+        attribute reagentFillVolume : VolumeValue = 1200.0;
+
+        action fixDehydrateClearAndInfiltrate {
+            in item trimmedSpecimen : TissueSpecimen;
+            out item processedSpecimen : TissueSpecimen;
+            out item spentWaste : WasteFluid;
+        }
+
+        state def ProcessorState {
+            state Off;
+            state Ready;
+            state Loading;
+            state Fixation;
+            state Dehydration;
+            state Clearing;
+            state ParaffinInfiltration;
+            state Complete;
+            state Fault;
+
+            transition first Off then Ready;
+            transition Ready then Loading
+                accept start;
+            transition Loading then Fixation;
+            transition Fixation then Dehydration;
+            transition Dehydration then Clearing;
+            transition Clearing then ParaffinInfiltration;
+            transition ParaffinInfiltration then Complete;
+            transition Complete then Ready;
+            transition Ready then Fault
+                accept alarm;
+            transition Loading then Fault
+                accept alarm;
+            transition Fixation then Fault
+                accept alarm;
+            transition Dehydration then Fault
+                accept alarm;
+            transition Clearing then Fault
+                accept alarm;
+            transition ParaffinInfiltration then Fault
+                accept alarm;
+            transition Fault then Ready
+                accept reset;
+        }
+
+        perform stateMachine ProcessorState;
+    }
+
+    part def EmbeddingCenter {
+        port specimenIn : SpecimenInPort;
+        port specimenOut : SpecimenOutPort;
+        port control : ControlPort;
+        port power : PowerPort;
+
+        attribute paraffinReservoirTemperature : TemperatureValue = 62.0;
+        attribute coldPlateTemperature : TemperatureValue = -5.0;
+
+        action orientAndEmbed {
+            in item processedSpecimen : TissueSpecimen;
+            out item paraffinBlock : TissueSpecimen;
+        }
+    }
+
+    part def Microtome {
+        port specimenIn : SpecimenInPort;
+        port slideOut : SlideOutPort;
+        port control : ControlPort;
+
+        attribute sectionThicknessSetting : LengthValue = 4.0;
+        attribute bladeAdvanceSpeed : SpeedValue = 2.5;
+        attribute bladeGuardClosed : Boolean;
+
+        action sectionBlock {
+            in item paraffinBlock : TissueSpecimen;
+            out item unstainedSlide : Slide;
+        }
+
+        state def MicrotomeState {
+            state Idle;
+            state ClampBlock;
+            state AlignBlade;
+            state CutSections;
+            state TransferToSlide;
+            state Done;
+            state Unsafe;
+
+            transition first Idle then ClampBlock
+                accept start;
+            transition ClampBlock then AlignBlade;
+            transition AlignBlade then CutSections;
+            transition CutSections then TransferToSlide;
+            transition TransferToSlide then Done;
+            transition Done then Idle;
+            transition Idle then Unsafe
+                accept guardOpen;
+            transition ClampBlock then Unsafe
+                accept guardOpen;
+            transition AlignBlade then Unsafe
+                accept guardOpen;
+            transition CutSections then Unsafe
+                accept guardOpen;
+            transition Unsafe then Idle
+                accept guardClosed;
+        }
+
+        perform stateMachine MicrotomeState;
+    }
+
+    part def AutomatedStainer {
+        port slideIn : SlideInPort;
+        port slideOut : SlideOutPort;
+        port reagentIn : ReagentPort;
+        port wasteOut : WastePort;
+        port control : ControlPort;
+        port power : PowerPort;
+
+        attribute hematoxylinVolume : VolumeValue = 500.0;
+        attribute eosinVolume : VolumeValue = 500.0;
+        attribute rinseDuration : TimeValue = 60.0;
+        attribute stainingDuration : TimeValue = 420.0;
+        attribute targetStainCoverage : PercentageValue = 95.0;
+
+        action stainSlide {
+            in item unstainedSlide : Slide;
+            out item stainedSlide : Slide;
+            out item stainingWaste : WasteFluid;
+        }
+
+        state def StainerState {
+            state Standby;
+            state LoadRack;
+            state Deparaffinize;
+            state Hydrate;
+            state HematoxylinStain;
+            state Differentiate;
+            state EosinCounterstain;
+            state Dehydrate;
+            state CoverslipReady;
+            state Error;
+
+            transition first Standby then LoadRack
+                accept start;
+            transition LoadRack then Deparaffinize;
+            transition Deparaffinize then Hydrate;
+            transition Hydrate then HematoxylinStain;
+            transition HematoxylinStain then Differentiate;
+            transition Differentiate then EosinCounterstain;
+            transition EosinCounterstain then Dehydrate;
+            transition Dehydrate then CoverslipReady;
+            transition CoverslipReady then Standby;
+            transition Standby then Error
+                accept alarm;
+            transition LoadRack then Error
+                accept alarm;
+            transition HematoxylinStain then Error
+                accept alarm;
+            transition EosinCounterstain then Error
+                accept alarm;
+            transition Error then Standby
+                accept reset;
+        }
+
+        perform stateMachine StainerState;
+    }
+
+    part def Coverslipper {
+        port slideIn : SlideInPort;
+        port slideOut : SlideOutPort;
+        port reagentIn : ReagentPort;
+        port wasteOut : WastePort;
+        port control : ControlPort;
+
+        attribute mountantVolumePerSlide : VolumeValue = 0.12;
+        attribute coverslipPlacementTolerance : LengthValue = 100.0;
+
+        action applyCoverslip {
+            in item stainedSlide : Slide;
+            out item protectedSlide : Slide;
+            out item excessWaste : WasteFluid;
+        }
+    }
+
+    part def WholeSlideScanner {
+        port slideIn : SlideInPort;
+        port imageOut : ImageOutPort;
+        port control : ControlPort;
+        port power : PowerPort;
+
+        attribute scanMagnification : Real = 40.0;
+        attribute pixelSize : LengthValue = 0.25;
+        attribute focusThreshold : PercentageValue = 90.0;
+        attribute scanSpeed : SpeedValue = 15.0;
+
+        action scanSlide {
+            in item protectedSlide : Slide;
+            out item diagnosticImage : DigitalImage;
+        }
+
+        state def ScannerState {
+            state Idle;
+            state LoadSlide;
+            state DetectBarcode;
+            state Autofocus;
+            state TileCapture;
+            state ImageStitching;
+            state QualityCheck;
+            state ImageAvailable;
+            state Fault;
+
+            transition first Idle then LoadSlide
+                accept start;
+            transition LoadSlide then DetectBarcode;
+            transition DetectBarcode then Autofocus;
+            transition Autofocus then TileCapture;
+            transition TileCapture then ImageStitching;
+            transition ImageStitching then QualityCheck;
+            transition QualityCheck then ImageAvailable;
+            transition ImageAvailable then Idle;
+            transition LoadSlide then Fault
+                accept alarm;
+            transition Autofocus then Fault
+                accept focusFailure;
+            transition QualityCheck then Fault
+                accept qualityFailure;
+            transition Fault then Idle
+                accept reset;
+        }
+
+        perform stateMachine ScannerState;
+    }
+
+    part def LaboratoryInformationSystem {
+        port imageIn {
+            in item image : DigitalImage;
+        }
+        port resultOut : ResultOutPort;
+        port control : ControlPort;
+
+        attribute caseAccessioned : Boolean;
+        attribute auditTrailEnabled : Boolean = true;
+        attribute resultRetentionYears : Real = 10.0;
+
+        action registerCaseAndGenerateResult {
+            in item image : DigitalImage;
+            out item result : DiagnosticResult;
+        }
+    }
+
+    part def PathologyInstrumentSystem {
+        part grossingStation : GrossingStation;
+        part tissueProcessor : TissueProcessor;
+        part embeddingCenter : EmbeddingCenter;
+        part microtome : Microtome;
+        part automatedStainer : AutomatedStainer;
+        part coverslipper : Coverslipper;
+        part wholeSlideScanner : WholeSlideScanner;
+        part laboratoryInformationSystem : LaboratoryInformationSystem;
+
+        port specimenInput : SpecimenInPort;
+        port resultOutput : ResultOutPort;
+        port reagentInput : ReagentPort;
+        port wasteOutput : WastePort;
+        port electricalPower : PowerPort;
+        port operatorControl : ControlPort;
+
+        attribute primaryFunction : String =
+            "Prepare human tissue specimens into stained, protected, digitally imaged pathology slides and provide diagnostic-quality image data for pathologist review.";
+        attribute nominalThroughputSlidesPerHour : Real = 60.0;
+        attribute maximumBatchSpecimens : Real = 120.0;
+        attribute operatingTemperatureMin : TemperatureValue = 18.0;
+        attribute operatingTemperatureMax : TemperatureValue = 26.0;
+
+        connect specimenInput to grossingStation.specimenIn;
+        connect grossingStation.specimenOut to tissueProcessor.specimenIn;
+        connect tissueProcessor.specimenOut to embeddingCenter.specimenIn;
+        connect embeddingCenter.specimenOut to microtome.specimenIn;
+        connect microtome.slideOut to automatedStainer.slideIn;
+        connect automatedStainer.slideOut to coverslipper.slideIn;
+        connect coverslipper.slideOut to wholeSlideScanner.slideIn;
+        connect wholeSlideScanner.imageOut to laboratoryInformationSystem.imageIn;
+        connect laboratoryInformationSystem.resultOut to resultOutput;
+
+        connect reagentInput to tissueProcessor.reagentIn;
+        connect reagentInput to automatedStainer.reagentIn;
+        connect reagentInput to coverslipper.reagentIn;
+
+        connect tissueProcessor.wasteOut to wasteOutput;
+        connect automatedStainer.wasteOut to wasteOutput;
+        connect coverslipper.wasteOut to wasteOutput;
+
+        connect electricalPower to tissueProcessor.power;
+        connect electricalPower to embeddingCenter.power;
+        connect electricalPower to automatedStainer.power;
+        connect electricalPower to wholeSlideScanner.power;
+
+        connect operatorControl to grossingStation.control;
+        connect operatorControl to tissueProcessor.control;
+        connect operatorControl to embeddingCenter.control;
+        connect operatorControl to microtome.control;
+        connect operatorControl to automatedStainer.control;
+        connect operatorControl to coverslipper.control;
+        connect operatorControl to wholeSlideScanner.control;
+        connect operatorControl to laboratoryInformationSystem.control;
+
+        action performPathologyPreparationWorkflow {
+            in item submittedSpecimen : TissueSpecimen;
+            out item signedResult : DiagnosticResult;
+
+            first start;
+            then documentAndTrim;
+            then processTissue;
+            then embedTissue;
+            then cutSections;
+            then stainSections;
+            then coverslipSlide;
+            then scanPreparedSlide;
+            then registerResult;
+            then finish;
+
+            action documentAndTrim {
+                in item submittedSpecimen : TissueSpecimen;
+                out item cassetteSpecimen : TissueSpecimen;
+            }
+
+            action processTissue {
+                in item cassetteSpecimen : TissueSpecimen;
+                out item processedSpecimen : TissueSpecimen;
+            }
+
+            action embedTissue {
+                in item processedSpecimen : TissueSpecimen;
+                out item paraffinBlock : TissueSpecimen;
+            }
+
+            action cutSections {
+                in item paraffinBlock : TissueSpecimen;
+                out item unstainedSlide : Slide;
+            }
+
+            action stainSections {
+                in item unstainedSlide : Slide;
+                out item stainedSlide : Slide;
+            }
+
+            action coverslipSlide {
+                in item stainedSlide : Slide;
+                out item protectedSlide : Slide;
+            }
+
+            action scanPreparedSlide {
+                in item protectedSlide : Slide;
+                out item diagnosticImage : DigitalImage;
+            }
+
+            action registerResult {
+                in item diagnosticImage : DigitalImage;
+                out item signedResult : DiagnosticResult;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The pathology instrumentation system shall convert a submitted tissue specimen into a stained, coverslipped, digitally scanned slide image suitable for diagnostic review. */
+        subject system : PathologyInstrumentSystem;
+        require constraint {
+            system.nominalThroughputSlidesPerHour >= 30.0
+        }
+    }
+
+    requirement def SectionThicknessRequirement {
+        doc /* The microtome shall produce tissue sections with nominal thickness suitable for routine hematoxylin and eosin pathology preparation. */
+        subject microtome : Microtome;
+        require constraint {
+            microtome.sectionThicknessSetting >= 3.0 and
+            microtome.sectionThicknessSetting <= 5.0
+        }
+    }
+
+    requirement def StainingQualityRequirement {
+        doc /* The automated stainer shall achieve sufficient stain coverage for diagnostic interpretation. */
+        subject stainer : AutomatedStainer;
+        require constraint {
+            stainer.targetStainCoverage >= 95.0
+        }
+    }
+
+    requirement def DigitalImageQualityRequirement {
+        doc /* The whole slide scanner shall create diagnostic-quality images at high magnification with adequate focus quality. */
+        subject scanner : WholeSlideScanner;
+        require constraint {
+            scanner.scanMagnification >= 20.0 and
+            scanner.pixelSize <= 0.50 and
+            scanner.focusThreshold >= 90.0
+        }
+    }
+
+    requirement def BiosafetyRequirement {
+        doc /* The system shall route chemical and biological waste from processing, staining, and coverslipping operations to controlled waste output. */
+        subject system : PathologyInstrumentSystem;
+        require constraint {
+            system.maximumBatchSpecimens <= 120.0
+        }
+    }
+
+    requirement def TraceabilityRequirement {
+        doc /* The laboratory information system shall maintain specimen, slide, image, and diagnostic result traceability through barcode and case accession data. */
+        subject lis : LaboratoryInformationSystem;
+        require constraint {
+            lis.auditTrailEnabled == true and
+            lis.resultRetentionYears >= 10.0
+        }
+    }
+
+    requirement def OperatingEnvironmentRequirement {
+        doc /* The pathology instrumentation system shall operate within controlled laboratory ambient temperature limits. */
+        subject system : PathologyInstrumentSystem;
+        require constraint {
+            system.operatingTemperatureMin >= 18.0 and
+            system.operatingTemperatureMax <= 26.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PathologyInstrumentSystem;
+    satisfy BiosafetyRequirement by PathologyInstrumentSystem;
+    satisfy OperatingEnvironmentRequirement by PathologyInstrumentSystem;
+    satisfy SectionThicknessRequirement by Microtome;
+    satisfy StainingQualityRequirement by AutomatedStainer;
+    satisfy DigitalImageQualityRequirement by WholeSlideScanner;
+    satisfy TraceabilityRequirement by LaboratoryInformationSystem;
+}

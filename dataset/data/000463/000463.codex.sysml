@@ -1,0 +1,456 @@
+package IonacoModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    metadata def SystemDescription {
+        attribute summary : String;
+    }
+
+    item def AirMixture {
+        attribute temperature : TemperatureValue;
+        attribute relativeHumidity : Real;
+        attribute particulateConcentration : ParticulateConcentration;
+        attribute ionConcentration : IonConcentration;
+        attribute volumetricFlowRate : VolumetricFlowRate;
+    }
+
+    item def NegativeIonStream {
+        attribute ionConcentration : IonConcentration;
+        attribute ozoneConcentration : OzoneConcentration;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    item def FilteredAir {
+        attribute particulateConcentration : ParticulateConcentration;
+        attribute ionConcentration : IonConcentration;
+        attribute ozoneConcentration : OzoneConcentration;
+        attribute volumetricFlowRate : VolumetricFlowRate;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+        attribute frequency : FrequencyValue;
+        attribute power : PowerValue;
+    }
+
+    item def ControlCommand {
+        attribute requestedMode : OperatingMode;
+        attribute requestedFanSpeed : FanSpeedLevel;
+        attribute ionizationEnabled : Boolean;
+    }
+
+    item def DiagnosticReport {
+        attribute healthStatus : HealthState;
+        attribute filterRemainingLife : Real;
+        attribute faultCode : String;
+        attribute measuredOzone : OzoneConcentration;
+        attribute measuredIonOutput : IonConcentration;
+    }
+
+    enum def OperatingMode {
+        enum idle;
+        enum purification;
+        enum boost;
+        enum maintenance;
+        enum fault;
+    }
+
+    enum def FanSpeedLevel {
+        enum off;
+        enum low;
+        enum medium;
+        enum high;
+    }
+
+    enum def HealthState {
+        enum nominal;
+        enum degraded;
+        enum unsafe;
+        enum serviceRequired;
+    }
+
+    value def ParticulateConcentration :> ISQ::massDensity {
+        unit = SI::microgram / SI::metre^3;
+    }
+
+    value def IonConcentration {
+        unit = SI::one / SI::centimetre^3;
+        quantity = "ion number concentration";
+    }
+
+    value def OzoneConcentration {
+        unit = SI::partsPerMillion;
+        quantity = "ozone volume concentration";
+    }
+
+    value def VolumetricFlowRate {
+        unit = SI::metre^3 / SI::hour;
+        quantity = "volumetric flow rate";
+    }
+
+    value def FilterLifeFraction {
+        unit = SI::one;
+        quantity = "fraction of remaining filter life";
+    }
+
+    part def IonacoAirPurificationSystem {
+        @SystemDescription {
+            summary = "The Ionaco system primarily conditions indoor air by drawing contaminated air through a filtration path, enriching the cleaned stream with controlled negative ions, and discharging treated air while limiting ozone and monitoring health."
+        }
+
+        attribute mode : OperatingMode = OperatingMode::idle;
+        attribute health : HealthState = HealthState::nominal;
+        attribute commandedFanSpeed : FanSpeedLevel = FanSpeedLevel::off;
+        attribute targetIonConcentration : IonConcentration = 1200000 [SI::one / SI::centimetre^3];
+        attribute maxPermittedOzone : OzoneConcentration = 0.05 [SI::partsPerMillion];
+        attribute nominalFlowRate : VolumetricFlowRate = 180 [SI::metre^3 / SI::hour];
+
+        port acPowerIn : ~ElectricalPower;
+        port ambientAirIn : ~AirMixture;
+        port treatedAirOut : FilteredAir;
+        port commandIn : ~ControlCommand;
+        port diagnosticOut : DiagnosticReport;
+
+        part enclosure : Enclosure;
+        part inlet : AirInlet;
+        part preFilter : MechanicalPreFilter;
+        part electrostaticCollector : ElectrostaticCollector;
+        part ionizer : NegativeIonGenerator;
+        part fan : VariableSpeedFan;
+        part ozoneSensor : OzoneSensor;
+        part particleSensor : ParticleSensor;
+        part ionSensor : IonSensor;
+        part controller : IonacoController;
+        part outlet : AirOutlet;
+        part powerSupply : HighVoltagePowerSupply;
+        part userInterface : UserInterface;
+
+        connection airPath1 connect ambientAirIn to inlet.airIn;
+        connection airPath2 connect inlet.airOut to preFilter.airIn;
+        connection airPath3 connect preFilter.airOut to electrostaticCollector.airIn;
+        connection airPath4 connect electrostaticCollector.airOut to ionizer.airIn;
+        connection airPath5 connect ionizer.airOut to fan.airIn;
+        connection airPath6 connect fan.airOut to outlet.airIn;
+        connection airPath7 connect outlet.airOut to treatedAirOut;
+
+        connection powerPath1 connect acPowerIn to powerSupply.inputPower;
+        connection powerPath2 connect powerSupply.lowVoltagePower to controller.powerIn;
+        connection powerPath3 connect powerSupply.highVoltagePower to ionizer.highVoltageIn;
+        connection powerPath4 connect powerSupply.lowVoltagePower to fan.powerIn;
+
+        connection controlPath1 connect commandIn to controller.externalCommand;
+        connection controlPath2 connect controller.fanCommand to fan.speedCommand;
+        connection controlPath3 connect controller.ionizerCommand to ionizer.enableCommand;
+        connection controlPath4 connect controller.diagnosticReport to diagnosticOut;
+        connection uiPath connect userInterface.localCommand to controller.externalCommand;
+
+        connection ozoneFeedback connect ozoneSensor.ozoneMeasurement to controller.ozoneInput;
+        connection particleFeedback connect particleSensor.particleMeasurement to controller.particleInput;
+        connection ionFeedback connect ionSensor.ionMeasurement to controller.ionInput;
+
+        perform purificationCycle : PurifyAir;
+        exhibit states : IonacoOperationalStates;
+    }
+
+    part def Enclosure {
+        attribute material : String = "flame-retardant polymer";
+        attribute ingressProtectionRating : String = "IP20";
+        attribute acousticDamping : Boolean = true;
+    }
+
+    part def AirInlet {
+        port airIn : ~AirMixture;
+        port airOut : AirMixture;
+        attribute inletArea : AreaValue = 0.035 [SI::metre^2];
+    }
+
+    part def MechanicalPreFilter {
+        port airIn : ~AirMixture;
+        port airOut : AirMixture;
+        attribute removalEfficiencyPM10 : Real = 0.85;
+        attribute remainingLife : FilterLifeFraction = 1.0 [SI::one];
+    }
+
+    part def ElectrostaticCollector {
+        port airIn : ~AirMixture;
+        port airOut : AirMixture;
+        attribute removalEfficiencyPM25 : Real = 0.92;
+        attribute collectorVoltage : ElectricPotentialValue = 6500 [SI::volt];
+    }
+
+    part def NegativeIonGenerator {
+        port airIn : ~AirMixture;
+        port airOut : NegativeIonStream;
+        port highVoltageIn : ~ElectricalPower;
+        port enableCommand : ~Boolean;
+
+        attribute emitterVoltage : ElectricPotentialValue = 12000 [SI::volt];
+        attribute nominalIonOutput : IonConcentration = 1500000 [SI::one / SI::centimetre^3];
+        attribute ozoneByproductLimit : OzoneConcentration = 0.03 [SI::partsPerMillion];
+
+        perform generateIons : GenerateNegativeIons;
+    }
+
+    part def VariableSpeedFan {
+        port airIn : ~NegativeIonStream;
+        port airOut : FilteredAir;
+        port powerIn : ~ElectricalPower;
+        port speedCommand : ~FanSpeedLevel;
+
+        attribute currentSpeed : FanSpeedLevel = FanSpeedLevel::off;
+        attribute maxFlowRate : VolumetricFlowRate = 240 [SI::metre^3 / SI::hour];
+        attribute acousticNoiseAtHigh : SoundPressureLevelValue = 48 [SI::decibel];
+    }
+
+    part def OzoneSensor {
+        port ozoneMeasurement : OzoneConcentration;
+        attribute measurementRange : OzoneConcentration = 0.20 [SI::partsPerMillion];
+        attribute alarmThreshold : OzoneConcentration = 0.05 [SI::partsPerMillion];
+    }
+
+    part def ParticleSensor {
+        port particleMeasurement : ParticulateConcentration;
+        attribute measurementRange : ParticulateConcentration = 500 [SI::microgram / SI::metre^3];
+    }
+
+    part def IonSensor {
+        port ionMeasurement : IonConcentration;
+        attribute minimumDetectableIonConcentration : IonConcentration = 10000 [SI::one / SI::centimetre^3];
+    }
+
+    part def HighVoltagePowerSupply {
+        port inputPower : ~ElectricalPower;
+        port lowVoltagePower : ElectricalPower;
+        port highVoltagePower : ElectricalPower;
+
+        attribute inputVoltage : ElectricPotentialValue = 120 [SI::volt];
+        attribute controlVoltage : ElectricPotentialValue = 24 [SI::volt];
+        attribute ionizerVoltage : ElectricPotentialValue = 12000 [SI::volt];
+        attribute maxOutputPower : PowerValue = 80 [SI::watt];
+    }
+
+    part def IonacoController {
+        port powerIn : ~ElectricalPower;
+        port externalCommand : ~ControlCommand;
+        port ozoneInput : ~OzoneConcentration;
+        port particleInput : ~ParticulateConcentration;
+        port ionInput : ~IonConcentration;
+        port fanCommand : FanSpeedLevel;
+        port ionizerCommand : Boolean;
+        port diagnosticReport : DiagnosticReport;
+
+        attribute activeMode : OperatingMode = OperatingMode::idle;
+        attribute healthState : HealthState = HealthState::nominal;
+        attribute ozoneShutdownThreshold : OzoneConcentration = 0.05 [SI::partsPerMillion];
+        attribute boostParticleThreshold : ParticulateConcentration = 75 [SI::microgram / SI::metre^3];
+
+        perform superviseSystem : SuperviseIonacoOperation;
+    }
+
+    part def UserInterface {
+        port localCommand : ControlCommand;
+        attribute hasModeButton : Boolean = true;
+        attribute hasFilterIndicator : Boolean = true;
+        attribute hasFaultIndicator : Boolean = true;
+    }
+
+    part def AirOutlet {
+        port airIn : ~FilteredAir;
+        port airOut : FilteredAir;
+        attribute outletArea : AreaValue = 0.028 [SI::metre^2];
+    }
+
+    action def PurifyAir {
+        in rawAir : AirMixture;
+        in electricalSupply : ElectricalPower;
+        out treatedAir : FilteredAir;
+
+        action drawAir;
+        action removeCoarseParticles;
+        action collectFineParticles;
+        action produceNegativeIons;
+        action mixIonStream;
+        action dischargeTreatedAir;
+
+        first drawAir then removeCoarseParticles;
+        then collectFineParticles;
+        then produceNegativeIons;
+        then mixIonStream;
+        then dischargeTreatedAir;
+    }
+
+    action def GenerateNegativeIons {
+        in enabled : Boolean;
+        in highVoltagePower : ElectricalPower;
+        out ionStream : NegativeIonStream;
+
+        action energizeEmitter;
+        action ionizeMolecules;
+        action limitOzoneFormation;
+        action releaseIonStream;
+
+        first energizeEmitter then ionizeMolecules;
+        then limitOzoneFormation;
+        then releaseIonStream;
+    }
+
+    action def SuperviseIonacoOperation {
+        in command : ControlCommand;
+        in measuredOzone : OzoneConcentration;
+        in measuredParticles : ParticulateConcentration;
+        in measuredIons : IonConcentration;
+        out fanSetting : FanSpeedLevel;
+        out ionizerEnabled : Boolean;
+        out report : DiagnosticReport;
+
+        action evaluateCommand;
+        action selectMode;
+        action regulateFan;
+        action regulateIonOutput;
+        action checkSafetyLimits;
+        action publishDiagnostics;
+
+        first evaluateCommand then selectMode;
+        then regulateFan;
+        then regulateIonOutput;
+        then checkSafetyLimits;
+        then publishDiagnostics;
+    }
+
+    state def IonacoOperationalStates {
+        entry action initializeController;
+
+        state Off;
+        state Standby;
+        state Purifying;
+        state Boost;
+        state Maintenance;
+        state Fault;
+
+        transition initial then Off;
+
+        transition powerApplied
+            first Off
+            accept ControlCommand
+            if externalCommand.requestedMode == OperatingMode::idle
+            then Standby;
+
+        transition startPurification
+            first Standby
+            accept ControlCommand
+            if externalCommand.requestedMode == OperatingMode::purification
+            then Purifying;
+
+        transition enterBoost
+            first Purifying
+            accept ControlCommand
+            if externalCommand.requestedMode == OperatingMode::boost
+            then Boost;
+
+        transition leaveBoost
+            first Boost
+            accept ControlCommand
+            if externalCommand.requestedMode == OperatingMode::purification
+            then Purifying;
+
+        transition serviceRequested
+            first Standby
+            accept ControlCommand
+            if externalCommand.requestedMode == OperatingMode::maintenance
+            then Maintenance;
+
+        transition serviceComplete
+            first Maintenance
+            accept ControlCommand
+            if externalCommand.requestedMode == OperatingMode::idle
+            then Standby;
+
+        transition ozoneFault
+            first Purifying
+            if ozoneInput >= 0.05 [SI::partsPerMillion]
+            then Fault;
+
+        transition boostOzoneFault
+            first Boost
+            if ozoneInput >= 0.05 [SI::partsPerMillion]
+            then Fault;
+
+        transition resetFault
+            first Fault
+            accept ControlCommand
+            if externalCommand.requestedMode == OperatingMode::idle
+            then Standby;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : IonacoAirPurificationSystem;
+
+        doc /* The Ionaco system shall improve indoor air quality by filtering incoming air, generating a controlled negative ion stream, and delivering treated air to the occupied space. */
+
+        require constraint {
+            system.nominalFlowRate >= 150 [SI::metre^3 / SI::hour]
+        }
+    }
+
+    requirement def OzoneSafetyRequirement {
+        subject system : IonacoAirPurificationSystem;
+
+        doc /* The Ionaco system shall prevent treated-air ozone concentration from exceeding the permitted safety limit during normal operation. */
+
+        require constraint {
+            system.maxPermittedOzone <= 0.05 [SI::partsPerMillion]
+        }
+    }
+
+    requirement def IonOutputRequirement {
+        subject system : IonacoAirPurificationSystem;
+
+        doc /* The Ionaco system shall provide sufficient negative ion concentration to support air conditioning performance at the outlet. */
+
+        require constraint {
+            system.targetIonConcentration >= 1000000 [SI::one / SI::centimetre^3]
+        }
+    }
+
+    requirement def ParticulateReductionRequirement {
+        subject system : IonacoAirPurificationSystem;
+
+        doc /* The Ionaco system shall reduce fine particulate concentration through mechanical and electrostatic capture before ion-enriched discharge. */
+
+        require constraint {
+            system.electrostaticCollector.removalEfficiencyPM25 >= 0.90
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject system : IonacoAirPurificationSystem;
+
+        doc /* The Ionaco system shall report health, filter life, ozone level, ion output, and active fault code to support service and safe operation. */
+
+        require constraint {
+            system.controller.healthState != HealthState::unsafe or system.mode == OperatingMode::fault
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject system : IonacoAirPurificationSystem;
+
+        doc /* The Ionaco system shall operate from standard indoor AC power while internally producing isolated control and ionizer supply voltages. */
+
+        require constraint {
+            system.powerSupply.inputVoltage == 120 [SI::volt] and
+            system.powerSupply.maxOutputPower <= 100 [SI::watt]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by IonacoAirPurificationSystem;
+    satisfy OzoneSafetyRequirement by IonacoAirPurificationSystem;
+    satisfy IonOutputRequirement by IonacoAirPurificationSystem;
+    satisfy ParticulateReductionRequirement by IonacoAirPurificationSystem;
+    satisfy DiagnosticRequirement by IonacoAirPurificationSystem;
+    satisfy PowerRequirement by IonacoAirPurificationSystem;
+
+}

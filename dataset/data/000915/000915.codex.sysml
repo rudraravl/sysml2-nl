@@ -1,0 +1,313 @@
+package PaddleWheelSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def RotationRate :> ISQ::angularVelocity;
+  attribute def Torque :> ISQ::torque;
+  attribute def Power :> ISQ::power;
+  attribute def FlowSpeed :> ISQ::speed;
+  attribute def Force :> ISQ::force;
+  attribute def Efficiency {
+    attribute value : Real;
+  }
+
+  item def WaterFlow {
+    attribute velocity : FlowSpeed;
+    attribute density : ISQ::massDensity = 1000 [kg / m^3];
+    attribute volumetricFlowRate : ISQ::volumeFlowRate;
+  }
+
+  item def RotationalPower {
+    attribute torque : Torque;
+    attribute speed : RotationRate;
+    attribute power : Power;
+  }
+
+  item def SupportLoad {
+    attribute radialForce : Force;
+    attribute axialForce : Force;
+  }
+
+  port def WaterPort {
+    in item flow : WaterFlow;
+  }
+
+  port def MechanicalRotationalPort {
+    out item powerFlow : RotationalPower;
+  }
+
+  port def LoadPort {
+    out item load : SupportLoad;
+  }
+
+  part def PaddleBlade {
+    attribute bladeArea : ISQ::area;
+    attribute bladeWidth : ISQ::length;
+    attribute bladeHeight : ISQ::length;
+    attribute immersionDepth : ISQ::length;
+    attribute hydrodynamicDragForce : Force;
+
+    port waterContact : WaterPort;
+  }
+
+  part def WheelHub {
+    attribute radius : ISQ::length;
+    attribute mass : ISQ::mass;
+    attribute angularSpeed : RotationRate;
+
+    port shaftInterface : MechanicalRotationalPort;
+  }
+
+  part def Shaft {
+    attribute diameter : ISQ::length;
+    attribute length : ISQ::length;
+    attribute transmittedTorque : Torque;
+    attribute rotationalSpeed : RotationRate;
+
+    port input : MechanicalRotationalPort;
+    port output : MechanicalRotationalPort;
+    port bearingLoad : LoadPort;
+  }
+
+  part def BearingAssembly {
+    attribute allowableRadialLoad : Force;
+    attribute allowableAxialLoad : Force;
+    attribute frictionTorque : Torque;
+
+    port supportedLoad : LoadPort;
+  }
+
+  part def Frame {
+    attribute structuralMass : ISQ::mass;
+    attribute stiffness : Real;
+
+    port bearingMountLoad : LoadPort;
+  }
+
+  part def PaddleWheelController {
+    attribute enabled : Boolean;
+    attribute commandedGateOpening : Real;
+    attribute measuredSpeed : RotationRate;
+
+    action monitorWheelSpeed {
+      in measured : RotationRate;
+      out overspeed : Boolean;
+    }
+
+    action commandWaterGate {
+      in openingCommand : Real;
+      out acceptedOpening : Real;
+    }
+
+    state operatingState {
+      state stopped;
+      state starting;
+      state generatingRotation;
+      state overspeedProtection;
+      state shutdown;
+
+      initial then stopped;
+
+      transition stopped_to_starting
+        first stopped
+        accept StartCommand
+        then starting;
+
+      transition starting_to_generating
+        first starting
+        if measuredSpeed > 2 [rad / s]
+        then generatingRotation;
+
+      transition generating_to_overspeed
+        first generatingRotation
+        if measuredSpeed > 15 [rad / s]
+        then overspeedProtection;
+
+      transition overspeed_to_shutdown
+        first overspeedProtection
+        then shutdown;
+
+      transition generating_to_shutdown
+        first generatingRotation
+        accept StopCommand
+        then shutdown;
+
+      transition shutdown_to_stopped
+        first shutdown
+        if measuredSpeed <= 0.2 [rad / s]
+        then stopped;
+    }
+  }
+
+  item def StartCommand;
+  item def StopCommand;
+
+  part def PaddleWheelSystem {
+    doc /* The paddle wheel system converts the kinetic energy of moving water into useful rotational mechanical power by allowing flowing water to apply force to immersed paddle blades, causing the wheel and shaft to rotate. */
+
+    attribute wheelRadius : ISQ::length = 1.25 [m];
+    attribute wheelWidth : ISQ::length = 0.8 [m];
+    attribute nominalWaterSpeed : FlowSpeed = 2.5 [m / s];
+    attribute nominalTorque : Torque = 180 [N * m];
+    attribute nominalRotationalSpeed : RotationRate = 8 [rad / s];
+    attribute nominalMechanicalPower : Power = 1440 [W];
+    attribute conversionEfficiency : Efficiency;
+
+    port upstreamWater : WaterPort;
+    port downstreamWater : WaterPort;
+    port mechanicalOutput : MechanicalRotationalPort;
+
+    part hub : WheelHub {
+      attribute radius = wheelRadius;
+      attribute angularSpeed = nominalRotationalSpeed;
+    }
+
+    part blades[12] : PaddleBlade {
+      attribute bladeArea = 0.32 [m^2];
+      attribute bladeWidth = 0.8 [m];
+      attribute bladeHeight = 0.4 [m];
+      attribute immersionDepth = 0.25 [m];
+    }
+
+    part mainShaft : Shaft {
+      attribute diameter = 0.08 [m];
+      attribute length = 1.4 [m];
+      attribute transmittedTorque = nominalTorque;
+      attribute rotationalSpeed = nominalRotationalSpeed;
+    }
+
+    part leftBearing : BearingAssembly {
+      attribute allowableRadialLoad = 4500 [N];
+      attribute allowableAxialLoad = 800 [N];
+      attribute frictionTorque = 4 [N * m];
+    }
+
+    part rightBearing : BearingAssembly {
+      attribute allowableRadialLoad = 4500 [N];
+      attribute allowableAxialLoad = 800 [N];
+      attribute frictionTorque = 4 [N * m];
+    }
+
+    part supportFrame : Frame {
+      attribute structuralMass = 120 [kg];
+      attribute stiffness = 2.5e6;
+    }
+
+    part controller : PaddleWheelController;
+
+    connection water_to_blades connect upstreamWater to blades.waterContact;
+    connection hub_to_shaft connect hub.shaftInterface to mainShaft.input;
+    connection shaft_to_output connect mainShaft.output to mechanicalOutput;
+    connection shaft_to_left_bearing connect mainShaft.bearingLoad to leftBearing.supportedLoad;
+    connection shaft_to_right_bearing connect mainShaft.bearingLoad to rightBearing.supportedLoad;
+    connection bearings_to_frame connect leftBearing.supportedLoad to supportFrame.bearingMountLoad;
+    connection bearings_to_frame_2 connect rightBearing.supportedLoad to supportFrame.bearingMountLoad;
+
+    action convertWaterFlowToRotation {
+      in water : WaterFlow;
+      out rotation : RotationalPower;
+
+      first start;
+      then captureWaterMomentum;
+      then applyBladeForces;
+      then rotateWheel;
+      then transmitShaftPower;
+      then done;
+
+      action captureWaterMomentum;
+      action applyBladeForces;
+      action rotateWheel;
+      action transmitShaftPower;
+    }
+
+    state lifecycle {
+      state installed;
+      state idle;
+      state operating;
+      state protectedStop;
+      state maintenance;
+
+      initial then installed;
+
+      transition installed_to_idle
+        first installed
+        then idle;
+
+      transition idle_to_operating
+        first idle
+        accept StartCommand
+        then operating;
+
+      transition operating_to_protectedStop
+        first operating
+        if nominalRotationalSpeed > 15 [rad / s]
+        then protectedStop;
+
+      transition operating_to_idle
+        first operating
+        accept StopCommand
+        then idle;
+
+      transition protectedStop_to_maintenance
+        first protectedStop
+        then maintenance;
+
+      transition maintenance_to_idle
+        first maintenance
+        then idle;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall convert energy from flowing water into rotational mechanical power at a shaft output. */
+    subject system : PaddleWheelSystem;
+    require constraint {
+      system.nominalMechanicalPower >= 1000 [W]
+    }
+  }
+
+  requirement def WaterInteractionRequirement {
+    doc /* The paddle blades shall receive water flow through immersed blade surfaces and produce torque on the hub. */
+    subject system : PaddleWheelSystem;
+    require constraint {
+      system.nominalWaterSpeed >= 1.0 [m / s]
+    }
+  }
+
+  requirement def StructuralSupportRequirement {
+    doc /* The frame and bearing assemblies shall support radial and axial loads generated by the rotating paddle wheel. */
+    subject system : PaddleWheelSystem;
+    require constraint {
+      system.leftBearing.allowableRadialLoad >= 4000 [N] and
+      system.rightBearing.allowableRadialLoad >= 4000 [N]
+    }
+  }
+
+  requirement def OverspeedProtectionRequirement {
+    doc /* The controller shall detect excessive wheel speed and transition the system into protected stop behavior. */
+    subject system : PaddleWheelSystem;
+    require constraint {
+      system.nominalRotationalSpeed < 15 [rad / s]
+    }
+  }
+
+  requirement def EfficiencyRequirement {
+    doc /* The paddle wheel shall maintain a positive mechanical conversion efficiency under nominal flow conditions. */
+    subject system : PaddleWheelSystem;
+    require constraint {
+      system.conversionEfficiency.value >= 0.35
+    }
+  }
+
+  part paddleWheelPlant : PaddleWheelSystem {
+    attribute conversionEfficiency.value = 0.42;
+  }
+
+  satisfy PrimaryFunctionRequirement by paddleWheelPlant;
+  satisfy WaterInteractionRequirement by paddleWheelPlant;
+  satisfy StructuralSupportRequirement by paddleWheelPlant;
+  satisfy OverspeedProtectionRequirement by paddleWheelPlant;
+  satisfy EfficiencyRequirement by paddleWheelPlant;
+}

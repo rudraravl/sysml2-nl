@@ -1,0 +1,809 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tw9y2zb2
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb402-026b-7a92-8c6e-85aacd73db76
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Pinard horn and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PinardHornSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SoundPressureLevel {
+        attribute value : Real;
+        attribute unit : String = "dB";
+    }
+
+    attribute def Frequency {
+        attribute value : Real;
+        attribute unit : String = "Hz";
+    }
+
+    attribute def Length {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def Diameter {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def Mass {
+        attribute value : Real;
+        attribute unit : String = "g";
+    }
+
+    attribute def ContactForce {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    attribute def HeartRate {
+        attribute value : Real;
+        attribute unit : String = "beats/min";
+    }
+
+    item def AcousticPressureWave {
+        attribute centerFrequency : Frequency;
+        attribute soundPressure : SoundPressureLevel;
+        attribute sourceDescription : String;
+    }
+
+    item def MechanicalVibration {
+        attribute vibrationFrequency : Frequency;
+        attribute amplitudeDescription : String;
+    }
+
+    item def FetalHeartSound {
+        attribute expectedFrequencyLow : Frequency = 20.0 [Hz];
+        attribute expectedFrequencyHigh : Frequency = 200.0 [Hz];
+        attribute estimatedHeartRate : HeartRate;
+    }
+
+    item def AmbientNoise {
+        attribute noiseLevel : SoundPressureLevel;
+        attribute dominantFrequency : Frequency;
+    }
+
+    item def PractitionerPerception {
+        attribute perceivedRhythm : String;
+        attribute perceivedIntensity : SoundPressureLevel;
+        attribute interpretedHeartRate : HeartRate;
+    }
+
+    port def AcousticInputPort {
+        in item incomingSound : AcousticPressureWave;
+        in item competingNoise : AmbientNoise;
+    }
+
+    port def AcousticOutputPort {
+        out item transmittedSound : AcousticPressureWave;
+    }
+
+    port def MechanicalContactPort {
+        in item surfaceVibration : MechanicalVibration;
+        attribute appliedForce : ContactForce;
+    }
+
+    port def EarInterfacePort {
+        out item audibleSignal : AcousticPressureWave;
+    }
+
+    part def MaternalAbdomen {
+        attribute tissueCouplingLoss : SoundPressureLevel = 12.0 [dB];
+
+        port fetalSoundSurface : AcousticOutputPort;
+        port contactSurface : MechanicalContactPort;
+
+        action emitFetalHeartSound {
+            out item fetalSignal : FetalHeartSound;
+            out item acousticWave : AcousticPressureWave;
+
+            first start;
+            then generateRhythmicPulse;
+            then transmitThroughTissue;
+            then done;
+
+            action generateRhythmicPulse {
+                out item pulse : FetalHeartSound {
+                    estimatedHeartRate = 140.0 ["beats/min"];
+                }
+            }
+
+            action transmitThroughTissue {
+                in item pulse : FetalHeartSound;
+                out item acousticWave : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 34.0 [dB];
+                    sourceDescription = "Fetal cardiac activity transmitted through maternal abdominal tissue";
+                }
+            }
+        }
+    }
+
+    part def PractitionerHead {
+        port listeningEar : EarInterfacePort;
+
+        attribute minimumDetectableLevel : SoundPressureLevel = 10.0 [dB];
+        attribute comfortableListeningLevel : SoundPressureLevel = 35.0 [dB];
+
+        action perceiveAcousticSignal {
+            in item audibleSignal : AcousticPressureWave;
+            out item perception : PractitionerPerception;
+
+            first receiveSignal;
+            then distinguishRhythm;
+            then estimateRate;
+            then done;
+
+            action receiveSignal;
+            action distinguishRhythm;
+            action estimateRate {
+                out item perception : PractitionerPerception {
+                    perceivedRhythm = "Repeating fetal heart tone";
+                    perceivedIntensity = 28.0 [dB];
+                    interpretedHeartRate = 140.0 ["beats/min"];
+                }
+            }
+        }
+    }
+
+    part def PinardHorn {
+        attribute overallLength : Length = 170.0 [mm];
+        attribute bellOuterDiameter : Diameter = 65.0 [mm];
+        attribute earEndDiameter : Diameter = 25.0 [mm];
+        attribute wallThickness : Length = 3.0 [mm];
+        attribute mass : Mass = 85.0 [g];
+        attribute material : String = "rigid low-loss wood, plastic, or metal";
+        attribute acousticGain : SoundPressureLevel = 8.0 [dB];
+
+        port bellContact : AcousticInputPort;
+        port bellMechanicalContact : MechanicalContactPort;
+        port earPiece : EarInterfacePort;
+
+        part bell {
+            attribute diameter : Diameter = 65.0 [mm];
+            attribute function : String = "Collect low-frequency acoustic energy from the maternal abdomen";
+        }
+
+        part taperedTube {
+            attribute length : Length = 125.0 [mm];
+            attribute inletDiameter : Diameter = 60.0 [mm];
+            attribute outletDiameter : Diameter = 25.0 [mm];
+            attribute function : String = "Guide and concentrate acoustic pressure waves toward the ear end";
+        }
+
+        part earPlate {
+            attribute diameter : Diameter = 25.0 [mm];
+            attribute function : String = "Provide direct acoustic coupling to the practitioner's ear";
+        }
+
+        connection bellToTube connect bell to taperedTube;
+        connection tubeToEarPlate connect taperedTube to earPlate;
+
+        action conductSound {
+            in item abdominalSound : AcousticPressureWave;
+            out item earSound : AcousticPressureWave;
+
+            first collectAtBell;
+            then rejectAmbientNoise;
+            then concentrateInTaper;
+            then deliverToEar;
+            then done;
+
+            action collectAtBell {
+                in item abdominalSound : AcousticPressureWave;
+            }
+
+            action rejectAmbientNoise {
+                in item abdominalSound : AcousticPressureWave;
+                out item filteredSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 36.0 [dB];
+                    sourceDescription = "Low-frequency body sound favored by direct contact coupling";
+                }
+            }
+
+            action concentrateInTaper {
+                in item filteredSound : AcousticPressureWave;
+                out item amplifiedSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 42.0 [dB];
+                    sourceDescription = "Fetal heart sound acoustically concentrated by tapered horn geometry";
+                }
+            }
+
+            action deliverToEar {
+                in item amplifiedSound : AcousticPressureWave;
+                out item earSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 40.0 [dB];
+                    sourceDescription = "Audible fetal heart tone delivered to practitioner ear";
+                }
+            }
+        }
+
+        state def ListeningStateMachine {
+            state idle;
+            state positionedOnAbdomen;
+            state acousticallyCoupled;
+            state transmittingHeartSounds;
+            state repositioning;
+            state complete;
+
+            transition first idle;
+            transition placeHorn first idle then positionedOnAbdomen;
+            transition applyGentlePressure first positionedOnAbdomen then acousticallyCoupled;
+            transition detectRhythmicTone first acousticallyCoupled then transmittingHeartSounds;
+            transition poorSignal first acousticallyCoupled then repositioning;
+            transition adjustPosition first repositioning then positionedOnAbdomen;
+            transition finishListening first transmittingHeartSounds then complete;
+        }
+
+        requirement def AcousticTransmissionRequirement {
+            doc /* The horn shall pass low-frequency fetal heart sounds from the abdominal contact surface to the ear end without electrical amplification. */
+            subject horn : PinardHorn;
+            require constraint {
+                horn.acousticGain.value >= 6.0
+            }
+        }
+
+        requirement def PassiveOperationRequirement {
+            doc /* The horn shall perform its primary listening function using only passive acoustic coupling and rigid horn geometry. */
+            subject horn : PinardHorn;
+            require constraint {
+                horn.mass.value > 0.0
+            }
+        }
+
+        requirement def ContactGeometryRequirement {
+            doc /* The bell shall provide a broad contact area suitable for stable placement against the maternal abdomen. */
+            subject horn : PinardHorn;
+            require constraint {
+                horn.bellOuterDiameter.value >= 50.0
+            }
+        }
+    }
+
+    part def PinardHornListeningSystem {
+        doc /* A passive auscultation system based on a Pinard horn. Its primary high-level function is to collect faint fetal heart sounds through direct contact with the maternal abdomen, acoustically guide and concentrate them through a tapered rigid horn, and deliver the resulting audible signal to a practitioner's ear for assessment. */
+
+        part abdomen : MaternalAbdomen;
+        part horn : PinardHorn;
+        part practitioner : PractitionerHead;
+
+        item fetalTone : FetalHeartSound {
+            estimatedHeartRate = 140.0 ["beats/min"];
+        }
+
+        item abdominalAcousticWave : AcousticPressureWave {
+            centerFrequency = 80.0 [Hz];
+            soundPressure = 34.0 [dB];
+            sourceDescription = "Fetal heart sound at abdominal surface";
+        }
+
+        item earAcousticWave : AcousticPressureWave {
+            centerFrequency = 80.0 [Hz];
+            soundPressure = 40.0 [dB];
+            sourceDescription = "Fetal heart sound delivered to practitioner ear";
+        }
+
+        item clinicalPerception : PractitionerPerception {
+            perceivedRhythm = "Regular fetal cardiac rhythm";
+            perceivedIntensity = 28.0 [dB];
+            interpretedHeartRate = 140.0 ["beats/min"];
+        }
+
+        connection abdomenToHornAcoustic connect abdomen.fetalSoundSurface to horn.bellContact;
+        connection abdomenToHornMechanical connect abdomen.contactSurface to horn.bellMechanicalContact;
+        connection hornToPractitionerEar connect horn.earPiece to practitioner.listeningEar;
+
+        action performPassiveFetalAuscultation {
+            in item fetalSourceSound : FetalHeartSound;
+            out item practitionerObservation : PractitionerPerception;
+
+            first prepare;
+            then placeBellOnMaternalAbdomen;
+            then establishAcousticCoupling;
+            then conductFetalHeartSound;
+            then listenAndInterpret;
+            then done;
+
+            action prepare {
+                out item readiness : String = "Practitioner holds horn with bell toward abdomen and ear end aligned with listening ear";
+            }
+
+            action placeBellOnMaternalAbdomen {
+                out item contactForce : ContactForce = 4.0 [N];
+            }
+
+            action establishAcousticCoupling {
+                in item contactForce : ContactForce;
+                out item abdominalSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 34.0 [dB];
+                    sourceDescription = "Coupled abdominal fetal heart sound";
+                }
+            }
+
+            action conductFetalHeartSound {
+                in item abdominalSound : AcousticPressureWave;
+                out item earSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 40.0 [dB];
+                    sourceDescription = "Passively transmitted fetal heart sound";
+                }
+            }
+
+            action listenAndInterpret {
+                in item earSound : AcousticPressureWave;
+                out item practitionerObservation : PractitionerPerception {
+                    perceivedRhythm = "Regular repeating fetal heart tone";
+                    perceivedIntensity = 28.0 [dB];
+                    interpretedHeartRate = 140.0 ["beats/min"];
+                }
+            }
+        }
+
+        state def UseStateMachine {
+            state notInUse;
+            state placed;
+            state coupled;
+            state listening;
+            state interpreting;
+            state completed;
+
+            transition first notInUse;
+            transition position first notInUse then placed;
+            transition pressLightly first placed then coupled;
+            transition acousticSignalPresent first coupled then listening;
+            transition practitionerHearsTone first listening then interpreting;
+            transition observationRecorded first interpreting then completed;
+        }
+
+        requirement def PrimaryFunctionRequirement {
+            doc /* The system shall provide passive, direct acoustic transmission of fetal heart sounds from the maternal abdomen to the practitioner's ear. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.horn.overallLength.value >= 120.0 and
+                system.horn.bellOuterDiameter.value >= 50.0
+            }
+        }
+
+        requirement def NoPowerRequirement {
+            doc /* The system shall require no electrical power, battery, microphone, speaker, or digital signal processor to accomplish its primary function. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.horn.mass.value > 0.0
+            }
+        }
+
+        requirement def FetalHeartSoundFrequencyRequirement {
+            doc /* The system shall support transmission of acoustic energy in the typical low-frequency range associated with fetal heart tones. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.abdominalAcousticWave.centerFrequency.value >= 20.0 and
+                system.abdominalAcousticWave.centerFrequency.value <= 200.0
+            }
+        }
+
+        requirement def ListeningInterfaceRequirement {
+            doc /* The ear end shall provide a direct listening interface for a practitioner without an intermediate electronic transducer. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.horn.earEndDiameter.value >= 18.0 and
+                system.horn.earEndDiameter.value <= 35.0
+            }
+        }
+    }
+}
+tokens used
+10,965
+package PinardHornSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SoundPressureLevel {
+        attribute value : Real;
+        attribute unit : String = "dB";
+    }
+
+    attribute def Frequency {
+        attribute value : Real;
+        attribute unit : String = "Hz";
+    }
+
+    attribute def Length {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def Diameter {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def Mass {
+        attribute value : Real;
+        attribute unit : String = "g";
+    }
+
+    attribute def ContactForce {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    attribute def HeartRate {
+        attribute value : Real;
+        attribute unit : String = "beats/min";
+    }
+
+    item def AcousticPressureWave {
+        attribute centerFrequency : Frequency;
+        attribute soundPressure : SoundPressureLevel;
+        attribute sourceDescription : String;
+    }
+
+    item def MechanicalVibration {
+        attribute vibrationFrequency : Frequency;
+        attribute amplitudeDescription : String;
+    }
+
+    item def FetalHeartSound {
+        attribute expectedFrequencyLow : Frequency = 20.0 [Hz];
+        attribute expectedFrequencyHigh : Frequency = 200.0 [Hz];
+        attribute estimatedHeartRate : HeartRate;
+    }
+
+    item def AmbientNoise {
+        attribute noiseLevel : SoundPressureLevel;
+        attribute dominantFrequency : Frequency;
+    }
+
+    item def PractitionerPerception {
+        attribute perceivedRhythm : String;
+        attribute perceivedIntensity : SoundPressureLevel;
+        attribute interpretedHeartRate : HeartRate;
+    }
+
+    port def AcousticInputPort {
+        in item incomingSound : AcousticPressureWave;
+        in item competingNoise : AmbientNoise;
+    }
+
+    port def AcousticOutputPort {
+        out item transmittedSound : AcousticPressureWave;
+    }
+
+    port def MechanicalContactPort {
+        in item surfaceVibration : MechanicalVibration;
+        attribute appliedForce : ContactForce;
+    }
+
+    port def EarInterfacePort {
+        out item audibleSignal : AcousticPressureWave;
+    }
+
+    part def MaternalAbdomen {
+        attribute tissueCouplingLoss : SoundPressureLevel = 12.0 [dB];
+
+        port fetalSoundSurface : AcousticOutputPort;
+        port contactSurface : MechanicalContactPort;
+
+        action emitFetalHeartSound {
+            out item fetalSignal : FetalHeartSound;
+            out item acousticWave : AcousticPressureWave;
+
+            first start;
+            then generateRhythmicPulse;
+            then transmitThroughTissue;
+            then done;
+
+            action generateRhythmicPulse {
+                out item pulse : FetalHeartSound {
+                    estimatedHeartRate = 140.0 ["beats/min"];
+                }
+            }
+
+            action transmitThroughTissue {
+                in item pulse : FetalHeartSound;
+                out item acousticWave : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 34.0 [dB];
+                    sourceDescription = "Fetal cardiac activity transmitted through maternal abdominal tissue";
+                }
+            }
+        }
+    }
+
+    part def PractitionerHead {
+        port listeningEar : EarInterfacePort;
+
+        attribute minimumDetectableLevel : SoundPressureLevel = 10.0 [dB];
+        attribute comfortableListeningLevel : SoundPressureLevel = 35.0 [dB];
+
+        action perceiveAcousticSignal {
+            in item audibleSignal : AcousticPressureWave;
+            out item perception : PractitionerPerception;
+
+            first receiveSignal;
+            then distinguishRhythm;
+            then estimateRate;
+            then done;
+
+            action receiveSignal;
+            action distinguishRhythm;
+            action estimateRate {
+                out item perception : PractitionerPerception {
+                    perceivedRhythm = "Repeating fetal heart tone";
+                    perceivedIntensity = 28.0 [dB];
+                    interpretedHeartRate = 140.0 ["beats/min"];
+                }
+            }
+        }
+    }
+
+    part def PinardHorn {
+        attribute overallLength : Length = 170.0 [mm];
+        attribute bellOuterDiameter : Diameter = 65.0 [mm];
+        attribute earEndDiameter : Diameter = 25.0 [mm];
+        attribute wallThickness : Length = 3.0 [mm];
+        attribute mass : Mass = 85.0 [g];
+        attribute material : String = "rigid low-loss wood, plastic, or metal";
+        attribute acousticGain : SoundPressureLevel = 8.0 [dB];
+
+        port bellContact : AcousticInputPort;
+        port bellMechanicalContact : MechanicalContactPort;
+        port earPiece : EarInterfacePort;
+
+        part bell {
+            attribute diameter : Diameter = 65.0 [mm];
+            attribute function : String = "Collect low-frequency acoustic energy from the maternal abdomen";
+        }
+
+        part taperedTube {
+            attribute length : Length = 125.0 [mm];
+            attribute inletDiameter : Diameter = 60.0 [mm];
+            attribute outletDiameter : Diameter = 25.0 [mm];
+            attribute function : String = "Guide and concentrate acoustic pressure waves toward the ear end";
+        }
+
+        part earPlate {
+            attribute diameter : Diameter = 25.0 [mm];
+            attribute function : String = "Provide direct acoustic coupling to the practitioner's ear";
+        }
+
+        connection bellToTube connect bell to taperedTube;
+        connection tubeToEarPlate connect taperedTube to earPlate;
+
+        action conductSound {
+            in item abdominalSound : AcousticPressureWave;
+            out item earSound : AcousticPressureWave;
+
+            first collectAtBell;
+            then rejectAmbientNoise;
+            then concentrateInTaper;
+            then deliverToEar;
+            then done;
+
+            action collectAtBell {
+                in item abdominalSound : AcousticPressureWave;
+            }
+
+            action rejectAmbientNoise {
+                in item abdominalSound : AcousticPressureWave;
+                out item filteredSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 36.0 [dB];
+                    sourceDescription = "Low-frequency body sound favored by direct contact coupling";
+                }
+            }
+
+            action concentrateInTaper {
+                in item filteredSound : AcousticPressureWave;
+                out item amplifiedSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 42.0 [dB];
+                    sourceDescription = "Fetal heart sound acoustically concentrated by tapered horn geometry";
+                }
+            }
+
+            action deliverToEar {
+                in item amplifiedSound : AcousticPressureWave;
+                out item earSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 40.0 [dB];
+                    sourceDescription = "Audible fetal heart tone delivered to practitioner ear";
+                }
+            }
+        }
+
+        state def ListeningStateMachine {
+            state idle;
+            state positionedOnAbdomen;
+            state acousticallyCoupled;
+            state transmittingHeartSounds;
+            state repositioning;
+            state complete;
+
+            transition first idle;
+            transition placeHorn first idle then positionedOnAbdomen;
+            transition applyGentlePressure first positionedOnAbdomen then acousticallyCoupled;
+            transition detectRhythmicTone first acousticallyCoupled then transmittingHeartSounds;
+            transition poorSignal first acousticallyCoupled then repositioning;
+            transition adjustPosition first repositioning then positionedOnAbdomen;
+            transition finishListening first transmittingHeartSounds then complete;
+        }
+
+        requirement def AcousticTransmissionRequirement {
+            doc /* The horn shall pass low-frequency fetal heart sounds from the abdominal contact surface to the ear end without electrical amplification. */
+            subject horn : PinardHorn;
+            require constraint {
+                horn.acousticGain.value >= 6.0
+            }
+        }
+
+        requirement def PassiveOperationRequirement {
+            doc /* The horn shall perform its primary listening function using only passive acoustic coupling and rigid horn geometry. */
+            subject horn : PinardHorn;
+            require constraint {
+                horn.mass.value > 0.0
+            }
+        }
+
+        requirement def ContactGeometryRequirement {
+            doc /* The bell shall provide a broad contact area suitable for stable placement against the maternal abdomen. */
+            subject horn : PinardHorn;
+            require constraint {
+                horn.bellOuterDiameter.value >= 50.0
+            }
+        }
+    }
+
+    part def PinardHornListeningSystem {
+        doc /* A passive auscultation system based on a Pinard horn. Its primary high-level function is to collect faint fetal heart sounds through direct contact with the maternal abdomen, acoustically guide and concentrate them through a tapered rigid horn, and deliver the resulting audible signal to a practitioner's ear for assessment. */
+
+        part abdomen : MaternalAbdomen;
+        part horn : PinardHorn;
+        part practitioner : PractitionerHead;
+
+        item fetalTone : FetalHeartSound {
+            estimatedHeartRate = 140.0 ["beats/min"];
+        }
+
+        item abdominalAcousticWave : AcousticPressureWave {
+            centerFrequency = 80.0 [Hz];
+            soundPressure = 34.0 [dB];
+            sourceDescription = "Fetal heart sound at abdominal surface";
+        }
+
+        item earAcousticWave : AcousticPressureWave {
+            centerFrequency = 80.0 [Hz];
+            soundPressure = 40.0 [dB];
+            sourceDescription = "Fetal heart sound delivered to practitioner ear";
+        }
+
+        item clinicalPerception : PractitionerPerception {
+            perceivedRhythm = "Regular fetal cardiac rhythm";
+            perceivedIntensity = 28.0 [dB];
+            interpretedHeartRate = 140.0 ["beats/min"];
+        }
+
+        connection abdomenToHornAcoustic connect abdomen.fetalSoundSurface to horn.bellContact;
+        connection abdomenToHornMechanical connect abdomen.contactSurface to horn.bellMechanicalContact;
+        connection hornToPractitionerEar connect horn.earPiece to practitioner.listeningEar;
+
+        action performPassiveFetalAuscultation {
+            in item fetalSourceSound : FetalHeartSound;
+            out item practitionerObservation : PractitionerPerception;
+
+            first prepare;
+            then placeBellOnMaternalAbdomen;
+            then establishAcousticCoupling;
+            then conductFetalHeartSound;
+            then listenAndInterpret;
+            then done;
+
+            action prepare {
+                out item readiness : String = "Practitioner holds horn with bell toward abdomen and ear end aligned with listening ear";
+            }
+
+            action placeBellOnMaternalAbdomen {
+                out item contactForce : ContactForce = 4.0 [N];
+            }
+
+            action establishAcousticCoupling {
+                in item contactForce : ContactForce;
+                out item abdominalSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 34.0 [dB];
+                    sourceDescription = "Coupled abdominal fetal heart sound";
+                }
+            }
+
+            action conductFetalHeartSound {
+                in item abdominalSound : AcousticPressureWave;
+                out item earSound : AcousticPressureWave {
+                    centerFrequency = 80.0 [Hz];
+                    soundPressure = 40.0 [dB];
+                    sourceDescription = "Passively transmitted fetal heart sound";
+                }
+            }
+
+            action listenAndInterpret {
+                in item earSound : AcousticPressureWave;
+                out item practitionerObservation : PractitionerPerception {
+                    perceivedRhythm = "Regular repeating fetal heart tone";
+                    perceivedIntensity = 28.0 [dB];
+                    interpretedHeartRate = 140.0 ["beats/min"];
+                }
+            }
+        }
+
+        state def UseStateMachine {
+            state notInUse;
+            state placed;
+            state coupled;
+            state listening;
+            state interpreting;
+            state completed;
+
+            transition first notInUse;
+            transition position first notInUse then placed;
+            transition pressLightly first placed then coupled;
+            transition acousticSignalPresent first coupled then listening;
+            transition practitionerHearsTone first listening then interpreting;
+            transition observationRecorded first interpreting then completed;
+        }
+
+        requirement def PrimaryFunctionRequirement {
+            doc /* The system shall provide passive, direct acoustic transmission of fetal heart sounds from the maternal abdomen to the practitioner's ear. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.horn.overallLength.value >= 120.0 and
+                system.horn.bellOuterDiameter.value >= 50.0
+            }
+        }
+
+        requirement def NoPowerRequirement {
+            doc /* The system shall require no electrical power, battery, microphone, speaker, or digital signal processor to accomplish its primary function. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.horn.mass.value > 0.0
+            }
+        }
+
+        requirement def FetalHeartSoundFrequencyRequirement {
+            doc /* The system shall support transmission of acoustic energy in the typical low-frequency range associated with fetal heart tones. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.abdominalAcousticWave.centerFrequency.value >= 20.0 and
+                system.abdominalAcousticWave.centerFrequency.value <= 200.0
+            }
+        }
+
+        requirement def ListeningInterfaceRequirement {
+            doc /* The ear end shall provide a direct listening interface for a practitioner without an intermediate electronic transducer. */
+            subject system : PinardHornListeningSystem;
+            require constraint {
+                system.horn.earEndDiameter.value >= 18.0 and
+                system.horn.earEndDiameter.value <= 35.0
+            }
+        }
+    }
+}

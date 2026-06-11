@@ -1,0 +1,339 @@
+package MedicalGloveProtectionSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  enum def GloveSize {
+    enum small;
+    enum medium;
+    enum large;
+    enum extraLarge;
+  }
+
+  enum def GloveMaterial {
+    enum nitrile;
+    enum latex;
+    enum neoprene;
+    enum vinyl;
+  }
+
+  enum def IntegrityState {
+    enum intact;
+    enum compromised;
+  }
+
+  enum def UseState {
+    enum packaged;
+    enum donned;
+    enum protecting;
+    enum removed;
+    enum disposed;
+  }
+
+  attribute def Thickness {
+    :>> unit = "mm";
+    :>> quantityKind = "length";
+  }
+
+  attribute def Force {
+    :>> unit = "N";
+    :>> quantityKind = "force";
+  }
+
+  attribute def TimeDuration {
+    :>> unit = "s";
+    :>> quantityKind = "time";
+  }
+
+  attribute def Area {
+    :>> unit = "cm^2";
+    :>> quantityKind = "area";
+  }
+
+  attribute def PermeationRate {
+    :>> unit = "ug/cm^2/min";
+    :>> quantityKind = "mass flux";
+  }
+
+  attribute def DefectCount {
+    :>> unit = "count";
+    :>> quantityKind = "dimensionless";
+  }
+
+  item def HandSurfaceContact {
+    attribute contactArea : Area;
+    attribute donningForce : Force;
+  }
+
+  item def PathogenChallenge {
+    attribute exposedArea : Area;
+    attribute exposureDuration : TimeDuration;
+  }
+
+  item def ChemicalChallenge {
+    attribute exposedArea : Area;
+    attribute exposureDuration : TimeDuration;
+    attribute permeationRate : PermeationRate;
+  }
+
+  item def BarrierIntegrityReport {
+    attribute integrity : IntegrityState;
+    attribute detectedPinholeCount : DefectCount;
+    attribute minimumBarrierThickness : Thickness;
+  }
+
+  item def ContaminatedGloveWaste {
+    attribute contaminationArea : Area;
+    attribute timeSinceUse : TimeDuration;
+  }
+
+  port def HandInterfacePort {
+    in item handContact : HandSurfaceContact;
+    out item tactileFeedback : HandSurfaceContact;
+  }
+
+  port def ExternalHazardPort {
+    in item pathogenExposure : PathogenChallenge;
+    in item chemicalExposure : ChemicalChallenge;
+  }
+
+  port def IntegrityStatusPort {
+    out item integrityReport : BarrierIntegrityReport;
+  }
+
+  port def WasteOutputPort {
+    out item contaminatedWaste : ContaminatedGloveWaste;
+  }
+
+  part def MedicalGlove {
+    attribute size : GloveSize;
+    attribute material : GloveMaterial;
+    attribute nominalPalmThickness : Thickness;
+    attribute nominalFingerThickness : Thickness;
+    attribute cuffLength : Thickness;
+    attribute sterile : Boolean;
+    attribute powderFree : Boolean;
+    attribute singleUse : Boolean;
+
+    port handSide : HandInterfacePort;
+    port environmentSide : ExternalHazardPort;
+    port status : IntegrityStatusPort;
+    port disposal : WasteOutputPort;
+
+    part palmBarrier : BarrierLayer {
+      attribute coveredArea : Area = 120;
+      attribute nominalThickness : Thickness = 0.10;
+    }
+
+    part fingerBarrier[5] : BarrierLayer {
+      attribute coveredArea : Area = 28;
+      attribute nominalThickness : Thickness = 0.11;
+    }
+
+    part thumbBarrier : BarrierLayer {
+      attribute coveredArea : Area = 32;
+      attribute nominalThickness : Thickness = 0.11;
+    }
+
+    part cuff : CuffSeal {
+      attribute sealRetentionForce : Force = 8.0;
+      attribute cuffLength : Thickness = 240.0;
+    }
+
+    part innerSurface : SkinContactSurface {
+      attribute frictionCoefficient : Real = 0.42;
+    }
+
+    part outerSurface : HazardContactSurface {
+      attribute textureDepth : Thickness = 0.03;
+    }
+
+    connection handToInnerSurface connect handSide to innerSurface.skinPort;
+    connection environmentToOuterSurface connect environmentSide to outerSurface.hazardPort;
+    connection palmToStatus connect palmBarrier.integrityPort to status;
+    connection fingersToStatus connect fingerBarrier.integrityPort to status;
+    connection thumbToStatus connect thumbBarrier.integrityPort to status;
+    connection cuffToStatus connect cuff.integrityPort to status;
+
+    perform action donGlove : DonGloveAction;
+    perform action protectHand : ProtectHandAction;
+    perform action removeGlove : RemoveGloveAction;
+    perform action disposeGlove : DisposeGloveAction;
+
+    exhibit state lifecycle : GloveLifecycle;
+  }
+
+  part def BarrierLayer {
+    attribute coveredArea : Area;
+    attribute nominalThickness : Thickness;
+    attribute allowablePinholeCount : DefectCount = 0;
+    attribute maximumPermeationRate : PermeationRate = 0.10;
+
+    port hazardPort : ExternalHazardPort;
+    port integrityPort : IntegrityStatusPort;
+  }
+
+  part def CuffSeal {
+    attribute sealRetentionForce : Force;
+    attribute cuffLength : Thickness;
+
+    port wristInterface : HandInterfacePort;
+    port integrityPort : IntegrityStatusPort;
+  }
+
+  part def SkinContactSurface {
+    attribute frictionCoefficient : Real;
+
+    port skinPort : HandInterfacePort;
+  }
+
+  part def HazardContactSurface {
+    attribute textureDepth : Thickness;
+
+    port hazardPort : ExternalHazardPort;
+  }
+
+  action def DonGloveAction {
+    in item handContact : HandSurfaceContact;
+    out item fittedContact : HandSurfaceContact;
+
+    objective {
+      ensure glove conforms to hand geometry while maintaining intact barrier coverage.
+    }
+  }
+
+  action def ProtectHandAction {
+    in item pathogenExposure : PathogenChallenge;
+    in item chemicalExposure : ChemicalChallenge;
+    out item integrityReport : BarrierIntegrityReport;
+
+    objective {
+      prevent direct transfer of biological and chemical hazards from the external environment to the wearer hand.
+    }
+  }
+
+  action def RemoveGloveAction {
+    in item usedGloveContact : HandSurfaceContact;
+    out item contaminatedWaste : ContaminatedGloveWaste;
+
+    objective {
+      separate glove from hand while keeping external contamination away from skin.
+    }
+  }
+
+  action def DisposeGloveAction {
+    in item contaminatedWaste : ContaminatedGloveWaste;
+
+    objective {
+      route used glove as contaminated single-use medical waste.
+    }
+  }
+
+  state def GloveLifecycle {
+    state packaged;
+    state donned;
+    state protecting;
+    state removed;
+    state disposed;
+    state compromised;
+
+    entry action initialInspection;
+
+    transition packaged_to_donned
+      first packaged
+      then donned
+      accept DonningCompleted;
+
+    transition donned_to_protecting
+      first donned
+      then protecting
+      accept HazardExposureStarted;
+
+    transition protecting_to_removed
+      first protecting
+      then removed
+      accept ClinicalTaskCompleted;
+
+    transition removed_to_disposed
+      first removed
+      then disposed
+      accept DisposalCompleted;
+
+    transition protecting_to_compromised
+      first protecting
+      then compromised
+      accept BarrierFailureDetected;
+
+    transition compromised_to_removed
+      first compromised
+      then removed
+      accept ImmediateRemovalCompleted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject glove : MedicalGlove;
+
+    doc /* The medical glove shall provide a temporary wearable barrier over the healthcare worker's hand to reduce direct contact with biological, chemical, and particulate contamination during clinical activity. */
+
+    require constraint {
+      glove.singleUse == true
+    }
+  }
+
+  requirement def BarrierIntegrityRequirement {
+    subject glove : MedicalGlove;
+
+    require constraint {
+      glove.palmBarrier.allowablePinholeCount == 0 and
+      glove.thumbBarrier.allowablePinholeCount == 0 and
+      glove.fingerBarrier.allowablePinholeCount == 0
+    }
+  }
+
+  requirement def MinimumThicknessRequirement {
+    subject glove : MedicalGlove;
+
+    require constraint {
+      glove.nominalPalmThickness >= 0.08 and
+      glove.nominalFingerThickness >= 0.09
+    }
+  }
+
+  requirement def ChemicalResistanceRequirement {
+    subject glove : MedicalGlove;
+
+    require constraint {
+      glove.palmBarrier.maximumPermeationRate <= 0.10 and
+      glove.fingerBarrier.maximumPermeationRate <= 0.10 and
+      glove.thumbBarrier.maximumPermeationRate <= 0.10
+    }
+  }
+
+  requirement def CuffRetentionRequirement {
+    subject glove : MedicalGlove;
+
+    require constraint {
+      glove.cuff.sealRetentionForce >= 5.0
+    }
+  }
+
+  requirement def SterilityAndPowderRequirement {
+    subject glove : MedicalGlove;
+
+    require constraint {
+      glove.sterile == true and glove.powderFree == true
+    }
+  }
+
+  part medicalGloveSystem : MedicalGlove {
+    attribute size = GloveSize::medium;
+    attribute material = GloveMaterial::nitrile;
+    attribute nominalPalmThickness : Thickness = 0.10;
+    attribute nominalFingerThickness : Thickness = 0.11;
+    attribute cuffLength : Thickness = 240.0;
+    attribute sterile = true;
+    attribute powderFree = true;
+    attribute singleUse = true;
+  }
+
+}

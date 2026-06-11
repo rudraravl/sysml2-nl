@@ -1,0 +1,1203 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-k25qlmpv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2fc-35e8-7d50-8679-c2b6b1e15ce4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Iontophoresis and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IontophoresisSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricCurrent : Real {
+        unit = A;
+    }
+
+    attribute def ElectricVoltage : Real {
+        unit = V;
+    }
+
+    attribute def ElectricCharge : Real {
+        unit = C;
+    }
+
+    attribute def ElectricalResistance : Real {
+        unit = Ohm;
+    }
+
+    attribute def TimeDuration : Real {
+        unit = s;
+    }
+
+    attribute def DrugMass : Real {
+        unit = mg;
+    }
+
+    attribute def DrugConcentration : Real {
+        unit = mg / mL;
+    }
+
+    attribute def SkinTemperature : Real {
+        unit = K;
+    }
+
+    attribute def ContactImpedance : Real {
+        unit = Ohm;
+    }
+
+    attribute def ElectrodeArea : Real {
+        unit = cm^2;
+    }
+
+    attribute def BatteryEnergy : Real {
+        unit = W * h;
+    }
+
+    attribute def DoseFraction : Real {
+        unit = one;
+    }
+
+    item def IonicDrug {
+        attribute name : String;
+        attribute polarity : PolarityKind;
+        attribute concentration : DrugConcentration;
+        attribute remainingMass : DrugMass;
+        attribute deliveredMass : DrugMass;
+    }
+
+    enum def PolarityKind {
+        enum positive;
+        enum negative;
+    }
+
+    enum def TherapyModeKind {
+        enum standby;
+        enum setup;
+        enum priming;
+        enum delivery;
+        enum paused;
+        enum complete;
+        enum fault;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricVoltage;
+        attribute current : ElectricCurrent;
+        attribute chargeTransferred : ElectricCharge;
+    }
+
+    item def SkinConditionData {
+        attribute impedance : ContactImpedance;
+        attribute temperature : SkinTemperature;
+        attribute electrodeContactValid : Boolean;
+        attribute moistureDetected : Boolean;
+    }
+
+    item def UserCommand {
+        attribute startRequested : Boolean;
+        attribute pauseRequested : Boolean;
+        attribute stopRequested : Boolean;
+        attribute doseCurrentSetpoint : ElectricCurrent;
+        attribute doseDurationSetpoint : TimeDuration;
+    }
+
+    item def TherapyStatus {
+        attribute mode : TherapyModeKind;
+        attribute elapsedTime : TimeDuration;
+        attribute deliveredCharge : ElectricCharge;
+        attribute deliveredDoseFraction : DoseFraction;
+        attribute alarmActive : Boolean;
+        attribute message : String;
+    }
+
+    port def PowerOutputPort {
+        out item energy : ElectricalEnergy;
+    }
+
+    port def PowerInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def DrugOutputPort {
+        out item drug : IonicDrug;
+    }
+
+    port def DrugInputPort {
+        in item drug : IonicDrug;
+    }
+
+    port def SensorOutputPort {
+        out item condition : SkinConditionData;
+    }
+
+    port def SensorInputPort {
+        in item condition : SkinConditionData;
+    }
+
+    port def CommandInputPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : TherapyStatus;
+    }
+
+    part def IontophoresisTherapySystem {
+        attribute primaryFunction : String = "Deliver ionized therapeutic drug molecules across the skin using a controlled low-level electric current.";
+        attribute maximumCurrent : ElectricCurrent = 0.004 [A];
+        attribute nominalCurrent : ElectricCurrent = 0.002 [A];
+        attribute maximumVoltage : ElectricVoltage = 80 [V];
+        attribute prescribedDuration : TimeDuration = 1200 [s];
+        attribute deliveredCharge : ElectricCharge;
+        attribute therapyMode : TherapyModeKind;
+
+        port commandIn : CommandInputPort;
+        port statusOut : StatusOutputPort;
+
+        part controller : TherapyController;
+        part powerModule : CurrentControlledPowerModule;
+        part drugReservoir : DrugReservoir;
+        part activeElectrode : ActiveDrugElectrode;
+        part returnElectrode : ReturnElectrode;
+        part skinInterface : PatientSkinInterface;
+        part sensors : ContactAndSafetySensors;
+        part userInterface : UserInterface;
+        part battery : RechargeableBattery;
+
+        connect userInterface.commandOut to commandIn;
+        connect commandIn to controller.commandIn;
+        connect controller.statusOut to statusOut;
+        connect controller.statusOut to userInterface.statusIn;
+
+        connect battery.powerOut to powerModule.powerIn;
+        connect controller.currentControlOut to powerModule.controlIn;
+        connect powerModule.stimulationOut to activeElectrode.powerIn;
+        connect returnElectrode.powerOut to powerModule.returnIn;
+
+        connect drugReservoir.drugOut to activeElectrode.drugIn;
+        connect activeElectrode.drugOut to skinInterface.drugIn;
+        connect activeElectrode.patientSide to skinInterface.activeContact;
+        connect returnElectrode.patientSide to skinInterface.returnContact;
+
+        connect skinInterface.conditionOut to sensors.conditionIn;
+        connect sensors.sensedConditionOut to controller.sensorIn;
+
+        perform behavior deliverTherapy;
+    }
+
+    part def TherapyController {
+        attribute commandedCurrent : ElectricCurrent;
+        attribute commandedDuration : TimeDuration;
+        attribute accumulatedCharge : ElectricCharge;
+        attribute elapsedTime : TimeDuration;
+        attribute state : TherapyModeKind;
+
+        port commandIn : CommandInputPort;
+        port sensorIn : SensorInputPort;
+        port currentControlOut : StatusOutputPort;
+        port statusOut : StatusOutputPort;
+
+        action def ValidateSetup {
+            in item command : UserCommand;
+            in item condition : SkinConditionData;
+            out setupAccepted : Boolean;
+
+            require constraint {
+                condition.electrodeContactValid == true and
+                condition.impedance < 50000 [Ohm] and
+                command.doseCurrentSetpoint <= 0.004 [A] and
+                command.doseDurationSetpoint <= 1800 [s]
+            }
+        }
+
+        action def ComputeDeliveredCharge {
+            in current : ElectricCurrent;
+            in elapsed : TimeDuration;
+            out charge : ElectricCharge;
+
+            calc charge = current * elapsed;
+        }
+
+        action def RegulateCurrent {
+            in requestedCurrent : ElectricCurrent;
+            in condition : SkinConditionData;
+            out permittedCurrent : ElectricCurrent;
+
+            require constraint {
+                condition.temperature < 315.15 [K]
+            }
+
+            calc permittedCurrent =
+                if condition.impedance > 40000 [Ohm]
+                then 0.001 [A]
+                else requestedCurrent;
+        }
+
+        state def TherapyControlStateMachine {
+            entry action initialize {
+                state = TherapyModeKind::standby;
+                accumulatedCharge = 0 [C];
+                elapsedTime = 0 [s];
+            }
+
+            state standby;
+            state setup;
+            state priming;
+            state delivering;
+            state paused;
+            state completed;
+            state faulted;
+
+            transition standby_to_setup
+                first standby
+                then setup
+                accept UserCommand
+                if commandIn.command.startRequested == true;
+
+            transition setup_to_priming
+                first setup
+                then priming
+                if sensorIn.condition.electrodeContactValid == true and
+                   sensorIn.condition.impedance < 50000 [Ohm];
+
+            transition setup_to_fault
+                first setup
+                then faulted
+                if sensorIn.condition.electrodeContactValid == false or
+                   sensorIn.condition.impedance >= 50000 [Ohm];
+
+            transition priming_to_delivering
+                first priming
+                then delivering
+                after 5 [s];
+
+            transition delivering_to_paused
+                first delivering
+                then paused
+                accept UserCommand
+                if commandIn.command.pauseRequested == true;
+
+            transition paused_to_delivering
+                first paused
+                then delivering
+                accept UserCommand
+                if commandIn.command.startRequested == true;
+
+            transition delivering_to_completed
+                first delivering
+                then completed
+                if elapsedTime >= commandedDuration;
+
+            transition delivering_to_fault
+                first delivering
+                then faulted
+                if sensorIn.condition.temperature >= 315.15 [K] or
+                   sensorIn.condition.impedance >= 65000 [Ohm] or
+                   sensorIn.condition.moistureDetected == false;
+
+            transition any_to_standby
+                first paused
+                then standby
+                accept UserCommand
+                if commandIn.command.stopRequested == true;
+        }
+    }
+
+    part def CurrentControlledPowerModule {
+        attribute outputVoltage : ElectricVoltage;
+        attribute outputCurrent : ElectricCurrent;
+        attribute currentAccuracy : ElectricCurrent = 0.0001 [A];
+        attribute voltageLimit : ElectricVoltage = 80 [V];
+
+        port powerIn : PowerInputPort;
+        port controlIn : CommandInputPort;
+        port stimulationOut : PowerOutputPort;
+        port returnIn : PowerInputPort;
+
+        action def LimitVoltage {
+            in requestedVoltage : ElectricVoltage;
+            out limitedVoltage : ElectricVoltage;
+
+            calc limitedVoltage =
+                if requestedVoltage > voltageLimit
+                then voltageLimit
+                else requestedVoltage;
+        }
+
+        action def GenerateGalvanicCurrent {
+            in currentSetpoint : ElectricCurrent;
+            in contactImpedance : ContactImpedance;
+            out energy : ElectricalEnergy;
+
+            calc energy.current = currentSetpoint;
+            calc energy.voltage = currentSetpoint * contactImpedance;
+        }
+    }
+
+    part def RechargeableBattery {
+        attribute nominalVoltage : ElectricVoltage = 7.4 [V];
+        attribute remainingEnergy : BatteryEnergy = 12 [W * h];
+        attribute minimumOperatingEnergy : BatteryEnergy = 1 [W * h];
+
+        port powerOut : PowerOutputPort;
+
+        requirement batteryCapacityRequirement {
+            doc /* Battery shall provide enough stored energy for at least one complete therapy session at maximum current and duration. */
+            require constraint {
+                remainingEnergy >= minimumOperatingEnergy
+            }
+        }
+    }
+
+    part def DrugReservoir {
+        attribute drugName : String = "ionized therapeutic medication";
+        attribute initialDrugMass : DrugMass = 80 [mg];
+        attribute remainingDrugMass : DrugMass;
+        attribute concentration : DrugConcentration = 40 [mg / mL];
+        attribute drugPolarity : PolarityKind = PolarityKind::positive;
+
+        port drugOut : DrugOutputPort;
+
+        action def SupplyDrugToElectrode {
+            out item suppliedDrug : IonicDrug;
+
+            calc suppliedDrug.name = drugName;
+            calc suppliedDrug.polarity = drugPolarity;
+            calc suppliedDrug.concentration = concentration;
+            calc suppliedDrug.remainingMass = remainingDrugMass;
+        }
+    }
+
+    part def ActiveDrugElectrode {
+        attribute area : ElectrodeArea = 8 [cm^2];
+        attribute electrodePolarity : PolarityKind = PolarityKind::positive;
+        attribute hydrogelHydrated : Boolean = true;
+
+        port powerIn : PowerInputPort;
+        port drugIn : DrugInputPort;
+        port drugOut : DrugOutputPort;
+        port patientSide : PowerOutputPort;
+
+        action def DriveIonsFromReservoir {
+            in item incomingDrug : IonicDrug;
+            in item stimulation : ElectricalEnergy;
+            out item transportedDrug : IonicDrug;
+
+            require constraint {
+                incomingDrug.polarity == electrodePolarity and
+                hydrogelHydrated == true and
+                stimulation.current > 0 [A]
+            }
+
+            calc transportedDrug.deliveredMass =
+                incomingDrug.deliveredMass + (stimulation.chargeTransferred * 0.0002 [mg / C]);
+        }
+    }
+
+    part def ReturnElectrode {
+        attribute area : ElectrodeArea = 12 [cm^2];
+        attribute skinContactValid : Boolean;
+
+        port patientSide : PowerInputPort;
+        port powerOut : PowerOutputPort;
+    }
+
+    part def PatientSkinInterface {
+        attribute stratumCorneumResistance : ElectricalResistance = 20000 [Ohm];
+        attribute localTemperature : SkinTemperature = 309.15 [K];
+        attribute contactImpedance : ContactImpedance;
+        attribute drugAbsorbedMass : DrugMass;
+
+        port drugIn : DrugInputPort;
+        port activeContact : PowerInputPort;
+        port returnContact : PowerOutputPort;
+        port conditionOut : SensorOutputPort;
+
+        action def TransportDrugAcrossSkin {
+            in item drug : IonicDrug;
+            in item field : ElectricalEnergy;
+            out absorbedMass : DrugMass;
+
+            require constraint {
+                field.current <= 0.004 [A] and
+                contactImpedance < 65000 [Ohm]
+            }
+
+            calc absorbedMass = drug.deliveredMass;
+        }
+    }
+
+    part def ContactAndSafetySensors {
+        attribute measuredImpedance : ContactImpedance;
+        attribute measuredTemperature : SkinTemperature;
+        attribute activeContactValid : Boolean;
+        attribute returnContactValid : Boolean;
+        attribute hydrogelMoistureDetected : Boolean;
+
+        port conditionIn : SensorInputPort;
+        port sensedConditionOut : SensorOutputPort;
+
+        action def MeasureSkinCondition {
+            out item condition : SkinConditionData;
+
+            calc condition.impedance = measuredImpedance;
+            calc condition.temperature = measuredTemperature;
+            calc condition.electrodeContactValid = activeContactValid and returnContactValid;
+            calc condition.moistureDetected = hydrogelMoistureDetected;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayedMode : TherapyModeKind;
+        attribute selectedCurrent : ElectricCurrent = 0.002 [A];
+        attribute selectedDuration : TimeDuration = 1200 [s];
+
+        port commandOut : CommandInputPort;
+        port statusIn : StatusOutputPort;
+
+        action def PresentTherapyStatus {
+            in item status : TherapyStatus;
+        }
+
+        action def RequestStart {
+            out item command : UserCommand;
+
+            calc command.startRequested = true;
+            calc command.pauseRequested = false;
+            calc command.stopRequested = false;
+            calc command.doseCurrentSetpoint = selectedCurrent;
+            calc command.doseDurationSetpoint = selectedDuration;
+        }
+    }
+
+    action def IontophoresisTherapySystem::deliverTherapy {
+        objective {
+            doc /* Apply controlled direct current through a drug-loaded active electrode and a return electrode so charged drug molecules migrate through the skin into local tissue. */
+        }
+
+        first start TherapyController::ValidateSetup;
+        then start CurrentControlledPowerModule::GenerateGalvanicCurrent;
+        then start ActiveDrugElectrode::DriveIonsFromReservoir;
+        then start PatientSkinInterface::TransportDrugAcrossSkin;
+        then start ContactAndSafetySensors::MeasureSkinCondition;
+        then start TherapyController::ComputeDeliveredCharge;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : IontophoresisTherapySystem;
+
+        doc /* The system shall deliver ionized therapeutic drug across intact skin using a controlled low-level electrical current. */
+
+        require constraint {
+            system.nominalCurrent > 0 [A] and
+            system.nominalCurrent <= system.maximumCurrent and
+            system.maximumVoltage <= 80 [V]
+        }
+    }
+
+    requirement def CurrentSafetyRequirement {
+        subject system : IontophoresisTherapySystem;
+
+        doc /* The system shall limit patient current to no more than 4 mA during drug delivery. */
+
+        require constraint {
+            system.maximumCurrent <= 0.004 [A]
+        }
+    }
+
+    requirement def DoseCompletionRequirement {
+        subject system : IontophoresisTherapySystem;
+
+        doc /* The system shall terminate active delivery when the prescribed duration or prescribed delivered charge is reached. */
+
+        require constraint {
+            system.prescribedDuration <= 1800 [s]
+        }
+    }
+
+    requirement def ContactMonitoringRequirement {
+        subject sensors : ContactAndSafetySensors;
+
+        doc /* The system shall continuously monitor electrode contact, impedance, temperature, and hydrogel moisture during therapy. */
+
+        require constraint {
+            sensors.measuredImpedance < 65000 [Ohm] and
+            sensors.measuredTemperature < 315.15 [K] and
+            sensors.activeContactValid == true and
+            sensors.returnContactValid == true and
+            sensors.hydrogelMoistureDetected == true
+        }
+    }
+
+    requirement def DrugReservoirRequirement {
+        subject reservoir : DrugReservoir;
+
+        doc /* The drug reservoir shall contain sufficient ionized medication for one prescribed therapy session. */
+
+        require constraint {
+            reservoir.initialDrugMass >= 40 [mg] and
+            reservoir.concentration >= 20 [mg / mL]
+        }
+    }
+
+    part iontophoresisDevice : IontophoresisTherapySystem {
+        attribute maximumCurrent = 0.004 [A];
+        attribute nominalCurrent = 0.002 [A];
+        attribute maximumVoltage = 80 [V];
+        attribute prescribedDuration = 1200 [s];
+
+        part controller {
+            attribute commandedCurrent = 0.002 [A];
+            attribute commandedDuration = 1200 [s];
+            attribute accumulatedCharge = 0 [C];
+            attribute elapsedTime = 0 [s];
+            attribute state = TherapyModeKind::standby;
+        }
+
+        part drugReservoir {
+            attribute drugName = "lidocaine hydrochloride";
+            attribute initialDrugMass = 80 [mg];
+            attribute remainingDrugMass = 80 [mg];
+            attribute concentration = 40 [mg / mL];
+            attribute drugPolarity = PolarityKind::positive;
+        }
+
+        part activeElectrode {
+            attribute area = 8 [cm^2];
+            attribute electrodePolarity = PolarityKind::positive;
+            attribute hydrogelHydrated = true;
+        }
+
+        part returnElectrode {
+            attribute area = 12 [cm^2];
+            attribute skinContactValid = true;
+        }
+
+        part skinInterface {
+            attribute stratumCorneumResistance = 20000 [Ohm];
+            attribute localTemperature = 309.15 [K];
+            attribute contactImpedance = 22000 [Ohm];
+            attribute drugAbsorbedMass = 0 [mg];
+        }
+
+        part sensors {
+            attribute measuredImpedance = 22000 [Ohm];
+            attribute measuredTemperature = 309.15 [K];
+            attribute activeContactValid = true;
+            attribute returnContactValid = true;
+            attribute hydrogelMoistureDetected = true;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by iontophoresisDevice;
+    satisfy CurrentSafetyRequirement by iontophoresisDevice;
+    satisfy DoseCompletionRequirement by iontophoresisDevice;
+    satisfy ContactMonitoringRequirement by iontophoresisDevice.sensors;
+    satisfy DrugReservoirRequirement by iontophoresisDevice.drugReservoir;
+}
+tokens used
+5,513
+package IontophoresisSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricCurrent : Real {
+        unit = A;
+    }
+
+    attribute def ElectricVoltage : Real {
+        unit = V;
+    }
+
+    attribute def ElectricCharge : Real {
+        unit = C;
+    }
+
+    attribute def ElectricalResistance : Real {
+        unit = Ohm;
+    }
+
+    attribute def TimeDuration : Real {
+        unit = s;
+    }
+
+    attribute def DrugMass : Real {
+        unit = mg;
+    }
+
+    attribute def DrugConcentration : Real {
+        unit = mg / mL;
+    }
+
+    attribute def SkinTemperature : Real {
+        unit = K;
+    }
+
+    attribute def ContactImpedance : Real {
+        unit = Ohm;
+    }
+
+    attribute def ElectrodeArea : Real {
+        unit = cm^2;
+    }
+
+    attribute def BatteryEnergy : Real {
+        unit = W * h;
+    }
+
+    attribute def DoseFraction : Real {
+        unit = one;
+    }
+
+    item def IonicDrug {
+        attribute name : String;
+        attribute polarity : PolarityKind;
+        attribute concentration : DrugConcentration;
+        attribute remainingMass : DrugMass;
+        attribute deliveredMass : DrugMass;
+    }
+
+    enum def PolarityKind {
+        enum positive;
+        enum negative;
+    }
+
+    enum def TherapyModeKind {
+        enum standby;
+        enum setup;
+        enum priming;
+        enum delivery;
+        enum paused;
+        enum complete;
+        enum fault;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricVoltage;
+        attribute current : ElectricCurrent;
+        attribute chargeTransferred : ElectricCharge;
+    }
+
+    item def SkinConditionData {
+        attribute impedance : ContactImpedance;
+        attribute temperature : SkinTemperature;
+        attribute electrodeContactValid : Boolean;
+        attribute moistureDetected : Boolean;
+    }
+
+    item def UserCommand {
+        attribute startRequested : Boolean;
+        attribute pauseRequested : Boolean;
+        attribute stopRequested : Boolean;
+        attribute doseCurrentSetpoint : ElectricCurrent;
+        attribute doseDurationSetpoint : TimeDuration;
+    }
+
+    item def TherapyStatus {
+        attribute mode : TherapyModeKind;
+        attribute elapsedTime : TimeDuration;
+        attribute deliveredCharge : ElectricCharge;
+        attribute deliveredDoseFraction : DoseFraction;
+        attribute alarmActive : Boolean;
+        attribute message : String;
+    }
+
+    port def PowerOutputPort {
+        out item energy : ElectricalEnergy;
+    }
+
+    port def PowerInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def DrugOutputPort {
+        out item drug : IonicDrug;
+    }
+
+    port def DrugInputPort {
+        in item drug : IonicDrug;
+    }
+
+    port def SensorOutputPort {
+        out item condition : SkinConditionData;
+    }
+
+    port def SensorInputPort {
+        in item condition : SkinConditionData;
+    }
+
+    port def CommandInputPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : TherapyStatus;
+    }
+
+    part def IontophoresisTherapySystem {
+        attribute primaryFunction : String = "Deliver ionized therapeutic drug molecules across the skin using a controlled low-level electric current.";
+        attribute maximumCurrent : ElectricCurrent = 0.004 [A];
+        attribute nominalCurrent : ElectricCurrent = 0.002 [A];
+        attribute maximumVoltage : ElectricVoltage = 80 [V];
+        attribute prescribedDuration : TimeDuration = 1200 [s];
+        attribute deliveredCharge : ElectricCharge;
+        attribute therapyMode : TherapyModeKind;
+
+        port commandIn : CommandInputPort;
+        port statusOut : StatusOutputPort;
+
+        part controller : TherapyController;
+        part powerModule : CurrentControlledPowerModule;
+        part drugReservoir : DrugReservoir;
+        part activeElectrode : ActiveDrugElectrode;
+        part returnElectrode : ReturnElectrode;
+        part skinInterface : PatientSkinInterface;
+        part sensors : ContactAndSafetySensors;
+        part userInterface : UserInterface;
+        part battery : RechargeableBattery;
+
+        connect userInterface.commandOut to commandIn;
+        connect commandIn to controller.commandIn;
+        connect controller.statusOut to statusOut;
+        connect controller.statusOut to userInterface.statusIn;
+
+        connect battery.powerOut to powerModule.powerIn;
+        connect controller.currentControlOut to powerModule.controlIn;
+        connect powerModule.stimulationOut to activeElectrode.powerIn;
+        connect returnElectrode.powerOut to powerModule.returnIn;
+
+        connect drugReservoir.drugOut to activeElectrode.drugIn;
+        connect activeElectrode.drugOut to skinInterface.drugIn;
+        connect activeElectrode.patientSide to skinInterface.activeContact;
+        connect returnElectrode.patientSide to skinInterface.returnContact;
+
+        connect skinInterface.conditionOut to sensors.conditionIn;
+        connect sensors.sensedConditionOut to controller.sensorIn;
+
+        perform behavior deliverTherapy;
+    }
+
+    part def TherapyController {
+        attribute commandedCurrent : ElectricCurrent;
+        attribute commandedDuration : TimeDuration;
+        attribute accumulatedCharge : ElectricCharge;
+        attribute elapsedTime : TimeDuration;
+        attribute state : TherapyModeKind;
+
+        port commandIn : CommandInputPort;
+        port sensorIn : SensorInputPort;
+        port currentControlOut : StatusOutputPort;
+        port statusOut : StatusOutputPort;
+
+        action def ValidateSetup {
+            in item command : UserCommand;
+            in item condition : SkinConditionData;
+            out setupAccepted : Boolean;
+
+            require constraint {
+                condition.electrodeContactValid == true and
+                condition.impedance < 50000 [Ohm] and
+                command.doseCurrentSetpoint <= 0.004 [A] and
+                command.doseDurationSetpoint <= 1800 [s]
+            }
+        }
+
+        action def ComputeDeliveredCharge {
+            in current : ElectricCurrent;
+            in elapsed : TimeDuration;
+            out charge : ElectricCharge;
+
+            calc charge = current * elapsed;
+        }
+
+        action def RegulateCurrent {
+            in requestedCurrent : ElectricCurrent;
+            in condition : SkinConditionData;
+            out permittedCurrent : ElectricCurrent;
+
+            require constraint {
+                condition.temperature < 315.15 [K]
+            }
+
+            calc permittedCurrent =
+                if condition.impedance > 40000 [Ohm]
+                then 0.001 [A]
+                else requestedCurrent;
+        }
+
+        state def TherapyControlStateMachine {
+            entry action initialize {
+                state = TherapyModeKind::standby;
+                accumulatedCharge = 0 [C];
+                elapsedTime = 0 [s];
+            }
+
+            state standby;
+            state setup;
+            state priming;
+            state delivering;
+            state paused;
+            state completed;
+            state faulted;
+
+            transition standby_to_setup
+                first standby
+                then setup
+                accept UserCommand
+                if commandIn.command.startRequested == true;
+
+            transition setup_to_priming
+                first setup
+                then priming
+                if sensorIn.condition.electrodeContactValid == true and
+                   sensorIn.condition.impedance < 50000 [Ohm];
+
+            transition setup_to_fault
+                first setup
+                then faulted
+                if sensorIn.condition.electrodeContactValid == false or
+                   sensorIn.condition.impedance >= 50000 [Ohm];
+
+            transition priming_to_delivering
+                first priming
+                then delivering
+                after 5 [s];
+
+            transition delivering_to_paused
+                first delivering
+                then paused
+                accept UserCommand
+                if commandIn.command.pauseRequested == true;
+
+            transition paused_to_delivering
+                first paused
+                then delivering
+                accept UserCommand
+                if commandIn.command.startRequested == true;
+
+            transition delivering_to_completed
+                first delivering
+                then completed
+                if elapsedTime >= commandedDuration;
+
+            transition delivering_to_fault
+                first delivering
+                then faulted
+                if sensorIn.condition.temperature >= 315.15 [K] or
+                   sensorIn.condition.impedance >= 65000 [Ohm] or
+                   sensorIn.condition.moistureDetected == false;
+
+            transition any_to_standby
+                first paused
+                then standby
+                accept UserCommand
+                if commandIn.command.stopRequested == true;
+        }
+    }
+
+    part def CurrentControlledPowerModule {
+        attribute outputVoltage : ElectricVoltage;
+        attribute outputCurrent : ElectricCurrent;
+        attribute currentAccuracy : ElectricCurrent = 0.0001 [A];
+        attribute voltageLimit : ElectricVoltage = 80 [V];
+
+        port powerIn : PowerInputPort;
+        port controlIn : CommandInputPort;
+        port stimulationOut : PowerOutputPort;
+        port returnIn : PowerInputPort;
+
+        action def LimitVoltage {
+            in requestedVoltage : ElectricVoltage;
+            out limitedVoltage : ElectricVoltage;
+
+            calc limitedVoltage =
+                if requestedVoltage > voltageLimit
+                then voltageLimit
+                else requestedVoltage;
+        }
+
+        action def GenerateGalvanicCurrent {
+            in currentSetpoint : ElectricCurrent;
+            in contactImpedance : ContactImpedance;
+            out energy : ElectricalEnergy;
+
+            calc energy.current = currentSetpoint;
+            calc energy.voltage = currentSetpoint * contactImpedance;
+        }
+    }
+
+    part def RechargeableBattery {
+        attribute nominalVoltage : ElectricVoltage = 7.4 [V];
+        attribute remainingEnergy : BatteryEnergy = 12 [W * h];
+        attribute minimumOperatingEnergy : BatteryEnergy = 1 [W * h];
+
+        port powerOut : PowerOutputPort;
+
+        requirement batteryCapacityRequirement {
+            doc /* Battery shall provide enough stored energy for at least one complete therapy session at maximum current and duration. */
+            require constraint {
+                remainingEnergy >= minimumOperatingEnergy
+            }
+        }
+    }
+
+    part def DrugReservoir {
+        attribute drugName : String = "ionized therapeutic medication";
+        attribute initialDrugMass : DrugMass = 80 [mg];
+        attribute remainingDrugMass : DrugMass;
+        attribute concentration : DrugConcentration = 40 [mg / mL];
+        attribute drugPolarity : PolarityKind = PolarityKind::positive;
+
+        port drugOut : DrugOutputPort;
+
+        action def SupplyDrugToElectrode {
+            out item suppliedDrug : IonicDrug;
+
+            calc suppliedDrug.name = drugName;
+            calc suppliedDrug.polarity = drugPolarity;
+            calc suppliedDrug.concentration = concentration;
+            calc suppliedDrug.remainingMass = remainingDrugMass;
+        }
+    }
+
+    part def ActiveDrugElectrode {
+        attribute area : ElectrodeArea = 8 [cm^2];
+        attribute electrodePolarity : PolarityKind = PolarityKind::positive;
+        attribute hydrogelHydrated : Boolean = true;
+
+        port powerIn : PowerInputPort;
+        port drugIn : DrugInputPort;
+        port drugOut : DrugOutputPort;
+        port patientSide : PowerOutputPort;
+
+        action def DriveIonsFromReservoir {
+            in item incomingDrug : IonicDrug;
+            in item stimulation : ElectricalEnergy;
+            out item transportedDrug : IonicDrug;
+
+            require constraint {
+                incomingDrug.polarity == electrodePolarity and
+                hydrogelHydrated == true and
+                stimulation.current > 0 [A]
+            }
+
+            calc transportedDrug.deliveredMass =
+                incomingDrug.deliveredMass + (stimulation.chargeTransferred * 0.0002 [mg / C]);
+        }
+    }
+
+    part def ReturnElectrode {
+        attribute area : ElectrodeArea = 12 [cm^2];
+        attribute skinContactValid : Boolean;
+
+        port patientSide : PowerInputPort;
+        port powerOut : PowerOutputPort;
+    }
+
+    part def PatientSkinInterface {
+        attribute stratumCorneumResistance : ElectricalResistance = 20000 [Ohm];
+        attribute localTemperature : SkinTemperature = 309.15 [K];
+        attribute contactImpedance : ContactImpedance;
+        attribute drugAbsorbedMass : DrugMass;
+
+        port drugIn : DrugInputPort;
+        port activeContact : PowerInputPort;
+        port returnContact : PowerOutputPort;
+        port conditionOut : SensorOutputPort;
+
+        action def TransportDrugAcrossSkin {
+            in item drug : IonicDrug;
+            in item field : ElectricalEnergy;
+            out absorbedMass : DrugMass;
+
+            require constraint {
+                field.current <= 0.004 [A] and
+                contactImpedance < 65000 [Ohm]
+            }
+
+            calc absorbedMass = drug.deliveredMass;
+        }
+    }
+
+    part def ContactAndSafetySensors {
+        attribute measuredImpedance : ContactImpedance;
+        attribute measuredTemperature : SkinTemperature;
+        attribute activeContactValid : Boolean;
+        attribute returnContactValid : Boolean;
+        attribute hydrogelMoistureDetected : Boolean;
+
+        port conditionIn : SensorInputPort;
+        port sensedConditionOut : SensorOutputPort;
+
+        action def MeasureSkinCondition {
+            out item condition : SkinConditionData;
+
+            calc condition.impedance = measuredImpedance;
+            calc condition.temperature = measuredTemperature;
+            calc condition.electrodeContactValid = activeContactValid and returnContactValid;
+            calc condition.moistureDetected = hydrogelMoistureDetected;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayedMode : TherapyModeKind;
+        attribute selectedCurrent : ElectricCurrent = 0.002 [A];
+        attribute selectedDuration : TimeDuration = 1200 [s];
+
+        port commandOut : CommandInputPort;
+        port statusIn : StatusOutputPort;
+
+        action def PresentTherapyStatus {
+            in item status : TherapyStatus;
+        }
+
+        action def RequestStart {
+            out item command : UserCommand;
+
+            calc command.startRequested = true;
+            calc command.pauseRequested = false;
+            calc command.stopRequested = false;
+            calc command.doseCurrentSetpoint = selectedCurrent;
+            calc command.doseDurationSetpoint = selectedDuration;
+        }
+    }
+
+    action def IontophoresisTherapySystem::deliverTherapy {
+        objective {
+            doc /* Apply controlled direct current through a drug-loaded active electrode and a return electrode so charged drug molecules migrate through the skin into local tissue. */
+        }
+
+        first start TherapyController::ValidateSetup;
+        then start CurrentControlledPowerModule::GenerateGalvanicCurrent;
+        then start ActiveDrugElectrode::DriveIonsFromReservoir;
+        then start PatientSkinInterface::TransportDrugAcrossSkin;
+        then start ContactAndSafetySensors::MeasureSkinCondition;
+        then start TherapyController::ComputeDeliveredCharge;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : IontophoresisTherapySystem;
+
+        doc /* The system shall deliver ionized therapeutic drug across intact skin using a controlled low-level electrical current. */
+
+        require constraint {
+            system.nominalCurrent > 0 [A] and
+            system.nominalCurrent <= system.maximumCurrent and
+            system.maximumVoltage <= 80 [V]
+        }
+    }
+
+    requirement def CurrentSafetyRequirement {
+        subject system : IontophoresisTherapySystem;
+
+        doc /* The system shall limit patient current to no more than 4 mA during drug delivery. */
+
+        require constraint {
+            system.maximumCurrent <= 0.004 [A]
+        }
+    }
+
+    requirement def DoseCompletionRequirement {
+        subject system : IontophoresisTherapySystem;
+
+        doc /* The system shall terminate active delivery when the prescribed duration or prescribed delivered charge is reached. */
+
+        require constraint {
+            system.prescribedDuration <= 1800 [s]
+        }
+    }
+
+    requirement def ContactMonitoringRequirement {
+        subject sensors : ContactAndSafetySensors;
+
+        doc /* The system shall continuously monitor electrode contact, impedance, temperature, and hydrogel moisture during therapy. */
+
+        require constraint {
+            sensors.measuredImpedance < 65000 [Ohm] and
+            sensors.measuredTemperature < 315.15 [K] and
+            sensors.activeContactValid == true and
+            sensors.returnContactValid == true and
+            sensors.hydrogelMoistureDetected == true
+        }
+    }
+
+    requirement def DrugReservoirRequirement {
+        subject reservoir : DrugReservoir;
+
+        doc /* The drug reservoir shall contain sufficient ionized medication for one prescribed therapy session. */
+
+        require constraint {
+            reservoir.initialDrugMass >= 40 [mg] and
+            reservoir.concentration >= 20 [mg / mL]
+        }
+    }
+
+    part iontophoresisDevice : IontophoresisTherapySystem {
+        attribute maximumCurrent = 0.004 [A];
+        attribute nominalCurrent = 0.002 [A];
+        attribute maximumVoltage = 80 [V];
+        attribute prescribedDuration = 1200 [s];
+
+        part controller {
+            attribute commandedCurrent = 0.002 [A];
+            attribute commandedDuration = 1200 [s];
+            attribute accumulatedCharge = 0 [C];
+            attribute elapsedTime = 0 [s];
+            attribute state = TherapyModeKind::standby;
+        }
+
+        part drugReservoir {
+            attribute drugName = "lidocaine hydrochloride";
+            attribute initialDrugMass = 80 [mg];
+            attribute remainingDrugMass = 80 [mg];
+            attribute concentration = 40 [mg / mL];
+            attribute drugPolarity = PolarityKind::positive;
+        }
+
+        part activeElectrode {
+            attribute area = 8 [cm^2];
+            attribute electrodePolarity = PolarityKind::positive;
+            attribute hydrogelHydrated = true;
+        }
+
+        part returnElectrode {
+            attribute area = 12 [cm^2];
+            attribute skinContactValid = true;
+        }
+
+        part skinInterface {
+            attribute stratumCorneumResistance = 20000 [Ohm];
+            attribute localTemperature = 309.15 [K];
+            attribute contactImpedance = 22000 [Ohm];
+            attribute drugAbsorbedMass = 0 [mg];
+        }
+
+        part sensors {
+            attribute measuredImpedance = 22000 [Ohm];
+            attribute measuredTemperature = 309.15 [K];
+            attribute activeContactValid = true;
+            attribute returnContactValid = true;
+            attribute hydrogelMoistureDetected = true;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by iontophoresisDevice;
+    satisfy CurrentSafetyRequirement by iontophoresisDevice;
+    satisfy DoseCompletionRequirement by iontophoresisDevice;
+    satisfy ContactMonitoringRequirement by iontophoresisDevice.sensors;
+    satisfy DrugReservoirRequirement by iontophoresisDevice.drugReservoir;
+}

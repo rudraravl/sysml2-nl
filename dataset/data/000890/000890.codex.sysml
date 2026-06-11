@@ -1,0 +1,445 @@
+package HighEfficiencyGlandlessCirculatingPumpModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> ISQ::pressure;
+  attribute def Temperature :> ISQ::thermodynamicTemperature;
+  attribute def VolumeFlowRate :> ISQ::volumeFlowRate;
+  attribute def Power :> ISQ::power;
+  attribute def Voltage :> ISQ::voltage;
+  attribute def Current :> ISQ::electricCurrent;
+  attribute def Frequency :> ISQ::frequency;
+  attribute def RotationalSpeed;
+  attribute def Efficiency;
+  attribute def Density :> ISQ::density;
+  attribute def DynamicViscosity;
+  attribute def Head :> ISQ::length;
+  attribute def Energy :> ISQ::energy;
+  attribute def Time :> ISQ::time;
+
+  item def CirculatedFluid {
+    attribute density: Density = 998 [kg / m^3];
+    attribute dynamicViscosity: DynamicViscosity = 0.001 [Pa * s];
+    attribute temperature: Temperature;
+    attribute pressure: Pressure;
+    attribute glycolFraction: Real = 0.0;
+    attribute entrainedAirFraction: Real;
+  }
+
+  item def ElectricalPower {
+    attribute voltage: Voltage;
+    attribute current: Current;
+    attribute frequency: Frequency;
+    attribute activePower: Power;
+  }
+
+  item def PumpCommand {
+    attribute enable: Boolean;
+    attribute targetFlowRate: VolumeFlowRate;
+    attribute targetDifferentialPressure: Pressure;
+    attribute speedLimit: RotationalSpeed;
+    attribute controlMode: PumpControlMode;
+  }
+
+  item def PumpStatus {
+    attribute running: Boolean;
+    attribute faultActive: Boolean;
+    attribute measuredFlowRate: VolumeFlowRate;
+    attribute measuredDifferentialPressure: Pressure;
+    attribute measuredPower: Power;
+    attribute motorTemperature: Temperature;
+    attribute rotorSpeed: RotationalSpeed;
+    attribute alarmCode: AlarmCode;
+  }
+
+  enum def PumpControlMode {
+    enum constant constantSpeed;
+    enum constant constantDifferentialPressure;
+    enum constant proportionalDifferentialPressure;
+    enum constant constantFlow;
+    enum constant automaticAdaptation;
+  }
+
+  enum def AlarmCode {
+    enum constant none;
+    enum constant dryRun;
+    enum constant blockedRotor;
+    enum constant overTemperature;
+    enum constant overCurrent;
+    enum constant sensorFault;
+    enum constant lowSupplyVoltage;
+    enum constant communicationLoss;
+  }
+
+  port def FluidPort {
+    item fluid: CirculatedFluid;
+    attribute staticPressure: Pressure;
+    attribute temperature: Temperature;
+    attribute flowRate: VolumeFlowRate;
+  }
+
+  port def ElectricalPort {
+    in item supply: ElectricalPower;
+    attribute nominalVoltage: Voltage;
+    attribute protectiveEarthConnected: Boolean;
+  }
+
+  port def ControlPort {
+    in item command: PumpCommand;
+    out item status: PumpStatus;
+  }
+
+  port def ThermalPort {
+    out attribute rejectedHeat: Power;
+    attribute surfaceTemperature: Temperature;
+  }
+
+  port def DiagnosticPort {
+    out item status: PumpStatus;
+  }
+
+  part def PumpHousing {
+    attribute maximumWorkingPressure: Pressure = 1000000 [Pa];
+    attribute hydraulicBurstPressure: Pressure = 2500000 [Pa];
+    attribute wettedMaterialCompatibleWithWaterGlycol: Boolean = true;
+    port suction: FluidPort;
+    port discharge: FluidPort;
+  }
+
+  part def Volute {
+    attribute hydraulicEfficiency: Efficiency = 0.78;
+    attribute nominalHead: Head = 6 [m];
+    port inlet: FluidPort;
+    port outlet: FluidPort;
+  }
+
+  part def Impeller {
+    attribute diameter: Length = 0.075 [m];
+    attribute bladeCount: Integer = 7;
+    attribute nominalSpeed: RotationalSpeed = 4200 [1 / min];
+    attribute maximumSpeed: RotationalSpeed = 5200 [1 / min];
+    attribute hydraulicEfficiency: Efficiency = 0.74;
+  }
+
+  part def WetRotorAssembly {
+    attribute rotorCanned: Boolean = true;
+    attribute glandSealPresent: Boolean = false;
+    attribute lubricantIsProcessFluid: Boolean = true;
+    attribute maximumRotorTemperature: Temperature = 383 [K];
+    part impeller: Impeller;
+  }
+
+  part def PermanentMagnetECMMotor {
+    attribute nominalInputPower: Power = 65 [W];
+    attribute maximumInputPower: Power = 95 [W];
+    attribute motorEfficiency: Efficiency = 0.86;
+    attribute nominalVoltage: Voltage = 230 [V];
+    attribute nominalFrequency: Frequency = 50 [Hz];
+    attribute insulationClassTemperatureLimit: Temperature = 428 [K];
+    port electricalInput: ElectricalPort;
+    port thermalOutput: ThermalPort;
+  }
+
+  part def VariableSpeedDrive {
+    attribute switchingFrequency: Frequency = 16000 [Hz];
+    attribute standbyPower: Power = 0.8 [W];
+    attribute driveEfficiency: Efficiency = 0.94;
+    port lineInput: ElectricalPort;
+    port motorOutput: ElectricalPort;
+    port control: ControlPort;
+  }
+
+  part def DifferentialPressureSensor {
+    attribute range: Pressure = 100000 [Pa];
+    attribute accuracy: Pressure = 1000 [Pa];
+    port highSide: FluidPort;
+    port lowSide: FluidPort;
+    port diagnostic: DiagnosticPort;
+  }
+
+  part def TemperatureSensor {
+    attribute rangeLow: Temperature = 273 [K];
+    attribute rangeHigh: Temperature = 383 [K];
+    attribute accuracy: Temperature = 1 [K];
+    port measuredMedium: FluidPort;
+    port diagnostic: DiagnosticPort;
+  }
+
+  part def FlowEstimator {
+    attribute minimumReliableFlow: VolumeFlowRate = 0.05 [m^3 / h];
+    attribute maximumReliableFlow: VolumeFlowRate = 4.0 [m^3 / h];
+    port hydraulicInput: FluidPort;
+    port diagnostic: DiagnosticPort;
+  }
+
+  part def PumpController {
+    attribute controlCycleTime: Time = 0.1 [s];
+    attribute minimumSpeed: RotationalSpeed = 900 [1 / min];
+    attribute maximumSpeed: RotationalSpeed = 5200 [1 / min];
+    attribute dryRunDetectionTime: Time = 10 [s];
+    attribute overTemperatureLimit: Temperature = 378 [K];
+    port externalControl: ControlPort;
+    port driveControl: ControlPort;
+    port diagnostics: DiagnosticPort;
+  }
+
+  action def StartPump {
+    in item command: PumpCommand;
+    out attribute requestedSpeed: RotationalSpeed;
+    out item status: PumpStatus;
+  }
+
+  action def RegulatePump {
+    in item command: PumpCommand;
+    in attribute measuredFlowRate: VolumeFlowRate;
+    in attribute measuredDifferentialPressure: Pressure;
+    in attribute motorTemperature: Temperature;
+    out attribute requestedSpeed: RotationalSpeed;
+    out item status: PumpStatus;
+  }
+
+  action def StopPump {
+    out attribute requestedSpeed: RotationalSpeed = 0 [1 / min];
+    out item status: PumpStatus;
+  }
+
+  action def DetectFaults {
+    in attribute measuredFlowRate: VolumeFlowRate;
+    in attribute measuredDifferentialPressure: Pressure;
+    in attribute motorTemperature: Temperature;
+    in attribute motorCurrent: Current;
+    out attribute faultDetected: Boolean;
+    out attribute alarmCode: AlarmCode;
+  }
+
+  state def PumpOperatingStateMachine {
+    state off;
+    state starting;
+    state running;
+    state stopping;
+    state fault;
+
+    transition first off;
+    transition off_to_starting
+      first off
+      accept PumpCommand
+      if command.enable
+      then starting;
+
+    transition starting_to_running
+      first starting
+      if status.rotorSpeed >= 900 [1 / min]
+      then running;
+
+    transition running_to_stopping
+      first running
+      accept PumpCommand
+      if not command.enable
+      then stopping;
+
+    transition stopping_to_off
+      first stopping
+      if status.rotorSpeed == 0 [1 / min]
+      then off;
+
+    transition running_to_fault
+      first running
+      if status.faultActive
+      then fault;
+
+    transition starting_to_fault
+      first starting
+      if status.faultActive
+      then fault;
+
+    transition fault_to_off
+      first fault
+      accept PumpCommand
+      if not command.enable
+      then off;
+
+    entry action starting.startPump: StartPump;
+    do action running.regulatePump: RegulatePump;
+    entry action stopping.stopPump: StopPump;
+    do action running.detectFaults: DetectFaults;
+  }
+
+  part def HighEfficiencyGlandlessCirculatingPump {
+    attribute ratedFlowRate: VolumeFlowRate = 3.2 [m^3 / h];
+    attribute minimumFlowRate: VolumeFlowRate = 0.05 [m^3 / h];
+    attribute maximumHead: Head = 8 [m];
+    attribute ratedDifferentialPressure: Pressure = 60000 [Pa];
+    attribute maximumWorkingPressure: Pressure = 1000000 [Pa];
+    attribute fluidTemperatureMinimum: Temperature = 275 [K];
+    attribute fluidTemperatureMaximum: Temperature = 383 [K];
+    attribute energyEfficiencyIndex: Real = 0.18;
+    attribute hydraulicEfficiencyAtDutyPoint: Efficiency = 0.72;
+    attribute overallEfficiencyAtDutyPoint: Efficiency = 0.58;
+    attribute glandless: Boolean = true;
+    attribute mechanicalShaftSealCount: Integer = 0;
+
+    port suction: FluidPort;
+    port discharge: FluidPort;
+    port mainsSupply: ElectricalPort;
+    port controlInterface: ControlPort;
+    port diagnostics: DiagnosticPort;
+    port heatToAmbient: ThermalPort;
+
+    part housing: PumpHousing;
+    part volute: Volute;
+    part wetRotor: WetRotorAssembly;
+    part motor: PermanentMagnetECMMotor;
+    part drive: VariableSpeedDrive;
+    part controller: PumpController;
+    part pressureSensor: DifferentialPressureSensor;
+    part temperatureSensor: TemperatureSensor;
+    part flowEstimator: FlowEstimator;
+
+    connection suctionToHousing connect suction to housing.suction;
+    connection housingToVolute connect housing.discharge to volute.inlet;
+    connection voluteToDischarge connect volute.outlet to discharge;
+
+    connection electricalSupplyToDrive connect mainsSupply to drive.lineInput;
+    connection driveToMotor connect drive.motorOutput to motor.electricalInput;
+    connection controllerToDrive connect controller.driveControl to drive.control;
+    connection externalCommandToController connect controlInterface to controller.externalControl;
+    connection motorHeatToAmbient connect motor.thermalOutput to heatToAmbient;
+
+    connection pressureHigh connect pressureSensor.highSide to discharge;
+    connection pressureLow connect pressureSensor.lowSide to suction;
+    connection temperatureMeasurement connect temperatureSensor.measuredMedium to suction;
+    connection flowMeasurement connect flowEstimator.hydraulicInput to discharge;
+    connection controllerDiagnostics connect controller.diagnostics to diagnostics;
+
+    exhibit stateMachine: PumpOperatingStateMachine;
+  }
+
+  part def PumpingSubsystem {
+    attribute designFlowRate: VolumeFlowRate = 2.5 [m^3 / h];
+    attribute designDifferentialPressure: Pressure = 45000 [Pa];
+    attribute normalSupplyVoltage: Voltage = 230 [V];
+    attribute normalSupplyFrequency: Frequency = 50 [Hz];
+    attribute ambientTemperature: Temperature = 298 [K];
+
+    port inlet: FluidPort;
+    port outlet: FluidPort;
+    port electricalSupply: ElectricalPort;
+    port buildingAutomation: ControlPort;
+    port serviceDiagnostics: DiagnosticPort;
+    port heatRejection: ThermalPort;
+
+    part pump: HighEfficiencyGlandlessCirculatingPump;
+    part inletIsolationValve {
+      attribute open: Boolean = true;
+      attribute pressureRating: Pressure = 1000000 [Pa];
+      port upstream: FluidPort;
+      port downstream: FluidPort;
+    }
+    part outletIsolationValve {
+      attribute open: Boolean = true;
+      attribute pressureRating: Pressure = 1000000 [Pa];
+      port upstream: FluidPort;
+      port downstream: FluidPort;
+    }
+    part inletStrainer {
+      attribute meshSize: Length = 0.0008 [m];
+      attribute cleanPressureDrop: Pressure = 1500 [Pa];
+      port inlet: FluidPort;
+      port outlet: FluidPort;
+    }
+    part checkValve {
+      attribute crackingPressure: Pressure = 2500 [Pa];
+      attribute reverseLeakageAllowed: Boolean = false;
+      port inlet: FluidPort;
+      port outlet: FluidPort;
+    }
+
+    connection subsystemInletToValve connect inlet to inletIsolationValve.upstream;
+    connection inletValveToStrainer connect inletIsolationValve.downstream to inletStrainer.inlet;
+    connection strainerToPump connect inletStrainer.outlet to pump.suction;
+    connection pumpToCheckValve connect pump.discharge to checkValve.inlet;
+    connection checkValveToOutletValve connect checkValve.outlet to outletIsolationValve.upstream;
+    connection outletValveToSubsystemOutlet connect outletIsolationValve.downstream to outlet;
+
+    connection supplyToPump connect electricalSupply to pump.mainsSupply;
+    connection automationToPump connect buildingAutomation to pump.controlInterface;
+    connection diagnosticsToService connect pump.diagnostics to serviceDiagnostics;
+    connection pumpHeatToSubsystem connect pump.heatToAmbient to heatRejection;
+  }
+
+  requirement def PumpingSubsystemRequirement {
+    subject subsystem: PumpingSubsystem;
+  }
+
+  requirement def FlowDeliveryRequirement :> PumpingSubsystemRequirement {
+    doc /* The subsystem shall deliver at least the design flow rate at the design differential pressure while operating with water-based heating or cooling fluid. */
+    require constraint {
+      subsystem.pump.ratedFlowRate >= subsystem.designFlowRate
+    }
+    require constraint {
+      subsystem.pump.ratedDifferentialPressure >= subsystem.designDifferentialPressure
+    }
+  }
+
+  requirement def GlandlessConstructionRequirement :> PumpingSubsystemRequirement {
+    doc /* The circulating pump shall use a glandless wet-rotor construction with no mechanical shaft seal exposed to atmosphere. */
+    require constraint {
+      subsystem.pump.glandless == true
+    }
+    require constraint {
+      subsystem.pump.mechanicalShaftSealCount == 0
+    }
+  }
+
+  requirement def HighEfficiencyRequirement :> PumpingSubsystemRequirement {
+    doc /* The pump shall use a high-efficiency electronically commutated motor and variable-speed control. */
+    require constraint {
+      subsystem.pump.energyEfficiencyIndex <= 0.20
+    }
+    require constraint {
+      subsystem.pump.overallEfficiencyAtDutyPoint >= 0.55
+    }
+  }
+
+  requirement def FluidCompatibilityRequirement :> PumpingSubsystemRequirement {
+    doc /* The pump shall tolerate normal hydronic service temperatures and pressures. */
+    require constraint {
+      subsystem.pump.fluidTemperatureMinimum <= 275 [K]
+    }
+    require constraint {
+      subsystem.pump.fluidTemperatureMaximum >= 383 [K]
+    }
+    require constraint {
+      subsystem.pump.maximumWorkingPressure >= 1000000 [Pa]
+    }
+  }
+
+  requirement def ControlRequirement :> PumpingSubsystemRequirement {
+    doc /* The pump shall support enable control, speed limiting, constant-flow control, and differential-pressure control. */
+    require constraint {
+      subsystem.pump.controller.maximumSpeed <= subsystem.pump.wetRotor.impeller.maximumSpeed
+    }
+    require constraint {
+      subsystem.pump.controller.controlCycleTime <= 0.1 [s]
+    }
+  }
+
+  requirement def ProtectionRequirement :> PumpingSubsystemRequirement {
+    doc /* The pump shall detect dry run, blocked rotor, over-temperature, over-current, sensor fault, low voltage, and communication loss conditions. */
+    require constraint {
+      subsystem.pump.controller.overTemperatureLimit < subsystem.pump.motor.insulationClassTemperatureLimit
+    }
+    require constraint {
+      subsystem.pump.controller.dryRunDetectionTime <= 10 [s]
+    }
+  }
+
+  satisfy FlowDeliveryRequirement by PumpingSubsystem::pump;
+  satisfy GlandlessConstructionRequirement by PumpingSubsystem::pump;
+  satisfy HighEfficiencyRequirement by PumpingSubsystem::pump;
+  satisfy FluidCompatibilityRequirement by PumpingSubsystem::pump;
+  satisfy ControlRequirement by PumpingSubsystem::pump::controller;
+  satisfy ProtectionRequirement by PumpingSubsystem::pump::controller;
+}

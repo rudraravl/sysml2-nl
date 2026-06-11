@@ -1,0 +1,927 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6p9tegcv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb37e-acd9-7751-843f-bb987abd97de
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Esophageal doppler and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EsophagealDopplerHighLevelModel {
+
+    import ScalarValues::*;
+
+    attribute def Frequency_Hz :> Real;
+    attribute def Velocity_m_per_s :> Real;
+    attribute def Flow_L_per_min :> Real;
+    attribute def Volume_mL :> Real;
+    attribute def Pressure_mmHg :> Real;
+    attribute def Time_s :> Real;
+    attribute def Power_W :> Real;
+    attribute def Temperature_C :> Real;
+    attribute def Percentage :> Real;
+
+    enum def ProbePositionKind {
+        enum retracted;
+        enum advancing;
+        enum positioned;
+        enum withdrawn;
+    }
+
+    enum def SignalQualityKind {
+        enum absent;
+        enum poor;
+        enum acceptable;
+        enum optimal;
+    }
+
+    enum def AlarmPriorityKind {
+        enum advisory;
+        enum caution;
+        enum warning;
+        enum critical;
+    }
+
+    item def UltrasoundPulse {
+        attribute centerFrequency : Frequency_Hz;
+        attribute pulseDuration : Time_s;
+        attribute acousticPower : Power_W;
+    }
+
+    item def DopplerEcho {
+        attribute dopplerShift : Frequency_Hz;
+        attribute signalToNoiseRatio : Percentage;
+        attribute sampleDepth_cm : Real;
+    }
+
+    item def BloodVelocityEstimate {
+        attribute peakVelocity : Velocity_m_per_s;
+        attribute meanVelocity : Velocity_m_per_s;
+        attribute quality : SignalQualityKind;
+    }
+
+    item def HemodynamicMeasurement {
+        attribute heartRate_bpm : Real;
+        attribute strokeDistance_cm : Real;
+        attribute strokeVolume : Volume_mL;
+        attribute cardiacOutput : Flow_L_per_min;
+        attribute correctedFlowTime_ms : Real;
+        attribute systemicVascularResistanceIndex : Real;
+        attribute quality : SignalQualityKind;
+    }
+
+    item def OperatorCommand {
+        attribute startMonitoring : Boolean;
+        attribute stopMonitoring : Boolean;
+        attribute freezeWaveform : Boolean;
+        attribute setGain : Percentage;
+        attribute setDepth_cm : Real;
+    }
+
+    item def PatientEsophagealInterface {
+        attribute insertionDepth_cm : Real;
+        attribute mucosalTemperature : Temperature_C;
+        attribute contactPressure : Pressure_mmHg;
+        attribute position : ProbePositionKind;
+    }
+
+    item def AlarmNotification {
+        attribute priority : AlarmPriorityKind;
+        attribute messageCode : String;
+        attribute active : Boolean;
+    }
+
+    port def EsophagealProbePort {
+        out pulse : UltrasoundPulse;
+        in echo : DopplerEcho;
+        inout patientContact : PatientEsophagealInterface;
+    }
+
+    port def TransducerElectricalPort {
+        in excitationVoltage_V : Real;
+        out receivedSignal_mV : Real;
+        in powerEnable : Boolean;
+    }
+
+    port def HemodynamicDataPort {
+        out measurement : HemodynamicMeasurement;
+    }
+
+    port def OperatorInterfacePort {
+        in command : OperatorCommand;
+        out displayedMeasurement : HemodynamicMeasurement;
+        out alarm : AlarmNotification;
+    }
+
+    port def ClinicalNetworkPort {
+        out measurementRecord : HemodynamicMeasurement;
+        out alarmRecord : AlarmNotification;
+        in timeSync_s : Time_s;
+    }
+
+    part def UltrasoundTransducer {
+        attribute centerFrequency : Frequency_Hz = 4000000.0;
+        attribute beamAngle_deg : Real = 45.0;
+        attribute maximumAcousticPower : Power_W = 0.25;
+
+        port esophageal : EsophagealProbePort;
+        port electrical : TransducerElectricalPort;
+
+        action transmitPulse {
+            in commandVoltage_V : Real;
+            out emittedPulse : UltrasoundPulse;
+        }
+
+        action receiveEcho {
+            in reflectedEcho : DopplerEcho;
+            out analogSignal_mV : Real;
+        }
+    }
+
+    part def FlexibleEsophagealProbe {
+        attribute outerDiameter_mm : Real = 6.0;
+        attribute insertionLength_cm : Real = 90.0;
+        attribute position : ProbePositionKind = ProbePositionKind::withdrawn;
+        attribute maxSurfaceTemperature : Temperature_C = 41.0;
+
+        port patientEnd : EsophagealProbePort;
+        port cableEnd : TransducerElectricalPort;
+
+        part transducer : UltrasoundTransducer;
+
+        connect transducer.esophageal to patientEnd;
+        connect transducer.electrical to cableEnd;
+    }
+
+    part def DopplerFrontEnd {
+        attribute transmitVoltage_V : Real = 12.0;
+        attribute receiverGain_dB : Real = 40.0;
+        attribute antiAliasCutoff_Hz : Frequency_Hz = 20000.0;
+
+        port transducerPort : TransducerElectricalPort;
+        out rawEcho : DopplerEcho;
+
+        action exciteTransducer {
+            in enabled : Boolean;
+            out excitationVoltage_V : Real;
+        }
+
+        action conditionEchoSignal {
+            in receivedSignal_mV : Real;
+            out conditionedEcho : DopplerEcho;
+        }
+    }
+
+    part def DopplerSignalProcessor {
+        attribute samplingFrequency : Frequency_Hz = 44000.0;
+        attribute spectralWindow_s : Time_s = 0.02;
+        attribute minimumAcceptableSnr : Percentage = 35.0;
+
+        in rawEcho : DopplerEcho;
+        out velocityEstimate : BloodVelocityEstimate;
+
+        action demodulateDopplerShift {
+            in echo : DopplerEcho;
+            out shiftedFrequency : Frequency_Hz;
+        }
+
+        action estimateVelocity {
+            in shiftedFrequency : Frequency_Hz;
+            out velocity : BloodVelocityEstimate;
+        }
+
+        action assessSignalQuality {
+            in velocity : BloodVelocityEstimate;
+            out quality : SignalQualityKind;
+        }
+    }
+
+    part def HemodynamicEstimator {
+        attribute defaultAorticDiameter_cm : Real = 2.0;
+        attribute averagingWindow_beats : Integer = 5;
+        attribute lowFlowAlarmLimit : Flow_L_per_min = 2.5;
+        attribute highFlowAlarmLimit : Flow_L_per_min = 12.0;
+
+        in velocityEstimate : BloodVelocityEstimate;
+        out measurement : HemodynamicMeasurement;
+
+        action computeStrokeDistance {
+            in velocity : BloodVelocityEstimate;
+            out strokeDistance_cm : Real;
+        }
+
+        action computeStrokeVolume {
+            in strokeDistance_cm : Real;
+            in aorticDiameter_cm : Real;
+            out strokeVolume : Volume_mL;
+        }
+
+        action computeCardiacOutput {
+            in strokeVolume : Volume_mL;
+            in heartRate_bpm : Real;
+            out cardiacOutput : Flow_L_per_min;
+        }
+    }
+
+    part def DisplayAndControls {
+        port ui : OperatorInterfacePort;
+        in measurement : HemodynamicMeasurement;
+        in alarm : AlarmNotification;
+        out command : OperatorCommand;
+
+        action renderWaveform {
+            in measurement : HemodynamicMeasurement;
+        }
+
+        action renderTrend {
+            in measurement : HemodynamicMeasurement;
+        }
+
+        action captureOperatorCommand {
+            out command : OperatorCommand;
+        }
+    }
+
+    part def AlarmManager {
+        attribute lowCardiacOutputLimit : Flow_L_per_min = 2.5;
+        attribute poorSignalTimeout_s : Time_s = 15.0;
+        attribute probeTemperatureLimit : Temperature_C = 41.0;
+
+        in measurement : HemodynamicMeasurement;
+        in patientContact : PatientEsophagealInterface;
+        out notification : AlarmNotification;
+
+        action evaluateFlowAlarm {
+            in cardiacOutput : Flow_L_per_min;
+            out alarm : AlarmNotification;
+        }
+
+        action evaluateProbeSafetyAlarm {
+            in patientContact : PatientEsophagealInterface;
+            out alarm : AlarmNotification;
+        }
+    }
+
+    part def DataRecorder {
+        attribute storageDuration_hr : Real = 72.0;
+        attribute recordInterval_s : Time_s = 1.0;
+
+        port network : ClinicalNetworkPort;
+        in measurement : HemodynamicMeasurement;
+        in alarm : AlarmNotification;
+
+        action storeMeasurement {
+            in measurement : HemodynamicMeasurement;
+        }
+
+        action publishClinicalRecord {
+            in measurement : HemodynamicMeasurement;
+            in alarm : AlarmNotification;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute inputVoltage_V : Real = 24.0;
+        attribute maximumPower : Power_W = 65.0;
+        attribute backupRuntime_min : Real = 20.0;
+
+        out powerAvailable : Boolean;
+
+        action regulatePower {
+            out powerAvailable : Boolean;
+        }
+    }
+
+    action def PrimaryDopplerMonitoringFunction {
+        in patientInterface : PatientEsophagealInterface;
+        in operatorCommand : OperatorCommand;
+        out displayedHemodynamics : HemodynamicMeasurement;
+        out safetyAlarm : AlarmNotification;
+
+        action placeProbe;
+        action transmitUltrasound;
+        action acquireDopplerEcho;
+        action estimateDescendingAorticBloodVelocity;
+        action calculateHemodynamicParameters;
+        action presentMeasurements;
+        action evaluateSafetyAndSignalQuality;
+
+        first placeProbe then transmitUltrasound;
+        then acquireDopplerEcho;
+        then estimateDescendingAorticBloodVelocity;
+        then calculateHemodynamicParameters;
+        then presentMeasurements;
+        then evaluateSafetyAndSignalQuality;
+    }
+
+    state def EsophagealDopplerOperatingStates {
+        state off;
+        state selfTest;
+        state standby;
+        state probePlacement;
+        state acquiringSignal;
+        state monitoring;
+        state alarmActive;
+        state fault;
+
+        transition off_to_selfTest
+            first off
+            accept powerOn
+            then selfTest;
+
+        transition selfTest_to_standby
+            first selfTest
+            accept selfTestPassed
+            then standby;
+
+        transition standby_to_probePlacement
+            first standby
+            accept startMonitoring
+            then probePlacement;
+
+        transition probePlacement_to_acquiringSignal
+            first probePlacement
+            accept probePositioned
+            then acquiringSignal;
+
+        transition acquiringSignal_to_monitoring
+            first acquiringSignal
+            accept signalQualityAcceptable
+            then monitoring;
+
+        transition monitoring_to_alarmActive
+            first monitoring
+            accept alarmDetected
+            then alarmActive;
+
+        transition alarmActive_to_monitoring
+            first alarmActive
+            accept alarmCleared
+            then monitoring;
+
+        transition monitoring_to_standby
+            first monitoring
+            accept stopMonitoring
+            then standby;
+
+        transition any_to_fault
+            first off
+            accept unrecoverableFault
+            then fault;
+    }
+
+    part def EsophagealDopplerSystem {
+        attribute systemName : String = "Esophageal Doppler Hemodynamic Monitor";
+        attribute primaryFunction : String = "Continuously estimate descending aortic blood velocity using esophageal Doppler ultrasound and derive beat-to-beat hemodynamic parameters for clinical monitoring.";
+        attribute monitorUpdatePeriod_s : Time_s = 1.0;
+        attribute operatingState : EsophagealDopplerOperatingStates;
+
+        port probePatientPort : EsophagealProbePort;
+        port operatorPort : OperatorInterfacePort;
+        port clinicalNetworkPort : ClinicalNetworkPort;
+
+        part probe : FlexibleEsophagealProbe;
+        part frontEnd : DopplerFrontEnd;
+        part processor : DopplerSignalProcessor;
+        part estimator : HemodynamicEstimator;
+        part display : DisplayAndControls;
+        part alarmManager : AlarmManager;
+        part recorder : DataRecorder;
+        part power : PowerSubsystem;
+
+        connect probe.patientEnd to probePatientPort;
+        connect probe.cableEnd to frontEnd.transducerPort;
+        connect estimator.measurement to display.measurement;
+        connect estimator.measurement to recorder.measurement;
+        connect alarmManager.notification to display.alarm;
+        connect alarmManager.notification to recorder.alarm;
+        connect display.ui to operatorPort;
+        connect recorder.network to clinicalNetworkPort;
+
+        perform PrimaryDopplerMonitoringFunction;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : EsophagealDopplerSystem;
+
+        require constraint {
+            system.primaryFunction == "Continuously estimate descending aortic blood velocity using esophageal Doppler ultrasound and derive beat-to-beat hemodynamic parameters for clinical monitoring."
+        }
+    }
+
+    requirement def NonInvasivePlacementRequirement {
+        subject probe : FlexibleEsophagealProbe;
+
+        require constraint {
+            probe.outerDiameter_mm <= 8.0 and
+            probe.insertionLength_cm >= 80.0
+        }
+    }
+
+    requirement def HemodynamicUpdateRequirement {
+        subject system : EsophagealDopplerSystem;
+
+        require constraint {
+            system.monitorUpdatePeriod_s <= 1.0
+        }
+    }
+
+    requirement def ProbeThermalSafetyRequirement {
+        subject probe : FlexibleEsophagealProbe;
+
+        require constraint {
+            probe.maxSurfaceTemperature <= 41.0
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject processor : DopplerSignalProcessor;
+
+        require constraint {
+            processor.samplingFrequency >= 40000.0 and
+            processor.minimumAcceptableSnr >= 30.0
+        }
+    }
+
+    requirement def CardiacOutputAlarmRequirement {
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.lowCardiacOutputLimit <= 2.5 and
+            alarmManager.poorSignalTimeout_s <= 15.0
+        }
+    }
+
+    part system : EsophagealDopplerSystem;
+
+    satisfy PrimaryFunctionRequirement by system;
+    satisfy HemodynamicUpdateRequirement by system;
+    satisfy NonInvasivePlacementRequirement by system.probe;
+    satisfy ProbeThermalSafetyRequirement by system.probe;
+    satisfy SignalQualityRequirement by system.processor;
+    satisfy CardiacOutputAlarmRequirement by system.alarmManager;
+}
+tokens used
+3,698
+package EsophagealDopplerHighLevelModel {
+
+    import ScalarValues::*;
+
+    attribute def Frequency_Hz :> Real;
+    attribute def Velocity_m_per_s :> Real;
+    attribute def Flow_L_per_min :> Real;
+    attribute def Volume_mL :> Real;
+    attribute def Pressure_mmHg :> Real;
+    attribute def Time_s :> Real;
+    attribute def Power_W :> Real;
+    attribute def Temperature_C :> Real;
+    attribute def Percentage :> Real;
+
+    enum def ProbePositionKind {
+        enum retracted;
+        enum advancing;
+        enum positioned;
+        enum withdrawn;
+    }
+
+    enum def SignalQualityKind {
+        enum absent;
+        enum poor;
+        enum acceptable;
+        enum optimal;
+    }
+
+    enum def AlarmPriorityKind {
+        enum advisory;
+        enum caution;
+        enum warning;
+        enum critical;
+    }
+
+    item def UltrasoundPulse {
+        attribute centerFrequency : Frequency_Hz;
+        attribute pulseDuration : Time_s;
+        attribute acousticPower : Power_W;
+    }
+
+    item def DopplerEcho {
+        attribute dopplerShift : Frequency_Hz;
+        attribute signalToNoiseRatio : Percentage;
+        attribute sampleDepth_cm : Real;
+    }
+
+    item def BloodVelocityEstimate {
+        attribute peakVelocity : Velocity_m_per_s;
+        attribute meanVelocity : Velocity_m_per_s;
+        attribute quality : SignalQualityKind;
+    }
+
+    item def HemodynamicMeasurement {
+        attribute heartRate_bpm : Real;
+        attribute strokeDistance_cm : Real;
+        attribute strokeVolume : Volume_mL;
+        attribute cardiacOutput : Flow_L_per_min;
+        attribute correctedFlowTime_ms : Real;
+        attribute systemicVascularResistanceIndex : Real;
+        attribute quality : SignalQualityKind;
+    }
+
+    item def OperatorCommand {
+        attribute startMonitoring : Boolean;
+        attribute stopMonitoring : Boolean;
+        attribute freezeWaveform : Boolean;
+        attribute setGain : Percentage;
+        attribute setDepth_cm : Real;
+    }
+
+    item def PatientEsophagealInterface {
+        attribute insertionDepth_cm : Real;
+        attribute mucosalTemperature : Temperature_C;
+        attribute contactPressure : Pressure_mmHg;
+        attribute position : ProbePositionKind;
+    }
+
+    item def AlarmNotification {
+        attribute priority : AlarmPriorityKind;
+        attribute messageCode : String;
+        attribute active : Boolean;
+    }
+
+    port def EsophagealProbePort {
+        out pulse : UltrasoundPulse;
+        in echo : DopplerEcho;
+        inout patientContact : PatientEsophagealInterface;
+    }
+
+    port def TransducerElectricalPort {
+        in excitationVoltage_V : Real;
+        out receivedSignal_mV : Real;
+        in powerEnable : Boolean;
+    }
+
+    port def HemodynamicDataPort {
+        out measurement : HemodynamicMeasurement;
+    }
+
+    port def OperatorInterfacePort {
+        in command : OperatorCommand;
+        out displayedMeasurement : HemodynamicMeasurement;
+        out alarm : AlarmNotification;
+    }
+
+    port def ClinicalNetworkPort {
+        out measurementRecord : HemodynamicMeasurement;
+        out alarmRecord : AlarmNotification;
+        in timeSync_s : Time_s;
+    }
+
+    part def UltrasoundTransducer {
+        attribute centerFrequency : Frequency_Hz = 4000000.0;
+        attribute beamAngle_deg : Real = 45.0;
+        attribute maximumAcousticPower : Power_W = 0.25;
+
+        port esophageal : EsophagealProbePort;
+        port electrical : TransducerElectricalPort;
+
+        action transmitPulse {
+            in commandVoltage_V : Real;
+            out emittedPulse : UltrasoundPulse;
+        }
+
+        action receiveEcho {
+            in reflectedEcho : DopplerEcho;
+            out analogSignal_mV : Real;
+        }
+    }
+
+    part def FlexibleEsophagealProbe {
+        attribute outerDiameter_mm : Real = 6.0;
+        attribute insertionLength_cm : Real = 90.0;
+        attribute position : ProbePositionKind = ProbePositionKind::withdrawn;
+        attribute maxSurfaceTemperature : Temperature_C = 41.0;
+
+        port patientEnd : EsophagealProbePort;
+        port cableEnd : TransducerElectricalPort;
+
+        part transducer : UltrasoundTransducer;
+
+        connect transducer.esophageal to patientEnd;
+        connect transducer.electrical to cableEnd;
+    }
+
+    part def DopplerFrontEnd {
+        attribute transmitVoltage_V : Real = 12.0;
+        attribute receiverGain_dB : Real = 40.0;
+        attribute antiAliasCutoff_Hz : Frequency_Hz = 20000.0;
+
+        port transducerPort : TransducerElectricalPort;
+        out rawEcho : DopplerEcho;
+
+        action exciteTransducer {
+            in enabled : Boolean;
+            out excitationVoltage_V : Real;
+        }
+
+        action conditionEchoSignal {
+            in receivedSignal_mV : Real;
+            out conditionedEcho : DopplerEcho;
+        }
+    }
+
+    part def DopplerSignalProcessor {
+        attribute samplingFrequency : Frequency_Hz = 44000.0;
+        attribute spectralWindow_s : Time_s = 0.02;
+        attribute minimumAcceptableSnr : Percentage = 35.0;
+
+        in rawEcho : DopplerEcho;
+        out velocityEstimate : BloodVelocityEstimate;
+
+        action demodulateDopplerShift {
+            in echo : DopplerEcho;
+            out shiftedFrequency : Frequency_Hz;
+        }
+
+        action estimateVelocity {
+            in shiftedFrequency : Frequency_Hz;
+            out velocity : BloodVelocityEstimate;
+        }
+
+        action assessSignalQuality {
+            in velocity : BloodVelocityEstimate;
+            out quality : SignalQualityKind;
+        }
+    }
+
+    part def HemodynamicEstimator {
+        attribute defaultAorticDiameter_cm : Real = 2.0;
+        attribute averagingWindow_beats : Integer = 5;
+        attribute lowFlowAlarmLimit : Flow_L_per_min = 2.5;
+        attribute highFlowAlarmLimit : Flow_L_per_min = 12.0;
+
+        in velocityEstimate : BloodVelocityEstimate;
+        out measurement : HemodynamicMeasurement;
+
+        action computeStrokeDistance {
+            in velocity : BloodVelocityEstimate;
+            out strokeDistance_cm : Real;
+        }
+
+        action computeStrokeVolume {
+            in strokeDistance_cm : Real;
+            in aorticDiameter_cm : Real;
+            out strokeVolume : Volume_mL;
+        }
+
+        action computeCardiacOutput {
+            in strokeVolume : Volume_mL;
+            in heartRate_bpm : Real;
+            out cardiacOutput : Flow_L_per_min;
+        }
+    }
+
+    part def DisplayAndControls {
+        port ui : OperatorInterfacePort;
+        in measurement : HemodynamicMeasurement;
+        in alarm : AlarmNotification;
+        out command : OperatorCommand;
+
+        action renderWaveform {
+            in measurement : HemodynamicMeasurement;
+        }
+
+        action renderTrend {
+            in measurement : HemodynamicMeasurement;
+        }
+
+        action captureOperatorCommand {
+            out command : OperatorCommand;
+        }
+    }
+
+    part def AlarmManager {
+        attribute lowCardiacOutputLimit : Flow_L_per_min = 2.5;
+        attribute poorSignalTimeout_s : Time_s = 15.0;
+        attribute probeTemperatureLimit : Temperature_C = 41.0;
+
+        in measurement : HemodynamicMeasurement;
+        in patientContact : PatientEsophagealInterface;
+        out notification : AlarmNotification;
+
+        action evaluateFlowAlarm {
+            in cardiacOutput : Flow_L_per_min;
+            out alarm : AlarmNotification;
+        }
+
+        action evaluateProbeSafetyAlarm {
+            in patientContact : PatientEsophagealInterface;
+            out alarm : AlarmNotification;
+        }
+    }
+
+    part def DataRecorder {
+        attribute storageDuration_hr : Real = 72.0;
+        attribute recordInterval_s : Time_s = 1.0;
+
+        port network : ClinicalNetworkPort;
+        in measurement : HemodynamicMeasurement;
+        in alarm : AlarmNotification;
+
+        action storeMeasurement {
+            in measurement : HemodynamicMeasurement;
+        }
+
+        action publishClinicalRecord {
+            in measurement : HemodynamicMeasurement;
+            in alarm : AlarmNotification;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute inputVoltage_V : Real = 24.0;
+        attribute maximumPower : Power_W = 65.0;
+        attribute backupRuntime_min : Real = 20.0;
+
+        out powerAvailable : Boolean;
+
+        action regulatePower {
+            out powerAvailable : Boolean;
+        }
+    }
+
+    action def PrimaryDopplerMonitoringFunction {
+        in patientInterface : PatientEsophagealInterface;
+        in operatorCommand : OperatorCommand;
+        out displayedHemodynamics : HemodynamicMeasurement;
+        out safetyAlarm : AlarmNotification;
+
+        action placeProbe;
+        action transmitUltrasound;
+        action acquireDopplerEcho;
+        action estimateDescendingAorticBloodVelocity;
+        action calculateHemodynamicParameters;
+        action presentMeasurements;
+        action evaluateSafetyAndSignalQuality;
+
+        first placeProbe then transmitUltrasound;
+        then acquireDopplerEcho;
+        then estimateDescendingAorticBloodVelocity;
+        then calculateHemodynamicParameters;
+        then presentMeasurements;
+        then evaluateSafetyAndSignalQuality;
+    }
+
+    state def EsophagealDopplerOperatingStates {
+        state off;
+        state selfTest;
+        state standby;
+        state probePlacement;
+        state acquiringSignal;
+        state monitoring;
+        state alarmActive;
+        state fault;
+
+        transition off_to_selfTest
+            first off
+            accept powerOn
+            then selfTest;
+
+        transition selfTest_to_standby
+            first selfTest
+            accept selfTestPassed
+            then standby;
+
+        transition standby_to_probePlacement
+            first standby
+            accept startMonitoring
+            then probePlacement;
+
+        transition probePlacement_to_acquiringSignal
+            first probePlacement
+            accept probePositioned
+            then acquiringSignal;
+
+        transition acquiringSignal_to_monitoring
+            first acquiringSignal
+            accept signalQualityAcceptable
+            then monitoring;
+
+        transition monitoring_to_alarmActive
+            first monitoring
+            accept alarmDetected
+            then alarmActive;
+
+        transition alarmActive_to_monitoring
+            first alarmActive
+            accept alarmCleared
+            then monitoring;
+
+        transition monitoring_to_standby
+            first monitoring
+            accept stopMonitoring
+            then standby;
+
+        transition any_to_fault
+            first off
+            accept unrecoverableFault
+            then fault;
+    }
+
+    part def EsophagealDopplerSystem {
+        attribute systemName : String = "Esophageal Doppler Hemodynamic Monitor";
+        attribute primaryFunction : String = "Continuously estimate descending aortic blood velocity using esophageal Doppler ultrasound and derive beat-to-beat hemodynamic parameters for clinical monitoring.";
+        attribute monitorUpdatePeriod_s : Time_s = 1.0;
+        attribute operatingState : EsophagealDopplerOperatingStates;
+
+        port probePatientPort : EsophagealProbePort;
+        port operatorPort : OperatorInterfacePort;
+        port clinicalNetworkPort : ClinicalNetworkPort;
+
+        part probe : FlexibleEsophagealProbe;
+        part frontEnd : DopplerFrontEnd;
+        part processor : DopplerSignalProcessor;
+        part estimator : HemodynamicEstimator;
+        part display : DisplayAndControls;
+        part alarmManager : AlarmManager;
+        part recorder : DataRecorder;
+        part power : PowerSubsystem;
+
+        connect probe.patientEnd to probePatientPort;
+        connect probe.cableEnd to frontEnd.transducerPort;
+        connect estimator.measurement to display.measurement;
+        connect estimator.measurement to recorder.measurement;
+        connect alarmManager.notification to display.alarm;
+        connect alarmManager.notification to recorder.alarm;
+        connect display.ui to operatorPort;
+        connect recorder.network to clinicalNetworkPort;
+
+        perform PrimaryDopplerMonitoringFunction;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : EsophagealDopplerSystem;
+
+        require constraint {
+            system.primaryFunction == "Continuously estimate descending aortic blood velocity using esophageal Doppler ultrasound and derive beat-to-beat hemodynamic parameters for clinical monitoring."
+        }
+    }
+
+    requirement def NonInvasivePlacementRequirement {
+        subject probe : FlexibleEsophagealProbe;
+
+        require constraint {
+            probe.outerDiameter_mm <= 8.0 and
+            probe.insertionLength_cm >= 80.0
+        }
+    }
+
+    requirement def HemodynamicUpdateRequirement {
+        subject system : EsophagealDopplerSystem;
+
+        require constraint {
+            system.monitorUpdatePeriod_s <= 1.0
+        }
+    }
+
+    requirement def ProbeThermalSafetyRequirement {
+        subject probe : FlexibleEsophagealProbe;
+
+        require constraint {
+            probe.maxSurfaceTemperature <= 41.0
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject processor : DopplerSignalProcessor;
+
+        require constraint {
+            processor.samplingFrequency >= 40000.0 and
+            processor.minimumAcceptableSnr >= 30.0
+        }
+    }
+
+    requirement def CardiacOutputAlarmRequirement {
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.lowCardiacOutputLimit <= 2.5 and
+            alarmManager.poorSignalTimeout_s <= 15.0
+        }
+    }
+
+    part system : EsophagealDopplerSystem;
+
+    satisfy PrimaryFunctionRequirement by system;
+    satisfy HemodynamicUpdateRequirement by system;
+    satisfy NonInvasivePlacementRequirement by system.probe;
+    satisfy ProbeThermalSafetyRequirement by system.probe;
+    satisfy SignalQualityRequirement by system.processor;
+    satisfy CardiacOutputAlarmRequirement by system.alarmManager;
+}

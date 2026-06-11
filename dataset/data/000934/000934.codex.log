@@ -1,0 +1,1049 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-btb6hn4v
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4d0-cb24-7e20-b77e-5d5f7c2001b5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Rushton turbine and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RushtonTurbineMixingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def rotationalSpeed :> ISQ::frequency {
+        unit = SI::revolutionPerMinute;
+    }
+
+    attribute def volumetricFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::litrePerMinute;
+    }
+
+    attribute def torque :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def viscosity :> ISQ::dynamicViscosity {
+        unit = SI::pascalSecond;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ISQ::electricPotential;
+        attribute current : ISQ::electricCurrent;
+        attribute frequency : ISQ::frequency;
+    }
+
+    item def MechanicalRotation {
+        attribute speed : rotationalSpeed;
+        attribute shaftTorque : torque;
+        attribute transmittedPower : power;
+    }
+
+    item def ProcessLiquid {
+        attribute density : ISQ::massDensity;
+        attribute dynamicViscosity : viscosity;
+        attribute temperature : temperature;
+        attribute dissolvedGasFraction : Real;
+        attribute suspendedSolidsFraction : Real;
+    }
+
+    item def MixedLiquid :> ProcessLiquid {
+        attribute homogeneityIndex : Real;
+        attribute turbulentEnergyDissipationRate : Real;
+    }
+
+    item def ControlSignal {
+        attribute demandedSpeed : rotationalSpeed;
+        attribute enableCommand : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def SpeedFeedback {
+        attribute measuredSpeed : rotationalSpeed;
+        attribute measuredTorque : torque;
+        attribute motorTemperature : temperature;
+        attribute vibrationLevel : Real;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def RotationPort {
+        out item rotationOut : MechanicalRotation;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item feedback : SpeedFeedback;
+    }
+
+    port def LiquidInletPort {
+        in item incomingLiquid : ProcessLiquid;
+    }
+
+    port def LiquidOutletPort {
+        out item outgoingLiquid : MixedLiquid;
+    }
+
+    port def MixingInterfacePort {
+        inout item vesselContents : ProcessLiquid;
+    }
+
+    part def ElectricDrive {
+        port electricalInput : ElectricalPowerPort;
+        port controlInterface : ControlPort;
+        port shaftOutput : RotationPort;
+
+        attribute ratedPower : power = 1500 [SI::watt];
+        attribute ratedSpeed : rotationalSpeed = 1750 [SI::revolutionPerMinute];
+        attribute maximumTorque : torque = 12 [SI::newtonMetre];
+        attribute efficiency : Real = 0.88;
+
+        action def ConvertElectricalToMechanical {
+            in item suppliedPower : ElectricalPower;
+            in item speedDemand : ControlSignal;
+            out item shaftRotation : MechanicalRotation;
+
+            objective {
+                suppliedPower.voltage > 0 [SI::volt] and
+                speedDemand.enableCommand == true
+            }
+
+            satisfy requirement DriveConversionRequirement;
+        }
+
+        state def DriveOperatingState {
+            entry action initializeDrive;
+            state Off;
+            state Starting;
+            state Running;
+            state Faulted;
+
+            transition first Off;
+            transition Off_to_Starting
+                first Off
+                then Starting
+                accept ControlSignal
+                if command.enableCommand == true and command.emergencyStop == false;
+
+            transition Starting_to_Running
+                first Starting
+                then Running
+                if feedback.measuredSpeed >= 0.95 * command.demandedSpeed;
+
+            transition Running_to_Off
+                first Running
+                then Off
+                accept ControlSignal
+                if command.enableCommand == false;
+
+            transition Any_to_Faulted
+                first Off, Starting, Running
+                then Faulted
+                accept ControlSignal
+                if command.emergencyStop == true;
+
+            transition Faulted_to_Off
+                first Faulted
+                then Off
+                accept ControlSignal
+                if command.emergencyStop == false and command.enableCommand == false;
+        }
+    }
+
+    part def ShaftAssembly {
+        port shaftInput : RotationPort;
+        port impellerDrive : RotationPort;
+
+        attribute shaftDiameter : ISQ::length = 0.025 [SI::metre];
+        attribute shaftLength : ISQ::length = 0.72 [SI::metre];
+        attribute torsionalStiffness : Real;
+        attribute allowableRunout : ISQ::length = 0.00025 [SI::metre];
+
+        action def TransmitTorque {
+            in item motorRotation : MechanicalRotation;
+            out item impellerRotation : MechanicalRotation;
+
+            objective {
+                impellerRotation.speed == motorRotation.speed and
+                impellerRotation.shaftTorque <= motorRotation.shaftTorque
+            }
+        }
+    }
+
+    part def RushtonImpeller {
+        port hubInput : RotationPort;
+        port liquidInterface : MixingInterfacePort;
+
+        attribute impellerDiameter : ISQ::length = 0.20 [SI::metre];
+        attribute bladeCount : Integer = 6;
+        attribute bladeWidth : ISQ::length = 0.04 [SI::metre];
+        attribute bladeHeight : ISQ::length = 0.05 [SI::metre];
+        attribute diskDiameter : ISQ::length = 0.135 [SI::metre];
+        attribute clearanceFromTankBottom : ISQ::length = 0.20 [SI::metre];
+        attribute powerNumber : Real = 5.0;
+
+        action def GenerateRadialFlowAndTurbulence {
+            in item rotation : MechanicalRotation;
+            inout item liquid : ProcessLiquid;
+            out item mixedLiquid : MixedLiquid;
+
+            objective {
+                rotation.speed > 0 [SI::revolutionPerMinute] and
+                mixedLiquid.homogeneityIndex > 0.90
+            }
+
+            satisfy requirement PrimaryMixingRequirement;
+        }
+
+        state def ImpellerState {
+            state Stationary;
+            state Accelerating;
+            state Agitating;
+            state Coasting;
+
+            transition first Stationary;
+            transition Stationary_to_Accelerating
+                first Stationary
+                then Accelerating
+                if rotation.speed > 0 [SI::revolutionPerMinute];
+
+            transition Accelerating_to_Agitating
+                first Accelerating
+                then Agitating
+                if rotation.speed >= 300 [SI::revolutionPerMinute];
+
+            transition Agitating_to_Coasting
+                first Agitating
+                then Coasting
+                if rotation.speed < 300 [SI::revolutionPerMinute];
+
+            transition Coasting_to_Stationary
+                first Coasting
+                then Stationary
+                if rotation.speed == 0 [SI::revolutionPerMinute];
+        }
+    }
+
+    part def MixingVessel {
+        port liquidFeed : LiquidInletPort;
+        port liquidDischarge : LiquidOutletPort;
+        port impellerInteraction : MixingInterfacePort;
+
+        attribute workingVolume : ISQ::volume = 250 [SI::litre];
+        attribute tankDiameter : ISQ::length = 0.65 [SI::metre];
+        attribute liquidHeight : ISQ::length = 0.75 [SI::metre];
+        attribute operatingPressure : pressure = 101325 [SI::pascal];
+        attribute operatingTemperature : temperature = 298.15 [SI::kelvin];
+
+        part baffle1 : Baffle {
+            attribute angularPosition : Real = 0;
+        }
+
+        part baffle2 : Baffle {
+            attribute angularPosition : Real = 90;
+        }
+
+        part baffle3 : Baffle {
+            attribute angularPosition : Real = 180;
+        }
+
+        part baffle4 : Baffle {
+            attribute angularPosition : Real = 270;
+        }
+
+        action def ContainAndDirectFlow {
+            in item feed : ProcessLiquid;
+            inout item agitatedContents : ProcessLiquid;
+            out item product : MixedLiquid;
+
+            objective {
+                product.homogeneityIndex >= 0.90 and
+                product.temperature <= 323.15 [SI::kelvin]
+            }
+        }
+    }
+
+    part def Baffle {
+        attribute width : ISQ::length = 0.065 [SI::metre];
+        attribute height : ISQ::length = 0.70 [SI::metre];
+        attribute thickness : ISQ::length = 0.004 [SI::metre];
+        attribute angularPosition : Real;
+    }
+
+    part def SpeedController {
+        port controlOutput : ControlPort;
+
+        attribute minimumCommandedSpeed : rotationalSpeed = 100 [SI::revolutionPerMinute];
+        attribute maximumCommandedSpeed : rotationalSpeed = 1200 [SI::revolutionPerMinute];
+        attribute nominalCommandedSpeed : rotationalSpeed = 600 [SI::revolutionPerMinute];
+        attribute overloadTorqueLimit : torque = 10 [SI::newtonMetre];
+        attribute maximumVibrationLevel : Real = 4.5;
+
+        action def RegulateImpellerSpeed {
+            in item feedback : SpeedFeedback;
+            out item command : ControlSignal;
+
+            objective {
+                command.demandedSpeed >= minimumCommandedSpeed and
+                command.demandedSpeed <= maximumCommandedSpeed
+            }
+        }
+
+        state def ControlState {
+            state Disabled;
+            state SpeedControl;
+            state TorqueLimited;
+            state EmergencyStopped;
+
+            transition first Disabled;
+            transition Disabled_to_SpeedControl
+                first Disabled
+                then SpeedControl
+                if command.enableCommand == true and command.emergencyStop == false;
+
+            transition SpeedControl_to_TorqueLimited
+                first SpeedControl
+                then TorqueLimited
+                if feedback.measuredTorque > overloadTorqueLimit;
+
+            transition TorqueLimited_to_SpeedControl
+                first TorqueLimited
+                then SpeedControl
+                if feedback.measuredTorque <= overloadTorqueLimit;
+
+            transition SpeedControl_to_EmergencyStopped
+                first SpeedControl
+                then EmergencyStopped
+                if command.emergencyStop == true or feedback.vibrationLevel > maximumVibrationLevel;
+
+            transition EmergencyStopped_to_Disabled
+                first EmergencyStopped
+                then Disabled
+                if command.emergencyStop == false and command.enableCommand == false;
+        }
+    }
+
+    part def RushtonTurbineMixer {
+        port electricalSupply : ElectricalPowerPort;
+        port processInlet : LiquidInletPort;
+        port processOutlet : LiquidOutletPort;
+        port operatorControl : ControlPort;
+
+        part drive : ElectricDrive;
+        part shaft : ShaftAssembly;
+        part impeller : RushtonImpeller;
+        part vessel : MixingVessel;
+        part controller : SpeedController;
+
+        connect electricalSupply to drive.electricalInput;
+        connect operatorControl to controller.controlOutput;
+        connect controller.controlOutput to drive.controlInterface;
+        connect drive.shaftOutput to shaft.shaftInput;
+        connect shaft.impellerDrive to impeller.hubInput;
+        connect impeller.liquidInterface to vessel.impellerInteraction;
+        connect processInlet to vessel.liquidFeed;
+        connect vessel.liquidDischarge to processOutlet;
+
+        action def PerformPrimaryMixingFunction {
+            in item unmixedFeed : ProcessLiquid;
+            in item electricalEnergy : ElectricalPower;
+            in item requestedOperation : ControlSignal;
+            out item mixedProduct : MixedLiquid;
+
+            first startDrive;
+            then transmitRotation;
+            then generateRadialJet;
+            then disperseMomentum;
+            then dischargeMixedProduct;
+
+            action startDrive : ElectricDrive::ConvertElectricalToMechanical;
+            action transmitRotation : ShaftAssembly::TransmitTorque;
+            action generateRadialJet : RushtonImpeller::GenerateRadialFlowAndTurbulence;
+            action disperseMomentum : MixingVessel::ContainAndDirectFlow;
+
+            action dischargeMixedProduct {
+                in item agitatedLiquid : MixedLiquid;
+                out item product : MixedLiquid;
+                objective {
+                    product.homogeneityIndex >= agitatedLiquid.homogeneityIndex
+                }
+            }
+
+            objective {
+                mixedProduct.homogeneityIndex >= 0.90
+            }
+
+            satisfy requirement PrimarySystemFunctionRequirement;
+        }
+
+        state def MixerLifecycle {
+            state Idle;
+            state Filling;
+            state Mixing;
+            state Holding;
+            state Discharging;
+            state Shutdown;
+            state Fault;
+
+            transition first Idle;
+
+            transition Idle_to_Filling
+                first Idle
+                then Filling
+                accept ControlSignal
+                if command.enableCommand == true and command.emergencyStop == false;
+
+            transition Filling_to_Mixing
+                first Filling
+                then Mixing
+                if vessel.workingVolume >= 50 [SI::litre];
+
+            transition Mixing_to_Holding
+                first Mixing
+                then Holding
+                if mixedProduct.homogeneityIndex >= 0.90;
+
+            transition Holding_to_Discharging
+                first Holding
+                then Discharging
+                if command.enableCommand == false;
+
+            transition Discharging_to_Shutdown
+                first Discharging
+                then Shutdown
+                if vessel.workingVolume <= 5 [SI::litre];
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                then Idle
+                if command.enableCommand == false;
+
+            transition Operational_to_Fault
+                first Filling, Mixing, Holding, Discharging
+                then Fault
+                if command.emergencyStop == true or feedback.vibrationLevel > controller.maximumVibrationLevel;
+        }
+    }
+
+    requirement def PrimarySystemFunctionRequirement {
+        subject mixer : RushtonTurbineMixer;
+
+        doc /* The Rushton turbine mixer shall convert electrical input power into controlled impeller rotation that drives a six-blade radial-flow turbine in a baffled vessel, producing turbulent radial jets and circulation patterns that mix, suspend, and disperse the process liquid at a high level. */
+
+        require constraint {
+            mixer.impeller.bladeCount == 6 and
+            mixer.impeller.powerNumber >= 4.5 and
+            mixer.impeller.powerNumber <= 6.0
+        }
+    }
+
+    requirement def PrimaryMixingRequirement {
+        subject impeller : RushtonImpeller;
+
+        doc /* The Rushton impeller shall generate radial turbulent flow sufficient to increase liquid homogeneity during commanded operation. */
+
+        require constraint {
+            impeller.impellerDiameter > 0 [SI::metre] and
+            impeller.clearanceFromTankBottom >= 0.5 * impeller.impellerDiameter and
+            impeller.clearanceFromTankBottom <= 1.5 * impeller.impellerDiameter
+        }
+    }
+
+    requirement def DriveConversionRequirement {
+        subject drive : ElectricDrive;
+
+        doc /* The electric drive shall provide controlled rotational mechanical power to the turbine shaft over the commanded operating speed range. */
+
+        require constraint {
+            drive.ratedPower >= 1000 [SI::watt] and
+            drive.efficiency >= 0.80
+        }
+    }
+
+    requirement def VesselBafflingRequirement {
+        subject vessel : MixingVessel;
+
+        doc /* The vessel shall include four vertical baffles to suppress bulk vortex formation and promote axial circulation driven by the radial Rushton turbine discharge. */
+
+        require constraint {
+            vessel.baffle1.width == 0.1 * vessel.tankDiameter and
+            vessel.baffle2.width == vessel.baffle1.width and
+            vessel.baffle3.width == vessel.baffle1.width and
+            vessel.baffle4.width == vessel.baffle1.width
+        }
+    }
+
+    requirement def OperatingSafetyRequirement {
+        subject mixer : RushtonTurbineMixer;
+
+        doc /* The mixer shall transition to a fault or stopped condition when emergency stop is commanded, excessive torque is detected, or excessive vibration is detected. */
+
+        require constraint {
+            mixer.controller.overloadTorqueLimit <= mixer.drive.maximumTorque and
+            mixer.controller.maximumVibrationLevel <= 4.5
+        }
+    }
+
+    requirement def ProcessPerformanceRequirement {
+        subject mixer : RushtonTurbineMixer;
+
+        doc /* The system shall produce a mixed liquid with a homogeneity index of at least 0.90 during normal batch operation at nominal speed. */
+
+        require constraint {
+            mixer.controller.nominalCommandedSpeed == 600 [SI::revolutionPerMinute]
+        }
+    }
+
+    satisfy PrimarySystemFunctionRequirement by RushtonTurbineMixer::PerformPrimaryMixingFunction;
+    satisfy PrimaryMixingRequirement by RushtonImpeller::GenerateRadialFlowAndTurbulence;
+    satisfy DriveConversionRequirement by ElectricDrive::ConvertElectricalToMechanical;
+    satisfy VesselBafflingRequirement by MixingVessel;
+    satisfy OperatingSafetyRequirement by RushtonTurbineMixer::MixerLifecycle;
+    satisfy ProcessPerformanceRequirement by RushtonTurbineMixer::PerformPrimaryMixingFunction;
+
+    part rushtonTurbineMixingSystem : RushtonTurbineMixer {
+        attribute systemName : String = "Baffled Rushton Turbine Mixing System";
+        attribute primaryFunction : String = "Convert controlled shaft rotation into turbulent radial flow for high-level liquid mixing, dispersion, and suspension.";
+    }
+}
+tokens used
+5,067
+package RushtonTurbineMixingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def rotationalSpeed :> ISQ::frequency {
+        unit = SI::revolutionPerMinute;
+    }
+
+    attribute def volumetricFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::litrePerMinute;
+    }
+
+    attribute def torque :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def viscosity :> ISQ::dynamicViscosity {
+        unit = SI::pascalSecond;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ISQ::electricPotential;
+        attribute current : ISQ::electricCurrent;
+        attribute frequency : ISQ::frequency;
+    }
+
+    item def MechanicalRotation {
+        attribute speed : rotationalSpeed;
+        attribute shaftTorque : torque;
+        attribute transmittedPower : power;
+    }
+
+    item def ProcessLiquid {
+        attribute density : ISQ::massDensity;
+        attribute dynamicViscosity : viscosity;
+        attribute temperature : temperature;
+        attribute dissolvedGasFraction : Real;
+        attribute suspendedSolidsFraction : Real;
+    }
+
+    item def MixedLiquid :> ProcessLiquid {
+        attribute homogeneityIndex : Real;
+        attribute turbulentEnergyDissipationRate : Real;
+    }
+
+    item def ControlSignal {
+        attribute demandedSpeed : rotationalSpeed;
+        attribute enableCommand : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def SpeedFeedback {
+        attribute measuredSpeed : rotationalSpeed;
+        attribute measuredTorque : torque;
+        attribute motorTemperature : temperature;
+        attribute vibrationLevel : Real;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def RotationPort {
+        out item rotationOut : MechanicalRotation;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item feedback : SpeedFeedback;
+    }
+
+    port def LiquidInletPort {
+        in item incomingLiquid : ProcessLiquid;
+    }
+
+    port def LiquidOutletPort {
+        out item outgoingLiquid : MixedLiquid;
+    }
+
+    port def MixingInterfacePort {
+        inout item vesselContents : ProcessLiquid;
+    }
+
+    part def ElectricDrive {
+        port electricalInput : ElectricalPowerPort;
+        port controlInterface : ControlPort;
+        port shaftOutput : RotationPort;
+
+        attribute ratedPower : power = 1500 [SI::watt];
+        attribute ratedSpeed : rotationalSpeed = 1750 [SI::revolutionPerMinute];
+        attribute maximumTorque : torque = 12 [SI::newtonMetre];
+        attribute efficiency : Real = 0.88;
+
+        action def ConvertElectricalToMechanical {
+            in item suppliedPower : ElectricalPower;
+            in item speedDemand : ControlSignal;
+            out item shaftRotation : MechanicalRotation;
+
+            objective {
+                suppliedPower.voltage > 0 [SI::volt] and
+                speedDemand.enableCommand == true
+            }
+
+            satisfy requirement DriveConversionRequirement;
+        }
+
+        state def DriveOperatingState {
+            entry action initializeDrive;
+            state Off;
+            state Starting;
+            state Running;
+            state Faulted;
+
+            transition first Off;
+            transition Off_to_Starting
+                first Off
+                then Starting
+                accept ControlSignal
+                if command.enableCommand == true and command.emergencyStop == false;
+
+            transition Starting_to_Running
+                first Starting
+                then Running
+                if feedback.measuredSpeed >= 0.95 * command.demandedSpeed;
+
+            transition Running_to_Off
+                first Running
+                then Off
+                accept ControlSignal
+                if command.enableCommand == false;
+
+            transition Any_to_Faulted
+                first Off, Starting, Running
+                then Faulted
+                accept ControlSignal
+                if command.emergencyStop == true;
+
+            transition Faulted_to_Off
+                first Faulted
+                then Off
+                accept ControlSignal
+                if command.emergencyStop == false and command.enableCommand == false;
+        }
+    }
+
+    part def ShaftAssembly {
+        port shaftInput : RotationPort;
+        port impellerDrive : RotationPort;
+
+        attribute shaftDiameter : ISQ::length = 0.025 [SI::metre];
+        attribute shaftLength : ISQ::length = 0.72 [SI::metre];
+        attribute torsionalStiffness : Real;
+        attribute allowableRunout : ISQ::length = 0.00025 [SI::metre];
+
+        action def TransmitTorque {
+            in item motorRotation : MechanicalRotation;
+            out item impellerRotation : MechanicalRotation;
+
+            objective {
+                impellerRotation.speed == motorRotation.speed and
+                impellerRotation.shaftTorque <= motorRotation.shaftTorque
+            }
+        }
+    }
+
+    part def RushtonImpeller {
+        port hubInput : RotationPort;
+        port liquidInterface : MixingInterfacePort;
+
+        attribute impellerDiameter : ISQ::length = 0.20 [SI::metre];
+        attribute bladeCount : Integer = 6;
+        attribute bladeWidth : ISQ::length = 0.04 [SI::metre];
+        attribute bladeHeight : ISQ::length = 0.05 [SI::metre];
+        attribute diskDiameter : ISQ::length = 0.135 [SI::metre];
+        attribute clearanceFromTankBottom : ISQ::length = 0.20 [SI::metre];
+        attribute powerNumber : Real = 5.0;
+
+        action def GenerateRadialFlowAndTurbulence {
+            in item rotation : MechanicalRotation;
+            inout item liquid : ProcessLiquid;
+            out item mixedLiquid : MixedLiquid;
+
+            objective {
+                rotation.speed > 0 [SI::revolutionPerMinute] and
+                mixedLiquid.homogeneityIndex > 0.90
+            }
+
+            satisfy requirement PrimaryMixingRequirement;
+        }
+
+        state def ImpellerState {
+            state Stationary;
+            state Accelerating;
+            state Agitating;
+            state Coasting;
+
+            transition first Stationary;
+            transition Stationary_to_Accelerating
+                first Stationary
+                then Accelerating
+                if rotation.speed > 0 [SI::revolutionPerMinute];
+
+            transition Accelerating_to_Agitating
+                first Accelerating
+                then Agitating
+                if rotation.speed >= 300 [SI::revolutionPerMinute];
+
+            transition Agitating_to_Coasting
+                first Agitating
+                then Coasting
+                if rotation.speed < 300 [SI::revolutionPerMinute];
+
+            transition Coasting_to_Stationary
+                first Coasting
+                then Stationary
+                if rotation.speed == 0 [SI::revolutionPerMinute];
+        }
+    }
+
+    part def MixingVessel {
+        port liquidFeed : LiquidInletPort;
+        port liquidDischarge : LiquidOutletPort;
+        port impellerInteraction : MixingInterfacePort;
+
+        attribute workingVolume : ISQ::volume = 250 [SI::litre];
+        attribute tankDiameter : ISQ::length = 0.65 [SI::metre];
+        attribute liquidHeight : ISQ::length = 0.75 [SI::metre];
+        attribute operatingPressure : pressure = 101325 [SI::pascal];
+        attribute operatingTemperature : temperature = 298.15 [SI::kelvin];
+
+        part baffle1 : Baffle {
+            attribute angularPosition : Real = 0;
+        }
+
+        part baffle2 : Baffle {
+            attribute angularPosition : Real = 90;
+        }
+
+        part baffle3 : Baffle {
+            attribute angularPosition : Real = 180;
+        }
+
+        part baffle4 : Baffle {
+            attribute angularPosition : Real = 270;
+        }
+
+        action def ContainAndDirectFlow {
+            in item feed : ProcessLiquid;
+            inout item agitatedContents : ProcessLiquid;
+            out item product : MixedLiquid;
+
+            objective {
+                product.homogeneityIndex >= 0.90 and
+                product.temperature <= 323.15 [SI::kelvin]
+            }
+        }
+    }
+
+    part def Baffle {
+        attribute width : ISQ::length = 0.065 [SI::metre];
+        attribute height : ISQ::length = 0.70 [SI::metre];
+        attribute thickness : ISQ::length = 0.004 [SI::metre];
+        attribute angularPosition : Real;
+    }
+
+    part def SpeedController {
+        port controlOutput : ControlPort;
+
+        attribute minimumCommandedSpeed : rotationalSpeed = 100 [SI::revolutionPerMinute];
+        attribute maximumCommandedSpeed : rotationalSpeed = 1200 [SI::revolutionPerMinute];
+        attribute nominalCommandedSpeed : rotationalSpeed = 600 [SI::revolutionPerMinute];
+        attribute overloadTorqueLimit : torque = 10 [SI::newtonMetre];
+        attribute maximumVibrationLevel : Real = 4.5;
+
+        action def RegulateImpellerSpeed {
+            in item feedback : SpeedFeedback;
+            out item command : ControlSignal;
+
+            objective {
+                command.demandedSpeed >= minimumCommandedSpeed and
+                command.demandedSpeed <= maximumCommandedSpeed
+            }
+        }
+
+        state def ControlState {
+            state Disabled;
+            state SpeedControl;
+            state TorqueLimited;
+            state EmergencyStopped;
+
+            transition first Disabled;
+            transition Disabled_to_SpeedControl
+                first Disabled
+                then SpeedControl
+                if command.enableCommand == true and command.emergencyStop == false;
+
+            transition SpeedControl_to_TorqueLimited
+                first SpeedControl
+                then TorqueLimited
+                if feedback.measuredTorque > overloadTorqueLimit;
+
+            transition TorqueLimited_to_SpeedControl
+                first TorqueLimited
+                then SpeedControl
+                if feedback.measuredTorque <= overloadTorqueLimit;
+
+            transition SpeedControl_to_EmergencyStopped
+                first SpeedControl
+                then EmergencyStopped
+                if command.emergencyStop == true or feedback.vibrationLevel > maximumVibrationLevel;
+
+            transition EmergencyStopped_to_Disabled
+                first EmergencyStopped
+                then Disabled
+                if command.emergencyStop == false and command.enableCommand == false;
+        }
+    }
+
+    part def RushtonTurbineMixer {
+        port electricalSupply : ElectricalPowerPort;
+        port processInlet : LiquidInletPort;
+        port processOutlet : LiquidOutletPort;
+        port operatorControl : ControlPort;
+
+        part drive : ElectricDrive;
+        part shaft : ShaftAssembly;
+        part impeller : RushtonImpeller;
+        part vessel : MixingVessel;
+        part controller : SpeedController;
+
+        connect electricalSupply to drive.electricalInput;
+        connect operatorControl to controller.controlOutput;
+        connect controller.controlOutput to drive.controlInterface;
+        connect drive.shaftOutput to shaft.shaftInput;
+        connect shaft.impellerDrive to impeller.hubInput;
+        connect impeller.liquidInterface to vessel.impellerInteraction;
+        connect processInlet to vessel.liquidFeed;
+        connect vessel.liquidDischarge to processOutlet;
+
+        action def PerformPrimaryMixingFunction {
+            in item unmixedFeed : ProcessLiquid;
+            in item electricalEnergy : ElectricalPower;
+            in item requestedOperation : ControlSignal;
+            out item mixedProduct : MixedLiquid;
+
+            first startDrive;
+            then transmitRotation;
+            then generateRadialJet;
+            then disperseMomentum;
+            then dischargeMixedProduct;
+
+            action startDrive : ElectricDrive::ConvertElectricalToMechanical;
+            action transmitRotation : ShaftAssembly::TransmitTorque;
+            action generateRadialJet : RushtonImpeller::GenerateRadialFlowAndTurbulence;
+            action disperseMomentum : MixingVessel::ContainAndDirectFlow;
+
+            action dischargeMixedProduct {
+                in item agitatedLiquid : MixedLiquid;
+                out item product : MixedLiquid;
+                objective {
+                    product.homogeneityIndex >= agitatedLiquid.homogeneityIndex
+                }
+            }
+
+            objective {
+                mixedProduct.homogeneityIndex >= 0.90
+            }
+
+            satisfy requirement PrimarySystemFunctionRequirement;
+        }
+
+        state def MixerLifecycle {
+            state Idle;
+            state Filling;
+            state Mixing;
+            state Holding;
+            state Discharging;
+            state Shutdown;
+            state Fault;
+
+            transition first Idle;
+
+            transition Idle_to_Filling
+                first Idle
+                then Filling
+                accept ControlSignal
+                if command.enableCommand == true and command.emergencyStop == false;
+
+            transition Filling_to_Mixing
+                first Filling
+                then Mixing
+                if vessel.workingVolume >= 50 [SI::litre];
+
+            transition Mixing_to_Holding
+                first Mixing
+                then Holding
+                if mixedProduct.homogeneityIndex >= 0.90;
+
+            transition Holding_to_Discharging
+                first Holding
+                then Discharging
+                if command.enableCommand == false;
+
+            transition Discharging_to_Shutdown
+                first Discharging
+                then Shutdown
+                if vessel.workingVolume <= 5 [SI::litre];
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                then Idle
+                if command.enableCommand == false;
+
+            transition Operational_to_Fault
+                first Filling, Mixing, Holding, Discharging
+                then Fault
+                if command.emergencyStop == true or feedback.vibrationLevel > controller.maximumVibrationLevel;
+        }
+    }
+
+    requirement def PrimarySystemFunctionRequirement {
+        subject mixer : RushtonTurbineMixer;
+
+        doc /* The Rushton turbine mixer shall convert electrical input power into controlled impeller rotation that drives a six-blade radial-flow turbine in a baffled vessel, producing turbulent radial jets and circulation patterns that mix, suspend, and disperse the process liquid at a high level. */
+
+        require constraint {
+            mixer.impeller.bladeCount == 6 and
+            mixer.impeller.powerNumber >= 4.5 and
+            mixer.impeller.powerNumber <= 6.0
+        }
+    }
+
+    requirement def PrimaryMixingRequirement {
+        subject impeller : RushtonImpeller;
+
+        doc /* The Rushton impeller shall generate radial turbulent flow sufficient to increase liquid homogeneity during commanded operation. */
+
+        require constraint {
+            impeller.impellerDiameter > 0 [SI::metre] and
+            impeller.clearanceFromTankBottom >= 0.5 * impeller.impellerDiameter and
+            impeller.clearanceFromTankBottom <= 1.5 * impeller.impellerDiameter
+        }
+    }
+
+    requirement def DriveConversionRequirement {
+        subject drive : ElectricDrive;
+
+        doc /* The electric drive shall provide controlled rotational mechanical power to the turbine shaft over the commanded operating speed range. */
+
+        require constraint {
+            drive.ratedPower >= 1000 [SI::watt] and
+            drive.efficiency >= 0.80
+        }
+    }
+
+    requirement def VesselBafflingRequirement {
+        subject vessel : MixingVessel;
+
+        doc /* The vessel shall include four vertical baffles to suppress bulk vortex formation and promote axial circulation driven by the radial Rushton turbine discharge. */
+
+        require constraint {
+            vessel.baffle1.width == 0.1 * vessel.tankDiameter and
+            vessel.baffle2.width == vessel.baffle1.width and
+            vessel.baffle3.width == vessel.baffle1.width and
+            vessel.baffle4.width == vessel.baffle1.width
+        }
+    }
+
+    requirement def OperatingSafetyRequirement {
+        subject mixer : RushtonTurbineMixer;
+
+        doc /* The mixer shall transition to a fault or stopped condition when emergency stop is commanded, excessive torque is detected, or excessive vibration is detected. */
+
+        require constraint {
+            mixer.controller.overloadTorqueLimit <= mixer.drive.maximumTorque and
+            mixer.controller.maximumVibrationLevel <= 4.5
+        }
+    }
+
+    requirement def ProcessPerformanceRequirement {
+        subject mixer : RushtonTurbineMixer;
+
+        doc /* The system shall produce a mixed liquid with a homogeneity index of at least 0.90 during normal batch operation at nominal speed. */
+
+        require constraint {
+            mixer.controller.nominalCommandedSpeed == 600 [SI::revolutionPerMinute]
+        }
+    }
+
+    satisfy PrimarySystemFunctionRequirement by RushtonTurbineMixer::PerformPrimaryMixingFunction;
+    satisfy PrimaryMixingRequirement by RushtonImpeller::GenerateRadialFlowAndTurbulence;
+    satisfy DriveConversionRequirement by ElectricDrive::ConvertElectricalToMechanical;
+    satisfy VesselBafflingRequirement by MixingVessel;
+    satisfy OperatingSafetyRequirement by RushtonTurbineMixer::MixerLifecycle;
+    satisfy ProcessPerformanceRequirement by RushtonTurbineMixer::PerformPrimaryMixingFunction;
+
+    part rushtonTurbineMixingSystem : RushtonTurbineMixer {
+        attribute systemName : String = "Baffled Rushton Turbine Mixing System";
+        attribute primaryFunction : String = "Convert controlled shaft rotation into turbulent radial flow for high-level liquid mixing, dispersion, and suspension.";
+    }
+}

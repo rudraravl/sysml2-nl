@@ -1,0 +1,943 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-v9dfkdi0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb40d-646d-7622-812a-0014a101232e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Relative Atrial Index and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RelativeAtrialIndexMonitoringSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real;
+    attribute def Millivolt :> Real;
+    attribute def Millisecond :> Real;
+    attribute def BeatsPerMinute :> Real;
+    attribute def SamplePerSecond :> Real;
+    attribute def ConfidenceScore :> Real;
+
+    enum def AlertSeverity {
+        normal;
+        advisory;
+        warning;
+        critical;
+    }
+
+    enum def RhythmClass {
+        sinusRhythm;
+        atrialEctopy;
+        atrialFibrillationSuspected;
+        atrialFlutterSuspected;
+        poorSignal;
+    }
+
+    enum def MonitoringMode {
+        standby;
+        calibration;
+        continuousMonitoring;
+        diagnosticReview;
+        faultSafe;
+    }
+
+    item def AtrialElectricalSignal {
+        attribute amplitude : Millivolt;
+        attribute sampleRate : SamplePerSecond;
+        attribute timestamp : Time;
+        attribute leadQuality : Percent;
+    }
+
+    item def VentricularElectricalSignal {
+        attribute amplitude : Millivolt;
+        attribute sampleRate : SamplePerSecond;
+        attribute timestamp : Time;
+        attribute leadQuality : Percent;
+    }
+
+    item def CardiacCycleFeatures {
+        attribute pWaveAmplitude : Millivolt;
+        attribute pWaveDuration : Millisecond;
+        attribute prInterval : Millisecond;
+        attribute rrInterval : Millisecond;
+        attribute atrialActivationEnergy : Real;
+        attribute ventricularActivationEnergy : Real;
+        attribute signalQuality : Percent;
+    }
+
+    item def RelativeAtrialIndex {
+        attribute value : Percent;
+        attribute baselineValue : Percent;
+        attribute deviationFromBaseline : Percent;
+        attribute confidence : ConfidenceScore;
+        attribute computedAt : Time;
+    }
+
+    item def AtrialRiskAssessment {
+        attribute index : RelativeAtrialIndex;
+        attribute rhythmClass : RhythmClass;
+        attribute severity : AlertSeverity;
+        attribute message : String;
+        attribute recommendedReviewWithin : Millisecond;
+    }
+
+    item def ClinicianCommand {
+        attribute requestedMode : MonitoringMode;
+        attribute resetBaseline : Boolean;
+        attribute acknowledgeAlert : Boolean;
+        attribute timestamp : Time;
+    }
+
+    port def ElectricalSignalInPort {
+        in item signal : AtrialElectricalSignal;
+    }
+
+    port def VentricularSignalInPort {
+        in item signal : VentricularElectricalSignal;
+    }
+
+    port def FeatureOutPort {
+        out item features : CardiacCycleFeatures;
+    }
+
+    port def IndexOutPort {
+        out item index : RelativeAtrialIndex;
+    }
+
+    port def AssessmentOutPort {
+        out item assessment : AtrialRiskAssessment;
+    }
+
+    port def CommandInPort {
+        in item command : ClinicianCommand;
+    }
+
+    part def AtrialElectrodeArray {
+        attribute channelCount : Integer = 8;
+        attribute nominalSampleRate : SamplePerSecond = 1000.0;
+        attribute minimumLeadQuality : Percent = 85.0;
+
+        port atrialSignalOut : ElectricalSignalInPort;
+    }
+
+    part def VentricularReferenceSensor {
+        attribute channelCount : Integer = 2;
+        attribute nominalSampleRate : SamplePerSecond = 1000.0;
+
+        port ventricularSignalOut : VentricularSignalInPort;
+    }
+
+    part def SignalConditioner {
+        attribute highPassCutoffHz : Real = 0.5;
+        attribute lowPassCutoffHz : Real = 120.0;
+        attribute notchFrequencyHz : Real = 60.0;
+        attribute minimumAcceptedQuality : Percent = 80.0;
+
+        port rawAtrialIn : ElectricalSignalInPort;
+        port rawVentricularIn : VentricularSignalInPort;
+        port conditionedFeaturesOut : FeatureOutPort;
+
+        action filterAndExtractFeatures {
+            in item atrialSignal : AtrialElectricalSignal;
+            in item ventricularSignal : VentricularElectricalSignal;
+            out item features : CardiacCycleFeatures;
+
+            first start;
+            then rejectNoise;
+            then detectPWave;
+            then detectQRSReference;
+            then computeCycleFeatures;
+            then done;
+
+            action rejectNoise;
+            action detectPWave;
+            action detectQRSReference;
+            action computeCycleFeatures;
+        }
+    }
+
+    part def BaselineManager {
+        attribute baselineWindowDuration : Millisecond = 300000.0;
+        attribute minimumStableCycles : Integer = 120;
+        attribute storedBaselineIndex : Percent = 22.0;
+        attribute baselineConfidence : ConfidenceScore = 0.90;
+
+        port featureIn : FeatureOutPort;
+        port commandIn : CommandInPort;
+        port baselineIndexOut : IndexOutPort;
+
+        state def BaselineLifecycle {
+            entry action initializeBaselineMemory;
+
+            state noBaseline;
+            state collectingStableCycles;
+            state baselineLocked;
+            state recalibrating;
+
+            transition first noBaseline;
+            transition noBaseline to collectingStableCycles
+                accept when featureIn.features.signalQuality >= 90.0;
+
+            transition collectingStableCycles to baselineLocked
+                accept when minimumStableCycles >= 120;
+
+            transition baselineLocked to recalibrating
+                accept ClinicianCommand
+                if commandIn.command.resetBaseline == true;
+
+            transition recalibrating to baselineLocked
+                accept when baselineConfidence >= 0.85;
+        }
+    }
+
+    part def RelativeAtrialIndexProcessor {
+        attribute lowRiskUpperLimit : Percent = 115.0;
+        attribute advisoryUpperLimit : Percent = 135.0;
+        attribute warningUpperLimit : Percent = 160.0;
+        attribute minimumConfidence : ConfidenceScore = 0.80;
+
+        port featuresIn : FeatureOutPort;
+        port baselineIn : IndexOutPort;
+        port indexOut : IndexOutPort;
+
+        action computeRelativeAtrialIndex {
+            in item features : CardiacCycleFeatures;
+            in attribute baseline : Percent;
+            out item index : RelativeAtrialIndex;
+
+            first normalizeAtrialEnergy;
+            then compareToVentricularReference;
+            then compareToPatientBaseline;
+            then computeConfidence;
+            then publishIndex;
+
+            action normalizeAtrialEnergy;
+            action compareToVentricularReference;
+            action compareToPatientBaseline;
+            action computeConfidence;
+            action publishIndex;
+        }
+
+        calc def atrialIndexFormula {
+            in atrialEnergy : Real;
+            in ventricularEnergy : Real;
+            in baselineIndex : Percent;
+            return relativeIndex : Percent =
+                ((atrialEnergy / ventricularEnergy) / (baselineIndex / 100.0)) * 100.0;
+        }
+    }
+
+    part def RhythmRiskClassifier {
+        attribute advisoryDeviationThreshold : Percent = 15.0;
+        attribute warningDeviationThreshold : Percent = 35.0;
+        attribute criticalDeviationThreshold : Percent = 60.0;
+        attribute poorSignalThreshold : Percent = 70.0;
+
+        port indexIn : IndexOutPort;
+        port featuresIn : FeatureOutPort;
+        port assessmentOut : AssessmentOutPort;
+
+        action classifyAtrialRisk {
+            in item index : RelativeAtrialIndex;
+            in item features : CardiacCycleFeatures;
+            out item assessment : AtrialRiskAssessment;
+
+            first evaluateSignalQuality;
+            then evaluateIndexDeviation;
+            then classifyRhythm;
+            then assignSeverity;
+            then issueAssessment;
+
+            action evaluateSignalQuality;
+            action evaluateIndexDeviation;
+            action classifyRhythm;
+            action assignSeverity;
+            action issueAssessment;
+        }
+
+        state def RiskClassificationStateMachine {
+            state normalMonitoring;
+            state advisoryMonitoring;
+            state warningMonitoring;
+            state criticalMonitoring;
+            state poorSignalSuppression;
+
+            transition first normalMonitoring;
+
+            transition normalMonitoring to advisoryMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline >= advisoryDeviationThreshold;
+
+            transition advisoryMonitoring to warningMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline >= warningDeviationThreshold;
+
+            transition warningMonitoring to criticalMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline >= criticalDeviationThreshold;
+
+            transition criticalMonitoring to warningMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline < criticalDeviationThreshold;
+
+            transition advisoryMonitoring to normalMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline < advisoryDeviationThreshold;
+
+            transition normalMonitoring to poorSignalSuppression
+                accept CardiacCycleFeatures
+                if featuresIn.features.signalQuality < poorSignalThreshold;
+
+            transition poorSignalSuppression to normalMonitoring
+                accept CardiacCycleFeatures
+                if featuresIn.features.signalQuality >= 85.0;
+        }
+    }
+
+    part def ClinicalDisplayAndRecorder {
+        attribute retainedHistoryDuration : Millisecond = 2592000000.0;
+        attribute visibleTrendWindow : Millisecond = 900000.0;
+        attribute alertAudible : Boolean = true;
+
+        port assessmentIn : AssessmentOutPort;
+        port commandOut : CommandInPort;
+
+        action presentHighLevelFunction {
+            out attribute functionStatement : String =
+                "Continuously estimate a patient's relative atrial electrical activity compared with ventricular reference activity and patient-specific baseline, then summarize deviations as atrial risk assessments for clinical review.";
+        }
+    }
+
+    part def SystemHealthMonitor {
+        attribute maximumProcessingLatency : Millisecond = 250.0;
+        attribute minimumUptimeAvailability : Percent = 99.5;
+        attribute sensorFaultDetected : Boolean;
+        attribute processingFaultDetected : Boolean;
+
+        state def HealthStateMachine {
+            state healthy;
+            state degradedSignal;
+            state processingFault;
+            state faultSafe;
+
+            transition first healthy;
+
+            transition healthy to degradedSignal
+                accept when sensorFaultDetected == true;
+
+            transition healthy to processingFault
+                accept when processingFaultDetected == true;
+
+            transition degradedSignal to healthy
+                accept when sensorFaultDetected == false;
+
+            transition processingFault to faultSafe
+                accept after 1000.0 [Millisecond];
+
+            transition faultSafe to healthy
+                accept when processingFaultDetected == false and sensorFaultDetected == false;
+        }
+    }
+
+    part def RelativeAtrialIndexSystem {
+        attribute systemMode : MonitoringMode = MonitoringMode::standby;
+        attribute primaryFunction : String =
+            "Measure, compute, trend, and communicate a Relative Atrial Index that reflects atrial electrical activity relative to patient baseline and ventricular reference activity.";
+
+        part atrialElectrodes : AtrialElectrodeArray;
+        part ventricularSensor : VentricularReferenceSensor;
+        part conditioner : SignalConditioner;
+        part baselineManager : BaselineManager;
+        part indexProcessor : RelativeAtrialIndexProcessor;
+        part riskClassifier : RhythmRiskClassifier;
+        part displayRecorder : ClinicalDisplayAndRecorder;
+        part healthMonitor : SystemHealthMonitor;
+
+        connect atrialElectrodes.atrialSignalOut to conditioner.rawAtrialIn;
+        connect ventricularSensor.ventricularSignalOut to conditioner.rawVentricularIn;
+        connect conditioner.conditionedFeaturesOut to baselineManager.featureIn;
+        connect conditioner.conditionedFeaturesOut to indexProcessor.featuresIn;
+        connect baselineManager.baselineIndexOut to indexProcessor.baselineIn;
+        connect indexProcessor.indexOut to riskClassifier.indexIn;
+        connect conditioner.conditionedFeaturesOut to riskClassifier.featuresIn;
+        connect riskClassifier.assessmentOut to displayRecorder.assessmentIn;
+        connect displayRecorder.commandOut to baselineManager.commandIn;
+
+        state def OperatingStateMachine {
+            state standby;
+            state calibration;
+            state monitoring;
+            state diagnosticReview;
+            state faultSafe;
+
+            transition first standby;
+
+            transition standby to calibration
+                accept ClinicianCommand
+                if displayRecorder.commandOut.command.requestedMode == MonitoringMode::calibration;
+
+            transition calibration to monitoring
+                accept when baselineManager.baselineConfidence >= 0.85;
+
+            transition monitoring to diagnosticReview
+                accept ClinicianCommand
+                if displayRecorder.commandOut.command.requestedMode == MonitoringMode::diagnosticReview;
+
+            transition diagnosticReview to monitoring
+                accept ClinicianCommand
+                if displayRecorder.commandOut.command.requestedMode == MonitoringMode::continuousMonitoring;
+
+            transition monitoring to faultSafe
+                accept when healthMonitor.processingFaultDetected == true;
+
+            transition faultSafe to standby
+                accept when healthMonitor.processingFaultDetected == false;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject raiSystem : RelativeAtrialIndexSystem;
+
+        require constraint {
+            raiSystem.primaryFunction ==
+            "Measure, compute, trend, and communicate a Relative Atrial Index that reflects atrial electrical activity relative to patient baseline and ventricular reference activity."
+        }
+    }
+
+    requirement def IndexComputationRequirement {
+        subject processor : RelativeAtrialIndexProcessor;
+
+        require constraint {
+            processor.minimumConfidence >= 0.80
+        }
+
+        doc
+            /* The system shall compute a Relative Atrial Index from atrial activation energy, ventricular reference energy, and patient-specific baseline data. */
+    }
+
+    requirement def SignalQualityRequirement {
+        subject conditioner : SignalConditioner;
+
+        require constraint {
+            conditioner.minimumAcceptedQuality >= 80.0
+        }
+
+        doc
+            /* The system shall suppress clinical risk escalation when acquired cardiac electrical signals do not meet minimum quality criteria. */
+    }
+
+    requirement def LatencyRequirement {
+        subject health : SystemHealthMonitor;
+
+        require constraint {
+            health.maximumProcessingLatency <= 250.0
+        }
+
+        doc
+            /* The system shall process acquired cardiac cycle data and publish an updated risk assessment within 250 milliseconds. */
+    }
+
+    requirement def ClinicalAlertRequirement {
+        subject classifier : RhythmRiskClassifier;
+
+        require constraint {
+            classifier.criticalDeviationThreshold == 60.0
+        }
+
+        doc
+            /* The system shall issue a critical atrial risk assessment when the Relative Atrial Index deviates from baseline by at least 60 percent with acceptable confidence. */
+    }
+
+    requirement def BaselineRequirement {
+        subject baseline : BaselineManager;
+
+        require constraint {
+            baseline.minimumStableCycles >= 120 and baseline.baselineConfidence >= 0.85
+        }
+
+        doc
+            /* The system shall establish a patient-specific baseline only after stable cardiac cycles have been collected with sufficient confidence. */
+    }
+
+    satisfy PrimaryFunctionRequirement by RelativeAtrialIndexSystem;
+    satisfy IndexComputationRequirement by RelativeAtrialIndexProcessor;
+    satisfy SignalQualityRequirement by SignalConditioner;
+    satisfy LatencyRequirement by SystemHealthMonitor;
+    satisfy ClinicalAlertRequirement by RhythmRiskClassifier;
+    satisfy BaselineRequirement by BaselineManager;
+
+}
+tokens used
+4,549
+package RelativeAtrialIndexMonitoringSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real;
+    attribute def Millivolt :> Real;
+    attribute def Millisecond :> Real;
+    attribute def BeatsPerMinute :> Real;
+    attribute def SamplePerSecond :> Real;
+    attribute def ConfidenceScore :> Real;
+
+    enum def AlertSeverity {
+        normal;
+        advisory;
+        warning;
+        critical;
+    }
+
+    enum def RhythmClass {
+        sinusRhythm;
+        atrialEctopy;
+        atrialFibrillationSuspected;
+        atrialFlutterSuspected;
+        poorSignal;
+    }
+
+    enum def MonitoringMode {
+        standby;
+        calibration;
+        continuousMonitoring;
+        diagnosticReview;
+        faultSafe;
+    }
+
+    item def AtrialElectricalSignal {
+        attribute amplitude : Millivolt;
+        attribute sampleRate : SamplePerSecond;
+        attribute timestamp : Time;
+        attribute leadQuality : Percent;
+    }
+
+    item def VentricularElectricalSignal {
+        attribute amplitude : Millivolt;
+        attribute sampleRate : SamplePerSecond;
+        attribute timestamp : Time;
+        attribute leadQuality : Percent;
+    }
+
+    item def CardiacCycleFeatures {
+        attribute pWaveAmplitude : Millivolt;
+        attribute pWaveDuration : Millisecond;
+        attribute prInterval : Millisecond;
+        attribute rrInterval : Millisecond;
+        attribute atrialActivationEnergy : Real;
+        attribute ventricularActivationEnergy : Real;
+        attribute signalQuality : Percent;
+    }
+
+    item def RelativeAtrialIndex {
+        attribute value : Percent;
+        attribute baselineValue : Percent;
+        attribute deviationFromBaseline : Percent;
+        attribute confidence : ConfidenceScore;
+        attribute computedAt : Time;
+    }
+
+    item def AtrialRiskAssessment {
+        attribute index : RelativeAtrialIndex;
+        attribute rhythmClass : RhythmClass;
+        attribute severity : AlertSeverity;
+        attribute message : String;
+        attribute recommendedReviewWithin : Millisecond;
+    }
+
+    item def ClinicianCommand {
+        attribute requestedMode : MonitoringMode;
+        attribute resetBaseline : Boolean;
+        attribute acknowledgeAlert : Boolean;
+        attribute timestamp : Time;
+    }
+
+    port def ElectricalSignalInPort {
+        in item signal : AtrialElectricalSignal;
+    }
+
+    port def VentricularSignalInPort {
+        in item signal : VentricularElectricalSignal;
+    }
+
+    port def FeatureOutPort {
+        out item features : CardiacCycleFeatures;
+    }
+
+    port def IndexOutPort {
+        out item index : RelativeAtrialIndex;
+    }
+
+    port def AssessmentOutPort {
+        out item assessment : AtrialRiskAssessment;
+    }
+
+    port def CommandInPort {
+        in item command : ClinicianCommand;
+    }
+
+    part def AtrialElectrodeArray {
+        attribute channelCount : Integer = 8;
+        attribute nominalSampleRate : SamplePerSecond = 1000.0;
+        attribute minimumLeadQuality : Percent = 85.0;
+
+        port atrialSignalOut : ElectricalSignalInPort;
+    }
+
+    part def VentricularReferenceSensor {
+        attribute channelCount : Integer = 2;
+        attribute nominalSampleRate : SamplePerSecond = 1000.0;
+
+        port ventricularSignalOut : VentricularSignalInPort;
+    }
+
+    part def SignalConditioner {
+        attribute highPassCutoffHz : Real = 0.5;
+        attribute lowPassCutoffHz : Real = 120.0;
+        attribute notchFrequencyHz : Real = 60.0;
+        attribute minimumAcceptedQuality : Percent = 80.0;
+
+        port rawAtrialIn : ElectricalSignalInPort;
+        port rawVentricularIn : VentricularSignalInPort;
+        port conditionedFeaturesOut : FeatureOutPort;
+
+        action filterAndExtractFeatures {
+            in item atrialSignal : AtrialElectricalSignal;
+            in item ventricularSignal : VentricularElectricalSignal;
+            out item features : CardiacCycleFeatures;
+
+            first start;
+            then rejectNoise;
+            then detectPWave;
+            then detectQRSReference;
+            then computeCycleFeatures;
+            then done;
+
+            action rejectNoise;
+            action detectPWave;
+            action detectQRSReference;
+            action computeCycleFeatures;
+        }
+    }
+
+    part def BaselineManager {
+        attribute baselineWindowDuration : Millisecond = 300000.0;
+        attribute minimumStableCycles : Integer = 120;
+        attribute storedBaselineIndex : Percent = 22.0;
+        attribute baselineConfidence : ConfidenceScore = 0.90;
+
+        port featureIn : FeatureOutPort;
+        port commandIn : CommandInPort;
+        port baselineIndexOut : IndexOutPort;
+
+        state def BaselineLifecycle {
+            entry action initializeBaselineMemory;
+
+            state noBaseline;
+            state collectingStableCycles;
+            state baselineLocked;
+            state recalibrating;
+
+            transition first noBaseline;
+            transition noBaseline to collectingStableCycles
+                accept when featureIn.features.signalQuality >= 90.0;
+
+            transition collectingStableCycles to baselineLocked
+                accept when minimumStableCycles >= 120;
+
+            transition baselineLocked to recalibrating
+                accept ClinicianCommand
+                if commandIn.command.resetBaseline == true;
+
+            transition recalibrating to baselineLocked
+                accept when baselineConfidence >= 0.85;
+        }
+    }
+
+    part def RelativeAtrialIndexProcessor {
+        attribute lowRiskUpperLimit : Percent = 115.0;
+        attribute advisoryUpperLimit : Percent = 135.0;
+        attribute warningUpperLimit : Percent = 160.0;
+        attribute minimumConfidence : ConfidenceScore = 0.80;
+
+        port featuresIn : FeatureOutPort;
+        port baselineIn : IndexOutPort;
+        port indexOut : IndexOutPort;
+
+        action computeRelativeAtrialIndex {
+            in item features : CardiacCycleFeatures;
+            in attribute baseline : Percent;
+            out item index : RelativeAtrialIndex;
+
+            first normalizeAtrialEnergy;
+            then compareToVentricularReference;
+            then compareToPatientBaseline;
+            then computeConfidence;
+            then publishIndex;
+
+            action normalizeAtrialEnergy;
+            action compareToVentricularReference;
+            action compareToPatientBaseline;
+            action computeConfidence;
+            action publishIndex;
+        }
+
+        calc def atrialIndexFormula {
+            in atrialEnergy : Real;
+            in ventricularEnergy : Real;
+            in baselineIndex : Percent;
+            return relativeIndex : Percent =
+                ((atrialEnergy / ventricularEnergy) / (baselineIndex / 100.0)) * 100.0;
+        }
+    }
+
+    part def RhythmRiskClassifier {
+        attribute advisoryDeviationThreshold : Percent = 15.0;
+        attribute warningDeviationThreshold : Percent = 35.0;
+        attribute criticalDeviationThreshold : Percent = 60.0;
+        attribute poorSignalThreshold : Percent = 70.0;
+
+        port indexIn : IndexOutPort;
+        port featuresIn : FeatureOutPort;
+        port assessmentOut : AssessmentOutPort;
+
+        action classifyAtrialRisk {
+            in item index : RelativeAtrialIndex;
+            in item features : CardiacCycleFeatures;
+            out item assessment : AtrialRiskAssessment;
+
+            first evaluateSignalQuality;
+            then evaluateIndexDeviation;
+            then classifyRhythm;
+            then assignSeverity;
+            then issueAssessment;
+
+            action evaluateSignalQuality;
+            action evaluateIndexDeviation;
+            action classifyRhythm;
+            action assignSeverity;
+            action issueAssessment;
+        }
+
+        state def RiskClassificationStateMachine {
+            state normalMonitoring;
+            state advisoryMonitoring;
+            state warningMonitoring;
+            state criticalMonitoring;
+            state poorSignalSuppression;
+
+            transition first normalMonitoring;
+
+            transition normalMonitoring to advisoryMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline >= advisoryDeviationThreshold;
+
+            transition advisoryMonitoring to warningMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline >= warningDeviationThreshold;
+
+            transition warningMonitoring to criticalMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline >= criticalDeviationThreshold;
+
+            transition criticalMonitoring to warningMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline < criticalDeviationThreshold;
+
+            transition advisoryMonitoring to normalMonitoring
+                accept RelativeAtrialIndex
+                if indexIn.index.deviationFromBaseline < advisoryDeviationThreshold;
+
+            transition normalMonitoring to poorSignalSuppression
+                accept CardiacCycleFeatures
+                if featuresIn.features.signalQuality < poorSignalThreshold;
+
+            transition poorSignalSuppression to normalMonitoring
+                accept CardiacCycleFeatures
+                if featuresIn.features.signalQuality >= 85.0;
+        }
+    }
+
+    part def ClinicalDisplayAndRecorder {
+        attribute retainedHistoryDuration : Millisecond = 2592000000.0;
+        attribute visibleTrendWindow : Millisecond = 900000.0;
+        attribute alertAudible : Boolean = true;
+
+        port assessmentIn : AssessmentOutPort;
+        port commandOut : CommandInPort;
+
+        action presentHighLevelFunction {
+            out attribute functionStatement : String =
+                "Continuously estimate a patient's relative atrial electrical activity compared with ventricular reference activity and patient-specific baseline, then summarize deviations as atrial risk assessments for clinical review.";
+        }
+    }
+
+    part def SystemHealthMonitor {
+        attribute maximumProcessingLatency : Millisecond = 250.0;
+        attribute minimumUptimeAvailability : Percent = 99.5;
+        attribute sensorFaultDetected : Boolean;
+        attribute processingFaultDetected : Boolean;
+
+        state def HealthStateMachine {
+            state healthy;
+            state degradedSignal;
+            state processingFault;
+            state faultSafe;
+
+            transition first healthy;
+
+            transition healthy to degradedSignal
+                accept when sensorFaultDetected == true;
+
+            transition healthy to processingFault
+                accept when processingFaultDetected == true;
+
+            transition degradedSignal to healthy
+                accept when sensorFaultDetected == false;
+
+            transition processingFault to faultSafe
+                accept after 1000.0 [Millisecond];
+
+            transition faultSafe to healthy
+                accept when processingFaultDetected == false and sensorFaultDetected == false;
+        }
+    }
+
+    part def RelativeAtrialIndexSystem {
+        attribute systemMode : MonitoringMode = MonitoringMode::standby;
+        attribute primaryFunction : String =
+            "Measure, compute, trend, and communicate a Relative Atrial Index that reflects atrial electrical activity relative to patient baseline and ventricular reference activity.";
+
+        part atrialElectrodes : AtrialElectrodeArray;
+        part ventricularSensor : VentricularReferenceSensor;
+        part conditioner : SignalConditioner;
+        part baselineManager : BaselineManager;
+        part indexProcessor : RelativeAtrialIndexProcessor;
+        part riskClassifier : RhythmRiskClassifier;
+        part displayRecorder : ClinicalDisplayAndRecorder;
+        part healthMonitor : SystemHealthMonitor;
+
+        connect atrialElectrodes.atrialSignalOut to conditioner.rawAtrialIn;
+        connect ventricularSensor.ventricularSignalOut to conditioner.rawVentricularIn;
+        connect conditioner.conditionedFeaturesOut to baselineManager.featureIn;
+        connect conditioner.conditionedFeaturesOut to indexProcessor.featuresIn;
+        connect baselineManager.baselineIndexOut to indexProcessor.baselineIn;
+        connect indexProcessor.indexOut to riskClassifier.indexIn;
+        connect conditioner.conditionedFeaturesOut to riskClassifier.featuresIn;
+        connect riskClassifier.assessmentOut to displayRecorder.assessmentIn;
+        connect displayRecorder.commandOut to baselineManager.commandIn;
+
+        state def OperatingStateMachine {
+            state standby;
+            state calibration;
+            state monitoring;
+            state diagnosticReview;
+            state faultSafe;
+
+            transition first standby;
+
+            transition standby to calibration
+                accept ClinicianCommand
+                if displayRecorder.commandOut.command.requestedMode == MonitoringMode::calibration;
+
+            transition calibration to monitoring
+                accept when baselineManager.baselineConfidence >= 0.85;
+
+            transition monitoring to diagnosticReview
+                accept ClinicianCommand
+                if displayRecorder.commandOut.command.requestedMode == MonitoringMode::diagnosticReview;
+
+            transition diagnosticReview to monitoring
+                accept ClinicianCommand
+                if displayRecorder.commandOut.command.requestedMode == MonitoringMode::continuousMonitoring;
+
+            transition monitoring to faultSafe
+                accept when healthMonitor.processingFaultDetected == true;
+
+            transition faultSafe to standby
+                accept when healthMonitor.processingFaultDetected == false;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject raiSystem : RelativeAtrialIndexSystem;
+
+        require constraint {
+            raiSystem.primaryFunction ==
+            "Measure, compute, trend, and communicate a Relative Atrial Index that reflects atrial electrical activity relative to patient baseline and ventricular reference activity."
+        }
+    }
+
+    requirement def IndexComputationRequirement {
+        subject processor : RelativeAtrialIndexProcessor;
+
+        require constraint {
+            processor.minimumConfidence >= 0.80
+        }
+
+        doc
+            /* The system shall compute a Relative Atrial Index from atrial activation energy, ventricular reference energy, and patient-specific baseline data. */
+    }
+
+    requirement def SignalQualityRequirement {
+        subject conditioner : SignalConditioner;
+
+        require constraint {
+            conditioner.minimumAcceptedQuality >= 80.0
+        }
+
+        doc
+            /* The system shall suppress clinical risk escalation when acquired cardiac electrical signals do not meet minimum quality criteria. */
+    }
+
+    requirement def LatencyRequirement {
+        subject health : SystemHealthMonitor;
+
+        require constraint {
+            health.maximumProcessingLatency <= 250.0
+        }
+
+        doc
+            /* The system shall process acquired cardiac cycle data and publish an updated risk assessment within 250 milliseconds. */
+    }
+
+    requirement def ClinicalAlertRequirement {
+        subject classifier : RhythmRiskClassifier;
+
+        require constraint {
+            classifier.criticalDeviationThreshold == 60.0
+        }
+
+        doc
+            /* The system shall issue a critical atrial risk assessment when the Relative Atrial Index deviates from baseline by at least 60 percent with acceptable confidence. */
+    }
+
+    requirement def BaselineRequirement {
+        subject baseline : BaselineManager;
+
+        require constraint {
+            baseline.minimumStableCycles >= 120 and baseline.baselineConfidence >= 0.85
+        }
+
+        doc
+            /* The system shall establish a patient-specific baseline only after stable cardiac cycles have been collected with sufficient confidence. */
+    }
+
+    satisfy PrimaryFunctionRequirement by RelativeAtrialIndexSystem;
+    satisfy IndexComputationRequirement by RelativeAtrialIndexProcessor;
+    satisfy SignalQualityRequirement by SignalConditioner;
+    satisfy LatencyRequirement by SystemHealthMonitor;
+    satisfy ClinicalAlertRequirement by RhythmRiskClassifier;
+    satisfy BaselineRequirement by BaselineManager;
+
+}

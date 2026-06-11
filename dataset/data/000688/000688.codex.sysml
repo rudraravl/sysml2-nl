@@ -1,0 +1,398 @@
+package MetalCorsetSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ForceValue {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    attribute def PressureValue {
+        attribute value : Real;
+        attribute unit : String = "kPa";
+    }
+
+    attribute def LengthValue {
+        attribute value : Real;
+        attribute unit : String = "mm";
+    }
+
+    attribute def MassValue {
+        attribute value : Real;
+        attribute unit : String = "kg";
+    }
+
+    attribute def TemperatureValue {
+        attribute value : Real;
+        attribute unit : String = "degC";
+    }
+
+    attribute def AngleValue {
+        attribute value : Real;
+        attribute unit : String = "deg";
+    }
+
+    attribute def MaterialHardnessValue {
+        attribute value : Real;
+        attribute unit : String = "HV";
+    }
+
+    item def BodySupportLoad {
+        attribute compressiveForce : ForceValue;
+        attribute distributedPressure : PressureValue;
+        attribute contactArea : LengthValue;
+    }
+
+    item def AdjustmentCommand {
+        attribute targetTension : ForceValue;
+        attribute closureIncrement : LengthValue;
+    }
+
+    item def FitStatus {
+        attribute waistCompression : PressureValue;
+        attribute ribClearance : LengthValue;
+        attribute hipClearance : LengthValue;
+        attribute breathingAllowance : LengthValue;
+        attribute isSafeToWear : Boolean;
+    }
+
+    item def ComfortSignal {
+        attribute localizedPressure : PressureValue;
+        attribute skinTemperature : TemperatureValue;
+        attribute reportedDiscomfortLevel : Integer;
+    }
+
+    port def LoadBearingPort {
+        out item load : BodySupportLoad;
+    }
+
+    port def BodyInterfacePort {
+        in item bodyLoad : BodySupportLoad;
+        out item comfort : ComfortSignal;
+        out item fit : FitStatus;
+    }
+
+    port def AdjustmentPort {
+        in item command : AdjustmentCommand;
+        out item fit : FitStatus;
+    }
+
+    port def VentilationPort {
+        out item comfort : ComfortSignal;
+    }
+
+    port def ClosurePort {
+        in item command : AdjustmentCommand;
+        out item load : BodySupportLoad;
+    }
+
+    part def MetalCorset {
+        attribute primaryFunction : String =
+            "Provide rigid circumferential torso support by distributing compressive loads through shaped metal panels while allowing controlled fit adjustment, posture constraint, and safe breathing clearance.";
+
+        attribute totalMass : MassValue = (value = 3.8, unit = "kg");
+        attribute nominalWaistReduction : LengthValue = (value = 45.0, unit = "mm");
+        attribute maximumSafePressure : PressureValue = (value = 18.0, unit = "kPa");
+        attribute minimumBreathingAllowance : LengthValue = (value = 22.0, unit = "mm");
+        attribute operatingSkinTemperatureLimit : TemperatureValue = (value = 38.0, unit = "degC");
+
+        port bodyInterface : BodyInterfacePort;
+        port closureControl : AdjustmentPort;
+        port structuralLoadOut : LoadBearingPort;
+        port ventilation : VentilationPort;
+
+        part frontBreastplate : CurvedMetalPanel {
+            attribute panelName = "front anatomical breastplate";
+            attribute thickness = (value = 1.2, unit = "mm");
+            attribute curvatureAngle = (value = 34.0, unit = "deg");
+        }
+
+        part leftSidePanel : CurvedMetalPanel {
+            attribute panelName = "left lateral waist panel";
+            attribute thickness = (value = 1.0, unit = "mm");
+            attribute curvatureAngle = (value = 41.0, unit = "deg");
+        }
+
+        part rightSidePanel : CurvedMetalPanel {
+            attribute panelName = "right lateral waist panel";
+            attribute thickness = (value = 1.0, unit = "mm");
+            attribute curvatureAngle = (value = 41.0, unit = "deg");
+        }
+
+        part rearSpinePlate : CurvedMetalPanel {
+            attribute panelName = "rear spine support plate";
+            attribute thickness = (value = 1.4, unit = "mm");
+            attribute curvatureAngle = (value = 28.0, unit = "deg");
+        }
+
+        part upperRibBand : ReinforcingBand {
+            attribute bandName = "upper rib stabilizing band";
+            attribute width = (value = 32.0, unit = "mm");
+        }
+
+        part lowerHipBand : ReinforcingBand {
+            attribute bandName = "lower hip load transfer band";
+            attribute width = (value = 38.0, unit = "mm");
+        }
+
+        part innerLiner : ProtectiveLiner {
+            attribute linerMaterial = "vegetable-tanned leather with silk contact layer";
+            attribute linerThickness = (value = 2.5, unit = "mm");
+        }
+
+        part hingeSet : ArticulatedHingeSet {
+            attribute hingeCount = 4;
+            attribute maximumOpenAngle = (value = 72.0, unit = "deg");
+        }
+
+        part frontBuskClosure : BuskClosure {
+            attribute studCount = 6;
+            attribute maximumClosureForce = (value = 420.0, unit = "N");
+        }
+
+        part rearLacingAssembly : TensioningLaceSystem {
+            attribute lacePathCount = 14;
+            attribute maximumTension = (value = 550.0, unit = "N");
+        }
+
+        part pressureReliefPads : PressureReliefPadSet {
+            attribute padCount = 8;
+            attribute peakPressureReduction = (value = 5.0, unit = "kPa");
+        }
+
+        connect frontBreastplate.loadPort to structuralLoadOut;
+        connect rearSpinePlate.loadPort to structuralLoadOut;
+        connect leftSidePanel.bodyContact to bodyInterface;
+        connect rightSidePanel.bodyContact to bodyInterface;
+        connect innerLiner.bodyContact to bodyInterface;
+        connect frontBuskClosure.controlPort to closureControl;
+        connect rearLacingAssembly.controlPort to closureControl;
+        connect frontBuskClosure.loadPort to frontBreastplate.loadPort;
+        connect rearLacingAssembly.loadPort to rearSpinePlate.loadPort;
+        connect upperRibBand.panelLoad to frontBreastplate.loadPort;
+        connect upperRibBand.panelLoad to rearSpinePlate.loadPort;
+        connect lowerHipBand.panelLoad to leftSidePanel.loadPort;
+        connect lowerHipBand.panelLoad to rightSidePanel.loadPort;
+        connect pressureReliefPads.bodyContact to bodyInterface;
+        connect innerLiner.ventPort to ventilation;
+
+        action provideTorsoSupport {
+            in item adjustment : AdjustmentCommand;
+            out item status : FitStatus;
+            first start;
+            then distributeCompression;
+            then constrainPosture;
+            then verifyBreathingAllowance;
+            then reportFit;
+            action distributeCompression {
+                out item load : BodySupportLoad;
+            }
+            action constrainPosture {
+                in item load : BodySupportLoad;
+                out item postureLimited : Boolean;
+            }
+            action verifyBreathingAllowance {
+                in item comfort : ComfortSignal;
+                out item safe : Boolean;
+            }
+            action reportFit {
+                out item status : FitStatus;
+            }
+        }
+
+        state def WearingLifecycle {
+            entry action initializeOpenConfiguration;
+            state Open;
+            state Positioned;
+            state Closing;
+            state Supporting;
+            state Adjusting;
+            state UnsafePressure;
+            state Removed;
+
+            transition first Open;
+            transition Open_to_Positioned
+                first Open
+                then Positioned
+                accept fittedAroundTorso;
+
+            transition Positioned_to_Closing
+                first Positioned
+                then Closing
+                accept closureEngaged;
+
+            transition Closing_to_Supporting
+                first Closing
+                then Supporting
+                if bodyInterface.fit.isSafeToWear;
+
+            transition Supporting_to_Adjusting
+                first Supporting
+                then Adjusting
+                accept adjustmentRequested;
+
+            transition Adjusting_to_Supporting
+                first Adjusting
+                then Supporting
+                if bodyInterface.fit.waistCompression.value <= maximumSafePressure.value
+                and bodyInterface.fit.breathingAllowance.value >= minimumBreathingAllowance.value;
+
+            transition Supporting_to_UnsafePressure
+                first Supporting
+                then UnsafePressure
+                if bodyInterface.comfort.localizedPressure.value > maximumSafePressure.value
+                or bodyInterface.fit.breathingAllowance.value < minimumBreathingAllowance.value;
+
+            transition UnsafePressure_to_Adjusting
+                first UnsafePressure
+                then Adjusting
+                accept loosenCommand;
+
+            transition Supporting_to_Removed
+                first Supporting
+                then Removed
+                accept releaseClosure;
+
+            transition Removed_to_Open
+                first Removed
+                then Open;
+        }
+    }
+
+    part def CurvedMetalPanel {
+        attribute panelName : String;
+        attribute material : String = "polished spring steel";
+        attribute thickness : LengthValue;
+        attribute curvatureAngle : AngleValue;
+        attribute hardness : MaterialHardnessValue = (value = 210.0, unit = "HV");
+        attribute edgeRadius : LengthValue = (value = 3.0, unit = "mm");
+
+        port loadPort : LoadBearingPort;
+        port bodyContact : BodyInterfacePort;
+    }
+
+    part def ReinforcingBand {
+        attribute bandName : String;
+        attribute material : String = "tempered stainless steel";
+        attribute width : LengthValue;
+        attribute thickness : LengthValue = (value = 1.6, unit = "mm");
+
+        port panelLoad : LoadBearingPort;
+    }
+
+    part def ProtectiveLiner {
+        attribute linerMaterial : String;
+        attribute linerThickness : LengthValue;
+        attribute moistureBufferCapacity : Real = 0.18;
+
+        port bodyContact : BodyInterfacePort;
+        port ventPort : VentilationPort;
+    }
+
+    part def ArticulatedHingeSet {
+        attribute hingeCount : Integer;
+        attribute hingePinMaterial : String = "brass";
+        attribute maximumOpenAngle : AngleValue;
+
+        port loadPort : LoadBearingPort;
+    }
+
+    part def BuskClosure {
+        attribute studCount : Integer;
+        attribute maximumClosureForce : ForceValue;
+
+        port controlPort : ClosurePort;
+        port loadPort : LoadBearingPort;
+
+        action lockFrontClosure {
+            in item command : AdjustmentCommand;
+            out item load : BodySupportLoad;
+        }
+
+        action releaseFrontClosure {
+            out item released : Boolean;
+        }
+    }
+
+    part def TensioningLaceSystem {
+        attribute laceMaterial : String = "waxed braided linen";
+        attribute lacePathCount : Integer;
+        attribute maximumTension : ForceValue;
+
+        port controlPort : ClosurePort;
+        port loadPort : LoadBearingPort;
+
+        action applySymmetricTension {
+            in item command : AdjustmentCommand;
+            out item load : BodySupportLoad;
+        }
+
+        action reduceTension {
+            in item command : AdjustmentCommand;
+            out item status : FitStatus;
+        }
+    }
+
+    part def PressureReliefPadSet {
+        attribute padCount : Integer;
+        attribute padMaterial : String = "layered felt and leather";
+        attribute peakPressureReduction : PressureValue;
+
+        port bodyContact : BodyInterfacePort;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The metal corset shall provide high-level torso support by shaping and stabilizing the waist, rib, and lower torso using rigid metal structure and adjustable circumferential compression. */
+        subject corset : MetalCorset;
+        require constraint {
+            corset.nominalWaistReduction.value >= 20.0 and
+            corset.minimumBreathingAllowance.value >= 20.0 and
+            corset.maximumSafePressure.value <= 18.0
+        }
+    }
+
+    requirement def LoadDistributionRequirement {
+        doc /* The metal corset shall distribute closure and lacing forces across front, side, and rear panels to avoid unsafe localized pressure. */
+        subject corset : MetalCorset;
+        require constraint {
+            corset.maximumSafePressure.value <= 18.0
+        }
+    }
+
+    requirement def AdjustabilityRequirement {
+        doc /* The metal corset shall allow controlled tightening and loosening through front closure and rear lacing mechanisms. */
+        subject corset : MetalCorset;
+        require constraint {
+            corset.rearLacingAssembly.maximumTension.value >= 400.0 and
+            corset.frontBuskClosure.maximumClosureForce.value >= 300.0
+        }
+    }
+
+    requirement def WearerProtectionRequirement {
+        doc /* The metal corset shall isolate the wearer from hard metal edges and reduce peak contact pressure through a continuous liner and pressure relief pads. */
+        subject corset : MetalCorset;
+        require constraint {
+            corset.innerLiner.linerThickness.value >= 2.0 and
+            corset.pressureReliefPads.peakPressureReduction.value >= 4.0
+        }
+    }
+
+    requirement def ThermalComfortRequirement {
+        doc /* The metal corset shall limit heat buildup at the body interface during normal wear. */
+        subject corset : MetalCorset;
+        require constraint {
+            corset.operatingSkinTemperatureLimit.value <= 38.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MetalCorset;
+    satisfy LoadDistributionRequirement by MetalCorset;
+    satisfy AdjustabilityRequirement by MetalCorset;
+    satisfy WearerProtectionRequirement by MetalCorset;
+    satisfy ThermalComfortRequirement by MetalCorset;
+
+    part metalCorsetSystem : MetalCorset;
+
+}

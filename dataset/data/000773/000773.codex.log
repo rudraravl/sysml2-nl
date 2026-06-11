@@ -1,0 +1,973 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-z0z8qg1f
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb425-c7f2-72f3-b1e9-9f7e67f1f024
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Squad 51 and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package Squad51RescueSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percentage :> ScalarValues::Real;
+  attribute def PriorityLevel :> ScalarValues::Integer;
+
+  item def Patient {
+    attribute identifier : String;
+    attribute ageYears : ScalarValues::Integer;
+    attribute triageCategory : TriageCategory;
+    attribute vitalSigns : VitalSigns;
+    attribute conditionSummary : String;
+  }
+
+  item def MedicalReport {
+    attribute patientIdentifier : String;
+    attribute incidentIdentifier : String;
+    attribute assessmentText : String;
+    attribute treatmentText : String;
+    attribute destinationHospital : String;
+  }
+
+  item def DispatchMessage {
+    attribute incidentIdentifier : String;
+    attribute locationText : String;
+    attribute incidentType : IncidentType;
+    attribute priority : PriorityLevel;
+    attribute requestedResources : String;
+  }
+
+  item def RadioMessage {
+    attribute channelName : String;
+    attribute senderCallSign : String;
+    attribute receiverCallSign : String;
+    attribute messageText : String;
+  }
+
+  item def MedicalSupply {
+    attribute supplyName : String;
+    attribute quantity : ScalarValues::Integer;
+    attribute expirationDate : String;
+  }
+
+  item def ElectricPower {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+  }
+
+  item def Fuel {
+    attribute volume : VolumeValue;
+  }
+
+  item def VitalSigns {
+    attribute heartRate : FrequencyValue;
+    attribute respiratoryRate : FrequencyValue;
+    attribute systolicPressure : PressureValue;
+    attribute diastolicPressure : PressureValue;
+    attribute oxygenSaturation : Percentage;
+    attribute bodyTemperature : TemperatureValue;
+  }
+
+  enum def IncidentType {
+    enum structureFire;
+    enum trafficCollision;
+    enum medicalEmergency;
+    enum rescue;
+    enum hazardousCondition;
+    enum publicAssist;
+  }
+
+  enum def TriageCategory {
+    enum immediate;
+    enum delayed;
+    enum minor;
+    enum deceased;
+    enum notYetAssessed;
+  }
+
+  enum def SquadOperationalState {
+    enum inQuarters;
+    enum dispatched;
+    enum responding;
+    enum onScene;
+    enum treatingPatient;
+    enum transportingSupport;
+    enum returning;
+    enum outOfService;
+  }
+
+  port def RadioPort {
+    in item inboundRadio : RadioMessage;
+    out item outboundRadio : RadioMessage;
+  }
+
+  port def DispatchPort {
+    in item dispatchOrder : DispatchMessage;
+    out item statusUpdate : RadioMessage;
+  }
+
+  port def PatientCarePort {
+    inout item patient : Patient;
+    out item careReport : MedicalReport;
+  }
+
+  port def SupplyPort {
+    in item replenishment : MedicalSupply;
+    out item consumedSupply : MedicalSupply;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricPower;
+  }
+
+  port def FuelPort {
+    inout item fuel : Fuel;
+  }
+
+  part def FireRescueSquad51 {
+    attribute callSign : String = "Squad 51";
+    attribute primaryFunction : String = "Rapid paramedic response, rescue support, patient stabilization, and coordination with fire and hospital resources.";
+    attribute maximumCrew : ScalarValues::Integer = 2;
+    attribute responseReady : Boolean;
+    attribute operationalState : SquadOperationalState;
+    attribute fuelRemaining : VolumeValue;
+    attribute onboardOxygenPressure : PressureValue;
+    attribute medicalInventoryReadiness : Percentage;
+
+    port dispatchRadio : DispatchPort;
+    port tacticalRadio : RadioPort;
+    port hospitalRadio : RadioPort;
+    port patientCare : PatientCarePort;
+    port supplyInterface : SupplyPort;
+    port electricalInterface : PowerPort;
+    port fuelInterface : FuelPort;
+
+    part cab : CrewCab {
+      attribute seatingCapacity = 2;
+    }
+
+    part chassis : RescueVehicleChassis;
+    part engine : VehicleEngine;
+    part warningSystem : EmergencyWarningSystem;
+    part communicationSuite : CommunicationSuite;
+    part medicalBay : MedicalEquipmentCompartment;
+    part rescueToolCompartment : RescueToolCompartment;
+    part crew : ParamedicCrew;
+
+    connection engineFuelLine connect fuelInterface to engine.fuelInput;
+    connection alternatorPower connect engine.electricalOutput to electricalInterface;
+    connection radioDispatchLink connect dispatchRadio to communicationSuite.dispatchInterface;
+    connection radioTacticalLink connect tacticalRadio to communicationSuite.tacticalInterface;
+    connection radioHospitalLink connect hospitalRadio to communicationSuite.hospitalInterface;
+    connection patientTreatmentFlow connect patientCare to medicalBay.patientCareInterface;
+    connection supplyFlow connect supplyInterface to medicalBay.supplyInterface;
+
+    perform action respondToIncident;
+    perform action stabilizePatient;
+    perform action transmitHospitalReport;
+  }
+
+  part def CrewCab {
+    attribute seatingCapacity : ScalarValues::Integer;
+    attribute hasMapLight : Boolean = true;
+    attribute hasMobileDataTerminal : Boolean = true;
+
+    port electricalPower : PowerPort;
+    port crewVoiceRadio : RadioPort;
+  }
+
+  part def RescueVehicleChassis {
+    attribute grossVehicleMass : MassValue;
+    attribute wheelBase : LengthValue;
+    attribute roadSpeed : SpeedValue;
+    attribute brakingDistance : LengthValue;
+  }
+
+  part def VehicleEngine {
+    attribute ratedPower : PowerValue;
+    attribute fuelConsumptionRate : VolumeFlowRateValue;
+    attribute coolantTemperature : TemperatureValue;
+
+    port fuelInput : FuelPort;
+    port electricalOutput : PowerPort;
+  }
+
+  part def EmergencyWarningSystem {
+    attribute sirenEnabled : Boolean;
+    attribute warningLightsEnabled : Boolean;
+    attribute publicAddressEnabled : Boolean;
+
+    port electricalPower : PowerPort;
+  }
+
+  part def CommunicationSuite {
+    attribute dispatchChannel : String = "LACoFD Dispatch";
+    attribute tacticalChannel : String = "Fireground Tactical";
+    attribute hospitalChannel : String = "Base Hospital";
+    attribute radioPowerOutput : PowerValue;
+
+    port dispatchInterface : DispatchPort;
+    port tacticalInterface : RadioPort;
+    port hospitalInterface : RadioPort;
+    port electricalPower : PowerPort;
+  }
+
+  part def MedicalEquipmentCompartment {
+    attribute oxygenCylinderCount : ScalarValues::Integer = 2;
+    attribute drugBoxSealed : Boolean;
+    attribute defibrillatorReady : Boolean;
+    attribute traumaKitReady : Boolean;
+
+    port patientCareInterface : PatientCarePort;
+    port supplyInterface : SupplyPort;
+    port electricalPower : PowerPort;
+
+    part cardiacMonitor : CardiacMonitor;
+    part oxygenSystem : OxygenDeliverySystem;
+    part medicationKit : MedicationKit;
+    part traumaKit : TraumaKit;
+  }
+
+  part def CardiacMonitor {
+    attribute batteryCharge : Percentage;
+    attribute ecgLeadCount : ScalarValues::Integer = 4;
+    attribute defibrillationEnergy : EnergyValue;
+    port patientConnection : PatientCarePort;
+    port electricalPower : PowerPort;
+  }
+
+  part def OxygenDeliverySystem {
+    attribute regulatorPressure : PressureValue;
+    attribute flowRate : VolumeFlowRateValue;
+    attribute maskAvailable : Boolean;
+    port patientConnection : PatientCarePort;
+  }
+
+  part def MedicationKit {
+    attribute epinephrineDoses : ScalarValues::Integer;
+    attribute atropineDoses : ScalarValues::Integer;
+    attribute analgesicDoses : ScalarValues::Integer;
+    attribute ivFluidVolume : VolumeValue;
+    port supplyInterface : SupplyPort;
+  }
+
+  part def TraumaKit {
+    attribute bandageCount : ScalarValues::Integer;
+    attribute splintCount : ScalarValues::Integer;
+    attribute burnSheetCount : ScalarValues::Integer;
+    attribute airwayAdjunctCount : ScalarValues::Integer;
+    port patientConnection : PatientCarePort;
+  }
+
+  part def RescueToolCompartment {
+    attribute forcibleEntryToolCount : ScalarValues::Integer;
+    attribute ropeLength : LengthValue;
+    attribute fireExtinguisherPressure : PressureValue;
+    attribute sceneLightAvailable : Boolean;
+
+    port electricalPower : PowerPort;
+  }
+
+  part def ParamedicCrew {
+    attribute leadParamedicName : String;
+    attribute partnerParamedicName : String;
+    attribute certificationLevel : String = "Paramedic";
+    attribute crewRested : Boolean;
+
+    port crewRadio : RadioPort;
+    port patientCare : PatientCarePort;
+  }
+
+  action def ReceiveDispatch {
+    in item order : DispatchMessage;
+    out item acknowledgement : RadioMessage;
+  }
+
+  action def NavigateToIncident {
+    in item order : DispatchMessage;
+    out attribute estimatedArrivalTimeMinutes : TimeValue;
+  }
+
+  action def SecureScene {
+    in item order : DispatchMessage;
+    out attribute sceneSafe : Boolean;
+  }
+
+  action def AssessPatient {
+    inout item patient : Patient;
+    out item assessedPatient : Patient;
+  }
+
+  action def StabilizePatient {
+    inout item patient : Patient;
+    in item supplies : MedicalSupply;
+    out item treatedPatient : Patient;
+  }
+
+  action def CoordinateTransport {
+    in item patient : Patient;
+    out item report : MedicalReport;
+  }
+
+  action def ReturnToService {
+    in item consumedSupply : MedicalSupply;
+    out attribute readyForNextCall : Boolean;
+  }
+
+  action respondToIncident : ReceiveDispatch then NavigateToIncident then SecureScene;
+
+  action stabilizePatient : AssessPatient then StabilizePatient then CoordinateTransport;
+
+  action transmitHospitalReport {
+    in item patient : Patient;
+    out item report : MedicalReport;
+
+    first start;
+    then buildReport;
+    then sendReport;
+    then done;
+
+    action buildReport {
+      in item patient : Patient;
+      out item report : MedicalReport;
+    }
+
+    action sendReport {
+      in item report : MedicalReport;
+      out item transmission : RadioMessage;
+    }
+  }
+
+  state def Squad51Operations {
+    attribute currentState : SquadOperationalState;
+
+    entry; then InQuarters;
+
+    state InQuarters;
+    state Dispatched;
+    state Responding;
+    state OnScene;
+    state TreatingPatient;
+    state TransportCoordination;
+    state Returning;
+    state OutOfService;
+
+    transition acceptDispatch
+      first InQuarters
+      accept DispatchMessage
+      then Dispatched;
+
+    transition beginResponse
+      first Dispatched
+      then Responding;
+
+    transition arriveScene
+      first Responding
+      then OnScene;
+
+    transition beginTreatment
+      first OnScene
+      then TreatingPatient;
+
+    transition requestAmbulanceOrHospitalContact
+      first TreatingPatient
+      then TransportCoordination;
+
+    transition patientReleasedToTransport
+      first TransportCoordination
+      then Returning;
+
+    transition availableAgain
+      first Returning
+      then InQuarters;
+
+    transition mechanicalOrSupplyFailure
+      first InQuarters
+      then OutOfService;
+
+    transition restoredToService
+      first OutOfService
+      then InQuarters;
+  }
+
+  requirement def PrimaryMissionRequirement {
+    subject squad : FireRescueSquad51;
+
+    require constraint {
+      squad.responseReady == true
+    }
+
+    doc /* Squad 51 shall provide a rapid two-person paramedic response capability for emergency incidents, with the primary high-level function of reaching the scene quickly, assessing patients, stabilizing life-threatening conditions, coordinating with fire companies and hospitals, and preparing the patient for transport by ambulance. */
+  }
+
+  requirement def CommunicationsRequirement {
+    subject suite : CommunicationSuite;
+
+    require constraint {
+      suite.dispatchChannel != "" and suite.hospitalChannel != ""
+    }
+
+    doc /* The communication suite shall support dispatch coordination, fireground communication, and base hospital medical consultation. */
+  }
+
+  requirement def MedicalReadinessRequirement {
+    subject compartment : MedicalEquipmentCompartment;
+
+    require constraint {
+      compartment.defibrillatorReady == true and compartment.traumaKitReady == true
+    }
+
+    doc /* The medical equipment compartment shall maintain ready access to cardiac monitoring, oxygen delivery, medications, trauma supplies, and patient assessment equipment. */
+  }
+
+  requirement def CrewRequirement {
+    subject crew : ParamedicCrew;
+
+    require constraint {
+      crew.certificationLevel == "Paramedic"
+    }
+
+    doc /* The assigned crew shall be qualified to perform advanced life support assessment, treatment, radio medical consultation, and incident coordination. */
+  }
+
+  requirement def ResponseIntegrationRequirement {
+    subject squad : FireRescueSquad51;
+
+    require constraint {
+      squad.maximumCrew == 2
+    }
+
+    doc /* Squad 51 shall operate as a compact rescue and paramedic unit that supplements engines, trucks, ambulances, hospitals, and dispatch rather than serving as the primary patient transport vehicle. */
+  }
+
+  part squad51System : FireRescueSquad51 {
+    attribute responseReady = true;
+    attribute operationalState = SquadOperationalState::inQuarters;
+    attribute fuelRemaining = 75 [L];
+    attribute onboardOxygenPressure = 13790 [kPa];
+    attribute medicalInventoryReadiness = 98.0;
+    attribute chassis.grossVehicleMass = 3200 [kg];
+    attribute chassis.wheelBase = 3.2 [m];
+    attribute chassis.roadSpeed = 0 [m/s];
+    attribute chassis.brakingDistance = 0 [m];
+    attribute engine.ratedPower = 150 [kW];
+    attribute engine.fuelConsumptionRate = 0.00002 [m^3/s];
+    attribute engine.coolantTemperature = 85 [Cel];
+    attribute warningSystem.sirenEnabled = false;
+    attribute warningSystem.warningLightsEnabled = false;
+    attribute communicationSuite.radioPowerOutput = 100 [W];
+    attribute medicalBay.drugBoxSealed = true;
+    attribute medicalBay.defibrillatorReady = true;
+    attribute medicalBay.traumaKitReady = true;
+    attribute medicalBay.cardiacMonitor.batteryCharge = 100.0;
+    attribute medicalBay.cardiacMonitor.defibrillationEnergy = 360 [J];
+    attribute medicalBay.oxygenSystem.regulatorPressure = 345 [kPa];
+    attribute medicalBay.oxygenSystem.flowRate = 0.00025 [m^3/s];
+    attribute medicalBay.medicationKit.epinephrineDoses = 8;
+    attribute medicalBay.medicationKit.atropineDoses = 6;
+    attribute medicalBay.medicationKit.analgesicDoses = 4;
+    attribute medicalBay.medicationKit.ivFluidVolume = 2 [L];
+    attribute medicalBay.traumaKit.bandageCount = 24;
+    attribute medicalBay.traumaKit.splintCount = 6;
+    attribute medicalBay.traumaKit.burnSheetCount = 3;
+    attribute medicalBay.traumaKit.airwayAdjunctCount = 12;
+    attribute rescueToolCompartment.forcibleEntryToolCount = 4;
+    attribute rescueToolCompartment.ropeLength = 60 [m];
+    attribute rescueToolCompartment.fireExtinguisherPressure = 1200 [kPa];
+    attribute rescueToolCompartment.sceneLightAvailable = true;
+    attribute crew.leadParamedicName = "Firefighter Paramedic 1";
+    attribute crew.partnerParamedicName = "Firefighter Paramedic 2";
+    attribute crew.crewRested = true;
+  }
+
+}
+tokens used
+4,670
+package Squad51RescueSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percentage :> ScalarValues::Real;
+  attribute def PriorityLevel :> ScalarValues::Integer;
+
+  item def Patient {
+    attribute identifier : String;
+    attribute ageYears : ScalarValues::Integer;
+    attribute triageCategory : TriageCategory;
+    attribute vitalSigns : VitalSigns;
+    attribute conditionSummary : String;
+  }
+
+  item def MedicalReport {
+    attribute patientIdentifier : String;
+    attribute incidentIdentifier : String;
+    attribute assessmentText : String;
+    attribute treatmentText : String;
+    attribute destinationHospital : String;
+  }
+
+  item def DispatchMessage {
+    attribute incidentIdentifier : String;
+    attribute locationText : String;
+    attribute incidentType : IncidentType;
+    attribute priority : PriorityLevel;
+    attribute requestedResources : String;
+  }
+
+  item def RadioMessage {
+    attribute channelName : String;
+    attribute senderCallSign : String;
+    attribute receiverCallSign : String;
+    attribute messageText : String;
+  }
+
+  item def MedicalSupply {
+    attribute supplyName : String;
+    attribute quantity : ScalarValues::Integer;
+    attribute expirationDate : String;
+  }
+
+  item def ElectricPower {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+  }
+
+  item def Fuel {
+    attribute volume : VolumeValue;
+  }
+
+  item def VitalSigns {
+    attribute heartRate : FrequencyValue;
+    attribute respiratoryRate : FrequencyValue;
+    attribute systolicPressure : PressureValue;
+    attribute diastolicPressure : PressureValue;
+    attribute oxygenSaturation : Percentage;
+    attribute bodyTemperature : TemperatureValue;
+  }
+
+  enum def IncidentType {
+    enum structureFire;
+    enum trafficCollision;
+    enum medicalEmergency;
+    enum rescue;
+    enum hazardousCondition;
+    enum publicAssist;
+  }
+
+  enum def TriageCategory {
+    enum immediate;
+    enum delayed;
+    enum minor;
+    enum deceased;
+    enum notYetAssessed;
+  }
+
+  enum def SquadOperationalState {
+    enum inQuarters;
+    enum dispatched;
+    enum responding;
+    enum onScene;
+    enum treatingPatient;
+    enum transportingSupport;
+    enum returning;
+    enum outOfService;
+  }
+
+  port def RadioPort {
+    in item inboundRadio : RadioMessage;
+    out item outboundRadio : RadioMessage;
+  }
+
+  port def DispatchPort {
+    in item dispatchOrder : DispatchMessage;
+    out item statusUpdate : RadioMessage;
+  }
+
+  port def PatientCarePort {
+    inout item patient : Patient;
+    out item careReport : MedicalReport;
+  }
+
+  port def SupplyPort {
+    in item replenishment : MedicalSupply;
+    out item consumedSupply : MedicalSupply;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricPower;
+  }
+
+  port def FuelPort {
+    inout item fuel : Fuel;
+  }
+
+  part def FireRescueSquad51 {
+    attribute callSign : String = "Squad 51";
+    attribute primaryFunction : String = "Rapid paramedic response, rescue support, patient stabilization, and coordination with fire and hospital resources.";
+    attribute maximumCrew : ScalarValues::Integer = 2;
+    attribute responseReady : Boolean;
+    attribute operationalState : SquadOperationalState;
+    attribute fuelRemaining : VolumeValue;
+    attribute onboardOxygenPressure : PressureValue;
+    attribute medicalInventoryReadiness : Percentage;
+
+    port dispatchRadio : DispatchPort;
+    port tacticalRadio : RadioPort;
+    port hospitalRadio : RadioPort;
+    port patientCare : PatientCarePort;
+    port supplyInterface : SupplyPort;
+    port electricalInterface : PowerPort;
+    port fuelInterface : FuelPort;
+
+    part cab : CrewCab {
+      attribute seatingCapacity = 2;
+    }
+
+    part chassis : RescueVehicleChassis;
+    part engine : VehicleEngine;
+    part warningSystem : EmergencyWarningSystem;
+    part communicationSuite : CommunicationSuite;
+    part medicalBay : MedicalEquipmentCompartment;
+    part rescueToolCompartment : RescueToolCompartment;
+    part crew : ParamedicCrew;
+
+    connection engineFuelLine connect fuelInterface to engine.fuelInput;
+    connection alternatorPower connect engine.electricalOutput to electricalInterface;
+    connection radioDispatchLink connect dispatchRadio to communicationSuite.dispatchInterface;
+    connection radioTacticalLink connect tacticalRadio to communicationSuite.tacticalInterface;
+    connection radioHospitalLink connect hospitalRadio to communicationSuite.hospitalInterface;
+    connection patientTreatmentFlow connect patientCare to medicalBay.patientCareInterface;
+    connection supplyFlow connect supplyInterface to medicalBay.supplyInterface;
+
+    perform action respondToIncident;
+    perform action stabilizePatient;
+    perform action transmitHospitalReport;
+  }
+
+  part def CrewCab {
+    attribute seatingCapacity : ScalarValues::Integer;
+    attribute hasMapLight : Boolean = true;
+    attribute hasMobileDataTerminal : Boolean = true;
+
+    port electricalPower : PowerPort;
+    port crewVoiceRadio : RadioPort;
+  }
+
+  part def RescueVehicleChassis {
+    attribute grossVehicleMass : MassValue;
+    attribute wheelBase : LengthValue;
+    attribute roadSpeed : SpeedValue;
+    attribute brakingDistance : LengthValue;
+  }
+
+  part def VehicleEngine {
+    attribute ratedPower : PowerValue;
+    attribute fuelConsumptionRate : VolumeFlowRateValue;
+    attribute coolantTemperature : TemperatureValue;
+
+    port fuelInput : FuelPort;
+    port electricalOutput : PowerPort;
+  }
+
+  part def EmergencyWarningSystem {
+    attribute sirenEnabled : Boolean;
+    attribute warningLightsEnabled : Boolean;
+    attribute publicAddressEnabled : Boolean;
+
+    port electricalPower : PowerPort;
+  }
+
+  part def CommunicationSuite {
+    attribute dispatchChannel : String = "LACoFD Dispatch";
+    attribute tacticalChannel : String = "Fireground Tactical";
+    attribute hospitalChannel : String = "Base Hospital";
+    attribute radioPowerOutput : PowerValue;
+
+    port dispatchInterface : DispatchPort;
+    port tacticalInterface : RadioPort;
+    port hospitalInterface : RadioPort;
+    port electricalPower : PowerPort;
+  }
+
+  part def MedicalEquipmentCompartment {
+    attribute oxygenCylinderCount : ScalarValues::Integer = 2;
+    attribute drugBoxSealed : Boolean;
+    attribute defibrillatorReady : Boolean;
+    attribute traumaKitReady : Boolean;
+
+    port patientCareInterface : PatientCarePort;
+    port supplyInterface : SupplyPort;
+    port electricalPower : PowerPort;
+
+    part cardiacMonitor : CardiacMonitor;
+    part oxygenSystem : OxygenDeliverySystem;
+    part medicationKit : MedicationKit;
+    part traumaKit : TraumaKit;
+  }
+
+  part def CardiacMonitor {
+    attribute batteryCharge : Percentage;
+    attribute ecgLeadCount : ScalarValues::Integer = 4;
+    attribute defibrillationEnergy : EnergyValue;
+    port patientConnection : PatientCarePort;
+    port electricalPower : PowerPort;
+  }
+
+  part def OxygenDeliverySystem {
+    attribute regulatorPressure : PressureValue;
+    attribute flowRate : VolumeFlowRateValue;
+    attribute maskAvailable : Boolean;
+    port patientConnection : PatientCarePort;
+  }
+
+  part def MedicationKit {
+    attribute epinephrineDoses : ScalarValues::Integer;
+    attribute atropineDoses : ScalarValues::Integer;
+    attribute analgesicDoses : ScalarValues::Integer;
+    attribute ivFluidVolume : VolumeValue;
+    port supplyInterface : SupplyPort;
+  }
+
+  part def TraumaKit {
+    attribute bandageCount : ScalarValues::Integer;
+    attribute splintCount : ScalarValues::Integer;
+    attribute burnSheetCount : ScalarValues::Integer;
+    attribute airwayAdjunctCount : ScalarValues::Integer;
+    port patientConnection : PatientCarePort;
+  }
+
+  part def RescueToolCompartment {
+    attribute forcibleEntryToolCount : ScalarValues::Integer;
+    attribute ropeLength : LengthValue;
+    attribute fireExtinguisherPressure : PressureValue;
+    attribute sceneLightAvailable : Boolean;
+
+    port electricalPower : PowerPort;
+  }
+
+  part def ParamedicCrew {
+    attribute leadParamedicName : String;
+    attribute partnerParamedicName : String;
+    attribute certificationLevel : String = "Paramedic";
+    attribute crewRested : Boolean;
+
+    port crewRadio : RadioPort;
+    port patientCare : PatientCarePort;
+  }
+
+  action def ReceiveDispatch {
+    in item order : DispatchMessage;
+    out item acknowledgement : RadioMessage;
+  }
+
+  action def NavigateToIncident {
+    in item order : DispatchMessage;
+    out attribute estimatedArrivalTimeMinutes : TimeValue;
+  }
+
+  action def SecureScene {
+    in item order : DispatchMessage;
+    out attribute sceneSafe : Boolean;
+  }
+
+  action def AssessPatient {
+    inout item patient : Patient;
+    out item assessedPatient : Patient;
+  }
+
+  action def StabilizePatient {
+    inout item patient : Patient;
+    in item supplies : MedicalSupply;
+    out item treatedPatient : Patient;
+  }
+
+  action def CoordinateTransport {
+    in item patient : Patient;
+    out item report : MedicalReport;
+  }
+
+  action def ReturnToService {
+    in item consumedSupply : MedicalSupply;
+    out attribute readyForNextCall : Boolean;
+  }
+
+  action respondToIncident : ReceiveDispatch then NavigateToIncident then SecureScene;
+
+  action stabilizePatient : AssessPatient then StabilizePatient then CoordinateTransport;
+
+  action transmitHospitalReport {
+    in item patient : Patient;
+    out item report : MedicalReport;
+
+    first start;
+    then buildReport;
+    then sendReport;
+    then done;
+
+    action buildReport {
+      in item patient : Patient;
+      out item report : MedicalReport;
+    }
+
+    action sendReport {
+      in item report : MedicalReport;
+      out item transmission : RadioMessage;
+    }
+  }
+
+  state def Squad51Operations {
+    attribute currentState : SquadOperationalState;
+
+    entry; then InQuarters;
+
+    state InQuarters;
+    state Dispatched;
+    state Responding;
+    state OnScene;
+    state TreatingPatient;
+    state TransportCoordination;
+    state Returning;
+    state OutOfService;
+
+    transition acceptDispatch
+      first InQuarters
+      accept DispatchMessage
+      then Dispatched;
+
+    transition beginResponse
+      first Dispatched
+      then Responding;
+
+    transition arriveScene
+      first Responding
+      then OnScene;
+
+    transition beginTreatment
+      first OnScene
+      then TreatingPatient;
+
+    transition requestAmbulanceOrHospitalContact
+      first TreatingPatient
+      then TransportCoordination;
+
+    transition patientReleasedToTransport
+      first TransportCoordination
+      then Returning;
+
+    transition availableAgain
+      first Returning
+      then InQuarters;
+
+    transition mechanicalOrSupplyFailure
+      first InQuarters
+      then OutOfService;
+
+    transition restoredToService
+      first OutOfService
+      then InQuarters;
+  }
+
+  requirement def PrimaryMissionRequirement {
+    subject squad : FireRescueSquad51;
+
+    require constraint {
+      squad.responseReady == true
+    }
+
+    doc /* Squad 51 shall provide a rapid two-person paramedic response capability for emergency incidents, with the primary high-level function of reaching the scene quickly, assessing patients, stabilizing life-threatening conditions, coordinating with fire companies and hospitals, and preparing the patient for transport by ambulance. */
+  }
+
+  requirement def CommunicationsRequirement {
+    subject suite : CommunicationSuite;
+
+    require constraint {
+      suite.dispatchChannel != "" and suite.hospitalChannel != ""
+    }
+
+    doc /* The communication suite shall support dispatch coordination, fireground communication, and base hospital medical consultation. */
+  }
+
+  requirement def MedicalReadinessRequirement {
+    subject compartment : MedicalEquipmentCompartment;
+
+    require constraint {
+      compartment.defibrillatorReady == true and compartment.traumaKitReady == true
+    }
+
+    doc /* The medical equipment compartment shall maintain ready access to cardiac monitoring, oxygen delivery, medications, trauma supplies, and patient assessment equipment. */
+  }
+
+  requirement def CrewRequirement {
+    subject crew : ParamedicCrew;
+
+    require constraint {
+      crew.certificationLevel == "Paramedic"
+    }
+
+    doc /* The assigned crew shall be qualified to perform advanced life support assessment, treatment, radio medical consultation, and incident coordination. */
+  }
+
+  requirement def ResponseIntegrationRequirement {
+    subject squad : FireRescueSquad51;
+
+    require constraint {
+      squad.maximumCrew == 2
+    }
+
+    doc /* Squad 51 shall operate as a compact rescue and paramedic unit that supplements engines, trucks, ambulances, hospitals, and dispatch rather than serving as the primary patient transport vehicle. */
+  }
+
+  part squad51System : FireRescueSquad51 {
+    attribute responseReady = true;
+    attribute operationalState = SquadOperationalState::inQuarters;
+    attribute fuelRemaining = 75 [L];
+    attribute onboardOxygenPressure = 13790 [kPa];
+    attribute medicalInventoryReadiness = 98.0;
+    attribute chassis.grossVehicleMass = 3200 [kg];
+    attribute chassis.wheelBase = 3.2 [m];
+    attribute chassis.roadSpeed = 0 [m/s];
+    attribute chassis.brakingDistance = 0 [m];
+    attribute engine.ratedPower = 150 [kW];
+    attribute engine.fuelConsumptionRate = 0.00002 [m^3/s];
+    attribute engine.coolantTemperature = 85 [Cel];
+    attribute warningSystem.sirenEnabled = false;
+    attribute warningSystem.warningLightsEnabled = false;
+    attribute communicationSuite.radioPowerOutput = 100 [W];
+    attribute medicalBay.drugBoxSealed = true;
+    attribute medicalBay.defibrillatorReady = true;
+    attribute medicalBay.traumaKitReady = true;
+    attribute medicalBay.cardiacMonitor.batteryCharge = 100.0;
+    attribute medicalBay.cardiacMonitor.defibrillationEnergy = 360 [J];
+    attribute medicalBay.oxygenSystem.regulatorPressure = 345 [kPa];
+    attribute medicalBay.oxygenSystem.flowRate = 0.00025 [m^3/s];
+    attribute medicalBay.medicationKit.epinephrineDoses = 8;
+    attribute medicalBay.medicationKit.atropineDoses = 6;
+    attribute medicalBay.medicationKit.analgesicDoses = 4;
+    attribute medicalBay.medicationKit.ivFluidVolume = 2 [L];
+    attribute medicalBay.traumaKit.bandageCount = 24;
+    attribute medicalBay.traumaKit.splintCount = 6;
+    attribute medicalBay.traumaKit.burnSheetCount = 3;
+    attribute medicalBay.traumaKit.airwayAdjunctCount = 12;
+    attribute rescueToolCompartment.forcibleEntryToolCount = 4;
+    attribute rescueToolCompartment.ropeLength = 60 [m];
+    attribute rescueToolCompartment.fireExtinguisherPressure = 1200 [kPa];
+    attribute rescueToolCompartment.sceneLightAvailable = true;
+    attribute crew.leadParamedicName = "Firefighter Paramedic 1";
+    attribute crew.partnerParamedicName = "Firefighter Paramedic 2";
+    attribute crew.crewRested = true;
+  }
+
+}

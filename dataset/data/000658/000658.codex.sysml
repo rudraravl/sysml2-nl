@@ -1,0 +1,416 @@
+package KidneyDishSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Milliliter :> Real {
+        unit = "mL";
+    }
+
+    attribute def Millimeter :> Real {
+        unit = "mm";
+    }
+
+    attribute def DegreeCelsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def Gram :> Real {
+        unit = "g";
+    }
+
+    attribute def DimensionlessRatio :> Real;
+
+    item def Fluid {
+        attribute volume : Milliliter;
+        attribute temperature : DegreeCelsius;
+        attribute contaminationLevel : DimensionlessRatio;
+    }
+
+    item def RinsingFluid :> Fluid;
+
+    item def BiologicalFluid :> Fluid;
+
+    item def SolidMedicalItem {
+        attribute mass : Gram;
+        attribute sterile : Boolean;
+        attribute contaminated : Boolean;
+    }
+
+    item def SurgicalInstrument :> SolidMedicalItem {
+        attribute sharpEdgePresent : Boolean;
+    }
+
+    item def TissueSample :> SolidMedicalItem {
+        attribute preserved : Boolean;
+    }
+
+    item def WasteItem :> SolidMedicalItem;
+
+    item def CleaningResidue {
+        attribute residueVolume : Milliliter;
+        attribute biohazardous : Boolean;
+    }
+
+    port def OpenReceivingPort {
+        in item receivedFluid : Fluid;
+        in item receivedItem : SolidMedicalItem;
+    }
+
+    port def PouringPort {
+        out item pouredFluid : Fluid;
+        out item pouredResidue : CleaningResidue;
+    }
+
+    port def ManualHandlingPort {
+        in item handContactForce;
+        out item gripFeedback;
+    }
+
+    port def SupportContactPort {
+        out item supportedLoad;
+        in item surfaceReaction;
+    }
+
+    port def VisualInspectionPort {
+        out item visibleContents;
+        out item fillIndication;
+    }
+
+    part def KidneyDish {
+        attribute nominalCapacity : Milliliter = 700.0;
+        attribute usableCapacity : Milliliter = 500.0;
+        attribute length : Millimeter = 250.0;
+        attribute width : Millimeter = 120.0;
+        attribute depth : Millimeter = 45.0;
+        attribute wallThickness : Millimeter = 0.8;
+        attribute dryMass : Gram = 145.0;
+        attribute corrosionResistant : Boolean = true;
+        attribute reusable : Boolean = true;
+        attribute sterilizable : Boolean = true;
+        attribute currentFillVolume : Milliliter = 0.0;
+        attribute clean : Boolean = true;
+        attribute sterile : Boolean = true;
+        attribute stableOnFlatSurface : Boolean = true;
+
+        port openMouth : OpenReceivingPort;
+        port spoutLip : PouringPort;
+        port handGrip : ManualHandlingPort;
+        port base : SupportContactPort;
+        port visibleBasin : VisualInspectionPort;
+
+        part basin {
+            attribute concave : Boolean = true;
+            attribute smoothInterior : Boolean = true;
+            attribute retainedVolume : Milliliter = 0.0;
+        }
+
+        part raisedRim {
+            attribute continuousRim : Boolean = true;
+            attribute spillResistanceHeight : Millimeter = 8.0;
+        }
+
+        part kidneyProfile {
+            attribute concaveSideRadius : Millimeter = 85.0;
+            attribute convexSideRadius : Millimeter = 125.0;
+            attribute fitsAgainstPatientBodyContour : Boolean = true;
+        }
+
+        part roundedCorners {
+            attribute snagRiskReduced : Boolean = true;
+            attribute cleanabilityEnhanced : Boolean = true;
+        }
+
+        part flatBase {
+            attribute contactAreaStable : Boolean = true;
+            attribute slipResistance : DimensionlessRatio = 0.65;
+        }
+
+        perform action receiveMaterial {
+            in item incomingFluid : Fluid;
+            in item incomingItem : SolidMedicalItem;
+            out item containedFluid : Fluid;
+            out item containedItem : SolidMedicalItem;
+
+            first start;
+            then acceptThroughOpenMouth;
+            then retainInBasin;
+            then updateFillIndication;
+            then done;
+
+            action acceptThroughOpenMouth;
+            action retainInBasin;
+            action updateFillIndication;
+        }
+
+        perform action collectRinsingFluid {
+            in item rinse : RinsingFluid;
+            out item retainedRinse : RinsingFluid;
+
+            first start;
+            then positionBelowSource;
+            then receiveRinse;
+            then retainRinse;
+            then done;
+
+            action positionBelowSource;
+            action receiveRinse;
+            action retainRinse;
+        }
+
+        perform action holdMedicalItems {
+            in item itemToHold : SolidMedicalItem;
+            out item heldItem : SolidMedicalItem;
+
+            first start;
+            then receiveItem;
+            then isolateItemFromSurface;
+            then makeItemVisible;
+            then done;
+
+            action receiveItem;
+            action isolateItemFromSurface;
+            action makeItemVisible;
+        }
+
+        perform action pourContents {
+            in item retainedFluid : Fluid;
+            out item dischargedFluid : Fluid;
+
+            first start;
+            then graspDish;
+            then tiltTowardSpoutLip;
+            then controlDischarge;
+            then restoreUpright;
+            then done;
+
+            action graspDish;
+            action tiltTowardSpoutLip;
+            action controlDischarge;
+            action restoreUpright;
+        }
+
+        perform action cleanAndSterilize {
+            out item residue : CleaningResidue;
+
+            first start;
+            then emptyDish;
+            then washInterior;
+            then rinseSurface;
+            then sterilizeByHeatOrChemicalProcess;
+            then verifyCleanSterileState;
+            then done;
+
+            action emptyDish;
+            action washInterior;
+            action rinseSurface;
+            action sterilizeByHeatOrChemicalProcess;
+            action verifyCleanSterileState;
+        }
+
+        state usageState {
+            state cleanSterile;
+            state readyForUse;
+            state receiving;
+            state holdingContents;
+            state pouring;
+            state contaminated;
+            state cleaning;
+            state sterilized;
+
+            initial then cleanSterile;
+
+            transition cleanSterile_to_ready
+                first cleanSterile
+                accept prepareForProcedure
+                then readyForUse;
+
+            transition ready_to_receiving
+                first readyForUse
+                accept materialIntroduced
+                then receiving;
+
+            transition receiving_to_holding
+                first receiving
+                accept materialRetained
+                then holdingContents;
+
+            transition holding_to_pouring
+                first holdingContents
+                accept disposeOrTransferRequested
+                then pouring;
+
+            transition pouring_to_contaminated
+                first pouring
+                accept dischargeComplete
+                then contaminated;
+
+            transition holding_to_contaminated
+                first holdingContents
+                accept procedureComplete
+                then contaminated;
+
+            transition contaminated_to_cleaning
+                first contaminated
+                accept reprocessingStarted
+                then cleaning;
+
+            transition cleaning_to_sterilized
+                first cleaning
+                accept sterilizationComplete
+                then sterilized;
+
+            transition sterilized_to_ready
+                first sterilized
+                accept storedForNextUse
+                then readyForUse;
+        }
+    }
+
+    part def ClinicalWorkSurface {
+        port supportInterface : SupportContactPort;
+        attribute level : Boolean = true;
+        attribute disinfected : Boolean = true;
+    }
+
+    part def Clinician {
+        port handInterface : ManualHandlingPort;
+        attribute trainedInAsepticTechnique : Boolean = true;
+
+        perform action positionDish {
+            out item handContactForce;
+            first start;
+            then graspRim;
+            then placeBaseOnWorkSurface;
+            then releaseGrip;
+            then done;
+
+            action graspRim;
+            action placeBaseOnWorkSurface;
+            action releaseGrip;
+        }
+    }
+
+    part def FluidSource {
+        port outlet : OpenReceivingPort;
+        attribute sourceType : String = "patient, instrument rinse, or procedure field";
+    }
+
+    part def WasteReceiver {
+        port inlet : PouringPort;
+        attribute biohazardCompatible : Boolean = true;
+    }
+
+    part def KidneyDishUseSystem {
+        part dish : KidneyDish;
+        part workSurface : ClinicalWorkSurface;
+        part clinician : Clinician;
+        part fluidSource : FluidSource;
+        part wasteReceiver : WasteReceiver;
+
+        connect dish.base to workSurface.supportInterface;
+        connect clinician.handInterface to dish.handGrip;
+        connect fluidSource.outlet to dish.openMouth;
+        connect dish.spoutLip to wasteReceiver.inlet;
+
+        perform action primaryFunction {
+            in item procedureFluid : Fluid;
+            in item procedureItem : SolidMedicalItem;
+            out item temporarilyContainedFluid : Fluid;
+            out item temporarilyContainedItem : SolidMedicalItem;
+            out item dischargedWaste : Fluid;
+
+            first start;
+            then receiveProcedureMaterial;
+            then retainMaterialInAccessibleOpenBasin;
+            then supportInspectionOrTemporaryStorage;
+            then pourMaterialToReceiverWhenRequested;
+            then done;
+
+            action receiveProcedureMaterial;
+            action retainMaterialInAccessibleOpenBasin;
+            action supportInspectionOrTemporaryStorage;
+            action pourMaterialToReceiverWhenRequested;
+        }
+
+        perform action clinicalUseScenario {
+            first start;
+            then placeDishOnStableSurface;
+            then collectRinseOrSpecimen;
+            then holdContentsDuringProcedure;
+            then transferOrDisposeContents;
+            then reprocessDish;
+            then done;
+
+            action placeDishOnStableSurface;
+            action collectRinseOrSpecimen;
+            action holdContentsDuringProcedure;
+            action transferOrDisposeContents;
+            action reprocessDish;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : KidneyDishUseSystem;
+        doc /* The system shall provide an open, stable, kidney-shaped dish that temporarily receives, contains, presents, and pours fluids or small medical items during clinical procedures. */
+        require constraint {
+            system.dish.usableCapacity >= 500.0
+        }
+    }
+
+    requirement def ContainmentRequirement {
+        subject dish : KidneyDish;
+        doc /* The dish shall retain received fluids and small medical items without leakage while upright on a level clinical surface. */
+        require constraint {
+            dish.currentFillVolume <= dish.usableCapacity
+        }
+    }
+
+    requirement def ErgonomicShapeRequirement {
+        subject dish : KidneyDish;
+        doc /* The dish shall use a kidney-shaped profile to fit near a patient body contour and provide a broad open receiving area. */
+        require constraint {
+            dish.kidneyProfile.fitsAgainstPatientBodyContour == true
+        }
+    }
+
+    requirement def PouringRequirement {
+        subject dish : KidneyDish;
+        doc /* The dish shall allow controlled manual pouring of retained liquid through its rim without requiring a separate valve or lid. */
+        require constraint {
+            dish.raisedRim.continuousRim == true
+        }
+    }
+
+    requirement def CleanabilityRequirement {
+        subject dish : KidneyDish;
+        doc /* The dish shall have smooth, rounded, corrosion-resistant surfaces compatible with cleaning and sterilization. */
+        require constraint {
+            dish.sterilizable == true and dish.corrosionResistant == true and dish.roundedCorners.cleanabilityEnhanced == true
+        }
+    }
+
+    requirement def StabilityRequirement {
+        subject dish : KidneyDish;
+        doc /* The dish shall remain stable when placed on a flat disinfected clinical work surface during normal filling and holding use. */
+        require constraint {
+            dish.flatBase.contactAreaStable == true and dish.stableOnFlatSurface == true
+        }
+    }
+
+    requirement def VisibilityRequirement {
+        subject dish : KidneyDish;
+        doc /* The dish shall expose its contents through an open basin to support rapid visual inspection of fill level and contained items. */
+        require constraint {
+            dish.basin.concave == true and dish.basin.smoothInterior == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by KidneyDishUseSystem::primaryFunction;
+    satisfy ContainmentRequirement by KidneyDish;
+    satisfy ErgonomicShapeRequirement by KidneyDish::kidneyProfile;
+    satisfy PouringRequirement by KidneyDish::pourContents;
+    satisfy CleanabilityRequirement by KidneyDish::cleanAndSterilize;
+    satisfy StabilityRequirement by KidneyDish::flatBase;
+    satisfy VisibilityRequirement by KidneyDish::visibleBasin;
+}

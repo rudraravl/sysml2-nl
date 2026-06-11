@@ -1,0 +1,363 @@
+package WeightedBlanketSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def TemperatureValue {
+    unit = K;
+  }
+
+  value def MassValue {
+    unit = kg;
+  }
+
+  value def LengthValue {
+    unit = m;
+  }
+
+  value def AreaValue {
+    unit = m^2;
+  }
+
+  value def ForceValue {
+    unit = N;
+  }
+
+  value def PressureValue {
+    unit = Pa;
+  }
+
+  value def TimeValue {
+    unit = s;
+  }
+
+  value def PercentValue {
+    unit = one;
+  }
+
+  item def UserBody {
+    attribute bodyMass : MassValue;
+    attribute shoulderWidth : LengthValue;
+    attribute bodyLength : LengthValue;
+    attribute restingTemperature : TemperatureValue;
+  }
+
+  item def ThermalEnergy {
+    attribute heatFlowRate : Real;
+    attribute temperature : TemperatureValue;
+  }
+
+  item def DistributedPressure {
+    attribute averagePressure : PressureValue;
+    attribute peakPressure : PressureValue;
+    attribute coverageArea : AreaValue;
+  }
+
+  item def ComfortFeedback {
+    attribute perceivedComfort : PercentValue;
+    attribute perceivedWarmth : PercentValue;
+    attribute perceivedRestriction : PercentValue;
+  }
+
+  port def BodyContactPort {
+    in item body : UserBody;
+    out item pressure : DistributedPressure;
+    out item warmth : ThermalEnergy;
+  }
+
+  port def AmbientPort {
+    in item roomAir : ThermalEnergy;
+    out item retainedHeat : ThermalEnergy;
+  }
+
+  port def FeedbackPort {
+    in item feedback : ComfortFeedback;
+  }
+
+  part def WeightedBlanket {
+    attribute totalMass : MassValue = 6.8 [kg];
+    attribute blanketLength : LengthValue = 2.0 [m];
+    attribute blanketWidth : LengthValue = 1.5 [m];
+    attribute contactArea : AreaValue = 3.0 [m^2];
+    attribute targetUserMassMinimum : MassValue = 45.0 [kg];
+    attribute targetUserMassMaximum : MassValue = 90.0 [kg];
+    attribute nominalPressure : PressureValue;
+    attribute thermalRetentionEfficiency : PercentValue = 0.72 [one];
+
+    port bodyContact : BodyContactPort;
+    port ambientExchange : AmbientPort;
+    port comfortInput : FeedbackPort;
+
+    part outerCover : RemovableCover {
+      attribute mass : MassValue = 1.1 [kg];
+      attribute fabricTemperature : TemperatureValue = 295.0 [K];
+      attribute washable : Boolean = true;
+    }
+
+    part innerShell : InnerShell {
+      attribute mass : MassValue = 0.7 [kg];
+      attribute seamStrength : ForceValue = 180.0 [N];
+    }
+
+    part weightedCore : WeightedCore {
+      attribute mass : MassValue = 5.0 [kg];
+      attribute fillUniformity : PercentValue = 0.95 [one];
+    }
+
+    part quiltingGrid : QuiltingGrid {
+      attribute cellCount : Integer = 120;
+      attribute cellLength : LengthValue = 0.20 [m];
+      attribute cellWidth : LengthValue = 0.125 [m];
+    }
+
+    part careLabel : CareLabel {
+      attribute maximumWashTemperature : TemperatureValue = 303.0 [K];
+      attribute tumbleDryAllowed : Boolean = false;
+    }
+
+    connect outerCover.innerSurface to innerShell.outerSurface;
+    connect innerShell.coreInterface to weightedCore.shellInterface;
+    connect quiltingGrid.cellInterfaces to weightedCore.distributionInterfaces;
+    connect bodyContact.pressure to weightedCore.distributedLoad;
+    connect ambientExchange.retainedHeat to outerCover.retainedThermalEnergy;
+
+    action distributeWeight {
+      in item user : UserBody;
+      out item pressure : DistributedPressure;
+
+      attribute gravitationalAcceleration : Real = 9.80665;
+      attribute appliedForce : ForceValue;
+      attribute safePeakPressureLimit : PressureValue = 900.0 [Pa];
+
+      first start;
+      then calculateAppliedForce;
+      then spreadLoadAcrossCells;
+      then verifyPeakPressure;
+      then done;
+
+      action calculateAppliedForce {
+        out appliedForce : ForceValue;
+      }
+
+      action spreadLoadAcrossCells {
+        in appliedForce : ForceValue;
+        out pressure : DistributedPressure;
+      }
+
+      action verifyPeakPressure {
+        in pressure : DistributedPressure;
+      }
+    }
+
+    action retainWarmth {
+      in item bodyHeat : ThermalEnergy;
+      in item roomAir : ThermalEnergy;
+      out item retainedHeat : ThermalEnergy;
+
+      first start;
+      then absorbBodyHeat;
+      then reduceConvectiveLoss;
+      then releaseModeratedWarmth;
+      then done;
+
+      action absorbBodyHeat;
+      action reduceConvectiveLoss;
+      action releaseModeratedWarmth;
+    }
+
+    state usageState {
+      state Folded;
+      state Positioned;
+      state CoveringUser;
+      state ComfortStabilized;
+      state Removed;
+      state WashingPreparation;
+
+      entry; then Folded;
+
+      transition Folded_to_Positioned
+        first Folded
+        accept user_places_blanket
+        then Positioned;
+
+      transition Positioned_to_CoveringUser
+        first Positioned
+        accept user_lies_under_blanket
+        then CoveringUser;
+
+      transition CoveringUser_to_ComfortStabilized
+        first CoveringUser
+        accept pressure_and_warmth_stabilized
+        then ComfortStabilized;
+
+      transition ComfortStabilized_to_Removed
+        first ComfortStabilized
+        accept user_removes_blanket
+        then Removed;
+
+      transition Removed_to_Folded
+        first Removed
+        accept user_folds_blanket
+        then Folded;
+
+      transition Removed_to_WashingPreparation
+        first Removed
+        accept cover_unzipped_for_washing
+        then WashingPreparation;
+
+      transition WashingPreparation_to_Folded
+        first WashingPreparation
+        accept cover_reinstalled
+        then Folded;
+    }
+  }
+
+  part def RemovableCover {
+    attribute mass : MassValue;
+    attribute washable : Boolean;
+    attribute fabricTemperature : TemperatureValue;
+    attribute coefficientOfFriction : Real = 0.42;
+
+    port innerSurface;
+    port retainedThermalEnergy : AmbientPort;
+  }
+
+  part def InnerShell {
+    attribute mass : MassValue;
+    attribute seamStrength : ForceValue;
+    attribute tearResistance : ForceValue = 120.0 [N];
+
+    port outerSurface;
+    port coreInterface;
+  }
+
+  part def WeightedCore {
+    attribute mass : MassValue;
+    attribute fillUniformity : PercentValue;
+    attribute fillMaterialDensity : Real = 2500.0;
+    attribute maximumCellMassVariation : PercentValue = 0.08 [one];
+
+    port shellInterface;
+    port distributionInterfaces;
+    port distributedLoad : BodyContactPort;
+
+    part fillPellets : FillPelletSet {
+      attribute material : String = "glass microbeads";
+      attribute totalFillMass : MassValue = 4.7 [kg];
+      attribute nominalPelletDiameter : LengthValue = 0.001 [m];
+    }
+
+    part batting : CushionLayer {
+      attribute mass : MassValue = 0.3 [kg];
+      attribute thickness : LengthValue = 0.006 [m];
+    }
+  }
+
+  part def FillPelletSet {
+    attribute material : String;
+    attribute totalFillMass : MassValue;
+    attribute nominalPelletDiameter : LengthValue;
+  }
+
+  part def CushionLayer {
+    attribute mass : MassValue;
+    attribute thickness : LengthValue;
+    attribute compressionRecovery : PercentValue = 0.88 [one];
+  }
+
+  part def QuiltingGrid {
+    attribute cellCount : Integer;
+    attribute cellLength : LengthValue;
+    attribute cellWidth : LengthValue;
+    attribute seamSpacingTolerance : LengthValue = 0.005 [m];
+
+    port cellInterfaces;
+  }
+
+  part def CareLabel {
+    attribute maximumWashTemperature : TemperatureValue;
+    attribute tumbleDryAllowed : Boolean;
+    attribute detergentRestriction : String = "mild detergent only";
+  }
+
+  part weightedBlanketSystem : WeightedBlanket {
+    attribute totalMass = 6.8 [kg];
+    attribute blanketLength = 2.0 [m];
+    attribute blanketWidth = 1.5 [m];
+    attribute contactArea = 3.0 [m^2];
+    attribute nominalPressure = 22.2 [Pa];
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The weighted blanket shall provide calming, evenly distributed deep touch pressure over a resting user's body while maintaining comfortable warmth. */
+
+    subject blanket : WeightedBlanket;
+
+    require constraint {
+      blanket.totalMass >= 4.5 [kg] and
+      blanket.totalMass <= 9.0 [kg] and
+      blanket.weightedCore.fillUniformity >= 0.90 [one]
+    }
+  }
+
+  requirement def WeightDistributionRequirement {
+    doc /* The weighted core shall distribute fill mass across quilted cells so localized pressure peaks remain within comfort limits during normal use. */
+
+    subject blanket : WeightedBlanket;
+
+    require constraint {
+      blanket.weightedCore.maximumCellMassVariation <= 0.10 [one]
+    }
+  }
+
+  requirement def UserMassCompatibilityRequirement {
+    doc /* The blanket shall be suitable for adult users within the declared mass range. */
+
+    subject blanket : WeightedBlanket;
+
+    require constraint {
+      blanket.targetUserMassMinimum >= 40.0 [kg] and
+      blanket.targetUserMassMaximum <= 100.0 [kg]
+    }
+  }
+
+  requirement def ThermalComfortRequirement {
+    doc /* The blanket shall retain body warmth without active heating. */
+
+    subject blanket : WeightedBlanket;
+
+    require constraint {
+      blanket.thermalRetentionEfficiency >= 0.60 [one] and
+      blanket.thermalRetentionEfficiency <= 0.85 [one]
+    }
+  }
+
+  requirement def CleanabilityRequirement {
+    doc /* The outer cover shall be removable and washable while protecting the weighted core from direct laundering stress. */
+
+    subject blanket : WeightedBlanket;
+
+    require constraint {
+      blanket.outerCover.washable == true and
+      blanket.careLabel.tumbleDryAllowed == false
+    }
+  }
+
+  requirement def StructuralIntegrityRequirement {
+    doc /* The inner shell and quilting seams shall retain fill material during repeated positioning, folding, and resting use. */
+
+    subject blanket : WeightedBlanket;
+
+    require constraint {
+      blanket.innerShell.seamStrength >= 150.0 [N] and
+      blanket.innerShell.tearResistance >= 100.0 [N]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by weightedBlanketSystem;
+  satisfy WeightDistributionRequirement by weightedBlanketSystem;
+  satisfy UserMassCompatibilityRequirement by weightedBlanketSystem;
+  satisfy ThermalComfortRequirement by weightedBlanketSystem;
+  satisfy CleanabilityRequirement by weightedBlanketSystem;
+  satisfy StructuralIntegrityRequirement by weightedBlanketSystem;
+}

@@ -1,0 +1,506 @@
+package VITAbandSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    doc "Dimensionless percentage value.";
+  }
+
+  attribute def BeatsPerMinute : Real {
+    doc "Heart rate in beats per minute.";
+  }
+
+  attribute def BreathPerMinute : Real {
+    doc "Respiration rate in breaths per minute.";
+  }
+
+  attribute def Millivolt : Real {
+    doc "Electrical potential in millivolts.";
+  }
+
+  attribute def MillimeterMercury : Real {
+    doc "Pressure in mmHg.";
+  }
+
+  attribute def StepCount : Integer {
+    doc "Number of detected steps.";
+  }
+
+  attribute def AlertPriority : Integer {
+    doc "1 is low priority, 5 is emergency priority.";
+  }
+
+  enum def WearState {
+    enum offWrist;
+    enum worn;
+    enum looseContact;
+  }
+
+  enum def HealthStatus {
+    enum normal;
+    enum watch;
+    enum warning;
+    enum critical;
+  }
+
+  enum def ConnectivityState {
+    enum disconnected;
+    enum advertising;
+    enum connected;
+    enum syncing;
+  }
+
+  enum def AlertKind {
+    enum abnormalHeartRate;
+    enum lowOxygenSaturation;
+    enum highSkinTemperature;
+    enum fallDetected;
+    enum lowBattery;
+    enum medicationReminder;
+    enum inactivityReminder;
+  }
+
+  item def OpticalPulseSignal {
+    attribute sampleTime : Time;
+    attribute redChannel : Real;
+    attribute infraredChannel : Real;
+    attribute greenChannel : Real;
+    attribute signalQuality : Percent;
+  }
+
+  item def MotionSample {
+    attribute sampleTime : Time;
+    attribute accelerationX : Real;
+    attribute accelerationY : Real;
+    attribute accelerationZ : Real;
+    attribute angularRateX : Real;
+    attribute angularRateY : Real;
+    attribute angularRateZ : Real;
+  }
+
+  item def SkinTemperatureSample {
+    attribute sampleTime : Time;
+    attribute skinTemperature : TemperatureValue;
+  }
+
+  item def VitalSigns {
+    attribute sampleTime : Time;
+    attribute heartRate : BeatsPerMinute;
+    attribute oxygenSaturation : Percent;
+    attribute respirationRate : BreathPerMinute;
+    attribute skinTemperature : TemperatureValue;
+    attribute systolicEstimate : MillimeterMercury;
+    attribute diastolicEstimate : MillimeterMercury;
+    attribute confidence : Percent;
+    attribute healthStatus : HealthStatus;
+  }
+
+  item def ActivitySummary {
+    attribute startTime : Time;
+    attribute endTime : Time;
+    attribute steps : StepCount;
+    attribute activeEnergy : EnergyValue;
+    attribute distance : LengthValue;
+    attribute fallDetected : Boolean;
+  }
+
+  item def UserAlert {
+    attribute alertTime : Time;
+    attribute kind : AlertKind;
+    attribute priority : AlertPriority;
+    attribute messageCode : String;
+    attribute acknowledged : Boolean;
+  }
+
+  item def BatteryStatus {
+    attribute measuredTime : Time;
+    attribute stateOfCharge : Percent;
+    attribute voltage : Millivolt;
+    attribute charging : Boolean;
+    attribute estimatedRuntime : Time;
+  }
+
+  item def HealthRecordPacket {
+    attribute packetTime : Time;
+    item vitalSigns : VitalSigns;
+    item activitySummary : ActivitySummary;
+    item batteryStatus : BatteryStatus;
+    attribute encrypted : Boolean;
+  }
+
+  port def OpticalSensorPort {
+    out item pulseSignal : OpticalPulseSignal;
+  }
+
+  port def MotionSensorPort {
+    out item motion : MotionSample;
+  }
+
+  port def TemperatureSensorPort {
+    out item skinTemperature : SkinTemperatureSample;
+  }
+
+  port def VitalDataPort {
+    out item vitalSigns : VitalSigns;
+  }
+
+  port def ActivityDataPort {
+    out item activitySummary : ActivitySummary;
+  }
+
+  port def AlertPort {
+    out item alert : UserAlert;
+  }
+
+  port def BatteryStatusPort {
+    out item batteryStatus : BatteryStatus;
+  }
+
+  port def SyncPort {
+    out item healthRecordPacket : HealthRecordPacket;
+    in item command : String;
+  }
+
+  port def PowerPort {
+    in item suppliedEnergy : EnergyValue;
+    out item batteryStatus : BatteryStatus;
+  }
+
+  part def OpticalSensor {
+    attribute sampleRate : FrequencyValue = 100 [Hz];
+    attribute ledDriveCurrent : ElectricCurrentValue = 8 [mA];
+
+    port sensorOutput : OpticalSensorPort;
+  }
+
+  part def InertialMeasurementUnit {
+    attribute sampleRate : FrequencyValue = 50 [Hz];
+    attribute accelerationRange : Real = 16.0;
+
+    port motionOutput : MotionSensorPort;
+  }
+
+  part def TemperatureSensor {
+    attribute sampleRate : FrequencyValue = 1 [Hz];
+    attribute accuracy : TemperatureValue = 0.2 [K];
+
+    port temperatureOutput : TemperatureSensorPort;
+  }
+
+  part def RechargeableBattery {
+    attribute capacity : ElectricChargeValue = 220 [mA*h];
+    attribute nominalVoltage : ElectricPotentialValue = 3.8 [V];
+    attribute minimumStateOfCharge : Percent = 10.0;
+
+    port powerInterface : PowerPort;
+    port statusOutput : BatteryStatusPort;
+  }
+
+  part def VitalSignProcessor {
+    attribute heartRateLowLimit : BeatsPerMinute = 45.0;
+    attribute heartRateHighLimit : BeatsPerMinute = 130.0;
+    attribute oxygenLowLimit : Percent = 92.0;
+    attribute temperatureHighLimit : TemperatureValue = 311.15 [K];
+
+    port opticalInput : OpticalSensorPort;
+    port temperatureInput : TemperatureSensorPort;
+    port vitalOutput : VitalDataPort;
+
+    action computeVitalSigns {
+      in item pulseSignal : OpticalPulseSignal;
+      in item skinTemperature : SkinTemperatureSample;
+      out item vitalSigns : VitalSigns;
+    }
+  }
+
+  part def ActivityProcessor {
+    attribute fallAccelerationThreshold : Real = 3.0;
+    attribute inactivityDurationLimit : Time = 3600 [s];
+
+    port motionInput : MotionSensorPort;
+    port activityOutput : ActivityDataPort;
+
+    action classifyActivity {
+      in item motion : MotionSample;
+      out item activitySummary : ActivitySummary;
+    }
+  }
+
+  part def AlertManager {
+    attribute vibrationDuration : Time = 3 [s];
+    attribute emergencyEscalationDelay : Time = 30 [s];
+
+    port vitalInput : VitalDataPort;
+    port activityInput : ActivityDataPort;
+    port batteryInput : BatteryStatusPort;
+    port userAlertOutput : AlertPort;
+
+    action evaluateAlerts {
+      in item vitalSigns : VitalSigns;
+      in item activitySummary : ActivitySummary;
+      in item batteryStatus : BatteryStatus;
+      out item alert : UserAlert;
+    }
+  }
+
+  part def WirelessCommunicationModule {
+    attribute bluetoothVersion : String = "Bluetooth Low Energy 5.3";
+    attribute nominalRange : LengthValue = 10 [m];
+    attribute encryptedLinkRequired : Boolean = true;
+
+    port syncInterface : SyncPort;
+
+    state def CommunicationStateMachine {
+      state disconnected;
+      state advertising;
+      state connected;
+      state syncing;
+
+      initial then disconnected;
+
+      transition disconnected_to_advertising
+        first disconnected
+        then advertising;
+
+      transition advertising_to_connected
+        first advertising
+        then connected;
+
+      transition connected_to_syncing
+        first connected
+        then syncing;
+
+      transition syncing_to_connected
+        first syncing
+        then connected;
+
+      transition connected_to_disconnected
+        first connected
+        then disconnected;
+    }
+  }
+
+  part def HapticDisplay {
+    attribute maxVibrationIntensity : Percent = 100.0;
+    attribute displayDiagonal : LengthValue = 25 [mm];
+
+    port alertInput : AlertPort;
+
+    action presentAlert {
+      in item alert : UserAlert;
+    }
+  }
+
+  part def SecureHealthDataStore {
+    attribute retentionDuration : Time = 604800 [s];
+    attribute storageCapacity : Real = 32.0;
+    attribute encryptionAlgorithm : String = "AES-256-GCM";
+
+    port vitalInput : VitalDataPort;
+    port activityInput : ActivityDataPort;
+    port batteryInput : BatteryStatusPort;
+    port syncOutput : SyncPort;
+
+    action createHealthRecordPacket {
+      in item vitalSigns : VitalSigns;
+      in item activitySummary : ActivitySummary;
+      in item batteryStatus : BatteryStatus;
+      out item healthRecordPacket : HealthRecordPacket;
+    }
+  }
+
+  part def MobileHealthApplication {
+    attribute supportedPlatform : String = "iOS and Android";
+    attribute syncInterval : Time = 300 [s];
+
+    port bandSyncInterface : SyncPort;
+    port alertInput : AlertPort;
+  }
+
+  part def VITAband {
+    doc "A wrist-worn health monitoring system whose primary high-level function is to continuously sense vital signs and activity, assess wellness risk, alert the wearer, and securely synchronize health records to a mobile application.";
+
+    attribute mass : MassValue = 38 [g];
+    attribute waterResistanceDepth : LengthValue = 50 [m];
+    attribute nominalOperatingTime : Time = 172800 [s];
+    attribute currentWearState : WearState;
+    attribute currentConnectivityState : ConnectivityState;
+
+    part opticalSensor : OpticalSensor;
+    part imu : InertialMeasurementUnit;
+    part temperatureSensor : TemperatureSensor;
+    part battery : RechargeableBattery;
+    part vitalProcessor : VitalSignProcessor;
+    part activityProcessor : ActivityProcessor;
+    part alertManager : AlertManager;
+    part wirelessModule : WirelessCommunicationModule;
+    part hapticDisplay : HapticDisplay;
+    part healthDataStore : SecureHealthDataStore;
+
+    port syncPort : SyncPort;
+    port wearerAlertPort : AlertPort;
+
+    connect opticalSensor.sensorOutput to vitalProcessor.opticalInput;
+    connect temperatureSensor.temperatureOutput to vitalProcessor.temperatureInput;
+    connect imu.motionOutput to activityProcessor.motionInput;
+    connect vitalProcessor.vitalOutput to alertManager.vitalInput;
+    connect activityProcessor.activityOutput to alertManager.activityInput;
+    connect battery.statusOutput to alertManager.batteryInput;
+    connect alertManager.userAlertOutput to hapticDisplay.alertInput;
+    connect alertManager.userAlertOutput to wearerAlertPort;
+    connect vitalProcessor.vitalOutput to healthDataStore.vitalInput;
+    connect activityProcessor.activityOutput to healthDataStore.activityInput;
+    connect battery.statusOutput to healthDataStore.batteryInput;
+    connect healthDataStore.syncOutput to wirelessModule.syncInterface;
+    connect wirelessModule.syncInterface to syncPort;
+
+    action monitorUserHealth {
+      in item pulseSignal : OpticalPulseSignal;
+      in item motion : MotionSample;
+      in item skinTemperature : SkinTemperatureSample;
+      out item vitalSigns : VitalSigns;
+      out item activitySummary : ActivitySummary;
+      out item alert : UserAlert;
+      out item healthRecordPacket : HealthRecordPacket;
+
+      first start;
+      then action computeVitals : VitalSignProcessor::computeVitalSigns;
+      then action classifyMotion : ActivityProcessor::classifyActivity;
+      then action evaluateRisk : AlertManager::evaluateAlerts;
+      then action packageRecord : SecureHealthDataStore::createHealthRecordPacket;
+      then done;
+    }
+
+    state def OperatingStateMachine {
+      state poweredOff;
+      state booting;
+      state sensing;
+      state analyzing;
+      state alerting;
+      state synchronizing;
+      state lowPower;
+      state charging;
+
+      initial then poweredOff;
+
+      transition power_on
+        first poweredOff
+        then booting;
+
+      transition boot_complete
+        first booting
+        then sensing;
+
+      transition sample_window_complete
+        first sensing
+        then analyzing;
+
+      transition no_alert_required
+        first analyzing
+        then sensing;
+
+      transition alert_required
+        first analyzing
+        then alerting;
+
+      transition alert_acknowledged
+        first alerting
+        then sensing;
+
+      transition sync_requested
+        first sensing
+        then synchronizing;
+
+      transition sync_complete
+        first synchronizing
+        then sensing;
+
+      transition battery_low
+        first sensing
+        then lowPower;
+
+      transition charger_attached
+        first lowPower
+        then charging;
+
+      transition charge_complete
+        first charging
+        then sensing;
+    }
+  }
+
+  part def VITAbandBasedHealthMonitoringSystem {
+    part band : VITAband;
+    part mobileApp : MobileHealthApplication;
+
+    connect band.syncPort to mobileApp.bandSyncInterface;
+    connect band.wearerAlertPort to mobileApp.alertInput;
+  }
+
+  requirement def ContinuousMonitoringRequirement {
+    doc "The VITAband shall continuously monitor heart rate, oxygen saturation, skin temperature, and motion while worn.";
+    subject monitoredSystem : VITAband;
+    require constraint {
+      monitoredSystem.nominalOperatingTime >= 86400 [s]
+    }
+  }
+
+  requirement def VitalSignLatencyRequirement {
+    doc "The VITAband shall update computed vital signs at least once every 10 seconds during normal sensing.";
+    subject processor : VitalSignProcessor;
+    require constraint {
+      processor.opticalInput != null
+    }
+  }
+
+  requirement def OxygenAlertRequirement {
+    doc "The VITAband shall generate a wearer alert when estimated oxygen saturation is below 92 percent with sufficient signal confidence.";
+    subject manager : AlertManager;
+    require constraint {
+      manager.vitalInput != null
+    }
+  }
+
+  requirement def FallDetectionRequirement {
+    doc "The VITAband shall detect a probable fall from inertial motion and generate a high-priority alert.";
+    subject processor : ActivityProcessor;
+    require constraint {
+      processor.fallAccelerationThreshold <= 3.5
+    }
+  }
+
+  requirement def SecureSyncRequirement {
+    doc "The VITAband shall encrypt health record packets before wireless synchronization to the mobile application.";
+    subject store : SecureHealthDataStore;
+    require constraint {
+      store.encryptionAlgorithm == "AES-256-GCM"
+    }
+  }
+
+  requirement def BatteryRuntimeRequirement {
+    doc "The VITAband shall operate for at least 24 hours between charges under nominal continuous monitoring.";
+    subject battery : RechargeableBattery;
+    require constraint {
+      battery.capacity >= 180 [mA*h]
+    }
+  }
+
+  requirement def WearabilityRequirement {
+    doc "The VITAband shall be suitable for daily wrist wear.";
+    subject band : VITAband;
+    require constraint {
+      band.mass <= 45 [g]
+    }
+  }
+
+  satisfy ContinuousMonitoringRequirement by VITAbandBasedHealthMonitoringSystem::band;
+  satisfy VitalSignLatencyRequirement by VITAbandBasedHealthMonitoringSystem::band::vitalProcessor;
+  satisfy OxygenAlertRequirement by VITAbandBasedHealthMonitoringSystem::band::alertManager;
+  satisfy FallDetectionRequirement by VITAbandBasedHealthMonitoringSystem::band::activityProcessor;
+  satisfy SecureSyncRequirement by VITAbandBasedHealthMonitoringSystem::band::healthDataStore;
+  satisfy BatteryRuntimeRequirement by VITAbandBasedHealthMonitoringSystem::band::battery;
+  satisfy WearabilityRequirement by VITAbandBasedHealthMonitoringSystem::band;
+
+}

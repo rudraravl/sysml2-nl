@@ -1,0 +1,811 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-wi85yrsc
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb37f-b0e4-7813-824e-883829faceff
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Esthesiometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EsthesiometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def LengthValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def ForceValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def TimeValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def SensitivityScore {
+    attribute thresholdDistance : LengthValue;
+    attribute thresholdForce : ForceValue;
+    attribute confidence : Real;
+  }
+
+  item def ContactStimulus {
+    attribute tipCount : Integer;
+    attribute separation : LengthValue;
+    attribute appliedForce : ForceValue;
+    attribute contactDuration : TimeValue;
+    attribute locationLabel : String;
+  }
+
+  item def SubjectResponse {
+    attribute perceivedPointCount : Integer;
+    attribute responseTime : TimeValue;
+    attribute certainty : Real;
+  }
+
+  item def MeasurementRecord {
+    attribute testId : String;
+    attribute subjectId : String;
+    attribute anatomicalSite : String;
+    attribute stimulus : ContactStimulus;
+    attribute response : SubjectResponse;
+    attribute score : SensitivityScore;
+    attribute timestamp : String;
+  }
+
+  port def StimulusApplicationPort {
+    out stimulus : ContactStimulus;
+  }
+
+  port def ResponseInputPort {
+    in response : SubjectResponse;
+  }
+
+  port def RecordOutputPort {
+    out record : MeasurementRecord;
+  }
+
+  port def ControlPort {
+    in startCommand : Boolean;
+    in stopCommand : Boolean;
+    out readyStatus : Boolean;
+    out faultStatus : Boolean;
+  }
+
+  part def EsthesiometerSystem {
+    attribute primaryFunction : String = "Apply controlled tactile stimuli to the skin and determine tactile sensitivity by measuring the smallest reliably perceived contact force or two-point separation.";
+    attribute minimumTipSeparation : LengthValue = (value = 1.0, unit = "mm");
+    attribute maximumTipSeparation : LengthValue = (value = 100.0, unit = "mm");
+    attribute minimumForce : ForceValue = (value = 0.05, unit = "N");
+    attribute maximumForce : ForceValue = (value = 2.00, unit = "N");
+    attribute nominalContactDuration : TimeValue = (value = 1.50, unit = "s");
+
+    port control : ControlPort;
+    port tactileOutput : StimulusApplicationPort;
+    port responseInput : ResponseInputPort;
+    port recordOutput : RecordOutputPort;
+
+    part handle : Handle;
+    part stimulusHead : AdjustableStimulusHead;
+    part forceLimiter : ForceLimitingMechanism;
+    part spacingScale : SeparationScale;
+    part controller : MeasurementController;
+    part display : UserDisplay;
+    part recorder : DataRecorder;
+    part subjectInterface : SubjectResponseInterface;
+
+    connect stimulusHead.stimulusPort to tactileOutput;
+    connect subjectInterface.responsePort to responseInput;
+    connect recorder.recordPort to recordOutput;
+    connect controller.headCommandPort to stimulusHead.commandPort;
+    connect controller.forceCommandPort to forceLimiter.commandPort;
+    connect forceLimiter.limitedForcePort to stimulusHead.forceInputPort;
+    connect spacingScale.spacingOutputPort to controller.spacingInputPort;
+    connect controller.displayPort to display.displayInputPort;
+    connect controller.recordCommandPort to recorder.recordInputPort;
+    connect subjectInterface.responseOutputPort to controller.responseInputPort;
+
+    perform action measureTactileSensitivity : MeasureTactileSensitivity;
+    exhibit state operatingState : EsthesiometerOperatingState;
+  }
+
+  part def Handle {
+    attribute length : LengthValue = (value = 140.0, unit = "mm");
+    attribute mass : Real = 0.12;
+    attribute gripMaterial : String = "textured medical polymer";
+  }
+
+  part def AdjustableStimulusHead {
+    attribute currentTipCount : Integer = 2;
+    attribute currentSeparation : LengthValue = (value = 5.0, unit = "mm");
+    attribute tipRadius : LengthValue = (value = 0.25, unit = "mm");
+
+    port stimulusPort : StimulusApplicationPort;
+    port commandPort {
+      in commandedTipCount : Integer;
+      in commandedSeparation : LengthValue;
+    }
+    port forceInputPort {
+      in limitedForce : ForceValue;
+    }
+  }
+
+  part def ForceLimitingMechanism {
+    attribute commandedForce : ForceValue = (value = 0.30, unit = "N");
+    attribute forceTolerance : ForceValue = (value = 0.03, unit = "N");
+
+    port commandPort {
+      in targetForce : ForceValue;
+    }
+
+    port limitedForcePort {
+      out limitedForce : ForceValue;
+    }
+  }
+
+  part def SeparationScale {
+    attribute readableResolution : LengthValue = (value = 0.5, unit = "mm");
+    attribute calibrationOffset : LengthValue = (value = 0.0, unit = "mm");
+
+    port spacingOutputPort {
+      out measuredSeparation : LengthValue;
+    }
+  }
+
+  part def MeasurementController {
+    attribute activeTestId : String;
+    attribute adaptiveStepSize : LengthValue = (value = 1.0, unit = "mm");
+    attribute repeatCountPerLevel : Integer = 3;
+    attribute positiveResponseCriterion : Real = 0.67;
+
+    port headCommandPort {
+      out commandedTipCount : Integer;
+      out commandedSeparation : LengthValue;
+    }
+
+    port forceCommandPort {
+      out targetForce : ForceValue;
+    }
+
+    port spacingInputPort {
+      in measuredSeparation : LengthValue;
+    }
+
+    port responseInputPort {
+      in response : SubjectResponse;
+    }
+
+    port displayPort {
+      out displayedThreshold : SensitivityScore;
+      out displayedInstruction : String;
+    }
+
+    port recordCommandPort {
+      out completedRecord : MeasurementRecord;
+    }
+  }
+
+  part def UserDisplay {
+    attribute displayTechnology : String = "low-power LCD";
+    attribute showsSeparation : Boolean = true;
+    attribute showsForce : Boolean = true;
+    attribute showsThreshold : Boolean = true;
+
+    port displayInputPort {
+      in displayedThreshold : SensitivityScore;
+      in displayedInstruction : String;
+    }
+  }
+
+  part def SubjectResponseInterface {
+    attribute inputMode : String = "examiner-entered perceived point count";
+    attribute allowedResponses : String = "zero, one, or two perceived points";
+
+    port responsePort : ResponseInputPort;
+
+    port responseOutputPort {
+      out response : SubjectResponse;
+    }
+  }
+
+  part def DataRecorder {
+    attribute storageCapacity : Integer = 10000;
+    attribute exportFormat : String = "CSV and clinical summary record";
+
+    port recordInputPort {
+      in completedRecord : MeasurementRecord;
+    }
+
+    port recordPort : RecordOutputPort;
+  }
+
+  action def MeasureTactileSensitivity {
+    in subjectId : String;
+    in anatomicalSite : String;
+    in initialSeparation : LengthValue;
+    in targetForce : ForceValue;
+    out finalRecord : MeasurementRecord;
+
+    first startSession;
+    then calibrateInstrument;
+    then configureStimulus;
+    then applyStimulus;
+    then collectResponse;
+    then evaluateThreshold;
+    then storeResult;
+
+    action startSession {
+      out testId : String;
+    }
+
+    action calibrateInstrument {
+      in referenceForce : ForceValue = (value = 0.30, unit = "N");
+      out calibrationAccepted : Boolean;
+    }
+
+    action configureStimulus {
+      in separation : LengthValue;
+      in force : ForceValue;
+      out configuredStimulus : ContactStimulus;
+    }
+
+    action applyStimulus {
+      in configuredStimulus : ContactStimulus;
+      out deliveredStimulus : ContactStimulus;
+    }
+
+    action collectResponse {
+      in deliveredStimulus : ContactStimulus;
+      out response : SubjectResponse;
+    }
+
+    action evaluateThreshold {
+      in deliveredStimulus : ContactStimulus;
+      in response : SubjectResponse;
+      out score : SensitivityScore;
+    }
+
+    action storeResult {
+      in score : SensitivityScore;
+      out finalRecord : MeasurementRecord;
+    }
+  }
+
+  state def EsthesiometerOperatingState {
+    entry action initialize {
+      out ready : Boolean = false;
+    }
+
+    state Off;
+
+    state Ready {
+      entry action showReady {
+        out ready : Boolean = true;
+      }
+    }
+
+    state Calibrating {
+      entry action checkZeroForce;
+      do action verifySpacingScale;
+      exit action saveCalibration;
+    }
+
+    state ConfiguringStimulus {
+      do action setTipSeparation;
+      do action setTargetForce;
+      do action selectOnePointOrTwoPointMode;
+    }
+
+    state ApplyingStimulus {
+      entry action contactSkin;
+      do action maintainForceAndDuration;
+      exit action retractTips;
+    }
+
+    state AwaitingResponse {
+      do action receiveSubjectResponse;
+    }
+
+    state ComputingThreshold {
+      do action compareResponseToStimulus;
+      do action updateAdaptiveSearch;
+      do action calculateSensitivityScore;
+    }
+
+    state RecordingResult {
+      do action writeMeasurementRecord;
+      do action updateDisplay;
+    }
+
+    state Fault {
+      entry action disableStimulusOutput;
+      do action displayFault;
+    }
+
+    transition initial then Off;
+    transition Off_to_Ready first Off accept startCommand then Ready;
+    transition Ready_to_Calibrating first Ready accept startCommand then Calibrating;
+    transition Calibrating_to_Configuring first Calibrating if calibrationAccepted then ConfiguringStimulus;
+    transition Calibrating_to_Fault first Calibrating if not calibrationAccepted then Fault;
+    transition Configuring_to_Applying first ConfiguringStimulus then ApplyingStimulus;
+    transition Applying_to_Response first ApplyingStimulus then AwaitingResponse;
+    transition Response_to_Computing first AwaitingResponse accept responseReceived then ComputingThreshold;
+    transition Computing_to_Configuring first ComputingThreshold if additionalTrialRequired then ConfiguringStimulus;
+    transition Computing_to_Recording first ComputingThreshold if thresholdDetermined then RecordingResult;
+    transition Recording_to_Ready first RecordingResult then Ready;
+    transition Any_to_Fault first Ready accept faultDetected then Fault;
+    transition Fault_to_Off first Fault accept stopCommand then Off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject esthesiometer : EsthesiometerSystem;
+    require constraint {
+      esthesiometer.primaryFunction == "Apply controlled tactile stimuli to the skin and determine tactile sensitivity by measuring the smallest reliably perceived contact force or two-point separation."
+    }
+  }
+
+  requirement def ControlledStimulusRequirement {
+    subject esthesiometer : EsthesiometerSystem;
+    require constraint {
+      esthesiometer.minimumTipSeparation.value <= 1.0 and
+      esthesiometer.maximumTipSeparation.value >= 100.0 and
+      esthesiometer.minimumForce.value <= 0.05 and
+      esthesiometer.maximumForce.value >= 2.0
+    }
+  }
+
+  requirement def MeasurementRecordRequirement {
+    subject record : MeasurementRecord;
+    require constraint {
+      record.subjectId != "" and
+      record.anatomicalSite != "" and
+      record.score.confidence >= 0.0 and
+      record.score.confidence <= 1.0
+    }
+  }
+
+  requirement def SafetyForceLimitRequirement {
+    subject esthesiometer : EsthesiometerSystem;
+    require constraint {
+      esthesiometer.maximumForce.value <= 2.0
+    }
+  }
+
+  requirement def RepeatableThresholdRequirement {
+    subject controller : MeasurementController;
+    require constraint {
+      controller.repeatCountPerLevel >= 3 and
+      controller.positiveResponseCriterion >= 0.60 and
+      controller.positiveResponseCriterion <= 0.80
+    }
+  }
+
+  part esthesiometer : EsthesiometerSystem;
+
+  requirement primaryFunction : PrimaryFunctionRequirement {
+    subject esthesiometer = esthesiometer;
+  }
+
+  requirement controlledStimulus : ControlledStimulusRequirement {
+    subject esthesiometer = esthesiometer;
+  }
+
+  requirement safetyForceLimit : SafetyForceLimitRequirement {
+    subject esthesiometer = esthesiometer;
+  }
+
+  requirement repeatableThreshold : RepeatableThresholdRequirement {
+    subject controller = esthesiometer.controller;
+  }
+}
+tokens used
+10,766
+package EsthesiometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def LengthValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def ForceValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def TimeValue {
+    attribute value : Real;
+    attribute unit : String;
+  }
+
+  attribute def SensitivityScore {
+    attribute thresholdDistance : LengthValue;
+    attribute thresholdForce : ForceValue;
+    attribute confidence : Real;
+  }
+
+  item def ContactStimulus {
+    attribute tipCount : Integer;
+    attribute separation : LengthValue;
+    attribute appliedForce : ForceValue;
+    attribute contactDuration : TimeValue;
+    attribute locationLabel : String;
+  }
+
+  item def SubjectResponse {
+    attribute perceivedPointCount : Integer;
+    attribute responseTime : TimeValue;
+    attribute certainty : Real;
+  }
+
+  item def MeasurementRecord {
+    attribute testId : String;
+    attribute subjectId : String;
+    attribute anatomicalSite : String;
+    attribute stimulus : ContactStimulus;
+    attribute response : SubjectResponse;
+    attribute score : SensitivityScore;
+    attribute timestamp : String;
+  }
+
+  port def StimulusApplicationPort {
+    out stimulus : ContactStimulus;
+  }
+
+  port def ResponseInputPort {
+    in response : SubjectResponse;
+  }
+
+  port def RecordOutputPort {
+    out record : MeasurementRecord;
+  }
+
+  port def ControlPort {
+    in startCommand : Boolean;
+    in stopCommand : Boolean;
+    out readyStatus : Boolean;
+    out faultStatus : Boolean;
+  }
+
+  part def EsthesiometerSystem {
+    attribute primaryFunction : String = "Apply controlled tactile stimuli to the skin and determine tactile sensitivity by measuring the smallest reliably perceived contact force or two-point separation.";
+    attribute minimumTipSeparation : LengthValue = (value = 1.0, unit = "mm");
+    attribute maximumTipSeparation : LengthValue = (value = 100.0, unit = "mm");
+    attribute minimumForce : ForceValue = (value = 0.05, unit = "N");
+    attribute maximumForce : ForceValue = (value = 2.00, unit = "N");
+    attribute nominalContactDuration : TimeValue = (value = 1.50, unit = "s");
+
+    port control : ControlPort;
+    port tactileOutput : StimulusApplicationPort;
+    port responseInput : ResponseInputPort;
+    port recordOutput : RecordOutputPort;
+
+    part handle : Handle;
+    part stimulusHead : AdjustableStimulusHead;
+    part forceLimiter : ForceLimitingMechanism;
+    part spacingScale : SeparationScale;
+    part controller : MeasurementController;
+    part display : UserDisplay;
+    part recorder : DataRecorder;
+    part subjectInterface : SubjectResponseInterface;
+
+    connect stimulusHead.stimulusPort to tactileOutput;
+    connect subjectInterface.responsePort to responseInput;
+    connect recorder.recordPort to recordOutput;
+    connect controller.headCommandPort to stimulusHead.commandPort;
+    connect controller.forceCommandPort to forceLimiter.commandPort;
+    connect forceLimiter.limitedForcePort to stimulusHead.forceInputPort;
+    connect spacingScale.spacingOutputPort to controller.spacingInputPort;
+    connect controller.displayPort to display.displayInputPort;
+    connect controller.recordCommandPort to recorder.recordInputPort;
+    connect subjectInterface.responseOutputPort to controller.responseInputPort;
+
+    perform action measureTactileSensitivity : MeasureTactileSensitivity;
+    exhibit state operatingState : EsthesiometerOperatingState;
+  }
+
+  part def Handle {
+    attribute length : LengthValue = (value = 140.0, unit = "mm");
+    attribute mass : Real = 0.12;
+    attribute gripMaterial : String = "textured medical polymer";
+  }
+
+  part def AdjustableStimulusHead {
+    attribute currentTipCount : Integer = 2;
+    attribute currentSeparation : LengthValue = (value = 5.0, unit = "mm");
+    attribute tipRadius : LengthValue = (value = 0.25, unit = "mm");
+
+    port stimulusPort : StimulusApplicationPort;
+    port commandPort {
+      in commandedTipCount : Integer;
+      in commandedSeparation : LengthValue;
+    }
+    port forceInputPort {
+      in limitedForce : ForceValue;
+    }
+  }
+
+  part def ForceLimitingMechanism {
+    attribute commandedForce : ForceValue = (value = 0.30, unit = "N");
+    attribute forceTolerance : ForceValue = (value = 0.03, unit = "N");
+
+    port commandPort {
+      in targetForce : ForceValue;
+    }
+
+    port limitedForcePort {
+      out limitedForce : ForceValue;
+    }
+  }
+
+  part def SeparationScale {
+    attribute readableResolution : LengthValue = (value = 0.5, unit = "mm");
+    attribute calibrationOffset : LengthValue = (value = 0.0, unit = "mm");
+
+    port spacingOutputPort {
+      out measuredSeparation : LengthValue;
+    }
+  }
+
+  part def MeasurementController {
+    attribute activeTestId : String;
+    attribute adaptiveStepSize : LengthValue = (value = 1.0, unit = "mm");
+    attribute repeatCountPerLevel : Integer = 3;
+    attribute positiveResponseCriterion : Real = 0.67;
+
+    port headCommandPort {
+      out commandedTipCount : Integer;
+      out commandedSeparation : LengthValue;
+    }
+
+    port forceCommandPort {
+      out targetForce : ForceValue;
+    }
+
+    port spacingInputPort {
+      in measuredSeparation : LengthValue;
+    }
+
+    port responseInputPort {
+      in response : SubjectResponse;
+    }
+
+    port displayPort {
+      out displayedThreshold : SensitivityScore;
+      out displayedInstruction : String;
+    }
+
+    port recordCommandPort {
+      out completedRecord : MeasurementRecord;
+    }
+  }
+
+  part def UserDisplay {
+    attribute displayTechnology : String = "low-power LCD";
+    attribute showsSeparation : Boolean = true;
+    attribute showsForce : Boolean = true;
+    attribute showsThreshold : Boolean = true;
+
+    port displayInputPort {
+      in displayedThreshold : SensitivityScore;
+      in displayedInstruction : String;
+    }
+  }
+
+  part def SubjectResponseInterface {
+    attribute inputMode : String = "examiner-entered perceived point count";
+    attribute allowedResponses : String = "zero, one, or two perceived points";
+
+    port responsePort : ResponseInputPort;
+
+    port responseOutputPort {
+      out response : SubjectResponse;
+    }
+  }
+
+  part def DataRecorder {
+    attribute storageCapacity : Integer = 10000;
+    attribute exportFormat : String = "CSV and clinical summary record";
+
+    port recordInputPort {
+      in completedRecord : MeasurementRecord;
+    }
+
+    port recordPort : RecordOutputPort;
+  }
+
+  action def MeasureTactileSensitivity {
+    in subjectId : String;
+    in anatomicalSite : String;
+    in initialSeparation : LengthValue;
+    in targetForce : ForceValue;
+    out finalRecord : MeasurementRecord;
+
+    first startSession;
+    then calibrateInstrument;
+    then configureStimulus;
+    then applyStimulus;
+    then collectResponse;
+    then evaluateThreshold;
+    then storeResult;
+
+    action startSession {
+      out testId : String;
+    }
+
+    action calibrateInstrument {
+      in referenceForce : ForceValue = (value = 0.30, unit = "N");
+      out calibrationAccepted : Boolean;
+    }
+
+    action configureStimulus {
+      in separation : LengthValue;
+      in force : ForceValue;
+      out configuredStimulus : ContactStimulus;
+    }
+
+    action applyStimulus {
+      in configuredStimulus : ContactStimulus;
+      out deliveredStimulus : ContactStimulus;
+    }
+
+    action collectResponse {
+      in deliveredStimulus : ContactStimulus;
+      out response : SubjectResponse;
+    }
+
+    action evaluateThreshold {
+      in deliveredStimulus : ContactStimulus;
+      in response : SubjectResponse;
+      out score : SensitivityScore;
+    }
+
+    action storeResult {
+      in score : SensitivityScore;
+      out finalRecord : MeasurementRecord;
+    }
+  }
+
+  state def EsthesiometerOperatingState {
+    entry action initialize {
+      out ready : Boolean = false;
+    }
+
+    state Off;
+
+    state Ready {
+      entry action showReady {
+        out ready : Boolean = true;
+      }
+    }
+
+    state Calibrating {
+      entry action checkZeroForce;
+      do action verifySpacingScale;
+      exit action saveCalibration;
+    }
+
+    state ConfiguringStimulus {
+      do action setTipSeparation;
+      do action setTargetForce;
+      do action selectOnePointOrTwoPointMode;
+    }
+
+    state ApplyingStimulus {
+      entry action contactSkin;
+      do action maintainForceAndDuration;
+      exit action retractTips;
+    }
+
+    state AwaitingResponse {
+      do action receiveSubjectResponse;
+    }
+
+    state ComputingThreshold {
+      do action compareResponseToStimulus;
+      do action updateAdaptiveSearch;
+      do action calculateSensitivityScore;
+    }
+
+    state RecordingResult {
+      do action writeMeasurementRecord;
+      do action updateDisplay;
+    }
+
+    state Fault {
+      entry action disableStimulusOutput;
+      do action displayFault;
+    }
+
+    transition initial then Off;
+    transition Off_to_Ready first Off accept startCommand then Ready;
+    transition Ready_to_Calibrating first Ready accept startCommand then Calibrating;
+    transition Calibrating_to_Configuring first Calibrating if calibrationAccepted then ConfiguringStimulus;
+    transition Calibrating_to_Fault first Calibrating if not calibrationAccepted then Fault;
+    transition Configuring_to_Applying first ConfiguringStimulus then ApplyingStimulus;
+    transition Applying_to_Response first ApplyingStimulus then AwaitingResponse;
+    transition Response_to_Computing first AwaitingResponse accept responseReceived then ComputingThreshold;
+    transition Computing_to_Configuring first ComputingThreshold if additionalTrialRequired then ConfiguringStimulus;
+    transition Computing_to_Recording first ComputingThreshold if thresholdDetermined then RecordingResult;
+    transition Recording_to_Ready first RecordingResult then Ready;
+    transition Any_to_Fault first Ready accept faultDetected then Fault;
+    transition Fault_to_Off first Fault accept stopCommand then Off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject esthesiometer : EsthesiometerSystem;
+    require constraint {
+      esthesiometer.primaryFunction == "Apply controlled tactile stimuli to the skin and determine tactile sensitivity by measuring the smallest reliably perceived contact force or two-point separation."
+    }
+  }
+
+  requirement def ControlledStimulusRequirement {
+    subject esthesiometer : EsthesiometerSystem;
+    require constraint {
+      esthesiometer.minimumTipSeparation.value <= 1.0 and
+      esthesiometer.maximumTipSeparation.value >= 100.0 and
+      esthesiometer.minimumForce.value <= 0.05 and
+      esthesiometer.maximumForce.value >= 2.0
+    }
+  }
+
+  requirement def MeasurementRecordRequirement {
+    subject record : MeasurementRecord;
+    require constraint {
+      record.subjectId != "" and
+      record.anatomicalSite != "" and
+      record.score.confidence >= 0.0 and
+      record.score.confidence <= 1.0
+    }
+  }
+
+  requirement def SafetyForceLimitRequirement {
+    subject esthesiometer : EsthesiometerSystem;
+    require constraint {
+      esthesiometer.maximumForce.value <= 2.0
+    }
+  }
+
+  requirement def RepeatableThresholdRequirement {
+    subject controller : MeasurementController;
+    require constraint {
+      controller.repeatCountPerLevel >= 3 and
+      controller.positiveResponseCriterion >= 0.60 and
+      controller.positiveResponseCriterion <= 0.80
+    }
+  }
+
+  part esthesiometer : EsthesiometerSystem;
+
+  requirement primaryFunction : PrimaryFunctionRequirement {
+    subject esthesiometer = esthesiometer;
+  }
+
+  requirement controlledStimulus : ControlledStimulusRequirement {
+    subject esthesiometer = esthesiometer;
+  }
+
+  requirement safetyForceLimit : SafetyForceLimitRequirement {
+    subject esthesiometer = esthesiometer;
+  }
+
+  requirement repeatableThreshold : RepeatableThresholdRequirement {
+    subject controller = esthesiometer.controller;
+  }
+}

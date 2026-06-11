@@ -1,0 +1,943 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_bv4oz70
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb342-c8f2-7cd1-a4bb-3bcf0dc45b93
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Autoclave and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutoclaveModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::kilopascal;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = SI::minute;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::liter;
+    }
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::kilowatt;
+    }
+
+    attribute def Percent :> ScalarValues::Real;
+
+    enum def CyclePhase {
+        enum idle;
+        enum loading;
+        enum sealed;
+        enum heating;
+        enum sterilizing;
+        enum venting;
+        enum drying;
+        enum complete;
+        enum faulted;
+    }
+
+    enum def DoorPosition {
+        enum open;
+        enum closed;
+        enum locked;
+    }
+
+    enum def SterilizationResult {
+        enum notStarted;
+        enum passed;
+        enum failed;
+        enum aborted;
+    }
+
+    item def Water {
+        attribute volume : Volume;
+        attribute purity : Percent;
+    }
+
+    item def Steam {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute saturationFraction : Percent;
+    }
+
+    item def Condensate {
+        attribute volume : Volume;
+        attribute temperature : Temperature;
+    }
+
+    item def ElectricalEnergy {
+        attribute power : Power;
+        attribute voltage : Real;
+    }
+
+    item def InstrumentSet {
+        attribute mass : Mass;
+        attribute bioburdenLevel : Real;
+        attribute packageIntegrity : Boolean;
+    }
+
+    item def SterilizedInstrumentSet :> InstrumentSet {
+        attribute result : SterilizationResult;
+        attribute exposureTemperature : Temperature;
+        attribute exposurePressure : Pressure;
+        attribute exposureDuration : Duration;
+    }
+
+    item def OperatorCommand {
+        attribute startRequested : Boolean;
+        attribute cancelRequested : Boolean;
+        attribute selectedCycleMinutes : Duration;
+        attribute selectedSterilizationTemperature : Temperature;
+    }
+
+    item def AlarmSignal {
+        attribute active : Boolean;
+        attribute message : String;
+        attribute severity : Integer;
+    }
+
+    port def WaterInletPort {
+        in item water : Water;
+    }
+
+    port def SteamPort {
+        out item steam : Steam;
+    }
+
+    port def CondensateDrainPort {
+        out item condensate : Condensate;
+    }
+
+    port def ElectricalPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def LoadPort {
+        in item unsterileLoad : InstrumentSet;
+        out item sterileLoad : SterilizedInstrumentSet;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    part def PressureVessel {
+        attribute chamberVolume : Volume = 60 [SI::liter];
+        attribute maximumAllowablePressure : Pressure = 320 [SI::kilopascal];
+        attribute maximumAllowableTemperature : Temperature = 145 [SI::degreeCelsius];
+        attribute currentPressure : Pressure;
+        attribute currentTemperature : Temperature;
+        attribute containsLoad : Boolean;
+
+        port steamIn : SteamPort;
+        port drainOut : CondensateDrainPort;
+        port loadAccess : LoadPort;
+    }
+
+    part def DoorAssembly {
+        attribute position : DoorPosition;
+        attribute gasketCompressed : Boolean;
+        attribute lockEngaged : Boolean;
+        attribute interlockHealthy : Boolean;
+
+        port loadAccess : LoadPort;
+    }
+
+    part def ElectricSteamGenerator {
+        attribute heaterPower : Power = 9 [SI::kilowatt];
+        attribute waterLevel : Percent;
+        attribute outputTemperature : Temperature;
+        attribute outputPressure : Pressure;
+
+        port waterIn : WaterInletPort;
+        port powerIn : ElectricalPort;
+        port steamOut : SteamPort;
+    }
+
+    part def VacuumAndVentSubsystem {
+        attribute vacuumAvailable : Boolean;
+        attribute exhaustValveOpen : Boolean;
+        attribute chamberVacuumPressure : Pressure;
+
+        port drainOut : CondensateDrainPort;
+    }
+
+    part def SensorSet {
+        attribute measuredTemperature : Temperature;
+        attribute measuredPressure : Pressure;
+        attribute measuredDoorPosition : DoorPosition;
+        attribute loadProbeTemperature : Temperature;
+        attribute sensorHealthy : Boolean;
+    }
+
+    part def ControlUnit {
+        attribute commandedPhase : CyclePhase;
+        attribute targetSterilizationTemperature : Temperature = 134 [SI::degreeCelsius];
+        attribute targetSterilizationPressure : Pressure = 210 [SI::kilopascal];
+        attribute targetExposureDuration : Duration = 4 [SI::minute];
+        attribute elapsedExposureDuration : Duration;
+        attribute cycleResult : SterilizationResult;
+
+        port commandIn : CommandPort;
+        port alarmOut : AlarmPort;
+    }
+
+    part def HumanMachineInterface {
+        attribute displayedPhase : CyclePhase;
+        attribute displayedTemperature : Temperature;
+        attribute displayedPressure : Pressure;
+        attribute cycleCompleteIndicated : Boolean;
+        attribute faultDisplayed : Boolean;
+
+        port commandOut : CommandPort;
+        port alarmIn : AlarmPort;
+    }
+
+    action def AdmitWater {
+        in requiredVolume : Volume;
+        out admittedWater : Water;
+    }
+
+    action def GenerateSteam {
+        in feedWater : Water;
+        in electricalEnergy : ElectricalEnergy;
+        out generatedSteam : Steam;
+    }
+
+    action def HeatChamber {
+        in steam : Steam;
+        in targetTemperature : Temperature;
+        in targetPressure : Pressure;
+        out chamberTemperature : Temperature;
+        out chamberPressure : Pressure;
+    }
+
+    action def HoldSterilizationExposure {
+        in chamberTemperature : Temperature;
+        in chamberPressure : Pressure;
+        in exposureDuration : Duration;
+        out result : SterilizationResult;
+    }
+
+    action def VentAndCondense {
+        in chamberSteam : Steam;
+        out condensate : Condensate;
+        out finalPressure : Pressure;
+    }
+
+    action def DryLoad {
+        in wetLoad : InstrumentSet;
+        out drySterileLoad : SterilizedInstrumentSet;
+    }
+
+    state def AutoclaveCycleStateMachine {
+        entry action initialize {
+            cyclePhase = CyclePhase::idle;
+            cycleResult = SterilizationResult::notStarted;
+        }
+
+        state Idle;
+        state Loading;
+        state Sealed;
+        state Heating;
+        state Sterilizing;
+        state Venting;
+        state Drying;
+        state Complete;
+        state Faulted;
+
+        transition first Idle;
+
+        transition Idle_to_Loading
+            first Idle
+            then Loading
+            accept OperatorCommand
+            if command.startRequested;
+
+        transition Loading_to_Sealed
+            first Loading
+            then Sealed
+            if door.position == DoorPosition::closed and sensors.sensorHealthy;
+
+        transition Sealed_to_Heating
+            first Sealed
+            then Heating
+            if door.lockEngaged and door.interlockHealthy;
+
+        transition Heating_to_Sterilizing
+            first Heating
+            then Sterilizing
+            if sensors.measuredTemperature >= controller.targetSterilizationTemperature
+            and sensors.measuredPressure >= controller.targetSterilizationPressure;
+
+        transition Sterilizing_to_Venting
+            first Sterilizing
+            then Venting
+            if controller.elapsedExposureDuration >= controller.targetExposureDuration;
+
+        transition Venting_to_Drying
+            first Venting
+            then Drying
+            if sensors.measuredPressure <= 105 [SI::kilopascal];
+
+        transition Drying_to_Complete
+            first Drying
+            then Complete
+            if controller.cycleResult == SterilizationResult::passed;
+
+        transition Any_to_Faulted
+            first Idle
+            then Faulted
+            accept AlarmSignal
+            if alarm.active;
+
+        transition Faulted_to_Idle
+            first Faulted
+            then Idle
+            accept OperatorCommand
+            if command.cancelRequested;
+    }
+
+    part def AutoclaveSystem {
+        doc
+        /*
+         * Primary function: the autoclave sterilizes reusable instruments by exposing a sealed load
+         * to saturated steam at controlled temperature, pressure, and duration, then safely vents,
+         * dries, and releases the sterilized load.
+         */
+
+        attribute ratedChamberVolume : Volume = 60 [SI::liter];
+        attribute nominalSterilizationTemperature : Temperature = 134 [SI::degreeCelsius];
+        attribute nominalSterilizationPressure : Pressure = 210 [SI::kilopascal];
+        attribute nominalExposureDuration : Duration = 4 [SI::minute];
+        attribute currentPhase : CyclePhase;
+        attribute finalResult : SterilizationResult;
+
+        port waterSupply : WaterInletPort;
+        port electricalSupply : ElectricalPort;
+        port loadInterface : LoadPort;
+        port operatorInterface : CommandPort;
+        port alarmInterface : AlarmPort;
+        port drainInterface : CondensateDrainPort;
+
+        part chamber : PressureVessel;
+        part door : DoorAssembly;
+        part steamGenerator : ElectricSteamGenerator;
+        part ventSystem : VacuumAndVentSubsystem;
+        part sensors : SensorSet;
+        part controller : ControlUnit;
+        part hmi : HumanMachineInterface;
+
+        connection waterSupply to steamGenerator.waterIn;
+        connection electricalSupply to steamGenerator.powerIn;
+        connection steamGenerator.steamOut to chamber.steamIn;
+        connection chamber.drainOut to ventSystem.drainOut;
+        connection ventSystem.drainOut to drainInterface;
+        connection loadInterface to door.loadAccess;
+        connection door.loadAccess to chamber.loadAccess;
+        connection operatorInterface to controller.commandIn;
+        connection hmi.commandOut to controller.commandIn;
+        connection controller.alarmOut to hmi.alarmIn;
+        connection controller.alarmOut to alarmInterface;
+
+        perform action sterilizationCycle {
+            first start;
+            then admitWater : AdmitWater {
+                requiredVolume = 8 [SI::liter];
+            }
+            then generateSteam : GenerateSteam {
+                feedWater = admitWater.admittedWater;
+            }
+            then heatChamber : HeatChamber {
+                steam = generateSteam.generatedSteam;
+                targetTemperature = controller.targetSterilizationTemperature;
+                targetPressure = controller.targetSterilizationPressure;
+            }
+            then holdExposure : HoldSterilizationExposure {
+                chamberTemperature = heatChamber.chamberTemperature;
+                chamberPressure = heatChamber.chamberPressure;
+                exposureDuration = controller.targetExposureDuration;
+            }
+            then vent : VentAndCondense {
+                chamberSteam = generateSteam.generatedSteam;
+            }
+            then dry : DryLoad;
+            then done;
+        }
+
+        exhibit state cycleBehavior : AutoclaveCycleStateMachine;
+    }
+
+    requirement def PrimarySterilizationFunction {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.finalResult == SterilizationResult::passed implies
+            autoclave.nominalSterilizationTemperature >= 121 [SI::degreeCelsius]
+            and autoclave.nominalSterilizationPressure >= 200 [SI::kilopascal]
+            and autoclave.nominalExposureDuration >= 4 [SI::minute]
+        }
+
+        doc
+        /*
+         * The autoclave shall sterilize a compatible instrument load by maintaining
+         * saturated steam exposure at controlled temperature and pressure for the
+         * specified exposure duration.
+         */
+    }
+
+    requirement def DoorSafetyInterlockRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.chamber.currentPressure > 105 [SI::kilopascal] implies
+            autoclave.door.position == DoorPosition::locked
+            and autoclave.door.lockEngaged
+        }
+
+        doc
+        /*
+         * The door shall remain locked whenever chamber pressure is above safe opening pressure.
+         */
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.chamber.currentPressure <= autoclave.chamber.maximumAllowablePressure
+        }
+
+        doc
+        /*
+         * The chamber pressure shall not exceed the pressure vessel maximum allowable pressure.
+         */
+    }
+
+    requirement def CycleCompletionRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.currentPhase == CyclePhase::complete implies
+            autoclave.finalResult == SterilizationResult::passed
+        }
+
+        doc
+        /*
+         * The system shall indicate cycle completion only after sterilization exposure,
+         * venting, and drying have completed successfully.
+         */
+    }
+
+    requirement def FaultAlarmRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.currentPhase == CyclePhase::faulted implies
+            autoclave.controller.cycleResult == SterilizationResult::failed
+        }
+
+        doc
+        /*
+         * The controller shall place the system in a faulted condition and issue an alarm
+         * when required temperature, pressure, door lock, or sensor conditions are not met.
+         */
+    }
+
+    satisfy PrimarySterilizationFunction by AutoclaveSystem;
+    satisfy DoorSafetyInterlockRequirement by AutoclaveSystem::door;
+    satisfy OverPressureProtectionRequirement by AutoclaveSystem::chamber;
+    satisfy CycleCompletionRequirement by AutoclaveSystem::controller;
+    satisfy FaultAlarmRequirement by AutoclaveSystem::controller;
+}
+tokens used
+4,480
+package AutoclaveModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::kilopascal;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = SI::minute;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::liter;
+    }
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::kilowatt;
+    }
+
+    attribute def Percent :> ScalarValues::Real;
+
+    enum def CyclePhase {
+        enum idle;
+        enum loading;
+        enum sealed;
+        enum heating;
+        enum sterilizing;
+        enum venting;
+        enum drying;
+        enum complete;
+        enum faulted;
+    }
+
+    enum def DoorPosition {
+        enum open;
+        enum closed;
+        enum locked;
+    }
+
+    enum def SterilizationResult {
+        enum notStarted;
+        enum passed;
+        enum failed;
+        enum aborted;
+    }
+
+    item def Water {
+        attribute volume : Volume;
+        attribute purity : Percent;
+    }
+
+    item def Steam {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute saturationFraction : Percent;
+    }
+
+    item def Condensate {
+        attribute volume : Volume;
+        attribute temperature : Temperature;
+    }
+
+    item def ElectricalEnergy {
+        attribute power : Power;
+        attribute voltage : Real;
+    }
+
+    item def InstrumentSet {
+        attribute mass : Mass;
+        attribute bioburdenLevel : Real;
+        attribute packageIntegrity : Boolean;
+    }
+
+    item def SterilizedInstrumentSet :> InstrumentSet {
+        attribute result : SterilizationResult;
+        attribute exposureTemperature : Temperature;
+        attribute exposurePressure : Pressure;
+        attribute exposureDuration : Duration;
+    }
+
+    item def OperatorCommand {
+        attribute startRequested : Boolean;
+        attribute cancelRequested : Boolean;
+        attribute selectedCycleMinutes : Duration;
+        attribute selectedSterilizationTemperature : Temperature;
+    }
+
+    item def AlarmSignal {
+        attribute active : Boolean;
+        attribute message : String;
+        attribute severity : Integer;
+    }
+
+    port def WaterInletPort {
+        in item water : Water;
+    }
+
+    port def SteamPort {
+        out item steam : Steam;
+    }
+
+    port def CondensateDrainPort {
+        out item condensate : Condensate;
+    }
+
+    port def ElectricalPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def LoadPort {
+        in item unsterileLoad : InstrumentSet;
+        out item sterileLoad : SterilizedInstrumentSet;
+    }
+
+    port def CommandPort {
+        in item command : OperatorCommand;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    part def PressureVessel {
+        attribute chamberVolume : Volume = 60 [SI::liter];
+        attribute maximumAllowablePressure : Pressure = 320 [SI::kilopascal];
+        attribute maximumAllowableTemperature : Temperature = 145 [SI::degreeCelsius];
+        attribute currentPressure : Pressure;
+        attribute currentTemperature : Temperature;
+        attribute containsLoad : Boolean;
+
+        port steamIn : SteamPort;
+        port drainOut : CondensateDrainPort;
+        port loadAccess : LoadPort;
+    }
+
+    part def DoorAssembly {
+        attribute position : DoorPosition;
+        attribute gasketCompressed : Boolean;
+        attribute lockEngaged : Boolean;
+        attribute interlockHealthy : Boolean;
+
+        port loadAccess : LoadPort;
+    }
+
+    part def ElectricSteamGenerator {
+        attribute heaterPower : Power = 9 [SI::kilowatt];
+        attribute waterLevel : Percent;
+        attribute outputTemperature : Temperature;
+        attribute outputPressure : Pressure;
+
+        port waterIn : WaterInletPort;
+        port powerIn : ElectricalPort;
+        port steamOut : SteamPort;
+    }
+
+    part def VacuumAndVentSubsystem {
+        attribute vacuumAvailable : Boolean;
+        attribute exhaustValveOpen : Boolean;
+        attribute chamberVacuumPressure : Pressure;
+
+        port drainOut : CondensateDrainPort;
+    }
+
+    part def SensorSet {
+        attribute measuredTemperature : Temperature;
+        attribute measuredPressure : Pressure;
+        attribute measuredDoorPosition : DoorPosition;
+        attribute loadProbeTemperature : Temperature;
+        attribute sensorHealthy : Boolean;
+    }
+
+    part def ControlUnit {
+        attribute commandedPhase : CyclePhase;
+        attribute targetSterilizationTemperature : Temperature = 134 [SI::degreeCelsius];
+        attribute targetSterilizationPressure : Pressure = 210 [SI::kilopascal];
+        attribute targetExposureDuration : Duration = 4 [SI::minute];
+        attribute elapsedExposureDuration : Duration;
+        attribute cycleResult : SterilizationResult;
+
+        port commandIn : CommandPort;
+        port alarmOut : AlarmPort;
+    }
+
+    part def HumanMachineInterface {
+        attribute displayedPhase : CyclePhase;
+        attribute displayedTemperature : Temperature;
+        attribute displayedPressure : Pressure;
+        attribute cycleCompleteIndicated : Boolean;
+        attribute faultDisplayed : Boolean;
+
+        port commandOut : CommandPort;
+        port alarmIn : AlarmPort;
+    }
+
+    action def AdmitWater {
+        in requiredVolume : Volume;
+        out admittedWater : Water;
+    }
+
+    action def GenerateSteam {
+        in feedWater : Water;
+        in electricalEnergy : ElectricalEnergy;
+        out generatedSteam : Steam;
+    }
+
+    action def HeatChamber {
+        in steam : Steam;
+        in targetTemperature : Temperature;
+        in targetPressure : Pressure;
+        out chamberTemperature : Temperature;
+        out chamberPressure : Pressure;
+    }
+
+    action def HoldSterilizationExposure {
+        in chamberTemperature : Temperature;
+        in chamberPressure : Pressure;
+        in exposureDuration : Duration;
+        out result : SterilizationResult;
+    }
+
+    action def VentAndCondense {
+        in chamberSteam : Steam;
+        out condensate : Condensate;
+        out finalPressure : Pressure;
+    }
+
+    action def DryLoad {
+        in wetLoad : InstrumentSet;
+        out drySterileLoad : SterilizedInstrumentSet;
+    }
+
+    state def AutoclaveCycleStateMachine {
+        entry action initialize {
+            cyclePhase = CyclePhase::idle;
+            cycleResult = SterilizationResult::notStarted;
+        }
+
+        state Idle;
+        state Loading;
+        state Sealed;
+        state Heating;
+        state Sterilizing;
+        state Venting;
+        state Drying;
+        state Complete;
+        state Faulted;
+
+        transition first Idle;
+
+        transition Idle_to_Loading
+            first Idle
+            then Loading
+            accept OperatorCommand
+            if command.startRequested;
+
+        transition Loading_to_Sealed
+            first Loading
+            then Sealed
+            if door.position == DoorPosition::closed and sensors.sensorHealthy;
+
+        transition Sealed_to_Heating
+            first Sealed
+            then Heating
+            if door.lockEngaged and door.interlockHealthy;
+
+        transition Heating_to_Sterilizing
+            first Heating
+            then Sterilizing
+            if sensors.measuredTemperature >= controller.targetSterilizationTemperature
+            and sensors.measuredPressure >= controller.targetSterilizationPressure;
+
+        transition Sterilizing_to_Venting
+            first Sterilizing
+            then Venting
+            if controller.elapsedExposureDuration >= controller.targetExposureDuration;
+
+        transition Venting_to_Drying
+            first Venting
+            then Drying
+            if sensors.measuredPressure <= 105 [SI::kilopascal];
+
+        transition Drying_to_Complete
+            first Drying
+            then Complete
+            if controller.cycleResult == SterilizationResult::passed;
+
+        transition Any_to_Faulted
+            first Idle
+            then Faulted
+            accept AlarmSignal
+            if alarm.active;
+
+        transition Faulted_to_Idle
+            first Faulted
+            then Idle
+            accept OperatorCommand
+            if command.cancelRequested;
+    }
+
+    part def AutoclaveSystem {
+        doc
+        /*
+         * Primary function: the autoclave sterilizes reusable instruments by exposing a sealed load
+         * to saturated steam at controlled temperature, pressure, and duration, then safely vents,
+         * dries, and releases the sterilized load.
+         */
+
+        attribute ratedChamberVolume : Volume = 60 [SI::liter];
+        attribute nominalSterilizationTemperature : Temperature = 134 [SI::degreeCelsius];
+        attribute nominalSterilizationPressure : Pressure = 210 [SI::kilopascal];
+        attribute nominalExposureDuration : Duration = 4 [SI::minute];
+        attribute currentPhase : CyclePhase;
+        attribute finalResult : SterilizationResult;
+
+        port waterSupply : WaterInletPort;
+        port electricalSupply : ElectricalPort;
+        port loadInterface : LoadPort;
+        port operatorInterface : CommandPort;
+        port alarmInterface : AlarmPort;
+        port drainInterface : CondensateDrainPort;
+
+        part chamber : PressureVessel;
+        part door : DoorAssembly;
+        part steamGenerator : ElectricSteamGenerator;
+        part ventSystem : VacuumAndVentSubsystem;
+        part sensors : SensorSet;
+        part controller : ControlUnit;
+        part hmi : HumanMachineInterface;
+
+        connection waterSupply to steamGenerator.waterIn;
+        connection electricalSupply to steamGenerator.powerIn;
+        connection steamGenerator.steamOut to chamber.steamIn;
+        connection chamber.drainOut to ventSystem.drainOut;
+        connection ventSystem.drainOut to drainInterface;
+        connection loadInterface to door.loadAccess;
+        connection door.loadAccess to chamber.loadAccess;
+        connection operatorInterface to controller.commandIn;
+        connection hmi.commandOut to controller.commandIn;
+        connection controller.alarmOut to hmi.alarmIn;
+        connection controller.alarmOut to alarmInterface;
+
+        perform action sterilizationCycle {
+            first start;
+            then admitWater : AdmitWater {
+                requiredVolume = 8 [SI::liter];
+            }
+            then generateSteam : GenerateSteam {
+                feedWater = admitWater.admittedWater;
+            }
+            then heatChamber : HeatChamber {
+                steam = generateSteam.generatedSteam;
+                targetTemperature = controller.targetSterilizationTemperature;
+                targetPressure = controller.targetSterilizationPressure;
+            }
+            then holdExposure : HoldSterilizationExposure {
+                chamberTemperature = heatChamber.chamberTemperature;
+                chamberPressure = heatChamber.chamberPressure;
+                exposureDuration = controller.targetExposureDuration;
+            }
+            then vent : VentAndCondense {
+                chamberSteam = generateSteam.generatedSteam;
+            }
+            then dry : DryLoad;
+            then done;
+        }
+
+        exhibit state cycleBehavior : AutoclaveCycleStateMachine;
+    }
+
+    requirement def PrimarySterilizationFunction {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.finalResult == SterilizationResult::passed implies
+            autoclave.nominalSterilizationTemperature >= 121 [SI::degreeCelsius]
+            and autoclave.nominalSterilizationPressure >= 200 [SI::kilopascal]
+            and autoclave.nominalExposureDuration >= 4 [SI::minute]
+        }
+
+        doc
+        /*
+         * The autoclave shall sterilize a compatible instrument load by maintaining
+         * saturated steam exposure at controlled temperature and pressure for the
+         * specified exposure duration.
+         */
+    }
+
+    requirement def DoorSafetyInterlockRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.chamber.currentPressure > 105 [SI::kilopascal] implies
+            autoclave.door.position == DoorPosition::locked
+            and autoclave.door.lockEngaged
+        }
+
+        doc
+        /*
+         * The door shall remain locked whenever chamber pressure is above safe opening pressure.
+         */
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.chamber.currentPressure <= autoclave.chamber.maximumAllowablePressure
+        }
+
+        doc
+        /*
+         * The chamber pressure shall not exceed the pressure vessel maximum allowable pressure.
+         */
+    }
+
+    requirement def CycleCompletionRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.currentPhase == CyclePhase::complete implies
+            autoclave.finalResult == SterilizationResult::passed
+        }
+
+        doc
+        /*
+         * The system shall indicate cycle completion only after sterilization exposure,
+         * venting, and drying have completed successfully.
+         */
+    }
+
+    requirement def FaultAlarmRequirement {
+        subject autoclave : AutoclaveSystem;
+
+        require constraint {
+            autoclave.currentPhase == CyclePhase::faulted implies
+            autoclave.controller.cycleResult == SterilizationResult::failed
+        }
+
+        doc
+        /*
+         * The controller shall place the system in a faulted condition and issue an alarm
+         * when required temperature, pressure, door lock, or sensor conditions are not met.
+         */
+    }
+
+    satisfy PrimarySterilizationFunction by AutoclaveSystem;
+    satisfy DoorSafetyInterlockRequirement by AutoclaveSystem::door;
+    satisfy OverPressureProtectionRequirement by AutoclaveSystem::chamber;
+    satisfy CycleCompletionRequirement by AutoclaveSystem::controller;
+    satisfy FaultAlarmRequirement by AutoclaveSystem::controller;
+}

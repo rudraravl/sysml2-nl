@@ -1,0 +1,795 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-prit_8zj
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4bb-79dd-7ae2-8b64-a036ccf98c52
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Plunger and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PlungerBasedSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value type Length :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    value type Area :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    value type Volume :> ISQ::volume {
+        unit = SI::millilitre;
+    }
+
+    value type Force :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    value type Pressure :> ISQ::pressure {
+        unit = SI::kilopascal;
+    }
+
+    value type Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    value type FlowRate :> ISQ::volumeFlowRate {
+        unit = SI::millilitrePerSecond;
+    }
+
+    value type Stiffness {
+        unit = SI::newtonPerMetre;
+    }
+
+    enum def PlungerCommandKind {
+        enum press;
+        enum release;
+        enum hold;
+        enum lock;
+    }
+
+    enum def PlungerStateKind {
+        enum idleRetracted;
+        enum compressing;
+        enum dispensing;
+        enum returning;
+        enum locked;
+        enum faultBlocked;
+    }
+
+    item def OperatorCommand {
+        attribute kind : PlungerCommandKind;
+        attribute requestedForce : Force;
+        attribute requestedStroke : Length;
+    }
+
+    item def HapticFeedback {
+        attribute resistanceForce : Force;
+        attribute strokePosition : Length;
+        attribute state : PlungerStateKind;
+    }
+
+    item def WorkingFluid {
+        attribute nominalViscosity : Real;
+        attribute temperature : Real;
+        attribute containsAir : Boolean;
+    }
+
+    item def FluidPacket {
+        attribute fluid : WorkingFluid;
+        attribute volume : Volume;
+        attribute pressure : Pressure;
+    }
+
+    port def MechanicalCommandPort {
+        in item command : OperatorCommand;
+        out item feedback : HapticFeedback;
+    }
+
+    port def MechanicalMotionPort {
+        in item appliedForce : Force;
+        out item displacement : Length;
+    }
+
+    port def FluidInletPort {
+        in item intake : FluidPacket;
+        attribute inletPressure : Pressure;
+    }
+
+    port def FluidOutletPort {
+        out item discharge : FluidPacket;
+        attribute outletPressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    port def VentPort {
+        out item displacedAir : FluidPacket;
+    }
+
+    part def FingerPad {
+        attribute contactArea : Area = 0.00045 [SI::squareMetre];
+        attribute maximumOperatorForce : Force = 80 [SI::newton];
+        port commandPort : MechanicalCommandPort;
+        port motionPort : MechanicalMotionPort;
+    }
+
+    part def PlungerRod {
+        attribute length : Length = 85 [SI::millimetre];
+        attribute diameter : Length = 6 [SI::millimetre];
+        attribute axialLoadLimit : Force = 120 [SI::newton];
+        port inputMotion : MechanicalMotionPort;
+        port outputMotion : MechanicalMotionPort;
+    }
+
+    part def PistonHead {
+        attribute diameter : Length = 18 [SI::millimetre];
+        attribute effectiveArea : Area = 0.000254 [SI::squareMetre];
+        attribute sealDragForce : Force = 4 [SI::newton];
+        port motionPort : MechanicalMotionPort;
+        port chamberInterface : FluidOutletPort;
+    }
+
+    part def ElastomerSeal {
+        attribute compressionAllowance : Length = 0.4 [SI::millimetre];
+        attribute maximumPressure : Pressure = 650 [SI::kilopascal];
+        attribute leakageRateLimit : FlowRate = 0.02 [SI::millilitrePerSecond];
+    }
+
+    part def ReturnSpring {
+        attribute freeLength : Length = 45 [SI::millimetre];
+        attribute installedLength : Length = 38 [SI::millimetre];
+        attribute springConstant : Stiffness = 850 [SI::newtonPerMetre];
+        attribute preloadForce : Force = 6 [SI::newton];
+        port compressionPort : MechanicalMotionPort;
+    }
+
+    part def CylinderBarrel {
+        attribute boreDiameter : Length = 18 [SI::millimetre];
+        attribute usableStroke : Length = 42 [SI::millimetre];
+        attribute chamberVolume : Volume = 10.7 [SI::millilitre];
+        attribute ratedPressure : Pressure = 700 [SI::kilopascal];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port vent : VentPort;
+    }
+
+    part def CheckValve {
+        attribute openingPressure : Pressure = 12 [SI::kilopascal];
+        attribute reverseLeakageLimit : FlowRate = 0.01 [SI::millilitrePerSecond];
+        port upstream : FluidInletPort;
+        port downstream : FluidOutletPort;
+    }
+
+    part def Nozzle {
+        attribute orificeDiameter : Length = 1.2 [SI::millimetre];
+        attribute nominalFlowRate : FlowRate = 2.5 [SI::millilitrePerSecond];
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+    }
+
+    part def Reservoir {
+        attribute storedVolume : Volume = 50 [SI::millilitre];
+        attribute minimumUsableVolume : Volume = 2 [SI::millilitre];
+        port outlet : FluidOutletPort;
+        port vent : VentPort;
+    }
+
+    action def AcceptOperatorPress {
+        in item command : OperatorCommand;
+        out item appliedForce : Force;
+    }
+
+    action def ConvertForceToPressure {
+        in item appliedForce : Force;
+        in effectiveArea : Area;
+        out chamberPressure : Pressure;
+    }
+
+    action def AdvancePiston {
+        in strokeRequest : Length;
+        out pistonDisplacement : Length;
+        out displacedVolume : Volume;
+    }
+
+    action def OpenOutletValve {
+        in chamberPressure : Pressure;
+        in crackingPressure : Pressure;
+        out valveOpen : Boolean;
+    }
+
+    action def DispenseFluid {
+        in item displacedVolume : Volume;
+        out item deliveredPacket : FluidPacket;
+    }
+
+    action def ReturnPlunger {
+        in springForce : Force;
+        out returnedStroke : Length;
+    }
+
+    action def RefillChamber {
+        in item reservoirFluid : FluidPacket;
+        out item chamberFluid : FluidPacket;
+    }
+
+    state def PlungerCycle {
+        in item command : OperatorCommand;
+        out item feedback : HapticFeedback;
+
+        attribute currentState : PlungerStateKind;
+        attribute strokePosition : Length;
+        attribute chamberPressure : Pressure;
+        attribute deliveredVolume : Volume;
+
+        state idleRetracted;
+        state compressing;
+        state dispensing;
+        state returning;
+        state locked;
+        state faultBlocked;
+
+        initial then idleRetracted;
+
+        transition idleRetracted_to_compressing
+            first idleRetracted
+            accept command
+            if command.kind == PlungerCommandKind::press
+            do AcceptOperatorPress
+            then compressing;
+
+        transition compressing_to_dispensing
+            first compressing
+            if chamberPressure >= 12 [SI::kilopascal]
+            do OpenOutletValve
+            then dispensing;
+
+        transition dispensing_to_returning
+            first dispensing
+            accept command
+            if command.kind == PlungerCommandKind::release
+            do DispenseFluid
+            then returning;
+
+        transition returning_to_idleRetracted
+            first returning
+            if strokePosition <= 0 [SI::millimetre]
+            do RefillChamber
+            then idleRetracted;
+
+        transition idleRetracted_to_locked
+            first idleRetracted
+            accept command
+            if command.kind == PlungerCommandKind::lock
+            then locked;
+
+        transition locked_to_idleRetracted
+            first locked
+            accept command
+            if command.kind == PlungerCommandKind::release
+            then idleRetracted;
+
+        transition any_to_faultBlocked
+            first idleRetracted, compressing, dispensing, returning
+            if chamberPressure > 700 [SI::kilopascal]
+            then faultBlocked;
+    }
+
+    part def PlungerActuatedFluidDispenser {
+        doc /* Primary high-level function: convert a user-applied axial push on a plunger into controlled displacement of fluid from an internal chamber through an outlet nozzle. */
+
+        attribute maximumStroke : Length = 42 [SI::millimetre];
+        attribute nominalDoseVolume : Volume = 10 [SI::millilitre];
+        attribute maximumOperatingPressure : Pressure = 650 [SI::kilopascal];
+        attribute minimumDispenseForce : Force = 10 [SI::newton];
+        attribute maximumDispenseForce : Force = 80 [SI::newton];
+        attribute nominalDispenseTime : Time = 3 [SI::second];
+
+        port operatorInterface : MechanicalCommandPort;
+        port fluidSupply : FluidInletPort;
+        port fluidDelivery : FluidOutletPort;
+        port airVent : VentPort;
+
+        part fingerPad : FingerPad;
+        part rod : PlungerRod;
+        part piston : PistonHead;
+        part primarySeal : ElastomerSeal;
+        part returnSpring : ReturnSpring;
+        part barrel : CylinderBarrel;
+        part inletValve : CheckValve {
+            :>> openingPressure = 4 [SI::kilopascal];
+        }
+        part outletValve : CheckValve {
+            :>> openingPressure = 12 [SI::kilopascal];
+        }
+        part nozzle : Nozzle;
+        part reservoir : Reservoir;
+
+        perform cycle : PlungerCycle;
+
+        connect operatorInterface to fingerPad.commandPort;
+        connect fingerPad.motionPort to rod.inputMotion;
+        connect rod.outputMotion to piston.motionPort;
+        connect returnSpring.compressionPort to rod.outputMotion;
+
+        connect reservoir.outlet to inletValve.upstream;
+        connect inletValve.downstream to barrel.inlet;
+        connect barrel.outlet to outletValve.upstream;
+        connect outletValve.downstream to nozzle.inlet;
+        connect nozzle.outlet to fluidDelivery;
+        connect reservoir.vent to barrel.vent;
+        connect barrel.vent to airVent;
+
+        bind fluidSupply = reservoir.outlet;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The plunger system shall translate manual axial input into a controlled fluid dispensing action. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.nominalDoseVolume >= 8 [SI::millilitre] and
+            dispenser.nominalDoseVolume <= 12 [SI::millilitre]
+        }
+    }
+
+    requirement def StrokeLimitRequirement {
+        doc /* The plunger stroke shall remain within the usable barrel length. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.maximumStroke <= dispenser.barrel.usableStroke
+        }
+    }
+
+    requirement def PressureContainmentRequirement {
+        doc /* The barrel and seal shall withstand the maximum operating pressure without leakage beyond the allowable limit. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.maximumOperatingPressure <= dispenser.barrel.ratedPressure and
+            dispenser.maximumOperatingPressure <= dispenser.primarySeal.maximumPressure and
+            dispenser.primarySeal.leakageRateLimit <= 0.02 [SI::millilitrePerSecond]
+        }
+    }
+
+    requirement def ErgonomicForceRequirement {
+        doc /* The required manual force shall remain within a one-hand operating range. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.minimumDispenseForce >= 5 [SI::newton] and
+            dispenser.maximumDispenseForce <= dispenser.fingerPad.maximumOperatorForce
+        }
+    }
+
+    requirement def BackflowPreventionRequirement {
+        doc /* Check valves shall prevent reverse flow from the outlet path into the reservoir during a press stroke. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.inletValve.reverseLeakageLimit <= 0.01 [SI::millilitrePerSecond] and
+            dispenser.outletValve.reverseLeakageLimit <= 0.01 [SI::millilitrePerSecond]
+        }
+    }
+
+    requirement def ReturnReadinessRequirement {
+        doc /* After release, the spring shall return the plunger to the retracted position and allow chamber refill. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.returnSpring.preloadForce > dispenser.piston.sealDragForce
+        }
+    }
+
+    part plungerDispenser : PlungerActuatedFluidDispenser;
+
+    satisfy PrimaryFunctionRequirement by plungerDispenser;
+    satisfy StrokeLimitRequirement by plungerDispenser;
+    satisfy PressureContainmentRequirement by plungerDispenser;
+    satisfy ErgonomicForceRequirement by plungerDispenser;
+    satisfy BackflowPreventionRequirement by plungerDispenser;
+    satisfy ReturnReadinessRequirement by plungerDispenser;
+}
+tokens used
+4,617
+package PlungerBasedSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value type Length :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    value type Area :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    value type Volume :> ISQ::volume {
+        unit = SI::millilitre;
+    }
+
+    value type Force :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    value type Pressure :> ISQ::pressure {
+        unit = SI::kilopascal;
+    }
+
+    value type Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    value type FlowRate :> ISQ::volumeFlowRate {
+        unit = SI::millilitrePerSecond;
+    }
+
+    value type Stiffness {
+        unit = SI::newtonPerMetre;
+    }
+
+    enum def PlungerCommandKind {
+        enum press;
+        enum release;
+        enum hold;
+        enum lock;
+    }
+
+    enum def PlungerStateKind {
+        enum idleRetracted;
+        enum compressing;
+        enum dispensing;
+        enum returning;
+        enum locked;
+        enum faultBlocked;
+    }
+
+    item def OperatorCommand {
+        attribute kind : PlungerCommandKind;
+        attribute requestedForce : Force;
+        attribute requestedStroke : Length;
+    }
+
+    item def HapticFeedback {
+        attribute resistanceForce : Force;
+        attribute strokePosition : Length;
+        attribute state : PlungerStateKind;
+    }
+
+    item def WorkingFluid {
+        attribute nominalViscosity : Real;
+        attribute temperature : Real;
+        attribute containsAir : Boolean;
+    }
+
+    item def FluidPacket {
+        attribute fluid : WorkingFluid;
+        attribute volume : Volume;
+        attribute pressure : Pressure;
+    }
+
+    port def MechanicalCommandPort {
+        in item command : OperatorCommand;
+        out item feedback : HapticFeedback;
+    }
+
+    port def MechanicalMotionPort {
+        in item appliedForce : Force;
+        out item displacement : Length;
+    }
+
+    port def FluidInletPort {
+        in item intake : FluidPacket;
+        attribute inletPressure : Pressure;
+    }
+
+    port def FluidOutletPort {
+        out item discharge : FluidPacket;
+        attribute outletPressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    port def VentPort {
+        out item displacedAir : FluidPacket;
+    }
+
+    part def FingerPad {
+        attribute contactArea : Area = 0.00045 [SI::squareMetre];
+        attribute maximumOperatorForce : Force = 80 [SI::newton];
+        port commandPort : MechanicalCommandPort;
+        port motionPort : MechanicalMotionPort;
+    }
+
+    part def PlungerRod {
+        attribute length : Length = 85 [SI::millimetre];
+        attribute diameter : Length = 6 [SI::millimetre];
+        attribute axialLoadLimit : Force = 120 [SI::newton];
+        port inputMotion : MechanicalMotionPort;
+        port outputMotion : MechanicalMotionPort;
+    }
+
+    part def PistonHead {
+        attribute diameter : Length = 18 [SI::millimetre];
+        attribute effectiveArea : Area = 0.000254 [SI::squareMetre];
+        attribute sealDragForce : Force = 4 [SI::newton];
+        port motionPort : MechanicalMotionPort;
+        port chamberInterface : FluidOutletPort;
+    }
+
+    part def ElastomerSeal {
+        attribute compressionAllowance : Length = 0.4 [SI::millimetre];
+        attribute maximumPressure : Pressure = 650 [SI::kilopascal];
+        attribute leakageRateLimit : FlowRate = 0.02 [SI::millilitrePerSecond];
+    }
+
+    part def ReturnSpring {
+        attribute freeLength : Length = 45 [SI::millimetre];
+        attribute installedLength : Length = 38 [SI::millimetre];
+        attribute springConstant : Stiffness = 850 [SI::newtonPerMetre];
+        attribute preloadForce : Force = 6 [SI::newton];
+        port compressionPort : MechanicalMotionPort;
+    }
+
+    part def CylinderBarrel {
+        attribute boreDiameter : Length = 18 [SI::millimetre];
+        attribute usableStroke : Length = 42 [SI::millimetre];
+        attribute chamberVolume : Volume = 10.7 [SI::millilitre];
+        attribute ratedPressure : Pressure = 700 [SI::kilopascal];
+
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port vent : VentPort;
+    }
+
+    part def CheckValve {
+        attribute openingPressure : Pressure = 12 [SI::kilopascal];
+        attribute reverseLeakageLimit : FlowRate = 0.01 [SI::millilitrePerSecond];
+        port upstream : FluidInletPort;
+        port downstream : FluidOutletPort;
+    }
+
+    part def Nozzle {
+        attribute orificeDiameter : Length = 1.2 [SI::millimetre];
+        attribute nominalFlowRate : FlowRate = 2.5 [SI::millilitrePerSecond];
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+    }
+
+    part def Reservoir {
+        attribute storedVolume : Volume = 50 [SI::millilitre];
+        attribute minimumUsableVolume : Volume = 2 [SI::millilitre];
+        port outlet : FluidOutletPort;
+        port vent : VentPort;
+    }
+
+    action def AcceptOperatorPress {
+        in item command : OperatorCommand;
+        out item appliedForce : Force;
+    }
+
+    action def ConvertForceToPressure {
+        in item appliedForce : Force;
+        in effectiveArea : Area;
+        out chamberPressure : Pressure;
+    }
+
+    action def AdvancePiston {
+        in strokeRequest : Length;
+        out pistonDisplacement : Length;
+        out displacedVolume : Volume;
+    }
+
+    action def OpenOutletValve {
+        in chamberPressure : Pressure;
+        in crackingPressure : Pressure;
+        out valveOpen : Boolean;
+    }
+
+    action def DispenseFluid {
+        in item displacedVolume : Volume;
+        out item deliveredPacket : FluidPacket;
+    }
+
+    action def ReturnPlunger {
+        in springForce : Force;
+        out returnedStroke : Length;
+    }
+
+    action def RefillChamber {
+        in item reservoirFluid : FluidPacket;
+        out item chamberFluid : FluidPacket;
+    }
+
+    state def PlungerCycle {
+        in item command : OperatorCommand;
+        out item feedback : HapticFeedback;
+
+        attribute currentState : PlungerStateKind;
+        attribute strokePosition : Length;
+        attribute chamberPressure : Pressure;
+        attribute deliveredVolume : Volume;
+
+        state idleRetracted;
+        state compressing;
+        state dispensing;
+        state returning;
+        state locked;
+        state faultBlocked;
+
+        initial then idleRetracted;
+
+        transition idleRetracted_to_compressing
+            first idleRetracted
+            accept command
+            if command.kind == PlungerCommandKind::press
+            do AcceptOperatorPress
+            then compressing;
+
+        transition compressing_to_dispensing
+            first compressing
+            if chamberPressure >= 12 [SI::kilopascal]
+            do OpenOutletValve
+            then dispensing;
+
+        transition dispensing_to_returning
+            first dispensing
+            accept command
+            if command.kind == PlungerCommandKind::release
+            do DispenseFluid
+            then returning;
+
+        transition returning_to_idleRetracted
+            first returning
+            if strokePosition <= 0 [SI::millimetre]
+            do RefillChamber
+            then idleRetracted;
+
+        transition idleRetracted_to_locked
+            first idleRetracted
+            accept command
+            if command.kind == PlungerCommandKind::lock
+            then locked;
+
+        transition locked_to_idleRetracted
+            first locked
+            accept command
+            if command.kind == PlungerCommandKind::release
+            then idleRetracted;
+
+        transition any_to_faultBlocked
+            first idleRetracted, compressing, dispensing, returning
+            if chamberPressure > 700 [SI::kilopascal]
+            then faultBlocked;
+    }
+
+    part def PlungerActuatedFluidDispenser {
+        doc /* Primary high-level function: convert a user-applied axial push on a plunger into controlled displacement of fluid from an internal chamber through an outlet nozzle. */
+
+        attribute maximumStroke : Length = 42 [SI::millimetre];
+        attribute nominalDoseVolume : Volume = 10 [SI::millilitre];
+        attribute maximumOperatingPressure : Pressure = 650 [SI::kilopascal];
+        attribute minimumDispenseForce : Force = 10 [SI::newton];
+        attribute maximumDispenseForce : Force = 80 [SI::newton];
+        attribute nominalDispenseTime : Time = 3 [SI::second];
+
+        port operatorInterface : MechanicalCommandPort;
+        port fluidSupply : FluidInletPort;
+        port fluidDelivery : FluidOutletPort;
+        port airVent : VentPort;
+
+        part fingerPad : FingerPad;
+        part rod : PlungerRod;
+        part piston : PistonHead;
+        part primarySeal : ElastomerSeal;
+        part returnSpring : ReturnSpring;
+        part barrel : CylinderBarrel;
+        part inletValve : CheckValve {
+            :>> openingPressure = 4 [SI::kilopascal];
+        }
+        part outletValve : CheckValve {
+            :>> openingPressure = 12 [SI::kilopascal];
+        }
+        part nozzle : Nozzle;
+        part reservoir : Reservoir;
+
+        perform cycle : PlungerCycle;
+
+        connect operatorInterface to fingerPad.commandPort;
+        connect fingerPad.motionPort to rod.inputMotion;
+        connect rod.outputMotion to piston.motionPort;
+        connect returnSpring.compressionPort to rod.outputMotion;
+
+        connect reservoir.outlet to inletValve.upstream;
+        connect inletValve.downstream to barrel.inlet;
+        connect barrel.outlet to outletValve.upstream;
+        connect outletValve.downstream to nozzle.inlet;
+        connect nozzle.outlet to fluidDelivery;
+        connect reservoir.vent to barrel.vent;
+        connect barrel.vent to airVent;
+
+        bind fluidSupply = reservoir.outlet;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The plunger system shall translate manual axial input into a controlled fluid dispensing action. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.nominalDoseVolume >= 8 [SI::millilitre] and
+            dispenser.nominalDoseVolume <= 12 [SI::millilitre]
+        }
+    }
+
+    requirement def StrokeLimitRequirement {
+        doc /* The plunger stroke shall remain within the usable barrel length. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.maximumStroke <= dispenser.barrel.usableStroke
+        }
+    }
+
+    requirement def PressureContainmentRequirement {
+        doc /* The barrel and seal shall withstand the maximum operating pressure without leakage beyond the allowable limit. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.maximumOperatingPressure <= dispenser.barrel.ratedPressure and
+            dispenser.maximumOperatingPressure <= dispenser.primarySeal.maximumPressure and
+            dispenser.primarySeal.leakageRateLimit <= 0.02 [SI::millilitrePerSecond]
+        }
+    }
+
+    requirement def ErgonomicForceRequirement {
+        doc /* The required manual force shall remain within a one-hand operating range. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.minimumDispenseForce >= 5 [SI::newton] and
+            dispenser.maximumDispenseForce <= dispenser.fingerPad.maximumOperatorForce
+        }
+    }
+
+    requirement def BackflowPreventionRequirement {
+        doc /* Check valves shall prevent reverse flow from the outlet path into the reservoir during a press stroke. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.inletValve.reverseLeakageLimit <= 0.01 [SI::millilitrePerSecond] and
+            dispenser.outletValve.reverseLeakageLimit <= 0.01 [SI::millilitrePerSecond]
+        }
+    }
+
+    requirement def ReturnReadinessRequirement {
+        doc /* After release, the spring shall return the plunger to the retracted position and allow chamber refill. */
+        subject dispenser : PlungerActuatedFluidDispenser;
+
+        require constraint {
+            dispenser.returnSpring.preloadForce > dispenser.piston.sealDragForce
+        }
+    }
+
+    part plungerDispenser : PlungerActuatedFluidDispenser;
+
+    satisfy PrimaryFunctionRequirement by plungerDispenser;
+    satisfy StrokeLimitRequirement by plungerDispenser;
+    satisfy PressureContainmentRequirement by plungerDispenser;
+    satisfy ErgonomicForceRequirement by plungerDispenser;
+    satisfy BackflowPreventionRequirement by plungerDispenser;
+    satisfy ReturnReadinessRequirement by plungerDispenser;
+}

@@ -1,0 +1,971 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tsl0rot3
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb330-863a-7380-a0da-adb7ba23f5c2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Ventricular assist device and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VentricularAssistDeviceModel {
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> pressure { :>> unit = SI::Pa; }
+  attribute def FlowRate :> volumeFlowRate { :>> unit = SI::m3 / SI::s; }
+  attribute def RotationalSpeed :> frequency { :>> unit = SI::Hz; }
+  attribute def Voltage :> electricPotential { :>> unit = SI::V; }
+  attribute def Current :> electricCurrent { :>> unit = SI::A; }
+  attribute def Power :> power { :>> unit = SI::W; }
+  attribute def Energy :> energy { :>> unit = SI::J; }
+  attribute def Temperature :> thermodynamicTemperature { :>> unit = SI::K; }
+  attribute def Duration :> time { :>> unit = SI::s; }
+
+  item def Blood {
+    attribute oxygenSaturation : Real;
+    attribute hematocrit : Real;
+    attribute temperature : Temperature;
+    attribute anticoagulated : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute availablePower : Power;
+  }
+
+  item def PumpCommand {
+    attribute targetSpeed : RotationalSpeed;
+    attribute targetFlow : FlowRate;
+    attribute mode : PumpOperatingMode;
+  }
+
+  item def PumpTelemetry {
+    attribute measuredSpeed : RotationalSpeed;
+    attribute estimatedFlow : FlowRate;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute motorCurrent : Current;
+    attribute controllerTemperature : Temperature;
+  }
+
+  item def AlarmNotification {
+    attribute severity : AlarmSeverity;
+    attribute messageCode : Integer;
+    attribute active : Boolean;
+  }
+
+  enum def PumpOperatingMode {
+    enum idle;
+    enum rampUp;
+    enum assist;
+    enum lowPower;
+    enum faultSafe;
+    enum stopped;
+  }
+
+  enum def AlarmSeverity {
+    enum advisory;
+    enum caution;
+    enum critical;
+  }
+
+  port def BloodInletPort {
+    in item blood : Blood;
+    attribute pressure : Pressure;
+  }
+
+  port def BloodOutletPort {
+    out item blood : Blood;
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def PowerOutputPort {
+    out item power : ElectricalPower;
+  }
+
+  port def CommandInputPort {
+    in item command : PumpCommand;
+  }
+
+  port def TelemetryOutputPort {
+    out item telemetry : PumpTelemetry;
+  }
+
+  port def AlarmOutputPort {
+    out item alarm : AlarmNotification;
+  }
+
+  part def InflowCannula {
+    port ventricularEnd : BloodInletPort;
+    port pumpEnd : BloodOutletPort;
+    attribute internalDiameter : Length;
+    attribute primed : Boolean;
+  }
+
+  part def OutflowGraft {
+    port pumpEnd : BloodInletPort;
+    port arterialEnd : BloodOutletPort;
+    attribute internalDiameter : Length;
+    attribute kinkDetected : Boolean;
+  }
+
+  part def RotaryBloodPump {
+    port inlet : BloodInletPort;
+    port outlet : BloodOutletPort;
+    port powerIn : PowerInputPort;
+    port commandIn : CommandInputPort;
+    port telemetryOut : TelemetryOutputPort;
+
+    attribute rotorSpeed : RotationalSpeed;
+    attribute estimatedFlow : FlowRate;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute motorTemperature : Temperature;
+    attribute hemocompatibleSurface : Boolean;
+
+    action circulate : AssistVentricularCirculation;
+    state operatingState : PumpStateMachine;
+  }
+
+  part def EmbeddedController {
+    port powerIn : PowerInputPort;
+    port pumpPowerOut : PowerOutputPort;
+    port pumpCommandOut : CommandInputPort;
+    port pumpTelemetryIn : TelemetryOutputPort;
+    port alarmOut : AlarmOutputPort;
+
+    attribute commandedSpeed : RotationalSpeed;
+    attribute commandedFlow : FlowRate;
+    attribute lowFlowThreshold : FlowRate;
+    attribute highCurrentThreshold : Current;
+    attribute lastSelfTestPassed : Boolean;
+
+    action regulate : RegulatePumpSupport;
+    state controlState : ControllerStateMachine;
+  }
+
+  part def FlowSensor {
+    port sensedBloodPath : BloodOutletPort;
+    port telemetryOut : TelemetryOutputPort;
+    attribute measuredFlow : FlowRate;
+    attribute measurementValid : Boolean;
+  }
+
+  part def PressureSensor {
+    port sensedBloodPath : BloodInletPort;
+    port telemetryOut : TelemetryOutputPort;
+    attribute measuredPressure : Pressure;
+    attribute measurementValid : Boolean;
+  }
+
+  part def BatteryPack {
+    port powerOut : PowerOutputPort;
+    attribute storedEnergy : Energy;
+    attribute stateOfCharge : Real;
+    attribute outputVoltage : Voltage;
+    attribute remainingRuntime : Duration;
+  }
+
+  part def ExternalPowerAdapter {
+    port powerOut : PowerOutputPort;
+    attribute connectedToMains : Boolean;
+    attribute outputVoltage : Voltage;
+  }
+
+  part def PowerManager {
+    port batteryIn : PowerInputPort;
+    port externalIn : PowerInputPort;
+    port regulatedOut : PowerOutputPort;
+    port alarmOut : AlarmOutputPort;
+
+    attribute selectedSource : String;
+    attribute busVoltage : Voltage;
+    attribute sourceHealthy : Boolean;
+  }
+
+  part def UserInterface {
+    port telemetryIn : TelemetryOutputPort;
+    port alarmIn : AlarmOutputPort;
+    port commandOut : CommandInputPort;
+
+    attribute displayedFlow : FlowRate;
+    attribute displayedSpeed : RotationalSpeed;
+    attribute audibleAlarmEnabled : Boolean;
+    attribute clinicianLockEnabled : Boolean;
+  }
+
+  part def Driveline {
+    port controllerEndPower : PowerOutputPort;
+    port pumpEndPower : PowerInputPort;
+    port controllerEndCommand : CommandInputPort;
+    port pumpEndCommand : CommandInputPort;
+    port pumpEndTelemetry : TelemetryOutputPort;
+    port controllerEndTelemetry : TelemetryOutputPort;
+
+    attribute insulationIntact : Boolean;
+    attribute bendRadiusOk : Boolean;
+  }
+
+  part def PatientCardiovascularInterface {
+    port leftVentricle : BloodOutletPort;
+    port aorta : BloodInletPort;
+    attribute nativeCardiacOutput : FlowRate;
+    attribute meanArterialPressure : Pressure;
+  }
+
+  action def AssistVentricularCirculation {
+    in item ventricularBlood : Blood;
+    out item arterialBlood : Blood;
+
+    attribute targetFlow : FlowRate;
+    attribute actualFlow : FlowRate;
+    attribute targetSpeed : RotationalSpeed;
+    attribute actualSpeed : RotationalSpeed;
+
+    first start;
+    then drawBloodFromVentricle;
+    then impartHydraulicEnergy;
+    then deliverBloodToAorta;
+    then monitorFlowAndPressure;
+
+    action start;
+    action drawBloodFromVentricle;
+    action impartHydraulicEnergy;
+    action deliverBloodToAorta;
+    action monitorFlowAndPressure;
+  }
+
+  action def RegulatePumpSupport {
+    in item telemetry : PumpTelemetry;
+    out item command : PumpCommand;
+    out item alarm : AlarmNotification;
+
+    attribute requestedFlow : FlowRate;
+    attribute measuredFlow : FlowRate;
+    attribute speedAdjustment : RotationalSpeed;
+
+    first readSensors;
+    then computeFlowError;
+    then limitCommandForSafety;
+    then commandMotor;
+    then evaluateAlarms;
+
+    action readSensors;
+    action computeFlowError;
+    action limitCommandForSafety;
+    action commandMotor;
+    action evaluateAlarms;
+  }
+
+  state def PumpStateMachine {
+    state off;
+    state priming;
+    state starting;
+    state assisting;
+    state reducedSupport;
+    state fault;
+    state stopped;
+
+    initial then off;
+
+    transition off_to_priming
+      first off
+      accept PumpCommand
+      if command.mode == PumpOperatingMode::idle
+      then priming;
+
+    transition priming_to_starting
+      first priming
+      if true
+      then starting;
+
+    transition starting_to_assisting
+      first starting
+      if true
+      then assisting;
+
+    transition assisting_to_reducedSupport
+      first assisting
+      if true
+      then reducedSupport;
+
+    transition assisting_to_fault
+      first assisting
+      if true
+      then fault;
+
+    transition reducedSupport_to_assisting
+      first reducedSupport
+      if true
+      then assisting;
+
+    transition fault_to_stopped
+      first fault
+      accept PumpCommand
+      if command.mode == PumpOperatingMode::stopped
+      then stopped;
+  }
+
+  state def ControllerStateMachine {
+    state initialization;
+    state selfTest;
+    state normalControl;
+    state alarmManagement;
+    state powerConservation;
+    state emergencyStop;
+
+    initial then initialization;
+
+    transition initialization_to_selfTest
+      first initialization
+      then selfTest;
+
+    transition selfTest_to_normalControl
+      first selfTest
+      if true
+      then normalControl;
+
+    transition normalControl_to_alarmManagement
+      first normalControl
+      if true
+      then alarmManagement;
+
+    transition normalControl_to_powerConservation
+      first normalControl
+      if true
+      then powerConservation;
+
+    transition alarmManagement_to_normalControl
+      first alarmManagement
+      if true
+      then normalControl;
+
+    transition powerConservation_to_normalControl
+      first powerConservation
+      if true
+      then normalControl;
+
+    transition normalControl_to_emergencyStop
+      first normalControl
+      if true
+      then emergencyStop;
+  }
+
+  part def VentricularAssistDevice {
+    port ventricularBloodIn : BloodInletPort;
+    port arterialBloodOut : BloodOutletPort;
+    port externalPowerIn : PowerInputPort;
+    port clinicianCommandIn : CommandInputPort;
+    port patientTelemetryOut : TelemetryOutputPort;
+    port patientAlarmOut : AlarmOutputPort;
+
+    part inflowCannula : InflowCannula;
+    part outflowGraft : OutflowGraft;
+    part pump : RotaryBloodPump;
+    part controller : EmbeddedController;
+    part flowSensor : FlowSensor;
+    part inletPressureSensor : PressureSensor;
+    part battery : BatteryPack;
+    part externalAdapter : ExternalPowerAdapter;
+    part powerManager : PowerManager;
+    part userInterface : UserInterface;
+    part driveline : Driveline;
+
+    attribute primaryFunction : String = "Continuously assist circulation by withdrawing blood from a weakened ventricle and pumping it into the arterial system at a controlled flow rate.";
+    attribute nominalAssistFlow : FlowRate;
+    attribute minimumAssistFlow : FlowRate;
+    attribute maximumAssistFlow : FlowRate;
+    attribute nominalRotorSpeed : RotationalSpeed;
+    attribute continuousOperationRequired : Boolean = true;
+
+    connect ventricularBloodIn to inflowCannula.ventricularEnd;
+    connect inflowCannula.pumpEnd to pump.inlet;
+    connect pump.outlet to outflowGraft.pumpEnd;
+    connect outflowGraft.arterialEnd to arterialBloodOut;
+
+    connect externalPowerIn to powerManager.externalIn;
+    connect battery.powerOut to powerManager.batteryIn;
+    connect powerManager.regulatedOut to controller.powerIn;
+    connect controller.pumpPowerOut to driveline.controllerEndPower;
+    connect driveline.pumpEndPower to pump.powerIn;
+
+    connect clinicianCommandIn to userInterface.commandOut;
+    connect userInterface.commandOut to controller.pumpCommandOut;
+    connect controller.pumpCommandOut to driveline.controllerEndCommand;
+    connect driveline.pumpEndCommand to pump.commandIn;
+
+    connect pump.telemetryOut to driveline.pumpEndTelemetry;
+    connect driveline.controllerEndTelemetry to controller.pumpTelemetryIn;
+    connect controller.pumpTelemetryIn to patientTelemetryOut;
+    connect controller.alarmOut to userInterface.alarmIn;
+    connect controller.alarmOut to patientAlarmOut;
+    connect powerManager.alarmOut to patientAlarmOut;
+
+    connect flowSensor.sensedBloodPath to arterialBloodOut;
+    connect inletPressureSensor.sensedBloodPath to ventricularBloodIn;
+  }
+
+  part vadSystem : VentricularAssistDevice {
+    attribute nominalAssistFlow = 8.333e-5 [SI::m3 / SI::s];
+    attribute minimumAssistFlow = 3.333e-5 [SI::m3 / SI::s];
+    attribute maximumAssistFlow = 1.666e-4 [SI::m3 / SI::s];
+    attribute nominalRotorSpeed = 83.333 [SI::Hz];
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.continuousOperationRequired == true
+    }
+
+    require constraint {
+      device.nominalAssistFlow >= device.minimumAssistFlow and
+      device.nominalAssistFlow <= device.maximumAssistFlow
+    }
+  }
+
+  requirement def BloodPathContinuityRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.inflowCannula.primed == true and
+      device.outflowGraft.kinkDetected == false
+    }
+  }
+
+  requirement def ControlledFlowRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.pump.estimatedFlow >= device.minimumAssistFlow and
+      device.pump.estimatedFlow <= device.maximumAssistFlow
+    }
+  }
+
+  requirement def PowerContinuityRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.powerManager.sourceHealthy == true and
+      device.powerManager.busVoltage > 0 [SI::V]
+    }
+  }
+
+  requirement def AlarmRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.controller.lowFlowThreshold > 0 [SI::m3 / SI::s] and
+      device.controller.highCurrentThreshold > 0 [SI::A]
+    }
+  }
+
+  requirement def HemocompatibilityRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.pump.hemocompatibleSurface == true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by vadSystem;
+  satisfy BloodPathContinuityRequirement by vadSystem;
+  satisfy ControlledFlowRequirement by vadSystem;
+  satisfy PowerContinuityRequirement by vadSystem;
+  satisfy AlarmRequirement by vadSystem;
+  satisfy HemocompatibilityRequirement by vadSystem;
+}
+tokens used
+5,111
+package VentricularAssistDeviceModel {
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> pressure { :>> unit = SI::Pa; }
+  attribute def FlowRate :> volumeFlowRate { :>> unit = SI::m3 / SI::s; }
+  attribute def RotationalSpeed :> frequency { :>> unit = SI::Hz; }
+  attribute def Voltage :> electricPotential { :>> unit = SI::V; }
+  attribute def Current :> electricCurrent { :>> unit = SI::A; }
+  attribute def Power :> power { :>> unit = SI::W; }
+  attribute def Energy :> energy { :>> unit = SI::J; }
+  attribute def Temperature :> thermodynamicTemperature { :>> unit = SI::K; }
+  attribute def Duration :> time { :>> unit = SI::s; }
+
+  item def Blood {
+    attribute oxygenSaturation : Real;
+    attribute hematocrit : Real;
+    attribute temperature : Temperature;
+    attribute anticoagulated : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute availablePower : Power;
+  }
+
+  item def PumpCommand {
+    attribute targetSpeed : RotationalSpeed;
+    attribute targetFlow : FlowRate;
+    attribute mode : PumpOperatingMode;
+  }
+
+  item def PumpTelemetry {
+    attribute measuredSpeed : RotationalSpeed;
+    attribute estimatedFlow : FlowRate;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute motorCurrent : Current;
+    attribute controllerTemperature : Temperature;
+  }
+
+  item def AlarmNotification {
+    attribute severity : AlarmSeverity;
+    attribute messageCode : Integer;
+    attribute active : Boolean;
+  }
+
+  enum def PumpOperatingMode {
+    enum idle;
+    enum rampUp;
+    enum assist;
+    enum lowPower;
+    enum faultSafe;
+    enum stopped;
+  }
+
+  enum def AlarmSeverity {
+    enum advisory;
+    enum caution;
+    enum critical;
+  }
+
+  port def BloodInletPort {
+    in item blood : Blood;
+    attribute pressure : Pressure;
+  }
+
+  port def BloodOutletPort {
+    out item blood : Blood;
+    attribute pressure : Pressure;
+    attribute flow : FlowRate;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def PowerOutputPort {
+    out item power : ElectricalPower;
+  }
+
+  port def CommandInputPort {
+    in item command : PumpCommand;
+  }
+
+  port def TelemetryOutputPort {
+    out item telemetry : PumpTelemetry;
+  }
+
+  port def AlarmOutputPort {
+    out item alarm : AlarmNotification;
+  }
+
+  part def InflowCannula {
+    port ventricularEnd : BloodInletPort;
+    port pumpEnd : BloodOutletPort;
+    attribute internalDiameter : Length;
+    attribute primed : Boolean;
+  }
+
+  part def OutflowGraft {
+    port pumpEnd : BloodInletPort;
+    port arterialEnd : BloodOutletPort;
+    attribute internalDiameter : Length;
+    attribute kinkDetected : Boolean;
+  }
+
+  part def RotaryBloodPump {
+    port inlet : BloodInletPort;
+    port outlet : BloodOutletPort;
+    port powerIn : PowerInputPort;
+    port commandIn : CommandInputPort;
+    port telemetryOut : TelemetryOutputPort;
+
+    attribute rotorSpeed : RotationalSpeed;
+    attribute estimatedFlow : FlowRate;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute motorTemperature : Temperature;
+    attribute hemocompatibleSurface : Boolean;
+
+    action circulate : AssistVentricularCirculation;
+    state operatingState : PumpStateMachine;
+  }
+
+  part def EmbeddedController {
+    port powerIn : PowerInputPort;
+    port pumpPowerOut : PowerOutputPort;
+    port pumpCommandOut : CommandInputPort;
+    port pumpTelemetryIn : TelemetryOutputPort;
+    port alarmOut : AlarmOutputPort;
+
+    attribute commandedSpeed : RotationalSpeed;
+    attribute commandedFlow : FlowRate;
+    attribute lowFlowThreshold : FlowRate;
+    attribute highCurrentThreshold : Current;
+    attribute lastSelfTestPassed : Boolean;
+
+    action regulate : RegulatePumpSupport;
+    state controlState : ControllerStateMachine;
+  }
+
+  part def FlowSensor {
+    port sensedBloodPath : BloodOutletPort;
+    port telemetryOut : TelemetryOutputPort;
+    attribute measuredFlow : FlowRate;
+    attribute measurementValid : Boolean;
+  }
+
+  part def PressureSensor {
+    port sensedBloodPath : BloodInletPort;
+    port telemetryOut : TelemetryOutputPort;
+    attribute measuredPressure : Pressure;
+    attribute measurementValid : Boolean;
+  }
+
+  part def BatteryPack {
+    port powerOut : PowerOutputPort;
+    attribute storedEnergy : Energy;
+    attribute stateOfCharge : Real;
+    attribute outputVoltage : Voltage;
+    attribute remainingRuntime : Duration;
+  }
+
+  part def ExternalPowerAdapter {
+    port powerOut : PowerOutputPort;
+    attribute connectedToMains : Boolean;
+    attribute outputVoltage : Voltage;
+  }
+
+  part def PowerManager {
+    port batteryIn : PowerInputPort;
+    port externalIn : PowerInputPort;
+    port regulatedOut : PowerOutputPort;
+    port alarmOut : AlarmOutputPort;
+
+    attribute selectedSource : String;
+    attribute busVoltage : Voltage;
+    attribute sourceHealthy : Boolean;
+  }
+
+  part def UserInterface {
+    port telemetryIn : TelemetryOutputPort;
+    port alarmIn : AlarmOutputPort;
+    port commandOut : CommandInputPort;
+
+    attribute displayedFlow : FlowRate;
+    attribute displayedSpeed : RotationalSpeed;
+    attribute audibleAlarmEnabled : Boolean;
+    attribute clinicianLockEnabled : Boolean;
+  }
+
+  part def Driveline {
+    port controllerEndPower : PowerOutputPort;
+    port pumpEndPower : PowerInputPort;
+    port controllerEndCommand : CommandInputPort;
+    port pumpEndCommand : CommandInputPort;
+    port pumpEndTelemetry : TelemetryOutputPort;
+    port controllerEndTelemetry : TelemetryOutputPort;
+
+    attribute insulationIntact : Boolean;
+    attribute bendRadiusOk : Boolean;
+  }
+
+  part def PatientCardiovascularInterface {
+    port leftVentricle : BloodOutletPort;
+    port aorta : BloodInletPort;
+    attribute nativeCardiacOutput : FlowRate;
+    attribute meanArterialPressure : Pressure;
+  }
+
+  action def AssistVentricularCirculation {
+    in item ventricularBlood : Blood;
+    out item arterialBlood : Blood;
+
+    attribute targetFlow : FlowRate;
+    attribute actualFlow : FlowRate;
+    attribute targetSpeed : RotationalSpeed;
+    attribute actualSpeed : RotationalSpeed;
+
+    first start;
+    then drawBloodFromVentricle;
+    then impartHydraulicEnergy;
+    then deliverBloodToAorta;
+    then monitorFlowAndPressure;
+
+    action start;
+    action drawBloodFromVentricle;
+    action impartHydraulicEnergy;
+    action deliverBloodToAorta;
+    action monitorFlowAndPressure;
+  }
+
+  action def RegulatePumpSupport {
+    in item telemetry : PumpTelemetry;
+    out item command : PumpCommand;
+    out item alarm : AlarmNotification;
+
+    attribute requestedFlow : FlowRate;
+    attribute measuredFlow : FlowRate;
+    attribute speedAdjustment : RotationalSpeed;
+
+    first readSensors;
+    then computeFlowError;
+    then limitCommandForSafety;
+    then commandMotor;
+    then evaluateAlarms;
+
+    action readSensors;
+    action computeFlowError;
+    action limitCommandForSafety;
+    action commandMotor;
+    action evaluateAlarms;
+  }
+
+  state def PumpStateMachine {
+    state off;
+    state priming;
+    state starting;
+    state assisting;
+    state reducedSupport;
+    state fault;
+    state stopped;
+
+    initial then off;
+
+    transition off_to_priming
+      first off
+      accept PumpCommand
+      if command.mode == PumpOperatingMode::idle
+      then priming;
+
+    transition priming_to_starting
+      first priming
+      if true
+      then starting;
+
+    transition starting_to_assisting
+      first starting
+      if true
+      then assisting;
+
+    transition assisting_to_reducedSupport
+      first assisting
+      if true
+      then reducedSupport;
+
+    transition assisting_to_fault
+      first assisting
+      if true
+      then fault;
+
+    transition reducedSupport_to_assisting
+      first reducedSupport
+      if true
+      then assisting;
+
+    transition fault_to_stopped
+      first fault
+      accept PumpCommand
+      if command.mode == PumpOperatingMode::stopped
+      then stopped;
+  }
+
+  state def ControllerStateMachine {
+    state initialization;
+    state selfTest;
+    state normalControl;
+    state alarmManagement;
+    state powerConservation;
+    state emergencyStop;
+
+    initial then initialization;
+
+    transition initialization_to_selfTest
+      first initialization
+      then selfTest;
+
+    transition selfTest_to_normalControl
+      first selfTest
+      if true
+      then normalControl;
+
+    transition normalControl_to_alarmManagement
+      first normalControl
+      if true
+      then alarmManagement;
+
+    transition normalControl_to_powerConservation
+      first normalControl
+      if true
+      then powerConservation;
+
+    transition alarmManagement_to_normalControl
+      first alarmManagement
+      if true
+      then normalControl;
+
+    transition powerConservation_to_normalControl
+      first powerConservation
+      if true
+      then normalControl;
+
+    transition normalControl_to_emergencyStop
+      first normalControl
+      if true
+      then emergencyStop;
+  }
+
+  part def VentricularAssistDevice {
+    port ventricularBloodIn : BloodInletPort;
+    port arterialBloodOut : BloodOutletPort;
+    port externalPowerIn : PowerInputPort;
+    port clinicianCommandIn : CommandInputPort;
+    port patientTelemetryOut : TelemetryOutputPort;
+    port patientAlarmOut : AlarmOutputPort;
+
+    part inflowCannula : InflowCannula;
+    part outflowGraft : OutflowGraft;
+    part pump : RotaryBloodPump;
+    part controller : EmbeddedController;
+    part flowSensor : FlowSensor;
+    part inletPressureSensor : PressureSensor;
+    part battery : BatteryPack;
+    part externalAdapter : ExternalPowerAdapter;
+    part powerManager : PowerManager;
+    part userInterface : UserInterface;
+    part driveline : Driveline;
+
+    attribute primaryFunction : String = "Continuously assist circulation by withdrawing blood from a weakened ventricle and pumping it into the arterial system at a controlled flow rate.";
+    attribute nominalAssistFlow : FlowRate;
+    attribute minimumAssistFlow : FlowRate;
+    attribute maximumAssistFlow : FlowRate;
+    attribute nominalRotorSpeed : RotationalSpeed;
+    attribute continuousOperationRequired : Boolean = true;
+
+    connect ventricularBloodIn to inflowCannula.ventricularEnd;
+    connect inflowCannula.pumpEnd to pump.inlet;
+    connect pump.outlet to outflowGraft.pumpEnd;
+    connect outflowGraft.arterialEnd to arterialBloodOut;
+
+    connect externalPowerIn to powerManager.externalIn;
+    connect battery.powerOut to powerManager.batteryIn;
+    connect powerManager.regulatedOut to controller.powerIn;
+    connect controller.pumpPowerOut to driveline.controllerEndPower;
+    connect driveline.pumpEndPower to pump.powerIn;
+
+    connect clinicianCommandIn to userInterface.commandOut;
+    connect userInterface.commandOut to controller.pumpCommandOut;
+    connect controller.pumpCommandOut to driveline.controllerEndCommand;
+    connect driveline.pumpEndCommand to pump.commandIn;
+
+    connect pump.telemetryOut to driveline.pumpEndTelemetry;
+    connect driveline.controllerEndTelemetry to controller.pumpTelemetryIn;
+    connect controller.pumpTelemetryIn to patientTelemetryOut;
+    connect controller.alarmOut to userInterface.alarmIn;
+    connect controller.alarmOut to patientAlarmOut;
+    connect powerManager.alarmOut to patientAlarmOut;
+
+    connect flowSensor.sensedBloodPath to arterialBloodOut;
+    connect inletPressureSensor.sensedBloodPath to ventricularBloodIn;
+  }
+
+  part vadSystem : VentricularAssistDevice {
+    attribute nominalAssistFlow = 8.333e-5 [SI::m3 / SI::s];
+    attribute minimumAssistFlow = 3.333e-5 [SI::m3 / SI::s];
+    attribute maximumAssistFlow = 1.666e-4 [SI::m3 / SI::s];
+    attribute nominalRotorSpeed = 83.333 [SI::Hz];
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.continuousOperationRequired == true
+    }
+
+    require constraint {
+      device.nominalAssistFlow >= device.minimumAssistFlow and
+      device.nominalAssistFlow <= device.maximumAssistFlow
+    }
+  }
+
+  requirement def BloodPathContinuityRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.inflowCannula.primed == true and
+      device.outflowGraft.kinkDetected == false
+    }
+  }
+
+  requirement def ControlledFlowRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.pump.estimatedFlow >= device.minimumAssistFlow and
+      device.pump.estimatedFlow <= device.maximumAssistFlow
+    }
+  }
+
+  requirement def PowerContinuityRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.powerManager.sourceHealthy == true and
+      device.powerManager.busVoltage > 0 [SI::V]
+    }
+  }
+
+  requirement def AlarmRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.controller.lowFlowThreshold > 0 [SI::m3 / SI::s] and
+      device.controller.highCurrentThreshold > 0 [SI::A]
+    }
+  }
+
+  requirement def HemocompatibilityRequirement {
+    subject device : VentricularAssistDevice;
+
+    require constraint {
+      device.pump.hemocompatibleSurface == true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by vadSystem;
+  satisfy BloodPathContinuityRequirement by vadSystem;
+  satisfy ControlledFlowRequirement by vadSystem;
+  satisfy PowerContinuityRequirement by vadSystem;
+  satisfy AlarmRequirement by vadSystem;
+  satisfy HemocompatibilityRequirement by vadSystem;
+}

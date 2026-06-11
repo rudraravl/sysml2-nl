@@ -1,0 +1,793 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-4bqve3eo
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2bc-ab51-7d23-836e-ce8a99da325d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a robotic system that performs its primary task using a Ubiquitous robot.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package UbiquitousRoboticPrimaryTaskSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def DataRate :> Real {
+    unit = "Mb/s";
+  }
+
+  attribute def Probability :> Real {
+    range = "0..1";
+  }
+
+  item def TaskCommand {
+    attribute taskId : String;
+    attribute priority : Integer;
+    attribute targetZone : String;
+    attribute requestedStartTime : Time;
+  }
+
+  item def TaskStatus {
+    attribute taskId : String;
+    attribute state : String;
+    attribute progress : Percent;
+    attribute faultCode : String;
+  }
+
+  item def MapUpdate {
+    attribute frameId : String;
+    attribute resolution : Length;
+    attribute validUntil : Time;
+  }
+
+  item def SensorFrame {
+    attribute timestamp : Time;
+    attribute confidence : Probability;
+    attribute sourceId : String;
+  }
+
+  item def PayloadItem {
+    attribute itemId : String;
+    attribute mass : Mass;
+    attribute destinationZone : String;
+    attribute fragile : Boolean;
+  }
+
+  item def EnergyPacket {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute chargeLevel : Percent;
+  }
+
+  port def CommandPort {
+    in item command : TaskCommand;
+    out item status : TaskStatus;
+  }
+
+  port def DataPort {
+    inout item map : MapUpdate;
+    in item sensorFrame : SensorFrame;
+  }
+
+  port def PayloadPort {
+    inout item payload : PayloadItem;
+  }
+
+  port def PowerPort {
+    in item energy : EnergyPacket;
+  }
+
+  port def SafetyPort {
+    out item status : TaskStatus;
+  }
+
+  part def UbiquitousRobot {
+    attribute robotId : String;
+    attribute nominalSpeed : Speed;
+    attribute localizationAccuracy : Length;
+    attribute batteryCapacity : Energy;
+    attribute networkAvailability : Percent;
+    attribute maxPayloadMass : Mass;
+
+    port command : CommandPort;
+    port data : DataPort;
+    port payload : PayloadPort;
+    port power : PowerPort;
+    port safety : SafetyPort;
+
+    part mobilitySubsystem {
+      attribute maxSpeed : Speed = 1.5 [m/s];
+      attribute stoppingDistance : Length = 0.35 [m];
+      attribute gradeCapability : Percent = 8 [%];
+
+      port powerIn : PowerPort;
+      port motionCommand : CommandPort;
+    }
+
+    part perceptionSubsystem {
+      attribute lidarRange : Length = 30 [m];
+      attribute cameraFrameRate : Frequency = 30 [Hz];
+      attribute obstacleDetectionConfidence : Probability = 0.98;
+
+      port sensorData : DataPort;
+    }
+
+    part manipulationSubsystem {
+      attribute gripperOpening : Length = 0.18 [m];
+      attribute liftHeight : Length = 1.2 [m];
+      attribute ratedPayload : Mass = 5 [kg];
+
+      port payloadInterface : PayloadPort;
+      port commandIn : CommandPort;
+    }
+
+    part onboardCompute {
+      attribute processorLoad : Percent;
+      attribute storageAvailable : Real;
+      attribute controlCyclePeriod : Time = 0.02 [s];
+
+      port commandData : CommandPort;
+      port perceptionData : DataPort;
+    }
+
+    part wirelessNetworkModule {
+      attribute bandwidth : DataRate = 100 [Mb/s];
+      attribute maximumLatency : Time = 0.1 [s];
+      attribute coverageReliability : Percent = 99.5 [%];
+
+      port dataLink : DataPort;
+      port commandLink : CommandPort;
+    }
+
+    part safetyController {
+      attribute minimumHumanSeparation : Length = 0.75 [m];
+      attribute emergencyStopReactionTime : Time = 0.05 [s];
+
+      port safetyStatus : SafetyPort;
+      port commandMonitor : CommandPort;
+    }
+
+    connection connect mobilitySubsystem.powerIn to power;
+    connection connect perceptionSubsystem.sensorData to data;
+    connection connect onboardCompute.commandData to command;
+    connection connect onboardCompute.perceptionData to perceptionSubsystem.sensorData;
+    connection connect wirelessNetworkModule.dataLink to data;
+    connection connect wirelessNetworkModule.commandLink to command;
+    connection connect manipulationSubsystem.payloadInterface to payload;
+    connection connect safetyController.safetyStatus to safety;
+    connection connect safetyController.commandMonitor to command;
+  }
+
+  part def AmbientTaskEnvironment {
+    attribute facilityId : String;
+    attribute operatingArea : Area;
+    attribute ambientNetworkCoverage : Percent;
+    attribute allowedHumanDensity : Real;
+
+    port commandService : CommandPort;
+    port mapService : DataPort;
+    port payloadDock : PayloadPort;
+    port chargingInterface : PowerPort;
+
+    part ubiquitousInfrastructure {
+      attribute beaconSpacing : Length = 8 [m];
+      attribute edgeComputeLatency : Time = 0.03 [s];
+      attribute mapRefreshPeriod : Time = 2 [s];
+
+      port data : DataPort;
+      port command : CommandPort;
+    }
+
+    part pickupStation {
+      attribute stationId : String = "PICKUP-A";
+      attribute queueCapacity : Integer = 12;
+
+      port payloadOut : PayloadPort;
+      port command : CommandPort;
+    }
+
+    part deliveryStation {
+      attribute stationId : String = "DELIVERY-B";
+      attribute acceptanceCapacity : Integer = 20;
+
+      port payloadIn : PayloadPort;
+      port command : CommandPort;
+    }
+
+    part chargingStation {
+      attribute nominalVoltage : ElectricPotential = 48 [V];
+      attribute maximumCurrent : ElectricCurrent = 20 [A];
+      attribute rechargeThreshold : Percent = 20 [%];
+
+      port powerOut : PowerPort;
+    }
+
+    connection connect ubiquitousInfrastructure.data to mapService;
+    connection connect ubiquitousInfrastructure.command to commandService;
+    connection connect pickupStation.payloadOut to payloadDock;
+    connection connect chargingStation.powerOut to chargingInterface;
+  }
+
+  part def PrimaryTaskSupervisor {
+    attribute dispatchCycle : Time = 1 [s];
+    attribute minimumTaskSuccessRate : Percent = 99 [%];
+    attribute maximumAssignmentLatency : Time = 3 [s];
+
+    port robotCommand : CommandPort;
+    port environmentData : DataPort;
+    port safetyMonitor : SafetyPort;
+
+    action dispatchTask {
+      in item request : TaskCommand;
+      out item issuedCommand : TaskCommand;
+    }
+
+    action evaluateTaskStatus {
+      in item status : TaskStatus;
+      out attribute taskComplete : Boolean;
+    }
+
+    action resolveFault {
+      in item status : TaskStatus;
+      out item recoveryCommand : TaskCommand;
+    }
+  }
+
+  part roboticPrimaryTaskSystem {
+    attribute systemName : String = "Ubiquitous Robotic Delivery System";
+    attribute designOperationalLife : Time = 315360000 [s];
+    attribute targetAvailability : Percent = 99.9 [%];
+
+    part robot : UbiquitousRobot {
+      attribute robotId = "UR-001";
+      attribute nominalSpeed = 1.0 [m/s];
+      attribute localizationAccuracy = 0.05 [m];
+      attribute batteryCapacity = 720000 [J];
+      attribute networkAvailability = 99.5 [%];
+      attribute maxPayloadMass = 5 [kg];
+    }
+
+    part environment : AmbientTaskEnvironment {
+      attribute facilityId = "FACILITY-PRIMARY";
+      attribute operatingArea = 2500 [m^2];
+      attribute ambientNetworkCoverage = 99.8 [%];
+      attribute allowedHumanDensity = 0.15;
+    }
+
+    part supervisor : PrimaryTaskSupervisor;
+
+    connection commandConnection connect supervisor.robotCommand to robot.command;
+    connection dataConnection connect environment.mapService to robot.data;
+    connection infrastructureCommandConnection connect environment.commandService to supervisor.robotCommand;
+    connection payloadConnection connect environment.payloadDock to robot.payload;
+    connection chargingConnection connect environment.chargingInterface to robot.power;
+    connection safetyConnection connect robot.safety to supervisor.safetyMonitor;
+  }
+
+  action def PerformPrimaryDeliveryTask {
+    in item task : TaskCommand;
+    inout item payload : PayloadItem;
+    out item finalStatus : TaskStatus;
+
+    action receiveTask;
+    action localizeInAmbientEnvironment;
+    action planRouteToPickup;
+    action navigateToPickup;
+    action acquirePayload;
+    action planRouteToDestination;
+    action navigateToDestination;
+    action deliverPayload;
+    action reportCompletion;
+
+    first start;
+    then receiveTask;
+    then localizeInAmbientEnvironment;
+    then planRouteToPickup;
+    then navigateToPickup;
+    then acquirePayload;
+    then planRouteToDestination;
+    then navigateToDestination;
+    then deliverPayload;
+    then reportCompletion;
+  }
+
+  state def UbiquitousRobotOperationalStates {
+    entry action initializeRobot;
+
+    state Off;
+    state Booting;
+    state Available;
+    state Assigned;
+    state NavigatingToPickup;
+    state LoadingPayload;
+    state NavigatingToDestination;
+    state DeliveringPayload;
+    state Charging;
+    state Faulted;
+    state EmergencyStopped;
+
+    transition initial then Off;
+    transition powerOn first Off then Booting;
+    transition bootComplete first Booting then Available;
+    transition taskAssigned first Available then Assigned;
+    transition routeReadyToPickup first Assigned then NavigatingToPickup;
+    transition pickupReached first NavigatingToPickup then LoadingPayload;
+    transition payloadSecured first LoadingPayload then NavigatingToDestination;
+    transition destinationReached first NavigatingToDestination then DeliveringPayload;
+    transition payloadReleased first DeliveringPayload then Available;
+    transition lowBattery first Available then Charging;
+    transition chargeComplete first Charging then Available;
+    transition recoverableFault first Assigned then Faulted;
+    transition faultCleared first Faulted then Available;
+    transition unsafeSeparationDetected first Available then EmergencyStopped;
+    transition emergencyReset first EmergencyStopped then Available;
+  }
+
+  requirement def PrimaryTaskRequirement {
+    subject system : UbiquitousRobot;
+
+    require constraint {
+      system.maxPayloadMass >= 5 [kg]
+    }
+
+    require constraint {
+      system.networkAvailability >= 99 [%]
+    }
+
+    require constraint {
+      system.localizationAccuracy <= 0.1 [m]
+    }
+  }
+
+  requirement def UbiquitousRobotRequirement {
+    subject system : UbiquitousRobot;
+
+    doc
+    /*
+     The robotic system shall perform its primary task using a Ubiquitous robot capable of receiving commands, sensing an ambient instrumented environment, navigating autonomously, manipulating payloads, and reporting status through persistent network connectivity.
+    */
+
+    require constraint {
+      system.nominalSpeed >= 0.5 [m/s] and system.nominalSpeed <= 1.5 [m/s]
+    }
+
+    require constraint {
+      system.batteryCapacity >= 500000 [J]
+    }
+  }
+
+  requirement def SafetyRequirement {
+    subject system : UbiquitousRobot;
+
+    require constraint {
+      system.safetyController.minimumHumanSeparation >= 0.75 [m]
+    }
+
+    require constraint {
+      system.safetyController.emergencyStopReactionTime <= 0.1 [s]
+    }
+  }
+
+  requirement def DeliveryPerformanceRequirement {
+    subject supervisor : PrimaryTaskSupervisor;
+
+    require constraint {
+      supervisor.minimumTaskSuccessRate >= 99 [%]
+    }
+
+    require constraint {
+      supervisor.maximumAssignmentLatency <= 3 [s]
+    }
+  }
+
+  satisfy PrimaryTaskRequirement by roboticPrimaryTaskSystem.robot;
+  satisfy UbiquitousRobotRequirement by roboticPrimaryTaskSystem.robot;
+  satisfy SafetyRequirement by roboticPrimaryTaskSystem.robot;
+  satisfy DeliveryPerformanceRequirement by roboticPrimaryTaskSystem.supervisor;
+
+  exhibit state UbiquitousRobotOperationalStates by roboticPrimaryTaskSystem.robot;
+
+  perform action PerformPrimaryDeliveryTask by roboticPrimaryTaskSystem.robot;
+
+}
+tokens used
+4,089
+package UbiquitousRoboticPrimaryTaskSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def DataRate :> Real {
+    unit = "Mb/s";
+  }
+
+  attribute def Probability :> Real {
+    range = "0..1";
+  }
+
+  item def TaskCommand {
+    attribute taskId : String;
+    attribute priority : Integer;
+    attribute targetZone : String;
+    attribute requestedStartTime : Time;
+  }
+
+  item def TaskStatus {
+    attribute taskId : String;
+    attribute state : String;
+    attribute progress : Percent;
+    attribute faultCode : String;
+  }
+
+  item def MapUpdate {
+    attribute frameId : String;
+    attribute resolution : Length;
+    attribute validUntil : Time;
+  }
+
+  item def SensorFrame {
+    attribute timestamp : Time;
+    attribute confidence : Probability;
+    attribute sourceId : String;
+  }
+
+  item def PayloadItem {
+    attribute itemId : String;
+    attribute mass : Mass;
+    attribute destinationZone : String;
+    attribute fragile : Boolean;
+  }
+
+  item def EnergyPacket {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute chargeLevel : Percent;
+  }
+
+  port def CommandPort {
+    in item command : TaskCommand;
+    out item status : TaskStatus;
+  }
+
+  port def DataPort {
+    inout item map : MapUpdate;
+    in item sensorFrame : SensorFrame;
+  }
+
+  port def PayloadPort {
+    inout item payload : PayloadItem;
+  }
+
+  port def PowerPort {
+    in item energy : EnergyPacket;
+  }
+
+  port def SafetyPort {
+    out item status : TaskStatus;
+  }
+
+  part def UbiquitousRobot {
+    attribute robotId : String;
+    attribute nominalSpeed : Speed;
+    attribute localizationAccuracy : Length;
+    attribute batteryCapacity : Energy;
+    attribute networkAvailability : Percent;
+    attribute maxPayloadMass : Mass;
+
+    port command : CommandPort;
+    port data : DataPort;
+    port payload : PayloadPort;
+    port power : PowerPort;
+    port safety : SafetyPort;
+
+    part mobilitySubsystem {
+      attribute maxSpeed : Speed = 1.5 [m/s];
+      attribute stoppingDistance : Length = 0.35 [m];
+      attribute gradeCapability : Percent = 8 [%];
+
+      port powerIn : PowerPort;
+      port motionCommand : CommandPort;
+    }
+
+    part perceptionSubsystem {
+      attribute lidarRange : Length = 30 [m];
+      attribute cameraFrameRate : Frequency = 30 [Hz];
+      attribute obstacleDetectionConfidence : Probability = 0.98;
+
+      port sensorData : DataPort;
+    }
+
+    part manipulationSubsystem {
+      attribute gripperOpening : Length = 0.18 [m];
+      attribute liftHeight : Length = 1.2 [m];
+      attribute ratedPayload : Mass = 5 [kg];
+
+      port payloadInterface : PayloadPort;
+      port commandIn : CommandPort;
+    }
+
+    part onboardCompute {
+      attribute processorLoad : Percent;
+      attribute storageAvailable : Real;
+      attribute controlCyclePeriod : Time = 0.02 [s];
+
+      port commandData : CommandPort;
+      port perceptionData : DataPort;
+    }
+
+    part wirelessNetworkModule {
+      attribute bandwidth : DataRate = 100 [Mb/s];
+      attribute maximumLatency : Time = 0.1 [s];
+      attribute coverageReliability : Percent = 99.5 [%];
+
+      port dataLink : DataPort;
+      port commandLink : CommandPort;
+    }
+
+    part safetyController {
+      attribute minimumHumanSeparation : Length = 0.75 [m];
+      attribute emergencyStopReactionTime : Time = 0.05 [s];
+
+      port safetyStatus : SafetyPort;
+      port commandMonitor : CommandPort;
+    }
+
+    connection connect mobilitySubsystem.powerIn to power;
+    connection connect perceptionSubsystem.sensorData to data;
+    connection connect onboardCompute.commandData to command;
+    connection connect onboardCompute.perceptionData to perceptionSubsystem.sensorData;
+    connection connect wirelessNetworkModule.dataLink to data;
+    connection connect wirelessNetworkModule.commandLink to command;
+    connection connect manipulationSubsystem.payloadInterface to payload;
+    connection connect safetyController.safetyStatus to safety;
+    connection connect safetyController.commandMonitor to command;
+  }
+
+  part def AmbientTaskEnvironment {
+    attribute facilityId : String;
+    attribute operatingArea : Area;
+    attribute ambientNetworkCoverage : Percent;
+    attribute allowedHumanDensity : Real;
+
+    port commandService : CommandPort;
+    port mapService : DataPort;
+    port payloadDock : PayloadPort;
+    port chargingInterface : PowerPort;
+
+    part ubiquitousInfrastructure {
+      attribute beaconSpacing : Length = 8 [m];
+      attribute edgeComputeLatency : Time = 0.03 [s];
+      attribute mapRefreshPeriod : Time = 2 [s];
+
+      port data : DataPort;
+      port command : CommandPort;
+    }
+
+    part pickupStation {
+      attribute stationId : String = "PICKUP-A";
+      attribute queueCapacity : Integer = 12;
+
+      port payloadOut : PayloadPort;
+      port command : CommandPort;
+    }
+
+    part deliveryStation {
+      attribute stationId : String = "DELIVERY-B";
+      attribute acceptanceCapacity : Integer = 20;
+
+      port payloadIn : PayloadPort;
+      port command : CommandPort;
+    }
+
+    part chargingStation {
+      attribute nominalVoltage : ElectricPotential = 48 [V];
+      attribute maximumCurrent : ElectricCurrent = 20 [A];
+      attribute rechargeThreshold : Percent = 20 [%];
+
+      port powerOut : PowerPort;
+    }
+
+    connection connect ubiquitousInfrastructure.data to mapService;
+    connection connect ubiquitousInfrastructure.command to commandService;
+    connection connect pickupStation.payloadOut to payloadDock;
+    connection connect chargingStation.powerOut to chargingInterface;
+  }
+
+  part def PrimaryTaskSupervisor {
+    attribute dispatchCycle : Time = 1 [s];
+    attribute minimumTaskSuccessRate : Percent = 99 [%];
+    attribute maximumAssignmentLatency : Time = 3 [s];
+
+    port robotCommand : CommandPort;
+    port environmentData : DataPort;
+    port safetyMonitor : SafetyPort;
+
+    action dispatchTask {
+      in item request : TaskCommand;
+      out item issuedCommand : TaskCommand;
+    }
+
+    action evaluateTaskStatus {
+      in item status : TaskStatus;
+      out attribute taskComplete : Boolean;
+    }
+
+    action resolveFault {
+      in item status : TaskStatus;
+      out item recoveryCommand : TaskCommand;
+    }
+  }
+
+  part roboticPrimaryTaskSystem {
+    attribute systemName : String = "Ubiquitous Robotic Delivery System";
+    attribute designOperationalLife : Time = 315360000 [s];
+    attribute targetAvailability : Percent = 99.9 [%];
+
+    part robot : UbiquitousRobot {
+      attribute robotId = "UR-001";
+      attribute nominalSpeed = 1.0 [m/s];
+      attribute localizationAccuracy = 0.05 [m];
+      attribute batteryCapacity = 720000 [J];
+      attribute networkAvailability = 99.5 [%];
+      attribute maxPayloadMass = 5 [kg];
+    }
+
+    part environment : AmbientTaskEnvironment {
+      attribute facilityId = "FACILITY-PRIMARY";
+      attribute operatingArea = 2500 [m^2];
+      attribute ambientNetworkCoverage = 99.8 [%];
+      attribute allowedHumanDensity = 0.15;
+    }
+
+    part supervisor : PrimaryTaskSupervisor;
+
+    connection commandConnection connect supervisor.robotCommand to robot.command;
+    connection dataConnection connect environment.mapService to robot.data;
+    connection infrastructureCommandConnection connect environment.commandService to supervisor.robotCommand;
+    connection payloadConnection connect environment.payloadDock to robot.payload;
+    connection chargingConnection connect environment.chargingInterface to robot.power;
+    connection safetyConnection connect robot.safety to supervisor.safetyMonitor;
+  }
+
+  action def PerformPrimaryDeliveryTask {
+    in item task : TaskCommand;
+    inout item payload : PayloadItem;
+    out item finalStatus : TaskStatus;
+
+    action receiveTask;
+    action localizeInAmbientEnvironment;
+    action planRouteToPickup;
+    action navigateToPickup;
+    action acquirePayload;
+    action planRouteToDestination;
+    action navigateToDestination;
+    action deliverPayload;
+    action reportCompletion;
+
+    first start;
+    then receiveTask;
+    then localizeInAmbientEnvironment;
+    then planRouteToPickup;
+    then navigateToPickup;
+    then acquirePayload;
+    then planRouteToDestination;
+    then navigateToDestination;
+    then deliverPayload;
+    then reportCompletion;
+  }
+
+  state def UbiquitousRobotOperationalStates {
+    entry action initializeRobot;
+
+    state Off;
+    state Booting;
+    state Available;
+    state Assigned;
+    state NavigatingToPickup;
+    state LoadingPayload;
+    state NavigatingToDestination;
+    state DeliveringPayload;
+    state Charging;
+    state Faulted;
+    state EmergencyStopped;
+
+    transition initial then Off;
+    transition powerOn first Off then Booting;
+    transition bootComplete first Booting then Available;
+    transition taskAssigned first Available then Assigned;
+    transition routeReadyToPickup first Assigned then NavigatingToPickup;
+    transition pickupReached first NavigatingToPickup then LoadingPayload;
+    transition payloadSecured first LoadingPayload then NavigatingToDestination;
+    transition destinationReached first NavigatingToDestination then DeliveringPayload;
+    transition payloadReleased first DeliveringPayload then Available;
+    transition lowBattery first Available then Charging;
+    transition chargeComplete first Charging then Available;
+    transition recoverableFault first Assigned then Faulted;
+    transition faultCleared first Faulted then Available;
+    transition unsafeSeparationDetected first Available then EmergencyStopped;
+    transition emergencyReset first EmergencyStopped then Available;
+  }
+
+  requirement def PrimaryTaskRequirement {
+    subject system : UbiquitousRobot;
+
+    require constraint {
+      system.maxPayloadMass >= 5 [kg]
+    }
+
+    require constraint {
+      system.networkAvailability >= 99 [%]
+    }
+
+    require constraint {
+      system.localizationAccuracy <= 0.1 [m]
+    }
+  }
+
+  requirement def UbiquitousRobotRequirement {
+    subject system : UbiquitousRobot;
+
+    doc
+    /*
+     The robotic system shall perform its primary task using a Ubiquitous robot capable of receiving commands, sensing an ambient instrumented environment, navigating autonomously, manipulating payloads, and reporting status through persistent network connectivity.
+    */
+
+    require constraint {
+      system.nominalSpeed >= 0.5 [m/s] and system.nominalSpeed <= 1.5 [m/s]
+    }
+
+    require constraint {
+      system.batteryCapacity >= 500000 [J]
+    }
+  }
+
+  requirement def SafetyRequirement {
+    subject system : UbiquitousRobot;
+
+    require constraint {
+      system.safetyController.minimumHumanSeparation >= 0.75 [m]
+    }
+
+    require constraint {
+      system.safetyController.emergencyStopReactionTime <= 0.1 [s]
+    }
+  }
+
+  requirement def DeliveryPerformanceRequirement {
+    subject supervisor : PrimaryTaskSupervisor;
+
+    require constraint {
+      supervisor.minimumTaskSuccessRate >= 99 [%]
+    }
+
+    require constraint {
+      supervisor.maximumAssignmentLatency <= 3 [s]
+    }
+  }
+
+  satisfy PrimaryTaskRequirement by roboticPrimaryTaskSystem.robot;
+  satisfy UbiquitousRobotRequirement by roboticPrimaryTaskSystem.robot;
+  satisfy SafetyRequirement by roboticPrimaryTaskSystem.robot;
+  satisfy DeliveryPerformanceRequirement by roboticPrimaryTaskSystem.supervisor;
+
+  exhibit state UbiquitousRobotOperationalStates by roboticPrimaryTaskSystem.robot;
+
+  perform action PerformPrimaryDeliveryTask by roboticPrimaryTaskSystem.robot;
+
+}

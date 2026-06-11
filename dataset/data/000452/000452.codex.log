@@ -1,0 +1,997 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tntoqili
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2ef-d02a-7063-b2cf-e7d2c6c1edae
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Gelesis100 and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package Gelesis100SystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  /* Item and value definitions */
+
+  item def CapsuleMaterial {
+    attribute polymerNetworkMass : MassValue;
+    attribute waterAbsorptionRatio : Real;
+    attribute isBiocompatible : Boolean;
+  }
+
+  item def CelluloseCitricAcidHydrogel :> CapsuleMaterial {
+    attribute polymerNetworkMass : MassValue = 2.25 [g];
+    attribute waterAbsorptionRatio : Real = 100.0;
+    attribute isBiocompatible : Boolean = true;
+  }
+
+  item def Water {
+    attribute volume : VolumeValue;
+    attribute temperature : TemperatureValue;
+  }
+
+  item def SwallowedDose {
+    attribute capsuleCount : Integer;
+    attribute totalHydrogelMass : MassValue;
+    attribute intendedMealAssociation : String;
+  }
+
+  item def HydratedHydrogelMatrix {
+    attribute wetMass : MassValue;
+    attribute occupiedVolume : VolumeValue;
+    attribute hydrationFraction : Real;
+    attribute firmness : PressureValue;
+  }
+
+  item def DigestiveTransitStatus {
+    attribute stomachResidenceTime : TimeValue;
+    attribute smallIntestineTransitTime : TimeValue;
+    attribute colonDegradationState : Real;
+    attribute excretedFraction : Real;
+  }
+
+  item def SatietySignal {
+    attribute gastricDistensionContribution : Real;
+    attribute perceivedFullnessLevel : Real;
+    attribute appetiteReductionSupport : Real;
+  }
+
+  item def UserInstruction {
+    attribute doseCapsules : Integer;
+    attribute waterRequired : VolumeValue;
+    attribute administrationTiming : String;
+  }
+
+  item def SafetyConstraintSignal {
+    attribute chokingRiskControlled : Boolean;
+    attribute systemicAbsorptionExpected : Boolean;
+    attribute mechanicalActionOnly : Boolean;
+  }
+
+  /* Ports */
+
+  port def OralIntakePort {
+    in item dose : SwallowedDose;
+    in item water : Water;
+  }
+
+  port def GastricEnvironmentPort {
+    in item swallowedDose : SwallowedDose;
+    in item gastricWater : Water;
+    out item hydratedMatrix : HydratedHydrogelMatrix;
+    out item satietySignal : SatietySignal;
+  }
+
+  port def IntestinalTransitPort {
+    in item hydratedMatrix : HydratedHydrogelMatrix;
+    out item transitStatus : DigestiveTransitStatus;
+  }
+
+  port def InstructionPort {
+    out item instruction : UserInstruction;
+  }
+
+  port def SafetyStatusPort {
+    out item safetyStatus : SafetyConstraintSignal;
+  }
+
+  /* System structure */
+
+  part def Gelesis100System {
+    attribute primaryFunction : String =
+      "Support weight management by forming a non-systemic, hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness before digestive transit and elimination.";
+
+    attribute nominalCapsulesPerDose : Integer = 3;
+    attribute nominalWaterPerDose : VolumeValue = 500 [mL];
+    attribute nominalDoseHydrogelMass : MassValue = 2.25 [g];
+
+    port intake : OralIntakePort;
+    port gastricInterface : GastricEnvironmentPort;
+    port transitInterface : IntestinalTransitPort;
+    port instructionInterface : InstructionPort;
+    port safetyInterface : SafetyStatusPort;
+
+    part capsules[3] : Gelesis100Capsule;
+    part administrationKit : AdministrationGuidance;
+    part hydrationFunction : GastricHydrationSubsystem;
+    part transitFunction : DigestiveTransitSubsystem;
+    part safetyFunction : SafetyControlSubsystem;
+
+    connect intake.dose to gastricInterface.swallowedDose;
+    connect intake.water to gastricInterface.gastricWater;
+    connect gastricInterface.hydratedMatrix to transitInterface.hydratedMatrix;
+    connect administrationKit.instructionOut to instructionInterface.instruction;
+    connect safetyFunction.safetyOut to safetyInterface.safetyStatus;
+  }
+
+  part def Gelesis100Capsule {
+    attribute capsuleShellDissolutionTime : TimeValue = 15 [min];
+    attribute dryMass : MassValue = 0.75 [g];
+    attribute activeHydrogelMass : MassValue = 0.75 [g];
+
+    port doseOut : OralIntakePort;
+
+    part hydrogel : CelluloseCitricAcidHydrogel;
+  }
+
+  part def AdministrationGuidance {
+    attribute targetCapsules : Integer = 3;
+    attribute minimumWaterVolume : VolumeValue = 500 [mL];
+    attribute useContext : String = "Taken orally with water before a meal according to product directions.";
+
+    port instructionOut : InstructionPort;
+
+    action provideInstruction {
+      out item instruction : UserInstruction;
+
+      first start;
+      then setCapsuleCount;
+      then setWaterVolume;
+      then setTiming;
+      then done;
+
+      action setCapsuleCount {
+        instruction.doseCapsules := targetCapsules;
+      }
+
+      action setWaterVolume {
+        instruction.waterRequired := minimumWaterVolume;
+      }
+
+      action setTiming {
+        instruction.administrationTiming := "Before meal with sufficient water";
+      }
+    }
+  }
+
+  part def GastricHydrationSubsystem {
+    attribute targetHydrationFraction : Real = 0.95;
+    attribute targetOccupiedVolume : VolumeValue = 250 [mL];
+    attribute expectedMechanicalMode : String = "Volume occupancy through hydrated hydrogel formation";
+
+    port gastricPort : GastricEnvironmentPort;
+
+    action hydrateDose {
+      in item dose : SwallowedDose;
+      in item water : Water;
+      out item matrix : HydratedHydrogelMatrix;
+
+      first receiveDose;
+      then verifyWater;
+      then dissolveCapsuleShell;
+      then absorbWater;
+      then formHydrogelMatrix;
+      then outputMatrix;
+
+      action receiveDose {
+        dose.capsuleCount >= 1;
+      }
+
+      action verifyWater {
+        water.volume >= 250 [mL];
+      }
+
+      action dissolveCapsuleShell {
+        /* Capsule shell opens in gastric environment. */
+      }
+
+      action absorbWater {
+        matrix.hydrationFraction := targetHydrationFraction;
+      }
+
+      action formHydrogelMatrix {
+        matrix.occupiedVolume := targetOccupiedVolume;
+        matrix.wetMass := dose.totalHydrogelMass + 247.75 [g];
+        matrix.firmness := 1.5 [kPa];
+      }
+
+      action outputMatrix {
+        gastricPort.hydratedMatrix := matrix;
+      }
+    }
+
+    action generateSatietySupport {
+      in item matrix : HydratedHydrogelMatrix;
+      out item signal : SatietySignal;
+
+      first assessVolume;
+      then estimateDistensionContribution;
+      then publishSignal;
+
+      action assessVolume {
+        matrix.occupiedVolume >= 100 [mL];
+      }
+
+      action estimateDistensionContribution {
+        signal.gastricDistensionContribution := matrix.occupiedVolume / targetOccupiedVolume;
+        signal.perceivedFullnessLevel := 0.7;
+        signal.appetiteReductionSupport := 0.6;
+      }
+
+      action publishSignal {
+        gastricPort.satietySignal := signal;
+      }
+    }
+  }
+
+  part def DigestiveTransitSubsystem {
+    attribute expectedStomachResidenceTime : TimeValue = 60 [min];
+    attribute expectedSmallIntestineTransitTime : TimeValue = 240 [min];
+    attribute expectedExcretedFraction : Real = 0.95;
+
+    port transitPort : IntestinalTransitPort;
+
+    action processTransit {
+      in item matrix : HydratedHydrogelMatrix;
+      out item status : DigestiveTransitStatus;
+
+      first receiveHydratedMatrix;
+      then passThroughStomach;
+      then passThroughSmallIntestine;
+      then partialColonDegradation;
+      then eliminateResidue;
+
+      action receiveHydratedMatrix {
+        matrix.hydrationFraction > 0.5;
+      }
+
+      action passThroughStomach {
+        status.stomachResidenceTime := expectedStomachResidenceTime;
+      }
+
+      action passThroughSmallIntestine {
+        status.smallIntestineTransitTime := expectedSmallIntestineTransitTime;
+      }
+
+      action partialColonDegradation {
+        status.colonDegradationState := 0.4;
+      }
+
+      action eliminateResidue {
+        status.excretedFraction := expectedExcretedFraction;
+        transitPort.transitStatus := status;
+      }
+    }
+  }
+
+  part def SafetyControlSubsystem {
+    attribute systemicAbsorptionExpected : Boolean = false;
+    attribute pharmacologicActionExpected : Boolean = false;
+    attribute sufficientWaterRequired : Boolean = true;
+
+    port safetyOut : SafetyStatusPort;
+
+    action evaluateSafetyMode {
+      out item status : SafetyConstraintSignal;
+
+      first confirmMechanicalMode;
+      then confirmNonSystemicMode;
+      then confirmWaterControl;
+      then publishSafetyStatus;
+
+      action confirmMechanicalMode {
+        status.mechanicalActionOnly := true;
+      }
+
+      action confirmNonSystemicMode {
+        status.systemicAbsorptionExpected := systemicAbsorptionExpected;
+      }
+
+      action confirmWaterControl {
+        status.chokingRiskControlled := sufficientWaterRequired;
+      }
+
+      action publishSafetyStatus {
+        safetyOut.safetyStatus := status;
+      }
+    }
+  }
+
+  /* Behavior */
+
+  state def Gelesis100Lifecycle {
+    entry action initializeDose;
+    state ReadyForAdministration;
+    state Swallowed;
+    state CapsuleShellDissolving;
+    state Hydrating;
+    state GastricVolumeOccupancy;
+    state IntestinalTransit;
+    state ColonicDegradation;
+    state Eliminated;
+    state AdministrationError;
+
+    transition first ReadyForAdministration;
+
+    transition ReadyForAdministration to Swallowed
+      accept DoseTaken
+      if doseTakenWithWater == true;
+
+    transition ReadyForAdministration to AdministrationError
+      accept DoseTaken
+      if doseTakenWithWater == false;
+
+    transition Swallowed to CapsuleShellDissolving
+      after 5 [min];
+
+    transition CapsuleShellDissolving to Hydrating
+      after 15 [min];
+
+    transition Hydrating to GastricVolumeOccupancy
+      if hydrationFraction >= 0.8;
+
+    transition GastricVolumeOccupancy to IntestinalTransit
+      after 60 [min];
+
+    transition IntestinalTransit to ColonicDegradation
+      after 240 [min];
+
+    transition ColonicDegradation to Eliminated
+      if excretedFraction >= 0.9;
+  }
+
+  action def AdministerGelesis100Dose {
+    in item instruction : UserInstruction;
+    in item capsuleMaterial : CelluloseCitricAcidHydrogel;
+    in item water : Water;
+    out item swallowedDose : SwallowedDose;
+
+    first verifyInstruction;
+    then combineCapsulesWithWater;
+    then swallowDose;
+
+    action verifyInstruction {
+      instruction.doseCapsules == 3;
+      instruction.waterRequired <= water.volume;
+    }
+
+    action combineCapsulesWithWater {
+      swallowedDose.capsuleCount := instruction.doseCapsules;
+      swallowedDose.totalHydrogelMass := 2.25 [g];
+      swallowedDose.intendedMealAssociation := instruction.administrationTiming;
+    }
+
+    action swallowDose {
+      water.volume >= instruction.waterRequired;
+    }
+  }
+
+  action def PerformPrimaryFunction {
+    in item swallowedDose : SwallowedDose;
+    in item water : Water;
+    out item satietySignal : SatietySignal;
+    out item transitStatus : DigestiveTransitStatus;
+
+    first hydrateInStomach;
+    then occupyGastricVolume;
+    then supportFullness;
+    then transitDigestiveTract;
+    then eliminateMaterial;
+
+    action hydrateInStomach {
+      in item dose : SwallowedDose = swallowedDose;
+      in item gastricWater : Water = water;
+      out item matrix : HydratedHydrogelMatrix;
+
+      matrix.hydrationFraction := 0.95;
+      matrix.occupiedVolume := 250 [mL];
+      matrix.wetMass := dose.totalHydrogelMass + 247.75 [g];
+      matrix.firmness := 1.5 [kPa];
+    }
+
+    action occupyGastricVolume {
+      matrix.occupiedVolume >= 100 [mL];
+    }
+
+    action supportFullness {
+      satietySignal.gastricDistensionContribution := 1.0;
+      satietySignal.perceivedFullnessLevel := 0.7;
+      satietySignal.appetiteReductionSupport := 0.6;
+    }
+
+    action transitDigestiveTract {
+      transitStatus.stomachResidenceTime := 60 [min];
+      transitStatus.smallIntestineTransitTime := 240 [min];
+      transitStatus.colonDegradationState := 0.4;
+    }
+
+    action eliminateMaterial {
+      transitStatus.excretedFraction := 0.95;
+    }
+  }
+
+  /* Requirements */
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall support weight management at a high level by creating a hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness through a non-systemic mechanical mechanism. */
+
+    subject system : Gelesis100System;
+
+    require constraint {
+      system.primaryFunction ==
+      "Support weight management by forming a non-systemic, hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness before digestive transit and elimination."
+    }
+  }
+
+  requirement def AdministrationRequirement {
+    doc
+      /* The system shall provide oral administration guidance specifying a capsule dose and sufficient water intake. */
+
+    subject system : Gelesis100System;
+
+    require constraint {
+      system.nominalCapsulesPerDose == 3 and
+      system.nominalWaterPerDose >= 500 [mL]
+    }
+  }
+
+  requirement def HydrationRequirement {
+    doc
+      /* The capsule material shall hydrate in the gastric environment to form a soft hydrogel matrix with substantial water content. */
+
+    subject matrix : HydratedHydrogelMatrix;
+
+    require constraint {
+      matrix.hydrationFraction >= 0.8 and
+      matrix.occupiedVolume >= 100 [mL]
+    }
+  }
+
+  requirement def NonSystemicMechanicalActionRequirement {
+    doc
+      /* The system shall perform its primary function without expected systemic absorption or pharmacologic action. */
+
+    subject safety : SafetyConstraintSignal;
+
+    require constraint {
+      safety.mechanicalActionOnly == true and
+      safety.systemicAbsorptionExpected == false
+    }
+  }
+
+  requirement def TransitAndEliminationRequirement {
+    doc
+      /* The hydrated material shall pass through the digestive tract and be substantially eliminated. */
+
+    subject status : DigestiveTransitStatus;
+
+    require constraint {
+      status.excretedFraction >= 0.9
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by Gelesis100System;
+  satisfy AdministrationRequirement by AdministrationGuidance;
+  satisfy HydrationRequirement by GastricHydrationSubsystem;
+  satisfy NonSystemicMechanicalActionRequirement by SafetyControlSubsystem;
+  satisfy TransitAndEliminationRequirement by DigestiveTransitSubsystem;
+
+  /* System instance */
+
+  part gelesis100WeightManagementAid : Gelesis100System {
+    attribute primaryFunction =
+      "Support weight management by forming a non-systemic, hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness before digestive transit and elimination.";
+  }
+}
+tokens used
+4,813
+package Gelesis100SystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  /* Item and value definitions */
+
+  item def CapsuleMaterial {
+    attribute polymerNetworkMass : MassValue;
+    attribute waterAbsorptionRatio : Real;
+    attribute isBiocompatible : Boolean;
+  }
+
+  item def CelluloseCitricAcidHydrogel :> CapsuleMaterial {
+    attribute polymerNetworkMass : MassValue = 2.25 [g];
+    attribute waterAbsorptionRatio : Real = 100.0;
+    attribute isBiocompatible : Boolean = true;
+  }
+
+  item def Water {
+    attribute volume : VolumeValue;
+    attribute temperature : TemperatureValue;
+  }
+
+  item def SwallowedDose {
+    attribute capsuleCount : Integer;
+    attribute totalHydrogelMass : MassValue;
+    attribute intendedMealAssociation : String;
+  }
+
+  item def HydratedHydrogelMatrix {
+    attribute wetMass : MassValue;
+    attribute occupiedVolume : VolumeValue;
+    attribute hydrationFraction : Real;
+    attribute firmness : PressureValue;
+  }
+
+  item def DigestiveTransitStatus {
+    attribute stomachResidenceTime : TimeValue;
+    attribute smallIntestineTransitTime : TimeValue;
+    attribute colonDegradationState : Real;
+    attribute excretedFraction : Real;
+  }
+
+  item def SatietySignal {
+    attribute gastricDistensionContribution : Real;
+    attribute perceivedFullnessLevel : Real;
+    attribute appetiteReductionSupport : Real;
+  }
+
+  item def UserInstruction {
+    attribute doseCapsules : Integer;
+    attribute waterRequired : VolumeValue;
+    attribute administrationTiming : String;
+  }
+
+  item def SafetyConstraintSignal {
+    attribute chokingRiskControlled : Boolean;
+    attribute systemicAbsorptionExpected : Boolean;
+    attribute mechanicalActionOnly : Boolean;
+  }
+
+  /* Ports */
+
+  port def OralIntakePort {
+    in item dose : SwallowedDose;
+    in item water : Water;
+  }
+
+  port def GastricEnvironmentPort {
+    in item swallowedDose : SwallowedDose;
+    in item gastricWater : Water;
+    out item hydratedMatrix : HydratedHydrogelMatrix;
+    out item satietySignal : SatietySignal;
+  }
+
+  port def IntestinalTransitPort {
+    in item hydratedMatrix : HydratedHydrogelMatrix;
+    out item transitStatus : DigestiveTransitStatus;
+  }
+
+  port def InstructionPort {
+    out item instruction : UserInstruction;
+  }
+
+  port def SafetyStatusPort {
+    out item safetyStatus : SafetyConstraintSignal;
+  }
+
+  /* System structure */
+
+  part def Gelesis100System {
+    attribute primaryFunction : String =
+      "Support weight management by forming a non-systemic, hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness before digestive transit and elimination.";
+
+    attribute nominalCapsulesPerDose : Integer = 3;
+    attribute nominalWaterPerDose : VolumeValue = 500 [mL];
+    attribute nominalDoseHydrogelMass : MassValue = 2.25 [g];
+
+    port intake : OralIntakePort;
+    port gastricInterface : GastricEnvironmentPort;
+    port transitInterface : IntestinalTransitPort;
+    port instructionInterface : InstructionPort;
+    port safetyInterface : SafetyStatusPort;
+
+    part capsules[3] : Gelesis100Capsule;
+    part administrationKit : AdministrationGuidance;
+    part hydrationFunction : GastricHydrationSubsystem;
+    part transitFunction : DigestiveTransitSubsystem;
+    part safetyFunction : SafetyControlSubsystem;
+
+    connect intake.dose to gastricInterface.swallowedDose;
+    connect intake.water to gastricInterface.gastricWater;
+    connect gastricInterface.hydratedMatrix to transitInterface.hydratedMatrix;
+    connect administrationKit.instructionOut to instructionInterface.instruction;
+    connect safetyFunction.safetyOut to safetyInterface.safetyStatus;
+  }
+
+  part def Gelesis100Capsule {
+    attribute capsuleShellDissolutionTime : TimeValue = 15 [min];
+    attribute dryMass : MassValue = 0.75 [g];
+    attribute activeHydrogelMass : MassValue = 0.75 [g];
+
+    port doseOut : OralIntakePort;
+
+    part hydrogel : CelluloseCitricAcidHydrogel;
+  }
+
+  part def AdministrationGuidance {
+    attribute targetCapsules : Integer = 3;
+    attribute minimumWaterVolume : VolumeValue = 500 [mL];
+    attribute useContext : String = "Taken orally with water before a meal according to product directions.";
+
+    port instructionOut : InstructionPort;
+
+    action provideInstruction {
+      out item instruction : UserInstruction;
+
+      first start;
+      then setCapsuleCount;
+      then setWaterVolume;
+      then setTiming;
+      then done;
+
+      action setCapsuleCount {
+        instruction.doseCapsules := targetCapsules;
+      }
+
+      action setWaterVolume {
+        instruction.waterRequired := minimumWaterVolume;
+      }
+
+      action setTiming {
+        instruction.administrationTiming := "Before meal with sufficient water";
+      }
+    }
+  }
+
+  part def GastricHydrationSubsystem {
+    attribute targetHydrationFraction : Real = 0.95;
+    attribute targetOccupiedVolume : VolumeValue = 250 [mL];
+    attribute expectedMechanicalMode : String = "Volume occupancy through hydrated hydrogel formation";
+
+    port gastricPort : GastricEnvironmentPort;
+
+    action hydrateDose {
+      in item dose : SwallowedDose;
+      in item water : Water;
+      out item matrix : HydratedHydrogelMatrix;
+
+      first receiveDose;
+      then verifyWater;
+      then dissolveCapsuleShell;
+      then absorbWater;
+      then formHydrogelMatrix;
+      then outputMatrix;
+
+      action receiveDose {
+        dose.capsuleCount >= 1;
+      }
+
+      action verifyWater {
+        water.volume >= 250 [mL];
+      }
+
+      action dissolveCapsuleShell {
+        /* Capsule shell opens in gastric environment. */
+      }
+
+      action absorbWater {
+        matrix.hydrationFraction := targetHydrationFraction;
+      }
+
+      action formHydrogelMatrix {
+        matrix.occupiedVolume := targetOccupiedVolume;
+        matrix.wetMass := dose.totalHydrogelMass + 247.75 [g];
+        matrix.firmness := 1.5 [kPa];
+      }
+
+      action outputMatrix {
+        gastricPort.hydratedMatrix := matrix;
+      }
+    }
+
+    action generateSatietySupport {
+      in item matrix : HydratedHydrogelMatrix;
+      out item signal : SatietySignal;
+
+      first assessVolume;
+      then estimateDistensionContribution;
+      then publishSignal;
+
+      action assessVolume {
+        matrix.occupiedVolume >= 100 [mL];
+      }
+
+      action estimateDistensionContribution {
+        signal.gastricDistensionContribution := matrix.occupiedVolume / targetOccupiedVolume;
+        signal.perceivedFullnessLevel := 0.7;
+        signal.appetiteReductionSupport := 0.6;
+      }
+
+      action publishSignal {
+        gastricPort.satietySignal := signal;
+      }
+    }
+  }
+
+  part def DigestiveTransitSubsystem {
+    attribute expectedStomachResidenceTime : TimeValue = 60 [min];
+    attribute expectedSmallIntestineTransitTime : TimeValue = 240 [min];
+    attribute expectedExcretedFraction : Real = 0.95;
+
+    port transitPort : IntestinalTransitPort;
+
+    action processTransit {
+      in item matrix : HydratedHydrogelMatrix;
+      out item status : DigestiveTransitStatus;
+
+      first receiveHydratedMatrix;
+      then passThroughStomach;
+      then passThroughSmallIntestine;
+      then partialColonDegradation;
+      then eliminateResidue;
+
+      action receiveHydratedMatrix {
+        matrix.hydrationFraction > 0.5;
+      }
+
+      action passThroughStomach {
+        status.stomachResidenceTime := expectedStomachResidenceTime;
+      }
+
+      action passThroughSmallIntestine {
+        status.smallIntestineTransitTime := expectedSmallIntestineTransitTime;
+      }
+
+      action partialColonDegradation {
+        status.colonDegradationState := 0.4;
+      }
+
+      action eliminateResidue {
+        status.excretedFraction := expectedExcretedFraction;
+        transitPort.transitStatus := status;
+      }
+    }
+  }
+
+  part def SafetyControlSubsystem {
+    attribute systemicAbsorptionExpected : Boolean = false;
+    attribute pharmacologicActionExpected : Boolean = false;
+    attribute sufficientWaterRequired : Boolean = true;
+
+    port safetyOut : SafetyStatusPort;
+
+    action evaluateSafetyMode {
+      out item status : SafetyConstraintSignal;
+
+      first confirmMechanicalMode;
+      then confirmNonSystemicMode;
+      then confirmWaterControl;
+      then publishSafetyStatus;
+
+      action confirmMechanicalMode {
+        status.mechanicalActionOnly := true;
+      }
+
+      action confirmNonSystemicMode {
+        status.systemicAbsorptionExpected := systemicAbsorptionExpected;
+      }
+
+      action confirmWaterControl {
+        status.chokingRiskControlled := sufficientWaterRequired;
+      }
+
+      action publishSafetyStatus {
+        safetyOut.safetyStatus := status;
+      }
+    }
+  }
+
+  /* Behavior */
+
+  state def Gelesis100Lifecycle {
+    entry action initializeDose;
+    state ReadyForAdministration;
+    state Swallowed;
+    state CapsuleShellDissolving;
+    state Hydrating;
+    state GastricVolumeOccupancy;
+    state IntestinalTransit;
+    state ColonicDegradation;
+    state Eliminated;
+    state AdministrationError;
+
+    transition first ReadyForAdministration;
+
+    transition ReadyForAdministration to Swallowed
+      accept DoseTaken
+      if doseTakenWithWater == true;
+
+    transition ReadyForAdministration to AdministrationError
+      accept DoseTaken
+      if doseTakenWithWater == false;
+
+    transition Swallowed to CapsuleShellDissolving
+      after 5 [min];
+
+    transition CapsuleShellDissolving to Hydrating
+      after 15 [min];
+
+    transition Hydrating to GastricVolumeOccupancy
+      if hydrationFraction >= 0.8;
+
+    transition GastricVolumeOccupancy to IntestinalTransit
+      after 60 [min];
+
+    transition IntestinalTransit to ColonicDegradation
+      after 240 [min];
+
+    transition ColonicDegradation to Eliminated
+      if excretedFraction >= 0.9;
+  }
+
+  action def AdministerGelesis100Dose {
+    in item instruction : UserInstruction;
+    in item capsuleMaterial : CelluloseCitricAcidHydrogel;
+    in item water : Water;
+    out item swallowedDose : SwallowedDose;
+
+    first verifyInstruction;
+    then combineCapsulesWithWater;
+    then swallowDose;
+
+    action verifyInstruction {
+      instruction.doseCapsules == 3;
+      instruction.waterRequired <= water.volume;
+    }
+
+    action combineCapsulesWithWater {
+      swallowedDose.capsuleCount := instruction.doseCapsules;
+      swallowedDose.totalHydrogelMass := 2.25 [g];
+      swallowedDose.intendedMealAssociation := instruction.administrationTiming;
+    }
+
+    action swallowDose {
+      water.volume >= instruction.waterRequired;
+    }
+  }
+
+  action def PerformPrimaryFunction {
+    in item swallowedDose : SwallowedDose;
+    in item water : Water;
+    out item satietySignal : SatietySignal;
+    out item transitStatus : DigestiveTransitStatus;
+
+    first hydrateInStomach;
+    then occupyGastricVolume;
+    then supportFullness;
+    then transitDigestiveTract;
+    then eliminateMaterial;
+
+    action hydrateInStomach {
+      in item dose : SwallowedDose = swallowedDose;
+      in item gastricWater : Water = water;
+      out item matrix : HydratedHydrogelMatrix;
+
+      matrix.hydrationFraction := 0.95;
+      matrix.occupiedVolume := 250 [mL];
+      matrix.wetMass := dose.totalHydrogelMass + 247.75 [g];
+      matrix.firmness := 1.5 [kPa];
+    }
+
+    action occupyGastricVolume {
+      matrix.occupiedVolume >= 100 [mL];
+    }
+
+    action supportFullness {
+      satietySignal.gastricDistensionContribution := 1.0;
+      satietySignal.perceivedFullnessLevel := 0.7;
+      satietySignal.appetiteReductionSupport := 0.6;
+    }
+
+    action transitDigestiveTract {
+      transitStatus.stomachResidenceTime := 60 [min];
+      transitStatus.smallIntestineTransitTime := 240 [min];
+      transitStatus.colonDegradationState := 0.4;
+    }
+
+    action eliminateMaterial {
+      transitStatus.excretedFraction := 0.95;
+    }
+  }
+
+  /* Requirements */
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall support weight management at a high level by creating a hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness through a non-systemic mechanical mechanism. */
+
+    subject system : Gelesis100System;
+
+    require constraint {
+      system.primaryFunction ==
+      "Support weight management by forming a non-systemic, hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness before digestive transit and elimination."
+    }
+  }
+
+  requirement def AdministrationRequirement {
+    doc
+      /* The system shall provide oral administration guidance specifying a capsule dose and sufficient water intake. */
+
+    subject system : Gelesis100System;
+
+    require constraint {
+      system.nominalCapsulesPerDose == 3 and
+      system.nominalWaterPerDose >= 500 [mL]
+    }
+  }
+
+  requirement def HydrationRequirement {
+    doc
+      /* The capsule material shall hydrate in the gastric environment to form a soft hydrogel matrix with substantial water content. */
+
+    subject matrix : HydratedHydrogelMatrix;
+
+    require constraint {
+      matrix.hydrationFraction >= 0.8 and
+      matrix.occupiedVolume >= 100 [mL]
+    }
+  }
+
+  requirement def NonSystemicMechanicalActionRequirement {
+    doc
+      /* The system shall perform its primary function without expected systemic absorption or pharmacologic action. */
+
+    subject safety : SafetyConstraintSignal;
+
+    require constraint {
+      safety.mechanicalActionOnly == true and
+      safety.systemicAbsorptionExpected == false
+    }
+  }
+
+  requirement def TransitAndEliminationRequirement {
+    doc
+      /* The hydrated material shall pass through the digestive tract and be substantially eliminated. */
+
+    subject status : DigestiveTransitStatus;
+
+    require constraint {
+      status.excretedFraction >= 0.9
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by Gelesis100System;
+  satisfy AdministrationRequirement by AdministrationGuidance;
+  satisfy HydrationRequirement by GastricHydrationSubsystem;
+  satisfy NonSystemicMechanicalActionRequirement by SafetyControlSubsystem;
+  satisfy TransitAndEliminationRequirement by DigestiveTransitSubsystem;
+
+  /* System instance */
+
+  part gelesis100WeightManagementAid : Gelesis100System {
+    attribute primaryFunction =
+      "Support weight management by forming a non-systemic, hydrated hydrogel matrix in the stomach that occupies volume and promotes fullness before digestive transit and elimination.";
+  }
+}

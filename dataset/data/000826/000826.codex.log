@@ -1,0 +1,1193 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-bgq4iy3r
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb459-2ca9-7870-8f89-3feedcf6490e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Wangensteen suction and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WangensteenSuctionSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PressureValue :> Real {
+        unit = 'Pa';
+    }
+
+    attribute def VacuumPressure :> PressureValue {
+        doc /* Negative gauge pressure relative to ambient atmosphere. */
+    }
+
+    attribute def FlowRate :> Real {
+        unit = 'L/min';
+    }
+
+    attribute def VolumeValue :> Real {
+        unit = 'L';
+    }
+
+    attribute def TimeValue :> Real {
+        unit = 's';
+    }
+
+    attribute def PowerValue :> Real {
+        unit = 'W';
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = 'V';
+    }
+
+    attribute def OcclusionLevel :> Real {
+        unit = '1';
+    }
+
+    attribute def FluidViscosity :> Real {
+        unit = 'Pa*s';
+    }
+
+    enum def OperatingMode {
+        enum idle;
+        enum priming;
+        enum regulating;
+        enum suctioning;
+        enum paused;
+        enum occluded;
+        enum fullCanister;
+        enum fault;
+        enum shutdown;
+    }
+
+    enum def FluidKind {
+        enum gastricContents;
+        enum irrigationFluid;
+        enum air;
+        enum secretionFoam;
+    }
+
+    item def SuctionedFluid {
+        attribute kind : FluidKind;
+        attribute volume : VolumeValue;
+        attribute viscosity : FluidViscosity;
+        attribute containsAir : Boolean;
+    }
+
+    item def AirStream {
+        attribute flow : FlowRate;
+        attribute pressure : PressureValue;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : VoltageValue;
+        attribute power : PowerValue;
+    }
+
+    item def ControlSignal {
+        attribute requestedMode : OperatingMode;
+        attribute targetVacuum : VacuumPressure;
+    }
+
+    port def FluidPort {
+        inout item fluid : SuctionedFluid;
+    }
+
+    port def AirVacuumPort {
+        inout item air : AirStream;
+    }
+
+    port def PowerPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        inout item signal : ControlSignal;
+    }
+
+    port def AlarmPort {
+        out item alarmSignal : ControlSignal;
+    }
+
+    part def NasogastricTube {
+        port patientEnd : FluidPort;
+        port pumpEnd : FluidPort;
+
+        attribute internalDiameter : LengthValue = 0.004 [m];
+        attribute insertionLength : LengthValue = 1.2 [m];
+        attribute maxSafeVacuum : VacuumPressure = -16000 [Pa];
+
+        perform action transmitGastricFluid {
+            in item gastricFluid : SuctionedFluid;
+            out item deliveredFluid : SuctionedFluid;
+        }
+    }
+
+    part def SuctionTubing {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute internalDiameter : LengthValue = 0.006 [m];
+        attribute length : LengthValue = 1.5 [m];
+        attribute kinkDetected : Boolean;
+
+        perform action conductFluid {
+            in item inletFluid : SuctionedFluid;
+            out item outletFluid : SuctionedFluid;
+        }
+    }
+
+    part def CollectionCanister {
+        port inlet : FluidPort;
+        port vacuumOutlet : AirVacuumPort;
+
+        attribute capacity : VolumeValue = 2.0 [L];
+        attribute collectedVolume : VolumeValue;
+        attribute fullThreshold : VolumeValue = 1.8 [L];
+        attribute isSealed : Boolean;
+        attribute floatValveClosed : Boolean;
+
+        perform action separateFluidFromAir {
+            in item mixedFluid : SuctionedFluid;
+            out item retainedFluid : SuctionedFluid;
+            out item vacuumAir : AirStream;
+        }
+
+        constraint canisterNotOverfilled {
+            collectedVolume <= capacity;
+        }
+
+        constraint floatValveClosesAtThreshold {
+            collectedVolume >= fullThreshold implies floatValveClosed == true;
+        }
+    }
+
+    part def HydrophobicFilter {
+        port canisterSide : AirVacuumPort;
+        port pumpSide : AirVacuumPort;
+
+        attribute fluidBreakthroughDetected : Boolean;
+        attribute pressureDrop : PressureValue;
+        attribute maxPressureDrop : PressureValue = 3000 [Pa];
+
+        perform action blockLiquidAerosol {
+            in item canisterAir : AirStream;
+            out item dryAir : AirStream;
+        }
+
+        constraint filterServiceable {
+            pressureDrop <= maxPressureDrop and fluidBreakthroughDetected == false;
+        }
+    }
+
+    part def VacuumPump {
+        port suctionPort : AirVacuumPort;
+        port exhaustPort : AirVacuumPort;
+        port electricalInput : PowerPort;
+        port command : ControlPort;
+
+        attribute freeAirFlow : FlowRate = 18.0 [L/min];
+        attribute maximumVacuum : VacuumPressure = -65000 [Pa];
+        attribute nominalPower : PowerValue = 85 [W];
+        attribute running : Boolean;
+
+        perform action generateVacuum {
+            in item supply : ElectricalEnergy;
+            in item commandSignal : ControlSignal;
+            out item evacuatedAir : AirStream;
+        }
+    }
+
+    part def VacuumRegulator {
+        port sourceVacuum : AirVacuumPort;
+        port regulatedVacuum : AirVacuumPort;
+        port controller : ControlPort;
+
+        attribute setPoint : VacuumPressure = -12000 [Pa];
+        attribute measuredVacuum : VacuumPressure;
+        attribute tolerance : PressureValue = 1500 [Pa];
+        attribute reliefValveOpen : Boolean;
+
+        perform action regulateVacuumLevel {
+            in item sourceAir : AirStream;
+            out item regulatedAir : AirStream;
+        }
+
+        constraint therapeuticRange {
+            setPoint >= -16000 [Pa] and setPoint <= -5000 [Pa];
+        }
+    }
+
+    part def VacuumGauge {
+        port sensedVacuum : AirVacuumPort;
+        port indication : ControlPort;
+
+        attribute displayedVacuum : VacuumPressure;
+        attribute accuracy : PressureValue = 500 [Pa];
+
+        perform action measureVacuum {
+            in item airPath : AirStream;
+            out item reading : ControlSignal;
+        }
+    }
+
+    part def OcclusionDetector {
+        port sensedLine : FluidPort;
+        port status : ControlPort;
+
+        attribute occlusionIndex : OcclusionLevel;
+        attribute occludedThreshold : OcclusionLevel = 0.85;
+        attribute occlusionDetected : Boolean;
+
+        perform action evaluateLinePatency {
+            in item lineFluid : SuctionedFluid;
+            out item occlusionStatus : ControlSignal;
+        }
+    }
+
+    part def CanisterLevelSensor {
+        port sensedCanister : FluidPort;
+        port status : ControlPort;
+
+        attribute measuredVolume : VolumeValue;
+        attribute highLevel : Boolean;
+        attribute fullLevel : Boolean;
+
+        perform action monitorCollectedVolume {
+            out item levelStatus : ControlSignal;
+        }
+    }
+
+    part def UserInterface {
+        port control : ControlPort;
+        port alarm : AlarmPort;
+
+        attribute requestedVacuum : VacuumPressure = -12000 [Pa];
+        attribute startRequested : Boolean;
+        attribute pauseRequested : Boolean;
+        attribute shutdownRequested : Boolean;
+        attribute muteRequested : Boolean;
+
+        perform action acceptOperatorInput {
+            out item operatorCommand : ControlSignal;
+        }
+
+        perform action displayStatus {
+            in item systemStatus : ControlSignal;
+        }
+    }
+
+    part def AlarmModule {
+        port input : ControlPort;
+        port annunciator : AlarmPort;
+
+        attribute audibleEnabled : Boolean;
+        attribute visualEnabled : Boolean;
+        attribute activeAlarm : Boolean;
+
+        perform action annunciate {
+            in item statusSignal : ControlSignal;
+            out item alarmSignal : ControlSignal;
+        }
+    }
+
+    part def PowerSupply {
+        port output : PowerPort;
+
+        attribute mainsVoltage : VoltageValue = 120 [V];
+        attribute outputVoltage : VoltageValue = 24 [V];
+        attribute maximumPower : PowerValue = 120 [W];
+        attribute energized : Boolean;
+
+        perform action provideElectricalEnergy {
+            out item energy : ElectricalEnergy;
+        }
+    }
+
+    part def PatientInterface {
+        port gastricAccess : FluidPort;
+
+        attribute gastricFluidAvailable : Boolean;
+        attribute allowableVacuumAtPatient : VacuumPressure = -16000 [Pa];
+    }
+
+    action def RemoveGastricContents {
+        in item sourceFluid : SuctionedFluid;
+        in targetVacuum : VacuumPressure;
+        out item collectedFluid : SuctionedFluid;
+
+        first start;
+        then applyVacuum;
+        then conveyFluid;
+        then separateAndCollect;
+        then verifySafeOperation;
+        then done;
+
+        action applyVacuum {
+            in targetVacuum : VacuumPressure;
+        }
+
+        action conveyFluid {
+            in item sourceFluid : SuctionedFluid;
+            out item transportedFluid : SuctionedFluid;
+        }
+
+        action separateAndCollect {
+            in item transportedFluid : SuctionedFluid;
+            out item collectedFluid : SuctionedFluid;
+        }
+
+        action verifySafeOperation;
+    }
+
+    state def SuctionControllerStateMachine {
+        in startCommand : Boolean;
+        in pauseCommand : Boolean;
+        in shutdownCommand : Boolean;
+        in measuredVacuum : VacuumPressure;
+        in occlusionDetected : Boolean;
+        in canisterFull : Boolean;
+        in pumpFault : Boolean;
+
+        state idle;
+        state priming;
+        state suctioning;
+        state paused;
+        state occluded;
+        state fullCanister;
+        state fault;
+        state shutdown;
+
+        transition initial then idle;
+
+        transition idle_to_priming
+            first idle
+            accept startCommand == true
+            then priming;
+
+        transition priming_to_suctioning
+            first priming
+            accept measuredVacuum <= -5000 [Pa]
+            then suctioning;
+
+        transition suctioning_to_paused
+            first suctioning
+            accept pauseCommand == true
+            then paused;
+
+        transition paused_to_suctioning
+            first paused
+            accept startCommand == true
+            then suctioning;
+
+        transition suctioning_to_occluded
+            first suctioning
+            accept occlusionDetected == true
+            then occluded;
+
+        transition occluded_to_suctioning
+            first occluded
+            accept occlusionDetected == false and startCommand == true
+            then suctioning;
+
+        transition suctioning_to_fullCanister
+            first suctioning
+            accept canisterFull == true
+            then fullCanister;
+
+        transition fullCanister_to_idle
+            first fullCanister
+            accept canisterFull == false
+            then idle;
+
+        transition any_to_fault
+            first idle
+            accept pumpFault == true
+            then fault;
+
+        transition fault_to_shutdown
+            first fault
+            accept shutdownCommand == true
+            then shutdown;
+
+        transition any_to_shutdown
+            first suctioning
+            accept shutdownCommand == true
+            then shutdown;
+    }
+
+    part def WangensteenSuctionSystem {
+        doc /*
+        Primary high-level function: provide controlled, continuous, low-pressure gastrointestinal suction through a nasogastric tube so gastric contents are removed from the patient, separated from the vacuum air path, and retained in a sealed collection canister while limiting applied vacuum and alarming on unsafe conditions.
+        */
+
+        port patientConnection : FluidPort;
+        port exhaust : AirVacuumPort;
+        port mainsInput : PowerPort;
+        port operatorControl : ControlPort;
+        port alarmOutput : AlarmPort;
+
+        part patient : PatientInterface;
+        part ngTube : NasogastricTube;
+        part suctionLine : SuctionTubing;
+        part canister : CollectionCanister;
+        part filter : HydrophobicFilter;
+        part regulator : VacuumRegulator;
+        part pump : VacuumPump;
+        part gauge : VacuumGauge;
+        part occlusionDetector : OcclusionDetector;
+        part levelSensor : CanisterLevelSensor;
+        part userInterface : UserInterface;
+        part alarmModule : AlarmModule;
+        part powerSupply : PowerSupply;
+
+        attribute commandedVacuum : VacuumPressure = -12000 [Pa];
+        attribute appliedVacuumAtPatient : VacuumPressure;
+        attribute nominalFlow : FlowRate = 4.0 [L/min];
+        attribute mode : OperatingMode;
+        attribute startupTimeLimit : TimeValue = 20 [s];
+
+        connect patientConnection to patient.gastricAccess;
+        connect patient.gastricAccess to ngTube.patientEnd;
+        connect ngTube.pumpEnd to suctionLine.inlet;
+        connect suctionLine.outlet to canister.inlet;
+        connect canister.vacuumOutlet to filter.canisterSide;
+        connect filter.pumpSide to regulator.regulatedVacuum;
+        connect regulator.sourceVacuum to pump.suctionPort;
+        connect pump.exhaustPort to exhaust;
+
+        connect mainsInput to powerSupply.output;
+        connect powerSupply.output to pump.electricalInput;
+
+        connect operatorControl to userInterface.control;
+        connect userInterface.control to regulator.controller;
+        connect userInterface.control to pump.command;
+        connect userInterface.alarm to alarmOutput;
+
+        connect regulator.regulatedVacuum to gauge.sensedVacuum;
+        connect suctionLine.inlet to occlusionDetector.sensedLine;
+        connect canister.inlet to levelSensor.sensedCanister;
+
+        connect gauge.indication to alarmModule.input;
+        connect occlusionDetector.status to alarmModule.input;
+        connect levelSensor.status to alarmModule.input;
+        connect alarmModule.annunciator to alarmOutput;
+
+        perform action primaryFunction : RemoveGastricContents {
+            in sourceFluid = patient.gastricAccess.fluid;
+            in targetVacuum = commandedVacuum;
+            out collectedFluid = canister.inlet.fluid;
+        }
+
+        exhibit state controllerBehavior : SuctionControllerStateMachine {
+            in startCommand = userInterface.startRequested;
+            in pauseCommand = userInterface.pauseRequested;
+            in shutdownCommand = userInterface.shutdownRequested;
+            in measuredVacuum = regulator.measuredVacuum;
+            in occlusionDetected = occlusionDetector.occlusionDetected;
+            in canisterFull = canister.floatValveClosed;
+            in pumpFault = filter.fluidBreakthroughDetected;
+        }
+
+        constraint patientVacuumLimit {
+            appliedVacuumAtPatient >= patient.allowableVacuumAtPatient;
+        }
+
+        constraint regulatorAccuracy {
+            regulator.measuredVacuum >= regulator.setPoint - regulator.tolerance and
+            regulator.measuredVacuum <= regulator.setPoint + regulator.tolerance;
+        }
+
+        constraint collectionIsolation {
+            canister.isSealed == true and filter.fluidBreakthroughDetected == false;
+        }
+
+        constraint operatingFlowRange {
+            nominalFlow >= 1.0 [L/min] and nominalFlow <= 8.0 [L/min];
+        }
+    }
+
+    requirement def ControlledGastricSuctionRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall remove gastric contents from a patient through a nasogastric tube using controlled low-pressure suction and collect the removed material in a sealed canister.
+        */
+
+        require constraint {
+            system.commandedVacuum >= -16000 [Pa] and
+            system.commandedVacuum <= -5000 [Pa]
+        }
+    }
+
+    requirement def PatientSafetyVacuumLimitRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall prevent vacuum at the patient connection from exceeding the configured safe gastric suction limit.
+        */
+
+        require constraint {
+            system.appliedVacuumAtPatient >= system.patient.allowableVacuumAtPatient
+        }
+    }
+
+    requirement def FluidContainmentRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall retain suctioned fluid in the canister and prevent liquid carryover into the vacuum pump.
+        */
+
+        require constraint {
+            system.canister.isSealed == true and
+            system.filter.fluidBreakthroughDetected == false
+        }
+    }
+
+    requirement def CanisterFullAlarmRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall stop effective suction and generate an alarm when the collection canister reaches its full threshold.
+        */
+
+        require constraint {
+            system.canister.collectedVolume >= system.canister.fullThreshold implies
+            system.canister.floatValveClosed == true and
+            system.alarmModule.activeAlarm == true
+        }
+    }
+
+    requirement def OcclusionAlarmRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall detect a blocked or kinked suction path and alarm when the occlusion threshold is exceeded.
+        */
+
+        require constraint {
+            system.occlusionDetector.occlusionIndex >= system.occlusionDetector.occludedThreshold implies
+            system.occlusionDetector.occlusionDetected == true and
+            system.alarmModule.activeAlarm == true
+        }
+    }
+
+    requirement def UsabilityRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall provide operator controls for start, pause, shutdown, and vacuum set point selection.
+        */
+
+        require constraint {
+            system.userInterface.requestedVacuum >= -16000 [Pa] and
+            system.userInterface.requestedVacuum <= -5000 [Pa]
+        }
+    }
+
+    satisfy ControlledGastricSuctionRequirement by WangensteenSuctionSystem;
+    satisfy PatientSafetyVacuumLimitRequirement by WangensteenSuctionSystem;
+    satisfy FluidContainmentRequirement by WangensteenSuctionSystem;
+    satisfy CanisterFullAlarmRequirement by WangensteenSuctionSystem;
+    satisfy OcclusionAlarmRequirement by WangensteenSuctionSystem;
+    satisfy UsabilityRequirement by WangensteenSuctionSystem;
+}
+tokens used
+5,169
+package WangensteenSuctionSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PressureValue :> Real {
+        unit = 'Pa';
+    }
+
+    attribute def VacuumPressure :> PressureValue {
+        doc /* Negative gauge pressure relative to ambient atmosphere. */
+    }
+
+    attribute def FlowRate :> Real {
+        unit = 'L/min';
+    }
+
+    attribute def VolumeValue :> Real {
+        unit = 'L';
+    }
+
+    attribute def TimeValue :> Real {
+        unit = 's';
+    }
+
+    attribute def PowerValue :> Real {
+        unit = 'W';
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = 'V';
+    }
+
+    attribute def OcclusionLevel :> Real {
+        unit = '1';
+    }
+
+    attribute def FluidViscosity :> Real {
+        unit = 'Pa*s';
+    }
+
+    enum def OperatingMode {
+        enum idle;
+        enum priming;
+        enum regulating;
+        enum suctioning;
+        enum paused;
+        enum occluded;
+        enum fullCanister;
+        enum fault;
+        enum shutdown;
+    }
+
+    enum def FluidKind {
+        enum gastricContents;
+        enum irrigationFluid;
+        enum air;
+        enum secretionFoam;
+    }
+
+    item def SuctionedFluid {
+        attribute kind : FluidKind;
+        attribute volume : VolumeValue;
+        attribute viscosity : FluidViscosity;
+        attribute containsAir : Boolean;
+    }
+
+    item def AirStream {
+        attribute flow : FlowRate;
+        attribute pressure : PressureValue;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : VoltageValue;
+        attribute power : PowerValue;
+    }
+
+    item def ControlSignal {
+        attribute requestedMode : OperatingMode;
+        attribute targetVacuum : VacuumPressure;
+    }
+
+    port def FluidPort {
+        inout item fluid : SuctionedFluid;
+    }
+
+    port def AirVacuumPort {
+        inout item air : AirStream;
+    }
+
+    port def PowerPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        inout item signal : ControlSignal;
+    }
+
+    port def AlarmPort {
+        out item alarmSignal : ControlSignal;
+    }
+
+    part def NasogastricTube {
+        port patientEnd : FluidPort;
+        port pumpEnd : FluidPort;
+
+        attribute internalDiameter : LengthValue = 0.004 [m];
+        attribute insertionLength : LengthValue = 1.2 [m];
+        attribute maxSafeVacuum : VacuumPressure = -16000 [Pa];
+
+        perform action transmitGastricFluid {
+            in item gastricFluid : SuctionedFluid;
+            out item deliveredFluid : SuctionedFluid;
+        }
+    }
+
+    part def SuctionTubing {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute internalDiameter : LengthValue = 0.006 [m];
+        attribute length : LengthValue = 1.5 [m];
+        attribute kinkDetected : Boolean;
+
+        perform action conductFluid {
+            in item inletFluid : SuctionedFluid;
+            out item outletFluid : SuctionedFluid;
+        }
+    }
+
+    part def CollectionCanister {
+        port inlet : FluidPort;
+        port vacuumOutlet : AirVacuumPort;
+
+        attribute capacity : VolumeValue = 2.0 [L];
+        attribute collectedVolume : VolumeValue;
+        attribute fullThreshold : VolumeValue = 1.8 [L];
+        attribute isSealed : Boolean;
+        attribute floatValveClosed : Boolean;
+
+        perform action separateFluidFromAir {
+            in item mixedFluid : SuctionedFluid;
+            out item retainedFluid : SuctionedFluid;
+            out item vacuumAir : AirStream;
+        }
+
+        constraint canisterNotOverfilled {
+            collectedVolume <= capacity;
+        }
+
+        constraint floatValveClosesAtThreshold {
+            collectedVolume >= fullThreshold implies floatValveClosed == true;
+        }
+    }
+
+    part def HydrophobicFilter {
+        port canisterSide : AirVacuumPort;
+        port pumpSide : AirVacuumPort;
+
+        attribute fluidBreakthroughDetected : Boolean;
+        attribute pressureDrop : PressureValue;
+        attribute maxPressureDrop : PressureValue = 3000 [Pa];
+
+        perform action blockLiquidAerosol {
+            in item canisterAir : AirStream;
+            out item dryAir : AirStream;
+        }
+
+        constraint filterServiceable {
+            pressureDrop <= maxPressureDrop and fluidBreakthroughDetected == false;
+        }
+    }
+
+    part def VacuumPump {
+        port suctionPort : AirVacuumPort;
+        port exhaustPort : AirVacuumPort;
+        port electricalInput : PowerPort;
+        port command : ControlPort;
+
+        attribute freeAirFlow : FlowRate = 18.0 [L/min];
+        attribute maximumVacuum : VacuumPressure = -65000 [Pa];
+        attribute nominalPower : PowerValue = 85 [W];
+        attribute running : Boolean;
+
+        perform action generateVacuum {
+            in item supply : ElectricalEnergy;
+            in item commandSignal : ControlSignal;
+            out item evacuatedAir : AirStream;
+        }
+    }
+
+    part def VacuumRegulator {
+        port sourceVacuum : AirVacuumPort;
+        port regulatedVacuum : AirVacuumPort;
+        port controller : ControlPort;
+
+        attribute setPoint : VacuumPressure = -12000 [Pa];
+        attribute measuredVacuum : VacuumPressure;
+        attribute tolerance : PressureValue = 1500 [Pa];
+        attribute reliefValveOpen : Boolean;
+
+        perform action regulateVacuumLevel {
+            in item sourceAir : AirStream;
+            out item regulatedAir : AirStream;
+        }
+
+        constraint therapeuticRange {
+            setPoint >= -16000 [Pa] and setPoint <= -5000 [Pa];
+        }
+    }
+
+    part def VacuumGauge {
+        port sensedVacuum : AirVacuumPort;
+        port indication : ControlPort;
+
+        attribute displayedVacuum : VacuumPressure;
+        attribute accuracy : PressureValue = 500 [Pa];
+
+        perform action measureVacuum {
+            in item airPath : AirStream;
+            out item reading : ControlSignal;
+        }
+    }
+
+    part def OcclusionDetector {
+        port sensedLine : FluidPort;
+        port status : ControlPort;
+
+        attribute occlusionIndex : OcclusionLevel;
+        attribute occludedThreshold : OcclusionLevel = 0.85;
+        attribute occlusionDetected : Boolean;
+
+        perform action evaluateLinePatency {
+            in item lineFluid : SuctionedFluid;
+            out item occlusionStatus : ControlSignal;
+        }
+    }
+
+    part def CanisterLevelSensor {
+        port sensedCanister : FluidPort;
+        port status : ControlPort;
+
+        attribute measuredVolume : VolumeValue;
+        attribute highLevel : Boolean;
+        attribute fullLevel : Boolean;
+
+        perform action monitorCollectedVolume {
+            out item levelStatus : ControlSignal;
+        }
+    }
+
+    part def UserInterface {
+        port control : ControlPort;
+        port alarm : AlarmPort;
+
+        attribute requestedVacuum : VacuumPressure = -12000 [Pa];
+        attribute startRequested : Boolean;
+        attribute pauseRequested : Boolean;
+        attribute shutdownRequested : Boolean;
+        attribute muteRequested : Boolean;
+
+        perform action acceptOperatorInput {
+            out item operatorCommand : ControlSignal;
+        }
+
+        perform action displayStatus {
+            in item systemStatus : ControlSignal;
+        }
+    }
+
+    part def AlarmModule {
+        port input : ControlPort;
+        port annunciator : AlarmPort;
+
+        attribute audibleEnabled : Boolean;
+        attribute visualEnabled : Boolean;
+        attribute activeAlarm : Boolean;
+
+        perform action annunciate {
+            in item statusSignal : ControlSignal;
+            out item alarmSignal : ControlSignal;
+        }
+    }
+
+    part def PowerSupply {
+        port output : PowerPort;
+
+        attribute mainsVoltage : VoltageValue = 120 [V];
+        attribute outputVoltage : VoltageValue = 24 [V];
+        attribute maximumPower : PowerValue = 120 [W];
+        attribute energized : Boolean;
+
+        perform action provideElectricalEnergy {
+            out item energy : ElectricalEnergy;
+        }
+    }
+
+    part def PatientInterface {
+        port gastricAccess : FluidPort;
+
+        attribute gastricFluidAvailable : Boolean;
+        attribute allowableVacuumAtPatient : VacuumPressure = -16000 [Pa];
+    }
+
+    action def RemoveGastricContents {
+        in item sourceFluid : SuctionedFluid;
+        in targetVacuum : VacuumPressure;
+        out item collectedFluid : SuctionedFluid;
+
+        first start;
+        then applyVacuum;
+        then conveyFluid;
+        then separateAndCollect;
+        then verifySafeOperation;
+        then done;
+
+        action applyVacuum {
+            in targetVacuum : VacuumPressure;
+        }
+
+        action conveyFluid {
+            in item sourceFluid : SuctionedFluid;
+            out item transportedFluid : SuctionedFluid;
+        }
+
+        action separateAndCollect {
+            in item transportedFluid : SuctionedFluid;
+            out item collectedFluid : SuctionedFluid;
+        }
+
+        action verifySafeOperation;
+    }
+
+    state def SuctionControllerStateMachine {
+        in startCommand : Boolean;
+        in pauseCommand : Boolean;
+        in shutdownCommand : Boolean;
+        in measuredVacuum : VacuumPressure;
+        in occlusionDetected : Boolean;
+        in canisterFull : Boolean;
+        in pumpFault : Boolean;
+
+        state idle;
+        state priming;
+        state suctioning;
+        state paused;
+        state occluded;
+        state fullCanister;
+        state fault;
+        state shutdown;
+
+        transition initial then idle;
+
+        transition idle_to_priming
+            first idle
+            accept startCommand == true
+            then priming;
+
+        transition priming_to_suctioning
+            first priming
+            accept measuredVacuum <= -5000 [Pa]
+            then suctioning;
+
+        transition suctioning_to_paused
+            first suctioning
+            accept pauseCommand == true
+            then paused;
+
+        transition paused_to_suctioning
+            first paused
+            accept startCommand == true
+            then suctioning;
+
+        transition suctioning_to_occluded
+            first suctioning
+            accept occlusionDetected == true
+            then occluded;
+
+        transition occluded_to_suctioning
+            first occluded
+            accept occlusionDetected == false and startCommand == true
+            then suctioning;
+
+        transition suctioning_to_fullCanister
+            first suctioning
+            accept canisterFull == true
+            then fullCanister;
+
+        transition fullCanister_to_idle
+            first fullCanister
+            accept canisterFull == false
+            then idle;
+
+        transition any_to_fault
+            first idle
+            accept pumpFault == true
+            then fault;
+
+        transition fault_to_shutdown
+            first fault
+            accept shutdownCommand == true
+            then shutdown;
+
+        transition any_to_shutdown
+            first suctioning
+            accept shutdownCommand == true
+            then shutdown;
+    }
+
+    part def WangensteenSuctionSystem {
+        doc /*
+        Primary high-level function: provide controlled, continuous, low-pressure gastrointestinal suction through a nasogastric tube so gastric contents are removed from the patient, separated from the vacuum air path, and retained in a sealed collection canister while limiting applied vacuum and alarming on unsafe conditions.
+        */
+
+        port patientConnection : FluidPort;
+        port exhaust : AirVacuumPort;
+        port mainsInput : PowerPort;
+        port operatorControl : ControlPort;
+        port alarmOutput : AlarmPort;
+
+        part patient : PatientInterface;
+        part ngTube : NasogastricTube;
+        part suctionLine : SuctionTubing;
+        part canister : CollectionCanister;
+        part filter : HydrophobicFilter;
+        part regulator : VacuumRegulator;
+        part pump : VacuumPump;
+        part gauge : VacuumGauge;
+        part occlusionDetector : OcclusionDetector;
+        part levelSensor : CanisterLevelSensor;
+        part userInterface : UserInterface;
+        part alarmModule : AlarmModule;
+        part powerSupply : PowerSupply;
+
+        attribute commandedVacuum : VacuumPressure = -12000 [Pa];
+        attribute appliedVacuumAtPatient : VacuumPressure;
+        attribute nominalFlow : FlowRate = 4.0 [L/min];
+        attribute mode : OperatingMode;
+        attribute startupTimeLimit : TimeValue = 20 [s];
+
+        connect patientConnection to patient.gastricAccess;
+        connect patient.gastricAccess to ngTube.patientEnd;
+        connect ngTube.pumpEnd to suctionLine.inlet;
+        connect suctionLine.outlet to canister.inlet;
+        connect canister.vacuumOutlet to filter.canisterSide;
+        connect filter.pumpSide to regulator.regulatedVacuum;
+        connect regulator.sourceVacuum to pump.suctionPort;
+        connect pump.exhaustPort to exhaust;
+
+        connect mainsInput to powerSupply.output;
+        connect powerSupply.output to pump.electricalInput;
+
+        connect operatorControl to userInterface.control;
+        connect userInterface.control to regulator.controller;
+        connect userInterface.control to pump.command;
+        connect userInterface.alarm to alarmOutput;
+
+        connect regulator.regulatedVacuum to gauge.sensedVacuum;
+        connect suctionLine.inlet to occlusionDetector.sensedLine;
+        connect canister.inlet to levelSensor.sensedCanister;
+
+        connect gauge.indication to alarmModule.input;
+        connect occlusionDetector.status to alarmModule.input;
+        connect levelSensor.status to alarmModule.input;
+        connect alarmModule.annunciator to alarmOutput;
+
+        perform action primaryFunction : RemoveGastricContents {
+            in sourceFluid = patient.gastricAccess.fluid;
+            in targetVacuum = commandedVacuum;
+            out collectedFluid = canister.inlet.fluid;
+        }
+
+        exhibit state controllerBehavior : SuctionControllerStateMachine {
+            in startCommand = userInterface.startRequested;
+            in pauseCommand = userInterface.pauseRequested;
+            in shutdownCommand = userInterface.shutdownRequested;
+            in measuredVacuum = regulator.measuredVacuum;
+            in occlusionDetected = occlusionDetector.occlusionDetected;
+            in canisterFull = canister.floatValveClosed;
+            in pumpFault = filter.fluidBreakthroughDetected;
+        }
+
+        constraint patientVacuumLimit {
+            appliedVacuumAtPatient >= patient.allowableVacuumAtPatient;
+        }
+
+        constraint regulatorAccuracy {
+            regulator.measuredVacuum >= regulator.setPoint - regulator.tolerance and
+            regulator.measuredVacuum <= regulator.setPoint + regulator.tolerance;
+        }
+
+        constraint collectionIsolation {
+            canister.isSealed == true and filter.fluidBreakthroughDetected == false;
+        }
+
+        constraint operatingFlowRange {
+            nominalFlow >= 1.0 [L/min] and nominalFlow <= 8.0 [L/min];
+        }
+    }
+
+    requirement def ControlledGastricSuctionRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall remove gastric contents from a patient through a nasogastric tube using controlled low-pressure suction and collect the removed material in a sealed canister.
+        */
+
+        require constraint {
+            system.commandedVacuum >= -16000 [Pa] and
+            system.commandedVacuum <= -5000 [Pa]
+        }
+    }
+
+    requirement def PatientSafetyVacuumLimitRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall prevent vacuum at the patient connection from exceeding the configured safe gastric suction limit.
+        */
+
+        require constraint {
+            system.appliedVacuumAtPatient >= system.patient.allowableVacuumAtPatient
+        }
+    }
+
+    requirement def FluidContainmentRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall retain suctioned fluid in the canister and prevent liquid carryover into the vacuum pump.
+        */
+
+        require constraint {
+            system.canister.isSealed == true and
+            system.filter.fluidBreakthroughDetected == false
+        }
+    }
+
+    requirement def CanisterFullAlarmRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall stop effective suction and generate an alarm when the collection canister reaches its full threshold.
+        */
+
+        require constraint {
+            system.canister.collectedVolume >= system.canister.fullThreshold implies
+            system.canister.floatValveClosed == true and
+            system.alarmModule.activeAlarm == true
+        }
+    }
+
+    requirement def OcclusionAlarmRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall detect a blocked or kinked suction path and alarm when the occlusion threshold is exceeded.
+        */
+
+        require constraint {
+            system.occlusionDetector.occlusionIndex >= system.occlusionDetector.occludedThreshold implies
+            system.occlusionDetector.occlusionDetected == true and
+            system.alarmModule.activeAlarm == true
+        }
+    }
+
+    requirement def UsabilityRequirement {
+        subject system : WangensteenSuctionSystem;
+
+        doc /*
+        The system shall provide operator controls for start, pause, shutdown, and vacuum set point selection.
+        */
+
+        require constraint {
+            system.userInterface.requestedVacuum >= -16000 [Pa] and
+            system.userInterface.requestedVacuum <= -5000 [Pa]
+        }
+    }
+
+    satisfy ControlledGastricSuctionRequirement by WangensteenSuctionSystem;
+    satisfy PatientSafetyVacuumLimitRequirement by WangensteenSuctionSystem;
+    satisfy FluidContainmentRequirement by WangensteenSuctionSystem;
+    satisfy CanisterFullAlarmRequirement by WangensteenSuctionSystem;
+    satisfy OcclusionAlarmRequirement by WangensteenSuctionSystem;
+    satisfy UsabilityRequirement by WangensteenSuctionSystem;
+}

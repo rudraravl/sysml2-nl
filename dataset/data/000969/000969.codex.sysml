@@ -1,0 +1,622 @@
+package AirFuelRatioMeterModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Voltage :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def Current :> ScalarValues::Real {
+        unit = "A";
+    }
+
+    attribute def Temperature :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    attribute def Pressure :> ScalarValues::Real {
+        unit = "kPa";
+    }
+
+    attribute def TimeDuration :> ScalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def Ratio :> ScalarValues::Real;
+
+    attribute def Percentage :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def LambdaValue :> ScalarValues::Real;
+
+    attribute def OxygenConcentration :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def ExhaustGasTemperature :> Temperature;
+
+    attribute def AFRValue :> Ratio;
+
+    enum def FuelType {
+        enum gasoline;
+        enum ethanolBlend;
+        enum diesel;
+        enum methanol;
+        enum propane;
+        enum naturalGas;
+    }
+
+    enum def MeasurementValidity {
+        enum valid;
+        enum warmingUp;
+        enum sensorFault;
+        enum outOfRange;
+        enum calibrationRequired;
+        enum powerFault;
+    }
+
+    enum def DisplayMode {
+        enum airFuelRatio;
+        enum lambda;
+        enum equivalenceRatio;
+        enum sensorVoltage;
+        enum diagnostic;
+    }
+
+    item def ExhaustGasSample {
+        attribute oxygenContent : OxygenConcentration;
+        attribute gasTemperature : ExhaustGasTemperature;
+        attribute gasPressure : Pressure;
+        attribute flowPulsationFrequency : Frequency;
+    }
+
+    item def SensorSignal {
+        attribute pumpCellCurrent : Current;
+        attribute nernstCellVoltage : Voltage;
+        attribute heaterResistanceEstimate : ScalarValues::Real;
+        attribute sensorBodyTemperature : Temperature;
+        attribute signalTimestamp : TimeDuration;
+    }
+
+    item def AFRMeasurement {
+        attribute airFuelRatio : AFRValue;
+        attribute lambda : LambdaValue;
+        attribute equivalenceRatio : Ratio;
+        attribute validity : MeasurementValidity;
+        attribute updateAge : TimeDuration;
+        attribute confidence : Percentage;
+    }
+
+    item def UserSetting {
+        attribute selectedFuel : FuelType;
+        attribute stoichiometricAFR : AFRValue;
+        attribute displayMode : DisplayMode;
+        attribute brightness : Percentage;
+        attribute alarmLeanThreshold : LambdaValue;
+        attribute alarmRichThreshold : LambdaValue;
+    }
+
+    item def DiagnosticRecord {
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortCircuit : Boolean;
+        attribute heaterFault : Boolean;
+        attribute supplyUndervoltage : Boolean;
+        attribute exhaustTemperatureOutOfRange : Boolean;
+        attribute calibrationDriftSuspected : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+        attribute rippleVoltage : Voltage;
+    }
+
+    port def ExhaustProbePort {
+        in item gas : ExhaustGasSample;
+    }
+
+    port def SensorElectricalPort {
+        out item signal : SensorSignal;
+        in item heaterCommand : ElectricalPower;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : AFRMeasurement;
+    }
+
+    port def UserInterfacePort {
+        in item setting : UserSetting;
+        out item displayedMeasurement : AFRMeasurement;
+        out item diagnostics : DiagnosticRecord;
+    }
+
+    port def AlarmOutputPort {
+        out attribute leanAlarm : Boolean;
+        out attribute richAlarm : Boolean;
+        out attribute faultAlarm : Boolean;
+    }
+
+    part def WidebandOxygenSensor {
+        port exhaustIn : ExhaustProbePort;
+        port electricalOut : SensorElectricalPort;
+
+        attribute operatingTemperature : Temperature = 780.0;
+        attribute minimumValidTemperature : Temperature = 650.0;
+        attribute maximumValidTemperature : Temperature = 900.0;
+        attribute pumpCurrentRangeMin : Current = -0.004;
+        attribute pumpCurrentRangeMax : Current = 0.004;
+        attribute nernstTargetVoltage : Voltage = 0.450;
+
+        state def SensorThermalState {
+            entry action initializeTemperature {
+                operatingTemperature = 25.0;
+            }
+
+            state cold;
+            state heating;
+            state regulated;
+            state overheated;
+            state failed;
+
+            transition first cold;
+
+            transition cold_to_heating
+                first cold
+                then heating;
+
+            transition heating_to_regulated
+                first heating
+                then regulated
+                if operatingTemperature >= minimumValidTemperature and operatingTemperature <= maximumValidTemperature;
+
+            transition regulated_to_overheated
+                first regulated
+                then overheated
+                if operatingTemperature > maximumValidTemperature;
+
+            transition overheated_to_regulated
+                first overheated
+                then regulated
+                if operatingTemperature <= maximumValidTemperature;
+
+            transition any_to_failed
+                first regulated
+                then failed
+                if electricalOut.signal.heaterResistanceEstimate <= 0.0;
+        }
+
+        action def SenseExhaustOxygen {
+            in item gas : ExhaustGasSample;
+            out item signal : SensorSignal;
+
+            attribute oxygenError : OxygenConcentration;
+            attribute inferredPumpCurrent : Current;
+
+            oxygenError = gas.oxygenContent - 0.0;
+            inferredPumpCurrent = oxygenError * 0.0001;
+            signal.pumpCellCurrent = inferredPumpCurrent;
+            signal.nernstCellVoltage = nernstTargetVoltage;
+            signal.sensorBodyTemperature = operatingTemperature;
+            signal.signalTimestamp = 0.0;
+        }
+
+        perform action senseExhaust : SenseExhaustOxygen {
+            in gas = exhaustIn.gas;
+            out signal = electricalOut.signal;
+        }
+
+        exhibit state thermalState : SensorThermalState;
+    }
+
+    part def SensorHeaterController {
+        port powerIn : PowerInputPort;
+        port sensorPort : SensorElectricalPort;
+
+        attribute targetTemperature : Temperature = 780.0;
+        attribute warmupPowerLimit : Current = 2.500;
+        attribute holdCurrent : Current = 0.850;
+        attribute heaterVoltageCommand : Voltage = 12.0;
+        attribute heaterCurrentCommand : Current;
+
+        action def RegulateHeater {
+            in item sensorSignal : SensorSignal;
+            in item supply : ElectricalPower;
+            out item heaterPower : ElectricalPower;
+
+            if sensorSignal.sensorBodyTemperature < 650.0 {
+                heaterCurrentCommand = warmupPowerLimit;
+            } else if sensorSignal.sensorBodyTemperature < targetTemperature {
+                heaterCurrentCommand = 1.200;
+            } else {
+                heaterCurrentCommand = holdCurrent;
+            }
+
+            heaterPower.supplyVoltage = heaterVoltageCommand;
+            heaterPower.supplyCurrent = heaterCurrentCommand;
+            heaterPower.rippleVoltage = supply.rippleVoltage;
+        }
+
+        perform action regulate : RegulateHeater {
+            in sensorSignal = sensorPort.signal;
+            in supply = powerIn.power;
+            out heaterPower = sensorPort.heaterCommand;
+        }
+    }
+
+    part def SignalConditioner {
+        port sensorIn : SensorElectricalPort;
+        port conditionedOut : MeasurementOutputPort;
+
+        attribute pumpCurrentGain : Ratio = 250.0;
+        attribute nernstVoltageBias : Voltage = 0.0;
+        attribute lowPassCutoff : Frequency = 20.0;
+        attribute samplePeriod : TimeDuration = 0.020;
+
+        action def ConditionSensorSignal {
+            in item rawSignal : SensorSignal;
+            out item preliminaryMeasurement : AFRMeasurement;
+
+            attribute normalizedPumpCurrent : Ratio;
+            attribute oxygenExcessIndex : Ratio;
+
+            normalizedPumpCurrent = rawSignal.pumpCellCurrent * pumpCurrentGain;
+            oxygenExcessIndex = normalizedPumpCurrent;
+
+            preliminaryMeasurement.lambda = 1.0 + oxygenExcessIndex;
+            preliminaryMeasurement.airFuelRatio = preliminaryMeasurement.lambda * 14.7;
+            preliminaryMeasurement.equivalenceRatio = 1.0 / preliminaryMeasurement.lambda;
+            preliminaryMeasurement.updateAge = samplePeriod;
+            preliminaryMeasurement.confidence = 85.0;
+
+            if rawSignal.sensorBodyTemperature < 650.0 {
+                preliminaryMeasurement.validity = MeasurementValidity::warmingUp;
+            } else if rawSignal.pumpCellCurrent < -0.004 or rawSignal.pumpCellCurrent > 0.004 {
+                preliminaryMeasurement.validity = MeasurementValidity::outOfRange;
+            } else {
+                preliminaryMeasurement.validity = MeasurementValidity::valid;
+            }
+        }
+
+        perform action condition : ConditionSensorSignal {
+            in rawSignal = sensorIn.signal;
+            out preliminaryMeasurement = conditionedOut.measurement;
+        }
+    }
+
+    part def AFRComputationUnit {
+        port conditionedIn : MeasurementOutputPort;
+        port settingIn : UserInterfacePort;
+        port measurementOut : MeasurementOutputPort;
+        port diagnosticOut : UserInterfacePort;
+
+        attribute gasolineStoichiometricAFR : AFRValue = 14.7;
+        attribute ethanolBlendStoichiometricAFR : AFRValue = 9.8;
+        attribute dieselStoichiometricAFR : AFRValue = 14.5;
+        attribute propaneStoichiometricAFR : AFRValue = 15.5;
+        attribute naturalGasStoichiometricAFR : AFRValue = 17.2;
+        attribute activeStoichiometricAFR : AFRValue = 14.7;
+        attribute maximumAllowedAge : TimeDuration = 0.250;
+
+        action def SelectStoichiometricRatio {
+            in item setting : UserSetting;
+            out attribute stoich : AFRValue;
+
+            if setting.selectedFuel == FuelType::gasoline {
+                stoich = gasolineStoichiometricAFR;
+            } else if setting.selectedFuel == FuelType::ethanolBlend {
+                stoich = ethanolBlendStoichiometricAFR;
+            } else if setting.selectedFuel == FuelType::diesel {
+                stoich = dieselStoichiometricAFR;
+            } else if setting.selectedFuel == FuelType::propane {
+                stoich = propaneStoichiometricAFR;
+            } else if setting.selectedFuel == FuelType::naturalGas {
+                stoich = naturalGasStoichiometricAFR;
+            } else {
+                stoich = setting.stoichiometricAFR;
+            }
+        }
+
+        action def ComputeAFR {
+            in item preliminary : AFRMeasurement;
+            in item setting : UserSetting;
+            out item computed : AFRMeasurement;
+            out item diagnostic : DiagnosticRecord;
+
+            perform action selectStoich : SelectStoichiometricRatio {
+                in setting = setting;
+                out stoich = activeStoichiometricAFR;
+            }
+
+            computed.lambda = preliminary.lambda;
+            computed.airFuelRatio = preliminary.lambda * activeStoichiometricAFR;
+            computed.equivalenceRatio = 1.0 / preliminary.lambda;
+            computed.updateAge = preliminary.updateAge;
+            computed.confidence = preliminary.confidence;
+            computed.validity = preliminary.validity;
+
+            diagnostic.sensorOpenCircuit = false;
+            diagnostic.sensorShortCircuit = false;
+            diagnostic.heaterFault = false;
+            diagnostic.supplyUndervoltage = false;
+            diagnostic.exhaustTemperatureOutOfRange = false;
+            diagnostic.calibrationDriftSuspected = false;
+
+            if preliminary.updateAge > maximumAllowedAge {
+                computed.validity = MeasurementValidity::sensorFault;
+                diagnostic.sensorOpenCircuit = true;
+            }
+        }
+
+        perform action compute : ComputeAFR {
+            in preliminary = conditionedIn.measurement;
+            in setting = settingIn.setting;
+            out computed = measurementOut.measurement;
+            out diagnostic = diagnosticOut.diagnostics;
+        }
+    }
+
+    part def DisplayAndAlarmUnit {
+        port ui : UserInterfacePort;
+        port measurementIn : MeasurementOutputPort;
+        port alarmOut : AlarmOutputPort;
+
+        attribute displayedAFR : AFRValue;
+        attribute displayedLambda : LambdaValue;
+        attribute displayRefreshPeriod : TimeDuration = 0.100;
+        attribute leanAlarmLatched : Boolean = false;
+        attribute richAlarmLatched : Boolean = false;
+        attribute faultAlarmLatched : Boolean = false;
+
+        action def UpdateDisplayAndAlarms {
+            in item measurement : AFRMeasurement;
+            in item setting : UserSetting;
+            out item displayed : AFRMeasurement;
+            out attribute leanAlarm : Boolean;
+            out attribute richAlarm : Boolean;
+            out attribute faultAlarm : Boolean;
+
+            displayed = measurement;
+            displayedAFR = measurement.airFuelRatio;
+            displayedLambda = measurement.lambda;
+
+            leanAlarm = false;
+            richAlarm = false;
+            faultAlarm = false;
+
+            if measurement.validity != MeasurementValidity::valid {
+                faultAlarm = true;
+            }
+
+            if measurement.lambda > setting.alarmLeanThreshold and measurement.validity == MeasurementValidity::valid {
+                leanAlarm = true;
+            }
+
+            if measurement.lambda < setting.alarmRichThreshold and measurement.validity == MeasurementValidity::valid {
+                richAlarm = true;
+            }
+
+            leanAlarmLatched = leanAlarm;
+            richAlarmLatched = richAlarm;
+            faultAlarmLatched = faultAlarm;
+        }
+
+        perform action updateUi : UpdateDisplayAndAlarms {
+            in measurement = measurementIn.measurement;
+            in setting = ui.setting;
+            out displayed = ui.displayedMeasurement;
+            out leanAlarm = alarmOut.leanAlarm;
+            out richAlarm = alarmOut.richAlarm;
+            out faultAlarm = alarmOut.faultAlarm;
+        }
+    }
+
+    part def PowerSupplyInterface {
+        port vehiclePowerIn : PowerInputPort;
+        port regulatedPowerOut : PowerInputPort;
+
+        attribute nominalInputVoltage : Voltage = 12.0;
+        attribute minimumOperatingVoltage : Voltage = 9.0;
+        attribute maximumOperatingVoltage : Voltage = 16.0;
+        attribute regulatedLogicVoltage : Voltage = 5.0;
+        attribute maximumRipple : Voltage = 0.050;
+
+        action def RegulatePower {
+            in item vehiclePower : ElectricalPower;
+            out item regulatedPower : ElectricalPower;
+
+            regulatedPower.supplyVoltage = regulatedLogicVoltage;
+            regulatedPower.supplyCurrent = vehiclePower.supplyCurrent;
+            regulatedPower.rippleVoltage = maximumRipple;
+        }
+
+        perform action regulatePower : RegulatePower {
+            in vehiclePower = vehiclePowerIn.power;
+            out regulatedPower = regulatedPowerOut.power;
+        }
+    }
+
+    part def AirFuelRatioMeter {
+        port exhaustProbe : ExhaustProbePort;
+        port vehiclePower : PowerInputPort;
+        port userInterface : UserInterfacePort;
+        port alarms : AlarmOutputPort;
+        port measurementBus : MeasurementOutputPort;
+
+        part sensor : WidebandOxygenSensor;
+        part heaterController : SensorHeaterController;
+        part conditioner : SignalConditioner;
+        part computationUnit : AFRComputationUnit;
+        part displayUnit : DisplayAndAlarmUnit;
+        part powerInterface : PowerSupplyInterface;
+
+        attribute measurementRangeRich : LambdaValue = 0.650;
+        attribute measurementRangeLean : LambdaValue = 2.000;
+        attribute nominalAccuracy : Percentage = 1.500;
+        attribute normalUpdatePeriod : TimeDuration = 0.020;
+        attribute warmupTimeLimit : TimeDuration = 20.000;
+        attribute primaryFunction : String = "Measure oxygen content in exhaust gas, compute the corresponding air-fuel ratio or lambda value for the selected fuel, and present the result with alarms and diagnostics.";
+
+        connect exhaustProbe to sensor.exhaustIn;
+        connect vehiclePower to powerInterface.vehiclePowerIn;
+        connect powerInterface.regulatedPowerOut to heaterController.powerIn;
+        connect sensor.electricalOut to heaterController.sensorPort;
+        connect sensor.electricalOut to conditioner.sensorIn;
+        connect conditioner.conditionedOut to computationUnit.conditionedIn;
+        connect userInterface to computationUnit.settingIn;
+        connect computationUnit.measurementOut to displayUnit.measurementIn;
+        connect computationUnit.measurementOut to measurementBus;
+        connect computationUnit.diagnosticOut to userInterface;
+        connect userInterface to displayUnit.ui;
+        connect displayUnit.alarms to alarms;
+
+        state def MeterOperatingState {
+            state off;
+            state powerOnSelfTest;
+            state sensorWarmup;
+            state measuring;
+            state fault;
+            state shutdown;
+
+            transition initialToOff
+                first off;
+
+            transition off_to_selfTest
+                first off
+                then powerOnSelfTest
+                if vehiclePower.power.supplyVoltage >= 9.0;
+
+            transition selfTest_to_warmup
+                first powerOnSelfTest
+                then sensorWarmup
+                if vehiclePower.power.supplyVoltage >= 9.0 and vehiclePower.power.supplyVoltage <= 16.0;
+
+            transition warmup_to_measuring
+                first sensorWarmup
+                then measuring
+                if sensor.electricalOut.signal.sensorBodyTemperature >= sensor.minimumValidTemperature;
+
+            transition measuring_to_fault
+                first measuring
+                then fault
+                if measurementBus.measurement.validity == MeasurementValidity::sensorFault
+                    or measurementBus.measurement.validity == MeasurementValidity::powerFault;
+
+            transition fault_to_warmup
+                first fault
+                then sensorWarmup
+                if measurementBus.measurement.validity == MeasurementValidity::warmingUp;
+
+            transition measuring_to_shutdown
+                first measuring
+                then shutdown
+                if vehiclePower.power.supplyVoltage < 6.0;
+
+            transition fault_to_shutdown
+                first fault
+                then shutdown
+                if vehiclePower.power.supplyVoltage < 6.0;
+        }
+
+        exhibit state operatingState : MeterOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The air-fuel ratio meter shall determine the exhaust-derived air-fuel ratio at a high level by sensing exhaust oxygen content, converting the sensor response to lambda, applying the selected fuel stoichiometric ratio, and presenting the resulting AFR measurement to the user. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.primaryFunction != ""
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The meter shall report valid lambda measurements across a usable range from rich operation at lambda 0.65 to lean operation at lambda 2.00. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.measurementRangeRich <= 0.65 and meter.measurementRangeLean >= 2.00
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The meter shall update the computed air-fuel ratio at least every 0.10 seconds during normal measuring operation. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.normalUpdatePeriod <= 0.10
+        }
+    }
+
+    requirement def WarmupRequirement {
+        doc /* The heated wideband oxygen sensor shall reach the minimum valid operating temperature within the specified warmup time limit after power is applied. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.warmupTimeLimit <= 20.0 and meter.sensor.minimumValidTemperature >= 650.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The displayed air-fuel ratio shall have a nominal measurement accuracy of 1.5 percent or better when the sensor is regulated and the measurement validity is valid. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.nominalAccuracy <= 1.5
+        }
+    }
+
+    requirement def FaultIndicationRequirement {
+        doc /* The meter shall activate a fault alarm when the computed measurement is not valid due to a sensor, heater, power, range, or calibration condition. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.displayUnit.faultAlarmLatched == true implies meter.measurementBus.measurement.validity != MeasurementValidity::valid
+        }
+    }
+
+    requirement def LeanRichAlarmRequirement {
+        doc /* The meter shall provide separate lean and rich alarms based on configurable lambda thresholds while suppressing these alarms when the measurement is invalid. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.userInterface.setting.alarmRichThreshold < 1.0 and meter.userInterface.setting.alarmLeanThreshold > 1.0
+        }
+    }
+
+    requirement def FuelSelectionRequirement {
+        doc /* The computation unit shall adjust the displayed air-fuel ratio according to the selected fuel stoichiometric air-fuel ratio. */
+        subject meter : AirFuelRatioMeter;
+
+        require constraint {
+            meter.computationUnit.activeStoichiometricAFR > 0.0
+        }
+    }
+
+    part afrMeterSystem : AirFuelRatioMeter {
+        attribute measurementRangeRich = 0.650;
+        attribute measurementRangeLean = 2.000;
+        attribute nominalAccuracy = 1.500;
+        attribute normalUpdatePeriod = 0.020;
+        attribute warmupTimeLimit = 15.000;
+    }
+
+    satisfy PrimaryFunctionRequirement by afrMeterSystem;
+    satisfy MeasurementRangeRequirement by afrMeterSystem;
+    satisfy UpdateRateRequirement by afrMeterSystem;
+    satisfy WarmupRequirement by afrMeterSystem;
+    satisfy AccuracyRequirement by afrMeterSystem;
+    satisfy FaultIndicationRequirement by afrMeterSystem;
+    satisfy LeanRichAlarmRequirement by afrMeterSystem;
+    satisfy FuelSelectionRequirement by afrMeterSystem;
+}

@@ -1,0 +1,665 @@
+package ArcticSunTemperatureManagementSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Celsius :> Real {
+        doc /* Temperature measured in degrees Celsius. */
+    }
+
+    attribute def MilliliterPerMinute :> Real {
+        doc /* Volumetric flow rate in mL/min. */
+    }
+
+    attribute def MillimeterMercury :> Real {
+        doc /* Pressure measured in mmHg. */
+    }
+
+    attribute def Watt :> Real {
+        doc /* Thermal or electrical power in watts. */
+    }
+
+    attribute def Percent :> Real {
+        doc /* Percentage value from 0 to 100. */
+    }
+
+    attribute def Second :> Real {
+        doc /* Time duration in seconds. */
+    }
+
+    attribute def Liter :> Real {
+        doc /* Fluid volume in liters. */
+    }
+
+    attribute def Volt :> Real {
+        doc /* Electrical potential in volts. */
+    }
+
+    item def PatientThermalState {
+        attribute coreTemperature : Celsius;
+        attribute skinTemperature : Celsius;
+        attribute targetTemperature : Celsius;
+        attribute coolingRate : Celsius;
+        attribute warmingRate : Celsius;
+    }
+
+    item def WaterGlycolCoolant {
+        attribute temperature : Celsius;
+        attribute flowRate : MilliliterPerMinute;
+        attribute pressure : MillimeterMercury;
+        attribute reservoirVolume : Liter;
+    }
+
+    item def TemperatureMeasurement {
+        attribute measuredTemperature : Celsius;
+        attribute sampleAge : Second;
+        attribute confidence : Percent;
+    }
+
+    item def TherapyCommand {
+        attribute targetTemperature : Celsius;
+        attribute maximumCoolingRate : Celsius;
+        attribute maximumWarmingRate : Celsius;
+        attribute therapyEnabled : Boolean;
+    }
+
+    item def AlarmSignal {
+        attribute alarmCode : String;
+        attribute severity : String;
+        attribute active : Boolean;
+        attribute audible : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute power : Watt;
+        attribute available : Boolean;
+    }
+
+    port def CoolantSupplyPort {
+        out item coolant : WaterGlycolCoolant;
+    }
+
+    port def CoolantReturnPort {
+        in item coolant : WaterGlycolCoolant;
+    }
+
+    port def TemperatureSensorPort {
+        in item measurement : TemperatureMeasurement;
+    }
+
+    port def CommandInputPort {
+        in item command : TherapyCommand;
+    }
+
+    port def AlarmOutputPort {
+        out item alarm : AlarmSignal;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PatientHeatExchangePort {
+        inout item thermalState : PatientThermalState;
+    }
+
+    part def Patient {
+        attribute identifier : String;
+        attribute currentCoreTemperature : Celsius;
+        attribute currentSkinTemperature : Celsius;
+        attribute prescribedTargetTemperature : Celsius;
+
+        port thermalInterface : PatientHeatExchangePort;
+    }
+
+    part def TemperatureProbe {
+        attribute probeType : String;
+        attribute accuracy : Celsius;
+        attribute connected : Boolean;
+        attribute lastMeasuredTemperature : Celsius;
+
+        port patientInterface : PatientHeatExchangePort;
+        port measurementOut : TemperatureSensorPort;
+
+        action measureTemperature {
+            in patientState : PatientThermalState;
+            out measurement : TemperatureMeasurement;
+
+            first start;
+            then sample;
+            then validate;
+            then publish;
+            then done;
+
+            action sample;
+            action validate;
+            action publish;
+        }
+    }
+
+    part def OperatorInterface {
+        attribute displayedCoreTemperature : Celsius;
+        attribute displayedTargetTemperature : Celsius;
+        attribute therapyMode : String;
+        attribute alarmMuted : Boolean;
+
+        port commandOut : CommandInputPort;
+        port alarmIn : AlarmOutputPort;
+
+        action setTherapyTarget {
+            in requestedTarget : Celsius;
+            in requestedMode : String;
+            out command : TherapyCommand;
+
+            first start;
+            then checkRange;
+            then generateCommand;
+            then done;
+
+            action checkRange;
+            action generateCommand;
+        }
+    }
+
+    part def ThermalControlProcessor {
+        attribute controlLoopPeriod : Second;
+        attribute targetTemperature : Celsius;
+        attribute measuredPatientTemperature : Celsius;
+        attribute temperatureError : Celsius;
+        attribute requestedCoolantTemperature : Celsius;
+        attribute therapyActive : Boolean;
+
+        port commandIn : CommandInputPort;
+        port temperatureIn : TemperatureSensorPort;
+        port coolantCommandOut : CommandInputPort;
+        port alarmOut : AlarmOutputPort;
+
+        action computeThermalControl {
+            in command : TherapyCommand;
+            in measurement : TemperatureMeasurement;
+            out coolantCommand : TherapyCommand;
+            out alarm : AlarmSignal;
+
+            first receiveInputs;
+            then assessSensorValidity;
+            then calculateError;
+            then selectCoolingOrWarming;
+            then limitTherapyRate;
+            then publishOutputs;
+            then done;
+
+            action receiveInputs;
+            action assessSensorValidity;
+            action calculateError;
+            action selectCoolingOrWarming;
+            action limitTherapyRate;
+            action publishOutputs;
+        }
+
+        state controlState {
+            entry; then idle;
+
+            state idle;
+            state cooling;
+            state maintaining;
+            state warming;
+            state paused;
+            state fault;
+
+            transition idle_to_cooling
+                first idle
+                accept TherapyCommand
+                if therapyActive and measuredPatientTemperature > targetTemperature
+                then cooling;
+
+            transition idle_to_warming
+                first idle
+                accept TherapyCommand
+                if therapyActive and measuredPatientTemperature < targetTemperature
+                then warming;
+
+            transition cooling_to_maintaining
+                first cooling
+                if temperatureError <= 0.2
+                then maintaining;
+
+            transition warming_to_maintaining
+                first warming
+                if temperatureError >= -0.2
+                then maintaining;
+
+            transition maintaining_to_cooling
+                first maintaining
+                if measuredPatientTemperature > targetTemperature + 0.3
+                then cooling;
+
+            transition maintaining_to_warming
+                first maintaining
+                if measuredPatientTemperature < targetTemperature - 0.3
+                then warming;
+
+            transition any_to_paused
+                first cooling
+                accept TherapyCommand
+                if not therapyActive
+                then paused;
+
+            transition paused_to_idle
+                first paused
+                accept TherapyCommand
+                if therapyActive
+                then idle;
+
+            transition sensor_fault
+                first maintaining
+                if measuredPatientTemperature < 20.0 or measuredPatientTemperature > 45.0
+                then fault;
+        }
+    }
+
+    part def CoolantReservoir {
+        attribute capacity : Liter;
+        attribute fillLevel : Liter;
+        attribute coolantTemperature : Celsius;
+        attribute lowLevelThreshold : Liter;
+
+        port supplyOut : CoolantSupplyPort;
+        port returnIn : CoolantReturnPort;
+    }
+
+    part def Pump {
+        attribute commandedFlowRate : MilliliterPerMinute;
+        attribute actualFlowRate : MilliliterPerMinute;
+        attribute inletPressure : MillimeterMercury;
+        attribute outletPressure : MillimeterMercury;
+        attribute running : Boolean;
+
+        port inlet : CoolantReturnPort;
+        port outlet : CoolantSupplyPort;
+
+        action circulateCoolant {
+            in requestedFlowRate : MilliliterPerMinute;
+            out deliveredCoolant : WaterGlycolCoolant;
+
+            first start;
+            then verifyPrimed;
+            then drivePump;
+            then monitorPressure;
+            then done;
+
+            action verifyPrimed;
+            action drivePump;
+            action monitorPressure;
+        }
+    }
+
+    part def HeatExchanger {
+        attribute commandedCoolantTemperature : Celsius;
+        attribute actualCoolantTemperature : Celsius;
+        attribute heatingPower : Watt;
+        attribute coolingPower : Watt;
+        attribute maximumCoolingPower : Watt;
+        attribute maximumHeatingPower : Watt;
+
+        port coolantIn : CoolantReturnPort;
+        port coolantOut : CoolantSupplyPort;
+        port powerIn : PowerInputPort;
+
+        action regulateCoolantTemperature {
+            in command : TherapyCommand;
+            in returnCoolant : WaterGlycolCoolant;
+            out supplyCoolant : WaterGlycolCoolant;
+
+            first start;
+            then compareCommandToActual;
+            then enableChillerOrHeater;
+            then stabilizeSupplyTemperature;
+            then done;
+
+            action compareCommandToActual;
+            action enableChillerOrHeater;
+            action stabilizeSupplyTemperature;
+        }
+    }
+
+    part def HydrogelPad {
+        attribute padSize : String;
+        attribute contactArea : Real;
+        attribute coolantChannelIntegrity : Boolean;
+        attribute adheredToSkin : Boolean;
+        attribute heatTransferEfficiency : Percent;
+
+        port coolantIn : CoolantSupplyPort;
+        port coolantOut : CoolantReturnPort;
+        port patientContact : PatientHeatExchangePort;
+
+        action exchangeHeatWithPatient {
+            in coolant : WaterGlycolCoolant;
+            inout patientState : PatientThermalState;
+            out returnCoolant : WaterGlycolCoolant;
+
+            first receiveCoolant;
+            then conductHeatAcrossPad;
+            then updatePatientThermalState;
+            then returnCoolantFlow;
+            then done;
+
+            action receiveCoolant;
+            action conductHeatAcrossPad;
+            action updatePatientThermalState;
+            action returnCoolantFlow;
+        }
+    }
+
+    part def PadSet {
+        part leftTorsoPad : HydrogelPad {
+            attribute padSize = "Large torso";
+        }
+
+        part rightTorsoPad : HydrogelPad {
+            attribute padSize = "Large torso";
+        }
+
+        part leftThighPad : HydrogelPad {
+            attribute padSize = "Thigh";
+        }
+
+        part rightThighPad : HydrogelPad {
+            attribute padSize = "Thigh";
+        }
+
+        port coolantSupply : CoolantSupplyPort;
+        port coolantReturn : CoolantReturnPort;
+        port patientThermalContact : PatientHeatExchangePort;
+
+        connect coolantSupply to leftTorsoPad.coolantIn;
+        connect coolantSupply to rightTorsoPad.coolantIn;
+        connect coolantSupply to leftThighPad.coolantIn;
+        connect coolantSupply to rightThighPad.coolantIn;
+
+        connect leftTorsoPad.coolantOut to coolantReturn;
+        connect rightTorsoPad.coolantOut to coolantReturn;
+        connect leftThighPad.coolantOut to coolantReturn;
+        connect rightThighPad.coolantOut to coolantReturn;
+
+        connect patientThermalContact to leftTorsoPad.patientContact;
+        connect patientThermalContact to rightTorsoPad.patientContact;
+        connect patientThermalContact to leftThighPad.patientContact;
+        connect patientThermalContact to rightThighPad.patientContact;
+    }
+
+    part def AlarmManager {
+        attribute highTemperatureLimit : Celsius;
+        attribute lowTemperatureLimit : Celsius;
+        attribute maximumPressureLimit : MillimeterMercury;
+        attribute minimumFlowLimit : MilliliterPerMinute;
+        attribute activeAlarmCount : Integer;
+
+        port temperatureIn : TemperatureSensorPort;
+        port coolantIn : CoolantReturnPort;
+        port alarmOut : AlarmOutputPort;
+
+        action evaluateAlarms {
+            in temperatureMeasurement : TemperatureMeasurement;
+            in coolantState : WaterGlycolCoolant;
+            out alarm : AlarmSignal;
+
+            first start;
+            then checkTemperatureLimits;
+            then checkFlowAndPressure;
+            then classifySeverity;
+            then publishAlarm;
+            then done;
+
+            action checkTemperatureLimits;
+            action checkFlowAndPressure;
+            action classifySeverity;
+            action publishAlarm;
+        }
+    }
+
+    part def MedicalGradePowerSupply {
+        attribute nominalVoltage : Volt;
+        attribute maximumPower : Watt;
+        attribute isolatedOutput : Boolean;
+        attribute mainsAvailable : Boolean;
+
+        port powerOut : PowerInputPort;
+    }
+
+    part def ArcticSunSystem {
+        doc /* Primary function: provide controlled patient temperature management by circulating temperature-regulated coolant through adhesive heat-exchange pads, using continuous patient temperature feedback to cool, warm, or maintain the patient at a prescribed target temperature. */
+
+        attribute systemName = "Arctic Sun Temperature Management System";
+        attribute primaryFunction = "Closed-loop noninvasive patient temperature management";
+        attribute operatingTargetMinimum : Celsius = 32.0;
+        attribute operatingTargetMaximum : Celsius = 38.5;
+        attribute normalControlTolerance : Celsius = 0.2;
+
+        part patient : Patient;
+        part operatorInterface : OperatorInterface;
+        part coreTemperatureProbe : TemperatureProbe {
+            attribute probeType = "Core temperature";
+            attribute accuracy = 0.1;
+        }
+        part skinTemperatureProbe : TemperatureProbe {
+            attribute probeType = "Skin temperature";
+            attribute accuracy = 0.2;
+        }
+        part controlProcessor : ThermalControlProcessor {
+            attribute controlLoopPeriod = 1.0;
+        }
+        part reservoir : CoolantReservoir {
+            attribute capacity = 3.5;
+            attribute lowLevelThreshold = 0.5;
+        }
+        part pump : Pump;
+        part heatExchanger : HeatExchanger {
+            attribute maximumCoolingPower = 500.0;
+            attribute maximumHeatingPower = 300.0;
+        }
+        part padSet : PadSet;
+        part alarmManager : AlarmManager {
+            attribute highTemperatureLimit = 39.5;
+            attribute lowTemperatureLimit = 30.0;
+            attribute maximumPressureLimit = 300.0;
+            attribute minimumFlowLimit = 300.0;
+        }
+        part powerSupply : MedicalGradePowerSupply {
+            attribute nominalVoltage = 120.0;
+            attribute maximumPower = 900.0;
+            attribute isolatedOutput = true;
+        }
+
+        connect patient.thermalInterface to padSet.patientThermalContact;
+        connect patient.thermalInterface to coreTemperatureProbe.patientInterface;
+        connect patient.thermalInterface to skinTemperatureProbe.patientInterface;
+
+        connect operatorInterface.commandOut to controlProcessor.commandIn;
+        connect coreTemperatureProbe.measurementOut to controlProcessor.temperatureIn;
+        connect coreTemperatureProbe.measurementOut to alarmManager.temperatureIn;
+
+        connect controlProcessor.coolantCommandOut to heatExchanger.coolantIn;
+        connect controlProcessor.alarmOut to operatorInterface.alarmIn;
+        connect alarmManager.alarmOut to operatorInterface.alarmIn;
+
+        connect reservoir.supplyOut to heatExchanger.coolantIn;
+        connect heatExchanger.coolantOut to pump.inlet;
+        connect pump.outlet to padSet.coolantSupply;
+        connect padSet.coolantReturn to reservoir.returnIn;
+        connect padSet.coolantReturn to alarmManager.coolantIn;
+
+        connect powerSupply.powerOut to heatExchanger.powerIn;
+
+        action conductTemperatureManagementTherapy {
+            in prescribedCommand : TherapyCommand;
+            in initialPatientState : PatientThermalState;
+            out finalPatientState : PatientThermalState;
+            out therapyAlarm : AlarmSignal;
+
+            first powerOn;
+            then selfTest;
+            then primeCoolantCircuit;
+            then attachPadsAndProbes;
+            then acceptPrescription;
+            then monitorPatientTemperature;
+            then computeClosedLoopControl;
+            then regulateCoolant;
+            then circulateCoolantThroughPads;
+            then exchangeHeat;
+            then maintainTargetTemperature;
+            then evaluateSafetyLimits;
+            then completeOrStopTherapy;
+            then done;
+
+            action powerOn;
+            action selfTest;
+            action primeCoolantCircuit;
+            action attachPadsAndProbes;
+            action acceptPrescription;
+            action monitorPatientTemperature;
+            action computeClosedLoopControl;
+            action regulateCoolant;
+            action circulateCoolantThroughPads;
+            action exchangeHeat;
+            action maintainTargetTemperature;
+            action evaluateSafetyLimits;
+            action completeOrStopTherapy;
+        }
+
+        state therapyLifecycle {
+            entry; then poweredOff;
+
+            state poweredOff;
+            state starting;
+            state selfTesting;
+            state ready;
+            state therapyActive;
+            state alarmed;
+            state stopped;
+
+            transition power_applied
+                first poweredOff
+                accept ElectricalPower
+                then starting;
+
+            transition startup_complete
+                first starting
+                then selfTesting;
+
+            transition self_test_passed
+                first selfTesting
+                then ready;
+
+            transition therapy_started
+                first ready
+                accept TherapyCommand
+                if prescribedCommand.therapyEnabled
+                then therapyActive;
+
+            transition therapy_alarm
+                first therapyActive
+                accept AlarmSignal
+                if therapyAlarm.active
+                then alarmed;
+
+            transition alarm_cleared
+                first alarmed
+                if not therapyAlarm.active
+                then therapyActive;
+
+            transition therapy_stopped
+                first therapyActive
+                accept TherapyCommand
+                if not prescribedCommand.therapyEnabled
+                then stopped;
+
+            transition stop_to_ready
+                first stopped
+                then ready;
+        }
+    }
+
+    requirement def ClosedLoopTemperatureManagementRequirement {
+        doc /* The system shall control patient temperature by adjusting coolant temperature and flow based on continuous patient temperature feedback. */
+        subject system : ArcticSunSystem;
+
+        require constraint {
+            system.normalControlTolerance <= 0.2
+        }
+    }
+
+    requirement def TargetTemperatureRangeRequirement {
+        doc /* The system shall only accept prescribed target temperatures within the supported therapeutic range. */
+        subject command : TherapyCommand;
+
+        require constraint {
+            command.targetTemperature >= 32.0 and command.targetTemperature <= 38.5
+        }
+    }
+
+    requirement def TemperatureMonitoringRequirement {
+        doc /* The system shall receive valid core temperature measurements during active therapy. */
+        subject probe : TemperatureProbe;
+
+        require constraint {
+            probe.connected == true and probe.accuracy <= 0.2
+        }
+    }
+
+    requirement def CoolantFlowRequirement {
+        doc /* The system shall maintain adequate coolant circulation through the pad set during therapy. */
+        subject pump : Pump;
+
+        require constraint {
+            pump.actualFlowRate >= 300.0
+        }
+    }
+
+    requirement def CoolantPressureSafetyRequirement {
+        doc /* The system shall detect coolant circuit pressure above the safe operating limit and generate an alarm. */
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.maximumPressureLimit <= 300.0
+        }
+    }
+
+    requirement def HighAndLowTemperatureAlarmRequirement {
+        doc /* The system shall alarm when measured patient temperature exceeds configured high or low safety limits. */
+        subject alarmManager : AlarmManager;
+
+        require constraint {
+            alarmManager.lowTemperatureLimit >= 30.0 and alarmManager.highTemperatureLimit <= 39.5
+        }
+    }
+
+    requirement def PatientContactRequirement {
+        doc /* The pad set shall provide noninvasive conductive heat exchange between circulating coolant and the patient skin surface. */
+        subject pad : HydrogelPad;
+
+        require constraint {
+            pad.adheredToSkin == true and pad.coolantChannelIntegrity == true
+        }
+    }
+
+    requirement def ElectricalIsolationRequirement {
+        doc /* The power supply shall provide isolated medical-grade power to thermal regulation components. */
+        subject supply : MedicalGradePowerSupply;
+
+        require constraint {
+            supply.isolatedOutput == true
+        }
+    }
+
+    satisfy ClosedLoopTemperatureManagementRequirement by ArcticSunSystem;
+    satisfy TargetTemperatureRangeRequirement by OperatorInterface;
+    satisfy TemperatureMonitoringRequirement by TemperatureProbe;
+    satisfy CoolantFlowRequirement by Pump;
+    satisfy CoolantPressureSafetyRequirement by AlarmManager;
+    satisfy HighAndLowTemperatureAlarmRequirement by AlarmManager;
+    satisfy PatientContactRequirement by HydrogelPad;
+    satisfy ElectricalIsolationRequirement by MedicalGradePowerSupply;
+}

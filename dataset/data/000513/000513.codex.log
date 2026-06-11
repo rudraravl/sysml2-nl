@@ -1,0 +1,1221 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-x7bfbtfb
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb329-a85b-73c2-931f-c27a5bdf214e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Totally implantable cochlear implant and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TotallyImplantableCochlearImplantModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SoundPressureLevel {
+        attribute value : Real;
+        attribute unit : String = "dB SPL";
+    }
+
+    attribute def FrequencyHz {
+        attribute value : Real;
+        attribute unit : String = "Hz";
+    }
+
+    attribute def ElectricalCurrent {
+        attribute value : Real;
+        attribute unit : String = "microA";
+    }
+
+    attribute def PulseWidth {
+        attribute value : Real;
+        attribute unit : String = "microsecond";
+    }
+
+    attribute def ChargeDensity {
+        attribute value : Real;
+        attribute unit : String = "microCoulombPerSquareCentimeter";
+    }
+
+    attribute def BatteryCapacity {
+        attribute value : Real;
+        attribute unit : String = "milliampereHour";
+    }
+
+    attribute def TemperatureC {
+        attribute value : Real;
+        attribute unit : String = "degC";
+    }
+
+    attribute def DataRate {
+        attribute value : Real;
+        attribute unit : String = "kbps";
+    }
+
+    attribute def Impedance {
+        attribute value : Real;
+        attribute unit : String = "ohm";
+    }
+
+    attribute def Percent {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    item def AcousticPressureWave {
+        attribute soundPressureLevel : SoundPressureLevel;
+        attribute frequency : FrequencyHz;
+        attribute duration : Time;
+    }
+
+    item def SubcutaneousAcousticSignal {
+        attribute soundPressureLevel : SoundPressureLevel;
+        attribute frequency : FrequencyHz;
+        attribute bodyNoiseRejected : Boolean;
+    }
+
+    item def DigitizedAudioFrame {
+        attribute sampleRate : FrequencyHz;
+        attribute frameDuration : Time;
+        attribute bitDepth : Integer;
+        attribute channelCount : Integer;
+    }
+
+    item def SpectralEnvelope {
+        attribute bandCount : Integer;
+        attribute lowestBand : FrequencyHz;
+        attribute highestBand : FrequencyHz;
+        attribute envelopeUpdateRate : FrequencyHz;
+    }
+
+    item def StimulationCommand {
+        attribute electrodeIndex : Integer;
+        attribute amplitude : ElectricalCurrent;
+        attribute pulseWidth : PulseWidth;
+        attribute phaseGap : PulseWidth;
+        attribute stimulationRate : FrequencyHz;
+    }
+
+    item def BiphasicPulse {
+        attribute electrodeIndex : Integer;
+        attribute cathodicAmplitude : ElectricalCurrent;
+        attribute anodicAmplitude : ElectricalCurrent;
+        attribute pulseWidth : PulseWidth;
+        attribute chargeBalanced : Boolean;
+        attribute chargeDensity : ChargeDensity;
+    }
+
+    item def NeuralExcitation {
+        attribute cochlearRegion : Integer;
+        attribute perceivedFrequency : FrequencyHz;
+        attribute intensityEstimate : Percent;
+    }
+
+    item def BatteryEnergy {
+        attribute remainingCapacity : BatteryCapacity;
+        attribute stateOfCharge : Percent;
+        attribute voltage : Voltage;
+    }
+
+    item def TelemetryPacket {
+        attribute implantIdentifier : String;
+        attribute timestamp : Time;
+        attribute batteryStateOfCharge : Percent;
+        attribute caseTemperature : TemperatureC;
+        attribute electrodeImpedance : Impedance;
+        attribute faultCode : String;
+    }
+
+    item def ProgrammingPacket {
+        attribute mapIdentifier : String;
+        attribute minimumAudibleCurrent : ElectricalCurrent;
+        attribute maximumComfortableCurrent : ElectricalCurrent;
+        attribute frequencyAllocationLow : FrequencyHz;
+        attribute frequencyAllocationHigh : FrequencyHz;
+        attribute enabledElectrodeCount : Integer;
+    }
+
+    port def AcousticInputPort {
+        in item acousticWave : AcousticPressureWave;
+    }
+
+    port def SubcutaneousSoundPort {
+        out item acousticSignal : SubcutaneousAcousticSignal;
+    }
+
+    port def AudioDataPort {
+        out item audioFrame : DigitizedAudioFrame;
+    }
+
+    port def FeatureDataPort {
+        out item spectralEnvelope : SpectralEnvelope;
+    }
+
+    port def StimulationControlPort {
+        out item stimulationCommand : StimulationCommand;
+    }
+
+    port def ElectrodePulsePort {
+        out item stimulationPulse : BiphasicPulse;
+    }
+
+    port def NeuralInterfacePort {
+        out item excitation : NeuralExcitation;
+    }
+
+    port def PowerPort {
+        inout item energy : BatteryEnergy;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+        in item programming : ProgrammingPacket;
+    }
+
+    part def TotallyImplantableCochlearImplant {
+        attribute primaryFunction : String =
+            "Restore functional auditory perception by sensing sound inside the implanted body, processing the signal into frequency-specific stimulation patterns, and delivering charge-balanced electrical pulses to the auditory nerve through an intracochlear electrode array.";
+        attribute designLife : Time = 10 [SI::year];
+        attribute hermeticCaseTemperatureLimit : TemperatureC = 39.0 ["degC"];
+        attribute waterIngressProtection : String = "Fully implanted hermetic titanium/ceramic enclosure";
+        attribute externalDailyWearRequired : Boolean = false;
+
+        port soundInput : AcousticInputPort;
+        port auditoryNerveOutput : NeuralInterfacePort;
+        port clinicalTelemetry : TelemetryPort;
+        port implantPower : PowerPort;
+
+        part implantedMicrophone : ImplantableMicrophone;
+        part acousticFeedthrough : AcousticFeedthrough;
+        part signalProcessor : SoundProcessor;
+        part stimulator : NeuralStimulator;
+        part electrodeArray : IntracochlearElectrodeArray;
+        part rechargeableBattery : RechargeableImplantBattery;
+        part wirelessPowerReceiver : TranscutaneousPowerReceiver;
+        part telemetryController : ImplantTelemetryController;
+        part hermeticEnclosure : HermeticEnclosure;
+        part safetyManager : SafetyManager;
+
+        connect soundInput.acousticWave to implantedMicrophone.externalSound.acousticWave;
+        connect implantedMicrophone.internalSound.acousticSignal to acousticFeedthrough.microphoneSignal.acousticSignal;
+        connect acousticFeedthrough.conditionedAudio.audioFrame to signalProcessor.audioIn.audioFrame;
+        connect signalProcessor.features.spectralEnvelope to stimulator.featureInput.spectralEnvelope;
+        connect stimulator.pulseOutput.stimulationPulse to electrodeArray.electrodeInput.stimulationPulse;
+        connect electrodeArray.neuralOutput.excitation to auditoryNerveOutput.excitation;
+
+        connect rechargeableBattery.powerOutput.energy to implantPower.energy;
+        connect wirelessPowerReceiver.chargeOutput.energy to rechargeableBattery.chargeInput.energy;
+        connect rechargeableBattery.powerOutput.energy to signalProcessor.power.energy;
+        connect rechargeableBattery.powerOutput.energy to stimulator.power.energy;
+        connect rechargeableBattery.powerOutput.energy to telemetryController.power.energy;
+        connect rechargeableBattery.powerOutput.energy to safetyManager.power.energy;
+
+        connect telemetryController.telemetryLink.telemetry to clinicalTelemetry.telemetry;
+        connect clinicalTelemetry.programming to telemetryController.telemetryLink.programming;
+        connect telemetryController.programmingOut.programming to signalProcessor.programmingIn.programming;
+        connect safetyManager.stimulationLimit.stimulationCommand to stimulator.safetyLimit.stimulationCommand;
+    }
+
+    part def ImplantableMicrophone {
+        attribute sensitivity : Real = -38.0;
+        attribute sensitivityUnit : String = "dBV/Pa";
+        attribute noiseFloor : SoundPressureLevel = 30.0 ["dB SPL"];
+        attribute upperInputLimit : SoundPressureLevel = 110.0 ["dB SPL"];
+        attribute bandwidthLow : FrequencyHz = 100.0 ["Hz"];
+        attribute bandwidthHigh : FrequencyHz = 8000.0 ["Hz"];
+
+        port externalSound : AcousticInputPort;
+        port internalSound : SubcutaneousSoundPort;
+
+        action senseSubcutaneousSound {
+            in item incoming : AcousticPressureWave;
+            out item sensed : SubcutaneousAcousticSignal;
+        }
+    }
+
+    part def AcousticFeedthrough {
+        attribute antiAliasCutoff : FrequencyHz = 8500.0 ["Hz"];
+        attribute analogGain : Real = 24.0;
+        attribute analogGainUnit : String = "dB";
+        attribute adcResolution : Integer = 16;
+        attribute adcSampleRate : FrequencyHz = 20000.0 ["Hz"];
+
+        port microphoneSignal : SubcutaneousSoundPort;
+        port conditionedAudio : AudioDataPort;
+
+        action amplifyFilterAndDigitize {
+            in item sensed : SubcutaneousAcousticSignal;
+            out item frame : DigitizedAudioFrame;
+        }
+    }
+
+    part def SoundProcessor {
+        attribute strategyName : String = "Continuous interleaved sampling with adaptive scene control";
+        attribute audioFrameDuration : Time = 0.008 [SI::s];
+        attribute analysisBandCount : Integer = 22;
+        attribute lowFrequencyAllocation : FrequencyHz = 188.0 ["Hz"];
+        attribute highFrequencyAllocation : FrequencyHz = 7938.0 ["Hz"];
+        attribute automaticGainControlAttack : Time = 0.005 [SI::s];
+        attribute automaticGainControlRelease : Time = 0.100 [SI::s];
+
+        port audioIn : AudioDataPort;
+        port features : FeatureDataPort;
+        port power : PowerPort;
+        port programmingIn : TelemetryPort;
+
+        action processAudioFrame {
+            in item audioFrame : DigitizedAudioFrame;
+            out item envelope : SpectralEnvelope;
+        }
+
+        state def ProcessingStateMachine {
+            state off;
+            state standby;
+            state calibratingMicrophone;
+            state listening;
+            state noiseReduction;
+            state mappingToElectrodes;
+            state telemetryProgramming;
+            state faultHold;
+
+            transition first off then standby;
+            transition standby then calibratingMicrophone
+                accept PowerAvailable;
+            transition calibratingMicrophone then listening
+                accept CalibrationValid;
+            transition listening then noiseReduction
+                accept SoundFrameReceived;
+            transition noiseReduction then mappingToElectrodes
+                accept SpectralFeaturesComputed;
+            transition mappingToElectrodes then listening
+                accept StimulationFrameIssued;
+            transition listening then telemetryProgramming
+                accept ProgrammingPacketReceived;
+            transition telemetryProgramming then calibratingMicrophone
+                accept ProgrammingStored;
+            transition listening then faultHold
+                accept ProcessorFaultDetected;
+            transition faultHold then standby
+                accept FaultCleared;
+        }
+    }
+
+    part def NeuralStimulator {
+        attribute channelCount : Integer = 22;
+        attribute maximumStimulationRate : FrequencyHz = 1800.0 ["Hz"];
+        attribute defaultPulseWidth : PulseWidth = 25.0 ["microsecond"];
+        attribute interPhaseGap : PulseWidth = 8.0 ["microsecond"];
+        attribute maximumCurrent : ElectricalCurrent = 1200.0 ["microA"];
+        attribute maximumChargeDensity : ChargeDensity = 30.0 ["microCoulombPerSquareCentimeter"];
+
+        port featureInput : FeatureDataPort;
+        port pulseOutput : ElectrodePulsePort;
+        port safetyLimit : StimulationControlPort;
+        port power : PowerPort;
+
+        action encodeEnvelopeAsPulses {
+            in item envelope : SpectralEnvelope;
+            out item pulse : BiphasicPulse;
+        }
+
+        action enforceChargeBalance {
+            in item requestedPulse : BiphasicPulse;
+            out item safePulse : BiphasicPulse;
+        }
+
+        state def StimulatorStateMachine {
+            state disabled;
+            state armed;
+            state stimulating;
+            state impedanceCheck;
+            state chargeRecovery;
+            state inhibited;
+
+            transition first disabled then armed
+                accept ProcessorReady;
+            transition armed then impedanceCheck
+                accept StartFrame;
+            transition impedanceCheck then stimulating
+                accept ElectrodeImpedanceValid;
+            transition stimulating then chargeRecovery
+                accept PulseTrainComplete;
+            transition chargeRecovery then armed
+                accept ResidualChargeNeutralized;
+            transition impedanceCheck then inhibited
+                accept ElectrodeImpedanceOutOfRange;
+            transition stimulating then inhibited
+                accept ChargeLimitExceeded;
+            transition inhibited then armed
+                accept SafetyReset;
+        }
+    }
+
+    part def IntracochlearElectrodeArray {
+        attribute electrodeCount : Integer = 22;
+        attribute insertionDepth : Length = 25.0 [SI::mm];
+        attribute apicalFrequencyEstimate : FrequencyHz = 188.0 ["Hz"];
+        attribute basalFrequencyEstimate : FrequencyHz = 7938.0 ["Hz"];
+        attribute electrodeContactArea : Area = 0.35 [SI::mm^2];
+
+        port electrodeInput : ElectrodePulsePort;
+        port neuralOutput : NeuralInterfacePort;
+
+        part electrodes[22] : ElectrodeContact;
+
+        action deliverCurrentToCochlea {
+            in item pulse : BiphasicPulse;
+            out item neuralResponse : NeuralExcitation;
+        }
+    }
+
+    part def ElectrodeContact {
+        attribute contactIndex : Integer;
+        attribute nominalImpedance : Impedance = 6500.0 ["ohm"];
+        attribute maximumSafeChargeDensity : ChargeDensity = 30.0 ["microCoulombPerSquareCentimeter"];
+        attribute assignedFrequencyLow : FrequencyHz;
+        attribute assignedFrequencyHigh : FrequencyHz;
+    }
+
+    part def RechargeableImplantBattery {
+        attribute chemistry : String = "Lithium ion solid electrolyte medical implant cell";
+        attribute nominalCapacity : BatteryCapacity = 60.0 ["milliampereHour"];
+        attribute nominalVoltage : Voltage = 3.7 [SI::V];
+        attribute minimumOperatingVoltage : Voltage = 3.1 [SI::V];
+        attribute maximumChargeVoltage : Voltage = 4.2 [SI::V];
+        attribute minimumDailyOperatingTime : Time = 24.0 [SI::h];
+
+        port chargeInput : PowerPort;
+        port powerOutput : PowerPort;
+
+        action supplyImplantEnergy {
+            out item energy : BatteryEnergy;
+        }
+
+        action acceptRechargeEnergy {
+            in item receivedEnergy : BatteryEnergy;
+            out item storedEnergy : BatteryEnergy;
+        }
+    }
+
+    part def TranscutaneousPowerReceiver {
+        attribute receivingFrequency : FrequencyHz = 13560000.0 ["Hz"];
+        attribute maximumChargePower : Power = 0.25 [SI::W];
+        attribute alignmentTolerance : Length = 12.0 [SI::mm];
+        attribute rectifierEfficiency : Percent = 78.0 ["%"];
+
+        port chargeOutput : PowerPort;
+
+        action receiveExternalInductivePower {
+            out item chargeEnergy : BatteryEnergy;
+        }
+    }
+
+    part def ImplantTelemetryController {
+        attribute telemetryCarrierFrequency : FrequencyHz = 13560000.0 ["Hz"];
+        attribute uplinkDataRate : DataRate = 64.0 ["kbps"];
+        attribute downlinkDataRate : DataRate = 32.0 ["kbps"];
+        attribute encryptedLinkRequired : Boolean = true;
+
+        port telemetryLink : TelemetryPort;
+        port programmingOut : TelemetryPort;
+        port power : PowerPort;
+
+        action reportImplantStatus {
+            out item telemetry : TelemetryPacket;
+        }
+
+        action receiveClinicalMap {
+            in item programming : ProgrammingPacket;
+            out item storedProgramming : ProgrammingPacket;
+        }
+    }
+
+    part def HermeticEnclosure {
+        attribute caseMaterial : String = "Titanium with ceramic acoustic window";
+        attribute leakRateLimit : Real = 1.0e-9;
+        attribute leakRateUnit : String = "atm-cc/sec helium";
+        attribute maximumCaseTemperature : TemperatureC = 39.0 ["degC"];
+        attribute biocompatibilityStandard : String = "ISO 10993 implant-contacting material set";
+        attribute sterilizationCompatibility : String = "Ethylene oxide validated process";
+    }
+
+    part def SafetyManager {
+        attribute minimumElectrodeImpedance : Impedance = 500.0 ["ohm"];
+        attribute maximumElectrodeImpedance : Impedance = 30000.0 ["ohm"];
+        attribute maximumCaseTemperature : TemperatureC = 39.0 ["degC"];
+        attribute lowBatteryThreshold : Percent = 15.0 ["%"];
+        attribute emergencyStopLatency : Time = 0.010 [SI::s];
+
+        port power : PowerPort;
+        port stimulationLimit : StimulationControlPort;
+
+        action monitorImplantSafety {
+            in item battery : BatteryEnergy;
+            in item telemetry : TelemetryPacket;
+            out item limitCommand : StimulationCommand;
+        }
+
+        state def SafetyStateMachine {
+            state normalOperation;
+            state lowBatteryReducedProcessing;
+            state overTemperatureStimulationSuspended;
+            state electrodeFaultChannelDisabled;
+            state shutdown;
+
+            transition first normalOperation;
+            transition normalOperation then lowBatteryReducedProcessing
+                accept BatteryBelowLowThreshold;
+            transition lowBatteryReducedProcessing then normalOperation
+                accept BatteryRecovered;
+            transition normalOperation then overTemperatureStimulationSuspended
+                accept CaseTemperatureAboveLimit;
+            transition overTemperatureStimulationSuspended then normalOperation
+                accept CaseTemperatureNormal;
+            transition normalOperation then electrodeFaultChannelDisabled
+                accept ElectrodeImpedanceInvalid;
+            transition electrodeFaultChannelDisabled then normalOperation
+                accept ElectrodeMappedOut;
+            transition lowBatteryReducedProcessing then shutdown
+                accept BatteryBelowMinimumVoltage;
+        }
+    }
+
+    action def RestoreAuditoryPerception {
+        in item sound : AcousticPressureWave;
+        out item perceivedNeuralPattern : NeuralExcitation;
+
+        first start;
+        then action acquireSound {
+            in item sound;
+            out item sensed : SubcutaneousAcousticSignal;
+        }
+        then action digitizeSound {
+            in item sensed;
+            out item frame : DigitizedAudioFrame;
+        }
+        then action extractSpectralEnvelope {
+            in item frame;
+            out item envelope : SpectralEnvelope;
+        }
+        then action generateSafePulses {
+            in item envelope;
+            out item pulse : BiphasicPulse;
+        }
+        then action stimulateAuditoryNerve {
+            in item pulse;
+            out item perceivedNeuralPattern;
+        }
+        then done;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The implant shall provide a fully implanted hearing restoration function by converting naturally occurring acoustic sound into auditory-nerve electrical stimulation without requiring an externally worn sound processor during normal listening. */
+
+        subject implant : TotallyImplantableCochlearImplant;
+
+        require constraint {
+            implant.externalDailyWearRequired == false
+        }
+    }
+
+    requirement def AcousticSensingRequirement {
+        doc
+        /* The implanted microphone subsystem shall sense speech-relevant acoustic input from 100 Hz to 8000 Hz through implanted tissue and provide a digitized audio stream for processing. */
+
+        subject microphone : ImplantableMicrophone;
+
+        require constraint {
+            microphone.bandwidthLow.value <= 100.0 and
+            microphone.bandwidthHigh.value >= 8000.0 and
+            microphone.upperInputLimit.value >= 100.0
+        }
+    }
+
+    requirement def CochlearStimulationRequirement {
+        doc
+        /* The stimulator shall generate charge-balanced biphasic pulses mapped across at least 22 intracochlear electrodes to represent the spectral envelope of sound. */
+
+        subject stimulator : NeuralStimulator;
+
+        require constraint {
+            stimulator.channelCount >= 22 and
+            stimulator.maximumChargeDensity.value <= 30.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        doc
+        /* The rechargeable implanted battery shall support at least 24 hours of normal listening operation between charging sessions. */
+
+        subject battery : RechargeableImplantBattery;
+
+        require constraint {
+            battery.minimumDailyOperatingTime >= 24.0 [SI::h] and
+            battery.nominalCapacity.value >= 60.0
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc
+        /* The implant shall inhibit or reduce stimulation when unsafe temperature, battery, charge-density, or electrode-impedance conditions are detected. */
+
+        subject safety : SafetyManager;
+
+        require constraint {
+            safety.maximumCaseTemperature.value <= 39.0 and
+            safety.maximumElectrodeImpedance.value <= 30000.0 and
+            safety.minimumElectrodeImpedance.value >= 500.0
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc
+        /* The implant shall support bidirectional clinician telemetry for programming maps, reporting battery status, reporting electrode impedance, and reporting device faults. */
+
+        subject telemetry : ImplantTelemetryController;
+
+        require constraint {
+            telemetry.encryptedLinkRequired == true and
+            telemetry.uplinkDataRate.value >= 64.0 and
+            telemetry.downlinkDataRate.value >= 32.0
+        }
+    }
+
+    requirement def BiocompatibilityRequirement {
+        doc
+        /* All chronically implanted enclosure and feedthrough materials shall be biocompatible and hermetically sealed for long-term implantation. */
+
+        subject enclosure : HermeticEnclosure;
+
+        require constraint {
+            enclosure.maximumCaseTemperature.value <= 39.0 and
+            enclosure.leakRateLimit <= 1.0e-9
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TotallyImplantableCochlearImplant;
+    satisfy AcousticSensingRequirement by ImplantableMicrophone;
+    satisfy CochlearStimulationRequirement by NeuralStimulator;
+    satisfy BatteryOperationRequirement by RechargeableImplantBattery;
+    satisfy SafetyRequirement by SafetyManager;
+    satisfy TelemetryRequirement by ImplantTelemetryController;
+    satisfy BiocompatibilityRequirement by HermeticEnclosure;
+
+    part implantSystem : TotallyImplantableCochlearImplant;
+
+    perform RestoreAuditoryPerception by implantSystem;
+
+}
+tokens used
+6,055
+package TotallyImplantableCochlearImplantModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SoundPressureLevel {
+        attribute value : Real;
+        attribute unit : String = "dB SPL";
+    }
+
+    attribute def FrequencyHz {
+        attribute value : Real;
+        attribute unit : String = "Hz";
+    }
+
+    attribute def ElectricalCurrent {
+        attribute value : Real;
+        attribute unit : String = "microA";
+    }
+
+    attribute def PulseWidth {
+        attribute value : Real;
+        attribute unit : String = "microsecond";
+    }
+
+    attribute def ChargeDensity {
+        attribute value : Real;
+        attribute unit : String = "microCoulombPerSquareCentimeter";
+    }
+
+    attribute def BatteryCapacity {
+        attribute value : Real;
+        attribute unit : String = "milliampereHour";
+    }
+
+    attribute def TemperatureC {
+        attribute value : Real;
+        attribute unit : String = "degC";
+    }
+
+    attribute def DataRate {
+        attribute value : Real;
+        attribute unit : String = "kbps";
+    }
+
+    attribute def Impedance {
+        attribute value : Real;
+        attribute unit : String = "ohm";
+    }
+
+    attribute def Percent {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    item def AcousticPressureWave {
+        attribute soundPressureLevel : SoundPressureLevel;
+        attribute frequency : FrequencyHz;
+        attribute duration : Time;
+    }
+
+    item def SubcutaneousAcousticSignal {
+        attribute soundPressureLevel : SoundPressureLevel;
+        attribute frequency : FrequencyHz;
+        attribute bodyNoiseRejected : Boolean;
+    }
+
+    item def DigitizedAudioFrame {
+        attribute sampleRate : FrequencyHz;
+        attribute frameDuration : Time;
+        attribute bitDepth : Integer;
+        attribute channelCount : Integer;
+    }
+
+    item def SpectralEnvelope {
+        attribute bandCount : Integer;
+        attribute lowestBand : FrequencyHz;
+        attribute highestBand : FrequencyHz;
+        attribute envelopeUpdateRate : FrequencyHz;
+    }
+
+    item def StimulationCommand {
+        attribute electrodeIndex : Integer;
+        attribute amplitude : ElectricalCurrent;
+        attribute pulseWidth : PulseWidth;
+        attribute phaseGap : PulseWidth;
+        attribute stimulationRate : FrequencyHz;
+    }
+
+    item def BiphasicPulse {
+        attribute electrodeIndex : Integer;
+        attribute cathodicAmplitude : ElectricalCurrent;
+        attribute anodicAmplitude : ElectricalCurrent;
+        attribute pulseWidth : PulseWidth;
+        attribute chargeBalanced : Boolean;
+        attribute chargeDensity : ChargeDensity;
+    }
+
+    item def NeuralExcitation {
+        attribute cochlearRegion : Integer;
+        attribute perceivedFrequency : FrequencyHz;
+        attribute intensityEstimate : Percent;
+    }
+
+    item def BatteryEnergy {
+        attribute remainingCapacity : BatteryCapacity;
+        attribute stateOfCharge : Percent;
+        attribute voltage : Voltage;
+    }
+
+    item def TelemetryPacket {
+        attribute implantIdentifier : String;
+        attribute timestamp : Time;
+        attribute batteryStateOfCharge : Percent;
+        attribute caseTemperature : TemperatureC;
+        attribute electrodeImpedance : Impedance;
+        attribute faultCode : String;
+    }
+
+    item def ProgrammingPacket {
+        attribute mapIdentifier : String;
+        attribute minimumAudibleCurrent : ElectricalCurrent;
+        attribute maximumComfortableCurrent : ElectricalCurrent;
+        attribute frequencyAllocationLow : FrequencyHz;
+        attribute frequencyAllocationHigh : FrequencyHz;
+        attribute enabledElectrodeCount : Integer;
+    }
+
+    port def AcousticInputPort {
+        in item acousticWave : AcousticPressureWave;
+    }
+
+    port def SubcutaneousSoundPort {
+        out item acousticSignal : SubcutaneousAcousticSignal;
+    }
+
+    port def AudioDataPort {
+        out item audioFrame : DigitizedAudioFrame;
+    }
+
+    port def FeatureDataPort {
+        out item spectralEnvelope : SpectralEnvelope;
+    }
+
+    port def StimulationControlPort {
+        out item stimulationCommand : StimulationCommand;
+    }
+
+    port def ElectrodePulsePort {
+        out item stimulationPulse : BiphasicPulse;
+    }
+
+    port def NeuralInterfacePort {
+        out item excitation : NeuralExcitation;
+    }
+
+    port def PowerPort {
+        inout item energy : BatteryEnergy;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+        in item programming : ProgrammingPacket;
+    }
+
+    part def TotallyImplantableCochlearImplant {
+        attribute primaryFunction : String =
+            "Restore functional auditory perception by sensing sound inside the implanted body, processing the signal into frequency-specific stimulation patterns, and delivering charge-balanced electrical pulses to the auditory nerve through an intracochlear electrode array.";
+        attribute designLife : Time = 10 [SI::year];
+        attribute hermeticCaseTemperatureLimit : TemperatureC = 39.0 ["degC"];
+        attribute waterIngressProtection : String = "Fully implanted hermetic titanium/ceramic enclosure";
+        attribute externalDailyWearRequired : Boolean = false;
+
+        port soundInput : AcousticInputPort;
+        port auditoryNerveOutput : NeuralInterfacePort;
+        port clinicalTelemetry : TelemetryPort;
+        port implantPower : PowerPort;
+
+        part implantedMicrophone : ImplantableMicrophone;
+        part acousticFeedthrough : AcousticFeedthrough;
+        part signalProcessor : SoundProcessor;
+        part stimulator : NeuralStimulator;
+        part electrodeArray : IntracochlearElectrodeArray;
+        part rechargeableBattery : RechargeableImplantBattery;
+        part wirelessPowerReceiver : TranscutaneousPowerReceiver;
+        part telemetryController : ImplantTelemetryController;
+        part hermeticEnclosure : HermeticEnclosure;
+        part safetyManager : SafetyManager;
+
+        connect soundInput.acousticWave to implantedMicrophone.externalSound.acousticWave;
+        connect implantedMicrophone.internalSound.acousticSignal to acousticFeedthrough.microphoneSignal.acousticSignal;
+        connect acousticFeedthrough.conditionedAudio.audioFrame to signalProcessor.audioIn.audioFrame;
+        connect signalProcessor.features.spectralEnvelope to stimulator.featureInput.spectralEnvelope;
+        connect stimulator.pulseOutput.stimulationPulse to electrodeArray.electrodeInput.stimulationPulse;
+        connect electrodeArray.neuralOutput.excitation to auditoryNerveOutput.excitation;
+
+        connect rechargeableBattery.powerOutput.energy to implantPower.energy;
+        connect wirelessPowerReceiver.chargeOutput.energy to rechargeableBattery.chargeInput.energy;
+        connect rechargeableBattery.powerOutput.energy to signalProcessor.power.energy;
+        connect rechargeableBattery.powerOutput.energy to stimulator.power.energy;
+        connect rechargeableBattery.powerOutput.energy to telemetryController.power.energy;
+        connect rechargeableBattery.powerOutput.energy to safetyManager.power.energy;
+
+        connect telemetryController.telemetryLink.telemetry to clinicalTelemetry.telemetry;
+        connect clinicalTelemetry.programming to telemetryController.telemetryLink.programming;
+        connect telemetryController.programmingOut.programming to signalProcessor.programmingIn.programming;
+        connect safetyManager.stimulationLimit.stimulationCommand to stimulator.safetyLimit.stimulationCommand;
+    }
+
+    part def ImplantableMicrophone {
+        attribute sensitivity : Real = -38.0;
+        attribute sensitivityUnit : String = "dBV/Pa";
+        attribute noiseFloor : SoundPressureLevel = 30.0 ["dB SPL"];
+        attribute upperInputLimit : SoundPressureLevel = 110.0 ["dB SPL"];
+        attribute bandwidthLow : FrequencyHz = 100.0 ["Hz"];
+        attribute bandwidthHigh : FrequencyHz = 8000.0 ["Hz"];
+
+        port externalSound : AcousticInputPort;
+        port internalSound : SubcutaneousSoundPort;
+
+        action senseSubcutaneousSound {
+            in item incoming : AcousticPressureWave;
+            out item sensed : SubcutaneousAcousticSignal;
+        }
+    }
+
+    part def AcousticFeedthrough {
+        attribute antiAliasCutoff : FrequencyHz = 8500.0 ["Hz"];
+        attribute analogGain : Real = 24.0;
+        attribute analogGainUnit : String = "dB";
+        attribute adcResolution : Integer = 16;
+        attribute adcSampleRate : FrequencyHz = 20000.0 ["Hz"];
+
+        port microphoneSignal : SubcutaneousSoundPort;
+        port conditionedAudio : AudioDataPort;
+
+        action amplifyFilterAndDigitize {
+            in item sensed : SubcutaneousAcousticSignal;
+            out item frame : DigitizedAudioFrame;
+        }
+    }
+
+    part def SoundProcessor {
+        attribute strategyName : String = "Continuous interleaved sampling with adaptive scene control";
+        attribute audioFrameDuration : Time = 0.008 [SI::s];
+        attribute analysisBandCount : Integer = 22;
+        attribute lowFrequencyAllocation : FrequencyHz = 188.0 ["Hz"];
+        attribute highFrequencyAllocation : FrequencyHz = 7938.0 ["Hz"];
+        attribute automaticGainControlAttack : Time = 0.005 [SI::s];
+        attribute automaticGainControlRelease : Time = 0.100 [SI::s];
+
+        port audioIn : AudioDataPort;
+        port features : FeatureDataPort;
+        port power : PowerPort;
+        port programmingIn : TelemetryPort;
+
+        action processAudioFrame {
+            in item audioFrame : DigitizedAudioFrame;
+            out item envelope : SpectralEnvelope;
+        }
+
+        state def ProcessingStateMachine {
+            state off;
+            state standby;
+            state calibratingMicrophone;
+            state listening;
+            state noiseReduction;
+            state mappingToElectrodes;
+            state telemetryProgramming;
+            state faultHold;
+
+            transition first off then standby;
+            transition standby then calibratingMicrophone
+                accept PowerAvailable;
+            transition calibratingMicrophone then listening
+                accept CalibrationValid;
+            transition listening then noiseReduction
+                accept SoundFrameReceived;
+            transition noiseReduction then mappingToElectrodes
+                accept SpectralFeaturesComputed;
+            transition mappingToElectrodes then listening
+                accept StimulationFrameIssued;
+            transition listening then telemetryProgramming
+                accept ProgrammingPacketReceived;
+            transition telemetryProgramming then calibratingMicrophone
+                accept ProgrammingStored;
+            transition listening then faultHold
+                accept ProcessorFaultDetected;
+            transition faultHold then standby
+                accept FaultCleared;
+        }
+    }
+
+    part def NeuralStimulator {
+        attribute channelCount : Integer = 22;
+        attribute maximumStimulationRate : FrequencyHz = 1800.0 ["Hz"];
+        attribute defaultPulseWidth : PulseWidth = 25.0 ["microsecond"];
+        attribute interPhaseGap : PulseWidth = 8.0 ["microsecond"];
+        attribute maximumCurrent : ElectricalCurrent = 1200.0 ["microA"];
+        attribute maximumChargeDensity : ChargeDensity = 30.0 ["microCoulombPerSquareCentimeter"];
+
+        port featureInput : FeatureDataPort;
+        port pulseOutput : ElectrodePulsePort;
+        port safetyLimit : StimulationControlPort;
+        port power : PowerPort;
+
+        action encodeEnvelopeAsPulses {
+            in item envelope : SpectralEnvelope;
+            out item pulse : BiphasicPulse;
+        }
+
+        action enforceChargeBalance {
+            in item requestedPulse : BiphasicPulse;
+            out item safePulse : BiphasicPulse;
+        }
+
+        state def StimulatorStateMachine {
+            state disabled;
+            state armed;
+            state stimulating;
+            state impedanceCheck;
+            state chargeRecovery;
+            state inhibited;
+
+            transition first disabled then armed
+                accept ProcessorReady;
+            transition armed then impedanceCheck
+                accept StartFrame;
+            transition impedanceCheck then stimulating
+                accept ElectrodeImpedanceValid;
+            transition stimulating then chargeRecovery
+                accept PulseTrainComplete;
+            transition chargeRecovery then armed
+                accept ResidualChargeNeutralized;
+            transition impedanceCheck then inhibited
+                accept ElectrodeImpedanceOutOfRange;
+            transition stimulating then inhibited
+                accept ChargeLimitExceeded;
+            transition inhibited then armed
+                accept SafetyReset;
+        }
+    }
+
+    part def IntracochlearElectrodeArray {
+        attribute electrodeCount : Integer = 22;
+        attribute insertionDepth : Length = 25.0 [SI::mm];
+        attribute apicalFrequencyEstimate : FrequencyHz = 188.0 ["Hz"];
+        attribute basalFrequencyEstimate : FrequencyHz = 7938.0 ["Hz"];
+        attribute electrodeContactArea : Area = 0.35 [SI::mm^2];
+
+        port electrodeInput : ElectrodePulsePort;
+        port neuralOutput : NeuralInterfacePort;
+
+        part electrodes[22] : ElectrodeContact;
+
+        action deliverCurrentToCochlea {
+            in item pulse : BiphasicPulse;
+            out item neuralResponse : NeuralExcitation;
+        }
+    }
+
+    part def ElectrodeContact {
+        attribute contactIndex : Integer;
+        attribute nominalImpedance : Impedance = 6500.0 ["ohm"];
+        attribute maximumSafeChargeDensity : ChargeDensity = 30.0 ["microCoulombPerSquareCentimeter"];
+        attribute assignedFrequencyLow : FrequencyHz;
+        attribute assignedFrequencyHigh : FrequencyHz;
+    }
+
+    part def RechargeableImplantBattery {
+        attribute chemistry : String = "Lithium ion solid electrolyte medical implant cell";
+        attribute nominalCapacity : BatteryCapacity = 60.0 ["milliampereHour"];
+        attribute nominalVoltage : Voltage = 3.7 [SI::V];
+        attribute minimumOperatingVoltage : Voltage = 3.1 [SI::V];
+        attribute maximumChargeVoltage : Voltage = 4.2 [SI::V];
+        attribute minimumDailyOperatingTime : Time = 24.0 [SI::h];
+
+        port chargeInput : PowerPort;
+        port powerOutput : PowerPort;
+
+        action supplyImplantEnergy {
+            out item energy : BatteryEnergy;
+        }
+
+        action acceptRechargeEnergy {
+            in item receivedEnergy : BatteryEnergy;
+            out item storedEnergy : BatteryEnergy;
+        }
+    }
+
+    part def TranscutaneousPowerReceiver {
+        attribute receivingFrequency : FrequencyHz = 13560000.0 ["Hz"];
+        attribute maximumChargePower : Power = 0.25 [SI::W];
+        attribute alignmentTolerance : Length = 12.0 [SI::mm];
+        attribute rectifierEfficiency : Percent = 78.0 ["%"];
+
+        port chargeOutput : PowerPort;
+
+        action receiveExternalInductivePower {
+            out item chargeEnergy : BatteryEnergy;
+        }
+    }
+
+    part def ImplantTelemetryController {
+        attribute telemetryCarrierFrequency : FrequencyHz = 13560000.0 ["Hz"];
+        attribute uplinkDataRate : DataRate = 64.0 ["kbps"];
+        attribute downlinkDataRate : DataRate = 32.0 ["kbps"];
+        attribute encryptedLinkRequired : Boolean = true;
+
+        port telemetryLink : TelemetryPort;
+        port programmingOut : TelemetryPort;
+        port power : PowerPort;
+
+        action reportImplantStatus {
+            out item telemetry : TelemetryPacket;
+        }
+
+        action receiveClinicalMap {
+            in item programming : ProgrammingPacket;
+            out item storedProgramming : ProgrammingPacket;
+        }
+    }
+
+    part def HermeticEnclosure {
+        attribute caseMaterial : String = "Titanium with ceramic acoustic window";
+        attribute leakRateLimit : Real = 1.0e-9;
+        attribute leakRateUnit : String = "atm-cc/sec helium";
+        attribute maximumCaseTemperature : TemperatureC = 39.0 ["degC"];
+        attribute biocompatibilityStandard : String = "ISO 10993 implant-contacting material set";
+        attribute sterilizationCompatibility : String = "Ethylene oxide validated process";
+    }
+
+    part def SafetyManager {
+        attribute minimumElectrodeImpedance : Impedance = 500.0 ["ohm"];
+        attribute maximumElectrodeImpedance : Impedance = 30000.0 ["ohm"];
+        attribute maximumCaseTemperature : TemperatureC = 39.0 ["degC"];
+        attribute lowBatteryThreshold : Percent = 15.0 ["%"];
+        attribute emergencyStopLatency : Time = 0.010 [SI::s];
+
+        port power : PowerPort;
+        port stimulationLimit : StimulationControlPort;
+
+        action monitorImplantSafety {
+            in item battery : BatteryEnergy;
+            in item telemetry : TelemetryPacket;
+            out item limitCommand : StimulationCommand;
+        }
+
+        state def SafetyStateMachine {
+            state normalOperation;
+            state lowBatteryReducedProcessing;
+            state overTemperatureStimulationSuspended;
+            state electrodeFaultChannelDisabled;
+            state shutdown;
+
+            transition first normalOperation;
+            transition normalOperation then lowBatteryReducedProcessing
+                accept BatteryBelowLowThreshold;
+            transition lowBatteryReducedProcessing then normalOperation
+                accept BatteryRecovered;
+            transition normalOperation then overTemperatureStimulationSuspended
+                accept CaseTemperatureAboveLimit;
+            transition overTemperatureStimulationSuspended then normalOperation
+                accept CaseTemperatureNormal;
+            transition normalOperation then electrodeFaultChannelDisabled
+                accept ElectrodeImpedanceInvalid;
+            transition electrodeFaultChannelDisabled then normalOperation
+                accept ElectrodeMappedOut;
+            transition lowBatteryReducedProcessing then shutdown
+                accept BatteryBelowMinimumVoltage;
+        }
+    }
+
+    action def RestoreAuditoryPerception {
+        in item sound : AcousticPressureWave;
+        out item perceivedNeuralPattern : NeuralExcitation;
+
+        first start;
+        then action acquireSound {
+            in item sound;
+            out item sensed : SubcutaneousAcousticSignal;
+        }
+        then action digitizeSound {
+            in item sensed;
+            out item frame : DigitizedAudioFrame;
+        }
+        then action extractSpectralEnvelope {
+            in item frame;
+            out item envelope : SpectralEnvelope;
+        }
+        then action generateSafePulses {
+            in item envelope;
+            out item pulse : BiphasicPulse;
+        }
+        then action stimulateAuditoryNerve {
+            in item pulse;
+            out item perceivedNeuralPattern;
+        }
+        then done;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The implant shall provide a fully implanted hearing restoration function by converting naturally occurring acoustic sound into auditory-nerve electrical stimulation without requiring an externally worn sound processor during normal listening. */
+
+        subject implant : TotallyImplantableCochlearImplant;
+
+        require constraint {
+            implant.externalDailyWearRequired == false
+        }
+    }
+
+    requirement def AcousticSensingRequirement {
+        doc
+        /* The implanted microphone subsystem shall sense speech-relevant acoustic input from 100 Hz to 8000 Hz through implanted tissue and provide a digitized audio stream for processing. */
+
+        subject microphone : ImplantableMicrophone;
+
+        require constraint {
+            microphone.bandwidthLow.value <= 100.0 and
+            microphone.bandwidthHigh.value >= 8000.0 and
+            microphone.upperInputLimit.value >= 100.0
+        }
+    }
+
+    requirement def CochlearStimulationRequirement {
+        doc
+        /* The stimulator shall generate charge-balanced biphasic pulses mapped across at least 22 intracochlear electrodes to represent the spectral envelope of sound. */
+
+        subject stimulator : NeuralStimulator;
+
+        require constraint {
+            stimulator.channelCount >= 22 and
+            stimulator.maximumChargeDensity.value <= 30.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        doc
+        /* The rechargeable implanted battery shall support at least 24 hours of normal listening operation between charging sessions. */
+
+        subject battery : RechargeableImplantBattery;
+
+        require constraint {
+            battery.minimumDailyOperatingTime >= 24.0 [SI::h] and
+            battery.nominalCapacity.value >= 60.0
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc
+        /* The implant shall inhibit or reduce stimulation when unsafe temperature, battery, charge-density, or electrode-impedance conditions are detected. */
+
+        subject safety : SafetyManager;
+
+        require constraint {
+            safety.maximumCaseTemperature.value <= 39.0 and
+            safety.maximumElectrodeImpedance.value <= 30000.0 and
+            safety.minimumElectrodeImpedance.value >= 500.0
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc
+        /* The implant shall support bidirectional clinician telemetry for programming maps, reporting battery status, reporting electrode impedance, and reporting device faults. */
+
+        subject telemetry : ImplantTelemetryController;
+
+        require constraint {
+            telemetry.encryptedLinkRequired == true and
+            telemetry.uplinkDataRate.value >= 64.0 and
+            telemetry.downlinkDataRate.value >= 32.0
+        }
+    }
+
+    requirement def BiocompatibilityRequirement {
+        doc
+        /* All chronically implanted enclosure and feedthrough materials shall be biocompatible and hermetically sealed for long-term implantation. */
+
+        subject enclosure : HermeticEnclosure;
+
+        require constraint {
+            enclosure.maximumCaseTemperature.value <= 39.0 and
+            enclosure.leakRateLimit <= 1.0e-9
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TotallyImplantableCochlearImplant;
+    satisfy AcousticSensingRequirement by ImplantableMicrophone;
+    satisfy CochlearStimulationRequirement by NeuralStimulator;
+    satisfy BatteryOperationRequirement by RechargeableImplantBattery;
+    satisfy SafetyRequirement by SafetyManager;
+    satisfy TelemetryRequirement by ImplantTelemetryController;
+    satisfy BiocompatibilityRequirement by HermeticEnclosure;
+
+    part implantSystem : TotallyImplantableCochlearImplant;
+
+    perform RestoreAuditoryPerception by implantSystem;
+
+}

@@ -1,0 +1,551 @@
+package OrageneSalivaCollectionSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Milliliter :> Real {
+    unit = "mL";
+  }
+
+  attribute def Minute :> Real {
+    unit = "min";
+  }
+
+  attribute def Celsius :> Real {
+    unit = "degC";
+  }
+
+  attribute def Day :> Real {
+    unit = "d";
+  }
+
+  attribute def pH :> Real;
+
+  attribute def Percentage :> Real {
+    unit = "%";
+  }
+
+  enum def CapState {
+    enum open;
+    enum closed;
+    enum locked;
+  }
+
+  enum def SampleCondition {
+    enum absent;
+    enum salivaCollected;
+    enum stabilized;
+    enum leaking;
+    enum invalidVolume;
+    enum readyForTransport;
+  }
+
+  enum def UserRole {
+    enum donor;
+    enum collector;
+    enum laboratoryTechnician;
+  }
+
+  item def SalivaSample {
+    attribute volume : Milliliter;
+    attribute humanCellContent : Percentage;
+    attribute microbialContent : Percentage;
+    attribute collectionTime : Minute;
+    attribute condition : SampleCondition;
+  }
+
+  item def StabilizingReagent {
+    attribute volume : Milliliter;
+    attribute preservativeConcentration : Percentage;
+    attribute nominalPH : pH;
+    attribute shelfLife : Day;
+  }
+
+  item def StabilizedBiospecimen {
+    attribute totalVolume : Milliliter;
+    attribute dnaIntegrity : Percentage;
+    attribute storageTemperature : Celsius;
+    attribute stableStorageDuration : Day;
+    attribute condition : SampleCondition;
+  }
+
+  item def DonorIdentityData {
+    attribute donorIdentifier : String;
+    attribute consentRecorded : Boolean;
+    attribute collectionTimestamp : String;
+  }
+
+  item def CollectionInstruction {
+    attribute stepNumber : Integer;
+    attribute instructionText : String;
+    attribute mandatory : Boolean;
+  }
+
+  port def SalivaIntakePort {
+    in item saliva : SalivaSample;
+  }
+
+  port def ReagentReleasePort {
+    out item reagent : StabilizingReagent;
+  }
+
+  port def SpecimenOutputPort {
+    out item specimen : StabilizedBiospecimen;
+  }
+
+  port def IdentityDataPort {
+    in item identity : DonorIdentityData;
+  }
+
+  port def InstructionDisplayPort {
+    out item instruction : CollectionInstruction;
+  }
+
+  port def LeakBarrierPort {
+    in item specimen : StabilizedBiospecimen;
+    out item containedSpecimen : StabilizedBiospecimen;
+  }
+
+  part def OrageneCollectionSystem {
+    attribute primaryFunction : String = "Collect a saliva sample and chemically stabilize nucleic acids so the specimen can be safely transported and later processed for DNA analysis.";
+    attribute minimumAcceptedSalivaVolume : Milliliter = 2.0;
+    attribute maximumAcceptedSalivaVolume : Milliliter = 4.0;
+    attribute nominalReagentVolume : Milliliter = 2.0;
+    attribute supportedStorageTemperatureMin : Celsius = 15.0;
+    attribute supportedStorageTemperatureMax : Celsius = 30.0;
+    attribute supportedStabilizedStorageDuration : Day = 365.0;
+
+    port salivaInput : SalivaIntakePort;
+    port identityInput : IdentityDataPort;
+    port specimenOutput : SpecimenOutputPort;
+    port instructionOutput : InstructionDisplayPort;
+
+    part donorInterface : DonorInterface;
+    part collectionTube : CollectionTube;
+    part funnelAssembly : FunnelAssembly;
+    part reagentCap : ReagentCap;
+    part sealAssembly : SealAssembly;
+    part labelAssembly : LabelAssembly;
+    part transportPouch : TransportPouch;
+    part stabilizationController : StabilizationController;
+
+    connect salivaInput to funnelAssembly.salivaInput;
+    connect funnelAssembly.tubeOutput to collectionTube.sampleInput;
+    connect reagentCap.reagentOutput to collectionTube.reagentInput;
+    connect collectionTube.mixedSpecimenOutput to sealAssembly.specimenInput;
+    connect sealAssembly.containedSpecimenOutput to transportPouch.specimenInput;
+    connect transportPouch.transportOutput to specimenOutput;
+    connect identityInput to labelAssembly.identityInput;
+    connect donorInterface.instructionOutput to instructionOutput;
+    connect stabilizationController.reagentCommandOutput to reagentCap.activationInput;
+    connect collectionTube.volumeStatusOutput to stabilizationController.volumeStatusInput;
+  }
+
+  part def DonorInterface {
+    attribute targetUser : UserRole = UserRole::donor;
+    attribute requiresFasting : Boolean = false;
+    attribute noFoodDrinkPeriodBeforeCollection : Minute = 30.0;
+
+    port instructionOutput : InstructionDisplayPort;
+
+    action provideCollectionInstructions {
+      out item instruction1 : CollectionInstruction {
+        attribute stepNumber = 1;
+        attribute instructionText = "Do not eat, drink, smoke, or chew gum for the required pre-collection interval.";
+        attribute mandatory = true;
+      }
+      out item instruction2 : CollectionInstruction {
+        attribute stepNumber = 2;
+        attribute instructionText = "Deposit saliva into the funnel until the fill line is reached.";
+        attribute mandatory = true;
+      }
+      out item instruction3 : CollectionInstruction {
+        attribute stepNumber = 3;
+        attribute instructionText = "Close the reagent cap to release stabilizing liquid into the tube.";
+        attribute mandatory = true;
+      }
+      out item instruction4 : CollectionInstruction {
+        attribute stepNumber = 4;
+        attribute instructionText = "Remove funnel, seal the tube, shake the tube, label it, and place it in the transport pouch.";
+        attribute mandatory = true;
+      }
+    }
+  }
+
+  part def FunnelAssembly {
+    attribute funnelInnerVolume : Milliliter = 5.0;
+    attribute spillReductionLipPresent : Boolean = true;
+    attribute disposable : Boolean = true;
+
+    port salivaInput : SalivaIntakePort;
+    port tubeOutput : SalivaIntakePort;
+
+    action guideSalivaIntoTube {
+      in item donorSaliva : SalivaSample;
+      out item directedSaliva : SalivaSample;
+    }
+  }
+
+  part def CollectionTube {
+    attribute tubeNominalCapacity : Milliliter = 6.0;
+    attribute fillLineVolume : Milliliter = 2.0;
+    attribute currentSampleVolume : Milliliter = 0.0;
+    attribute currentTotalVolume : Milliliter = 0.0;
+    attribute sampleCondition : SampleCondition = SampleCondition::absent;
+
+    port sampleInput : SalivaIntakePort;
+    port reagentInput : ReagentReleasePort;
+    port mixedSpecimenOutput : SpecimenOutputPort;
+    port volumeStatusOutput : VolumeStatusPort;
+
+    action acceptSaliva {
+      in item saliva : SalivaSample;
+      out item acceptedSaliva : SalivaSample;
+    }
+
+    action mixReagentWithSaliva {
+      in item saliva : SalivaSample;
+      in item reagent : StabilizingReagent;
+      out item stabilizedSpecimen : StabilizedBiospecimen {
+        attribute totalVolume = saliva.volume + reagent.volume;
+        attribute dnaIntegrity = 95.0;
+        attribute storageTemperature = 22.0;
+        attribute stableStorageDuration = 365.0;
+        attribute condition = SampleCondition::stabilized;
+      }
+    }
+
+    state def TubeState {
+      entry;
+      state empty;
+      state collecting;
+      state fillLineReached;
+      state reagentAdded;
+      state stabilized;
+      state invalid;
+      state sealedReady;
+
+      transition entry then empty;
+
+      transition empty_to_collecting
+        first empty
+        accept SalivaReceived
+        then collecting;
+
+      transition collecting_to_fillLineReached
+        first collecting
+        if currentSampleVolume >= fillLineVolume
+        then fillLineReached;
+
+      transition collecting_to_invalid
+        first collecting
+        if currentSampleVolume > tubeNominalCapacity
+        then invalid;
+
+      transition fillLineReached_to_reagentAdded
+        first fillLineReached
+        accept ReagentReleased
+        then reagentAdded;
+
+      transition reagentAdded_to_stabilized
+        first reagentAdded
+        do mixReagentWithSaliva
+        then stabilized;
+
+      transition stabilized_to_sealedReady
+        first stabilized
+        accept TubeSealed
+        then sealedReady;
+    }
+  }
+
+  port def VolumeStatusPort {
+    out attribute measuredVolume : Milliliter;
+    out attribute fillLineReached : Boolean;
+    out attribute volumeValid : Boolean;
+  }
+
+  port def ReagentActivationPort {
+    in attribute releaseRequested : Boolean;
+    out attribute releaseConfirmed : Boolean;
+  }
+
+  part def ReagentCap {
+    attribute capState : CapState = CapState::open;
+    attribute reagentVolume : Milliliter = 2.0;
+    attribute reagentPH : pH = 8.0;
+    attribute reagentShelfLife : Day = 730.0;
+    attribute singleUse : Boolean = true;
+    attribute tamperEvidentRingPresent : Boolean = true;
+
+    port activationInput : ReagentActivationPort;
+    port reagentOutput : ReagentReleasePort;
+
+    action closeCapAndReleaseReagent {
+      in attribute releaseRequested : Boolean;
+      out item releasedReagent : StabilizingReagent {
+        attribute volume = reagentVolume;
+        attribute preservativeConcentration = 100.0;
+        attribute nominalPH = reagentPH;
+        attribute shelfLife = reagentShelfLife;
+      }
+      out attribute releaseConfirmed : Boolean = true;
+    }
+
+    state def CapOperation {
+      entry;
+      state open;
+      state closing;
+      state reagentReleased;
+      state locked;
+
+      transition entry then open;
+
+      transition open_to_closing
+        first open
+        accept CapPressed
+        then closing;
+
+      transition closing_to_reagentReleased
+        first closing
+        do closeCapAndReleaseReagent
+        then reagentReleased;
+
+      transition reagentReleased_to_locked
+        first reagentReleased
+        then locked;
+    }
+  }
+
+  part def SealAssembly {
+    attribute leakTight : Boolean = true;
+    attribute sealCompressionApplied : Boolean = false;
+    attribute maximumAllowedLeakageVolume : Milliliter = 0.0;
+
+    port specimenInput : LeakBarrierPort;
+    port containedSpecimenOutput : SpecimenOutputPort;
+
+    action sealTube {
+      in item specimen : StabilizedBiospecimen;
+      out item containedSpecimen : StabilizedBiospecimen;
+      out attribute sealVerified : Boolean;
+    }
+
+    state def SealState {
+      entry;
+      state unsealed;
+      state sealing;
+      state sealed;
+      state leakDetected;
+
+      transition entry then unsealed;
+
+      transition unsealed_to_sealing
+        first unsealed
+        accept SealApplied
+        then sealing;
+
+      transition sealing_to_sealed
+        first sealing
+        if leakTight == true
+        then sealed;
+
+      transition sealing_to_leakDetected
+        first sealing
+        if leakTight == false
+        then leakDetected;
+    }
+  }
+
+  part def LabelAssembly {
+    attribute barcodePresent : Boolean = true;
+    attribute humanReadableIdentifierPresent : Boolean = true;
+    attribute consentLinkRequired : Boolean = true;
+
+    port identityInput : IdentityDataPort;
+
+    action bindIdentityToSpecimen {
+      in item identity : DonorIdentityData;
+      out attribute labelComplete : Boolean;
+    }
+  }
+
+  part def TransportPouch {
+    attribute absorbentInsertPresent : Boolean = true;
+    attribute biohazardMarkingPresent : Boolean = true;
+    attribute secondaryContainmentSealed : Boolean = false;
+    attribute transportTemperatureMin : Celsius = 15.0;
+    attribute transportTemperatureMax : Celsius = 30.0;
+
+    port specimenInput : SpecimenOutputPort;
+    port transportOutput : SpecimenOutputPort;
+
+    action packageForTransport {
+      in item specimen : StabilizedBiospecimen;
+      out item transportReadySpecimen : StabilizedBiospecimen {
+        attribute totalVolume = specimen.totalVolume;
+        attribute dnaIntegrity = specimen.dnaIntegrity;
+        attribute storageTemperature = specimen.storageTemperature;
+        attribute stableStorageDuration = specimen.stableStorageDuration;
+        attribute condition = SampleCondition::readyForTransport;
+      }
+    }
+  }
+
+  part def StabilizationController {
+    attribute collectedVolume : Milliliter = 0.0;
+    attribute volumeValid : Boolean = false;
+    attribute releasePermitted : Boolean = false;
+
+    port volumeStatusInput : VolumeStatusPort;
+    port reagentCommandOutput : ReagentActivationPort;
+
+    action evaluateCollectedVolume {
+      in attribute measuredVolume : Milliliter;
+      out attribute valid : Boolean;
+      out attribute permitRelease : Boolean;
+    }
+
+    action requestReagentRelease {
+      in attribute permitRelease : Boolean;
+      out attribute releaseRequested : Boolean;
+    }
+
+    state def StabilizationControlState {
+      entry;
+      state waitingForSample;
+      state checkingVolume;
+      state readyToStabilize;
+      state releaseCommanded;
+      state stabilizationComplete;
+      state rejectedVolume;
+
+      transition entry then waitingForSample;
+
+      transition waitingForSample_to_checkingVolume
+        first waitingForSample
+        accept VolumeUpdated
+        then checkingVolume;
+
+      transition checkingVolume_to_readyToStabilize
+        first checkingVolume
+        if volumeValid == true
+        then readyToStabilize;
+
+      transition checkingVolume_to_rejectedVolume
+        first checkingVolume
+        if volumeValid == false
+        then rejectedVolume;
+
+      transition readyToStabilize_to_releaseCommanded
+        first readyToStabilize
+        do requestReagentRelease
+        then releaseCommanded;
+
+      transition releaseCommanded_to_stabilizationComplete
+        first releaseCommanded
+        accept ReagentReleaseConfirmed
+        then stabilizationComplete;
+    }
+  }
+
+  requirement def CollectSalivaRequirement {
+    subject system : OrageneCollectionSystem;
+    doc "The system shall collect donor saliva through an integrated funnel into a collection tube until the indicated fill volume is reached.";
+    require constraint {
+      system.collectionTube.currentSampleVolume >= system.minimumAcceptedSalivaVolume
+    }
+  }
+
+  requirement def StabilizeDNARequirement {
+    subject system : OrageneCollectionSystem;
+    doc "The system shall release stabilizing reagent into the collected saliva after the fill line is reached to preserve nucleic acid integrity for downstream DNA analysis.";
+    require constraint {
+      system.collectionTube.sampleCondition == SampleCondition::stabilized
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : OrageneCollectionSystem;
+    doc "The system shall provide a high-level primary function of non-invasive saliva collection and stabilization for transport to a laboratory.";
+    require constraint {
+      system.primaryFunction != ""
+    }
+  }
+
+  requirement def VolumeControlRequirement {
+    subject system : OrageneCollectionSystem;
+    doc "The system shall identify a valid collection volume between the minimum and maximum accepted saliva volumes before reagent release.";
+    require constraint {
+      system.collectionTube.currentSampleVolume >= system.minimumAcceptedSalivaVolume and
+      system.collectionTube.currentSampleVolume <= system.maximumAcceptedSalivaVolume
+    }
+  }
+
+  requirement def LeakContainmentRequirement {
+    subject system : OrageneCollectionSystem;
+    doc "The sealed tube and transport pouch shall contain the stabilized biospecimen without measurable leakage during normal handling.";
+    require constraint {
+      system.sealAssembly.leakTight == true and
+      system.sealAssembly.maximumAllowedLeakageVolume == 0.0
+    }
+  }
+
+  requirement def IdentityTraceabilityRequirement {
+    subject system : OrageneCollectionSystem;
+    doc "The system shall support traceability between donor identity data, consent status, and the physical stabilized specimen.";
+    require constraint {
+      system.labelAssembly.barcodePresent == true and
+      system.labelAssembly.consentLinkRequired == true
+    }
+  }
+
+  requirement def AmbientStorageRequirement {
+    subject system : OrageneCollectionSystem;
+    doc "The stabilized specimen shall remain suitable for transport and temporary storage at supported ambient temperature conditions.";
+    require constraint {
+      system.supportedStorageTemperatureMin <= 15.0 and
+      system.supportedStorageTemperatureMax >= 30.0 and
+      system.supportedStabilizedStorageDuration >= 365.0
+    }
+  }
+
+  satisfy CollectSalivaRequirement by OrageneCollectionSystem::funnelAssembly;
+  satisfy StabilizeDNARequirement by OrageneCollectionSystem::reagentCap;
+  satisfy PrimaryFunctionRequirement by OrageneCollectionSystem;
+  satisfy VolumeControlRequirement by OrageneCollectionSystem::stabilizationController;
+  satisfy LeakContainmentRequirement by OrageneCollectionSystem::sealAssembly;
+  satisfy IdentityTraceabilityRequirement by OrageneCollectionSystem::labelAssembly;
+  satisfy AmbientStorageRequirement by OrageneCollectionSystem::transportPouch;
+
+  action def PerformOrageneCollection {
+    in item donorIdentity : DonorIdentityData;
+    in item rawSaliva : SalivaSample;
+    out item finalSpecimen : StabilizedBiospecimen;
+
+    first start;
+    then provideInstructions;
+    then collectSample;
+    then validateVolume;
+    then releaseReagent;
+    then mixSpecimen;
+    then sealSpecimen;
+    then labelSpecimen;
+    then packageSpecimen;
+    then done;
+
+    action provideInstructions : DonorInterface::provideCollectionInstructions;
+    action collectSample : FunnelAssembly::guideSalivaIntoTube;
+    action validateVolume : StabilizationController::evaluateCollectedVolume;
+    action releaseReagent : ReagentCap::closeCapAndReleaseReagent;
+    action mixSpecimen : CollectionTube::mixReagentWithSaliva;
+    action sealSpecimen : SealAssembly::sealTube;
+    action labelSpecimen : LabelAssembly::bindIdentityToSpecimen;
+    action packageSpecimen : TransportPouch::packageForTransport;
+  }
+
+  part orageneSystem : OrageneCollectionSystem {
+    attribute primaryFunction = "Non-invasive collection of saliva and stabilization of DNA-containing cellular material for ambient transport and laboratory analysis.";
+  }
+
+}

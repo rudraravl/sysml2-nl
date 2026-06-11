@@ -1,0 +1,407 @@
+package RhinoscopeSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Length :> Real {
+        unit = "mm";
+    }
+
+    attribute def Diameter :> Length;
+    attribute def Angle :> Real {
+        unit = "deg";
+    }
+
+    attribute def Mass :> Real {
+        unit = "g";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Illuminance :> Real {
+        unit = "lux";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "mA";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Duration :> Real {
+        unit = "s";
+    }
+
+    attribute def Resolution :> Real {
+        unit = "pixels";
+    }
+
+    item def LightEnergy {
+        attribute luminousFlux : Real;
+        attribute colorTemperature : Real;
+    }
+
+    item def ImageFrame {
+        attribute horizontalResolution : Resolution;
+        attribute verticalResolution : Resolution;
+        attribute frameRate : Real;
+        attribute fieldOfView : Angle;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def SterileBarrier {
+        attribute integrityVerified : Boolean;
+        attribute singleUse : Boolean;
+    }
+
+    item def NasalImageData {
+        attribute timestamp : Duration;
+        attribute imageQualityScore : Real;
+        attribute anatomicalRegion : String;
+    }
+
+    port def OpticalPort {
+        out item lightOut : LightEnergy;
+        in item reflectedImage : ImageFrame;
+    }
+
+    port def VideoPort {
+        out item videoOut : NasalImageData;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item enableCommand : Boolean;
+        in item captureCommand : Boolean;
+        out item readyStatus : Boolean;
+        out item faultStatus : Boolean;
+    }
+
+    part def IlluminationModule {
+        attribute ledPower : Power = 1.5;
+        attribute maximumTipIlluminance : Illuminance = 45000.0;
+        attribute colorTemperature : Real = 5600.0;
+        attribute enabled : Boolean;
+
+        port powerPort : PowerPort;
+        port controlPort : ControlPort;
+        port opticalPort : OpticalPort;
+
+        action emitControlledLight {
+            in item electricalInput : ElectricalPower;
+            out item illumination : LightEnergy;
+        }
+    }
+
+    part def OpticalRod {
+        attribute insertionLength : Length = 110.0;
+        attribute outerDiameter : Diameter = 3.0;
+        attribute viewingAngle : Angle = 30.0;
+        attribute fieldOfView : Angle = 80.0;
+        attribute workingDistance : Length = 15.0;
+
+        port distalOptics : OpticalPort;
+        port proximalOptics : OpticalPort;
+
+        action transmitIlluminationAndImage {
+            in item lightAtProximalEnd : LightEnergy;
+            out item lightAtDistalEnd : LightEnergy;
+            in item reflectedNasalImage : ImageFrame;
+            out item imageAtProximalEnd : ImageFrame;
+        }
+    }
+
+    part def CameraHead {
+        attribute horizontalResolution : Resolution = 1920.0;
+        attribute verticalResolution : Resolution = 1080.0;
+        attribute frameRate : Real = 60.0;
+        attribute sensorTemperature : Temperature;
+        attribute focusLocked : Boolean;
+
+        port opticalInput : OpticalPort;
+        port powerPort : PowerPort;
+        port videoPort : VideoPort;
+        port controlPort : ControlPort;
+
+        action convertOpticalImageToDigitalVideo {
+            in item reflectedImage : ImageFrame;
+            out item nasalImageData : NasalImageData;
+        }
+    }
+
+    part def Handle {
+        attribute gripDiameter : Diameter = 22.0;
+        attribute mass : Mass = 180.0;
+        attribute surfaceTemperature : Temperature;
+        attribute sealedAgainstFluids : Boolean = true;
+
+        port powerPort : PowerPort;
+        port controlPort : ControlPort;
+    }
+
+    part def UserInterface {
+        attribute illuminationLevelPercent : Real;
+        attribute captureRequested : Boolean;
+        attribute faultDisplayed : Boolean;
+        attribute readyDisplayed : Boolean;
+
+        port controlPort : ControlPort;
+
+        action setIlluminationLevel {
+            in requestedLevelPercent : Real;
+            out accepted : Boolean;
+        }
+
+        action requestImageCapture {
+            out captureCommand : Boolean;
+        }
+    }
+
+    part def SterileSheath {
+        attribute installed : Boolean;
+        attribute maximumOuterDiameter : Diameter = 3.6;
+        attribute transparentTip : Boolean = true;
+
+        port opticalWindow : OpticalPort;
+
+        item sterileBarrier : SterileBarrier;
+    }
+
+    part def PowerController {
+        attribute inputVoltage : Voltage = 5.0;
+        attribute maximumCurrent : Current = 900.0;
+        attribute overCurrentDetected : Boolean;
+        attribute outputEnabled : Boolean;
+
+        port externalPowerIn : PowerPort;
+        port illuminationPowerOut : PowerPort;
+        port cameraPowerOut : PowerPort;
+        port handlePowerOut : PowerPort;
+        port controlPort : ControlPort;
+
+        action regulatePower {
+            in item suppliedPower : ElectricalPower;
+            out item regulatedPower : ElectricalPower;
+        }
+    }
+
+    part def DisplayRecorder {
+        attribute displayDiagonal : Length = 178.0;
+        attribute recordingEnabled : Boolean;
+        attribute storedFrameCount : Integer;
+
+        port videoInput : VideoPort;
+        port controlPort : ControlPort;
+
+        action displayLiveImage {
+            in item image : NasalImageData;
+        }
+
+        action storeClinicalImage {
+            in item image : NasalImageData;
+            out storageConfirmed : Boolean;
+        }
+    }
+
+    part def PatientNasalCavity {
+        attribute minimumPassageDiameter : Diameter = 4.0;
+        attribute tissueSurfaceTemperature : Temperature = 37.0;
+        attribute targetRegion : String = "nasal vestibule, septum, turbinate, and nasopharyngeal passage";
+
+        port examinationInterface : OpticalPort;
+    }
+
+    part def RhinoscopeSystem {
+        attribute systemMass : Mass = 420.0;
+        attribute maximumTipTemperature : Temperature = 41.0;
+        attribute nominalInsertionDepth : Length = 75.0;
+        attribute primaryFunction : String =
+            "Provide illuminated, magnified, real-time visualization of internal nasal anatomy to support diagnostic examination and documentation.";
+
+        part illumination : IlluminationModule;
+        part optics : OpticalRod;
+        part camera : CameraHead;
+        part handle : Handle;
+        part interface : UserInterface;
+        part sheath : SterileSheath;
+        part power : PowerController;
+        part displayRecorder : DisplayRecorder;
+        part patientNasalCavity : PatientNasalCavity;
+
+        port externalPowerPort : PowerPort;
+        port operatorControlPort : ControlPort;
+        port clinicalVideoPort : VideoPort;
+        port patientInterfacePort : OpticalPort;
+
+        connect externalPowerPort to power.externalPowerIn;
+        connect power.illuminationPowerOut to illumination.powerPort;
+        connect power.cameraPowerOut to camera.powerPort;
+        connect power.handlePowerOut to handle.powerPort;
+
+        connect operatorControlPort to interface.controlPort;
+        connect interface.controlPort to illumination.controlPort;
+        connect interface.controlPort to camera.controlPort;
+        connect interface.controlPort to power.controlPort;
+        connect interface.controlPort to displayRecorder.controlPort;
+
+        connect illumination.opticalPort to optics.proximalOptics;
+        connect optics.distalOptics to sheath.opticalWindow;
+        connect sheath.opticalWindow to patientInterfacePort;
+        connect patientInterfacePort to patientNasalCavity.examinationInterface;
+
+        connect camera.opticalInput to optics.proximalOptics;
+        connect camera.videoPort to displayRecorder.videoInput;
+        connect camera.videoPort to clinicalVideoPort;
+
+        perform action performRhinoscopicExamination {
+            first startSystem;
+            then verifySterileBarrier;
+            then illuminateNasalCavity;
+            then acquireLiveImage;
+            then presentClinicalView;
+            then captureImageWhenRequested;
+            then shutdownSystem;
+        }
+
+        action startSystem {
+            out ready : Boolean;
+        }
+
+        action verifySterileBarrier {
+            in item barrier : SterileBarrier;
+            out usable : Boolean;
+        }
+
+        action illuminateNasalCavity {
+            out item directedLight : LightEnergy;
+        }
+
+        action acquireLiveImage {
+            in item reflectedImage : ImageFrame;
+            out item imageData : NasalImageData;
+        }
+
+        action presentClinicalView {
+            in item imageData : NasalImageData;
+        }
+
+        action captureImageWhenRequested {
+            in captureRequested : Boolean;
+            in item imageData : NasalImageData;
+            out stored : Boolean;
+        }
+
+        action shutdownSystem {
+            out poweredDown : Boolean;
+        }
+
+        state def OperationalState {
+            state Off;
+            state SelfTest;
+            state Ready;
+            state Examining;
+            state Capturing;
+            state Fault;
+            state Shutdown;
+
+            transition initial then Off;
+            transition Off_to_SelfTest first Off accept Boolean then SelfTest;
+            transition SelfTest_to_Ready first SelfTest if power.overCurrentDetected == false then Ready;
+            transition SelfTest_to_Fault first SelfTest if power.overCurrentDetected == true then Fault;
+            transition Ready_to_Examining first Ready accept Boolean then Examining;
+            transition Examining_to_Capturing first Examining accept Boolean then Capturing;
+            transition Capturing_to_Examining first Capturing then Examining;
+            transition Examining_to_Fault first Examining if maximumTipTemperature > 41.0 then Fault;
+            transition Ready_to_Shutdown first Ready accept Boolean then Shutdown;
+            transition Examining_to_Shutdown first Examining accept Boolean then Shutdown;
+            transition Fault_to_Shutdown first Fault accept Boolean then Shutdown;
+            transition Shutdown_to_Off first Shutdown then Off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.primaryFunction ==
+            "Provide illuminated, magnified, real-time visualization of internal nasal anatomy to support diagnostic examination and documentation."
+        }
+    }
+
+    requirement def IlluminationRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.illumination.maximumTipIlluminance >= 30000.0
+        }
+    }
+
+    requirement def InsertionGeometryRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.optics.outerDiameter <= 4.0 and
+            rhinoscope.optics.insertionLength >= 90.0
+        }
+    }
+
+    requirement def ImagingRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.camera.horizontalResolution >= 1280.0 and
+            rhinoscope.camera.verticalResolution >= 720.0 and
+            rhinoscope.camera.frameRate >= 30.0
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.maximumTipTemperature <= 41.0
+        }
+    }
+
+    requirement def SterilityRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.sheath.installed == true and
+            rhinoscope.sheath.transparentTip == true
+        }
+    }
+
+    requirement def ElectricalSafetyRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.power.inputVoltage <= 5.0 and
+            rhinoscope.power.maximumCurrent <= 1000.0
+        }
+    }
+
+    requirement def DocumentationRequirement {
+        subject rhinoscope : RhinoscopeSystem;
+        require constraint {
+            rhinoscope.displayRecorder.recordingEnabled == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RhinoscopeSystem;
+    satisfy IlluminationRequirement by IlluminationModule;
+    satisfy InsertionGeometryRequirement by OpticalRod;
+    satisfy ImagingRequirement by CameraHead;
+    satisfy ThermalSafetyRequirement by RhinoscopeSystem;
+    satisfy SterilityRequirement by SterileSheath;
+    satisfy ElectricalSafetyRequirement by PowerController;
+    satisfy DocumentationRequirement by DisplayRecorder;
+}

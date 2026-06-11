@@ -1,0 +1,1307 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-j_3k7vbk
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb452-6088-7a90-92e5-20bbcc0b2fb2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Venous access and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VenousAccessSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+    import Time::*;
+
+    metadata def ClinicalModelMetadata {
+        attribute purpose : String;
+        attribute domain : String;
+        attribute riskClass : String;
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = L/min;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = kPa;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = mL;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = s;
+    }
+
+    attribute def Concentration :> ISQ::massConcentration {
+        unit = mg/mL;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = mm;
+    }
+
+    attribute def GaugeSize {
+        attribute value : Integer;
+    }
+
+    attribute def Percent {
+        attribute value : Real;
+        unit = %;
+    }
+
+    enum def AccessStateKind {
+        enum idle;
+        enum prepared;
+        enum inserted;
+        enum patent;
+        enum infusing;
+        enum sampling;
+        enum flushed;
+        enum secured;
+        enum occluded;
+        enum infiltrated;
+        enum removed;
+    }
+
+    item def SterileDevice {
+        attribute sterile : Boolean;
+        attribute singleUse : Boolean;
+    }
+
+    item def Catheter :> SterileDevice {
+        attribute gauge : GaugeSize;
+        attribute outerDiameter : Length;
+        attribute usableLength : Length;
+        attribute primingVolume : Volume;
+        attribute maxRatedFlow : FlowRate;
+        attribute radioOpaque : Boolean;
+    }
+
+    item def NeedleIntroducer :> SterileDevice {
+        attribute gauge : GaugeSize;
+        attribute bevelLength : Length;
+        attribute retractableSharp : Boolean;
+    }
+
+    item def ExtensionTubing :> SterileDevice {
+        attribute internalVolume : Volume;
+        attribute kinkResistant : Boolean;
+        attribute maxPressure : Pressure;
+    }
+
+    item def Fluid {
+        attribute volume : Volume;
+        attribute temperature : ISQ::temperature;
+    }
+
+    item def Infusate :> Fluid {
+        attribute concentration : Concentration;
+        attribute medicationName : String;
+        attribute compatibleWithPeripheralVein : Boolean;
+    }
+
+    item def Blood :> Fluid {
+        attribute oxygenSaturation : Percent;
+        attribute hemolyzed : Boolean;
+    }
+
+    item def FlushSolution :> Fluid {
+        attribute salineConcentration : Concentration;
+        attribute preservativeFree : Boolean;
+    }
+
+    item def Antiseptic {
+        attribute agentName : String;
+        attribute wetContactTime : Duration;
+    }
+
+    item def Dressing :> SterileDevice {
+        attribute transparent : Boolean;
+        attribute adhesiveIntegrity : Percent;
+        attribute changeInterval : Duration;
+    }
+
+    item def Clinician {
+        attribute trainedForVenousAccess : Boolean;
+        attribute handHygieneComplete : Boolean;
+    }
+
+    item def Patient {
+        attribute patientIdentifier : String;
+        attribute allergyScreenComplete : Boolean;
+        attribute veinSelected : Boolean;
+    }
+
+    port def FluidPort {
+        in item incomingFluid : Fluid;
+        out item outgoingFluid : Fluid;
+        attribute internalPressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    port def BloodPort {
+        inout item blood : Blood;
+        attribute venousPressure : Pressure;
+    }
+
+    port def ControlPort {
+        in item command : String;
+        out item status : AccessStateKind;
+    }
+
+    port def HumanInterfacePort {
+        in item operator : Clinician;
+        out item visualCue : String;
+    }
+
+    part def PeripheralVein {
+        attribute baselinePressure : Pressure = 1.2 [kPa];
+        attribute diameter : Length = 3.0 [mm];
+        attribute collapsible : Boolean = true;
+        port lumen : BloodPort;
+    }
+
+    part def SkinSite {
+        attribute disinfected : Boolean = false;
+        attribute dry : Boolean = false;
+        attribute visibleInflammation : Boolean = false;
+        port puncturePath : BloodPort;
+    }
+
+    part def VenousAccessDevice {
+        attribute state : AccessStateKind = AccessStateKind::idle;
+        attribute patencyConfirmed : Boolean = false;
+        attribute securementIntegrity : Percent = 0 [%];
+        attribute dwellTime : Duration = 0 [s];
+
+        part catheter : Catheter {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute gauge.value = 20;
+            attribute outerDiameter = 1.1 [mm];
+            attribute usableLength = 32 [mm];
+            attribute primingVolume = 0.12 [mL];
+            attribute maxRatedFlow = 0.09 [L/min];
+            attribute radioOpaque = true;
+        }
+
+        part introducer : NeedleIntroducer {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute gauge.value = 20;
+            attribute bevelLength = 3.0 [mm];
+            attribute retractableSharp = true;
+        }
+
+        part extensionSet : ExtensionTubing {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute internalVolume = 0.40 [mL];
+            attribute kinkResistant = true;
+            attribute maxPressure = 300 [kPa];
+        }
+
+        part dressing : Dressing {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute transparent = true;
+            attribute adhesiveIntegrity = 100 [%];
+            attribute changeInterval = 604800 [s];
+        }
+
+        port patientEnd : BloodPort;
+        port therapyEnd : FluidPort;
+        port commandPort : ControlPort;
+        port visualPort : HumanInterfacePort;
+
+        connect extensionSet to catheter;
+        connect therapyEnd to extensionSet;
+        connect catheter to patientEnd;
+    }
+
+    part def InfusionSource {
+        attribute programmedRate : FlowRate = 0.02 [L/min];
+        attribute pressureLimit : Pressure = 200 [kPa];
+        attribute reservoirVolume : Volume = 500 [mL];
+        port outlet : FluidPort;
+    }
+
+    part def VenousAccessProcedureEnvironment {
+        part patient : Patient {
+            attribute patientIdentifier = "identified-patient";
+            attribute allergyScreenComplete = true;
+            attribute veinSelected = true;
+        }
+
+        part clinician : Clinician {
+            attribute trainedForVenousAccess = true;
+            attribute handHygieneComplete = true;
+        }
+
+        part skinSite : SkinSite;
+        part targetVein : PeripheralVein;
+        part accessDevice : VenousAccessDevice;
+        part infusionSource : InfusionSource;
+
+        item antiseptic : Antiseptic {
+            attribute agentName = "chlorhexidine-alcohol";
+            attribute wetContactTime = 30 [s];
+        }
+
+        item salineFlush : FlushSolution {
+            attribute volume = 10 [mL];
+            attribute temperature = 293.15 [K];
+            attribute salineConcentration = 9 [mg/mL];
+            attribute preservativeFree = true;
+        }
+
+        item maintenanceInfusate : Infusate {
+            attribute volume = 250 [mL];
+            attribute temperature = 293.15 [K];
+            attribute concentration = 1 [mg/mL];
+            attribute medicationName = "compatible intravenous therapy";
+            attribute compatibleWithPeripheralVein = true;
+        }
+
+        connect clinician to accessDevice.visualPort.operator;
+        connect infusionSource.outlet to accessDevice.therapyEnd;
+        connect accessDevice.patientEnd to targetVein.lumen;
+        connect skinSite.puncturePath to targetVein.lumen;
+    }
+
+    action def PrepareVenousAccess {
+        in item clinician : Clinician;
+        inout part skinSite : SkinSite;
+        in item antiseptic : Antiseptic;
+        out attribute prepared : Boolean;
+
+        first start;
+        then verifyIdentity;
+        then performHandHygiene;
+        then applyAntiseptic;
+        then waitForDryTime;
+        then done;
+
+        action verifyIdentity {
+            assert clinician.trainedForVenousAccess == true;
+        }
+
+        action performHandHygiene {
+            assert clinician.handHygieneComplete == true;
+        }
+
+        action applyAntiseptic {
+            skinSite.disinfected := true;
+        }
+
+        action waitForDryTime {
+            assert antiseptic.wetContactTime >= 30 [s];
+            skinSite.dry := true;
+            prepared := skinSite.disinfected and skinSite.dry;
+        }
+    }
+
+    action def InsertCatheter {
+        in part vein : PeripheralVein;
+        inout part skinSite : SkinSite;
+        inout part device : VenousAccessDevice;
+        out attribute inserted : Boolean;
+
+        first alignDevice;
+        then punctureSkin;
+        then enterVein;
+        then advanceCatheter;
+        then retractIntroducer;
+        then done;
+
+        action alignDevice {
+            assert vein.diameter >= 2.0 [mm];
+        }
+
+        action punctureSkin {
+            assert skinSite.disinfected == true;
+            assert skinSite.dry == true;
+        }
+
+        action enterVein {
+            assert vein.baselinePressure > 0 [kPa];
+        }
+
+        action advanceCatheter {
+            device.state := AccessStateKind::inserted;
+            inserted := true;
+        }
+
+        action retractIntroducer {
+            assert device.introducer.retractableSharp == true;
+        }
+    }
+
+    action def ConfirmPatency {
+        inout part device : VenousAccessDevice;
+        in item flush : FlushSolution;
+        out attribute patent : Boolean;
+
+        first aspirateBloodReturn;
+        then flushWithoutResistance;
+        then assessSite;
+        then done;
+
+        action aspirateBloodReturn {
+            assert device.state == AccessStateKind::inserted or device.state == AccessStateKind::flushed;
+        }
+
+        action flushWithoutResistance {
+            assert flush.volume >= 3 [mL];
+            assert device.extensionSet.maxPressure >= 200 [kPa];
+        }
+
+        action assessSite {
+            device.patencyConfirmed := true;
+            device.state := AccessStateKind::patent;
+            patent := true;
+        }
+    }
+
+    action def DeliverInfusate {
+        in part source : InfusionSource;
+        inout part device : VenousAccessDevice;
+        in item infusate : Infusate;
+        out attribute deliveredVolume : Volume;
+
+        first verifyCompatibility;
+        then startFlow;
+        then monitorPressure;
+        then completeDelivery;
+        then done;
+
+        action verifyCompatibility {
+            assert infusate.compatibleWithPeripheralVein == true;
+            assert device.patencyConfirmed == true;
+        }
+
+        action startFlow {
+            device.state := AccessStateKind::infusing;
+            assert source.programmedRate <= device.catheter.maxRatedFlow;
+        }
+
+        action monitorPressure {
+            assert source.pressureLimit <= device.extensionSet.maxPressure;
+        }
+
+        action completeDelivery {
+            deliveredVolume := infusate.volume;
+            device.state := AccessStateKind::flushed;
+        }
+    }
+
+    action def ObtainBloodSample {
+        inout part device : VenousAccessDevice;
+        out item sample : Blood;
+
+        first pauseInfusion;
+        then discardDeadSpace;
+        then collectSample;
+        then restoreAccess;
+        then done;
+
+        action pauseInfusion {
+            assert device.state == AccessStateKind::patent or device.state == AccessStateKind::infusing;
+            device.state := AccessStateKind::sampling;
+        }
+
+        action discardDeadSpace {
+            assert device.extensionSet.internalVolume <= 1 [mL];
+        }
+
+        action collectSample {
+            sample.volume := 5 [mL];
+            sample.temperature := 310.15 [K];
+            sample.oxygenSaturation.value := 70;
+            sample.hemolyzed := false;
+        }
+
+        action restoreAccess {
+            device.state := AccessStateKind::patent;
+        }
+    }
+
+    action def RemoveVenousAccess {
+        inout part device : VenousAccessDevice;
+        out attribute removed : Boolean;
+
+        first stopTherapy;
+        then releaseDressing;
+        then withdrawCatheter;
+        then applyPressure;
+        then documentRemoval;
+        then done;
+
+        action stopTherapy {
+            assert device.state != AccessStateKind::removed;
+        }
+
+        action releaseDressing {
+            device.securementIntegrity.value := 0;
+        }
+
+        action withdrawCatheter {
+            device.state := AccessStateKind::removed;
+            removed := true;
+        }
+
+        action applyPressure {
+        }
+
+        action documentRemoval {
+        }
+    }
+
+    state def VenousAccessLifecycle {
+        entry action initialize {
+        }
+
+        state Idle;
+        state SitePrepared;
+        state DeviceInserted;
+        state Patent;
+        state Infusing;
+        state Sampling;
+        state Flushed;
+        state Secured;
+        state Occluded;
+        state Infiltrated;
+        state Removed;
+
+        transition initial then Idle;
+
+        transition Idle_to_SitePrepared
+            first Idle
+            accept PrepareComplete
+            then SitePrepared;
+
+        transition SitePrepared_to_DeviceInserted
+            first SitePrepared
+            accept CatheterInserted
+            then DeviceInserted;
+
+        transition DeviceInserted_to_Patent
+            first DeviceInserted
+            accept PatencyConfirmed
+            then Patent;
+
+        transition Patent_to_Infusing
+            first Patent
+            accept StartInfusion
+            then Infusing;
+
+        transition Infusing_to_Flushed
+            first Infusing
+            accept InfusionComplete
+            then Flushed;
+
+        transition Flushed_to_Patent
+            first Flushed
+            accept PatencyConfirmed
+            then Patent;
+
+        transition Patent_to_Sampling
+            first Patent
+            accept SampleRequested
+            then Sampling;
+
+        transition Sampling_to_Patent
+            first Sampling
+            accept SampleComplete
+            then Patent;
+
+        transition Patent_to_Secured
+            first Patent
+            accept DressingApplied
+            then Secured;
+
+        transition Secured_to_Patent
+            first Secured
+            accept AccessNeeded
+            then Patent;
+
+        transition Patent_to_Occluded
+            first Patent
+            accept ResistanceDetected
+            then Occluded;
+
+        transition Infusing_to_Infiltrated
+            first Infusing
+            accept SwellingOrPainDetected
+            then Infiltrated;
+
+        transition Occluded_to_Removed
+            first Occluded
+            accept RemoveDevice
+            then Removed;
+
+        transition Infiltrated_to_Removed
+            first Infiltrated
+            accept RemoveDevice
+            then Removed;
+
+        transition Patent_to_Removed
+            first Patent
+            accept TherapyComplete
+            then Removed;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The venous access system shall provide temporary, controlled access to a patient's venous circulation for administration of compatible fluids or medications, withdrawal of blood samples, and maintenance of vascular patency while minimizing tissue injury, contamination, leakage, occlusion, and infiltration. */
+
+        subject system : VenousAccessDevice;
+
+        require constraint {
+            system.catheter.sterile == true and
+            system.catheter.singleUse == true and
+            system.extensionSet.maxPressure >= 200 [kPa] and
+            system.catheter.maxRatedFlow >= 0.02 [L/min]
+        }
+    }
+
+    requirement def PatencyRequirement {
+        doc /* The device shall permit confirmation of venous patency before therapy delivery. */
+
+        subject system : VenousAccessDevice;
+
+        require constraint {
+            system.patencyConfirmed == true implies
+            (system.state == AccessStateKind::patent or
+             system.state == AccessStateKind::infusing or
+             system.state == AccessStateKind::sampling or
+             system.state == AccessStateKind::flushed)
+        }
+    }
+
+    requirement def FlowControlRequirement {
+        doc /* The system shall deliver compatible infusate at a programmed flow rate that does not exceed the rated catheter flow capacity. */
+
+        subject system : VenousAccessDevice;
+        subject source : InfusionSource;
+
+        require constraint {
+            source.programmedRate <= system.catheter.maxRatedFlow
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* Infusion pressure shall remain below the pressure rating of the extension tubing. */
+
+        subject system : VenousAccessDevice;
+        subject source : InfusionSource;
+
+        require constraint {
+            source.pressureLimit <= system.extensionSet.maxPressure
+        }
+    }
+
+    requirement def AsepticAccessRequirement {
+        doc /* Insertion shall occur only after skin disinfection and drying. */
+
+        subject site : SkinSite;
+
+        require constraint {
+            site.disinfected == true and site.dry == true
+        }
+    }
+
+    requirement def SecurementRequirement {
+        doc /* After placement, the catheter shall be stabilized by a transparent sterile dressing that supports site visibility. */
+
+        subject system : VenousAccessDevice;
+
+        require constraint {
+            system.dressing.sterile == true and
+            system.dressing.transparent == true and
+            system.securementIntegrity >= 90 [%]
+        }
+    }
+
+    requirement def SamplingRequirement {
+        doc /* When used for blood sampling, the system shall provide a sample volume sufficient for laboratory analysis without hemolysis indication. */
+
+        subject sample : Blood;
+
+        require constraint {
+            sample.volume >= 3 [mL] and sample.hemolyzed == false
+        }
+    }
+
+    part venousAccessSystem : VenousAccessProcedureEnvironment {
+        metadata ClinicalModelMetadata {
+            purpose = "High-level model of temporary venous access for controlled fluid delivery and blood sampling.";
+            domain = "clinical vascular access";
+            riskClass = "invasive temporary access device";
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by venousAccessSystem.accessDevice;
+    satisfy PatencyRequirement by venousAccessSystem.accessDevice;
+    satisfy FlowControlRequirement by venousAccessSystem.infusionSource;
+    satisfy PressureSafetyRequirement by venousAccessSystem.infusionSource;
+    satisfy AsepticAccessRequirement by venousAccessSystem.skinSite;
+    satisfy SecurementRequirement by venousAccessSystem.accessDevice;
+}
+tokens used
+4,229
+package VenousAccessSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+    import Time::*;
+
+    metadata def ClinicalModelMetadata {
+        attribute purpose : String;
+        attribute domain : String;
+        attribute riskClass : String;
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = L/min;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = kPa;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = mL;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = s;
+    }
+
+    attribute def Concentration :> ISQ::massConcentration {
+        unit = mg/mL;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = mm;
+    }
+
+    attribute def GaugeSize {
+        attribute value : Integer;
+    }
+
+    attribute def Percent {
+        attribute value : Real;
+        unit = %;
+    }
+
+    enum def AccessStateKind {
+        enum idle;
+        enum prepared;
+        enum inserted;
+        enum patent;
+        enum infusing;
+        enum sampling;
+        enum flushed;
+        enum secured;
+        enum occluded;
+        enum infiltrated;
+        enum removed;
+    }
+
+    item def SterileDevice {
+        attribute sterile : Boolean;
+        attribute singleUse : Boolean;
+    }
+
+    item def Catheter :> SterileDevice {
+        attribute gauge : GaugeSize;
+        attribute outerDiameter : Length;
+        attribute usableLength : Length;
+        attribute primingVolume : Volume;
+        attribute maxRatedFlow : FlowRate;
+        attribute radioOpaque : Boolean;
+    }
+
+    item def NeedleIntroducer :> SterileDevice {
+        attribute gauge : GaugeSize;
+        attribute bevelLength : Length;
+        attribute retractableSharp : Boolean;
+    }
+
+    item def ExtensionTubing :> SterileDevice {
+        attribute internalVolume : Volume;
+        attribute kinkResistant : Boolean;
+        attribute maxPressure : Pressure;
+    }
+
+    item def Fluid {
+        attribute volume : Volume;
+        attribute temperature : ISQ::temperature;
+    }
+
+    item def Infusate :> Fluid {
+        attribute concentration : Concentration;
+        attribute medicationName : String;
+        attribute compatibleWithPeripheralVein : Boolean;
+    }
+
+    item def Blood :> Fluid {
+        attribute oxygenSaturation : Percent;
+        attribute hemolyzed : Boolean;
+    }
+
+    item def FlushSolution :> Fluid {
+        attribute salineConcentration : Concentration;
+        attribute preservativeFree : Boolean;
+    }
+
+    item def Antiseptic {
+        attribute agentName : String;
+        attribute wetContactTime : Duration;
+    }
+
+    item def Dressing :> SterileDevice {
+        attribute transparent : Boolean;
+        attribute adhesiveIntegrity : Percent;
+        attribute changeInterval : Duration;
+    }
+
+    item def Clinician {
+        attribute trainedForVenousAccess : Boolean;
+        attribute handHygieneComplete : Boolean;
+    }
+
+    item def Patient {
+        attribute patientIdentifier : String;
+        attribute allergyScreenComplete : Boolean;
+        attribute veinSelected : Boolean;
+    }
+
+    port def FluidPort {
+        in item incomingFluid : Fluid;
+        out item outgoingFluid : Fluid;
+        attribute internalPressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    port def BloodPort {
+        inout item blood : Blood;
+        attribute venousPressure : Pressure;
+    }
+
+    port def ControlPort {
+        in item command : String;
+        out item status : AccessStateKind;
+    }
+
+    port def HumanInterfacePort {
+        in item operator : Clinician;
+        out item visualCue : String;
+    }
+
+    part def PeripheralVein {
+        attribute baselinePressure : Pressure = 1.2 [kPa];
+        attribute diameter : Length = 3.0 [mm];
+        attribute collapsible : Boolean = true;
+        port lumen : BloodPort;
+    }
+
+    part def SkinSite {
+        attribute disinfected : Boolean = false;
+        attribute dry : Boolean = false;
+        attribute visibleInflammation : Boolean = false;
+        port puncturePath : BloodPort;
+    }
+
+    part def VenousAccessDevice {
+        attribute state : AccessStateKind = AccessStateKind::idle;
+        attribute patencyConfirmed : Boolean = false;
+        attribute securementIntegrity : Percent = 0 [%];
+        attribute dwellTime : Duration = 0 [s];
+
+        part catheter : Catheter {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute gauge.value = 20;
+            attribute outerDiameter = 1.1 [mm];
+            attribute usableLength = 32 [mm];
+            attribute primingVolume = 0.12 [mL];
+            attribute maxRatedFlow = 0.09 [L/min];
+            attribute radioOpaque = true;
+        }
+
+        part introducer : NeedleIntroducer {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute gauge.value = 20;
+            attribute bevelLength = 3.0 [mm];
+            attribute retractableSharp = true;
+        }
+
+        part extensionSet : ExtensionTubing {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute internalVolume = 0.40 [mL];
+            attribute kinkResistant = true;
+            attribute maxPressure = 300 [kPa];
+        }
+
+        part dressing : Dressing {
+            attribute sterile = true;
+            attribute singleUse = true;
+            attribute transparent = true;
+            attribute adhesiveIntegrity = 100 [%];
+            attribute changeInterval = 604800 [s];
+        }
+
+        port patientEnd : BloodPort;
+        port therapyEnd : FluidPort;
+        port commandPort : ControlPort;
+        port visualPort : HumanInterfacePort;
+
+        connect extensionSet to catheter;
+        connect therapyEnd to extensionSet;
+        connect catheter to patientEnd;
+    }
+
+    part def InfusionSource {
+        attribute programmedRate : FlowRate = 0.02 [L/min];
+        attribute pressureLimit : Pressure = 200 [kPa];
+        attribute reservoirVolume : Volume = 500 [mL];
+        port outlet : FluidPort;
+    }
+
+    part def VenousAccessProcedureEnvironment {
+        part patient : Patient {
+            attribute patientIdentifier = "identified-patient";
+            attribute allergyScreenComplete = true;
+            attribute veinSelected = true;
+        }
+
+        part clinician : Clinician {
+            attribute trainedForVenousAccess = true;
+            attribute handHygieneComplete = true;
+        }
+
+        part skinSite : SkinSite;
+        part targetVein : PeripheralVein;
+        part accessDevice : VenousAccessDevice;
+        part infusionSource : InfusionSource;
+
+        item antiseptic : Antiseptic {
+            attribute agentName = "chlorhexidine-alcohol";
+            attribute wetContactTime = 30 [s];
+        }
+
+        item salineFlush : FlushSolution {
+            attribute volume = 10 [mL];
+            attribute temperature = 293.15 [K];
+            attribute salineConcentration = 9 [mg/mL];
+            attribute preservativeFree = true;
+        }
+
+        item maintenanceInfusate : Infusate {
+            attribute volume = 250 [mL];
+            attribute temperature = 293.15 [K];
+            attribute concentration = 1 [mg/mL];
+            attribute medicationName = "compatible intravenous therapy";
+            attribute compatibleWithPeripheralVein = true;
+        }
+
+        connect clinician to accessDevice.visualPort.operator;
+        connect infusionSource.outlet to accessDevice.therapyEnd;
+        connect accessDevice.patientEnd to targetVein.lumen;
+        connect skinSite.puncturePath to targetVein.lumen;
+    }
+
+    action def PrepareVenousAccess {
+        in item clinician : Clinician;
+        inout part skinSite : SkinSite;
+        in item antiseptic : Antiseptic;
+        out attribute prepared : Boolean;
+
+        first start;
+        then verifyIdentity;
+        then performHandHygiene;
+        then applyAntiseptic;
+        then waitForDryTime;
+        then done;
+
+        action verifyIdentity {
+            assert clinician.trainedForVenousAccess == true;
+        }
+
+        action performHandHygiene {
+            assert clinician.handHygieneComplete == true;
+        }
+
+        action applyAntiseptic {
+            skinSite.disinfected := true;
+        }
+
+        action waitForDryTime {
+            assert antiseptic.wetContactTime >= 30 [s];
+            skinSite.dry := true;
+            prepared := skinSite.disinfected and skinSite.dry;
+        }
+    }
+
+    action def InsertCatheter {
+        in part vein : PeripheralVein;
+        inout part skinSite : SkinSite;
+        inout part device : VenousAccessDevice;
+        out attribute inserted : Boolean;
+
+        first alignDevice;
+        then punctureSkin;
+        then enterVein;
+        then advanceCatheter;
+        then retractIntroducer;
+        then done;
+
+        action alignDevice {
+            assert vein.diameter >= 2.0 [mm];
+        }
+
+        action punctureSkin {
+            assert skinSite.disinfected == true;
+            assert skinSite.dry == true;
+        }
+
+        action enterVein {
+            assert vein.baselinePressure > 0 [kPa];
+        }
+
+        action advanceCatheter {
+            device.state := AccessStateKind::inserted;
+            inserted := true;
+        }
+
+        action retractIntroducer {
+            assert device.introducer.retractableSharp == true;
+        }
+    }
+
+    action def ConfirmPatency {
+        inout part device : VenousAccessDevice;
+        in item flush : FlushSolution;
+        out attribute patent : Boolean;
+
+        first aspirateBloodReturn;
+        then flushWithoutResistance;
+        then assessSite;
+        then done;
+
+        action aspirateBloodReturn {
+            assert device.state == AccessStateKind::inserted or device.state == AccessStateKind::flushed;
+        }
+
+        action flushWithoutResistance {
+            assert flush.volume >= 3 [mL];
+            assert device.extensionSet.maxPressure >= 200 [kPa];
+        }
+
+        action assessSite {
+            device.patencyConfirmed := true;
+            device.state := AccessStateKind::patent;
+            patent := true;
+        }
+    }
+
+    action def DeliverInfusate {
+        in part source : InfusionSource;
+        inout part device : VenousAccessDevice;
+        in item infusate : Infusate;
+        out attribute deliveredVolume : Volume;
+
+        first verifyCompatibility;
+        then startFlow;
+        then monitorPressure;
+        then completeDelivery;
+        then done;
+
+        action verifyCompatibility {
+            assert infusate.compatibleWithPeripheralVein == true;
+            assert device.patencyConfirmed == true;
+        }
+
+        action startFlow {
+            device.state := AccessStateKind::infusing;
+            assert source.programmedRate <= device.catheter.maxRatedFlow;
+        }
+
+        action monitorPressure {
+            assert source.pressureLimit <= device.extensionSet.maxPressure;
+        }
+
+        action completeDelivery {
+            deliveredVolume := infusate.volume;
+            device.state := AccessStateKind::flushed;
+        }
+    }
+
+    action def ObtainBloodSample {
+        inout part device : VenousAccessDevice;
+        out item sample : Blood;
+
+        first pauseInfusion;
+        then discardDeadSpace;
+        then collectSample;
+        then restoreAccess;
+        then done;
+
+        action pauseInfusion {
+            assert device.state == AccessStateKind::patent or device.state == AccessStateKind::infusing;
+            device.state := AccessStateKind::sampling;
+        }
+
+        action discardDeadSpace {
+            assert device.extensionSet.internalVolume <= 1 [mL];
+        }
+
+        action collectSample {
+            sample.volume := 5 [mL];
+            sample.temperature := 310.15 [K];
+            sample.oxygenSaturation.value := 70;
+            sample.hemolyzed := false;
+        }
+
+        action restoreAccess {
+            device.state := AccessStateKind::patent;
+        }
+    }
+
+    action def RemoveVenousAccess {
+        inout part device : VenousAccessDevice;
+        out attribute removed : Boolean;
+
+        first stopTherapy;
+        then releaseDressing;
+        then withdrawCatheter;
+        then applyPressure;
+        then documentRemoval;
+        then done;
+
+        action stopTherapy {
+            assert device.state != AccessStateKind::removed;
+        }
+
+        action releaseDressing {
+            device.securementIntegrity.value := 0;
+        }
+
+        action withdrawCatheter {
+            device.state := AccessStateKind::removed;
+            removed := true;
+        }
+
+        action applyPressure {
+        }
+
+        action documentRemoval {
+        }
+    }
+
+    state def VenousAccessLifecycle {
+        entry action initialize {
+        }
+
+        state Idle;
+        state SitePrepared;
+        state DeviceInserted;
+        state Patent;
+        state Infusing;
+        state Sampling;
+        state Flushed;
+        state Secured;
+        state Occluded;
+        state Infiltrated;
+        state Removed;
+
+        transition initial then Idle;
+
+        transition Idle_to_SitePrepared
+            first Idle
+            accept PrepareComplete
+            then SitePrepared;
+
+        transition SitePrepared_to_DeviceInserted
+            first SitePrepared
+            accept CatheterInserted
+            then DeviceInserted;
+
+        transition DeviceInserted_to_Patent
+            first DeviceInserted
+            accept PatencyConfirmed
+            then Patent;
+
+        transition Patent_to_Infusing
+            first Patent
+            accept StartInfusion
+            then Infusing;
+
+        transition Infusing_to_Flushed
+            first Infusing
+            accept InfusionComplete
+            then Flushed;
+
+        transition Flushed_to_Patent
+            first Flushed
+            accept PatencyConfirmed
+            then Patent;
+
+        transition Patent_to_Sampling
+            first Patent
+            accept SampleRequested
+            then Sampling;
+
+        transition Sampling_to_Patent
+            first Sampling
+            accept SampleComplete
+            then Patent;
+
+        transition Patent_to_Secured
+            first Patent
+            accept DressingApplied
+            then Secured;
+
+        transition Secured_to_Patent
+            first Secured
+            accept AccessNeeded
+            then Patent;
+
+        transition Patent_to_Occluded
+            first Patent
+            accept ResistanceDetected
+            then Occluded;
+
+        transition Infusing_to_Infiltrated
+            first Infusing
+            accept SwellingOrPainDetected
+            then Infiltrated;
+
+        transition Occluded_to_Removed
+            first Occluded
+            accept RemoveDevice
+            then Removed;
+
+        transition Infiltrated_to_Removed
+            first Infiltrated
+            accept RemoveDevice
+            then Removed;
+
+        transition Patent_to_Removed
+            first Patent
+            accept TherapyComplete
+            then Removed;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The venous access system shall provide temporary, controlled access to a patient's venous circulation for administration of compatible fluids or medications, withdrawal of blood samples, and maintenance of vascular patency while minimizing tissue injury, contamination, leakage, occlusion, and infiltration. */
+
+        subject system : VenousAccessDevice;
+
+        require constraint {
+            system.catheter.sterile == true and
+            system.catheter.singleUse == true and
+            system.extensionSet.maxPressure >= 200 [kPa] and
+            system.catheter.maxRatedFlow >= 0.02 [L/min]
+        }
+    }
+
+    requirement def PatencyRequirement {
+        doc /* The device shall permit confirmation of venous patency before therapy delivery. */
+
+        subject system : VenousAccessDevice;
+
+        require constraint {
+            system.patencyConfirmed == true implies
+            (system.state == AccessStateKind::patent or
+             system.state == AccessStateKind::infusing or
+             system.state == AccessStateKind::sampling or
+             system.state == AccessStateKind::flushed)
+        }
+    }
+
+    requirement def FlowControlRequirement {
+        doc /* The system shall deliver compatible infusate at a programmed flow rate that does not exceed the rated catheter flow capacity. */
+
+        subject system : VenousAccessDevice;
+        subject source : InfusionSource;
+
+        require constraint {
+            source.programmedRate <= system.catheter.maxRatedFlow
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* Infusion pressure shall remain below the pressure rating of the extension tubing. */
+
+        subject system : VenousAccessDevice;
+        subject source : InfusionSource;
+
+        require constraint {
+            source.pressureLimit <= system.extensionSet.maxPressure
+        }
+    }
+
+    requirement def AsepticAccessRequirement {
+        doc /* Insertion shall occur only after skin disinfection and drying. */
+
+        subject site : SkinSite;
+
+        require constraint {
+            site.disinfected == true and site.dry == true
+        }
+    }
+
+    requirement def SecurementRequirement {
+        doc /* After placement, the catheter shall be stabilized by a transparent sterile dressing that supports site visibility. */
+
+        subject system : VenousAccessDevice;
+
+        require constraint {
+            system.dressing.sterile == true and
+            system.dressing.transparent == true and
+            system.securementIntegrity >= 90 [%]
+        }
+    }
+
+    requirement def SamplingRequirement {
+        doc /* When used for blood sampling, the system shall provide a sample volume sufficient for laboratory analysis without hemolysis indication. */
+
+        subject sample : Blood;
+
+        require constraint {
+            sample.volume >= 3 [mL] and sample.hemolyzed == false
+        }
+    }
+
+    part venousAccessSystem : VenousAccessProcedureEnvironment {
+        metadata ClinicalModelMetadata {
+            purpose = "High-level model of temporary venous access for controlled fluid delivery and blood sampling.";
+            domain = "clinical vascular access";
+            riskClass = "invasive temporary access device";
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by venousAccessSystem.accessDevice;
+    satisfy PatencyRequirement by venousAccessSystem.accessDevice;
+    satisfy FlowControlRequirement by venousAccessSystem.infusionSource;
+    satisfy PressureSafetyRequirement by venousAccessSystem.infusionSource;
+    satisfy AsepticAccessRequirement by venousAccessSystem.skinSite;
+    satisfy SecurementRequirement by venousAccessSystem.accessDevice;
+}

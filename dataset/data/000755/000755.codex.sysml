@@ -1,0 +1,285 @@
+package SchiotzTonometerSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def MassValue :> ISQ::mass {
+        unit = "g";
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = "mN";
+    }
+
+    attribute def LengthValue :> ISQ::length {
+        unit = "mm";
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = "mmHg";
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = "s";
+    }
+
+    attribute def ScaleDivisionValue :> ScalarValues::Real;
+
+    attribute def SterilityState :> ScalarValues::String;
+
+    item def Cornea {
+        attribute curvatureRadius : LengthValue;
+        attribute indentationDepth : LengthValue;
+        attribute contactDiameter : LengthValue;
+    }
+
+    item def IntraocularPressureReading {
+        attribute indicatedScaleDivision : ScaleDivisionValue;
+        attribute calculatedPressure : PressureValue;
+        attribute measurementTime : TimeValue;
+        attribute selectedLoad : MassValue;
+    }
+
+    item def AppliedLoad {
+        attribute totalMass : MassValue;
+        attribute appliedForce : ForceValue;
+    }
+
+    item def MechanicalDisplacement {
+        attribute plungerTravel : LengthValue;
+        attribute pointerAngle : ScalarValues::Real;
+        attribute scaleDivision : ScaleDivisionValue;
+    }
+
+    port def CornealContactPort {
+        out item load : AppliedLoad;
+        in item cornealResponse : Cornea;
+    }
+
+    port def IndicatorPort {
+        in item displacement : MechanicalDisplacement;
+        out item reading : IntraocularPressureReading;
+    }
+
+    port def OperatorInterfacePort {
+        in item displayedReading : IntraocularPressureReading;
+        out item selectedWeight : AppliedLoad;
+    }
+
+    part def SchiotzTonometer {
+        attribute primaryFunction : ScalarValues::String =
+            "Indent the anesthetized cornea with a known mechanical load and indicate intraocular pressure from the resulting plunger displacement.";
+
+        attribute sterility : SterilityState;
+        attribute nominalBaseLoad : MassValue = 5 [g];
+        attribute allowableMeasurementDuration : TimeValue = 2 [s];
+
+        port cornealPort : CornealContactPort;
+        port indicatorPort : IndicatorPort;
+        port operatorPort : OperatorInterfacePort;
+
+        part footplate {
+            attribute contactRadius : LengthValue = 5.5 [mm];
+            attribute surfaceFinishRa : LengthValue = 0.001 [mm];
+        }
+
+        part plunger {
+            attribute tipRadius : LengthValue = 1.5 [mm];
+            attribute mass : MassValue = 5.5 [g];
+            attribute travelRange : LengthValue = 4.0 [mm];
+        }
+
+        part weightSet {
+            attribute baseWeight : MassValue = 5.5 [g];
+            attribute supplementalWeight1 : MassValue = 7.5 [g];
+            attribute supplementalWeight2 : MassValue = 10.0 [g];
+            attribute selectedTotalMass : MassValue;
+        }
+
+        part leverMechanism {
+            attribute displacementGain : ScalarValues::Real = 1.0;
+            attribute frictionLimit : ForceValue = 0.05 [mN];
+        }
+
+        part pointerScale {
+            attribute minimumDivision : ScaleDivisionValue = 0;
+            attribute maximumDivision : ScaleDivisionValue = 20;
+            attribute readableResolution : ScaleDivisionValue = 0.5;
+        }
+
+        part conversionTable {
+            attribute lowRangePressure : PressureValue = 5 [mmHg];
+            attribute highRangePressure : PressureValue = 80 [mmHg];
+        }
+
+        part sterilizableCase {
+            attribute storageProtection : ScalarValues::String = "Protects plunger, footplate, weights, and scale from contamination and mechanical damage.";
+        }
+
+        connection loadPath
+            connect weightSet to plunger;
+
+        connection contactPath
+            connect plunger to footplate;
+
+        connection indicationPath
+            connect plunger to leverMechanism;
+
+        connection scalePath
+            connect leverMechanism to pointerScale;
+
+        action def ApplyKnownLoad {
+            in item selectedLoad : AppliedLoad;
+            out item transmittedLoad : AppliedLoad;
+        }
+
+        action def IndentCornea {
+            in item transmittedLoad : AppliedLoad;
+            in item contactedCornea : Cornea;
+            out item displacement : MechanicalDisplacement;
+        }
+
+        action def IndicateScale {
+            in item displacement : MechanicalDisplacement;
+            out item pressureReading : IntraocularPressureReading;
+        }
+
+        action performMeasurement {
+            in item eyeCornea : Cornea;
+            in item chosenLoad : AppliedLoad;
+            out item result : IntraocularPressureReading;
+
+            first start;
+            then applyLoad : ApplyKnownLoad {
+                in selectedLoad = chosenLoad;
+            }
+            then indent : IndentCornea {
+                in transmittedLoad = applyLoad.transmittedLoad;
+                in contactedCornea = eyeCornea;
+            }
+            then indicate : IndicateScale {
+                in displacement = indent.displacement;
+            }
+            then done;
+
+            bind result = indicate.pressureReading;
+        }
+
+        state machine MeasurementStateMachine {
+            state stored;
+            state prepared;
+            state zeroChecked;
+            state positioned;
+            state measuring;
+            state readingCaptured;
+            state cleaned;
+
+            initial then stored;
+
+            transition stored_to_prepared
+                first stored
+                accept operatorRemovesFromCase
+                then prepared;
+
+            transition prepared_to_zeroChecked
+                first prepared
+                accept pointerZeroVerified
+                then zeroChecked;
+
+            transition zeroChecked_to_positioned
+                first zeroChecked
+                accept footplatePlacedOnCornea
+                then positioned;
+
+            transition positioned_to_measuring
+                first positioned
+                accept plungerReleased
+                then measuring;
+
+            transition measuring_to_readingCaptured
+                first measuring
+                accept pointerSettled
+                then readingCaptured;
+
+            transition readingCaptured_to_cleaned
+                first readingCaptured
+                accept instrumentDisinfected
+                then cleaned;
+
+            transition cleaned_to_stored
+                first cleaned
+                accept returnedToCase
+                then stored;
+        }
+    }
+
+    part def PatientEye {
+        part cornea : Cornea {
+            attribute curvatureRadius = 7.8 [mm];
+            attribute indentationDepth = 0.0 [mm];
+            attribute contactDiameter = 0.0 [mm];
+        }
+
+        attribute trueIntraocularPressure : PressureValue;
+    }
+
+    part def Clinician {
+        port userPort : OperatorInterfacePort;
+    }
+
+    part def OphthalmicIndentationTonometrySystem {
+        part tonometer : SchiotzTonometer;
+        part patientEye : PatientEye;
+        part clinician : Clinician;
+
+        connection clinicianCommand
+            connect clinician.userPort to tonometer.operatorPort;
+
+        connection eyeContact
+            connect tonometer.cornealPort to patientEye.cornea;
+
+        requirement primaryFunctionRequirement {
+            doc
+            /* The system shall estimate intraocular pressure by applying a known Schiøtz tonometer load to the cornea and converting the resulting indentation displacement into a pressure reading. */
+            subject tonometer;
+        }
+
+        requirement knownLoadRequirement {
+            doc
+            /* The tonometer shall provide selectable calibrated loads of 5.5 g, 7.5 g, and 10.0 g for indentation measurements. */
+            subject tonometer.weightSet;
+        }
+
+        requirement cornealContactRequirement {
+            doc
+            /* The footplate shall provide stable corneal contact while allowing the central plunger to move freely in response to ocular resistance. */
+            subject tonometer.footplate;
+        }
+
+        requirement indicationRequirement {
+            doc
+            /* The indicator shall convert plunger displacement into a readable scale division with resolution no worse than 0.5 scale division. */
+            subject tonometer.pointerScale;
+        }
+
+        requirement pressureConversionRequirement {
+            doc
+            /* The conversion table shall support intraocular pressure readings from 5 mmHg to 80 mmHg for the supported load set. */
+            subject tonometer.conversionTable;
+        }
+
+        requirement hygieneRequirement {
+            doc
+            /* Patient-contacting surfaces shall be cleanable or disinfectable before and after each measurement. */
+            subject tonometer;
+        }
+
+        satisfy primaryFunctionRequirement by tonometer;
+        satisfy knownLoadRequirement by tonometer.weightSet;
+        satisfy cornealContactRequirement by tonometer.footplate;
+        satisfy indicationRequirement by tonometer.pointerScale;
+        satisfy pressureConversionRequirement by tonometer.conversionTable;
+        satisfy hygieneRequirement by tonometer;
+    }
+
+}

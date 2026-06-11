@@ -1,0 +1,366 @@
+package AccelerometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Acceleration {
+    attribute x : Real;
+    attribute y : Real;
+    attribute z : Real;
+  }
+
+  attribute def AngularAlignment {
+    attribute rollOffset : Real;
+    attribute pitchOffset : Real;
+    attribute yawOffset : Real;
+  }
+
+  attribute def SensorTemperature {
+    attribute value : Real;
+  }
+
+  attribute def VoltageLevel {
+    attribute value : Real;
+  }
+
+  attribute def SampleRate {
+    attribute value : Real;
+  }
+
+  attribute def TimeStamp {
+    attribute seconds : Real;
+  }
+
+  item def RawAccelerationSample {
+    attribute rawX : Integer;
+    attribute rawY : Integer;
+    attribute rawZ : Integer;
+    attribute sampleTime : TimeStamp;
+  }
+
+  item def CalibratedAccelerationSample {
+    attribute acceleration : Acceleration;
+    attribute temperature : SensorTemperature;
+    attribute sampleTime : TimeStamp;
+    attribute valid : Boolean;
+  }
+
+  item def MotionEvent {
+    attribute eventTime : TimeStamp;
+    attribute magnitude : Real;
+    attribute thresholdExceeded : Boolean;
+  }
+
+  item def PowerEnergy {
+    attribute voltage : VoltageLevel;
+    attribute current_mA : Real;
+  }
+
+  port def PowerInputPort {
+    in item power : PowerEnergy;
+  }
+
+  port def DigitalCommandPort {
+    in item command : String;
+    out item status : String;
+  }
+
+  port def AccelerationOutputPort {
+    out item sample : CalibratedAccelerationSample;
+    out item event : MotionEvent;
+  }
+
+  port def RawSensorPort {
+    out item rawSample : RawAccelerationSample;
+  }
+
+  port def TemperaturePort {
+    out item temperature : SensorTemperature;
+  }
+
+  part def AccelerometerSystem {
+    attribute configuredSampleRate : SampleRate = (value = 100.0);
+    attribute accelerationRange_g : Real = 16.0;
+    attribute noiseDensity_mgPerSqrtHz : Real = 0.15;
+    attribute primaryFunction : String =
+      "Measure acceleration along three orthogonal axes, compensate raw sensor data, and provide calibrated motion information to a host controller.";
+
+    port powerIn : PowerInputPort;
+    port commandInterface : DigitalCommandPort;
+    port accelerationOut : AccelerationOutputPort;
+
+    part sensingElement : MEMSAccelerationSensingElement;
+    part signalConditioner : AnalogSignalConditioner;
+    part adc : AnalogToDigitalConverter;
+    part calibrationProcessor : CalibrationProcessor;
+    part motionClassifier : MotionClassifier;
+    part timingController : TimingController;
+    part healthMonitor : SensorHealthMonitor;
+
+    connect powerIn.power to signalConditioner.power.power;
+    connect powerIn.power to adc.power.power;
+    connect powerIn.power to calibrationProcessor.power.power;
+    connect powerIn.power to timingController.power.power;
+    connect sensingElement.rawOutput.rawSample to signalConditioner.rawInput.rawSample;
+    connect signalConditioner.conditionedOutput.rawSample to adc.rawInput.rawSample;
+    connect adc.digitalOutput.rawSample to calibrationProcessor.rawInput.rawSample;
+    connect calibrationProcessor.calibratedOutput.sample to accelerationOut.sample;
+    connect calibrationProcessor.calibratedOutput.sample to motionClassifier.sampleInput.sample;
+    connect motionClassifier.eventOutput.event to accelerationOut.event;
+    connect timingController.commandPort.status to commandInterface.status;
+    connect commandInterface.command to timingController.commandPort.command;
+  }
+
+  part def MEMSAccelerationSensingElement {
+    attribute proofMassDisplacement_um : Real;
+    attribute mechanicalBandwidth_Hz : Real = 800.0;
+    attribute axisAlignment : AngularAlignment =
+      (rollOffset = 0.05, pitchOffset = 0.05, yawOffset = 0.05);
+
+    port rawOutput : RawSensorPort;
+    port localTemperature : TemperaturePort;
+  }
+
+  part def AnalogSignalConditioner {
+    attribute gain : Real = 1.0;
+    attribute lowPassCutoff_Hz : Real = 200.0;
+    attribute offsetCancellationEnabled : Boolean = true;
+
+    port power : PowerInputPort;
+    port rawInput : RawSensorPort;
+    port conditionedOutput : RawSensorPort;
+  }
+
+  part def AnalogToDigitalConverter {
+    attribute resolution_bits : Integer = 16;
+    attribute referenceVoltage_V : Real = 3.3;
+    attribute conversionRate_Hz : Real = 1000.0;
+
+    port power : PowerInputPort;
+    port rawInput : RawSensorPort;
+    port digitalOutput : RawSensorPort;
+  }
+
+  part def CalibrationProcessor {
+    attribute biasX_mps2 : Real = 0.0;
+    attribute biasY_mps2 : Real = 0.0;
+    attribute biasZ_mps2 : Real = 0.0;
+    attribute scaleFactorX : Real = 1.0;
+    attribute scaleFactorY : Real = 1.0;
+    attribute scaleFactorZ : Real = 1.0;
+    attribute selfTestPassed : Boolean = false;
+
+    port power : PowerInputPort;
+    port rawInput : RawSensorPort;
+    port calibratedOutput : AccelerationOutputPort;
+
+    action calibrateRawSample {
+      in item raw : RawAccelerationSample;
+      out item calibrated : CalibratedAccelerationSample;
+
+      first start;
+      then convertCountsToAcceleration;
+      then removeBias;
+      then applyScaleFactor;
+      then markSampleValidity;
+      then done;
+
+      action convertCountsToAcceleration;
+      action removeBias;
+      action applyScaleFactor;
+      action markSampleValidity;
+    }
+  }
+
+  part def MotionClassifier {
+    attribute motionThreshold_mps2 : Real = 2.0;
+    attribute shockThreshold_mps2 : Real = 49.0;
+    attribute inactivityThreshold_mps2 : Real = 0.15;
+
+    port sampleInput : AccelerationOutputPort;
+    port eventOutput : AccelerationOutputPort;
+
+    action classifyMotion {
+      in item sample : CalibratedAccelerationSample;
+      out item event : MotionEvent;
+
+      first receiveSample;
+      then computeMagnitude;
+      then compareThresholds;
+      then publishEvent;
+      then done;
+
+      action receiveSample;
+      action computeMagnitude;
+      action compareThresholds;
+      action publishEvent;
+    }
+  }
+
+  part def TimingController {
+    attribute activeSampleRate_Hz : Real = 100.0;
+    attribute standbySampleRate_Hz : Real = 5.0;
+    attribute measurementEnabled : Boolean = false;
+
+    port power : PowerInputPort;
+    port commandPort : DigitalCommandPort;
+  }
+
+  part def SensorHealthMonitor {
+    attribute minimumSupplyVoltage_V : Real = 2.7;
+    attribute maximumSupplyVoltage_V : Real = 3.6;
+    attribute minimumOperatingTemperature_C : Real = -40.0;
+    attribute maximumOperatingTemperature_C : Real = 85.0;
+    attribute faultDetected : Boolean = false;
+
+    port power : PowerInputPort;
+    port temperatureInput : TemperaturePort;
+  }
+
+  state def AccelerometerOperatingState {
+    entry; then Unpowered;
+
+    state Unpowered;
+    state PowerOnSelfTest;
+    state Standby;
+    state Measuring;
+    state Fault;
+
+    transition Unpowered_to_PowerOnSelfTest
+      first Unpowered
+      accept PowerApplied
+      then PowerOnSelfTest;
+
+    transition PowerOnSelfTest_to_Standby
+      first PowerOnSelfTest
+      accept SelfTestPass
+      then Standby;
+
+    transition PowerOnSelfTest_to_Fault
+      first PowerOnSelfTest
+      accept SelfTestFail
+      then Fault;
+
+    transition Standby_to_Measuring
+      first Standby
+      accept StartMeasurement
+      then Measuring;
+
+    transition Measuring_to_Standby
+      first Measuring
+      accept StopMeasurement
+      then Standby;
+
+    transition Any_to_Fault
+      first Measuring
+      accept FaultDetected
+      then Fault;
+
+    transition Fault_to_Standby
+      first Fault
+      accept ResetCompleted
+      then Standby;
+  }
+
+  action def MeasureAcceleration {
+    in item suppliedPower : PowerEnergy;
+    out item calibratedSample : CalibratedAccelerationSample;
+    out item motionEvent : MotionEvent;
+
+    first energizeSensor;
+    then senseAcceleration;
+    then conditionSignal;
+    then digitizeSignal;
+    then compensateBiasAndScale;
+    then evaluateMotion;
+    then transmitResult;
+    then done;
+
+    action energizeSensor;
+    action senseAcceleration;
+    action conditionSignal;
+    action digitizeSignal;
+    action compensateBiasAndScale;
+    action evaluateMotion;
+    action transmitResult;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The accelerometer system shall measure acceleration along three orthogonal axes and output calibrated acceleration samples for host use. */
+
+    subject accelerometerSystem : AccelerometerSystem;
+
+    require constraint {
+      accelerometerSystem.configuredSampleRate.value >= 1.0
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    doc
+    /* The accelerometer system shall measure acceleration over at least plus or minus 16 g on each axis. */
+
+    subject accelerometerSystem : AccelerometerSystem;
+
+    require constraint {
+      accelerometerSystem.accelerationRange_g >= 16.0
+    }
+  }
+
+  requirement def SampleRateRequirement {
+    doc
+    /* The accelerometer system shall support a nominal calibrated output sample rate of 100 Hz. */
+
+    subject accelerometerSystem : AccelerometerSystem;
+
+    require constraint {
+      accelerometerSystem.configuredSampleRate.value == 100.0
+    }
+  }
+
+  requirement def PowerRequirement {
+    doc
+    /* The accelerometer system shall operate from a regulated 3.3 V supply within the allowable voltage range. */
+
+    subject monitor : SensorHealthMonitor;
+
+    require constraint {
+      monitor.minimumSupplyVoltage_V <= 3.3 and monitor.maximumSupplyVoltage_V >= 3.3
+    }
+  }
+
+  requirement def EnvironmentalRequirement {
+    doc
+    /* The accelerometer system shall support operation across the industrial temperature range from -40 C to 85 C. */
+
+    subject monitor : SensorHealthMonitor;
+
+    require constraint {
+      monitor.minimumOperatingTemperature_C <= -40.0 and monitor.maximumOperatingTemperature_C >= 85.0
+    }
+  }
+
+  requirement def MotionEventRequirement {
+    doc
+    /* The accelerometer system shall report a motion event when computed acceleration magnitude exceeds the configured motion threshold. */
+
+    subject classifier : MotionClassifier;
+
+    require constraint {
+      classifier.motionThreshold_mps2 > 0.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by AccelerometerSystem;
+  satisfy MeasurementRangeRequirement by AccelerometerSystem;
+  satisfy SampleRateRequirement by AccelerometerSystem;
+  satisfy PowerRequirement by SensorHealthMonitor;
+  satisfy EnvironmentalRequirement by SensorHealthMonitor;
+  satisfy MotionEventRequirement by MotionClassifier;
+
+  part accelerometerSystem : AccelerometerSystem;
+
+  perform action MeasureAcceleration by accelerometerSystem;
+
+}

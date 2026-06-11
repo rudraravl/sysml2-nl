@@ -1,0 +1,1289 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-1mctf3eb
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4e3-49fa-72b2-a05f-16aea9f21201
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a pumping subsystem that moves fluid using a Vacuum pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VacuumPumpingSubsystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def FlowRate :> ISQ::volumeFlowRate {
+    unit = SI::litre / SI::minute;
+  }
+
+  attribute def Volume :> ISQ::volume {
+    unit = SI::litre;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Time :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def RotationalSpeed :> ISQ::frequency {
+    unit = SI::revolution / SI::minute;
+  }
+
+  attribute def Percent :> ScalarValues::Real {
+    unit = one;
+  }
+
+  item def WorkingFluid {
+    attribute absolutePressure : Pressure;
+    attribute temperature : Temperature;
+    attribute vaporFraction : Percent;
+    attribute contaminationLevel : Percent;
+  }
+
+  item def GasStream :> WorkingFluid {
+    attribute volumetricFlow : FlowRate;
+  }
+
+  item def Condensate {
+    attribute volume : Volume;
+    attribute temperature : Temperature;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute realPower : Power;
+  }
+
+  item def ControlCommand {
+    attribute requestedRun : Boolean;
+    attribute requestedSpeed : Percent;
+    attribute emergencyStop : Boolean;
+  }
+
+  item def PumpStatus {
+    attribute running : Boolean;
+    attribute faulted : Boolean;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute motorSpeed : RotationalSpeed;
+    attribute sealTemperature : Temperature;
+  }
+
+  port def FluidInletPort {
+    in item gasIn : GasStream;
+  }
+
+  port def FluidOutletPort {
+    out item gasOut : GasStream;
+  }
+
+  port def DrainPort {
+    out item liquidOut : Condensate;
+  }
+
+  port def ElectricalInputPort {
+    in item supply : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def StatusPort {
+    out item status : PumpStatus;
+  }
+
+  port def CoolingPort {
+    in item coolantIn : WorkingFluid;
+    out item coolantOut : WorkingFluid;
+  }
+
+  part def IsolationValve {
+    port upstream : FluidInletPort;
+    port downstream : FluidOutletPort;
+    port command : CommandPort;
+    port status : StatusPort;
+
+    attribute openFraction : Percent;
+    attribute ratedConductance : FlowRate;
+    attribute maximumDifferentialPressure : Pressure;
+    attribute leakRateWhenClosed : FlowRate;
+
+    state def ValveOperatingState {
+      state closed;
+      state opening;
+      state open;
+      state closing;
+      state failed;
+
+      entry action initializeClosed {
+        assign openFraction := 0.0;
+      }
+
+      transition first closed;
+      transition closed_to_opening
+        first closed
+        then opening
+        if command.command.requestedRun and not command.command.emergencyStop;
+
+      transition opening_to_open
+        first opening
+        then open
+        if openFraction >= 100.0;
+
+      transition open_to_closing
+        first open
+        then closing
+        if not command.command.requestedRun or command.command.emergencyStop;
+
+      transition closing_to_closed
+        first closing
+        then closed
+        if openFraction <= 0.0;
+
+      transition any_to_failed
+        first closed, opening, open, closing
+        then failed
+        if status.status.faulted;
+    }
+
+    exhibit state valveState : ValveOperatingState;
+  }
+
+  part def VacuumPump {
+    port inlet : FluidInletPort;
+    port exhaust : FluidOutletPort;
+    port electrical : ElectricalInputPort;
+    port command : CommandPort;
+    port status : StatusPort;
+    port cooling : CoolingPort;
+
+    attribute nominalPumpingSpeed : FlowRate = 250.0 [SI::litre / SI::minute];
+    attribute ultimatePressure : Pressure = 15.0 [SI::pascal];
+    attribute maximumInletPressure : Pressure = 101325.0 [SI::pascal];
+    attribute maximumExhaustPressure : Pressure = 120000.0 [SI::pascal];
+    attribute ratedMotorPower : Power = 750.0 [SI::watt];
+    attribute ratedVoltage : Voltage = 230.0 [SI::volt];
+    attribute ratedCurrent : Current = 4.5 [SI::ampere];
+    attribute minimumCoolingFlow : FlowRate = 2.0 [SI::litre / SI::minute];
+    attribute maximumSealTemperature : Temperature = 363.15 [SI::kelvin];
+    attribute speedCommand : Percent;
+    attribute actualSpeed : RotationalSpeed;
+    attribute generatedHeat : Power;
+
+    action def StartPump {
+      in commandSpeed : Percent;
+      out achievedSpeed : RotationalSpeed;
+
+      action enableMotor;
+      action rampSpeed {
+        assign speedCommand := commandSpeed;
+        assign achievedSpeed := commandSpeed * 30.0 [SI::revolution / SI::minute];
+      }
+    }
+
+    action def StopPump {
+      action disableMotor {
+        assign speedCommand := 0.0;
+        assign actualSpeed := 0.0 [SI::revolution / SI::minute];
+      }
+    }
+
+    action def CompressGas {
+      in inletGas : GasStream;
+      out exhaustGas : GasStream;
+
+      constraint flowLimited {
+        inletGas.volumetricFlow <= nominalPumpingSpeed;
+      }
+
+      constraint pressureCapability {
+        inletGas.absolutePressure >= ultimatePressure;
+        exhaustGas.absolutePressure <= maximumExhaustPressure;
+      }
+    }
+
+    state def PumpOperatingState {
+      state off;
+      state starting;
+      state evacuating;
+      state holdingVacuum;
+      state stopping;
+      state faulted;
+
+      transition initial_to_off first off;
+
+      transition off_to_starting
+        first off
+        then starting
+        if command.command.requestedRun
+           and not command.command.emergencyStop
+           and electrical.supply.voltage >= 207.0 [SI::volt]
+           and electrical.supply.voltage <= 253.0 [SI::volt];
+
+      transition starting_to_evacuating
+        first starting
+        then evacuating
+        if actualSpeed >= 1200.0 [SI::revolution / SI::minute];
+
+      transition evacuating_to_holding
+        first evacuating
+        then holdingVacuum
+        if inlet.gasIn.absolutePressure <= 500.0 [SI::pascal];
+
+      transition holding_to_evacuating
+        first holdingVacuum
+        then evacuating
+        if inlet.gasIn.absolutePressure > 750.0 [SI::pascal];
+
+      transition evacuating_to_stopping
+        first evacuating
+        then stopping
+        if not command.command.requestedRun or command.command.emergencyStop;
+
+      transition holding_to_stopping
+        first holdingVacuum
+        then stopping
+        if not command.command.requestedRun or command.command.emergencyStop;
+
+      transition stopping_to_off
+        first stopping
+        then off
+        if actualSpeed <= 50.0 [SI::revolution / SI::minute];
+
+      transition any_to_faulted
+        first off, starting, evacuating, holdingVacuum, stopping
+        then faulted
+        if cooling.coolantIn.volumetricFlow < minimumCoolingFlow
+           or status.status.sealTemperature > maximumSealTemperature
+           or electrical.supply.current > 1.25 * ratedCurrent
+           or exhaust.gasOut.absolutePressure > maximumExhaustPressure;
+    }
+
+    exhibit state pumpState : PumpOperatingState;
+  }
+
+  part def KnockoutSeparator {
+    port inlet : FluidInletPort;
+    port gasOutlet : FluidOutletPort;
+    port drain : DrainPort;
+    port status : StatusPort;
+
+    attribute internalVolume : Volume = 8.0 [SI::litre];
+    attribute liquidHoldUp : Volume;
+    attribute maximumLiquidHoldUp : Volume = 6.0 [SI::litre];
+    attribute separationEfficiency : Percent = 98.0;
+    attribute pressureDropAtRatedFlow : Pressure = 250.0 [SI::pascal];
+
+    action def SeparateLiquid {
+      in mixedStream : GasStream;
+      out dryGas : GasStream;
+      out removedLiquid : Condensate;
+
+      constraint outletDryness {
+        dryGas.vaporFraction <= 2.0;
+      }
+    }
+
+    state def SeparatorState {
+      state normal;
+      state draining;
+      state highLevelFault;
+
+      transition first normal;
+
+      transition normal_to_draining
+        first normal
+        then draining
+        if liquidHoldUp >= 4.5 [SI::litre];
+
+      transition draining_to_normal
+        first draining
+        then normal
+        if liquidHoldUp <= 1.0 [SI::litre];
+
+      transition normal_to_highLevelFault
+        first normal
+        then highLevelFault
+        if liquidHoldUp >= maximumLiquidHoldUp;
+    }
+
+    exhibit state separatorState : SeparatorState;
+  }
+
+  part def VacuumReceiver {
+    port processConnection : FluidInletPort;
+    port pumpConnection : FluidOutletPort;
+    port status : StatusPort;
+
+    attribute receiverVolume : Volume = 120.0 [SI::litre];
+    attribute targetPressure : Pressure = 500.0 [SI::pascal];
+    attribute highPressureStartThreshold : Pressure = 2500.0 [SI::pascal];
+    attribute lowPressureStopThreshold : Pressure = 300.0 [SI::pascal];
+    attribute maximumAllowablePressure : Pressure = 150000.0 [SI::pascal];
+    attribute currentPressure : Pressure;
+    attribute gasTemperature : Temperature;
+  }
+
+  part def CheckValve {
+    port pumpSide : FluidInletPort;
+    port exhaustSide : FluidOutletPort;
+
+    attribute crackingDifferentialPressure : Pressure = 500.0 [SI::pascal];
+    attribute reverseLeakRate : FlowRate = 0.01 [SI::litre / SI::minute];
+
+    state def CheckValveState {
+      state closed;
+      state open;
+
+      transition first closed;
+
+      transition closed_to_open
+        first closed
+        then open
+        if pumpSide.gasIn.absolutePressure - exhaustSide.gasOut.absolutePressure
+           >= crackingDifferentialPressure;
+
+      transition open_to_closed
+        first open
+        then closed
+        if pumpSide.gasIn.absolutePressure <= exhaustSide.gasOut.absolutePressure;
+    }
+
+    exhibit state checkValveState : CheckValveState;
+  }
+
+  part def ExhaustSilencer {
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+
+    attribute insertionLoss : Real = 18.0;
+    attribute ratedFlow : FlowRate = 300.0 [SI::litre / SI::minute];
+    attribute pressureDropAtRatedFlow : Pressure = 800.0 [SI::pascal];
+  }
+
+  part def PressureSensor {
+    port sensedFluid : FluidInletPort;
+    port status : StatusPort;
+
+    attribute measurementRangeLow : Pressure = 1.0 [SI::pascal];
+    attribute measurementRangeHigh : Pressure = 120000.0 [SI::pascal];
+    attribute accuracy : Percent = 0.5;
+    attribute samplePeriod : Time = 0.1 [SI::second];
+    attribute measuredPressure : Pressure;
+  }
+
+  part def TemperatureSensor {
+    port sensedFluid : FluidInletPort;
+    port status : StatusPort;
+
+    attribute measurementRangeLow : Temperature = 273.15 [SI::kelvin];
+    attribute measurementRangeHigh : Temperature = 423.15 [SI::kelvin];
+    attribute accuracy : Percent = 1.0;
+    attribute measuredTemperature : Temperature;
+  }
+
+  part def Controller {
+    port receiverPressureStatus : StatusPort;
+    port pumpStatus : StatusPort;
+    port inletValveCommand : CommandPort;
+    port pumpCommand : CommandPort;
+    port outletValveCommand : CommandPort;
+
+    attribute targetPressure : Pressure = 500.0 [SI::pascal];
+    attribute startPressure : Pressure = 2500.0 [SI::pascal];
+    attribute stopPressure : Pressure = 300.0 [SI::pascal];
+    attribute emergencyStopActive : Boolean;
+    attribute commandedSpeed : Percent;
+
+    action def RegulateVacuum {
+      in receiverPressure : Pressure;
+      in pumpFaulted : Boolean;
+      out runCommand : Boolean;
+      out speedDemand : Percent;
+
+      if receiverPressure > startPressure and not pumpFaulted and not emergencyStopActive {
+        assign runCommand := true;
+        assign speedDemand := 100.0;
+      } else if receiverPressure <= stopPressure {
+        assign runCommand := false;
+        assign speedDemand := 0.0;
+      } else {
+        assign runCommand := true;
+        assign speedDemand := 55.0;
+      }
+    }
+
+    state def ControlState {
+      state idle;
+      state startRequest;
+      state running;
+      state hold;
+      state shutdown;
+      state lockout;
+
+      transition first idle;
+
+      transition idle_to_startRequest
+        first idle
+        then startRequest
+        if receiverPressureStatus.status.inletPressure >= startPressure
+           and not emergencyStopActive;
+
+      transition startRequest_to_running
+        first startRequest
+        then running
+        if pumpStatus.status.running;
+
+      transition running_to_hold
+        first running
+        then hold
+        if receiverPressureStatus.status.inletPressure <= targetPressure;
+
+      transition hold_to_running
+        first hold
+        then running
+        if receiverPressureStatus.status.inletPressure > startPressure;
+
+      transition running_to_shutdown
+        first running
+        then shutdown
+        if receiverPressureStatus.status.inletPressure <= stopPressure
+           or emergencyStopActive;
+
+      transition hold_to_shutdown
+        first hold
+        then shutdown
+        if emergencyStopActive;
+
+      transition shutdown_to_idle
+        first shutdown
+        then idle
+        if not pumpStatus.status.running;
+
+      transition any_to_lockout
+        first idle, startRequest, running, hold, shutdown
+        then lockout
+        if pumpStatus.status.faulted;
+    }
+
+    exhibit state controllerState : ControlState;
+  }
+
+  part def VacuumPumpingSubsystem {
+    port processInlet : FluidInletPort;
+    port exhaustOutlet : FluidOutletPort;
+    port electricalSupply : ElectricalInputPort;
+    port coolingSupply : CoolingPort;
+    port condensateDrain : DrainPort;
+    port remoteCommand : CommandPort;
+    port subsystemStatus : StatusPort;
+
+    part receiver : VacuumReceiver;
+    part inletIsolationValve : IsolationValve;
+    part separator : KnockoutSeparator;
+    part pump : VacuumPump;
+    part dischargeCheckValve : CheckValve;
+    part exhaustSilencer : ExhaustSilencer;
+    part receiverPressureSensor : PressureSensor;
+    part pumpInletPressureSensor : PressureSensor;
+    part pumpSealTemperatureSensor : TemperatureSensor;
+    part controller : Controller;
+
+    connect processInlet to receiver.processConnection;
+    connect receiver.pumpConnection to inletIsolationValve.upstream;
+    connect inletIsolationValve.downstream to separator.inlet;
+    connect separator.gasOutlet to pump.inlet;
+    connect pump.exhaust to dischargeCheckValve.pumpSide;
+    connect dischargeCheckValve.exhaustSide to exhaustSilencer.inlet;
+    connect exhaustSilencer.outlet to exhaustOutlet;
+
+    connect separator.drain to condensateDrain;
+    connect electricalSupply to pump.electrical;
+    connect coolingSupply to pump.cooling;
+
+    connect remoteCommand to controller.pumpCommand;
+    connect controller.inletValveCommand to inletIsolationValve.command;
+    connect controller.pumpCommand to pump.command;
+    connect controller.outletValveCommand to dischargeCheckValve.pumpSide;
+
+    connect receiverPressureSensor.sensedFluid to receiver.processConnection;
+    connect pumpInletPressureSensor.sensedFluid to pump.inlet;
+    connect pumpSealTemperatureSensor.sensedFluid to pump.inlet;
+
+    connect receiverPressureSensor.status to controller.receiverPressureStatus;
+    connect pump.status to controller.pumpStatus;
+    connect pump.status to subsystemStatus;
+
+    attribute ratedEvacuationFlow : FlowRate = 250.0 [SI::litre / SI::minute];
+    attribute normalOperatingPressure : Pressure = 500.0 [SI::pascal];
+    attribute maximumProcessInletPressure : Pressure = 101325.0 [SI::pascal];
+    attribute maximumContinuousRunTime : Time = 14400.0 [SI::second];
+    attribute expectedReceiverPumpDownTime : Time = 240.0 [SI::second];
+
+    constraint inletPressureLimit {
+      processInlet.gasIn.absolutePressure <= maximumProcessInletPressure;
+    }
+
+    constraint pumpCapacityLimit {
+      processInlet.gasIn.volumetricFlow <= ratedEvacuationFlow;
+    }
+
+    constraint exhaustBackPressureLimit {
+      exhaustOutlet.gasOut.absolutePressure <= pump.maximumExhaustPressure;
+    }
+
+    constraint receiverVacuumPerformance {
+      receiver.currentPressure <= normalOperatingPressure
+      implies subsystemStatus.status.running == false or pump.status.status.running == true;
+    }
+
+    action def EvacuateReceiver {
+      in initialPressure : Pressure;
+      out finalPressure : Pressure;
+
+      action openInletValve;
+      action startVacuumPump;
+      action removeGasFromReceiver;
+      action holdTargetPressure;
+
+      constraint evacuationGoal {
+        finalPressure <= receiver.targetPressure;
+      }
+
+      constraint pumpDownTimeGoal {
+        expectedReceiverPumpDownTime <= 300.0 [SI::second];
+      }
+    }
+  }
+
+  requirement def PumpingSubsystemRequirement {
+    subject subsystem : VacuumPumpingSubsystem;
+  }
+
+  requirement vacuumPumpFunctionalRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall move gas and vapor from the process inlet to the exhaust outlet by using a vacuum pump. */
+    require constraint {
+      subsystem.pump.nominalPumpingSpeed >= 200.0 [SI::litre / SI::minute];
+    }
+  }
+
+  requirement targetVacuumRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall reduce receiver pressure to 500 Pa or less during normal evacuation. */
+    require constraint {
+      subsystem.receiver.currentPressure <= 500.0 [SI::pascal];
+    }
+  }
+
+  requirement inletProtectionRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall prevent excessive liquid carryover into the vacuum pump. */
+    require constraint {
+      subsystem.separator.separationEfficiency >= 95.0;
+      subsystem.separator.liquidHoldUp <= subsystem.separator.maximumLiquidHoldUp;
+    }
+  }
+
+  requirement backflowPreventionRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall prevent exhaust backflow into the vacuum receiver when the pump is stopped. */
+    require constraint {
+      subsystem.dischargeCheckValve.reverseLeakRate <= 0.05 [SI::litre / SI::minute];
+    }
+  }
+
+  requirement electricalCompatibilityRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall operate from a 230 V single phase electrical supply. */
+    require constraint {
+      subsystem.pump.ratedVoltage == 230.0 [SI::volt];
+      subsystem.pump.ratedMotorPower <= 1000.0 [SI::watt];
+    }
+  }
+
+  requirement thermalProtectionRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall enter a faulted state when pump seal temperature exceeds its safe operating limit. */
+    require constraint {
+      subsystem.pump.maximumSealTemperature <= 363.15 [SI::kelvin];
+    }
+  }
+
+  requirement controlRequirement : PumpingSubsystemRequirement {
+    doc /* The controller shall start the pump above the high pressure threshold and stop it below the low pressure threshold. */
+    require constraint {
+      subsystem.controller.startPressure == 2500.0 [SI::pascal];
+      subsystem.controller.stopPressure == 300.0 [SI::pascal];
+    }
+  }
+
+  satisfy vacuumPumpFunctionalRequirement by VacuumPumpingSubsystem::pump;
+  satisfy targetVacuumRequirement by VacuumPumpingSubsystem::receiver;
+  satisfy inletProtectionRequirement by VacuumPumpingSubsystem::separator;
+  satisfy backflowPreventionRequirement by VacuumPumpingSubsystem::dischargeCheckValve;
+  satisfy electricalCompatibilityRequirement by VacuumPumpingSubsystem::pump;
+  satisfy thermalProtectionRequirement by VacuumPumpingSubsystem::pump;
+  satisfy controlRequirement by VacuumPumpingSubsystem::controller;
+}
+tokens used
+4,824
+package VacuumPumpingSubsystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def FlowRate :> ISQ::volumeFlowRate {
+    unit = SI::litre / SI::minute;
+  }
+
+  attribute def Volume :> ISQ::volume {
+    unit = SI::litre;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Time :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def RotationalSpeed :> ISQ::frequency {
+    unit = SI::revolution / SI::minute;
+  }
+
+  attribute def Percent :> ScalarValues::Real {
+    unit = one;
+  }
+
+  item def WorkingFluid {
+    attribute absolutePressure : Pressure;
+    attribute temperature : Temperature;
+    attribute vaporFraction : Percent;
+    attribute contaminationLevel : Percent;
+  }
+
+  item def GasStream :> WorkingFluid {
+    attribute volumetricFlow : FlowRate;
+  }
+
+  item def Condensate {
+    attribute volume : Volume;
+    attribute temperature : Temperature;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute realPower : Power;
+  }
+
+  item def ControlCommand {
+    attribute requestedRun : Boolean;
+    attribute requestedSpeed : Percent;
+    attribute emergencyStop : Boolean;
+  }
+
+  item def PumpStatus {
+    attribute running : Boolean;
+    attribute faulted : Boolean;
+    attribute inletPressure : Pressure;
+    attribute outletPressure : Pressure;
+    attribute motorSpeed : RotationalSpeed;
+    attribute sealTemperature : Temperature;
+  }
+
+  port def FluidInletPort {
+    in item gasIn : GasStream;
+  }
+
+  port def FluidOutletPort {
+    out item gasOut : GasStream;
+  }
+
+  port def DrainPort {
+    out item liquidOut : Condensate;
+  }
+
+  port def ElectricalInputPort {
+    in item supply : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def StatusPort {
+    out item status : PumpStatus;
+  }
+
+  port def CoolingPort {
+    in item coolantIn : WorkingFluid;
+    out item coolantOut : WorkingFluid;
+  }
+
+  part def IsolationValve {
+    port upstream : FluidInletPort;
+    port downstream : FluidOutletPort;
+    port command : CommandPort;
+    port status : StatusPort;
+
+    attribute openFraction : Percent;
+    attribute ratedConductance : FlowRate;
+    attribute maximumDifferentialPressure : Pressure;
+    attribute leakRateWhenClosed : FlowRate;
+
+    state def ValveOperatingState {
+      state closed;
+      state opening;
+      state open;
+      state closing;
+      state failed;
+
+      entry action initializeClosed {
+        assign openFraction := 0.0;
+      }
+
+      transition first closed;
+      transition closed_to_opening
+        first closed
+        then opening
+        if command.command.requestedRun and not command.command.emergencyStop;
+
+      transition opening_to_open
+        first opening
+        then open
+        if openFraction >= 100.0;
+
+      transition open_to_closing
+        first open
+        then closing
+        if not command.command.requestedRun or command.command.emergencyStop;
+
+      transition closing_to_closed
+        first closing
+        then closed
+        if openFraction <= 0.0;
+
+      transition any_to_failed
+        first closed, opening, open, closing
+        then failed
+        if status.status.faulted;
+    }
+
+    exhibit state valveState : ValveOperatingState;
+  }
+
+  part def VacuumPump {
+    port inlet : FluidInletPort;
+    port exhaust : FluidOutletPort;
+    port electrical : ElectricalInputPort;
+    port command : CommandPort;
+    port status : StatusPort;
+    port cooling : CoolingPort;
+
+    attribute nominalPumpingSpeed : FlowRate = 250.0 [SI::litre / SI::minute];
+    attribute ultimatePressure : Pressure = 15.0 [SI::pascal];
+    attribute maximumInletPressure : Pressure = 101325.0 [SI::pascal];
+    attribute maximumExhaustPressure : Pressure = 120000.0 [SI::pascal];
+    attribute ratedMotorPower : Power = 750.0 [SI::watt];
+    attribute ratedVoltage : Voltage = 230.0 [SI::volt];
+    attribute ratedCurrent : Current = 4.5 [SI::ampere];
+    attribute minimumCoolingFlow : FlowRate = 2.0 [SI::litre / SI::minute];
+    attribute maximumSealTemperature : Temperature = 363.15 [SI::kelvin];
+    attribute speedCommand : Percent;
+    attribute actualSpeed : RotationalSpeed;
+    attribute generatedHeat : Power;
+
+    action def StartPump {
+      in commandSpeed : Percent;
+      out achievedSpeed : RotationalSpeed;
+
+      action enableMotor;
+      action rampSpeed {
+        assign speedCommand := commandSpeed;
+        assign achievedSpeed := commandSpeed * 30.0 [SI::revolution / SI::minute];
+      }
+    }
+
+    action def StopPump {
+      action disableMotor {
+        assign speedCommand := 0.0;
+        assign actualSpeed := 0.0 [SI::revolution / SI::minute];
+      }
+    }
+
+    action def CompressGas {
+      in inletGas : GasStream;
+      out exhaustGas : GasStream;
+
+      constraint flowLimited {
+        inletGas.volumetricFlow <= nominalPumpingSpeed;
+      }
+
+      constraint pressureCapability {
+        inletGas.absolutePressure >= ultimatePressure;
+        exhaustGas.absolutePressure <= maximumExhaustPressure;
+      }
+    }
+
+    state def PumpOperatingState {
+      state off;
+      state starting;
+      state evacuating;
+      state holdingVacuum;
+      state stopping;
+      state faulted;
+
+      transition initial_to_off first off;
+
+      transition off_to_starting
+        first off
+        then starting
+        if command.command.requestedRun
+           and not command.command.emergencyStop
+           and electrical.supply.voltage >= 207.0 [SI::volt]
+           and electrical.supply.voltage <= 253.0 [SI::volt];
+
+      transition starting_to_evacuating
+        first starting
+        then evacuating
+        if actualSpeed >= 1200.0 [SI::revolution / SI::minute];
+
+      transition evacuating_to_holding
+        first evacuating
+        then holdingVacuum
+        if inlet.gasIn.absolutePressure <= 500.0 [SI::pascal];
+
+      transition holding_to_evacuating
+        first holdingVacuum
+        then evacuating
+        if inlet.gasIn.absolutePressure > 750.0 [SI::pascal];
+
+      transition evacuating_to_stopping
+        first evacuating
+        then stopping
+        if not command.command.requestedRun or command.command.emergencyStop;
+
+      transition holding_to_stopping
+        first holdingVacuum
+        then stopping
+        if not command.command.requestedRun or command.command.emergencyStop;
+
+      transition stopping_to_off
+        first stopping
+        then off
+        if actualSpeed <= 50.0 [SI::revolution / SI::minute];
+
+      transition any_to_faulted
+        first off, starting, evacuating, holdingVacuum, stopping
+        then faulted
+        if cooling.coolantIn.volumetricFlow < minimumCoolingFlow
+           or status.status.sealTemperature > maximumSealTemperature
+           or electrical.supply.current > 1.25 * ratedCurrent
+           or exhaust.gasOut.absolutePressure > maximumExhaustPressure;
+    }
+
+    exhibit state pumpState : PumpOperatingState;
+  }
+
+  part def KnockoutSeparator {
+    port inlet : FluidInletPort;
+    port gasOutlet : FluidOutletPort;
+    port drain : DrainPort;
+    port status : StatusPort;
+
+    attribute internalVolume : Volume = 8.0 [SI::litre];
+    attribute liquidHoldUp : Volume;
+    attribute maximumLiquidHoldUp : Volume = 6.0 [SI::litre];
+    attribute separationEfficiency : Percent = 98.0;
+    attribute pressureDropAtRatedFlow : Pressure = 250.0 [SI::pascal];
+
+    action def SeparateLiquid {
+      in mixedStream : GasStream;
+      out dryGas : GasStream;
+      out removedLiquid : Condensate;
+
+      constraint outletDryness {
+        dryGas.vaporFraction <= 2.0;
+      }
+    }
+
+    state def SeparatorState {
+      state normal;
+      state draining;
+      state highLevelFault;
+
+      transition first normal;
+
+      transition normal_to_draining
+        first normal
+        then draining
+        if liquidHoldUp >= 4.5 [SI::litre];
+
+      transition draining_to_normal
+        first draining
+        then normal
+        if liquidHoldUp <= 1.0 [SI::litre];
+
+      transition normal_to_highLevelFault
+        first normal
+        then highLevelFault
+        if liquidHoldUp >= maximumLiquidHoldUp;
+    }
+
+    exhibit state separatorState : SeparatorState;
+  }
+
+  part def VacuumReceiver {
+    port processConnection : FluidInletPort;
+    port pumpConnection : FluidOutletPort;
+    port status : StatusPort;
+
+    attribute receiverVolume : Volume = 120.0 [SI::litre];
+    attribute targetPressure : Pressure = 500.0 [SI::pascal];
+    attribute highPressureStartThreshold : Pressure = 2500.0 [SI::pascal];
+    attribute lowPressureStopThreshold : Pressure = 300.0 [SI::pascal];
+    attribute maximumAllowablePressure : Pressure = 150000.0 [SI::pascal];
+    attribute currentPressure : Pressure;
+    attribute gasTemperature : Temperature;
+  }
+
+  part def CheckValve {
+    port pumpSide : FluidInletPort;
+    port exhaustSide : FluidOutletPort;
+
+    attribute crackingDifferentialPressure : Pressure = 500.0 [SI::pascal];
+    attribute reverseLeakRate : FlowRate = 0.01 [SI::litre / SI::minute];
+
+    state def CheckValveState {
+      state closed;
+      state open;
+
+      transition first closed;
+
+      transition closed_to_open
+        first closed
+        then open
+        if pumpSide.gasIn.absolutePressure - exhaustSide.gasOut.absolutePressure
+           >= crackingDifferentialPressure;
+
+      transition open_to_closed
+        first open
+        then closed
+        if pumpSide.gasIn.absolutePressure <= exhaustSide.gasOut.absolutePressure;
+    }
+
+    exhibit state checkValveState : CheckValveState;
+  }
+
+  part def ExhaustSilencer {
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+
+    attribute insertionLoss : Real = 18.0;
+    attribute ratedFlow : FlowRate = 300.0 [SI::litre / SI::minute];
+    attribute pressureDropAtRatedFlow : Pressure = 800.0 [SI::pascal];
+  }
+
+  part def PressureSensor {
+    port sensedFluid : FluidInletPort;
+    port status : StatusPort;
+
+    attribute measurementRangeLow : Pressure = 1.0 [SI::pascal];
+    attribute measurementRangeHigh : Pressure = 120000.0 [SI::pascal];
+    attribute accuracy : Percent = 0.5;
+    attribute samplePeriod : Time = 0.1 [SI::second];
+    attribute measuredPressure : Pressure;
+  }
+
+  part def TemperatureSensor {
+    port sensedFluid : FluidInletPort;
+    port status : StatusPort;
+
+    attribute measurementRangeLow : Temperature = 273.15 [SI::kelvin];
+    attribute measurementRangeHigh : Temperature = 423.15 [SI::kelvin];
+    attribute accuracy : Percent = 1.0;
+    attribute measuredTemperature : Temperature;
+  }
+
+  part def Controller {
+    port receiverPressureStatus : StatusPort;
+    port pumpStatus : StatusPort;
+    port inletValveCommand : CommandPort;
+    port pumpCommand : CommandPort;
+    port outletValveCommand : CommandPort;
+
+    attribute targetPressure : Pressure = 500.0 [SI::pascal];
+    attribute startPressure : Pressure = 2500.0 [SI::pascal];
+    attribute stopPressure : Pressure = 300.0 [SI::pascal];
+    attribute emergencyStopActive : Boolean;
+    attribute commandedSpeed : Percent;
+
+    action def RegulateVacuum {
+      in receiverPressure : Pressure;
+      in pumpFaulted : Boolean;
+      out runCommand : Boolean;
+      out speedDemand : Percent;
+
+      if receiverPressure > startPressure and not pumpFaulted and not emergencyStopActive {
+        assign runCommand := true;
+        assign speedDemand := 100.0;
+      } else if receiverPressure <= stopPressure {
+        assign runCommand := false;
+        assign speedDemand := 0.0;
+      } else {
+        assign runCommand := true;
+        assign speedDemand := 55.0;
+      }
+    }
+
+    state def ControlState {
+      state idle;
+      state startRequest;
+      state running;
+      state hold;
+      state shutdown;
+      state lockout;
+
+      transition first idle;
+
+      transition idle_to_startRequest
+        first idle
+        then startRequest
+        if receiverPressureStatus.status.inletPressure >= startPressure
+           and not emergencyStopActive;
+
+      transition startRequest_to_running
+        first startRequest
+        then running
+        if pumpStatus.status.running;
+
+      transition running_to_hold
+        first running
+        then hold
+        if receiverPressureStatus.status.inletPressure <= targetPressure;
+
+      transition hold_to_running
+        first hold
+        then running
+        if receiverPressureStatus.status.inletPressure > startPressure;
+
+      transition running_to_shutdown
+        first running
+        then shutdown
+        if receiverPressureStatus.status.inletPressure <= stopPressure
+           or emergencyStopActive;
+
+      transition hold_to_shutdown
+        first hold
+        then shutdown
+        if emergencyStopActive;
+
+      transition shutdown_to_idle
+        first shutdown
+        then idle
+        if not pumpStatus.status.running;
+
+      transition any_to_lockout
+        first idle, startRequest, running, hold, shutdown
+        then lockout
+        if pumpStatus.status.faulted;
+    }
+
+    exhibit state controllerState : ControlState;
+  }
+
+  part def VacuumPumpingSubsystem {
+    port processInlet : FluidInletPort;
+    port exhaustOutlet : FluidOutletPort;
+    port electricalSupply : ElectricalInputPort;
+    port coolingSupply : CoolingPort;
+    port condensateDrain : DrainPort;
+    port remoteCommand : CommandPort;
+    port subsystemStatus : StatusPort;
+
+    part receiver : VacuumReceiver;
+    part inletIsolationValve : IsolationValve;
+    part separator : KnockoutSeparator;
+    part pump : VacuumPump;
+    part dischargeCheckValve : CheckValve;
+    part exhaustSilencer : ExhaustSilencer;
+    part receiverPressureSensor : PressureSensor;
+    part pumpInletPressureSensor : PressureSensor;
+    part pumpSealTemperatureSensor : TemperatureSensor;
+    part controller : Controller;
+
+    connect processInlet to receiver.processConnection;
+    connect receiver.pumpConnection to inletIsolationValve.upstream;
+    connect inletIsolationValve.downstream to separator.inlet;
+    connect separator.gasOutlet to pump.inlet;
+    connect pump.exhaust to dischargeCheckValve.pumpSide;
+    connect dischargeCheckValve.exhaustSide to exhaustSilencer.inlet;
+    connect exhaustSilencer.outlet to exhaustOutlet;
+
+    connect separator.drain to condensateDrain;
+    connect electricalSupply to pump.electrical;
+    connect coolingSupply to pump.cooling;
+
+    connect remoteCommand to controller.pumpCommand;
+    connect controller.inletValveCommand to inletIsolationValve.command;
+    connect controller.pumpCommand to pump.command;
+    connect controller.outletValveCommand to dischargeCheckValve.pumpSide;
+
+    connect receiverPressureSensor.sensedFluid to receiver.processConnection;
+    connect pumpInletPressureSensor.sensedFluid to pump.inlet;
+    connect pumpSealTemperatureSensor.sensedFluid to pump.inlet;
+
+    connect receiverPressureSensor.status to controller.receiverPressureStatus;
+    connect pump.status to controller.pumpStatus;
+    connect pump.status to subsystemStatus;
+
+    attribute ratedEvacuationFlow : FlowRate = 250.0 [SI::litre / SI::minute];
+    attribute normalOperatingPressure : Pressure = 500.0 [SI::pascal];
+    attribute maximumProcessInletPressure : Pressure = 101325.0 [SI::pascal];
+    attribute maximumContinuousRunTime : Time = 14400.0 [SI::second];
+    attribute expectedReceiverPumpDownTime : Time = 240.0 [SI::second];
+
+    constraint inletPressureLimit {
+      processInlet.gasIn.absolutePressure <= maximumProcessInletPressure;
+    }
+
+    constraint pumpCapacityLimit {
+      processInlet.gasIn.volumetricFlow <= ratedEvacuationFlow;
+    }
+
+    constraint exhaustBackPressureLimit {
+      exhaustOutlet.gasOut.absolutePressure <= pump.maximumExhaustPressure;
+    }
+
+    constraint receiverVacuumPerformance {
+      receiver.currentPressure <= normalOperatingPressure
+      implies subsystemStatus.status.running == false or pump.status.status.running == true;
+    }
+
+    action def EvacuateReceiver {
+      in initialPressure : Pressure;
+      out finalPressure : Pressure;
+
+      action openInletValve;
+      action startVacuumPump;
+      action removeGasFromReceiver;
+      action holdTargetPressure;
+
+      constraint evacuationGoal {
+        finalPressure <= receiver.targetPressure;
+      }
+
+      constraint pumpDownTimeGoal {
+        expectedReceiverPumpDownTime <= 300.0 [SI::second];
+      }
+    }
+  }
+
+  requirement def PumpingSubsystemRequirement {
+    subject subsystem : VacuumPumpingSubsystem;
+  }
+
+  requirement vacuumPumpFunctionalRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall move gas and vapor from the process inlet to the exhaust outlet by using a vacuum pump. */
+    require constraint {
+      subsystem.pump.nominalPumpingSpeed >= 200.0 [SI::litre / SI::minute];
+    }
+  }
+
+  requirement targetVacuumRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall reduce receiver pressure to 500 Pa or less during normal evacuation. */
+    require constraint {
+      subsystem.receiver.currentPressure <= 500.0 [SI::pascal];
+    }
+  }
+
+  requirement inletProtectionRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall prevent excessive liquid carryover into the vacuum pump. */
+    require constraint {
+      subsystem.separator.separationEfficiency >= 95.0;
+      subsystem.separator.liquidHoldUp <= subsystem.separator.maximumLiquidHoldUp;
+    }
+  }
+
+  requirement backflowPreventionRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall prevent exhaust backflow into the vacuum receiver when the pump is stopped. */
+    require constraint {
+      subsystem.dischargeCheckValve.reverseLeakRate <= 0.05 [SI::litre / SI::minute];
+    }
+  }
+
+  requirement electricalCompatibilityRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall operate from a 230 V single phase electrical supply. */
+    require constraint {
+      subsystem.pump.ratedVoltage == 230.0 [SI::volt];
+      subsystem.pump.ratedMotorPower <= 1000.0 [SI::watt];
+    }
+  }
+
+  requirement thermalProtectionRequirement : PumpingSubsystemRequirement {
+    doc /* The subsystem shall enter a faulted state when pump seal temperature exceeds its safe operating limit. */
+    require constraint {
+      subsystem.pump.maximumSealTemperature <= 363.15 [SI::kelvin];
+    }
+  }
+
+  requirement controlRequirement : PumpingSubsystemRequirement {
+    doc /* The controller shall start the pump above the high pressure threshold and stop it below the low pressure threshold. */
+    require constraint {
+      subsystem.controller.startPressure == 2500.0 [SI::pascal];
+      subsystem.controller.stopPressure == 300.0 [SI::pascal];
+    }
+  }
+
+  satisfy vacuumPumpFunctionalRequirement by VacuumPumpingSubsystem::pump;
+  satisfy targetVacuumRequirement by VacuumPumpingSubsystem::receiver;
+  satisfy inletProtectionRequirement by VacuumPumpingSubsystem::separator;
+  satisfy backflowPreventionRequirement by VacuumPumpingSubsystem::dischargeCheckValve;
+  satisfy electricalCompatibilityRequirement by VacuumPumpingSubsystem::pump;
+  satisfy thermalProtectionRequirement by VacuumPumpingSubsystem::pump;
+  satisfy controlRequirement by VacuumPumpingSubsystem::controller;
+}

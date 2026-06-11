@@ -1,0 +1,843 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ferhxhtx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb46b-108c-7603-bd7c-c11132549b1b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a AptarGroup and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AptarGroupHighLevelModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Volume_ml :> Real {
+    unit = "mL";
+  }
+
+  attribute def FlowRate_ml_per_s :> Real {
+    unit = "mL/s";
+  }
+
+  attribute def Pressure_kPa :> Real {
+    unit = "kPa";
+  }
+
+  attribute def Force_N :> Real {
+    unit = "N";
+  }
+
+  attribute def Time_s :> Real {
+    unit = "s";
+  }
+
+  attribute def Temperature_C :> Real {
+    unit = "degC";
+  }
+
+  attribute def DoseAccuracy_percent :> Real {
+    unit = "%";
+  }
+
+  item def ContainedProduct {
+    attribute productName : String;
+    attribute formulationViscosity : Real;
+    attribute fillVolume : Volume_ml;
+    attribute safeStorageTemperatureMin : Temperature_C;
+    attribute safeStorageTemperatureMax : Temperature_C;
+  }
+
+  item def DispensedDose {
+    attribute doseVolume : Volume_ml;
+    attribute deliveryPressure : Pressure_kPa;
+    attribute deliveredAt : Time_s;
+  }
+
+  item def UserActuation {
+    attribute appliedForce : Force_N;
+    attribute actuationDuration : Time_s;
+  }
+
+  item def AmbientEnvironment {
+    attribute temperature : Temperature_C;
+    attribute relativeHumidity_percent : Real;
+  }
+
+  item def QualityStatus {
+    attribute sealIntegrityOk : Boolean;
+    attribute dosePathClear : Boolean;
+    attribute tamperEvidenceIntact : Boolean;
+  }
+
+  port def ProductOutletPort {
+    out item dose : DispensedDose;
+  }
+
+  port def ProductReservoirPort {
+    inout item product : ContainedProduct;
+  }
+
+  port def UserInputPort {
+    in item actuation : UserActuation;
+  }
+
+  port def EnvironmentPort {
+    in item ambient : AmbientEnvironment;
+  }
+
+  port def QualityPort {
+    out item status : QualityStatus;
+  }
+
+  part def ProductReservoir {
+    attribute nominalCapacity : Volume_ml = 100.0;
+    attribute currentFillVolume : Volume_ml;
+    attribute headspacePressure : Pressure_kPa;
+
+    port productAccess : ProductReservoirPort;
+    port environmentExposure : EnvironmentPort;
+  }
+
+  part def ClosureAndSeal {
+    attribute sealCompressionForce : Force_N;
+    attribute leakRateLimit_ml_per_s : FlowRate_ml_per_s = 0.001;
+    attribute tamperEvidencePresent : Boolean = true;
+
+    port productSide : ProductReservoirPort;
+    port environmentSide : EnvironmentPort;
+    port qualityOut : QualityPort;
+  }
+
+  part def PumpMechanism {
+    attribute nominalDoseVolume : Volume_ml = 0.25;
+    attribute minimumActuationForce : Force_N = 12.0;
+    attribute maximumActuationForce : Force_N = 45.0;
+    attribute rechargeTime : Time_s = 0.6;
+    attribute doseAccuracy : DoseAccuracy_percent = 95.0;
+
+    port productIn : ProductReservoirPort;
+    port userIn : UserInputPort;
+    port productOut : ProductOutletPort;
+    port qualityOut : QualityPort;
+  }
+
+  part def Actuator {
+    attribute travelDistance_mm : Real = 4.0;
+    attribute returnSpringForce : Force_N = 8.0;
+
+    port userIn : UserInputPort;
+    port pumpDrive : UserInputPort;
+  }
+
+  part def DispensingNozzle {
+    attribute orificeDiameter_mm : Real = 0.35;
+    attribute sprayConeAngle_deg : Real = 45.0;
+    attribute residualVolumeLimit : Volume_ml = 0.02;
+
+    port doseIn : ProductOutletPort;
+    port doseOut : ProductOutletPort;
+  }
+
+  part def ProtectiveCap {
+    attribute installed : Boolean = true;
+    attribute contaminationBarrierEfficiency_percent : Real = 99.0;
+
+    port environmentSide : EnvironmentPort;
+  }
+
+  part def LabelAndInstructions {
+    attribute brandOwner : String = "AptarGroup";
+    attribute primaryFunctionStatement : String =
+      "Protect contained product and dispense a controlled dose through an engineered closure, pump, actuator, and nozzle interface.";
+    attribute usageInstructionText : String =
+      "Press actuator once to deliver one measured dose while maintaining package integrity between uses.";
+  }
+
+  part def AptarGroupDispensingPackage {
+    attribute systemName : String = "AptarGroup Controlled Dispensing Package";
+    attribute intendedMarkets : String = "pharmaceutical, beauty, personal care, food, beverage, and home care packaging";
+    attribute primaryFunction : String =
+      "Provide reliable containment, protection, and controlled dispensing of a product from a package to a user or application target.";
+
+    part reservoir : ProductReservoir;
+    part seal : ClosureAndSeal;
+    part pump : PumpMechanism;
+    part actuator : Actuator;
+    part nozzle : DispensingNozzle;
+    part cap : ProtectiveCap;
+    part label : LabelAndInstructions;
+
+    port userCommand : UserInputPort;
+    port environment : EnvironmentPort;
+    port dispensedProduct : ProductOutletPort;
+    port qualityStatus : QualityPort;
+
+    connection userToActuator connect userCommand to actuator.userIn;
+    connection actuatorToPump connect actuator.pumpDrive to pump.userIn;
+    connection reservoirToSeal connect reservoir.productAccess to seal.productSide;
+    connection sealToPump connect seal.productSide to pump.productIn;
+    connection pumpToNozzle connect pump.productOut to nozzle.doseIn;
+    connection nozzleToOutlet connect nozzle.doseOut to dispensedProduct;
+    connection environmentToReservoir connect environment to reservoir.environmentExposure;
+    connection environmentToSeal connect environment to seal.environmentSide;
+    connection environmentToCap connect environment to cap.environmentSide;
+    connection sealQuality connect seal.qualityOut to qualityStatus;
+    connection pumpQuality connect pump.qualityOut to qualityStatus;
+  }
+
+  action def AcceptUserPress {
+    in item command : UserActuation;
+    out item acceptedCommand : UserActuation;
+
+    constraint validForce {
+      command.appliedForce >= 12.0 and command.appliedForce <= 45.0
+    }
+  }
+
+  action def MeterDose {
+    in item product : ContainedProduct;
+    in item command : UserActuation;
+    out item dose : DispensedDose;
+
+    attribute targetDose : Volume_ml = 0.25;
+    attribute allowedDoseErrorPercent : DoseAccuracy_percent = 5.0;
+
+    constraint meteredVolume {
+      dose.doseVolume >= targetDose * 0.95 and dose.doseVolume <= targetDose * 1.05
+    }
+  }
+
+  action def DispenseDose {
+    in item dose : DispensedDose;
+    out item deliveredDose : DispensedDose;
+
+    constraint positiveFlow {
+      deliveredDose.doseVolume > 0.0
+    }
+  }
+
+  action def VerifyPackageIntegrity {
+    in item ambient : AmbientEnvironment;
+    out item status : QualityStatus;
+
+    constraint integrityRequired {
+      status.sealIntegrityOk == true and
+      status.dosePathClear == true and
+      status.tamperEvidenceIntact == true
+    }
+  }
+
+  action def ControlledDispensingCycle {
+    in item command : UserActuation;
+    in item product : ContainedProduct;
+    in item ambient : AmbientEnvironment;
+    out item deliveredDose : DispensedDose;
+    out item packageStatus : QualityStatus;
+
+    first start;
+    then verify : VerifyPackageIntegrity;
+    then accept : AcceptUserPress;
+    then meter : MeterDose;
+    then dispense : DispenseDose;
+    then done;
+
+    bind ambient = verify.ambient;
+    bind packageStatus = verify.status;
+    bind command = accept.command;
+    bind accept.acceptedCommand = meter.command;
+    bind product = meter.product;
+    bind meter.dose = dispense.dose;
+    bind deliveredDose = dispense.deliveredDose;
+  }
+
+  state def DispensingPackageStates {
+    entry action VerifyPackageIntegrity;
+
+    state SealedIdle;
+    state ReadyToDispense;
+    state Actuating;
+    state MeteringDose;
+    state Dispensing;
+    state Recovering;
+    state Empty;
+    state Faulted;
+
+    transition initial then SealedIdle;
+
+    transition SealedIdle_to_Ready
+      first SealedIdle
+      accept item ambient : AmbientEnvironment
+      if ambient.temperature >= 0.0 and ambient.temperature <= 40.0
+      then ReadyToDispense;
+
+    transition Ready_to_Actuating
+      first ReadyToDispense
+      accept item press : UserActuation
+      if press.appliedForce >= 12.0
+      then Actuating;
+
+    transition Actuating_to_Metering
+      first Actuating
+      if true
+      then MeteringDose;
+
+    transition Metering_to_Dispensing
+      first MeteringDose
+      if true
+      then Dispensing;
+
+    transition Dispensing_to_Recovering
+      first Dispensing
+      if true
+      then Recovering;
+
+    transition Recovering_to_Ready
+      first Recovering
+      if true
+      then ReadyToDispense;
+
+    transition Ready_to_Empty
+      first ReadyToDispense
+      if true
+      then Empty;
+
+    transition Any_to_Faulted
+      first SealedIdle
+      then Faulted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject package : AptarGroupDispensingPackage;
+
+    doc
+      /* The system shall protect a contained product and dispense a controlled dose through an integrated package, closure, pump, actuator, and nozzle architecture. */
+
+    require constraint {
+      package.primaryFunction ==
+      "Provide reliable containment, protection, and controlled dispensing of a product from a package to a user or application target."
+    }
+  }
+
+  requirement def DoseAccuracyRequirement {
+    subject pump : PumpMechanism;
+
+    doc
+      /* Each nominal actuation shall deliver a dose within +/-5 percent of the target dose volume under normal operating conditions. */
+
+    require constraint {
+      pump.doseAccuracy >= 95.0
+    }
+  }
+
+  requirement def SealIntegrityRequirement {
+    subject seal : ClosureAndSeal;
+
+    doc
+      /* The closure and seal shall limit unintended leakage while preserving product quality between dispensing events. */
+
+    require constraint {
+      seal.leakRateLimit_ml_per_s <= 0.001 and
+      seal.tamperEvidencePresent == true
+    }
+  }
+
+  requirement def UserForceRequirement {
+    subject pump : PumpMechanism;
+
+    doc
+      /* The dispensing mechanism shall be operable by a typical user without requiring excessive actuation force. */
+
+    require constraint {
+      pump.minimumActuationForce <= 12.0 and
+      pump.maximumActuationForce <= 45.0
+    }
+  }
+
+  requirement def ProductProtectionRequirement {
+    subject package : AptarGroupDispensingPackage;
+
+    doc
+      /* The package shall reduce contamination exposure by maintaining a protected reservoir, sealed closure, controlled dose path, and protective cap. */
+
+    require constraint {
+      package.cap.contaminationBarrierEfficiency_percent >= 99.0 and
+      package.seal.tamperEvidencePresent == true
+    }
+  }
+
+  requirement def ReuseCycleRequirement {
+    subject pump : PumpMechanism;
+
+    doc
+      /* After a dispensing event, the pump shall return to a ready state within the specified recharge time. */
+
+    require constraint {
+      pump.rechargeTime <= 0.6
+    }
+  }
+
+  part aptarGroupSystem : AptarGroupDispensingPackage {
+    attribute primaryFunction =
+      "Provide reliable containment, protection, and controlled dispensing of a product from a package to a user or application target.";
+
+    part reservoir {
+      attribute nominalCapacity = 100.0;
+      attribute currentFillVolume = 85.0;
+      attribute headspacePressure = 101.3;
+    }
+
+    part seal {
+      attribute sealCompressionForce = 18.0;
+      attribute leakRateLimit_ml_per_s = 0.001;
+      attribute tamperEvidencePresent = true;
+    }
+
+    part pump {
+      attribute nominalDoseVolume = 0.25;
+      attribute minimumActuationForce = 12.0;
+      attribute maximumActuationForce = 45.0;
+      attribute rechargeTime = 0.6;
+      attribute doseAccuracy = 95.0;
+    }
+
+    part actuator {
+      attribute travelDistance_mm = 4.0;
+      attribute returnSpringForce = 8.0;
+    }
+
+    part nozzle {
+      attribute orificeDiameter_mm = 0.35;
+      attribute sprayConeAngle_deg = 45.0;
+      attribute residualVolumeLimit = 0.02;
+    }
+
+    part cap {
+      attribute installed = true;
+      attribute contaminationBarrierEfficiency_percent = 99.0;
+    }
+  }
+
+}
+tokens used
+4,496
+package AptarGroupHighLevelModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Volume_ml :> Real {
+    unit = "mL";
+  }
+
+  attribute def FlowRate_ml_per_s :> Real {
+    unit = "mL/s";
+  }
+
+  attribute def Pressure_kPa :> Real {
+    unit = "kPa";
+  }
+
+  attribute def Force_N :> Real {
+    unit = "N";
+  }
+
+  attribute def Time_s :> Real {
+    unit = "s";
+  }
+
+  attribute def Temperature_C :> Real {
+    unit = "degC";
+  }
+
+  attribute def DoseAccuracy_percent :> Real {
+    unit = "%";
+  }
+
+  item def ContainedProduct {
+    attribute productName : String;
+    attribute formulationViscosity : Real;
+    attribute fillVolume : Volume_ml;
+    attribute safeStorageTemperatureMin : Temperature_C;
+    attribute safeStorageTemperatureMax : Temperature_C;
+  }
+
+  item def DispensedDose {
+    attribute doseVolume : Volume_ml;
+    attribute deliveryPressure : Pressure_kPa;
+    attribute deliveredAt : Time_s;
+  }
+
+  item def UserActuation {
+    attribute appliedForce : Force_N;
+    attribute actuationDuration : Time_s;
+  }
+
+  item def AmbientEnvironment {
+    attribute temperature : Temperature_C;
+    attribute relativeHumidity_percent : Real;
+  }
+
+  item def QualityStatus {
+    attribute sealIntegrityOk : Boolean;
+    attribute dosePathClear : Boolean;
+    attribute tamperEvidenceIntact : Boolean;
+  }
+
+  port def ProductOutletPort {
+    out item dose : DispensedDose;
+  }
+
+  port def ProductReservoirPort {
+    inout item product : ContainedProduct;
+  }
+
+  port def UserInputPort {
+    in item actuation : UserActuation;
+  }
+
+  port def EnvironmentPort {
+    in item ambient : AmbientEnvironment;
+  }
+
+  port def QualityPort {
+    out item status : QualityStatus;
+  }
+
+  part def ProductReservoir {
+    attribute nominalCapacity : Volume_ml = 100.0;
+    attribute currentFillVolume : Volume_ml;
+    attribute headspacePressure : Pressure_kPa;
+
+    port productAccess : ProductReservoirPort;
+    port environmentExposure : EnvironmentPort;
+  }
+
+  part def ClosureAndSeal {
+    attribute sealCompressionForce : Force_N;
+    attribute leakRateLimit_ml_per_s : FlowRate_ml_per_s = 0.001;
+    attribute tamperEvidencePresent : Boolean = true;
+
+    port productSide : ProductReservoirPort;
+    port environmentSide : EnvironmentPort;
+    port qualityOut : QualityPort;
+  }
+
+  part def PumpMechanism {
+    attribute nominalDoseVolume : Volume_ml = 0.25;
+    attribute minimumActuationForce : Force_N = 12.0;
+    attribute maximumActuationForce : Force_N = 45.0;
+    attribute rechargeTime : Time_s = 0.6;
+    attribute doseAccuracy : DoseAccuracy_percent = 95.0;
+
+    port productIn : ProductReservoirPort;
+    port userIn : UserInputPort;
+    port productOut : ProductOutletPort;
+    port qualityOut : QualityPort;
+  }
+
+  part def Actuator {
+    attribute travelDistance_mm : Real = 4.0;
+    attribute returnSpringForce : Force_N = 8.0;
+
+    port userIn : UserInputPort;
+    port pumpDrive : UserInputPort;
+  }
+
+  part def DispensingNozzle {
+    attribute orificeDiameter_mm : Real = 0.35;
+    attribute sprayConeAngle_deg : Real = 45.0;
+    attribute residualVolumeLimit : Volume_ml = 0.02;
+
+    port doseIn : ProductOutletPort;
+    port doseOut : ProductOutletPort;
+  }
+
+  part def ProtectiveCap {
+    attribute installed : Boolean = true;
+    attribute contaminationBarrierEfficiency_percent : Real = 99.0;
+
+    port environmentSide : EnvironmentPort;
+  }
+
+  part def LabelAndInstructions {
+    attribute brandOwner : String = "AptarGroup";
+    attribute primaryFunctionStatement : String =
+      "Protect contained product and dispense a controlled dose through an engineered closure, pump, actuator, and nozzle interface.";
+    attribute usageInstructionText : String =
+      "Press actuator once to deliver one measured dose while maintaining package integrity between uses.";
+  }
+
+  part def AptarGroupDispensingPackage {
+    attribute systemName : String = "AptarGroup Controlled Dispensing Package";
+    attribute intendedMarkets : String = "pharmaceutical, beauty, personal care, food, beverage, and home care packaging";
+    attribute primaryFunction : String =
+      "Provide reliable containment, protection, and controlled dispensing of a product from a package to a user or application target.";
+
+    part reservoir : ProductReservoir;
+    part seal : ClosureAndSeal;
+    part pump : PumpMechanism;
+    part actuator : Actuator;
+    part nozzle : DispensingNozzle;
+    part cap : ProtectiveCap;
+    part label : LabelAndInstructions;
+
+    port userCommand : UserInputPort;
+    port environment : EnvironmentPort;
+    port dispensedProduct : ProductOutletPort;
+    port qualityStatus : QualityPort;
+
+    connection userToActuator connect userCommand to actuator.userIn;
+    connection actuatorToPump connect actuator.pumpDrive to pump.userIn;
+    connection reservoirToSeal connect reservoir.productAccess to seal.productSide;
+    connection sealToPump connect seal.productSide to pump.productIn;
+    connection pumpToNozzle connect pump.productOut to nozzle.doseIn;
+    connection nozzleToOutlet connect nozzle.doseOut to dispensedProduct;
+    connection environmentToReservoir connect environment to reservoir.environmentExposure;
+    connection environmentToSeal connect environment to seal.environmentSide;
+    connection environmentToCap connect environment to cap.environmentSide;
+    connection sealQuality connect seal.qualityOut to qualityStatus;
+    connection pumpQuality connect pump.qualityOut to qualityStatus;
+  }
+
+  action def AcceptUserPress {
+    in item command : UserActuation;
+    out item acceptedCommand : UserActuation;
+
+    constraint validForce {
+      command.appliedForce >= 12.0 and command.appliedForce <= 45.0
+    }
+  }
+
+  action def MeterDose {
+    in item product : ContainedProduct;
+    in item command : UserActuation;
+    out item dose : DispensedDose;
+
+    attribute targetDose : Volume_ml = 0.25;
+    attribute allowedDoseErrorPercent : DoseAccuracy_percent = 5.0;
+
+    constraint meteredVolume {
+      dose.doseVolume >= targetDose * 0.95 and dose.doseVolume <= targetDose * 1.05
+    }
+  }
+
+  action def DispenseDose {
+    in item dose : DispensedDose;
+    out item deliveredDose : DispensedDose;
+
+    constraint positiveFlow {
+      deliveredDose.doseVolume > 0.0
+    }
+  }
+
+  action def VerifyPackageIntegrity {
+    in item ambient : AmbientEnvironment;
+    out item status : QualityStatus;
+
+    constraint integrityRequired {
+      status.sealIntegrityOk == true and
+      status.dosePathClear == true and
+      status.tamperEvidenceIntact == true
+    }
+  }
+
+  action def ControlledDispensingCycle {
+    in item command : UserActuation;
+    in item product : ContainedProduct;
+    in item ambient : AmbientEnvironment;
+    out item deliveredDose : DispensedDose;
+    out item packageStatus : QualityStatus;
+
+    first start;
+    then verify : VerifyPackageIntegrity;
+    then accept : AcceptUserPress;
+    then meter : MeterDose;
+    then dispense : DispenseDose;
+    then done;
+
+    bind ambient = verify.ambient;
+    bind packageStatus = verify.status;
+    bind command = accept.command;
+    bind accept.acceptedCommand = meter.command;
+    bind product = meter.product;
+    bind meter.dose = dispense.dose;
+    bind deliveredDose = dispense.deliveredDose;
+  }
+
+  state def DispensingPackageStates {
+    entry action VerifyPackageIntegrity;
+
+    state SealedIdle;
+    state ReadyToDispense;
+    state Actuating;
+    state MeteringDose;
+    state Dispensing;
+    state Recovering;
+    state Empty;
+    state Faulted;
+
+    transition initial then SealedIdle;
+
+    transition SealedIdle_to_Ready
+      first SealedIdle
+      accept item ambient : AmbientEnvironment
+      if ambient.temperature >= 0.0 and ambient.temperature <= 40.0
+      then ReadyToDispense;
+
+    transition Ready_to_Actuating
+      first ReadyToDispense
+      accept item press : UserActuation
+      if press.appliedForce >= 12.0
+      then Actuating;
+
+    transition Actuating_to_Metering
+      first Actuating
+      if true
+      then MeteringDose;
+
+    transition Metering_to_Dispensing
+      first MeteringDose
+      if true
+      then Dispensing;
+
+    transition Dispensing_to_Recovering
+      first Dispensing
+      if true
+      then Recovering;
+
+    transition Recovering_to_Ready
+      first Recovering
+      if true
+      then ReadyToDispense;
+
+    transition Ready_to_Empty
+      first ReadyToDispense
+      if true
+      then Empty;
+
+    transition Any_to_Faulted
+      first SealedIdle
+      then Faulted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject package : AptarGroupDispensingPackage;
+
+    doc
+      /* The system shall protect a contained product and dispense a controlled dose through an integrated package, closure, pump, actuator, and nozzle architecture. */
+
+    require constraint {
+      package.primaryFunction ==
+      "Provide reliable containment, protection, and controlled dispensing of a product from a package to a user or application target."
+    }
+  }
+
+  requirement def DoseAccuracyRequirement {
+    subject pump : PumpMechanism;
+
+    doc
+      /* Each nominal actuation shall deliver a dose within +/-5 percent of the target dose volume under normal operating conditions. */
+
+    require constraint {
+      pump.doseAccuracy >= 95.0
+    }
+  }
+
+  requirement def SealIntegrityRequirement {
+    subject seal : ClosureAndSeal;
+
+    doc
+      /* The closure and seal shall limit unintended leakage while preserving product quality between dispensing events. */
+
+    require constraint {
+      seal.leakRateLimit_ml_per_s <= 0.001 and
+      seal.tamperEvidencePresent == true
+    }
+  }
+
+  requirement def UserForceRequirement {
+    subject pump : PumpMechanism;
+
+    doc
+      /* The dispensing mechanism shall be operable by a typical user without requiring excessive actuation force. */
+
+    require constraint {
+      pump.minimumActuationForce <= 12.0 and
+      pump.maximumActuationForce <= 45.0
+    }
+  }
+
+  requirement def ProductProtectionRequirement {
+    subject package : AptarGroupDispensingPackage;
+
+    doc
+      /* The package shall reduce contamination exposure by maintaining a protected reservoir, sealed closure, controlled dose path, and protective cap. */
+
+    require constraint {
+      package.cap.contaminationBarrierEfficiency_percent >= 99.0 and
+      package.seal.tamperEvidencePresent == true
+    }
+  }
+
+  requirement def ReuseCycleRequirement {
+    subject pump : PumpMechanism;
+
+    doc
+      /* After a dispensing event, the pump shall return to a ready state within the specified recharge time. */
+
+    require constraint {
+      pump.rechargeTime <= 0.6
+    }
+  }
+
+  part aptarGroupSystem : AptarGroupDispensingPackage {
+    attribute primaryFunction =
+      "Provide reliable containment, protection, and controlled dispensing of a product from a package to a user or application target.";
+
+    part reservoir {
+      attribute nominalCapacity = 100.0;
+      attribute currentFillVolume = 85.0;
+      attribute headspacePressure = 101.3;
+    }
+
+    part seal {
+      attribute sealCompressionForce = 18.0;
+      attribute leakRateLimit_ml_per_s = 0.001;
+      attribute tamperEvidencePresent = true;
+    }
+
+    part pump {
+      attribute nominalDoseVolume = 0.25;
+      attribute minimumActuationForce = 12.0;
+      attribute maximumActuationForce = 45.0;
+      attribute rechargeTime = 0.6;
+      attribute doseAccuracy = 95.0;
+    }
+
+    part actuator {
+      attribute travelDistance_mm = 4.0;
+      attribute returnSpringForce = 8.0;
+    }
+
+    part nozzle {
+      attribute orificeDiameter_mm = 0.35;
+      attribute sprayConeAngle_deg = 45.0;
+      attribute residualVolumeLimit = 0.02;
+    }
+
+    part cap {
+      attribute installed = true;
+      attribute contaminationBarrierEfficiency_percent = 99.0;
+    }
+  }
+
+}

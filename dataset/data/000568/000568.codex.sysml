@@ -1,0 +1,269 @@
+package CerebralShuntSystemModel {
+
+  attribute def Pressure_mmHg :> ScalarValues::Real;
+  attribute def FlowRate_mL_per_min :> ScalarValues::Real;
+  attribute def Volume_mL :> ScalarValues::Real;
+  attribute def Length_mm :> ScalarValues::Real;
+  attribute def Resistance_mmHg_min_per_mL :> ScalarValues::Real;
+  attribute def Time_s :> ScalarValues::Real;
+  attribute def Temperature_C :> ScalarValues::Real;
+  attribute def Percent :> ScalarValues::Real;
+
+  item def CerebrospinalFluid {
+    attribute pressure : Pressure_mmHg;
+    attribute flowRate : FlowRate_mL_per_min;
+    attribute volume : Volume_mL;
+    attribute temperature : Temperature_C;
+  }
+
+  item def DrainageSignal {
+    attribute sensedPressure : Pressure_mmHg;
+    attribute valveOpening : Percent;
+    attribute obstructionDetected : ScalarValues::Boolean;
+  }
+
+  port def CSFPort {
+    inout csf : CerebrospinalFluid;
+  }
+
+  port def SignalPort {
+    inout signal : DrainageSignal;
+  }
+
+  part def VentricularCatheter {
+    port ventricularEnd : CSFPort;
+    port valveEnd : CSFPort;
+
+    attribute innerDiameter : Length_mm = 1.2;
+    attribute insertionLength : Length_mm = 80.0;
+    attribute hydraulicResistance : Resistance_mmHg_min_per_mL = 0.6;
+
+    action collectCSF {
+      in ventricularCSF : CerebrospinalFluid;
+      out catheterCSF : CerebrospinalFluid;
+
+      objective {
+        transfer ventricularCSF to catheterCSF;
+      }
+    }
+  }
+
+  part def ProgrammableValve {
+    port inlet : CSFPort;
+    port outlet : CSFPort;
+    port control : SignalPort;
+
+    attribute openingPressure : Pressure_mmHg = 10.0;
+    attribute minimumOpeningPressure : Pressure_mmHg = 5.0;
+    attribute maximumOpeningPressure : Pressure_mmHg = 20.0;
+    attribute nominalFlowRate : FlowRate_mL_per_min = 0.35;
+    attribute valveOpening : Percent = 50.0;
+
+    action regulateFlow {
+      in inletCSF : CerebrospinalFluid;
+      in pressureSignal : DrainageSignal;
+      out outletCSF : CerebrospinalFluid;
+
+      objective {
+        if inletCSF.pressure > openingPressure then
+          transfer inletCSF to outletCSF;
+        end;
+      }
+    }
+  }
+
+  part def AntiSiphonDevice {
+    port inlet : CSFPort;
+    port outlet : CSFPort;
+
+    attribute postureCompensationPressure : Pressure_mmHg = 6.0;
+    attribute maximumAllowedSiphonFlow : FlowRate_mL_per_min = 0.7;
+
+    action limitOverDrainage {
+      in valveCSF : CerebrospinalFluid;
+      out compensatedCSF : CerebrospinalFluid;
+
+      objective {
+        constrain compensatedCSF.flowRate <= maximumAllowedSiphonFlow;
+      }
+    }
+  }
+
+  part def DistalCatheter {
+    port valveEnd : CSFPort;
+    port drainageEnd : CSFPort;
+
+    attribute innerDiameter : Length_mm = 1.1;
+    attribute routedLength : Length_mm = 600.0;
+    attribute hydraulicResistance : Resistance_mmHg_min_per_mL = 1.1;
+
+    action deliverCSF {
+      in shuntedCSF : CerebrospinalFluid;
+      out absorbedCSF : CerebrospinalFluid;
+
+      objective {
+        transfer shuntedCSF to absorbedCSF;
+      }
+    }
+  }
+
+  part def PressureSensor {
+    port sensedFluid : CSFPort;
+    port measurement : SignalPort;
+
+    attribute sensingRangeLow : Pressure_mmHg = 0.0;
+    attribute sensingRangeHigh : Pressure_mmHg = 40.0;
+    attribute samplePeriod : Time_s = 5.0;
+
+    action sensePressure {
+      in csf : CerebrospinalFluid;
+      out signal : DrainageSignal;
+
+      objective {
+        signal.sensedPressure = csf.pressure;
+      }
+    }
+  }
+
+  part def CerebralVentricle {
+    port csfOutlet : CSFPort;
+
+    attribute normalPressureLow : Pressure_mmHg = 7.0;
+    attribute normalPressureHigh : Pressure_mmHg = 15.0;
+    attribute elevatedPressureThreshold : Pressure_mmHg = 20.0;
+  }
+
+  part def PeritonealCavity {
+    port csfInlet : CSFPort;
+
+    attribute absorptionCapacity : FlowRate_mL_per_min = 0.5;
+    attribute baselinePressure : Pressure_mmHg = 5.0;
+  }
+
+  action def DivertCerebrospinalFluid {
+    in ventricularCSF : CerebrospinalFluid;
+    out drainedCSF : CerebrospinalFluid;
+
+    objective {
+      move cerebrospinal fluid from cerebral ventricles to a distal absorption site;
+      reduce ventricular pressure toward a prescribed therapeutic range;
+    }
+  }
+
+  state def ShuntOperatingState {
+    state Monitoring;
+    state Closed;
+    state Draining;
+    state AntiSiphonLimited;
+    state SuspectedObstruction;
+    state ServiceRequired;
+
+    transition first Monitoring;
+
+    transition Monitoring to Closed
+      if pressureSensor.measurement.signal.sensedPressure <= valve.openingPressure;
+
+    transition Monitoring to Draining
+      if pressureSensor.measurement.signal.sensedPressure > valve.openingPressure;
+
+    transition Draining to AntiSiphonLimited
+      if antiSiphon.outlet.csf.flowRate > antiSiphon.maximumAllowedSiphonFlow;
+
+    transition Draining to Monitoring
+      if ventricle.csfOutlet.csf.pressure <= ventricle.normalPressureHigh;
+
+    transition Monitoring to SuspectedObstruction
+      if pressureSensor.measurement.signal.obstructionDetected == true;
+
+    transition SuspectedObstruction to ServiceRequired
+      if ventricle.csfOutlet.csf.pressure >= ventricle.elevatedPressureThreshold;
+  }
+
+  part def CerebralShunt {
+    port ventricularInlet : CSFPort;
+    port distalOutlet : CSFPort;
+
+    part ventricle : CerebralVentricle;
+    part proximalCatheter : VentricularCatheter;
+    part valve : ProgrammableValve;
+    part antiSiphon : AntiSiphonDevice;
+    part distalCatheter : DistalCatheter;
+    part pressureSensor : PressureSensor;
+    part absorptionSite : PeritonealCavity;
+
+    connect ventricle.csfOutlet to ventricularInlet;
+    connect ventricularInlet to proximalCatheter.ventricularEnd;
+    connect proximalCatheter.valveEnd to valve.inlet;
+    connect valve.outlet to antiSiphon.inlet;
+    connect antiSiphon.outlet to distalCatheter.valveEnd;
+    connect distalCatheter.drainageEnd to distalOutlet;
+    connect distalOutlet to absorptionSite.csfInlet;
+    connect pressureSensor.sensedFluid to proximalCatheter.valveEnd;
+    connect pressureSensor.measurement to valve.control;
+
+    attribute targetPressureLow : Pressure_mmHg = 7.0;
+    attribute targetPressureHigh : Pressure_mmHg = 15.0;
+    attribute maximumSafeFlow : FlowRate_mL_per_min = 0.7;
+    attribute minimumTherapeuticFlow : FlowRate_mL_per_min = 0.05;
+
+    perform action divertCSF : DivertCerebrospinalFluid {
+      in ventricularCSF = ventricularInlet.csf;
+      out drainedCSF = distalOutlet.csf;
+    }
+
+    exhibit state operatingState : ShuntOperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject shunt : CerebralShunt;
+
+    require constraint {
+      shunt.divertCSF.objective == move cerebrospinal fluid from cerebral ventricles to a distal absorption site;
+    }
+  }
+
+  requirement def PressureReductionRequirement {
+    subject shunt : CerebralShunt;
+
+    require constraint {
+      if shunt.ventricle.csfOutlet.csf.pressure > shunt.ventricle.elevatedPressureThreshold then
+        shunt.distalOutlet.csf.flowRate >= shunt.minimumTherapeuticFlow;
+      end;
+    }
+  }
+
+  requirement def OverDrainageProtectionRequirement {
+    subject shunt : CerebralShunt;
+
+    require constraint {
+      shunt.distalOutlet.csf.flowRate <= shunt.maximumSafeFlow;
+    }
+  }
+
+  requirement def ValveAdjustabilityRequirement {
+    subject valve : ProgrammableValve;
+
+    require constraint {
+      valve.openingPressure >= valve.minimumOpeningPressure and
+      valve.openingPressure <= valve.maximumOpeningPressure;
+    }
+  }
+
+  requirement def PatencyMonitoringRequirement {
+    subject shunt : CerebralShunt;
+
+    require constraint {
+      shunt.pressureSensor.measurement.signal.obstructionDetected == true implies
+      shunt.operatingState == ShuntOperatingState::SuspectedObstruction or
+      shunt.operatingState == ShuntOperatingState::ServiceRequired;
+    }
+  }
+
+  part cerebralShuntSystem : CerebralShunt;
+
+  satisfy PrimaryFunctionRequirement by cerebralShuntSystem;
+  satisfy PressureReductionRequirement by cerebralShuntSystem;
+  satisfy OverDrainageProtectionRequirement by cerebralShuntSystem;
+  satisfy ValveAdjustabilityRequirement by cerebralShuntSystem.valve;
+  satisfy PatencyMonitoringRequirement by cerebralShuntSystem;
+}

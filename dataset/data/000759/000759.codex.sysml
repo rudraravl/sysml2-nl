@@ -1,0 +1,465 @@
+package SengstakenBlakemoreTubeSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "mmHg";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "mL";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "mL/min";
+    }
+
+    attribute def Length {
+        :> ScalarValues::Real;
+        unit = "cm";
+    }
+
+    attribute def Force {
+        :> ScalarValues::Real;
+        unit = "N";
+    }
+
+    attribute def Duration {
+        :> ScalarValues::Real;
+        unit = "min";
+    }
+
+    attribute def BooleanSignal {
+        :> ScalarValues::Boolean;
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute volume : Volume;
+    }
+
+    item def SuctionFluid {
+        attribute flowRate : FlowRate;
+        attribute collectedVolume : Volume;
+    }
+
+    item def GastricContent {
+        attribute flowRate : FlowRate;
+        attribute collectedVolume : Volume;
+    }
+
+    item def Blood {
+        attribute flowRate : FlowRate;
+        attribute collectedVolume : Volume;
+    }
+
+    item def PatientEsophagus {
+        attribute varicealBleedingPresent : BooleanSignal;
+        attribute esophagealWallPressure : Pressure;
+    }
+
+    item def PatientStomach {
+        attribute gastricWallPressure : Pressure;
+        attribute gastricContentVolume : Volume;
+    }
+
+    item def InflationCommand {
+        attribute targetPressure : Pressure;
+        attribute targetVolume : Volume;
+    }
+
+    item def DeflationCommand {
+        attribute commanded : BooleanSignal;
+    }
+
+    item def SuctionCommand {
+        attribute commanded : BooleanSignal;
+        attribute targetFlowRate : FlowRate;
+    }
+
+    item def PressureReading {
+        attribute measuredPressure : Pressure;
+    }
+
+    item def BleedingStatus {
+        attribute activeBleeding : BooleanSignal;
+        attribute estimatedBloodFlowRate : FlowRate;
+    }
+
+    port def InflationPort {
+        out item airOut : Air;
+        in item commandIn : InflationCommand;
+        out item readingOut : PressureReading;
+    }
+
+    port def DeflationPort {
+        in item commandIn : DeflationCommand;
+        out item airOut : Air;
+    }
+
+    port def SuctionPort {
+        in item commandIn : SuctionCommand;
+        in item gastricContentIn : GastricContent;
+        in item bloodIn : Blood;
+        out item suctionFluidOut : SuctionFluid;
+    }
+
+    port def ContactPort {
+        inout item esophagus : PatientEsophagus;
+        inout item stomach : PatientStomach;
+        out item bleedingStatus : BleedingStatus;
+    }
+
+    port def OperatorInterfacePort {
+        out item gastricInflationCommand : InflationCommand;
+        out item esophagealInflationCommand : InflationCommand;
+        out item gastricDeflationCommand : DeflationCommand;
+        out item esophagealDeflationCommand : DeflationCommand;
+        out item suctionCommand : SuctionCommand;
+        in item gastricPressureReading : PressureReading;
+        in item esophagealPressureReading : PressureReading;
+        in item bleedingStatus : BleedingStatus;
+    }
+
+    part def InflationLumen {
+        attribute internalDiameter : Length;
+        attribute length : Length;
+        attribute maximumRatedPressure : Pressure;
+        port proximalPort : InflationPort;
+        port distalPort : InflationPort;
+    }
+
+    part def SuctionLumen {
+        attribute internalDiameter : Length;
+        attribute length : Length;
+        attribute maximumFlowRate : FlowRate;
+        port proximalPort : SuctionPort;
+        port distalPort : SuctionPort;
+    }
+
+    part def GastricBalloon {
+        attribute inflatedVolume : Volume;
+        attribute targetVolume : Volume;
+        attribute internalPressure : Pressure;
+        attribute maximumSafePressure : Pressure;
+        attribute contactForceOnFundus : Force;
+        port inflationPort : InflationPort;
+        port contactPort : ContactPort;
+    }
+
+    part def EsophagealBalloon {
+        attribute inflatedVolume : Volume;
+        attribute targetPressure : Pressure;
+        attribute internalPressure : Pressure;
+        attribute maximumSafePressure : Pressure;
+        attribute compressiveForceOnVarices : Force;
+        port inflationPort : InflationPort;
+        port contactPort : ContactPort;
+    }
+
+    part def GastricAspirationChannel {
+        attribute drainageFlowRate : FlowRate;
+        attribute collectedVolume : Volume;
+        port suctionPort : SuctionPort;
+        port gastricTipPort : SuctionPort;
+    }
+
+    part def ExternalConnectorManifold {
+        port operatorPort : OperatorInterfacePort;
+        port gastricBalloonInflationPort : InflationPort;
+        port esophagealBalloonInflationPort : InflationPort;
+        port gastricAspirationPort : SuctionPort;
+    }
+
+    part def PressureMonitoringAssembly {
+        attribute gastricBalloonPressure : Pressure;
+        attribute esophagealBalloonPressure : Pressure;
+        port gastricInflationPort : InflationPort;
+        port esophagealInflationPort : InflationPort;
+        port operatorPort : OperatorInterfacePort;
+    }
+
+    part def SengstakenBlakemoreTube {
+        attribute insertedLength : Length = 50 [cm];
+        attribute shaftOuterDiameter : Length = 1.0 [cm];
+        attribute primaryFunction : String = "Temporarily control severe upper gastrointestinal hemorrhage from esophageal or gastric varices by tamponade using gastric and esophageal balloon compression while allowing gastric aspiration.";
+
+        part gastricInflationLumen : InflationLumen {
+            attribute internalDiameter = 0.15 [cm];
+            attribute length = 100 [cm];
+            attribute maximumRatedPressure = 60 [mmHg];
+        }
+
+        part esophagealInflationLumen : InflationLumen {
+            attribute internalDiameter = 0.15 [cm];
+            attribute length = 100 [cm];
+            attribute maximumRatedPressure = 60 [mmHg];
+        }
+
+        part aspirationLumen : SuctionLumen {
+            attribute internalDiameter = 0.30 [cm];
+            attribute length = 100 [cm];
+            attribute maximumFlowRate = 500 [mL/min];
+        }
+
+        part gastricBalloon : GastricBalloon {
+            attribute targetVolume = 250 [mL];
+            attribute maximumSafePressure = 45 [mmHg];
+        }
+
+        part esophagealBalloon : EsophagealBalloon {
+            attribute targetPressure = 30 [mmHg];
+            attribute maximumSafePressure = 45 [mmHg];
+        }
+
+        part gastricAspirationChannel : GastricAspirationChannel {
+            attribute drainageFlowRate = 100 [mL/min];
+        }
+
+        part connectorManifold : ExternalConnectorManifold;
+
+        part pressureMonitoringAssembly : PressureMonitoringAssembly;
+
+        port operatorInterface : OperatorInterfacePort;
+        port patientContact : ContactPort;
+
+        connection gastricInflationConnection
+            connect connectorManifold.gastricBalloonInflationPort to gastricInflationLumen.proximalPort;
+
+        connection gastricBalloonConnection
+            connect gastricInflationLumen.distalPort to gastricBalloon.inflationPort;
+
+        connection esophagealInflationConnection
+            connect connectorManifold.esophagealBalloonInflationPort to esophagealInflationLumen.proximalPort;
+
+        connection esophagealBalloonConnection
+            connect esophagealInflationLumen.distalPort to esophagealBalloon.inflationPort;
+
+        connection aspirationConnection
+            connect connectorManifold.gastricAspirationPort to aspirationLumen.proximalPort;
+
+        connection distalAspirationConnection
+            connect aspirationLumen.distalPort to gastricAspirationChannel.gastricTipPort;
+
+        connection operatorManifoldConnection
+            connect operatorInterface to connectorManifold.operatorPort;
+
+        connection gastricPressureMonitoringConnection
+            connect pressureMonitoringAssembly.gastricInflationPort to gastricInflationLumen.proximalPort;
+
+        connection esophagealPressureMonitoringConnection
+            connect pressureMonitoringAssembly.esophagealInflationPort to esophagealInflationLumen.proximalPort;
+
+        connection monitorOperatorConnection
+            connect pressureMonitoringAssembly.operatorPort to operatorInterface;
+
+        connection gastricContactConnection
+            connect gastricBalloon.contactPort to patientContact;
+
+        connection esophagealContactConnection
+            connect esophagealBalloon.contactPort to patientContact;
+    }
+
+    action def InsertTube {
+        in item stomach : PatientStomach;
+        out item tubePositioned : BooleanSignal;
+        attribute insertionDepth : Length = 50 [cm];
+    }
+
+    action def InflateGastricBalloon {
+        in item command : InflationCommand;
+        out item balloonAir : Air;
+        out item pressureReading : PressureReading;
+        attribute nominalVolume : Volume = 250 [mL];
+        attribute maximumPressure : Pressure = 45 [mmHg];
+    }
+
+    action def ApplyGastricTraction {
+        in item stomach : PatientStomach;
+        out item stomachCompressed : PatientStomach;
+        attribute nominalTractionForce : Force = 10 [N];
+    }
+
+    action def InflateEsophagealBalloon {
+        in item command : InflationCommand;
+        out item balloonAir : Air;
+        out item pressureReading : PressureReading;
+        attribute nominalPressure : Pressure = 30 [mmHg];
+        attribute maximumPressure : Pressure = 45 [mmHg];
+    }
+
+    action def AspirateGastricContents {
+        in item command : SuctionCommand;
+        in item gastricContent : GastricContent;
+        in item blood : Blood;
+        out item suctionFluid : SuctionFluid;
+        attribute nominalFlowRate : FlowRate = 100 [mL/min];
+    }
+
+    action def MonitorTamponade {
+        in item gastricPressure : PressureReading;
+        in item esophagealPressure : PressureReading;
+        in item bleedingStatus : BleedingStatus;
+        out item safeToContinue : BooleanSignal;
+        attribute monitoringInterval : Duration = 5 [min];
+    }
+
+    action def DeflateBalloons {
+        in item gastricCommand : DeflationCommand;
+        in item esophagealCommand : DeflationCommand;
+        out item releasedAir : Air;
+    }
+
+    action def ControlVaricealHemorrhage {
+        part tube : SengstakenBlakemoreTube;
+        in item patientEsophagus : PatientEsophagus;
+        in item patientStomach : PatientStomach;
+        out item bleedingControlled : BleedingStatus;
+
+        first start;
+        then insert : InsertTube;
+        then inflateGastric : InflateGastricBalloon;
+        then applyTraction : ApplyGastricTraction;
+        then inflateEsophageal : InflateEsophagealBalloon;
+        then aspirate : AspirateGastricContents;
+        then monitor : MonitorTamponade;
+        then finish;
+
+        flow patientStomach to insert.stomach;
+        flow insert.tubePositioned to inflateGastric.commandIn;
+        flow inflateGastric.pressureReading to monitor.gastricPressure;
+        flow inflateEsophageal.pressureReading to monitor.esophagealPressure;
+        flow patientStomach to applyTraction.stomach;
+        flow aspirate.suctionFluid to bleedingControlled;
+    }
+
+    state def TubeClinicalUseStateMachine {
+        state Ready;
+        state Inserted;
+        state GastricBalloonInflated;
+        state GastricTamponadeApplied;
+        state EsophagealBalloonInflated;
+        state HemorrhageControlled;
+        state Monitoring;
+        state Deflating;
+        state Removed;
+        state UnsafePressureDetected;
+
+        transition initial then Ready;
+
+        transition Ready_to_Inserted
+            first Ready
+            accept InsertTube
+            then Inserted;
+
+        transition Inserted_to_GastricBalloonInflated
+            first Inserted
+            accept InflateGastricBalloon
+            then GastricBalloonInflated;
+
+        transition GastricBalloonInflated_to_GastricTamponadeApplied
+            first GastricBalloonInflated
+            accept ApplyGastricTraction
+            then GastricTamponadeApplied;
+
+        transition GastricTamponadeApplied_to_EsophagealBalloonInflated
+            first GastricTamponadeApplied
+            accept InflateEsophagealBalloon
+            if esophagealBalloonNeeded
+            then EsophagealBalloonInflated;
+
+        transition GastricTamponadeApplied_to_HemorrhageControlled
+            first GastricTamponadeApplied
+            if bleedingStopped
+            then HemorrhageControlled;
+
+        transition EsophagealBalloonInflated_to_HemorrhageControlled
+            first EsophagealBalloonInflated
+            if bleedingStopped
+            then HemorrhageControlled;
+
+        transition HemorrhageControlled_to_Monitoring
+            first HemorrhageControlled
+            accept MonitorTamponade
+            then Monitoring;
+
+        transition Monitoring_to_UnsafePressureDetected
+            first Monitoring
+            if measuredPressureExceedsSafeLimit
+            then UnsafePressureDetected;
+
+        transition UnsafePressureDetected_to_Deflating
+            first UnsafePressureDetected
+            accept DeflateBalloons
+            then Deflating;
+
+        transition Monitoring_to_Deflating
+            first Monitoring
+            if therapyComplete
+            then Deflating;
+
+        transition Deflating_to_Removed
+            first Deflating
+            then Removed;
+    }
+
+    requirement def HighLevelPrimaryFunctionRequirement {
+        doc /* The system shall provide temporary mechanical tamponade of bleeding esophageal or gastric varices by positioning a tube across the upper gastrointestinal tract, inflating a gastric balloon for anchoring and fundal compression, optionally inflating an esophageal balloon for direct esophageal variceal compression, and providing gastric aspiration. */
+    }
+
+    requirement def GastricBalloonVolumeRequirement {
+        doc /* The gastric balloon shall support controlled inflation to a nominal volume of 250 mL while maintaining internal pressure at or below 45 mmHg. */
+        subject tube : SengstakenBlakemoreTube;
+        require constraint { tube.gastricBalloon.inflatedVolume <= 250 [mL] and tube.gastricBalloon.internalPressure <= 45 [mmHg] }
+    }
+
+    requirement def EsophagealBalloonPressureRequirement {
+        doc /* The esophageal balloon shall support controlled inflation to a nominal therapeutic pressure of 30 mmHg and shall remain at or below 45 mmHg. */
+        subject tube : SengstakenBlakemoreTube;
+        require constraint { tube.esophagealBalloon.internalPressure <= 45 [mmHg] }
+    }
+
+    requirement def AspirationRequirement {
+        doc /* The aspiration lumen shall permit removal of gastric contents and blood from the stomach during tamponade therapy. */
+        subject tube : SengstakenBlakemoreTube;
+        require constraint { tube.gastricAspirationChannel.drainageFlowRate >= 50 [mL/min] }
+    }
+
+    requirement def PressureMonitoringRequirement {
+        doc /* The system shall provide pressure readings for both gastric and esophageal balloons during use. */
+        subject tube : SengstakenBlakemoreTube;
+        require constraint { tube.pressureMonitoringAssembly.gastricBalloonPressure <= 45 [mmHg] and tube.pressureMonitoringAssembly.esophagealBalloonPressure <= 45 [mmHg] }
+    }
+
+    requirement def TemporaryUseRequirement {
+        doc /* The system shall be modeled as a temporary emergency bridge therapy intended to control hemorrhage until definitive endoscopic, interventional, or surgical treatment is available. */
+        subject therapy : ControlVaricealHemorrhage;
+    }
+
+    part def EmergencyVaricealBleedingControlSystem {
+        attribute systemPurpose : String = "High-level emergency system using a Sengstaken-Blakemore tube to temporarily control life-threatening upper gastrointestinal variceal bleeding by balloon tamponade and gastric aspiration.";
+
+        part tube : SengstakenBlakemoreTube;
+        item esophagus : PatientEsophagus {
+            attribute varicealBleedingPresent = true;
+            attribute esophagealWallPressure = 0 [mmHg];
+        }
+        item stomach : PatientStomach {
+            attribute gastricWallPressure = 0 [mmHg];
+            attribute gastricContentVolume = 500 [mL];
+        }
+
+        perform action primaryTherapy : ControlVaricealHemorrhage;
+
+        satisfy HighLevelPrimaryFunctionRequirement by tube;
+        satisfy GastricBalloonVolumeRequirement by tube.gastricBalloon;
+        satisfy EsophagealBalloonPressureRequirement by tube.esophagealBalloon;
+        satisfy AspirationRequirement by tube.gastricAspirationChannel;
+        satisfy PressureMonitoringRequirement by tube.pressureMonitoringAssembly;
+        satisfy TemporaryUseRequirement by primaryTherapy;
+    }
+}

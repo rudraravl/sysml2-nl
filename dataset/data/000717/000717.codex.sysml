@@ -1,0 +1,561 @@
+package OptoelectronicPlethysmographySystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Percentage :> Real;
+  attribute def ConfidenceScore :> Real;
+  attribute def SampleCount :> Integer;
+
+  attribute def BreathPhaseKind {
+    enum expiration;
+    enum inspiration;
+    enum pause;
+    enum artifact;
+  }
+
+  attribute def MarkerStatusKind {
+    enum visible;
+    enum occluded;
+    enum saturated;
+    enum untracked;
+  }
+
+  attribute def AcquisitionModeKind {
+    enum standby;
+    enum calibration;
+    enum measurement;
+    enum review;
+    enum fault;
+  }
+
+  item def InfraredLight {
+    attribute wavelength : LengthValue;
+    attribute radiantPower : PowerValue;
+  }
+
+  item def ReflectedMarkerImage {
+    attribute frameIndex : Integer;
+    attribute timestamp : TimeValue;
+    attribute exposureTime : TimeValue;
+    attribute imageWidth : Integer;
+    attribute imageHeight : Integer;
+  }
+
+  item def MarkerCoordinate {
+    attribute markerId : String;
+    attribute x : LengthValue;
+    attribute y : LengthValue;
+    attribute z : LengthValue;
+    attribute status : MarkerStatusKind;
+    attribute trackingConfidence : ConfidenceScore;
+  }
+
+  item def ThoracoAbdominalMesh {
+    attribute timestamp : TimeValue;
+    attribute vertexCount : Integer;
+    attribute meanMarkerConfidence : ConfidenceScore;
+    attribute surfaceArea : AreaValue;
+  }
+
+  item def CompartmentVolume {
+    attribute ribCagePulmonary : VolumeValue;
+    attribute ribCageAbdominal : VolumeValue;
+    attribute abdomen : VolumeValue;
+    attribute totalChestWall : VolumeValue;
+    attribute timestamp : TimeValue;
+  }
+
+  item def VentilatoryMetrics {
+    attribute tidalVolume : VolumeValue;
+    attribute respiratoryRate : FrequencyValue;
+    attribute minuteVentilation : VolumeFlowRateValue;
+    attribute inspiratoryTime : TimeValue;
+    attribute expiratoryTime : TimeValue;
+    attribute dutyCycle : Percentage;
+    attribute breathPhase : BreathPhaseKind;
+  }
+
+  item def PatientMeasurementSession {
+    attribute patientIdentifier : String;
+    attribute sessionIdentifier : String;
+    attribute startTime : TimeValue;
+    attribute markerCount : Integer;
+    attribute samplingRate : FrequencyValue;
+  }
+
+  item def ClinicalReport {
+    attribute sessionIdentifier : String;
+    attribute meanTidalVolume : VolumeValue;
+    attribute meanRespiratoryRate : FrequencyValue;
+    attribute meanMinuteVentilation : VolumeFlowRateValue;
+    attribute artifactPercentage : Percentage;
+    attribute reportGeneratedAt : TimeValue;
+  }
+
+  item def CalibrationData {
+    attribute cameraCount : Integer;
+    attribute calibrationError : LengthValue;
+    attribute coordinateFrameName : String;
+    attribute validUntil : TimeValue;
+  }
+
+  item def FaultEvent {
+    attribute code : String;
+    attribute severity : Integer;
+    attribute message : String;
+    attribute occurredAt : TimeValue;
+  }
+
+  port def InfraredEmitterPort {
+    out item emittedLight : InfraredLight;
+  }
+
+  port def CameraImagePort {
+    in item incomingLight : InfraredLight;
+    out item imageFrame : ReflectedMarkerImage;
+  }
+
+  port def MarkerCoordinatePort {
+    out item markerCoordinates : MarkerCoordinate;
+  }
+
+  port def MeshPort {
+    in item markerCoordinates : MarkerCoordinate;
+    out item mesh : ThoracoAbdominalMesh;
+  }
+
+  port def VolumePort {
+    in item mesh : ThoracoAbdominalMesh;
+    out item compartmentVolume : CompartmentVolume;
+  }
+
+  port def MetricsPort {
+    in item compartmentVolume : CompartmentVolume;
+    out item metrics : VentilatoryMetrics;
+  }
+
+  port def ReportPort {
+    in item metrics : VentilatoryMetrics;
+    out item report : ClinicalReport;
+  }
+
+  port def SessionPort {
+    in item session : PatientMeasurementSession;
+  }
+
+  port def CalibrationPort {
+    in item calibrationData : CalibrationData;
+    out item calibrationData : CalibrationData;
+  }
+
+  port def FaultPort {
+    out item fault : FaultEvent;
+  }
+
+  part def RetroreflectiveMarker {
+    attribute markerId : String;
+    attribute nominalDiameter : LengthValue = 6 [mm];
+    attribute placementRegion : String;
+    attribute status : MarkerStatusKind = MarkerStatusKind::untracked;
+
+    port opticalInput : CameraImagePort;
+  }
+
+  part def MarkerSet {
+    attribute requiredMarkerCount : Integer = 89;
+    attribute minimumVisibleMarkers : Integer = 72;
+
+    part pulmonaryRibCageMarkers[32] : RetroreflectiveMarker;
+    part abdominalRibCageMarkers[25] : RetroreflectiveMarker;
+    part abdominalMarkers[32] : RetroreflectiveMarker;
+  }
+
+  part def InfraredIlluminator {
+    attribute wavelength : LengthValue = 850 [nm];
+    attribute radiantPower : PowerValue = 2.0 [W];
+    attribute pulseFrequency : FrequencyValue = 60 [Hz];
+
+    port emitter : InfraredEmitterPort;
+    port faultOut : FaultPort;
+
+    action emitStructuredInfraredLight {
+      out item light : InfraredLight;
+    }
+  }
+
+  part def MotionCaptureCamera {
+    attribute cameraId : String;
+    attribute frameRate : FrequencyValue = 60 [Hz];
+    attribute resolutionWidth : Integer = 2048;
+    attribute resolutionHeight : Integer = 2048;
+    attribute exposureTime : TimeValue = 2 [ms];
+    attribute positionX : LengthValue;
+    attribute positionY : LengthValue;
+    attribute positionZ : LengthValue;
+
+    port imager : CameraImagePort;
+    port calibration : CalibrationPort;
+    port faultOut : FaultPort;
+
+    action acquireMarkerImages {
+      in item light : InfraredLight;
+      out item frame : ReflectedMarkerImage;
+    }
+
+    state def CameraOperationalState {
+      entry; then standby;
+
+      state standby;
+      state acquiring;
+      state degraded;
+      state failed;
+
+      transition standby_to_acquiring first standby then acquiring
+        accept StartMeasurement;
+
+      transition acquiring_to_degraded first acquiring then degraded
+        accept MarkerVisibilityLow;
+
+      transition degraded_to_acquiring first degraded then acquiring
+        accept VisibilityRecovered;
+
+      transition acquiring_to_failed first acquiring then failed
+        accept CameraFaultDetected;
+
+      transition degraded_to_failed first degraded then failed
+        accept CameraFaultDetected;
+
+      transition failed_to_standby first failed then standby
+        accept FaultCleared;
+    }
+  }
+
+  part def CameraArray {
+    attribute cameraCount : Integer = 8;
+    attribute nominalFrameRate : FrequencyValue = 60 [Hz];
+    attribute maximumSynchronizationSkew : TimeValue = 500 [us];
+
+    part cameras[8] : MotionCaptureCamera;
+
+    port opticalIn : CameraImagePort;
+    port coordinateOut : MarkerCoordinatePort;
+    port calibration : CalibrationPort;
+    port faultOut : FaultPort;
+
+    action triangulateMarkerCoordinates {
+      in item frames : ReflectedMarkerImage;
+      in item calibrationData : CalibrationData;
+      out item coordinates : MarkerCoordinate;
+    }
+  }
+
+  part def CalibrationSubsystem {
+    attribute maximumPermittedCalibrationError : LengthValue = 1.5 [mm];
+    attribute calibrationValidityDuration : TimeValue = 24 [h];
+
+    port calibration : CalibrationPort;
+    port faultOut : FaultPort;
+
+    action calibrateCameraArray {
+      out item calibrationData : CalibrationData;
+    }
+
+    action verifyCalibration {
+      in item calibrationData : CalibrationData;
+      out attribute calibrationAccepted : Boolean;
+    }
+  }
+
+  part def PatientInterface {
+    attribute patientIdentifier : String;
+    attribute markerApplicationTime : TimeValue;
+    attribute seatedOrSupineConfiguration : String;
+
+    part markers : MarkerSet;
+
+    port sessionIn : SessionPort;
+  }
+
+  part def SurfaceReconstructionProcessor {
+    attribute minimumTrackingConfidence : ConfidenceScore = 0.85;
+    attribute meshUpdateRate : FrequencyValue = 60 [Hz];
+
+    port meshFlow : MeshPort;
+    port faultOut : FaultPort;
+
+    action reconstructThoracoAbdominalSurface {
+      in item markerCoordinates : MarkerCoordinate;
+      out item mesh : ThoracoAbdominalMesh;
+    }
+
+    action rejectTrackingArtifacts {
+      in item markerCoordinates : MarkerCoordinate;
+      out item acceptedCoordinates : MarkerCoordinate;
+    }
+  }
+
+  part def VolumeComputationProcessor {
+    attribute baselineVolumeAveragingWindow : TimeValue = 10 [s];
+    attribute volumeResolution : VolumeValue = 5 [mL];
+
+    port volumeFlow : VolumePort;
+    port faultOut : FaultPort;
+
+    action computeCompartmentVolumes {
+      in item mesh : ThoracoAbdominalMesh;
+      out item compartmentVolume : CompartmentVolume;
+    }
+
+    action subtractFunctionalResidualBaseline {
+      in item compartmentVolume : CompartmentVolume;
+      out item zeroReferencedVolume : CompartmentVolume;
+    }
+  }
+
+  part def BreathAnalysisProcessor {
+    attribute minimumBreathAmplitude : VolumeValue = 50 [mL];
+    attribute smoothingWindow : TimeValue = 250 [ms];
+    attribute maximumArtifactFraction : Percentage = 10.0;
+
+    port metricsFlow : MetricsPort;
+    port faultOut : FaultPort;
+
+    action detectBreathCycles {
+      in item compartmentVolume : CompartmentVolume;
+      out item metrics : VentilatoryMetrics;
+    }
+
+    action classifyBreathPhase {
+      in item compartmentVolume : CompartmentVolume;
+      out attribute phase : BreathPhaseKind;
+    }
+  }
+
+  part def DataRecorder {
+    attribute storageCapacity : Integer = 1000000;
+    attribute retentionPeriod : TimeValue = 7 [d];
+    attribute encryptedStorage : Boolean = true;
+
+    port metricsIn : MetricsPort;
+    port reportOut : ReportPort;
+    port faultOut : FaultPort;
+
+    action storeMeasurementStream {
+      in item metrics : VentilatoryMetrics;
+    }
+
+    action generateClinicalReport {
+      in item metrics : VentilatoryMetrics;
+      out item report : ClinicalReport;
+    }
+  }
+
+  part def OperatorDisplay {
+    attribute refreshRate : FrequencyValue = 30 [Hz];
+    attribute displaysRealTimeWaveform : Boolean = true;
+    attribute displaysCompartmentVolumes : Boolean = true;
+    attribute displaysMarkerQualityMap : Boolean = true;
+
+    port metricsIn : MetricsPort;
+    port reportIn : ReportPort;
+    port faultIn : FaultPort;
+
+    action displayRespiratoryWaveforms {
+      in item metrics : VentilatoryMetrics;
+    }
+
+    action showFaultNotification {
+      in item fault : FaultEvent;
+    }
+  }
+
+  part def OptoelectronicPlethysmographySystem {
+    attribute systemMode : AcquisitionModeKind = AcquisitionModeKind::standby;
+    attribute primaryFunction : String = "Noninvasively measure chest wall motion using optically tracked reflective markers and convert thoracoabdominal surface displacement into compartmental lung-volume and breathing metrics.";
+    attribute nominalSamplingRate : FrequencyValue = 60 [Hz];
+    attribute maximumAllowableMarkerOcclusion : Percentage = 15.0;
+    attribute volumeAccuracyTarget : Percentage = 5.0;
+
+    part patientInterface : PatientInterface;
+    part illuminators[4] : InfraredIlluminator;
+    part cameraArray : CameraArray;
+    part calibrationSubsystem : CalibrationSubsystem;
+    part surfaceProcessor : SurfaceReconstructionProcessor;
+    part volumeProcessor : VolumeComputationProcessor;
+    part breathProcessor : BreathAnalysisProcessor;
+    part recorder : DataRecorder;
+    part display : OperatorDisplay;
+
+    port sessionIn : SessionPort;
+    port reportOut : ReportPort;
+    port faultOut : FaultPort;
+
+    connection session_to_patient connect sessionIn to patientInterface.sessionIn;
+    connection calibration_to_camera_array connect calibrationSubsystem.calibration to cameraArray.calibration;
+    connection cameras_to_surface_processor connect cameraArray.coordinateOut to surfaceProcessor.meshFlow;
+    connection surface_to_volume_processor connect surfaceProcessor.meshFlow to volumeProcessor.volumeFlow;
+    connection volume_to_breath_processor connect volumeProcessor.volumeFlow to breathProcessor.metricsFlow;
+    connection breath_to_recorder connect breathProcessor.metricsFlow to recorder.metricsIn;
+    connection breath_to_display connect breathProcessor.metricsFlow to display.metricsIn;
+    connection recorder_to_display connect recorder.reportOut to display.reportIn;
+    connection recorder_to_report_output connect recorder.reportOut to reportOut;
+    connection camera_faults connect cameraArray.faultOut to faultOut;
+    connection calibration_faults connect calibrationSubsystem.faultOut to faultOut;
+    connection processing_faults connect breathProcessor.faultOut to faultOut;
+    connection display_faults connect faultOut to display.faultIn;
+
+    action performMeasurementSession {
+      in item session : PatientMeasurementSession;
+      out item report : ClinicalReport;
+
+      first startSession;
+      then calibrate;
+      then illuminateMarkers;
+      then acquireImages;
+      then reconstructSurface;
+      then computeVolumes;
+      then analyzeBreathing;
+      then recordAndReport;
+
+      action startSession {
+        in item session : PatientMeasurementSession;
+      }
+
+      action calibrate {
+        out item calibrationData : CalibrationData;
+      }
+
+      action illuminateMarkers {
+        out item light : InfraredLight;
+      }
+
+      action acquireImages {
+        in item light : InfraredLight;
+        out item frame : ReflectedMarkerImage;
+      }
+
+      action reconstructSurface {
+        in item frame : ReflectedMarkerImage;
+        out item mesh : ThoracoAbdominalMesh;
+      }
+
+      action computeVolumes {
+        in item mesh : ThoracoAbdominalMesh;
+        out item volume : CompartmentVolume;
+      }
+
+      action analyzeBreathing {
+        in item volume : CompartmentVolume;
+        out item metrics : VentilatoryMetrics;
+      }
+
+      action recordAndReport {
+        in item metrics : VentilatoryMetrics;
+        out item report : ClinicalReport;
+      }
+    }
+
+    state def AcquisitionLifecycle {
+      entry; then Standby;
+
+      state Standby;
+      state Calibrating;
+      state Ready;
+      state Measuring;
+      state Reviewing;
+      state Faulted;
+
+      transition standby_to_calibrating first Standby then Calibrating
+        accept CalibrationRequested;
+
+      transition calibrating_to_ready first Calibrating then Ready
+        accept CalibrationAccepted;
+
+      transition calibrating_to_faulted first Calibrating then Faulted
+        accept CalibrationRejected;
+
+      transition ready_to_measuring first Ready then Measuring
+        accept MeasurementStarted;
+
+      transition measuring_to_reviewing first Measuring then Reviewing
+        accept MeasurementStopped;
+
+      transition reviewing_to_ready first Reviewing then Ready
+        accept ReportAccepted;
+
+      transition measuring_to_faulted first Measuring then Faulted
+        accept CriticalFaultDetected;
+
+      transition faulted_to_standby first Faulted then Standby
+        accept FaultCleared;
+    }
+  }
+
+  requirement def NonInvasiveRespiratoryMeasurementRequirement {
+    subject oepSystem : OptoelectronicPlethysmographySystem;
+    doc /* The system shall measure respiratory volume changes without requiring a mouthpiece, mask, spirometer flow head, or invasive sensor. */
+  }
+
+  requirement def MarkerTrackingRequirement {
+    subject cameraArray : CameraArray;
+    attribute minimumVisibleMarkerFraction : Percentage = 85.0;
+    doc /* The camera array shall track at least 85 percent of applied markers during normal measurement while maintaining synchronized image acquisition. */
+  }
+
+  requirement def VolumeComputationRequirement {
+    subject volumeProcessor : VolumeComputationProcessor;
+    attribute maximumVolumeError : Percentage = 5.0;
+    doc /* The volume computation processor shall estimate total chest wall volume change with error no greater than 5 percent under calibrated operating conditions. */
+  }
+
+  requirement def CompartmentalAnalysisRequirement {
+    subject breathProcessor : BreathAnalysisProcessor;
+    doc /* The system shall distinguish pulmonary rib cage, abdominal rib cage, and abdominal compartment contributions to total chest wall volume. */
+  }
+
+  requirement def RealTimeDisplayRequirement {
+    subject display : OperatorDisplay;
+    attribute maximumDisplayLatency : TimeValue = 250 [ms];
+    doc /* The operator display shall present updated volume waveforms and ventilatory metrics within 250 ms of image acquisition. */
+  }
+
+  requirement def ArtifactManagementRequirement {
+    subject breathProcessor : BreathAnalysisProcessor;
+    attribute maximumReportedArtifactFraction : Percentage = 10.0;
+    doc /* The system shall identify marker occlusion, saturation, and implausible surface motion artifacts and exclude affected samples from clinical summary metrics. */
+  }
+
+  requirement def CalibrationRequirement {
+    subject calibrationSubsystem : CalibrationSubsystem;
+    attribute maximumCalibrationError : LengthValue = 1.5 [mm];
+    doc /* The calibration subsystem shall establish a common three-dimensional coordinate frame with residual error no greater than 1.5 mm before measurement begins. */
+  }
+
+  requirement def ClinicalReportRequirement {
+    subject recorder : DataRecorder;
+    doc /* The recorder shall generate a session report containing tidal volume, respiratory rate, minute ventilation, inspiratory time, expiratory time, duty cycle, compartmental volume traces, and artifact percentage. */
+  }
+
+  satisfy NonInvasiveRespiratoryMeasurementRequirement by OptoelectronicPlethysmographySystem;
+  satisfy MarkerTrackingRequirement by CameraArray;
+  satisfy VolumeComputationRequirement by VolumeComputationProcessor;
+  satisfy CompartmentalAnalysisRequirement by BreathAnalysisProcessor;
+  satisfy RealTimeDisplayRequirement by OperatorDisplay;
+  satisfy ArtifactManagementRequirement by BreathAnalysisProcessor;
+  satisfy CalibrationRequirement by CalibrationSubsystem;
+  satisfy ClinicalReportRequirement by DataRecorder;
+
+  view def PrimaryFunctionView {
+    expose OptoelectronicPlethysmographySystem;
+    expose PatientInterface;
+    expose InfraredIlluminator;
+    expose CameraArray;
+    expose SurfaceReconstructionProcessor;
+    expose VolumeComputationProcessor;
+    expose BreathAnalysisProcessor;
+    expose OperatorDisplay;
+    expose ClinicalReportRequirement;
+  }
+
+}

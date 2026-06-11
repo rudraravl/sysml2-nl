@@ -1,0 +1,360 @@
+package AdamsClaspSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Millimeter :> LengthValue {
+        unit = SI::mm;
+    }
+
+    attribute def Newton :> ForceValue {
+        unit = SI::N;
+    }
+
+    attribute def Degree :> PlaneAngleValue {
+        unit = SI::deg;
+    }
+
+    attribute def StressMPa :> PressureValue {
+        unit = SI::MPa;
+    }
+
+    attribute def RetentionState {
+        attribute engaged : Boolean;
+        attribute insertionDepth : Millimeter;
+        attribute retentionForce : Newton;
+    }
+
+    item def ToothSurface {
+        attribute undercutDepth : Millimeter;
+        attribute enamelContactArea : AreaValue;
+        attribute surfaceInclination : Degree;
+    }
+
+    item def OrthodonticForce {
+        attribute magnitude : Newton;
+        attribute directionAngle : Degree;
+        attribute duration : TimeValue;
+    }
+
+    item def PatientManualForce {
+        attribute magnitude : Newton;
+        attribute directionAngle : Degree;
+    }
+
+    port def MechanicalContactPort {
+        in item appliedForce : PatientManualForce;
+        out item reactionForce : OrthodonticForce;
+        item contactedSurface : ToothSurface;
+    }
+
+    port def ApplianceInterfacePort {
+        in item displacementRequest : PatientManualForce;
+        out item claspRetention : RetentionState;
+    }
+
+    part def RetentiveArrowhead {
+        attribute wireDiameter : Millimeter = 0.7 [SI::mm];
+        attribute bendAngle : Degree = 45 [SI::deg];
+        attribute tipRadius : Millimeter = 0.25 [SI::mm];
+        attribute targetUndercutEngagement : Millimeter = 0.25 [SI::mm];
+
+        port toothContact : MechanicalContactPort;
+
+        action def EngageUndercut {
+            in item tooth : ToothSurface;
+            out item retention : RetentionState;
+
+            first start;
+            then evaluateUndercut;
+            then seatTip;
+            then reportRetention;
+            then done;
+
+            action evaluateUndercut;
+            action seatTip;
+            action reportRetention;
+        }
+
+        state def ArrowheadEngagementState {
+            state Disengaged;
+            state SlidingOverCusp;
+            state SeatedInUndercut;
+            state Overloaded;
+
+            entry; then Disengaged;
+
+            transition Disengaged_to_Sliding
+                first Disengaged
+                accept PatientManualForce
+                if appliedForce.magnitude > 0.2 [SI::N]
+                then SlidingOverCusp;
+
+            transition Sliding_to_Seated
+                first SlidingOverCusp
+                if toothContact.contactedSurface.undercutDepth >= targetUndercutEngagement
+                then SeatedInUndercut;
+
+            transition Seated_to_Overloaded
+                first SeatedInUndercut
+                accept PatientManualForce
+                if appliedForce.magnitude > 12 [SI::N]
+                then Overloaded;
+
+            transition Overloaded_to_Disengaged
+                first Overloaded
+                then Disengaged;
+        }
+    }
+
+    part def BridgeSegment {
+        attribute wireDiameter : Millimeter = 0.7 [SI::mm];
+        attribute spanLength : Millimeter = 8.0 [SI::mm];
+        attribute clearanceFromGingiva : Millimeter = 1.0 [SI::mm];
+        attribute elasticDeflectionLimit : Millimeter = 0.8 [SI::mm];
+
+        port leftArrowheadJoint : MechanicalContactPort;
+        port rightArrowheadJoint : MechanicalContactPort;
+    }
+
+    part def OcclusalArm {
+        attribute wireDiameter : Millimeter = 0.7 [SI::mm];
+        attribute armLength : Millimeter = 12.0 [SI::mm];
+        attribute embedmentLengthInAcrylic : Millimeter = 6.0 [SI::mm];
+        attribute maximumWorkingStress : StressMPa = 1200 [SI::MPa];
+
+        port toothSide : MechanicalContactPort;
+        port baseplateSide : ApplianceInterfacePort;
+    }
+
+    part def AcrylicBaseplate {
+        attribute thickness : Millimeter = 2.5 [SI::mm];
+        attribute claspSocketDepth : Millimeter = 6.0 [SI::mm];
+        attribute allowableInsertionForce : Newton = 8.0 [SI::N];
+
+        port leftClaspSocket : ApplianceInterfacePort;
+        port rightClaspSocket : ApplianceInterfacePort;
+        port applianceOutput : ApplianceInterfacePort;
+    }
+
+    part def MolarTooth {
+        attribute buccalUndercutDepth : Millimeter = 0.25 [SI::mm];
+        attribute mesiobuccalUndercutDepth : Millimeter = 0.20 [SI::mm];
+        attribute distobuccalUndercutDepth : Millimeter = 0.20 [SI::mm];
+        attribute enamelHardness : StressMPa = 3400 [SI::MPa];
+
+        port mesiobuccalSurface : MechanicalContactPort;
+        port distobuccalSurface : MechanicalContactPort;
+        port occlusalContact : MechanicalContactPort;
+    }
+
+    part def AdamsClasp {
+        attribute stainlessSteelWireDiameter : Millimeter = 0.7 [SI::mm];
+        attribute nominalRetentionForce : Newton = 5.0 [SI::N];
+        attribute maximumRemovalForce : Newton = 10.0 [SI::N];
+        attribute passiveFitTolerance : Millimeter = 0.15 [SI::mm];
+
+        part mesialArrowhead : RetentiveArrowhead;
+        part distalArrowhead : RetentiveArrowhead;
+        part buccalBridge : BridgeSegment;
+        part mesialOcclusalArm : OcclusalArm;
+        part distalOcclusalArm : OcclusalArm;
+
+        port toothInterface : MechanicalContactPort;
+        port applianceInterface : ApplianceInterfacePort;
+
+        connect mesialArrowhead.toothContact to buccalBridge.leftArrowheadJoint;
+        connect distalArrowhead.toothContact to buccalBridge.rightArrowheadJoint;
+        connect mesialOcclusalArm.toothSide to buccalBridge.leftArrowheadJoint;
+        connect distalOcclusalArm.toothSide to buccalBridge.rightArrowheadJoint;
+        connect mesialOcclusalArm.baseplateSide to applianceInterface;
+        connect distalOcclusalArm.baseplateSide to applianceInterface;
+        connect toothInterface to buccalBridge.leftArrowheadJoint;
+        connect toothInterface to buccalBridge.rightArrowheadJoint;
+
+        action def ProvideRetention {
+            in item insertionForce : PatientManualForce;
+            in item supportingTooth : ToothSurface;
+            out item retainedCondition : RetentionState;
+
+            first receiveInsertionForce;
+            then flexBridgeAndArms;
+            then guideArrowheadsOverCusp;
+            then seatArrowheadsIntoUndercuts;
+            then transferRetentiveLoadToBaseplate;
+            then retained;
+
+            action receiveInsertionForce;
+            action flexBridgeAndArms;
+            action guideArrowheadsOverCusp;
+            action seatArrowheadsIntoUndercuts;
+            action transferRetentiveLoadToBaseplate;
+        }
+
+        state def AdamsClaspOperatingState {
+            state Removed;
+            state BeingInserted;
+            state PassivelySeated;
+            state RetainingAppliance;
+            state BeingRemoved;
+            state ExcessivelyLoaded;
+
+            entry; then Removed;
+
+            transition Removed_to_BeingInserted
+                first Removed
+                accept PatientManualForce
+                if displacementRequest.magnitude > 0.5 [SI::N]
+                then BeingInserted;
+
+            transition BeingInserted_to_Seated
+                first BeingInserted
+                if mesialArrowhead.targetUndercutEngagement <= 0.30 [SI::mm]
+                then PassivelySeated;
+
+            transition PassivelySeated_to_Retaining
+                first PassivelySeated
+                if nominalRetentionForce >= 3.0 [SI::N]
+                then RetainingAppliance;
+
+            transition Retaining_to_Removal
+                first RetainingAppliance
+                accept PatientManualForce
+                if displacementRequest.magnitude >= nominalRetentionForce
+                then BeingRemoved;
+
+            transition BeingRemoved_to_Removed
+                first BeingRemoved
+                if displacementRequest.magnitude > maximumRemovalForce
+                then Removed;
+
+            transition Retaining_to_Excessive
+                first RetainingAppliance
+                accept PatientManualForce
+                if displacementRequest.magnitude > 12.0 [SI::N]
+                then ExcessivelyLoaded;
+
+            transition Excessive_to_Removed
+                first ExcessivelyLoaded
+                then Removed;
+        }
+    }
+
+    part def RemovableOrthodonticAppliance {
+        attribute totalMass : MassValue = 12 [SI::g];
+        attribute intendedWearDurationPerDay : TimeValue = 14 [SI::h];
+
+        part baseplate : AcrylicBaseplate;
+        part leftAdamsClasp : AdamsClasp;
+        part rightAdamsClasp : AdamsClasp;
+        part leftFirstMolar : MolarTooth;
+        part rightFirstMolar : MolarTooth;
+
+        port userInsertionInput : ApplianceInterfacePort;
+        port applianceRetentionOutput : ApplianceInterfacePort;
+
+        connect userInsertionInput to baseplate.applianceOutput;
+        connect baseplate.leftClaspSocket to leftAdamsClasp.applianceInterface;
+        connect baseplate.rightClaspSocket to rightAdamsClasp.applianceInterface;
+        connect leftAdamsClasp.toothInterface to leftFirstMolar.mesiobuccalSurface;
+        connect leftAdamsClasp.toothInterface to leftFirstMolar.distobuccalSurface;
+        connect rightAdamsClasp.toothInterface to rightFirstMolar.mesiobuccalSurface;
+        connect rightAdamsClasp.toothInterface to rightFirstMolar.distobuccalSurface;
+        connect baseplate.applianceOutput to applianceRetentionOutput;
+
+        action def RetainApplianceOnTeeth {
+            in item manualInsertion : PatientManualForce;
+            out item applianceRetention : RetentionState;
+
+            first applyManualInsertion;
+            then seatLeftClasp;
+            then seatRightClasp;
+            then stabilizeBaseplate;
+            then provideHighLevelRetentionFunction;
+            then complete;
+
+            action applyManualInsertion;
+            action seatLeftClasp;
+            action seatRightClasp;
+            action stabilizeBaseplate;
+            action provideHighLevelRetentionFunction;
+        }
+    }
+
+    requirement def HighLevelPrimaryFunction {
+        subject clasp : AdamsClasp;
+
+        doc /* The Adams clasp shall hold a removable orthodontic appliance on a posterior tooth by elastically engaging paired arrowheads into buccal undercuts and transferring retention through occlusal arms into the acrylic baseplate. */
+
+        require constraint {
+            clasp.nominalRetentionForce >= 3.0 [SI::N] and
+            clasp.nominalRetentionForce <= clasp.maximumRemovalForce
+        }
+    }
+
+    requirement def PassiveFitRequirement {
+        subject clasp : AdamsClasp;
+
+        doc /* The clasp shall remain passive when fully seated so that unintended orthodontic force is minimized during normal wear. */
+
+        require constraint {
+            clasp.passiveFitTolerance <= 0.15 [SI::mm]
+        }
+    }
+
+    requirement def UndercutEngagementRequirement {
+        subject clasp : AdamsClasp;
+
+        doc /* Each arrowhead shall be shaped to engage a clinically appropriate molar undercut without damaging enamel. */
+
+        require constraint {
+            clasp.mesialArrowhead.targetUndercutEngagement >= 0.20 [SI::mm] and
+            clasp.distalArrowhead.targetUndercutEngagement >= 0.20 [SI::mm] and
+            clasp.mesialArrowhead.targetUndercutEngagement <= 0.30 [SI::mm] and
+            clasp.distalArrowhead.targetUndercutEngagement <= 0.30 [SI::mm]
+        }
+    }
+
+    requirement def RemovalForceRequirement {
+        subject clasp : AdamsClasp;
+
+        doc /* The clasp shall resist accidental dislodgement while remaining removable by deliberate patient force. */
+
+        require constraint {
+            clasp.maximumRemovalForce <= 10.0 [SI::N]
+        }
+    }
+
+    requirement def BaseplateRetentionRequirement {
+        subject appliance : RemovableOrthodonticAppliance;
+
+        doc /* The appliance shall use left and right Adams clasps to provide bilateral retention during normal intraoral use. */
+
+        require constraint {
+            appliance.leftAdamsClasp.nominalRetentionForce +
+            appliance.rightAdamsClasp.nominalRetentionForce >= 6.0 [SI::N]
+        }
+    }
+
+    satisfy HighLevelPrimaryFunction by AdamsClasp::ProvideRetention;
+    satisfy PassiveFitRequirement by AdamsClasp;
+    satisfy UndercutEngagementRequirement by AdamsClasp::mesialArrowhead;
+    satisfy UndercutEngagementRequirement by AdamsClasp::distalArrowhead;
+    satisfy RemovalForceRequirement by AdamsClasp;
+    satisfy BaseplateRetentionRequirement by RemovableOrthodonticAppliance::RetainApplianceOnTeeth;
+
+    part adamsClaspBasedRetentionSystem : RemovableOrthodonticAppliance {
+        attribute totalMass = 12 [SI::g];
+        attribute intendedWearDurationPerDay = 14 [SI::h];
+
+        part leftAdamsClasp {
+            attribute nominalRetentionForce = 5.0 [SI::N];
+            attribute maximumRemovalForce = 10.0 [SI::N];
+        }
+
+        part rightAdamsClasp {
+            attribute nominalRetentionForce = 5.0 [SI::N];
+            attribute maximumRemovalForce = 10.0 [SI::N];
+        }
+    }
+}

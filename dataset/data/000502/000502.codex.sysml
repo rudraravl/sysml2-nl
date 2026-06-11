@@ -1,0 +1,364 @@
+package SlingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def SpeedValue :> ISQ::speed {
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    enum def SlingMode {
+        enum idle;
+        enum loaded;
+        enum spinning;
+        enum released;
+        enum recovered;
+        enum unsafe;
+    }
+
+    item def Projectile {
+        attribute mass : MassValue;
+        attribute diameter : LengthValue;
+        attribute surfaceHardness : Real;
+    }
+
+    item def HandForce {
+        attribute magnitude : ForceValue;
+        attribute directionAngle : AngleValue;
+    }
+
+    item def RotationalMomentum {
+        attribute tangentialSpeed : SpeedValue;
+        attribute angularRate : Real;
+        attribute storedKineticEnergy : EnergyValue;
+    }
+
+    item def ReleaseCommand {
+        attribute releaseTime : TimeValue;
+        attribute releaseAngle : AngleValue;
+    }
+
+    item def FlightPath {
+        attribute launchSpeed : SpeedValue;
+        attribute launchAngle : AngleValue;
+        attribute estimatedRange : LengthValue;
+        attribute estimatedFlightTime : TimeValue;
+    }
+
+    port def GripPort {
+        in item appliedForce : HandForce;
+        out item tactileFeedback : HandForce;
+    }
+
+    port def PocketPort {
+        inout item payload : Projectile;
+        out item payloadMomentum : RotationalMomentum;
+    }
+
+    port def ReleasePort {
+        in item command : ReleaseCommand;
+        out item releasedPayload : Projectile;
+        out item trajectory : FlightPath;
+    }
+
+    port def SafetyPort {
+        out item hazardState : SlingMode;
+    }
+
+    part def RetentionCord {
+        attribute cordLength : LengthValue = 0.75 [SI::metre];
+        attribute tensileLimit : ForceValue = 900 [SI::newton];
+        attribute cordMass : MassValue = 0.035 [SI::kilogram];
+
+        port userLoop : GripPort;
+        port pocketEnd : PocketPort;
+    }
+
+    part def ReleaseCord {
+        attribute cordLength : LengthValue = 0.75 [SI::metre];
+        attribute tensileLimit : ForceValue = 900 [SI::newton];
+        attribute releaseKnotDiameter : LengthValue = 0.018 [SI::metre];
+
+        port userReleaseGrip : GripPort;
+        port pocketEnd : PocketPort;
+        port releaseInterface : ReleasePort;
+    }
+
+    part def ProjectilePocket {
+        attribute pocketLength : LengthValue = 0.16 [SI::metre];
+        attribute pocketWidth : LengthValue = 0.07 [SI::metre];
+        attribute maxProjectileMass : MassValue = 0.25 [SI::kilogram];
+        attribute minProjectileDiameter : LengthValue = 0.025 [SI::metre];
+        attribute maxProjectileDiameter : LengthValue = 0.07 [SI::metre];
+
+        port payloadInterface : PocketPort;
+    }
+
+    part def OperatorHand {
+        attribute maximumGripForce : ForceValue = 450 [SI::newton];
+        attribute nominalSpinForce : ForceValue = 120 [SI::newton];
+
+        port retentionGrip : GripPort;
+        port releaseGrip : GripPort;
+    }
+
+    part def Sling {
+        attribute effectiveRadius : LengthValue = 0.82 [SI::metre];
+        attribute emptyMass : MassValue = 0.12 [SI::kilogram];
+        attribute maximumSafeProjectileMass : MassValue = 0.20 [SI::kilogram];
+        attribute maximumSafeTangentialSpeed : SpeedValue = 45 [SI::metrePerSecond];
+        attribute nominalReleaseAngle : AngleValue = 0.78 [SI::radian];
+
+        part retentionCord : RetentionCord;
+        part releaseCord : ReleaseCord;
+        part pocket : ProjectilePocket;
+
+        port retentionGrip : GripPort;
+        port releaseGrip : GripPort;
+        port loadPort : PocketPort;
+        port launchPort : ReleasePort;
+        port safetyStatus : SafetyPort;
+
+        connect retentionGrip to retentionCord.userLoop;
+        connect releaseGrip to releaseCord.userReleaseGrip;
+        connect retentionCord.pocketEnd to pocket.payloadInterface;
+        connect releaseCord.pocketEnd to pocket.payloadInterface;
+        connect loadPort to pocket.payloadInterface;
+        connect releaseCord.releaseInterface to launchPort;
+
+        state def SlingOperatingState {
+            entry action initialize {
+                out mode : SlingMode = SlingMode::idle;
+            }
+
+            state idle;
+            state loaded;
+            state accelerating;
+            state readyToRelease;
+            state released;
+            state recovered;
+            state unsafe;
+
+            transition first idle;
+
+            transition loadProjectile
+                from idle
+                to loaded
+                accept item Projectile
+                if payload.mass <= maximumSafeProjectileMass;
+
+            transition rejectOverload
+                from idle
+                to unsafe
+                accept item Projectile
+                if payload.mass > maximumSafeProjectileMass;
+
+            transition beginSpin
+                from loaded
+                to accelerating
+                accept item HandForce
+                if appliedForce.magnitude > 40 [SI::newton];
+
+            transition reachLaunchSpeed
+                from accelerating
+                to readyToRelease
+                if loadPort.payloadMomentum.tangentialSpeed <= maximumSafeTangentialSpeed;
+
+            transition overspeed
+                from accelerating
+                to unsafe
+                if loadPort.payloadMomentum.tangentialSpeed > maximumSafeTangentialSpeed;
+
+            transition commandRelease
+                from readyToRelease
+                to released
+                accept item ReleaseCommand;
+
+            transition recoverCords
+                from released
+                to recovered
+                after 2 [SI::second];
+
+            transition reset
+                from recovered
+                to idle;
+
+            transition clearUnsafe
+                from unsafe
+                to idle;
+        }
+    }
+
+    part def SlingBasedLaunchSystem {
+        attribute operatingMode : SlingMode;
+        attribute intendedProjectileMass : MassValue = 0.12 [SI::kilogram];
+        attribute intendedRange : LengthValue = 65 [SI::metre];
+        attribute acceptableReleaseWindow : TimeValue = 0.08 [SI::second];
+
+        part sling : Sling;
+        part operatorHand : OperatorHand;
+
+        port projectileLoadingPort : PocketPort;
+        port projectileLaunchPort : ReleasePort;
+        port systemSafetyPort : SafetyPort;
+
+        connect operatorHand.retentionGrip to sling.retentionGrip;
+        connect operatorHand.releaseGrip to sling.releaseGrip;
+        connect projectileLoadingPort to sling.loadPort;
+        connect projectileLaunchPort to sling.launchPort;
+        connect systemSafetyPort to sling.safetyStatus;
+
+        action def LoadProjectile {
+            in projectile : Projectile;
+            out loadedProjectile : Projectile;
+
+            constraint {
+                projectile.mass <= sling.maximumSafeProjectileMass
+            }
+        }
+
+        action def AccelerateProjectile {
+            in projectile : Projectile;
+            in handInput : HandForce;
+            out momentum : RotationalMomentum;
+
+            constraint {
+                handInput.magnitude <= operatorHand.maximumGripForce
+            }
+
+            constraint {
+                momentum.tangentialSpeed <= sling.maximumSafeTangentialSpeed
+            }
+        }
+
+        action def ReleaseProjectile {
+            in command : ReleaseCommand;
+            in projectile : Projectile;
+            in momentum : RotationalMomentum;
+            out path : FlightPath;
+
+            constraint {
+                path.launchSpeed == momentum.tangentialSpeed
+            }
+
+            constraint {
+                command.releaseAngle >= 0.35 [SI::radian]
+            }
+
+            constraint {
+                command.releaseAngle <= 1.10 [SI::radian]
+            }
+        }
+
+        action def PrimaryLaunchFunction {
+            in projectile : Projectile;
+            in appliedForce : HandForce;
+            in releaseCommand : ReleaseCommand;
+            out resultingPath : FlightPath;
+
+            first start;
+            then load : LoadProjectile {
+                in projectile = projectile;
+            }
+            then accelerate : AccelerateProjectile {
+                in projectile = load.loadedProjectile;
+                in handInput = appliedForce;
+            }
+            then release : ReleaseProjectile {
+                in command = releaseCommand;
+                in projectile = load.loadedProjectile;
+                in momentum = accelerate.momentum;
+            }
+            then done;
+
+            bind resultingPath = release.path;
+        }
+    }
+
+    requirement def SlingPrimaryFunctionRequirement {
+        subject system : SlingBasedLaunchSystem;
+
+        doc /* The sling-based system shall enable a human operator to hold a projectile in a flexible pocket, accelerate it through controlled rotation, and release one cord to launch the projectile along a directed flight path. */
+
+        require constraint {
+            system.projectileLaunchPort.trajectory.launchSpeed <= system.sling.maximumSafeTangentialSpeed
+        }
+
+        require constraint {
+            system.intendedProjectileMass <= system.sling.maximumSafeProjectileMass
+        }
+    }
+
+    requirement def ProjectileRetentionRequirement {
+        subject sling : Sling;
+
+        doc /* The sling shall retain the projectile in the pocket during loading and rotational acceleration until a deliberate release command is applied. */
+
+        require constraint {
+            sling.pocket.maxProjectileMass >= sling.maximumSafeProjectileMass
+        }
+
+        require constraint {
+            sling.retentionCord.tensileLimit >= 2 * sling.releaseCord.tensileLimit / 2
+        }
+    }
+
+    requirement def ControlledReleaseRequirement {
+        subject sling : Sling;
+
+        doc /* The sling shall release the projectile when the operator releases the release cord while retaining the retention cord. */
+
+        require constraint {
+            sling.nominalReleaseAngle >= 0.35 [SI::radian]
+        }
+
+        require constraint {
+            sling.nominalReleaseAngle <= 1.10 [SI::radian]
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject system : SlingBasedLaunchSystem;
+
+        doc /* The sling-based system shall enter an unsafe state if projectile mass or rotational speed exceeds the defined safe operating envelope. */
+
+        require constraint {
+            system.sling.maximumSafeProjectileMass <= 0.20 [SI::kilogram]
+        }
+
+        require constraint {
+            system.sling.maximumSafeTangentialSpeed <= 45 [SI::metrePerSecond]
+        }
+    }
+
+    satisfy SlingPrimaryFunctionRequirement by SlingBasedLaunchSystem::PrimaryLaunchFunction;
+    satisfy ProjectileRetentionRequirement by Sling::ProjectilePocket;
+    satisfy ControlledReleaseRequirement by Sling::ReleaseCord;
+    satisfy SafetyRequirement by SlingBasedLaunchSystem;
+
+}

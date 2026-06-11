@@ -1,0 +1,1111 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-504271dt
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb3ae-e930-7902-adda-7c07e980dc18
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Instruments used in medical laboratories and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MedicalLaboratoryInstrumentationModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::unit::litre;
+    }
+
+    attribute def MicroVolume :> Volume {
+        unit = SI::unit::microlitre;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::unit::degreeCelsius;
+    }
+
+    attribute def Duration :> ISQ::duration {
+        unit = SI::unit::second;
+    }
+
+    attribute def RotationalSpeed {
+        unit = SI::unit::revolutionPerMinute;
+    }
+
+    attribute def OpticalDensity {
+        unit = SI::unit::one;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::unit::volt;
+    }
+
+    attribute def ResultConfidence {
+        unit = SI::unit::percent;
+    }
+
+    enum def SpecimenKind {
+        enum wholeBlood;
+        enum serum;
+        enum plasma;
+        enum urine;
+        enum swab;
+        enum reagentControl;
+    }
+
+    enum def TestKind {
+        enum completeBloodCount;
+        enum chemistryPanel;
+        enum immunoassay;
+        enum urinalysis;
+        enum microscopyReview;
+        enum cultureGrowth;
+    }
+
+    enum def InstrumentStatus {
+        enum idle;
+        enum initializing;
+        enum ready;
+        enum processing;
+        enum calibrating;
+        enum qualityControl;
+        enum cleaning;
+        enum faulted;
+        enum offline;
+    }
+
+    enum def ResultFlag {
+        enum normal;
+        enum low;
+        enum high;
+        enum critical;
+        enum invalid;
+        enum reviewRequired;
+    }
+
+    item def Specimen {
+        attribute specimenId : String;
+        attribute patientId : String;
+        attribute kind : SpecimenKind;
+        attribute collectedVolume : MicroVolume;
+        attribute receivedTemperature : Temperature;
+        attribute collectionAge : Duration;
+        attribute barcodeReadable : Boolean;
+    }
+
+    item def Reagent {
+        attribute reagentId : String;
+        attribute lotNumber : String;
+        attribute remainingVolume : Volume;
+        attribute storageTemperature : Temperature;
+        attribute expirationAgeRemaining : Duration;
+    }
+
+    item def Consumable {
+        attribute consumableId : String;
+        attribute sterile : Boolean;
+        attribute remainingUses : Integer;
+    }
+
+    item def TestOrder {
+        attribute orderId : String;
+        attribute patientId : String;
+        attribute requestedTest : TestKind;
+        attribute priorityStat : Boolean;
+    }
+
+    item def MeasurementSignal {
+        attribute wavelength : Length;
+        attribute absorbance : OpticalDensity;
+        attribute rawCounts : Integer;
+        attribute integrationTime : Duration;
+    }
+
+    item def TestResult {
+        attribute resultId : String;
+        attribute orderId : String;
+        attribute analyteName : String;
+        attribute numericValue : Real;
+        attribute unitText : String;
+        attribute confidence : ResultConfidence;
+        attribute flag : ResultFlag;
+        attribute released : Boolean;
+    }
+
+    item def Waste {
+        attribute biohazardous : Boolean;
+        attribute volume : Volume;
+    }
+
+    port def SpecimenInputPort {
+        in item specimen : Specimen;
+    }
+
+    port def SpecimenOutputPort {
+        out item specimen : Specimen;
+    }
+
+    port def ReagentInputPort {
+        in item reagent : Reagent;
+    }
+
+    port def ConsumableInputPort {
+        in item consumable : Consumable;
+    }
+
+    port def WasteOutputPort {
+        out item waste : Waste;
+    }
+
+    port def OrderPort {
+        in item order : TestOrder;
+    }
+
+    port def ResultPort {
+        out item result : TestResult;
+    }
+
+    port def SignalPort {
+        out item signal : MeasurementSignal;
+    }
+
+    port def SignalInputPort {
+        in item signal : MeasurementSignal;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+    }
+
+    port def NetworkPort {
+        in item inboundOrder : TestOrder;
+        out item outboundResult : TestResult;
+    }
+
+    port def EnvironmentalControlPort {
+        out attribute chamberTemperature : Temperature;
+    }
+
+    action def VerifySpecimenIdentity {
+        in item specimen : Specimen;
+        out attribute accepted : Boolean;
+    }
+
+    action def PrepareSpecimen {
+        in item rawSpecimen : Specimen;
+        out item preparedSpecimen : Specimen;
+    }
+
+    action def CentrifugeSpecimen {
+        in item specimen : Specimen;
+        in attribute speed : RotationalSpeed;
+        in attribute runTime : Duration;
+        out item separatedSpecimen : Specimen;
+    }
+
+    action def DispenseReagent {
+        in item reagent : Reagent;
+        in attribute volume : MicroVolume;
+        out item aliquot : Reagent;
+    }
+
+    action def MeasureOpticalResponse {
+        in item specimen : Specimen;
+        in item reagent : Reagent;
+        out item signal : MeasurementSignal;
+    }
+
+    action def ComputeResult {
+        in item order : TestOrder;
+        in item signal : MeasurementSignal;
+        out item result : TestResult;
+    }
+
+    action def ReleaseResult {
+        in item result : TestResult;
+        out item releasedResult : TestResult;
+    }
+
+    action def RunQualityControl {
+        in item controlMaterial : Specimen;
+        out attribute qcPassed : Boolean;
+    }
+
+    action def CleanFluidPath {
+        in item cleaningReagent : Reagent;
+        out item waste : Waste;
+    }
+
+    state def InstrumentOperatingState {
+        entry action initialize;
+        state offline;
+        state initializing;
+        state idle;
+        state ready;
+        state processing;
+        state qualityControl;
+        state calibrating;
+        state cleaning;
+        state faulted;
+
+        transition first offline then initializing;
+        transition initializing then idle;
+        transition idle then ready;
+        transition ready then processing;
+        transition processing then ready;
+        transition ready then qualityControl;
+        transition qualityControl then ready;
+        transition ready then calibrating;
+        transition calibrating then ready;
+        transition ready then cleaning;
+        transition cleaning then idle;
+        transition processing then faulted;
+        transition qualityControl then faulted;
+        transition calibrating then faulted;
+        transition faulted then cleaning;
+    }
+
+    part def LaboratoryInformationSystem {
+        port network : NetworkPort;
+        attribute connected : Boolean;
+        attribute pendingOrders : Integer;
+        attribute transmittedResults : Integer;
+    }
+
+    part def BarcodeReader {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        attribute scanTime : Duration = 2 [SI::unit::second];
+        attribute minimumBarcodeContrast : OpticalDensity = 0.35;
+        perform action VerifySpecimenIdentity;
+    }
+
+    part def SpecimenHandler {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        port wasteOut : WasteOutputPort;
+        attribute pipetteVolumeMinimum : MicroVolume = 1 [SI::unit::microlitre];
+        attribute pipetteVolumeMaximum : MicroVolume = 1000 [SI::unit::microlitre];
+        attribute carryoverLimit : Real = 0.001;
+        perform action PrepareSpecimen;
+    }
+
+    part def RefrigeratedReagentBay {
+        port reagentIn : ReagentInputPort;
+        attribute targetTemperature : Temperature = 4 [SI::unit::degreeCelsius];
+        attribute temperatureTolerance : Temperature = 2 [SI::unit::degreeCelsius];
+        attribute totalCapacity : Volume = 5 [SI::unit::litre];
+    }
+
+    part def ClinicalCentrifuge {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        port power : PowerPort;
+        attribute maximumSpeed : RotationalSpeed = 15000;
+        attribute defaultSerumSeparationSpeed : RotationalSpeed = 3500;
+        attribute defaultRunTime : Duration = 600 [SI::unit::second];
+        attribute imbalanceDetected : Boolean;
+        exhibit state operatingState : InstrumentOperatingState;
+        perform action CentrifugeSpecimen;
+    }
+
+    part def AutomatedChemistryAnalyzer {
+        port specimenIn : SpecimenInputPort;
+        port reagentIn : ReagentInputPort;
+        port signalOut : SignalPort;
+        port wasteOut : WasteOutputPort;
+        port power : PowerPort;
+        attribute cuvetteTemperature : Temperature = 37 [SI::unit::degreeCelsius];
+        attribute sampleAspirationVolume : MicroVolume = 10 [SI::unit::microlitre];
+        attribute reagentDispenseVolume : MicroVolume = 200 [SI::unit::microlitre];
+        attribute photometerWavelengthMinimum : Length = 340 [SI::unit::nanometre];
+        attribute photometerWavelengthMaximum : Length = 800 [SI::unit::nanometre];
+        exhibit state operatingState : InstrumentOperatingState;
+        perform action DispenseReagent;
+        perform action MeasureOpticalResponse;
+    }
+
+    part def HematologyAnalyzer {
+        port specimenIn : SpecimenInputPort;
+        port reagentIn : ReagentInputPort;
+        port resultOut : ResultPort;
+        port wasteOut : WasteOutputPort;
+        port power : PowerPort;
+        attribute aspirationVolume : MicroVolume = 80 [SI::unit::microlitre];
+        attribute impedanceChannelVoltage : Voltage = 12 [SI::unit::volt];
+        attribute laserScatterEnabled : Boolean = true;
+        exhibit state operatingState : InstrumentOperatingState;
+    }
+
+    part def DigitalMicroscope {
+        port specimenIn : SpecimenInputPort;
+        port resultOut : ResultPort;
+        port power : PowerPort;
+        attribute magnificationMinimum : Real = 40;
+        attribute magnificationMaximum : Real = 1000;
+        attribute imageResolutionMegapixels : Real = 20;
+        attribute autofocusTime : Duration = 5 [SI::unit::second];
+        exhibit state operatingState : InstrumentOperatingState;
+    }
+
+    part def LaboratoryIncubator {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        port environment : EnvironmentalControlPort;
+        port power : PowerPort;
+        attribute targetTemperature : Temperature = 35 [SI::unit::degreeCelsius];
+        attribute temperatureUniformity : Temperature = 0.5 [SI::unit::degreeCelsius];
+        attribute cultureHoldTime : Duration = 86400 [SI::unit::second];
+        exhibit state operatingState : InstrumentOperatingState;
+    }
+
+    part def ResultProcessor {
+        port orderIn : OrderPort;
+        port signalIn : SignalInputPort;
+        port resultOut : ResultPort;
+        attribute criticalValueVerificationRequired : Boolean = true;
+        attribute minimumConfidenceForAutorelease : ResultConfidence = 95 [SI::unit::percent];
+        perform action ComputeResult;
+        perform action ReleaseResult;
+    }
+
+    part def WasteContainer {
+        port wasteIn : WasteOutputPort;
+        attribute capacity : Volume = 10 [SI::unit::litre];
+        attribute currentFill : Volume;
+        attribute biohazardLocked : Boolean = true;
+    }
+
+    part def MedicalLaboratoryInstrumentSystem {
+        doc /* Primary function: receive patient laboratory specimens and electronic test orders, prepare and process specimens using medical laboratory instruments, generate clinically usable measurements, validate results, and transmit finalized results to the laboratory information system. */
+
+        port specimenEntry : SpecimenInputPort;
+        port orderEntry : OrderPort;
+        port resultExit : ResultPort;
+        port facilityPower : PowerPort;
+        port lisNetwork : NetworkPort;
+
+        part lis : LaboratoryInformationSystem;
+        part barcodeReader : BarcodeReader;
+        part specimenHandler : SpecimenHandler;
+        part centrifuge : ClinicalCentrifuge;
+        part reagentBay : RefrigeratedReagentBay;
+        part chemistryAnalyzer : AutomatedChemistryAnalyzer;
+        part hematologyAnalyzer : HematologyAnalyzer;
+        part microscope : DigitalMicroscope;
+        part incubator : LaboratoryIncubator;
+        part resultProcessor : ResultProcessor;
+        part wasteContainer : WasteContainer;
+
+        item specimenFlow : Specimen;
+        item preparedSpecimenFlow : Specimen;
+        item separatedSpecimenFlow : Specimen;
+        item opticalSignalFlow : MeasurementSignal;
+        item resultFlow : TestResult;
+        item reagentFlow : Reagent;
+        item wasteFlow : Waste;
+        item orderFlow : TestOrder;
+
+        connect specimenEntry to barcodeReader.specimenIn;
+        connect barcodeReader.specimenOut to specimenHandler.specimenIn;
+        connect specimenHandler.specimenOut to centrifuge.specimenIn;
+        connect centrifuge.specimenOut to chemistryAnalyzer.specimenIn;
+        connect reagentBay.reagentIn to chemistryAnalyzer.reagentIn;
+        connect chemistryAnalyzer.signalOut to resultProcessor.signalIn;
+        connect orderEntry to resultProcessor.orderIn;
+        connect resultProcessor.resultOut to resultExit;
+        connect resultExit to lis.network;
+        connect lisNetwork to lis.network;
+
+        connect specimenHandler.wasteOut to wasteContainer.wasteIn;
+        connect chemistryAnalyzer.wasteOut to wasteContainer.wasteIn;
+        connect hematologyAnalyzer.wasteOut to wasteContainer.wasteIn;
+
+        connect facilityPower to centrifuge.power;
+        connect facilityPower to chemistryAnalyzer.power;
+        connect facilityPower to hematologyAnalyzer.power;
+        connect facilityPower to microscope.power;
+        connect facilityPower to incubator.power;
+
+        connection wholeBloodPath connect specimenHandler.specimenOut to hematologyAnalyzer.specimenIn;
+        connection microscopyPath connect specimenHandler.specimenOut to microscope.specimenIn;
+        connection culturePath connect specimenHandler.specimenOut to incubator.specimenIn;
+        connection incubatedReviewPath connect incubator.specimenOut to microscope.specimenIn;
+        connection hematologyResultPath connect hematologyAnalyzer.resultOut to resultExit;
+        connection microscopyResultPath connect microscope.resultOut to resultExit;
+
+        exhibit state systemState : InstrumentOperatingState;
+
+        perform action highLevelDiagnosticWorkflow {
+            first start;
+            then receiveOrder;
+            then verifySpecimen;
+            then prepareSpecimen;
+            then routeByTestKind;
+            then acquireMeasurement;
+            then computeAndValidateResult;
+            then releaseToLIS;
+            then archiveAndClean;
+
+            action receiveOrder {
+                in item order : TestOrder;
+                out item acceptedOrder : TestOrder;
+            }
+
+            action verifySpecimen : VerifySpecimenIdentity {
+                in item specimen = specimenEntry.specimen;
+            }
+
+            action prepareSpecimen : PrepareSpecimen;
+
+            action routeByTestKind {
+                in item order : TestOrder;
+                in item specimen : Specimen;
+                out item routedSpecimen : Specimen;
+            }
+
+            action acquireMeasurement {
+                in item routedSpecimen : Specimen;
+                out item measurement : MeasurementSignal;
+            }
+
+            action computeAndValidateResult : ComputeResult;
+
+            action releaseToLIS : ReleaseResult;
+
+            action archiveAndClean : CleanFluidPath;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : MedicalLaboratoryInstrumentSystem;
+        doc /* The system shall provide a coordinated medical laboratory instrument capability that transforms accepted patient specimens and test orders into validated laboratory results for clinical use. */
+        require constraint {
+            system.lis.connected == true
+        }
+    }
+
+    requirement def SpecimenIdentificationRequirement {
+        subject reader : BarcodeReader;
+        doc /* Each specimen shall be positively identified before automated processing begins. */
+        require constraint {
+            reader.scanTime <= 5 [SI::unit::second]
+        }
+    }
+
+    requirement def ReagentStorageRequirement {
+        subject bay : RefrigeratedReagentBay;
+        doc /* Reagents shall be stored within controlled refrigerated limits to preserve analytical validity. */
+        require constraint {
+            bay.targetTemperature >= 2 [SI::unit::degreeCelsius] and
+            bay.targetTemperature <= 8 [SI::unit::degreeCelsius]
+        }
+    }
+
+    requirement def CentrifugePerformanceRequirement {
+        subject centrifuge : ClinicalCentrifuge;
+        doc /* The centrifuge shall support serum or plasma separation before chemistry analysis. */
+        require constraint {
+            centrifuge.maximumSpeed >= 3500
+        }
+    }
+
+    requirement def ChemistryMeasurementRequirement {
+        subject analyzer : AutomatedChemistryAnalyzer;
+        doc /* The chemistry analyzer shall maintain reaction temperature and perform optical measurement for quantitative assays. */
+        require constraint {
+            analyzer.cuvetteTemperature >= 36 [SI::unit::degreeCelsius] and
+            analyzer.cuvetteTemperature <= 38 [SI::unit::degreeCelsius]
+        }
+    }
+
+    requirement def ResultReleaseRequirement {
+        subject processor : ResultProcessor;
+        doc /* The result processor shall release only results meeting confidence and validation rules. */
+        require constraint {
+            processor.minimumConfidenceForAutorelease >= 95 [SI::unit::percent]
+        }
+    }
+
+    requirement def WasteContainmentRequirement {
+        subject wasteContainer : WasteContainer;
+        doc /* Biohazardous liquid waste shall be collected in a locked container with known capacity. */
+        require constraint {
+            wasteContainer.capacity >= 10 [SI::unit::litre] and
+            wasteContainer.biohazardLocked == true
+        }
+    }
+
+    requirement def InstrumentAvailabilityRequirement {
+        subject system : MedicalLaboratoryInstrumentSystem;
+        doc /* The system shall keep major analytical instruments powered and able to enter ready state during laboratory operation. */
+        require constraint {
+            system.facilityPower.supplyVoltage >= 110 [SI::unit::volt]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MedicalLaboratoryInstrumentSystem;
+    satisfy SpecimenIdentificationRequirement by BarcodeReader;
+    satisfy ReagentStorageRequirement by RefrigeratedReagentBay;
+    satisfy CentrifugePerformanceRequirement by ClinicalCentrifuge;
+    satisfy ChemistryMeasurementRequirement by AutomatedChemistryAnalyzer;
+    satisfy ResultReleaseRequirement by ResultProcessor;
+    satisfy WasteContainmentRequirement by WasteContainer;
+    satisfy InstrumentAvailabilityRequirement by MedicalLaboratoryInstrumentSystem;
+}
+tokens used
+5,279
+package MedicalLaboratoryInstrumentationModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::unit::litre;
+    }
+
+    attribute def MicroVolume :> Volume {
+        unit = SI::unit::microlitre;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::unit::degreeCelsius;
+    }
+
+    attribute def Duration :> ISQ::duration {
+        unit = SI::unit::second;
+    }
+
+    attribute def RotationalSpeed {
+        unit = SI::unit::revolutionPerMinute;
+    }
+
+    attribute def OpticalDensity {
+        unit = SI::unit::one;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::unit::volt;
+    }
+
+    attribute def ResultConfidence {
+        unit = SI::unit::percent;
+    }
+
+    enum def SpecimenKind {
+        enum wholeBlood;
+        enum serum;
+        enum plasma;
+        enum urine;
+        enum swab;
+        enum reagentControl;
+    }
+
+    enum def TestKind {
+        enum completeBloodCount;
+        enum chemistryPanel;
+        enum immunoassay;
+        enum urinalysis;
+        enum microscopyReview;
+        enum cultureGrowth;
+    }
+
+    enum def InstrumentStatus {
+        enum idle;
+        enum initializing;
+        enum ready;
+        enum processing;
+        enum calibrating;
+        enum qualityControl;
+        enum cleaning;
+        enum faulted;
+        enum offline;
+    }
+
+    enum def ResultFlag {
+        enum normal;
+        enum low;
+        enum high;
+        enum critical;
+        enum invalid;
+        enum reviewRequired;
+    }
+
+    item def Specimen {
+        attribute specimenId : String;
+        attribute patientId : String;
+        attribute kind : SpecimenKind;
+        attribute collectedVolume : MicroVolume;
+        attribute receivedTemperature : Temperature;
+        attribute collectionAge : Duration;
+        attribute barcodeReadable : Boolean;
+    }
+
+    item def Reagent {
+        attribute reagentId : String;
+        attribute lotNumber : String;
+        attribute remainingVolume : Volume;
+        attribute storageTemperature : Temperature;
+        attribute expirationAgeRemaining : Duration;
+    }
+
+    item def Consumable {
+        attribute consumableId : String;
+        attribute sterile : Boolean;
+        attribute remainingUses : Integer;
+    }
+
+    item def TestOrder {
+        attribute orderId : String;
+        attribute patientId : String;
+        attribute requestedTest : TestKind;
+        attribute priorityStat : Boolean;
+    }
+
+    item def MeasurementSignal {
+        attribute wavelength : Length;
+        attribute absorbance : OpticalDensity;
+        attribute rawCounts : Integer;
+        attribute integrationTime : Duration;
+    }
+
+    item def TestResult {
+        attribute resultId : String;
+        attribute orderId : String;
+        attribute analyteName : String;
+        attribute numericValue : Real;
+        attribute unitText : String;
+        attribute confidence : ResultConfidence;
+        attribute flag : ResultFlag;
+        attribute released : Boolean;
+    }
+
+    item def Waste {
+        attribute biohazardous : Boolean;
+        attribute volume : Volume;
+    }
+
+    port def SpecimenInputPort {
+        in item specimen : Specimen;
+    }
+
+    port def SpecimenOutputPort {
+        out item specimen : Specimen;
+    }
+
+    port def ReagentInputPort {
+        in item reagent : Reagent;
+    }
+
+    port def ConsumableInputPort {
+        in item consumable : Consumable;
+    }
+
+    port def WasteOutputPort {
+        out item waste : Waste;
+    }
+
+    port def OrderPort {
+        in item order : TestOrder;
+    }
+
+    port def ResultPort {
+        out item result : TestResult;
+    }
+
+    port def SignalPort {
+        out item signal : MeasurementSignal;
+    }
+
+    port def SignalInputPort {
+        in item signal : MeasurementSignal;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+    }
+
+    port def NetworkPort {
+        in item inboundOrder : TestOrder;
+        out item outboundResult : TestResult;
+    }
+
+    port def EnvironmentalControlPort {
+        out attribute chamberTemperature : Temperature;
+    }
+
+    action def VerifySpecimenIdentity {
+        in item specimen : Specimen;
+        out attribute accepted : Boolean;
+    }
+
+    action def PrepareSpecimen {
+        in item rawSpecimen : Specimen;
+        out item preparedSpecimen : Specimen;
+    }
+
+    action def CentrifugeSpecimen {
+        in item specimen : Specimen;
+        in attribute speed : RotationalSpeed;
+        in attribute runTime : Duration;
+        out item separatedSpecimen : Specimen;
+    }
+
+    action def DispenseReagent {
+        in item reagent : Reagent;
+        in attribute volume : MicroVolume;
+        out item aliquot : Reagent;
+    }
+
+    action def MeasureOpticalResponse {
+        in item specimen : Specimen;
+        in item reagent : Reagent;
+        out item signal : MeasurementSignal;
+    }
+
+    action def ComputeResult {
+        in item order : TestOrder;
+        in item signal : MeasurementSignal;
+        out item result : TestResult;
+    }
+
+    action def ReleaseResult {
+        in item result : TestResult;
+        out item releasedResult : TestResult;
+    }
+
+    action def RunQualityControl {
+        in item controlMaterial : Specimen;
+        out attribute qcPassed : Boolean;
+    }
+
+    action def CleanFluidPath {
+        in item cleaningReagent : Reagent;
+        out item waste : Waste;
+    }
+
+    state def InstrumentOperatingState {
+        entry action initialize;
+        state offline;
+        state initializing;
+        state idle;
+        state ready;
+        state processing;
+        state qualityControl;
+        state calibrating;
+        state cleaning;
+        state faulted;
+
+        transition first offline then initializing;
+        transition initializing then idle;
+        transition idle then ready;
+        transition ready then processing;
+        transition processing then ready;
+        transition ready then qualityControl;
+        transition qualityControl then ready;
+        transition ready then calibrating;
+        transition calibrating then ready;
+        transition ready then cleaning;
+        transition cleaning then idle;
+        transition processing then faulted;
+        transition qualityControl then faulted;
+        transition calibrating then faulted;
+        transition faulted then cleaning;
+    }
+
+    part def LaboratoryInformationSystem {
+        port network : NetworkPort;
+        attribute connected : Boolean;
+        attribute pendingOrders : Integer;
+        attribute transmittedResults : Integer;
+    }
+
+    part def BarcodeReader {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        attribute scanTime : Duration = 2 [SI::unit::second];
+        attribute minimumBarcodeContrast : OpticalDensity = 0.35;
+        perform action VerifySpecimenIdentity;
+    }
+
+    part def SpecimenHandler {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        port wasteOut : WasteOutputPort;
+        attribute pipetteVolumeMinimum : MicroVolume = 1 [SI::unit::microlitre];
+        attribute pipetteVolumeMaximum : MicroVolume = 1000 [SI::unit::microlitre];
+        attribute carryoverLimit : Real = 0.001;
+        perform action PrepareSpecimen;
+    }
+
+    part def RefrigeratedReagentBay {
+        port reagentIn : ReagentInputPort;
+        attribute targetTemperature : Temperature = 4 [SI::unit::degreeCelsius];
+        attribute temperatureTolerance : Temperature = 2 [SI::unit::degreeCelsius];
+        attribute totalCapacity : Volume = 5 [SI::unit::litre];
+    }
+
+    part def ClinicalCentrifuge {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        port power : PowerPort;
+        attribute maximumSpeed : RotationalSpeed = 15000;
+        attribute defaultSerumSeparationSpeed : RotationalSpeed = 3500;
+        attribute defaultRunTime : Duration = 600 [SI::unit::second];
+        attribute imbalanceDetected : Boolean;
+        exhibit state operatingState : InstrumentOperatingState;
+        perform action CentrifugeSpecimen;
+    }
+
+    part def AutomatedChemistryAnalyzer {
+        port specimenIn : SpecimenInputPort;
+        port reagentIn : ReagentInputPort;
+        port signalOut : SignalPort;
+        port wasteOut : WasteOutputPort;
+        port power : PowerPort;
+        attribute cuvetteTemperature : Temperature = 37 [SI::unit::degreeCelsius];
+        attribute sampleAspirationVolume : MicroVolume = 10 [SI::unit::microlitre];
+        attribute reagentDispenseVolume : MicroVolume = 200 [SI::unit::microlitre];
+        attribute photometerWavelengthMinimum : Length = 340 [SI::unit::nanometre];
+        attribute photometerWavelengthMaximum : Length = 800 [SI::unit::nanometre];
+        exhibit state operatingState : InstrumentOperatingState;
+        perform action DispenseReagent;
+        perform action MeasureOpticalResponse;
+    }
+
+    part def HematologyAnalyzer {
+        port specimenIn : SpecimenInputPort;
+        port reagentIn : ReagentInputPort;
+        port resultOut : ResultPort;
+        port wasteOut : WasteOutputPort;
+        port power : PowerPort;
+        attribute aspirationVolume : MicroVolume = 80 [SI::unit::microlitre];
+        attribute impedanceChannelVoltage : Voltage = 12 [SI::unit::volt];
+        attribute laserScatterEnabled : Boolean = true;
+        exhibit state operatingState : InstrumentOperatingState;
+    }
+
+    part def DigitalMicroscope {
+        port specimenIn : SpecimenInputPort;
+        port resultOut : ResultPort;
+        port power : PowerPort;
+        attribute magnificationMinimum : Real = 40;
+        attribute magnificationMaximum : Real = 1000;
+        attribute imageResolutionMegapixels : Real = 20;
+        attribute autofocusTime : Duration = 5 [SI::unit::second];
+        exhibit state operatingState : InstrumentOperatingState;
+    }
+
+    part def LaboratoryIncubator {
+        port specimenIn : SpecimenInputPort;
+        port specimenOut : SpecimenOutputPort;
+        port environment : EnvironmentalControlPort;
+        port power : PowerPort;
+        attribute targetTemperature : Temperature = 35 [SI::unit::degreeCelsius];
+        attribute temperatureUniformity : Temperature = 0.5 [SI::unit::degreeCelsius];
+        attribute cultureHoldTime : Duration = 86400 [SI::unit::second];
+        exhibit state operatingState : InstrumentOperatingState;
+    }
+
+    part def ResultProcessor {
+        port orderIn : OrderPort;
+        port signalIn : SignalInputPort;
+        port resultOut : ResultPort;
+        attribute criticalValueVerificationRequired : Boolean = true;
+        attribute minimumConfidenceForAutorelease : ResultConfidence = 95 [SI::unit::percent];
+        perform action ComputeResult;
+        perform action ReleaseResult;
+    }
+
+    part def WasteContainer {
+        port wasteIn : WasteOutputPort;
+        attribute capacity : Volume = 10 [SI::unit::litre];
+        attribute currentFill : Volume;
+        attribute biohazardLocked : Boolean = true;
+    }
+
+    part def MedicalLaboratoryInstrumentSystem {
+        doc /* Primary function: receive patient laboratory specimens and electronic test orders, prepare and process specimens using medical laboratory instruments, generate clinically usable measurements, validate results, and transmit finalized results to the laboratory information system. */
+
+        port specimenEntry : SpecimenInputPort;
+        port orderEntry : OrderPort;
+        port resultExit : ResultPort;
+        port facilityPower : PowerPort;
+        port lisNetwork : NetworkPort;
+
+        part lis : LaboratoryInformationSystem;
+        part barcodeReader : BarcodeReader;
+        part specimenHandler : SpecimenHandler;
+        part centrifuge : ClinicalCentrifuge;
+        part reagentBay : RefrigeratedReagentBay;
+        part chemistryAnalyzer : AutomatedChemistryAnalyzer;
+        part hematologyAnalyzer : HematologyAnalyzer;
+        part microscope : DigitalMicroscope;
+        part incubator : LaboratoryIncubator;
+        part resultProcessor : ResultProcessor;
+        part wasteContainer : WasteContainer;
+
+        item specimenFlow : Specimen;
+        item preparedSpecimenFlow : Specimen;
+        item separatedSpecimenFlow : Specimen;
+        item opticalSignalFlow : MeasurementSignal;
+        item resultFlow : TestResult;
+        item reagentFlow : Reagent;
+        item wasteFlow : Waste;
+        item orderFlow : TestOrder;
+
+        connect specimenEntry to barcodeReader.specimenIn;
+        connect barcodeReader.specimenOut to specimenHandler.specimenIn;
+        connect specimenHandler.specimenOut to centrifuge.specimenIn;
+        connect centrifuge.specimenOut to chemistryAnalyzer.specimenIn;
+        connect reagentBay.reagentIn to chemistryAnalyzer.reagentIn;
+        connect chemistryAnalyzer.signalOut to resultProcessor.signalIn;
+        connect orderEntry to resultProcessor.orderIn;
+        connect resultProcessor.resultOut to resultExit;
+        connect resultExit to lis.network;
+        connect lisNetwork to lis.network;
+
+        connect specimenHandler.wasteOut to wasteContainer.wasteIn;
+        connect chemistryAnalyzer.wasteOut to wasteContainer.wasteIn;
+        connect hematologyAnalyzer.wasteOut to wasteContainer.wasteIn;
+
+        connect facilityPower to centrifuge.power;
+        connect facilityPower to chemistryAnalyzer.power;
+        connect facilityPower to hematologyAnalyzer.power;
+        connect facilityPower to microscope.power;
+        connect facilityPower to incubator.power;
+
+        connection wholeBloodPath connect specimenHandler.specimenOut to hematologyAnalyzer.specimenIn;
+        connection microscopyPath connect specimenHandler.specimenOut to microscope.specimenIn;
+        connection culturePath connect specimenHandler.specimenOut to incubator.specimenIn;
+        connection incubatedReviewPath connect incubator.specimenOut to microscope.specimenIn;
+        connection hematologyResultPath connect hematologyAnalyzer.resultOut to resultExit;
+        connection microscopyResultPath connect microscope.resultOut to resultExit;
+
+        exhibit state systemState : InstrumentOperatingState;
+
+        perform action highLevelDiagnosticWorkflow {
+            first start;
+            then receiveOrder;
+            then verifySpecimen;
+            then prepareSpecimen;
+            then routeByTestKind;
+            then acquireMeasurement;
+            then computeAndValidateResult;
+            then releaseToLIS;
+            then archiveAndClean;
+
+            action receiveOrder {
+                in item order : TestOrder;
+                out item acceptedOrder : TestOrder;
+            }
+
+            action verifySpecimen : VerifySpecimenIdentity {
+                in item specimen = specimenEntry.specimen;
+            }
+
+            action prepareSpecimen : PrepareSpecimen;
+
+            action routeByTestKind {
+                in item order : TestOrder;
+                in item specimen : Specimen;
+                out item routedSpecimen : Specimen;
+            }
+
+            action acquireMeasurement {
+                in item routedSpecimen : Specimen;
+                out item measurement : MeasurementSignal;
+            }
+
+            action computeAndValidateResult : ComputeResult;
+
+            action releaseToLIS : ReleaseResult;
+
+            action archiveAndClean : CleanFluidPath;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : MedicalLaboratoryInstrumentSystem;
+        doc /* The system shall provide a coordinated medical laboratory instrument capability that transforms accepted patient specimens and test orders into validated laboratory results for clinical use. */
+        require constraint {
+            system.lis.connected == true
+        }
+    }
+
+    requirement def SpecimenIdentificationRequirement {
+        subject reader : BarcodeReader;
+        doc /* Each specimen shall be positively identified before automated processing begins. */
+        require constraint {
+            reader.scanTime <= 5 [SI::unit::second]
+        }
+    }
+
+    requirement def ReagentStorageRequirement {
+        subject bay : RefrigeratedReagentBay;
+        doc /* Reagents shall be stored within controlled refrigerated limits to preserve analytical validity. */
+        require constraint {
+            bay.targetTemperature >= 2 [SI::unit::degreeCelsius] and
+            bay.targetTemperature <= 8 [SI::unit::degreeCelsius]
+        }
+    }
+
+    requirement def CentrifugePerformanceRequirement {
+        subject centrifuge : ClinicalCentrifuge;
+        doc /* The centrifuge shall support serum or plasma separation before chemistry analysis. */
+        require constraint {
+            centrifuge.maximumSpeed >= 3500
+        }
+    }
+
+    requirement def ChemistryMeasurementRequirement {
+        subject analyzer : AutomatedChemistryAnalyzer;
+        doc /* The chemistry analyzer shall maintain reaction temperature and perform optical measurement for quantitative assays. */
+        require constraint {
+            analyzer.cuvetteTemperature >= 36 [SI::unit::degreeCelsius] and
+            analyzer.cuvetteTemperature <= 38 [SI::unit::degreeCelsius]
+        }
+    }
+
+    requirement def ResultReleaseRequirement {
+        subject processor : ResultProcessor;
+        doc /* The result processor shall release only results meeting confidence and validation rules. */
+        require constraint {
+            processor.minimumConfidenceForAutorelease >= 95 [SI::unit::percent]
+        }
+    }
+
+    requirement def WasteContainmentRequirement {
+        subject wasteContainer : WasteContainer;
+        doc /* Biohazardous liquid waste shall be collected in a locked container with known capacity. */
+        require constraint {
+            wasteContainer.capacity >= 10 [SI::unit::litre] and
+            wasteContainer.biohazardLocked == true
+        }
+    }
+
+    requirement def InstrumentAvailabilityRequirement {
+        subject system : MedicalLaboratoryInstrumentSystem;
+        doc /* The system shall keep major analytical instruments powered and able to enter ready state during laboratory operation. */
+        require constraint {
+            system.facilityPower.supplyVoltage >= 110 [SI::unit::volt]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MedicalLaboratoryInstrumentSystem;
+    satisfy SpecimenIdentificationRequirement by BarcodeReader;
+    satisfy ReagentStorageRequirement by RefrigeratedReagentBay;
+    satisfy CentrifugePerformanceRequirement by ClinicalCentrifuge;
+    satisfy ChemistryMeasurementRequirement by AutomatedChemistryAnalyzer;
+    satisfy ResultReleaseRequirement by ResultProcessor;
+    satisfy WasteContainmentRequirement by WasteContainer;
+    satisfy InstrumentAvailabilityRequirement by MedicalLaboratoryInstrumentSystem;
+}

@@ -1,0 +1,633 @@
+package PumpingSubsystemModel {
+
+    private import ScalarValues::*;
+    private import SI::*;
+    private import ISQ::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = "Pa";
+    }
+
+    attribute def VolumeFlowRate {
+        :>> scalarValues = Real;
+        unit = "m^3/s";
+    }
+
+    attribute def RotationalSpeed {
+        :>> scalarValues = Real;
+        unit = "rev/min";
+    }
+
+    attribute def Power {
+        :>> scalarValues = Real;
+        unit = "W";
+    }
+
+    attribute def Efficiency {
+        :>> scalarValues = Real;
+        unit = "1";
+    }
+
+    attribute def Density {
+        :>> scalarValues = Real;
+        unit = "kg/m^3";
+    }
+
+    attribute def DynamicViscosity {
+        :>> scalarValues = Real;
+        unit = "Pa*s";
+    }
+
+    attribute def Temperature {
+        :>> scalarValues = Real;
+        unit = "K";
+    }
+
+    attribute def Length {
+        :>> scalarValues = Real;
+        unit = "m";
+    }
+
+    attribute def Time {
+        :>> scalarValues = Real;
+        unit = "s";
+    }
+
+    attribute def ElectricalVoltage {
+        :>> scalarValues = Real;
+        unit = "V";
+    }
+
+    attribute def ElectricalCurrent {
+        :>> scalarValues = Real;
+        unit = "A";
+    }
+
+    attribute def CavitationMargin {
+        :>> scalarValues = Real;
+        unit = "m";
+    }
+
+    item def Fluid {
+        attribute density : Density;
+        attribute dynamicViscosity : DynamicViscosity;
+        attribute temperature : Temperature;
+        attribute vaporPressure : Pressure;
+        attribute suspendedSolidsFraction : Efficiency;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricalVoltage;
+        attribute current : ElectricalCurrent;
+        attribute frequency {
+            :>> scalarValues = Real;
+            unit = "Hz";
+        }
+        attribute phaseCount {
+            :>> scalarValues = Integer;
+        }
+    }
+
+    item def ControlSignal {
+        attribute command {
+            :>> scalarValues = String;
+        }
+        attribute setpoint : VolumeFlowRate;
+        attribute speedSetpoint : RotationalSpeed;
+        attribute enable {
+            :>> scalarValues = Boolean;
+        }
+    }
+
+    item def TelemetrySignal {
+        attribute measuredFlow : VolumeFlowRate;
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute motorSpeed : RotationalSpeed;
+        attribute motorPower : Power;
+        attribute pumpEfficiency : Efficiency;
+        attribute vibration {
+            :>> scalarValues = Real;
+            unit = "mm/s";
+        }
+        attribute alarmCode {
+            :>> scalarValues = String;
+        }
+    }
+
+    port def FluidPort {
+        inout item fluid : Fluid;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def ElectricalPort {
+        in item supply : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetrySignal;
+    }
+
+    port def ShaftPort {
+        attribute speed : RotationalSpeed;
+        attribute torque {
+            :>> scalarValues = Real;
+            unit = "N*m";
+        }
+        attribute mechanicalPower : Power;
+    }
+
+    action def StartPump {
+        in control : ControlSignal;
+        out targetSpeed : RotationalSpeed;
+        out startAccepted {
+            :>> scalarValues = Boolean;
+        }
+    }
+
+    action def StopPump {
+        out speedCommand : RotationalSpeed;
+        out stopped {
+            :>> scalarValues = Boolean;
+        }
+    }
+
+    action def RegulateFlow {
+        in measuredFlow : VolumeFlowRate;
+        in commandedFlow : VolumeFlowRate;
+        in currentSpeed : RotationalSpeed;
+        out adjustedSpeed : RotationalSpeed;
+    }
+
+    action def DetectCavitation {
+        in availableNPSH : CavitationMargin;
+        in requiredNPSH : CavitationMargin;
+        in vibration {
+            :>> scalarValues = Real;
+            unit = "mm/s";
+        }
+        out cavitationDetected {
+            :>> scalarValues = Boolean;
+        }
+    }
+
+    action def ComputePumpHead {
+        in suctionPressure : Pressure;
+        in dischargePressure : Pressure;
+        in fluidDensity : Density;
+        out developedHead : Length;
+    }
+
+    part def CentrifugalPump {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port shaft : ShaftPort;
+
+        attribute selectedType {
+            :>> scalarValues = String;
+            default = "single-stage end-suction centrifugal pump";
+        }
+
+        attribute impellerDiameter : Length = 0.215 [m];
+        attribute designSpeed : RotationalSpeed = 3550 [rev/min];
+        attribute minimumContinuousStableFlow : VolumeFlowRate = 0.006 [m^3/s];
+        attribute bestEfficiencyFlow : VolumeFlowRate = 0.024 [m^3/s];
+        attribute maximumAllowableFlow : VolumeFlowRate = 0.038 [m^3/s];
+        attribute ratedFlow : VolumeFlowRate = 0.025 [m^3/s];
+        attribute ratedHead : Length = 42.0 [m];
+        attribute shutoffHead : Length = 51.0 [m];
+        attribute runoutHead : Length = 28.0 [m];
+        attribute requiredNPSHAtRatedFlow : CavitationMargin = 3.2 [m];
+        attribute hydraulicEfficiencyAtRatedFlow : Efficiency = 0.78;
+        attribute maximumCasingPressure : Pressure = 1600000 [Pa];
+
+        assert constraint PumpOperatingRange {
+            suction.flowRate >= minimumContinuousStableFlow and
+            suction.flowRate <= maximumAllowableFlow
+        }
+
+        assert constraint PressureRise {
+            discharge.pressure > suction.pressure
+        }
+
+        assert constraint RatedSelectionPoint {
+            ratedFlow >= minimumContinuousStableFlow and
+            ratedFlow <= maximumAllowableFlow and
+            ratedHead < shutoffHead and
+            ratedHead > runoutHead
+        }
+    }
+
+    part def ElectricMotor {
+        port powerIn : ElectricalPort;
+        port shaftOut : ShaftPort;
+        port control : ControlPort;
+        port telemetry : TelemetryPort;
+
+        attribute ratedPower : Power = 18500 [W];
+        attribute ratedVoltage : ElectricalVoltage = 480 [V];
+        attribute ratedCurrent : ElectricalCurrent = 28.0 [A];
+        attribute ratedSpeed : RotationalSpeed = 3550 [rev/min];
+        attribute serviceFactor {
+            :>> scalarValues = Real;
+            default = 1.15;
+        }
+        attribute motorEfficiency : Efficiency = 0.91;
+
+        assert constraint MotorSizedForPump {
+            ratedPower >= 16000 [W]
+        }
+    }
+
+    part def VariableFrequencyDrive {
+        port supplyIn : ElectricalPort;
+        port motorOut : ElectricalPort;
+        port controlIn : ControlPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute minimumFrequency {
+            :>> scalarValues = Real;
+            unit = "Hz";
+            default = 20.0;
+        }
+        attribute maximumFrequency {
+            :>> scalarValues = Real;
+            unit = "Hz";
+            default = 60.0;
+        }
+        attribute outputVoltage : ElectricalVoltage = 480 [V];
+        attribute driveEfficiency : Efficiency = 0.97;
+    }
+
+    part def SuctionStrainer {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute meshOpening : Length = 0.003 [m];
+        attribute cleanPressureDrop : Pressure = 8000 [Pa];
+        attribute cloggedPressureDropLimit : Pressure = 35000 [Pa];
+
+        assert constraint StrainerPressureDropLimit {
+            inlet.pressure - outlet.pressure <= cloggedPressureDropLimit
+        }
+    }
+
+    part def CheckValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute crackingPressure : Pressure = 5000 [Pa];
+        attribute reverseLeakageFlowLimit : VolumeFlowRate = 0.00002 [m^3/s];
+    }
+
+    part def IsolationValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute fullOpenPressureDrop : Pressure = 4000 [Pa];
+        attribute position {
+            :>> scalarValues = Real;
+            unit = "1";
+            default = 1.0;
+        }
+
+        assert constraint ValveNormallyOpen {
+            position >= 0.95
+        }
+    }
+
+    part def FlowTransmitter {
+        port processIn : FluidPort;
+        port processOut : FluidPort;
+        port telemetry : TelemetryPort;
+
+        attribute rangeMinimum : VolumeFlowRate = 0.0 [m^3/s];
+        attribute rangeMaximum : VolumeFlowRate = 0.05 [m^3/s];
+        attribute accuracy {
+            :>> scalarValues = Real;
+            unit = "1";
+            default = 0.005;
+        }
+    }
+
+    part def PressureTransmitter {
+        port process : FluidPort;
+        port telemetry : TelemetryPort;
+
+        attribute rangeMinimum : Pressure = 0 [Pa];
+        attribute rangeMaximum : Pressure = 2000000 [Pa];
+        attribute accuracy {
+            :>> scalarValues = Real;
+            unit = "1";
+            default = 0.0025;
+        }
+    }
+
+    part def PumpController {
+        port commandIn : ControlPort;
+        port driveCommand : ControlPort;
+        port telemetryIn : TelemetryPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute commandedFlow : VolumeFlowRate = 0.025 [m^3/s];
+        attribute lowFlowTrip : VolumeFlowRate = 0.005 [m^3/s];
+        attribute highPressureTrip : Pressure = 1450000 [Pa];
+        attribute lowSuctionPressureTrip : Pressure = 60000 [Pa];
+        attribute cavitationMarginMinimum : CavitationMargin = 1.0 [m];
+        attribute restartDelay : Time = 30 [s];
+
+        state def PumpControlStateMachine {
+            state Off;
+            state Ready;
+            state Starting;
+            state Running;
+            state FlowRegulating;
+            state Stopping;
+            state Faulted;
+
+            transition first Off;
+
+            transition Off_to_Ready
+                first Off
+                then Ready;
+
+            transition Ready_to_Starting
+                first Ready
+                accept ControlSignal
+                if commandIn.command.enable
+                do StartPump;
+
+            transition Starting_to_Running
+                first Starting
+                then Running
+                if telemetryIn.telemetry.motorSpeed >= 3400 [rev/min];
+
+            transition Running_to_FlowRegulating
+                first Running
+                then FlowRegulating
+                if telemetryIn.telemetry.measuredFlow != commandedFlow;
+
+            transition FlowRegulating_to_Running
+                first FlowRegulating
+                then Running
+                do RegulateFlow
+                if telemetryIn.telemetry.measuredFlow >= commandedFlow * 0.98 and
+                   telemetryIn.telemetry.measuredFlow <= commandedFlow * 1.02;
+
+            transition Running_to_Stopping
+                first Running
+                then Stopping
+                accept ControlSignal
+                if not commandIn.command.enable
+                do StopPump;
+
+            transition FlowRegulating_to_Stopping
+                first FlowRegulating
+                then Stopping
+                accept ControlSignal
+                if not commandIn.command.enable
+                do StopPump;
+
+            transition Stopping_to_Ready
+                first Stopping
+                then Ready
+                if telemetryIn.telemetry.motorSpeed <= 50 [rev/min];
+
+            transition Running_to_Faulted
+                first Running
+                then Faulted
+                if telemetryIn.telemetry.dischargePressure >= highPressureTrip or
+                   telemetryIn.telemetry.suctionPressure <= lowSuctionPressureTrip or
+                   telemetryIn.telemetry.measuredFlow <= lowFlowTrip;
+
+            transition FlowRegulating_to_Faulted
+                first FlowRegulating
+                then Faulted
+                if telemetryIn.telemetry.dischargePressure >= highPressureTrip or
+                   telemetryIn.telemetry.suctionPressure <= lowSuctionPressureTrip or
+                   telemetryIn.telemetry.measuredFlow <= lowFlowTrip;
+
+            transition Faulted_to_Ready
+                first Faulted
+                then Ready
+                accept ControlSignal
+                if commandIn.command.command == "RESET";
+        }
+
+        behavior controlBehavior : PumpControlStateMachine;
+    }
+
+    part def PumpingSubsystem {
+        port suctionConnection : FluidPort;
+        port dischargeConnection : FluidPort;
+        port electricalSupply : ElectricalPort;
+        port operatorCommand : ControlPort;
+        port systemTelemetry : TelemetryPort;
+
+        part suctionIsolationValve : IsolationValve;
+        part suctionStrainer : SuctionStrainer;
+        part centrifugalPump : CentrifugalPump;
+        part dischargeCheckValve : CheckValve;
+        part dischargeIsolationValve : IsolationValve;
+        part flowTransmitter : FlowTransmitter;
+        part suctionPressureTransmitter : PressureTransmitter;
+        part dischargePressureTransmitter : PressureTransmitter;
+        part motor : ElectricMotor;
+        part drive : VariableFrequencyDrive;
+        part controller : PumpController;
+
+        attribute designFluid : Fluid {
+            density = 998 [kg/m^3];
+            dynamicViscosity = 0.001 [Pa*s];
+            temperature = 293.15 [K];
+            vaporPressure = 2340 [Pa];
+            suspendedSolidsFraction = 0.0;
+        }
+
+        attribute designFlow : VolumeFlowRate = 0.025 [m^3/s];
+        attribute designSuctionPressure : Pressure = 180000 [Pa];
+        attribute designDischargePressure : Pressure = 592000 [Pa];
+        attribute totalDynamicHead : Length = 42.0 [m];
+        attribute availableNPSH : CavitationMargin = 7.5 [m];
+        attribute requiredNPSH : CavitationMargin = 3.2 [m];
+        attribute minimumNPSHMargin : CavitationMargin = 1.0 [m];
+        attribute maximumAllowableWorkingPressure : Pressure = 1600000 [Pa];
+        attribute expectedHydraulicPower : Power = 10280 [W];
+        attribute expectedInputPower : Power = 14500 [W];
+
+        connect suctionConnection to suctionIsolationValve.inlet;
+        connect suctionIsolationValve.outlet to suctionStrainer.inlet;
+        connect suctionStrainer.outlet to suctionPressureTransmitter.process;
+        connect suctionPressureTransmitter.process to centrifugalPump.suction;
+        connect centrifugalPump.discharge to dischargePressureTransmitter.process;
+        connect dischargePressureTransmitter.process to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeIsolationValve.inlet;
+        connect dischargeIsolationValve.outlet to flowTransmitter.processIn;
+        connect flowTransmitter.processOut to dischargeConnection;
+
+        connect electricalSupply to drive.supplyIn;
+        connect drive.motorOut to motor.powerIn;
+        connect motor.shaftOut to centrifugalPump.shaft;
+
+        connect operatorCommand to controller.commandIn;
+        connect controller.driveCommand to drive.controlIn;
+        connect drive.telemetryOut to controller.telemetryIn;
+        connect motor.telemetry to controller.telemetryIn;
+        connect flowTransmitter.telemetry to controller.telemetryIn;
+        connect suctionPressureTransmitter.telemetry to controller.telemetryIn;
+        connect dischargePressureTransmitter.telemetry to controller.telemetryIn;
+        connect controller.telemetryOut to systemTelemetry;
+
+        assert constraint PumpSelectionMatchesDuty {
+            centrifugalPump.ratedFlow >= designFlow * 0.95 and
+            centrifugalPump.ratedFlow <= designFlow * 1.05 and
+            centrifugalPump.ratedHead >= totalDynamicHead * 0.95 and
+            centrifugalPump.ratedHead <= totalDynamicHead * 1.10
+        }
+
+        assert constraint NPSHMarginSatisfied {
+            availableNPSH - requiredNPSH >= minimumNPSHMargin
+        }
+
+        assert constraint PressureBoundarySatisfied {
+            designDischargePressure <= maximumAllowableWorkingPressure and
+            designDischargePressure <= centrifugalPump.maximumCasingPressure
+        }
+
+        assert constraint MotorAndDriveSized {
+            motor.ratedPower >= expectedInputPower and
+            motor.ratedSpeed == centrifugalPump.designSpeed
+        }
+
+        assert constraint NormalOperatingFlow {
+            designFlow >= centrifugalPump.minimumContinuousStableFlow and
+            designFlow <= centrifugalPump.maximumAllowableFlow
+        }
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.designFlow >= 0.025 [m^3/s]
+        }
+
+        require constraint {
+            subsystem.designDischargePressure > subsystem.designSuctionPressure
+        }
+    }
+
+    requirement def CentrifugalPumpSelectionRequirement {
+        subject pump : CentrifugalPump;
+
+        require constraint {
+            pump.selectedType == "single-stage end-suction centrifugal pump"
+        }
+
+        require constraint {
+            pump.hydraulicEfficiencyAtRatedFlow >= 0.75
+        }
+
+        require constraint {
+            pump.ratedFlow >= 0.02375 [m^3/s] and
+            pump.ratedFlow <= 0.02625 [m^3/s]
+        }
+
+        require constraint {
+            pump.ratedHead >= 39.9 [m] and
+            pump.ratedHead <= 46.2 [m]
+        }
+    }
+
+    requirement def CavitationAvoidanceRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.availableNPSH >= subsystem.requiredNPSH + subsystem.minimumNPSHMargin
+        }
+    }
+
+    requirement def PumpProtectionRequirement {
+        subject controller : PumpController;
+
+        require constraint {
+            controller.lowFlowTrip >= 0.004 [m^3/s] and
+            controller.lowFlowTrip <= 0.006 [m^3/s]
+        }
+
+        require constraint {
+            controller.highPressureTrip <= 1450000 [Pa]
+        }
+
+        require constraint {
+            controller.lowSuctionPressureTrip >= 50000 [Pa]
+        }
+    }
+
+    requirement def InstrumentationRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.flowTransmitter.rangeMaximum >= 0.05 [m^3/s]
+        }
+
+        require constraint {
+            subsystem.suctionPressureTransmitter.rangeMaximum >= 200000 [Pa]
+        }
+
+        require constraint {
+            subsystem.dischargePressureTransmitter.rangeMaximum >= 1000000 [Pa]
+        }
+    }
+
+    requirement def ElectricalDriveRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.drive.maximumFrequency == 60.0 and
+            subsystem.motor.ratedVoltage == 480 [V]
+        }
+
+        require constraint {
+            subsystem.motor.ratedPower >= subsystem.expectedInputPower
+        }
+    }
+
+    requirement moveFluid : MoveFluidRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement selectCentrifugalPump : CentrifugalPumpSelectionRequirement {
+        subject pump = pumpingSubsystem.centrifugalPump;
+    }
+
+    requirement avoidCavitation : CavitationAvoidanceRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement protectPump : PumpProtectionRequirement {
+        subject controller = pumpingSubsystem.controller;
+    }
+
+    requirement provideInstrumentation : InstrumentationRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    requirement electricalDrive : ElectricalDriveRequirement {
+        subject subsystem = pumpingSubsystem;
+    }
+
+    part pumpingSubsystem : PumpingSubsystem;
+
+    satisfy moveFluid by pumpingSubsystem;
+    satisfy selectCentrifugalPump by pumpingSubsystem.centrifugalPump;
+    satisfy avoidCavitation by pumpingSubsystem;
+    satisfy protectPump by pumpingSubsystem.controller;
+    satisfy provideInstrumentation by pumpingSubsystem;
+    satisfy electricalDrive by pumpingSubsystem;
+}

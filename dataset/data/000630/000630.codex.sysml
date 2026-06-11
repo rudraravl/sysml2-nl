@@ -1,0 +1,479 @@
+package HotWaterBottleModel {
+
+  import ScalarValues::*;
+
+  unit def degC;
+  unit def kPa;
+  unit def mL;
+  unit def W;
+  unit def J;
+  unit def mm;
+  unit def g;
+  unit def min;
+
+  value def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  value def Pressure {
+    attribute value : Real;
+    attribute unit : String = "kPa";
+  }
+
+  value def Volume {
+    attribute value : Real;
+    attribute unit : String = "mL";
+  }
+
+  value def HeatFlowRate {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  value def Energy {
+    attribute value : Real;
+    attribute unit : String = "J";
+  }
+
+  value def Mass {
+    attribute value : Real;
+    attribute unit : String = "g";
+  }
+
+  value def Thickness {
+    attribute value : Real;
+    attribute unit : String = "mm";
+  }
+
+  value def Duration {
+    attribute value : Real;
+    attribute unit : String = "min";
+  }
+
+  item def HotWater {
+    attribute temperature : Temperature;
+    attribute volume : Volume;
+    attribute thermalEnergy : Energy;
+  }
+
+  item def AmbientAir {
+    attribute temperature : Temperature;
+  }
+
+  item def UserBodySurface {
+    attribute skinTemperature : Temperature;
+    attribute contactSensitivity : String;
+  }
+
+  item def Heat {
+    attribute rate : HeatFlowRate;
+    attribute accumulatedEnergy : Energy;
+  }
+
+  item def WaterLeak {
+    attribute leakedVolume : Volume;
+    attribute temperature : Temperature;
+  }
+
+  port def FillPort {
+    in item incomingWater : HotWater;
+    out item displacedAir : AmbientAir;
+  }
+
+  port def SealInterface {
+    in item tighteningTorqueSignal : String;
+    out item leakPath : WaterLeak;
+  }
+
+  port def ThermalContactPort {
+    out item deliveredHeat : Heat;
+    in item contactedBodySurface : UserBodySurface;
+  }
+
+  port def AmbientThermalPort {
+    in item surroundingAir : AmbientAir;
+    out item dissipatedHeat : Heat;
+  }
+
+  port def PressureReliefPort {
+    out item ventedLeak : WaterLeak;
+  }
+
+  part def ScrewStopper {
+    attribute material : String = "polypropylene";
+    attribute threadEngaged : Boolean = false;
+    attribute sealCompressed : Boolean = false;
+    attribute maxServiceTemperature : Temperature = Temperature { value = 100.0; }
+    attribute mass : Mass = Mass { value = 35.0; }
+
+    port seal : SealInterface;
+
+    action def Tighten {
+      in targetThreadEngagement : Boolean;
+      out sealed : Boolean;
+      sealed = targetThreadEngagement;
+    }
+
+    state def StopperState {
+      state Removed;
+      state Inserted;
+      state Tightened;
+      state Faulted;
+
+      initial then Removed;
+
+      transition Removed_to_Inserted
+        first Removed
+        then Inserted
+        accept InsertStopper;
+
+      transition Inserted_to_Tightened
+        first Inserted
+        then Tightened
+        accept RotateClockwise
+        do Tighten { targetThreadEngagement = true; }
+
+      transition Tightened_to_Removed
+        first Tightened
+        then Removed
+        accept RotateCounterClockwise;
+
+      transition Tightened_to_Faulted
+        first Tightened
+        then Faulted
+        accept SealDamageDetected;
+    }
+  }
+
+  part def BottleBody {
+    attribute material : String = "natural rubber";
+    attribute nominalCapacity : Volume = Volume { value = 2000.0; }
+    attribute recommendedFillVolume : Volume = Volume { value = 1500.0; }
+    attribute wallThickness : Thickness = Thickness { value = 2.8; }
+    attribute maxWaterTemperature : Temperature = Temperature { value = 80.0; }
+    attribute burstPressure : Pressure = Pressure { value = 60.0; }
+    attribute emptyMass : Mass = Mass { value = 420.0; }
+    attribute ribbedOuterSurface : Boolean = true;
+    attribute currentWater : HotWater;
+    attribute internalPressure : Pressure = Pressure { value = 0.0; }
+    attribute surfaceTemperature : Temperature = Temperature { value = 20.0; }
+
+    port filler : FillPort;
+    port bodyHeatOut : ThermalContactPort;
+    port ambientLoss : AmbientThermalPort;
+    port relief : PressureReliefPort;
+
+    action def ReceiveWater {
+      in water : HotWater;
+      out accepted : Boolean;
+      accepted =
+        water.volume.value <= recommendedFillVolume.value and
+        water.temperature.value <= maxWaterTemperature.value;
+    }
+
+    action def TransferHeatToUser {
+      in waterTemperature : Temperature;
+      in skinTemperature : Temperature;
+      out heatRate : HeatFlowRate;
+      heatRate.value = (waterTemperature.value - skinTemperature.value) * 1.7;
+      heatRate.unit = "W";
+    }
+
+    action def LoseHeatToAmbient {
+      in bottleSurfaceTemperature : Temperature;
+      in airTemperature : Temperature;
+      out heatRate : HeatFlowRate;
+      heatRate.value = (bottleSurfaceTemperature.value - airTemperature.value) * 0.35;
+      heatRate.unit = "W";
+    }
+
+    state def BottleThermalState {
+      state Empty;
+      state Filling;
+      state FilledHot;
+      state WarmingUser;
+      state Cooling;
+      state Cool;
+      state UnsafeOvertemperature;
+      state UnsafeOverpressure;
+      state Leaking;
+
+      initial then Empty;
+
+      transition Empty_to_Filling
+        first Empty
+        then Filling
+        accept PourWater;
+
+      transition Filling_to_FilledHot
+        first Filling
+        then FilledHot
+        accept FillComplete
+        if currentWater.volume.value <= recommendedFillVolume.value and currentWater.temperature.value <= maxWaterTemperature.value;
+
+      transition Filling_to_UnsafeOvertemperature
+        first Filling
+        then UnsafeOvertemperature
+        if currentWater.temperature.value > maxWaterTemperature.value;
+
+      transition FilledHot_to_WarmingUser
+        first FilledHot
+        then WarmingUser
+        accept ApplyToBody;
+
+      transition WarmingUser_to_Cooling
+        first WarmingUser
+        then Cooling
+        if currentWater.temperature.value < 45.0;
+
+      transition Cooling_to_Cool
+        first Cooling
+        then Cool
+        if currentWater.temperature.value <= 30.0;
+
+      transition FilledHot_to_UnsafeOverpressure
+        first FilledHot
+        then UnsafeOverpressure
+        if internalPressure.value >= burstPressure.value * 0.8;
+
+      transition FilledHot_to_Leaking
+        first FilledHot
+        then Leaking
+        accept LeakDetected;
+
+      transition WarmingUser_to_Leaking
+        first WarmingUser
+        then Leaking
+        accept LeakDetected;
+    }
+  }
+
+  part def FabricCover {
+    attribute material : String = "cotton fleece";
+    attribute washable : Boolean = true;
+    attribute thickness : Thickness = Thickness { value = 4.0; }
+    attribute thermalResistanceLevel : String = "moderate";
+    attribute preventsDirectSkinContact : Boolean = true;
+
+    port innerThermalSide : ThermalContactPort;
+    port outerThermalSide : ThermalContactPort;
+
+    action def ModerateSurfaceHeat {
+      in rawHeat : Heat;
+      out moderatedHeat : Heat;
+      moderatedHeat.rate.value = rawHeat.rate.value * 0.65;
+      moderatedHeat.rate.unit = "W";
+      moderatedHeat.accumulatedEnergy = rawHeat.accumulatedEnergy;
+    }
+  }
+
+  part def User {
+    attribute targetBodyArea : String = "abdomen, back, feet, or hands";
+    attribute desiredComfortTemperature : Temperature = Temperature { value = 40.0; }
+    attribute maximumSafeSkinContactTemperature : Temperature = Temperature { value = 43.0; }
+
+    port bodyContact : ThermalContactPort;
+
+    action def ReceiveComfortHeat {
+      in heat : Heat;
+      out comfortProvided : Boolean;
+      comfortProvided = heat.rate.value > 5.0 and heat.rate.value < 80.0;
+    }
+  }
+
+  part def HotWaterBottleSystem {
+    attribute primaryFunction : String =
+      "Store hot water in a sealed flexible vessel and passively deliver controlled warmth to a user's body surface for comfort or heat therapy.";
+    attribute safeOperatingTemperature : Temperature = Temperature { value = 80.0; }
+    attribute nominalHeatDeliveryDuration : Duration = Duration { value = 90.0; }
+    attribute totalFilledMass : Mass = Mass { value = 1920.0; }
+
+    part bottle : BottleBody;
+    part stopper : ScrewStopper;
+    part cover : FabricCover;
+    part user : User;
+
+    port fillOpening : FillPort;
+    port userHeatInterface : ThermalContactPort;
+    port roomAirInterface : AmbientThermalPort;
+
+    connection fillFlow connect fillOpening to bottle.filler;
+    connection stopperSeal connect stopper.seal to bottle.relief;
+    connection bottleToCover connect bottle.bodyHeatOut to cover.innerThermalSide;
+    connection coverToUser connect cover.outerThermalSide to user.bodyContact;
+    connection ambientLoss connect roomAirInterface to bottle.ambientLoss;
+    connection externalUse connect userHeatInterface to user.bodyContact;
+
+    action def PrimaryFunction {
+      in filledWater : HotWater;
+      in bodySurface : UserBodySurface;
+      in roomAir : AmbientAir;
+      out deliveredComfortHeat : Heat;
+      out safeForUse : Boolean;
+
+      safeForUse =
+        filledWater.temperature.value <= safeOperatingTemperature.value and
+        filledWater.volume.value <= bottle.recommendedFillVolume.value and
+        stopper.threadEngaged == true;
+
+      deliveredComfortHeat.rate.value =
+        if safeForUse then
+          (filledWater.temperature.value - bodySurface.skinTemperature.value) * 1.1
+        else
+          0.0;
+      deliveredComfortHeat.rate.unit = "W";
+    }
+
+    action def FillSealAndUse {
+      in water : HotWater;
+      in bodySurface : UserBodySurface;
+      in roomAir : AmbientAir;
+      out heatToUser : Heat;
+      out useAccepted : Boolean;
+
+      first start;
+      then receiveWater : bottle.ReceiveWater { water = water; }
+      then tightenStopper : stopper.Tighten { targetThreadEngagement = true; }
+      then deliverHeat : PrimaryFunction {
+        filledWater = water;
+        bodySurface = bodySurface;
+        roomAir = roomAir;
+      }
+      then done;
+
+      useAccepted = receiveWater.accepted and deliverHeat.safeForUse;
+      heatToUser = deliverHeat.deliveredComfortHeat;
+    }
+
+    state def SystemUseState {
+      state StoredEmpty;
+      state BeingFilled;
+      state SealedReady;
+      state InThermalUse;
+      state CoolingDown;
+      state Emptying;
+      state MaintenanceRequired;
+      state UnsafeUsePrevented;
+
+      initial then StoredEmpty;
+
+      transition StoredEmpty_to_BeingFilled
+        first StoredEmpty
+        then BeingFilled
+        accept UserStartsFilling;
+
+      transition BeingFilled_to_SealedReady
+        first BeingFilled
+        then SealedReady
+        accept StopperTightened
+        if bottle.currentWater.temperature.value <= safeOperatingTemperature.value and
+           bottle.currentWater.volume.value <= bottle.recommendedFillVolume.value;
+
+      transition BeingFilled_to_UnsafeUsePrevented
+        first BeingFilled
+        then UnsafeUsePrevented
+        if bottle.currentWater.temperature.value > safeOperatingTemperature.value;
+
+      transition SealedReady_to_InThermalUse
+        first SealedReady
+        then InThermalUse
+        accept PlacedAgainstBody;
+
+      transition InThermalUse_to_CoolingDown
+        first InThermalUse
+        then CoolingDown
+        if bottle.currentWater.temperature.value < 45.0;
+
+      transition CoolingDown_to_Emptying
+        first CoolingDown
+        then Emptying
+        accept UserRemovesStopper;
+
+      transition Emptying_to_StoredEmpty
+        first Emptying
+        then StoredEmpty
+        accept WaterEmptied;
+
+      transition SealedReady_to_MaintenanceRequired
+        first SealedReady
+        then MaintenanceRequired
+        accept LeakDetected;
+
+      transition InThermalUse_to_MaintenanceRequired
+        first InThermalUse
+        then MaintenanceRequired
+        accept LeakDetected;
+    }
+  }
+
+  requirement def ProvidePassiveWarmth {
+    subject system : HotWaterBottleSystem;
+    require constraint {
+      system.primaryFunction ==
+      "Store hot water in a sealed flexible vessel and passively deliver controlled warmth to a user's body surface for comfort or heat therapy."
+    }
+  }
+
+  requirement def LimitFillTemperature {
+    subject water : HotWater;
+    require constraint {
+      water.temperature.value <= 80.0
+    }
+  }
+
+  requirement def LimitFillVolume {
+    subject system : HotWaterBottleSystem;
+    require constraint {
+      system.bottle.currentWater.volume.value <= system.bottle.recommendedFillVolume.value
+    }
+  }
+
+  requirement def MaintainSealDuringUse {
+    subject system : HotWaterBottleSystem;
+    require constraint {
+      system.stopper.threadEngaged == true and system.stopper.sealCompressed == true
+    }
+  }
+
+  requirement def PreventUnsafeSkinContact {
+    subject system : HotWaterBottleSystem;
+    require constraint {
+      system.bottle.surfaceTemperature.value <= system.user.maximumSafeSkinContactTemperature.value or
+      system.cover.preventsDirectSkinContact == true
+    }
+  }
+
+  requirement def ResistInternalPressure {
+    subject system : HotWaterBottleSystem;
+    require constraint {
+      system.bottle.internalPressure.value < system.bottle.burstPressure.value * 0.8
+    }
+  }
+
+  requirement def DeliverUsefulHeatDuration {
+    subject system : HotWaterBottleSystem;
+    require constraint {
+      system.nominalHeatDeliveryDuration.value >= 60.0
+    }
+  }
+
+  requirement def LeakFreeOperation {
+    subject system : HotWaterBottleSystem;
+    require constraint {
+      not exists leak : WaterLeak {
+        leak.leakedVolume.value > 0.0
+      }
+    }
+  }
+
+  satisfy ProvidePassiveWarmth by HotWaterBottleSystem::PrimaryFunction;
+  satisfy LimitFillTemperature by HotWaterBottleSystem::FillSealAndUse;
+  satisfy LimitFillVolume by HotWaterBottleSystem::FillSealAndUse;
+  satisfy MaintainSealDuringUse by ScrewStopper::Tighten;
+  satisfy PreventUnsafeSkinContact by FabricCover::ModerateSurfaceHeat;
+  satisfy ResistInternalPressure by BottleBody;
+  satisfy DeliverUsefulHeatDuration by HotWaterBottleSystem;
+  satisfy LeakFreeOperation by ScrewStopper, BottleBody;
+
+}

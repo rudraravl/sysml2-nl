@@ -1,0 +1,314 @@
+package LaryngealTubeAirwaySystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure;
+    attribute def Volume;
+    attribute def FlowRate;
+    attribute def Length;
+    attribute def Time;
+    attribute def Force;
+
+    item def AirGas {
+        attribute oxygenFraction : Real;
+        attribute carbonDioxideFraction : Real;
+        attribute humidityFraction : Real;
+        attribute temperature : Real;
+    }
+
+    item def GastricFluid {
+        attribute volume : Volume;
+        attribute acidityPH : Real;
+    }
+
+    item def InflationGas {
+        attribute volume : Volume;
+        attribute pressure : Pressure;
+    }
+
+    item def PatientAnatomy {
+        attribute oralCavityClear : Boolean;
+        attribute pharynxAccessible : Boolean;
+        attribute esophagusSealed : Boolean;
+        attribute laryngealInletAligned : Boolean;
+    }
+
+    port def AirwayPort {
+        in item deliveredGas : AirGas;
+        out item exhaledGas : AirGas;
+        attribute airwayPressure : Pressure;
+        attribute flowRate : FlowRate;
+    }
+
+    port def VentilatorPort {
+        out item inspiratoryGas : AirGas;
+        in item expiratoryGas : AirGas;
+        attribute setPressure : Pressure;
+        attribute measuredFlow : FlowRate;
+    }
+
+    port def CuffInflationPort {
+        in item inflationInput : InflationGas;
+        out item cuffPressureFeedback : InflationGas;
+        attribute targetPressure : Pressure;
+        attribute measuredPressure : Pressure;
+    }
+
+    port def DrainagePort {
+        in item gastricReturn : GastricFluid;
+        out item suctionedFluid : GastricFluid;
+        attribute suctionPressure : Pressure;
+    }
+
+    port def PatientInterfacePort {
+        out item airwayGas : AirGas;
+        in item exhaledGas : AirGas;
+        attribute sealPressure : Pressure;
+        attribute insertionDepth : Length;
+    }
+
+    part def VentilationConnector {
+        port ventilatorSide : VentilatorPort;
+        port tubeSide : AirwayPort;
+        attribute connectorDiameter : Length = 15 [mm];
+        attribute leakDetected : Boolean;
+    }
+
+    part def AirwayTubeShaft {
+        port proximalAirway : AirwayPort;
+        port distalAirway : PatientInterfacePort;
+        attribute outerDiameter : Length = 12 [mm];
+        attribute usableLength : Length = 180 [mm];
+        attribute kinkResistanceForce : Force = 20 [N];
+        attribute lumenOccluded : Boolean;
+    }
+
+    part def PharyngealCuff {
+        port inflation : CuffInflationPort;
+        attribute nominalVolume : Volume = 60 [mL];
+        attribute pressureLimit : Pressure = 60 [cmH2O];
+        attribute currentPressure : Pressure;
+        attribute inflated : Boolean;
+        attribute providesOropharyngealSeal : Boolean;
+    }
+
+    part def EsophagealCuff {
+        port inflation : CuffInflationPort;
+        attribute nominalVolume : Volume = 20 [mL];
+        attribute pressureLimit : Pressure = 60 [cmH2O];
+        attribute currentPressure : Pressure;
+        attribute inflated : Boolean;
+        attribute blocksEsophagealFlow : Boolean;
+    }
+
+    part def VentilationOutlet {
+        port tubeSide : PatientInterfacePort;
+        attribute apertureArea : Real;
+        attribute alignedWithLaryngealInlet : Boolean;
+    }
+
+    part def GastricDrainChannel {
+        port proximalDrain : DrainagePort;
+        port distalDrain : DrainagePort;
+        attribute channelDiameter : Length = 4 [mm];
+        attribute patent : Boolean;
+    }
+
+    part def InflationPilotSystem {
+        port operatorInput : CuffInflationPort;
+        port pharyngealCuffLine : CuffInflationPort;
+        port esophagealCuffLine : CuffInflationPort;
+        attribute pilotBalloonPressure : Pressure;
+        attribute oneWayValveClosed : Boolean;
+    }
+
+    part def PatientUpperAirway {
+        port mouthAccess : PatientInterfacePort;
+        port laryngealInlet : PatientInterfacePort;
+        port esophagus : DrainagePort;
+        attribute anatomy : PatientAnatomy;
+        attribute spontaneousBreathingPresent : Boolean;
+        attribute aspirationRiskReduced : Boolean;
+    }
+
+    action def InsertLaryngealTube {
+        in item patient : PatientAnatomy;
+        out item positionedPatient : PatientAnatomy;
+        attribute selectedSize : Integer;
+        attribute insertionDepth : Length;
+        first start;
+        then lubricateTube;
+        then advanceThroughMouth;
+        then seatDistalTipInEsophagus;
+        then alignVentilationOutlet;
+        then done;
+    }
+
+    action def InflateCuffs {
+        in item suppliedGas : InflationGas;
+        out item sealedConfiguration : PatientAnatomy;
+        attribute pharyngealTargetPressure : Pressure = 60 [cmH2O];
+        attribute esophagealTargetPressure : Pressure = 60 [cmH2O];
+        first start;
+        then inflateEsophagealCuff;
+        then inflatePharyngealCuff;
+        then verifyPressureLimits;
+        then done;
+    }
+
+    action def ProvideVentilation {
+        in item inspiratoryGas : AirGas;
+        out item expiratoryGas : AirGas;
+        attribute peakAirwayPressure : Pressure;
+        attribute tidalVolume : Volume;
+        attribute respiratoryRate : Real;
+        first start;
+        then receiveGasFromVentilator;
+        then routeGasThroughTubeLumen;
+        then dischargeGasAtLaryngealOutlet;
+        then collectExhaledGas;
+        then returnGasToVentilator;
+        then done;
+    }
+
+    action def DrainGastricContents {
+        in item gastricFluid : GastricFluid;
+        out item removedFluid : GastricFluid;
+        attribute suctionPressure : Pressure;
+        first start;
+        then admitFluidAtDistalDrain;
+        then conductFluidThroughDrainChannel;
+        then removeFluidAtProximalPort;
+        then done;
+    }
+
+    state def LaryngealTubeOperatingStates {
+        state packaged;
+        state inserted;
+        state cuffsInflated;
+        state ventilating;
+        state draining;
+        state removed;
+
+        transition initial then packaged;
+        transition packaged_to_inserted
+            first packaged
+            accept InsertLaryngealTube
+            then inserted;
+        transition inserted_to_cuffsInflated
+            first inserted
+            accept InflateCuffs
+            then cuffsInflated;
+        transition cuffsInflated_to_ventilating
+            first cuffsInflated
+            accept ProvideVentilation
+            then ventilating;
+        transition ventilating_to_draining
+            first ventilating
+            accept DrainGastricContents
+            then draining;
+        transition draining_to_ventilating
+            first draining
+            then ventilating;
+        transition ventilating_to_removed
+            first ventilating
+            then removed;
+    }
+
+    part def LaryngealTube {
+        port ventilatorConnection : VentilatorPort;
+        port cuffInflationConnection : CuffInflationPort;
+        port patientAirwayInterface : PatientInterfacePort;
+        port gastricDrainConnection : DrainagePort;
+
+        part connector : VentilationConnector;
+        part shaft : AirwayTubeShaft;
+        part pharyngealCuff : PharyngealCuff;
+        part esophagealCuff : EsophagealCuff;
+        part outlet : VentilationOutlet;
+        part drainChannel : GastricDrainChannel;
+        part inflationSystem : InflationPilotSystem;
+
+        attribute sizeCode : Integer = 4;
+        attribute intendedPatientMass : Real = 70;
+        attribute sterile : Boolean = true;
+        attribute singleUse : Boolean = true;
+        attribute primaryFunction : String = "Maintain a temporary supraglottic airway by sealing the pharynx and esophagus so ventilation gas is directed toward the laryngeal inlet while gastric contents can be isolated or drained.";
+
+        connect ventilatorConnection to connector.ventilatorSide;
+        connect connector.tubeSide to shaft.proximalAirway;
+        connect shaft.distalAirway to outlet.tubeSide;
+        connect outlet.tubeSide to patientAirwayInterface;
+
+        connect cuffInflationConnection to inflationSystem.operatorInput;
+        connect inflationSystem.pharyngealCuffLine to pharyngealCuff.inflation;
+        connect inflationSystem.esophagealCuffLine to esophagealCuff.inflation;
+
+        connect gastricDrainConnection to drainChannel.proximalDrain;
+
+        exhibit stateMachine : LaryngealTubeOperatingStates;
+
+        perform action insertion : InsertLaryngealTube;
+        perform action cuffInflation : InflateCuffs;
+        perform action ventilation : ProvideVentilation;
+        perform action gastricDrainage : DrainGastricContents;
+    }
+
+    part def LaryngealTubeAirwayAssembly {
+        part laryngealTube : LaryngealTube;
+        part patientAirway : PatientUpperAirway;
+
+        connect laryngealTube.patientAirwayInterface to patientAirway.laryngealInlet;
+        connect laryngealTube.gastricDrainConnection to patientAirway.esophagus;
+
+        attribute ventilationEstablished : Boolean;
+        attribute esophagealIsolationEstablished : Boolean;
+        attribute gastricDrainageAvailable : Boolean;
+    }
+
+    requirement def PrimaryAirwayFunctionRequirement {
+        doc
+        /* The laryngeal tube shall provide a temporary airway that enables ventilation of the patient without tracheal intubation by directing gas flow from a proximal breathing connector through the tube lumen to openings positioned near the laryngeal inlet. */
+        subject tube : LaryngealTube;
+        require constraint {
+            tube.shaft.lumenOccluded == false and
+            tube.outlet.alignedWithLaryngealInlet == true
+        }
+    }
+
+    requirement def SealRequirement {
+        doc
+        /* The laryngeal tube shall create pharyngeal and esophageal seals sufficient to reduce gas leakage and reduce passage of gastric material toward the airway. */
+        subject tube : LaryngealTube;
+        require constraint {
+            tube.pharyngealCuff.inflated == true and
+            tube.esophagealCuff.inflated == true and
+            tube.pharyngealCuff.currentPressure <= tube.pharyngealCuff.pressureLimit and
+            tube.esophagealCuff.currentPressure <= tube.esophagealCuff.pressureLimit
+        }
+    }
+
+    requirement def GastricDrainageRequirement {
+        doc
+        /* The laryngeal tube shall include a drain path from the distal esophageal region to a proximal drainage port when a gastric drain channel is present. */
+        subject tube : LaryngealTube;
+        require constraint {
+            tube.drainChannel.patent == true
+        }
+    }
+
+    requirement def SingleUseSterilityRequirement {
+        doc
+        /* The laryngeal tube shall be sterile before use and intended for single patient use. */
+        subject tube : LaryngealTube;
+        require constraint {
+            tube.sterile == true and tube.singleUse == true
+        }
+    }
+
+    satisfy PrimaryAirwayFunctionRequirement by LaryngealTube;
+    satisfy SealRequirement by LaryngealTube;
+    satisfy GastricDrainageRequirement by LaryngealTube;
+    satisfy SingleUseSterilityRequirement by LaryngealTube;
+}

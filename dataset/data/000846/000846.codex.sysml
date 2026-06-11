@@ -1,0 +1,489 @@
+package ArtificialLiftSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def VolumetricFlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rev/min";
+    }
+
+    attribute def ElectricPower :> Real {
+        unit = "W";
+    }
+
+    attribute def ElectricCurrent :> Real {
+        unit = "A";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Length :> Real {
+        unit = "m";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    item def ProducedFluid {
+        attribute oilFraction : Real;
+        attribute waterFraction : Real;
+        attribute gasFraction : Real;
+        attribute density : Real {
+            unit = "kg/m^3";
+        }
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : ElectricCurrent;
+        attribute power : ElectricPower;
+        attribute frequency : Real {
+            unit = "Hz";
+        }
+    }
+
+    item def ControlCommand {
+        attribute targetPumpSpeed : RotationalSpeed;
+        attribute shutdownRequested : Boolean;
+        attribute restartRequested : Boolean;
+        attribute maxMotorTemperature : Temperature;
+        attribute minIntakePressure : Pressure;
+    }
+
+    item def TelemetryData {
+        attribute measuredPumpSpeed : RotationalSpeed;
+        attribute motorTemperature : Temperature;
+        attribute intakePressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute motorCurrent : ElectricCurrent;
+        attribute productionFlowRate : VolumetricFlowRate;
+        attribute vibrationLevel : Real {
+            unit = "m/s^2";
+        }
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : ProducedFluid;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : ProducedFluid;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalEnergy;
+    }
+
+    port def CommandInputPort {
+        in item commandIn : ControlCommand;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetryOut : TelemetryData;
+    }
+
+    part def Reservoir {
+        attribute reservoirPressure : Pressure;
+        attribute reservoirTemperature : Temperature;
+        attribute productivityIndex : Real {
+            unit = "m^3/(s*Pa)";
+        }
+
+        port productionOutlet : FluidOutletPort;
+
+        action releaseFormationFluid {
+            out item produced : ProducedFluid;
+        }
+    }
+
+    part def Wellbore {
+        attribute measuredDepth : Length;
+        attribute trueVerticalDepth : Length;
+        attribute casingInnerDiameter : Length;
+        attribute tubingInnerDiameter : Length;
+
+        port lowerFluidInlet : FluidInletPort;
+        port tubingFluidOutlet : FluidOutletPort;
+
+        part casing {
+            attribute pressureRating : Pressure;
+            attribute innerDiameter : Length;
+        }
+
+        part productionTubing {
+            attribute pressureRating : Pressure;
+            attribute innerDiameter : Length;
+            attribute length : Length;
+        }
+    }
+
+    part def DownholePump {
+        attribute intakePressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute nominalFlowRate : VolumetricFlowRate;
+        attribute actualFlowRate : VolumetricFlowRate;
+        attribute pumpSpeed : RotationalSpeed;
+        attribute hydraulicEfficiency : Efficiency;
+        attribute pressureBoost : Pressure;
+
+        port intake : FluidInletPort;
+        port discharge : FluidOutletPort;
+        port shaftPowerInput : PowerInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        action liftFluid {
+            in item lowPressureFluid : ProducedFluid;
+            in item driveEnergy : ElectricalEnergy;
+            out item highPressureFluid : ProducedFluid;
+        }
+
+        state pumpOperatingState {
+            state stopped;
+            state starting;
+            state running;
+            state degraded;
+            state tripped;
+
+            transition initial then stopped;
+            transition stopped then starting
+                accept ControlCommand
+                if commandIn.restartRequested;
+
+            transition starting then running
+                if intakePressure > 100000.0 and pumpSpeed > 500.0;
+
+            transition running then degraded
+                if hydraulicEfficiency < 0.45;
+
+            transition degraded then running
+                if hydraulicEfficiency >= 0.55;
+
+            transition running then tripped
+                if intakePressure < 50000.0;
+
+            transition degraded then tripped
+                if intakePressure < 50000.0;
+
+            transition tripped then stopped
+                accept ControlCommand
+                if commandIn.shutdownRequested;
+        }
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : ElectricPower;
+        attribute ratedVoltage : Voltage;
+        attribute motorCurrent : ElectricCurrent;
+        attribute windingTemperature : Temperature;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute motorEfficiency : Efficiency;
+
+        port electricalInput : PowerInputPort;
+        port mechanicalOutput : PowerInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        action convertElectricalToMechanicalPower {
+            in item suppliedPower : ElectricalEnergy;
+            out item shaftPower : ElectricalEnergy;
+        }
+
+        state motorState {
+            state off;
+            state accelerating;
+            state energized;
+            state overheated;
+
+            transition initial then off;
+            transition off then accelerating
+                accept ControlCommand
+                if commandIn.restartRequested;
+
+            transition accelerating then energized
+                if shaftSpeed >= commandIn.targetPumpSpeed * 0.95;
+
+            transition energized then overheated
+                if windingTemperature > commandIn.maxMotorTemperature;
+
+            transition overheated then off
+                accept ControlCommand
+                if commandIn.shutdownRequested;
+        }
+    }
+
+    part def VariableSpeedDrive {
+        attribute inputVoltage : Voltage;
+        attribute outputVoltage : Voltage;
+        attribute outputFrequency : Real {
+            unit = "Hz";
+        }
+        attribute outputCurrent : ElectricCurrent;
+        attribute speedSetpoint : RotationalSpeed;
+
+        port gridPowerInput : PowerInputPort;
+        port motorPowerOutput : PowerInputPort;
+        port commandInput : CommandInputPort;
+        port telemetry : TelemetryOutputPort;
+
+        action regulateMotorSpeed {
+            in item incomingPower : ElectricalEnergy;
+            in item command : ControlCommand;
+            out item conditionedPower : ElectricalEnergy;
+        }
+    }
+
+    part def SurfaceController {
+        attribute commandedSpeed : RotationalSpeed;
+        attribute shutdownActive : Boolean;
+        attribute lowPressureTripSetpoint : Pressure;
+        attribute highTemperatureTripSetpoint : Temperature;
+        attribute highCurrentTripSetpoint : ElectricCurrent;
+
+        port commandOutput : CommandInputPort;
+        port telemetryInput : TelemetryOutputPort;
+
+        action monitorLiftSystem {
+            in item telemetry : TelemetryData;
+            out item command : ControlCommand;
+        }
+
+        state controlMode {
+            state idle;
+            state rampUp;
+            state productionControl;
+            state protectiveShutdown;
+
+            transition initial then idle;
+
+            transition idle then rampUp
+                if shutdownActive == false;
+
+            transition rampUp then productionControl
+                if telemetryOut.measuredPumpSpeed >= commandedSpeed * 0.95;
+
+            transition productionControl then protectiveShutdown
+                if telemetryOut.intakePressure < lowPressureTripSetpoint;
+
+            transition productionControl then protectiveShutdown
+                if telemetryOut.motorTemperature > highTemperatureTripSetpoint;
+
+            transition productionControl then protectiveShutdown
+                if telemetryOut.motorCurrent > highCurrentTripSetpoint;
+
+            transition protectiveShutdown then idle
+                if shutdownActive == true;
+        }
+    }
+
+    part def SurfaceProductionFacility {
+        attribute separatorInletPressure : Pressure;
+        attribute exportFlowRate : VolumetricFlowRate;
+        attribute producedWaterRate : VolumetricFlowRate;
+
+        port wellFluidInlet : FluidInletPort;
+
+        action receiveLiftedProduction {
+            in item liftedFluid : ProducedFluid;
+        }
+    }
+
+    part def ArtificialLiftSystem {
+        attribute designFlowRate : VolumetricFlowRate;
+        attribute designLiftPressure : Pressure;
+        attribute maximumOperatingDepth : Length;
+        attribute systemAvailabilityTarget : Efficiency;
+
+        port reservoirInterface : FluidInletPort;
+        port productionOutlet : FluidOutletPort;
+        port externalPowerInput : PowerInputPort;
+        port operatorCommandInput : CommandInputPort;
+        port systemTelemetryOutput : TelemetryOutputPort;
+
+        part reservoir : Reservoir {
+            attribute reservoirPressure = 18000000.0;
+            attribute reservoirTemperature = 365.0;
+            attribute productivityIndex = 0.0000000009;
+        }
+
+        part wellbore : Wellbore {
+            attribute measuredDepth = 2600.0;
+            attribute trueVerticalDepth = 2300.0;
+            attribute casingInnerDiameter = 0.1778;
+            attribute tubingInnerDiameter = 0.0730;
+        }
+
+        part pump : DownholePump {
+            attribute nominalFlowRate = 0.018;
+            attribute hydraulicEfficiency = 0.62;
+            attribute pressureBoost = 9500000.0;
+        }
+
+        part motor : ElectricMotor {
+            attribute ratedPower = 125000.0;
+            attribute ratedVoltage = 4160.0;
+            attribute motorEfficiency = 0.89;
+        }
+
+        part drive : VariableSpeedDrive {
+            attribute inputVoltage = 480.0;
+            attribute outputVoltage = 4160.0;
+            attribute outputFrequency = 55.0;
+            attribute speedSetpoint = 3300.0;
+        }
+
+        part controller : SurfaceController {
+            attribute commandedSpeed = 3300.0;
+            attribute shutdownActive = false;
+            attribute lowPressureTripSetpoint = 60000.0;
+            attribute highTemperatureTripSetpoint = 425.0;
+            attribute highCurrentTripSetpoint = 38.0;
+        }
+
+        part surfaceFacility : SurfaceProductionFacility {
+            attribute separatorInletPressure = 850000.0;
+        }
+
+        connect reservoir.productionOutlet to wellbore.lowerFluidInlet;
+        connect wellbore.tubingFluidOutlet to pump.intake;
+        connect pump.discharge to surfaceFacility.wellFluidInlet;
+        connect externalPowerInput to drive.gridPowerInput;
+        connect drive.motorPowerOutput to motor.electricalInput;
+        connect motor.mechanicalOutput to pump.shaftPowerInput;
+        connect operatorCommandInput to controller.commandOutput;
+        connect controller.commandOutput to drive.commandInput;
+        connect pump.telemetry to systemTelemetryOutput;
+        connect motor.telemetry to systemTelemetryOutput;
+        connect drive.telemetry to systemTelemetryOutput;
+
+        action performArtificialLift {
+            in item reservoirFluid : ProducedFluid;
+            in item electricalSupply : ElectricalEnergy;
+            in item operatorCommand : ControlCommand;
+            out item liftedProduction : ProducedFluid;
+            out item systemTelemetry : TelemetryData;
+
+            first start;
+            then regulateDrive;
+            then energizeMotor;
+            then increaseFluidPressure;
+            then deliverProduction;
+            then reportTelemetry;
+
+            action start;
+            action regulateDrive : VariableSpeedDrive::regulateMotorSpeed;
+            action energizeMotor : ElectricMotor::convertElectricalToMechanicalPower;
+            action increaseFluidPressure : DownholePump::liftFluid;
+            action deliverProduction : SurfaceProductionFacility::receiveLiftedProduction;
+            action reportTelemetry;
+        }
+
+        state systemState {
+            state offline;
+            state ready;
+            state starting;
+            state lifting;
+            state shutdown;
+            state faulted;
+
+            transition initial then offline;
+
+            transition offline then ready
+                accept ControlCommand
+                if commandIn.restartRequested;
+
+            transition ready then starting
+                if externalPowerInput.powerIn.voltage > 400.0;
+
+            transition starting then lifting
+                if pump.pumpSpeed >= controller.commandedSpeed * 0.95;
+
+            transition lifting then shutdown
+                accept ControlCommand
+                if commandIn.shutdownRequested;
+
+            transition lifting then faulted
+                if pump.intakePressure < controller.lowPressureTripSetpoint;
+
+            transition lifting then faulted
+                if motor.windingTemperature > controller.highTemperatureTripSetpoint;
+
+            transition faulted then offline
+                accept ControlCommand
+                if commandIn.shutdownRequested;
+        }
+    }
+
+    requirement def PrimaryArtificialLiftFunction {
+        doc /* The artificial lift system shall add mechanical energy to produced reservoir fluid so that hydrocarbons and associated water can be lifted from a subsurface reservoir through the wellbore to the surface production facility when natural reservoir pressure is insufficient. */
+
+        subject liftSystem : ArtificialLiftSystem;
+
+        require constraint {
+            liftSystem.pump.dischargePressure > liftSystem.pump.intakePressure;
+        }
+
+        require constraint {
+            liftSystem.pump.actualFlowRate >= 0.012;
+        }
+
+        require constraint {
+            liftSystem.pump.pressureBoost >= 7000000.0;
+        }
+    }
+
+    requirement def ControlledProductionRequirement {
+        doc /* The artificial lift system shall regulate pump speed to maintain controlled production while protecting the downhole pump and motor from low intake pressure, overheating, and excessive current. */
+
+        subject liftSystem : ArtificialLiftSystem;
+
+        require constraint {
+            liftSystem.controller.commandedSpeed <= 3600.0;
+        }
+
+        require constraint {
+            liftSystem.motor.windingTemperature <= liftSystem.controller.highTemperatureTripSetpoint;
+        }
+
+        require constraint {
+            liftSystem.motor.motorCurrent <= liftSystem.controller.highCurrentTripSetpoint;
+        }
+
+        require constraint {
+            liftSystem.pump.intakePressure >= liftSystem.controller.lowPressureTripSetpoint;
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The artificial lift system shall provide operating telemetry for pump speed, intake pressure, discharge pressure, motor temperature, motor current, vibration, and production flow rate to support monitoring and protective control. */
+
+        subject liftSystem : ArtificialLiftSystem;
+
+        require constraint {
+            liftSystem.systemAvailabilityTarget >= 0.95;
+        }
+    }
+
+    satisfy PrimaryArtificialLiftFunction by ArtificialLiftSystem::performArtificialLift;
+    satisfy ControlledProductionRequirement by ArtificialLiftSystem::controller;
+    satisfy ControlledProductionRequirement by ArtificialLiftSystem::drive;
+    satisfy TelemetryRequirement by ArtificialLiftSystem::systemTelemetryOutput;
+
+}

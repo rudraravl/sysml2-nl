@@ -1,0 +1,592 @@
+package NonSiliconRoboticSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        range = "0..100";
+        unit = "%";
+    }
+
+    attribute def Millimeter :> Real {
+        unit = "mm";
+    }
+
+    attribute def Newton :> Real {
+        unit = "N";
+    }
+
+    attribute def Celsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def Volt :> Real {
+        unit = "V";
+    }
+
+    attribute def Watt :> Real {
+        unit = "W";
+    }
+
+    attribute def Gram :> Real {
+        unit = "g";
+    }
+
+    attribute def Second :> Real {
+        unit = "s";
+    }
+
+    attribute def Milliliter :> Real {
+        unit = "mL";
+    }
+
+    item def BioPolymerNutrientGel {
+        attribute volume : Milliliter;
+        attribute carbohydrateFraction : Percent;
+        attribute electrolyteFraction : Percent;
+        attribute temperature : Celsius;
+    }
+
+    item def PlantSample {
+        attribute mass : Gram;
+        attribute stemDiameter : Millimeter;
+        attribute ripeness : Percent;
+        attribute bruisingRisk : Percent;
+    }
+
+    item def HarvestedCrop {
+        attribute mass : Gram;
+        attribute damageLevel : Percent;
+        attribute harvestTimestamp : Second;
+    }
+
+    item def PneumaticPressure {
+        attribute pressure : Real {
+            unit = "kPa";
+        }
+    }
+
+    item def OpticalImage {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute spectralBands : Integer;
+    }
+
+    item def TactileField {
+        attribute contactForce : Newton;
+        attribute contactArea : Real {
+            unit = "cm^2";
+        }
+    }
+
+    item def ControlSignal {
+        attribute commandId : Integer;
+        attribute intensity : Percent;
+        attribute duration : Second;
+    }
+
+    item def PositionEstimate {
+        attribute x : Millimeter;
+        attribute y : Millimeter;
+        attribute z : Millimeter;
+        attribute confidence : Percent;
+    }
+
+    port def NutrientPort {
+        in item nutrient : BioPolymerNutrientGel;
+    }
+
+    port def CropPort {
+        in item plant : PlantSample;
+        out item crop : HarvestedCrop;
+    }
+
+    port def VisionPort {
+        out item image : OpticalImage;
+    }
+
+    port def TactilePort {
+        out item tactile : TactileField;
+    }
+
+    port def PneumaticPort {
+        in item pressureSupply : PneumaticPressure;
+        out item pressureReturn : PneumaticPressure;
+    }
+
+    port def CommandPort {
+        in item command : ControlSignal;
+        out item estimate : PositionEstimate;
+    }
+
+    part def NonSiliconHydrogelActuator {
+        attribute contractionRatio : Percent;
+        attribute maximumForce : Newton;
+        attribute responseTime : Second;
+        attribute operatingTemperature : Celsius;
+
+        port pneumatic : PneumaticPort;
+        port control : CommandPort;
+
+        action def Contract {
+            in item command : ControlSignal;
+            in item pressure : PneumaticPressure;
+            out item displacement : PositionEstimate;
+        }
+
+        action def Relax {
+            in item command : ControlSignal;
+            out item displacement : PositionEstimate;
+        }
+
+        state def ActuatorLifecycle {
+            entry; then Idle;
+
+            state Idle;
+            state Pressurizing;
+            state Contracted;
+            state Relaxing;
+            state Fault;
+
+            transition Idle_to_Pressurizing
+                first Idle
+                accept ControlSignal
+                if command.intensity > 0
+                then Pressurizing;
+
+            transition Pressurizing_to_Contracted
+                first Pressurizing
+                if pneumatic.pressureSupply.pressure >= 35.0
+                then Contracted;
+
+            transition Contracted_to_Relaxing
+                first Contracted
+                accept ControlSignal
+                if command.intensity == 0
+                then Relaxing;
+
+            transition Relaxing_to_Idle
+                first Relaxing
+                if pneumatic.pressureReturn.pressure <= 5.0
+                then Idle;
+
+            transition Any_to_Fault
+                first Idle, Pressurizing, Contracted, Relaxing
+                if operatingTemperature > 42.0
+                then Fault;
+        }
+    }
+
+    part def FungalMyceliumFrame {
+        attribute dryMass : Gram;
+        attribute stiffness : Real {
+            unit = "MPa";
+        }
+        attribute biodegradationRate : Percent;
+        attribute moistureContent : Percent;
+
+        port nutrientInput : NutrientPort;
+    }
+
+    part def CelluloseFiberTendon {
+        attribute tensileStrength : Real {
+            unit = "MPa";
+        }
+        attribute elongation : Percent;
+        attribute length : Millimeter;
+    }
+
+    part def SoftGripper {
+        attribute jawOpening : Millimeter;
+        attribute maximumGripForce : Newton;
+        attribute gripCompliance : Real {
+            unit = "mm/N";
+        }
+
+        port cropInterface : CropPort;
+        port tactile : TactilePort;
+
+        part leftActuator : NonSiliconHydrogelActuator {
+            contractionRatio = 28.0;
+            maximumForce = 12.0;
+            responseTime = 0.8;
+            operatingTemperature = 24.0;
+        }
+
+        part rightActuator : NonSiliconHydrogelActuator {
+            contractionRatio = 28.0;
+            maximumForce = 12.0;
+            responseTime = 0.8;
+            operatingTemperature = 24.0;
+        }
+
+        part leftTendon : CelluloseFiberTendon {
+            tensileStrength = 350.0;
+            elongation = 3.0;
+            length = 180.0;
+        }
+
+        part rightTendon : CelluloseFiberTendon {
+            tensileStrength = 350.0;
+            elongation = 3.0;
+            length = 180.0;
+        }
+
+        action def GentleGrip {
+            in item plant : PlantSample;
+            in item tactileField : TactileField;
+            out item crop : HarvestedCrop;
+
+            constraint {
+                tactileField.contactForce <= 4.0;
+                crop.damageLevel <= 5.0;
+            }
+        }
+    }
+
+    part def GelFluidicController {
+        attribute valveCount : Integer;
+        attribute maximumPressure : Real {
+            unit = "kPa";
+        }
+        attribute pumpPower : Watt;
+
+        port actuatorA : PneumaticPort;
+        port actuatorB : PneumaticPort;
+        port command : CommandPort;
+
+        action def RegulatePressure {
+            in item command : ControlSignal;
+            out item pressureA : PneumaticPressure;
+            out item pressureB : PneumaticPressure;
+        }
+    }
+
+    part def OrganicVisionSensor {
+        attribute sensorMaterial : String;
+        attribute frameRate : Real {
+            unit = "Hz";
+        }
+        attribute fieldOfView : Real {
+            unit = "deg";
+        }
+        attribute operatingVoltage : Volt;
+
+        port vision : VisionPort;
+
+        action def CaptureMultispectralImage {
+            out item image : OpticalImage;
+        }
+    }
+
+    part def TactileHydrogelSkin {
+        attribute taxelCount : Integer;
+        attribute forceResolution : Newton;
+        attribute maximumContactForce : Newton;
+
+        port tactile : TactilePort;
+
+        action def SenseContact {
+            out item field : TactileField;
+        }
+    }
+
+    part def CompostablePowerModule {
+        attribute chemistry : String;
+        attribute nominalVoltage : Volt;
+        attribute energyCapacity : Real {
+            unit = "Wh";
+        }
+        attribute peakPower : Watt;
+    }
+
+    part def CropRecognitionController {
+        attribute processorSubstrate : String;
+        attribute modelType : String;
+        attribute recognitionAccuracy : Percent;
+
+        port visionInput : VisionPort;
+        port commandOutput : CommandPort;
+
+        action def LocateRipeCrop {
+            in item image : OpticalImage;
+            out item target : PositionEstimate;
+        }
+
+        action def PlanReachAndGrip {
+            in item target : PositionEstimate;
+            out item command : ControlSignal;
+        }
+    }
+
+    part def NonSiliconHarvestRobot {
+        attribute robotName : String;
+        attribute primaryTask : String;
+        attribute siliconContentByMass : Percent;
+        attribute totalMass : Gram;
+        attribute harvestCycleTime : Second;
+
+        port cropWorkcell : CropPort;
+        port nutrientService : NutrientPort;
+
+        part frame : FungalMyceliumFrame {
+            dryMass = 620.0;
+            stiffness = 85.0;
+            biodegradationRate = 92.0;
+            moistureContent = 18.0;
+        }
+
+        part gripper : SoftGripper {
+            jawOpening = 65.0;
+            maximumGripForce = 8.0;
+            gripCompliance = 6.5;
+        }
+
+        part skin : TactileHydrogelSkin {
+            taxelCount = 256;
+            forceResolution = 0.05;
+            maximumContactForce = 10.0;
+        }
+
+        part vision : OrganicVisionSensor {
+            sensorMaterial = "anthocyanin organic photodiode array";
+            frameRate = 20.0;
+            fieldOfView = 74.0;
+            operatingVoltage = 1.2;
+        }
+
+        part fluidics : GelFluidicController {
+            valveCount = 8;
+            maximumPressure = 60.0;
+            pumpPower = 4.5;
+        }
+
+        part power : CompostablePowerModule {
+            chemistry = "microbial cellulose zinc-air";
+            nominalVoltage = 6.0;
+            energyCapacity = 38.0;
+            peakPower = 18.0;
+        }
+
+        part controller : CropRecognitionController {
+            processorSubstrate = "protein logic gel";
+            modelType = "reaction-diffusion classifier";
+            recognitionAccuracy = 91.0;
+        }
+
+        connection nutrientFeed connect nutrientService to frame.nutrientInput;
+        connection visionData connect vision.vision to controller.visionInput;
+        connection commandData connect controller.commandOutput to fluidics.command;
+        connection pressureLeft connect fluidics.actuatorA to gripper.leftActuator.pneumatic;
+        connection pressureRight connect fluidics.actuatorB to gripper.rightActuator.pneumatic;
+        connection tactileData connect skin.tactile to gripper.tactile;
+        connection cropExchange connect cropWorkcell to gripper.cropInterface;
+
+        action def PerformPrimaryHarvestTask {
+            in item plant : PlantSample;
+            out item crop : HarvestedCrop;
+
+            first start;
+            then captureImage;
+            then locateCrop;
+            then planMotion;
+            then approachCrop;
+            then gripCrop;
+            then detachCrop;
+            then releaseCrop;
+            then done;
+
+            action captureImage : vision.CaptureMultispectralImage;
+            action locateCrop : controller.LocateRipeCrop;
+            action planMotion : controller.PlanReachAndGrip;
+            action approachCrop : fluidics.RegulatePressure;
+            action gripCrop : gripper.GentleGrip;
+            action detachCrop;
+            action releaseCrop;
+
+            flow captureImage.image to locateCrop.image;
+            flow locateCrop.target to planMotion.target;
+            flow planMotion.command to approachCrop.command;
+            flow plant to gripCrop.plant;
+            flow gripCrop.crop to crop;
+        }
+
+        state def HarvestingLifecycle {
+            entry; then Dormant;
+
+            state Dormant;
+            state SelfCheck;
+            state Searching;
+            state Approaching;
+            state Gripping;
+            state Detaching;
+            state Depositing;
+            state NutrientRecovery;
+            state Fault;
+
+            transition Dormant_to_SelfCheck
+                first Dormant
+                accept ControlSignal
+                if command.commandId == 1
+                then SelfCheck;
+
+            transition SelfCheck_to_Searching
+                first SelfCheck
+                if power.nominalVoltage >= 5.4 and siliconContentByMass <= 0.5
+                then Searching;
+
+            transition Searching_to_Approaching
+                first Searching
+                if controller.recognitionAccuracy >= 85.0
+                then Approaching;
+
+            transition Approaching_to_Gripping
+                first Approaching
+                if gripper.jawOpening >= cropWorkcell.plant.stemDiameter + 10.0
+                then Gripping;
+
+            transition Gripping_to_Detaching
+                first Gripping
+                if skin.maximumContactForce <= 10.0
+                then Detaching;
+
+            transition Detaching_to_Depositing
+                first Detaching
+                if cropWorkcell.crop.damageLevel <= 5.0
+                then Depositing;
+
+            transition Depositing_to_NutrientRecovery
+                first Depositing
+                then NutrientRecovery;
+
+            transition NutrientRecovery_to_Searching
+                first NutrientRecovery
+                if frame.moistureContent >= 12.0
+                then Searching;
+
+            transition Any_to_Fault
+                first Dormant, SelfCheck, Searching, Approaching, Gripping, Detaching, Depositing, NutrientRecovery
+                if power.nominalVoltage < 4.8 or frame.moistureContent < 8.0
+                then Fault;
+        }
+    }
+
+    part def GreenhouseHarvestCell {
+        attribute rowLength : Real {
+            unit = "m";
+        }
+        attribute ambientTemperature : Celsius;
+        attribute relativeHumidity : Percent;
+
+        part robot : NonSiliconHarvestRobot {
+            robotName = "MycoGel Harvester";
+            primaryTask = "identify, gently grip, detach, and deposit ripe greenhouse fruit";
+            siliconContentByMass = 0.2;
+            totalMass = 1850.0;
+            harvestCycleTime = 12.0;
+        }
+
+        port incomingPlants : CropPort;
+        port nutrientSupply : NutrientPort;
+
+        connection plantAccess connect incomingPlants to robot.cropWorkcell;
+        connection nutrientAccess connect nutrientSupply to robot.nutrientService;
+    }
+
+    requirement def NonSiliconRobotRequirement {
+        subject robot : NonSiliconHarvestRobot;
+
+        require constraint {
+            robot.siliconContentByMass <= 0.5;
+        }
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject robot : NonSiliconHarvestRobot;
+
+        require constraint {
+            robot.primaryTask == "identify, gently grip, detach, and deposit ripe greenhouse fruit";
+            robot.harvestCycleTime <= 15.0;
+        }
+    }
+
+    requirement def GentleHandlingRequirement {
+        subject gripper : SoftGripper;
+
+        require constraint {
+            gripper.maximumGripForce <= 8.0;
+            gripper.gripCompliance >= 5.0;
+        }
+    }
+
+    requirement def BiodegradableStructureRequirement {
+        subject frame : FungalMyceliumFrame;
+
+        require constraint {
+            frame.biodegradationRate >= 85.0;
+            frame.stiffness >= 60.0;
+        }
+    }
+
+    requirement def OrganicSensingRequirement {
+        subject sensor : OrganicVisionSensor;
+
+        require constraint {
+            sensor.operatingVoltage <= 2.0;
+            sensor.frameRate >= 15.0;
+        }
+    }
+
+    requirement def CropQualityRequirement {
+        subject crop : HarvestedCrop;
+
+        require constraint {
+            crop.damageLevel <= 5.0;
+        }
+    }
+
+    satisfy NonSiliconRobotRequirement by GreenhouseHarvestCell.robot;
+    satisfy PrimaryTaskRequirement by GreenhouseHarvestCell.robot;
+    satisfy GentleHandlingRequirement by GreenhouseHarvestCell.robot.gripper;
+    satisfy BiodegradableStructureRequirement by GreenhouseHarvestCell.robot.frame;
+    satisfy OrganicSensingRequirement by GreenhouseHarvestCell.robot.vision;
+
+    verification case VerifyNonSiliconComposition {
+        subject robot : NonSiliconHarvestRobot;
+
+        objective {
+            verify NonSiliconRobotRequirement;
+        }
+
+        action measureComposition;
+        assert constraint {
+            robot.siliconContentByMass <= 0.5;
+        }
+    }
+
+    verification case VerifyHarvestCycle {
+        subject robot : NonSiliconHarvestRobot;
+
+        objective {
+            verify PrimaryTaskRequirement;
+        }
+
+        action executeTenHarvests;
+        assert constraint {
+            robot.harvestCycleTime <= 15.0;
+        }
+    }
+
+    verification case VerifyCropDamage {
+        subject crop : HarvestedCrop;
+
+        objective {
+            verify CropQualityRequirement;
+        }
+
+        action inspectHarvestedCrop;
+        assert constraint {
+            crop.damageLevel <= 5.0;
+        }
+    }
+}

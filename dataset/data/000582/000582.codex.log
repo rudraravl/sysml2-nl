@@ -1,0 +1,811 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-c5ov7gks
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb36d-ca0c-78e2-81d0-d6056919c7cc
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Denis Browne bar and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DenisBrowneBarSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Length;
+  attribute def Angle;
+  attribute def Force;
+  attribute def Mass;
+  attribute def Duration;
+  attribute def Pressure;
+
+  enum def FootSide {
+    enum left;
+    enum right;
+  }
+
+  enum def BraceUseState {
+    enum stowed;
+    enum fitting;
+    enum therapeuticWear;
+    enum inspection;
+    enum removed;
+  }
+
+  item def Foot {
+    attribute side : FootSide;
+    attribute footLength : Length;
+    attribute forefootWidth : Length;
+    attribute prescribedAbduction : Angle;
+    attribute prescribedDorsiflexion : Angle;
+  }
+
+  item def CorrectiveLoad {
+    attribute abductionMoment : Force;
+    attribute dorsiflexionMoment : Force;
+    attribute contactPressure : Pressure;
+  }
+
+  item def WearCommand {
+    attribute targetWearDuration : Duration;
+    attribute leftAbductionSetpoint : Angle;
+    attribute rightAbductionSetpoint : Angle;
+    attribute dorsiflexionSetpoint : Angle;
+  }
+
+  item def FitStatus {
+    attribute leftHeelSeated : Boolean;
+    attribute rightHeelSeated : Boolean;
+    attribute strapTensionAcceptable : Boolean;
+    attribute skinPressureAcceptable : Boolean;
+    attribute barLocked : Boolean;
+  }
+
+  port def FootInterfacePort {
+    in item patientFoot : Foot;
+    out item correctiveLoad : CorrectiveLoad;
+  }
+
+  port def AdjustmentPort {
+    in item wearCommand : WearCommand;
+    out item fitStatus : FitStatus;
+  }
+
+  port def CaregiverInterfacePort {
+    in item wearCommand : WearCommand;
+    out item fitStatus : FitStatus;
+  }
+
+  part def DenisBrowneBarSystem {
+    attribute systemMass : Mass;
+    attribute barLength : Length;
+    attribute nominalWearDuration : Duration;
+    attribute primaryFunction : String =
+      "Maintain both feet in prescribed external rotation and dorsiflexion by coupling therapeutic footwear to an adjustable rigid bar, supporting high-level correction and maintenance of clubfoot alignment during scheduled wear.";
+
+    port caregiverPort : CaregiverInterfacePort;
+    port leftFootPort : FootInterfacePort;
+    port rightFootPort : FootInterfacePort;
+
+    part leftShoe : TherapeuticShoe {
+      attribute side = FootSide::left;
+    }
+
+    part rightShoe : TherapeuticShoe {
+      attribute side = FootSide::right;
+    }
+
+    part abductionBar : AdjustableAbductionBar;
+
+    part leftClamp : RotationalClamp {
+      attribute side = FootSide::left;
+    }
+
+    part rightClamp : RotationalClamp {
+      attribute side = FootSide::right;
+    }
+
+    part fitMonitor : PassiveFitMonitor;
+
+    connection leftFootToShoe connect leftFootPort to leftShoe.footPort;
+    connection rightFootToShoe connect rightFootPort to rightShoe.footPort;
+    connection leftShoeToClamp connect leftShoe.mountPort to leftClamp.shoeMountPort;
+    connection rightShoeToClamp connect rightShoe.mountPort to rightClamp.shoeMountPort;
+    connection leftClampToBar connect leftClamp.barMountPort to abductionBar.leftEndPort;
+    connection rightClampToBar connect rightClamp.barMountPort to abductionBar.rightEndPort;
+    connection caregiverToMonitor connect caregiverPort to fitMonitor.caregiverPort;
+    connection monitorToLeftShoe connect fitMonitor.leftShoePort to leftShoe.adjustmentPort;
+    connection monitorToRightShoe connect fitMonitor.rightShoePort to rightShoe.adjustmentPort;
+    connection monitorToBar connect fitMonitor.barAdjustmentPort to abductionBar.adjustmentPort;
+
+    perform action fitBrace : FitBraceAction;
+    perform action maintainFootAbduction : MaintainAbductionAction;
+    perform state useLifecycle : BraceUseStateMachine;
+  }
+
+  part def TherapeuticShoe {
+    attribute side : FootSide;
+    attribute soleLength : Length;
+    attribute heelCupDepth : Length;
+    attribute maxStrapPressure : Pressure;
+    attribute dorsiflexionWedgeAngle : Angle;
+
+    port footPort : FootInterfacePort;
+    port mountPort : MechanicalMountPort;
+    port adjustmentPort : AdjustmentPort;
+
+    part heelCup : HeelCup;
+    part instepStrap : RetentionStrap;
+    part toeStrap : RetentionStrap;
+    part solePlate : SolePlate;
+
+    connection heelToSole connect heelCup.structurePort to solePlate.structurePort;
+    connection instepToSole connect instepStrap.anchorPort to solePlate.structurePort;
+    connection toeToSole connect toeStrap.anchorPort to solePlate.structurePort;
+    connection soleToMount connect solePlate.mountPort to mountPort;
+  }
+
+  part def AdjustableAbductionBar {
+    attribute minimumLength : Length;
+    attribute maximumLength : Length;
+    attribute currentLength : Length;
+    attribute torsionalStiffness : Force;
+    attribute allowableBendingLoad : Force;
+
+    port leftEndPort : MechanicalMountPort;
+    port rightEndPort : MechanicalMountPort;
+    port adjustmentPort : AdjustmentPort;
+
+    part telescopingTube : TelescopingTube;
+    part lengthLock : LockingFastener;
+  }
+
+  part def RotationalClamp {
+    attribute side : FootSide;
+    attribute abductionAngle : Angle;
+    attribute dorsiflexionOffset : Angle;
+    attribute angleLockTorque : Force;
+
+    port shoeMountPort : MechanicalMountPort;
+    port barMountPort : MechanicalMountPort;
+
+    part angleScale : AngleScale;
+    part pivot : IndexedPivot;
+    part lockingScrew : LockingFastener;
+  }
+
+  part def PassiveFitMonitor {
+    port caregiverPort : CaregiverInterfacePort;
+    port leftShoePort : AdjustmentPort;
+    port rightShoePort : AdjustmentPort;
+    port barAdjustmentPort : AdjustmentPort;
+
+    attribute leftHeelSeated : Boolean;
+    attribute rightHeelSeated : Boolean;
+    attribute leftStrapPressure : Pressure;
+    attribute rightStrapPressure : Pressure;
+    attribute allLocksEngaged : Boolean;
+  }
+
+  part def HeelCup {
+    attribute cupDepth : Length;
+    attribute medialWallHeight : Length;
+    attribute lateralWallHeight : Length;
+    port structurePort : MechanicalMountPort;
+  }
+
+  part def RetentionStrap {
+    attribute strapWidth : Length;
+    attribute tension : Force;
+    attribute contactPressure : Pressure;
+    port anchorPort : MechanicalMountPort;
+  }
+
+  part def SolePlate {
+    attribute plateLength : Length;
+    attribute plateWidth : Length;
+    attribute plateMass : Mass;
+    port structurePort : MechanicalMountPort;
+    port mountPort : MechanicalMountPort;
+  }
+
+  part def TelescopingTube {
+    attribute innerTubeLength : Length;
+    attribute outerTubeLength : Length;
+    attribute overlapLength : Length;
+  }
+
+  part def LockingFastener {
+    attribute clampForce : Force;
+    attribute locked : Boolean;
+  }
+
+  part def AngleScale {
+    attribute minimumAngle : Angle;
+    attribute maximumAngle : Angle;
+    attribute increment : Angle;
+  }
+
+  part def IndexedPivot {
+    attribute selectedAngle : Angle;
+    attribute indexIncrement : Angle;
+    attribute rotationalFreePlay : Angle;
+  }
+
+  port def MechanicalMountPort {
+    inout item load : CorrectiveLoad;
+  }
+
+  action def FitBraceAction {
+    in item command : WearCommand;
+    in item leftFoot : Foot;
+    in item rightFoot : Foot;
+    out item status : FitStatus;
+
+    first start;
+    then setBarLength;
+    then setLeftClampAngle;
+    then setRightClampAngle;
+    then seatLeftHeel;
+    then seatRightHeel;
+    then tensionStraps;
+    then verifyFit;
+    then done;
+
+    action setBarLength;
+    action setLeftClampAngle;
+    action setRightClampAngle;
+    action seatLeftHeel;
+    action seatRightHeel;
+    action tensionStraps;
+    action verifyFit;
+  }
+
+  action def MaintainAbductionAction {
+    in item leftFoot : Foot;
+    in item rightFoot : Foot;
+    in item command : WearCommand;
+    out item leftCorrectiveLoad : CorrectiveLoad;
+    out item rightCorrectiveLoad : CorrectiveLoad;
+
+    first start;
+    then constrainFeet;
+    then distributeLoad;
+    then maintainDorsiflexion;
+    then complete;
+
+    action constrainFeet;
+    action distributeLoad;
+    action maintainDorsiflexion;
+  }
+
+  state def BraceUseStateMachine {
+    state stowed;
+    state fitting;
+    state therapeuticWear;
+    state inspection;
+    state removed;
+
+    entry;
+    then stowed;
+
+    transition stowed_to_fitting
+      first stowed
+      accept WearCommand
+      then fitting;
+
+    transition fitting_to_wear
+      first fitting
+      if fitReady
+      then therapeuticWear;
+
+    transition fitting_to_removed
+      first fitting
+      if fitRejected
+      then removed;
+
+    transition wear_to_inspection
+      first therapeuticWear
+      if scheduledCheckDue
+      then inspection;
+
+    transition inspection_to_wear
+      first inspection
+      if fitReady
+      then therapeuticWear;
+
+    transition inspection_to_removed
+      first inspection
+      if skinPressureHigh
+      then removed;
+
+    transition wear_to_removed
+      first therapeuticWear
+      if wearDurationComplete
+      then removed;
+
+    transition removed_to_stowed
+      first removed
+      then stowed;
+
+    attribute fitReady : Boolean;
+    attribute fitRejected : Boolean;
+    attribute scheduledCheckDue : Boolean;
+    attribute skinPressureHigh : Boolean;
+    attribute wearDurationComplete : Boolean;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall hold the left and right feet at prescribed abduction and dorsiflexion angles through a rigid adjustable bar and therapeutic shoe interfaces during scheduled wear. */
+
+    subject brace : DenisBrowneBarSystem;
+
+    require constraint {
+      brace.leftClamp.abductionAngle == brace.caregiverPort.wearCommand.leftAbductionSetpoint and
+      brace.rightClamp.abductionAngle == brace.caregiverPort.wearCommand.rightAbductionSetpoint
+    }
+  }
+
+  requirement def AdjustabilityRequirement {
+    doc
+      /* The bar shall support symmetric adjustment to accommodate patient growth and clinically prescribed shoe spacing. */
+
+    subject bar : AdjustableAbductionBar;
+
+    require constraint {
+      bar.currentLength >= bar.minimumLength and
+      bar.currentLength <= bar.maximumLength
+    }
+  }
+
+  requirement def RetentionRequirement {
+    doc
+      /* Each shoe shall retain the heel seated in the heel cup while limiting strap contact pressure to acceptable therapeutic-use values. */
+
+    subject shoe : TherapeuticShoe;
+
+    require constraint {
+      shoe.instepStrap.contactPressure <= shoe.maxStrapPressure and
+      shoe.toeStrap.contactPressure <= shoe.maxStrapPressure
+    }
+  }
+
+  requirement def LockingRequirement {
+    doc
+      /* Angle and length locks shall remain engaged throughout therapeutic wear. */
+
+    subject brace : DenisBrowneBarSystem;
+
+    require constraint {
+      brace.leftClamp.lockingScrew.locked and
+      brace.rightClamp.lockingScrew.locked and
+      brace.abductionBar.lengthLock.locked
+    }
+  }
+
+  requirement def PassiveSafetyRequirement {
+    doc
+      /* The system shall provide fit status indicating heel seating, strap acceptability, pressure acceptability, and bar lock status before therapeutic wear begins. */
+
+    subject monitor : PassiveFitMonitor;
+
+    require constraint {
+      monitor.leftHeelSeated and
+      monitor.rightHeelSeated and
+      monitor.allLocksEngaged
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by DenisBrowneBarSystem::maintainFootAbduction;
+  satisfy AdjustabilityRequirement by AdjustableAbductionBar;
+  satisfy RetentionRequirement by TherapeuticShoe;
+  satisfy LockingRequirement by LockingFastener;
+  satisfy PassiveSafetyRequirement by PassiveFitMonitor;
+}
+tokens used
+3,997
+package DenisBrowneBarSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Length;
+  attribute def Angle;
+  attribute def Force;
+  attribute def Mass;
+  attribute def Duration;
+  attribute def Pressure;
+
+  enum def FootSide {
+    enum left;
+    enum right;
+  }
+
+  enum def BraceUseState {
+    enum stowed;
+    enum fitting;
+    enum therapeuticWear;
+    enum inspection;
+    enum removed;
+  }
+
+  item def Foot {
+    attribute side : FootSide;
+    attribute footLength : Length;
+    attribute forefootWidth : Length;
+    attribute prescribedAbduction : Angle;
+    attribute prescribedDorsiflexion : Angle;
+  }
+
+  item def CorrectiveLoad {
+    attribute abductionMoment : Force;
+    attribute dorsiflexionMoment : Force;
+    attribute contactPressure : Pressure;
+  }
+
+  item def WearCommand {
+    attribute targetWearDuration : Duration;
+    attribute leftAbductionSetpoint : Angle;
+    attribute rightAbductionSetpoint : Angle;
+    attribute dorsiflexionSetpoint : Angle;
+  }
+
+  item def FitStatus {
+    attribute leftHeelSeated : Boolean;
+    attribute rightHeelSeated : Boolean;
+    attribute strapTensionAcceptable : Boolean;
+    attribute skinPressureAcceptable : Boolean;
+    attribute barLocked : Boolean;
+  }
+
+  port def FootInterfacePort {
+    in item patientFoot : Foot;
+    out item correctiveLoad : CorrectiveLoad;
+  }
+
+  port def AdjustmentPort {
+    in item wearCommand : WearCommand;
+    out item fitStatus : FitStatus;
+  }
+
+  port def CaregiverInterfacePort {
+    in item wearCommand : WearCommand;
+    out item fitStatus : FitStatus;
+  }
+
+  part def DenisBrowneBarSystem {
+    attribute systemMass : Mass;
+    attribute barLength : Length;
+    attribute nominalWearDuration : Duration;
+    attribute primaryFunction : String =
+      "Maintain both feet in prescribed external rotation and dorsiflexion by coupling therapeutic footwear to an adjustable rigid bar, supporting high-level correction and maintenance of clubfoot alignment during scheduled wear.";
+
+    port caregiverPort : CaregiverInterfacePort;
+    port leftFootPort : FootInterfacePort;
+    port rightFootPort : FootInterfacePort;
+
+    part leftShoe : TherapeuticShoe {
+      attribute side = FootSide::left;
+    }
+
+    part rightShoe : TherapeuticShoe {
+      attribute side = FootSide::right;
+    }
+
+    part abductionBar : AdjustableAbductionBar;
+
+    part leftClamp : RotationalClamp {
+      attribute side = FootSide::left;
+    }
+
+    part rightClamp : RotationalClamp {
+      attribute side = FootSide::right;
+    }
+
+    part fitMonitor : PassiveFitMonitor;
+
+    connection leftFootToShoe connect leftFootPort to leftShoe.footPort;
+    connection rightFootToShoe connect rightFootPort to rightShoe.footPort;
+    connection leftShoeToClamp connect leftShoe.mountPort to leftClamp.shoeMountPort;
+    connection rightShoeToClamp connect rightShoe.mountPort to rightClamp.shoeMountPort;
+    connection leftClampToBar connect leftClamp.barMountPort to abductionBar.leftEndPort;
+    connection rightClampToBar connect rightClamp.barMountPort to abductionBar.rightEndPort;
+    connection caregiverToMonitor connect caregiverPort to fitMonitor.caregiverPort;
+    connection monitorToLeftShoe connect fitMonitor.leftShoePort to leftShoe.adjustmentPort;
+    connection monitorToRightShoe connect fitMonitor.rightShoePort to rightShoe.adjustmentPort;
+    connection monitorToBar connect fitMonitor.barAdjustmentPort to abductionBar.adjustmentPort;
+
+    perform action fitBrace : FitBraceAction;
+    perform action maintainFootAbduction : MaintainAbductionAction;
+    perform state useLifecycle : BraceUseStateMachine;
+  }
+
+  part def TherapeuticShoe {
+    attribute side : FootSide;
+    attribute soleLength : Length;
+    attribute heelCupDepth : Length;
+    attribute maxStrapPressure : Pressure;
+    attribute dorsiflexionWedgeAngle : Angle;
+
+    port footPort : FootInterfacePort;
+    port mountPort : MechanicalMountPort;
+    port adjustmentPort : AdjustmentPort;
+
+    part heelCup : HeelCup;
+    part instepStrap : RetentionStrap;
+    part toeStrap : RetentionStrap;
+    part solePlate : SolePlate;
+
+    connection heelToSole connect heelCup.structurePort to solePlate.structurePort;
+    connection instepToSole connect instepStrap.anchorPort to solePlate.structurePort;
+    connection toeToSole connect toeStrap.anchorPort to solePlate.structurePort;
+    connection soleToMount connect solePlate.mountPort to mountPort;
+  }
+
+  part def AdjustableAbductionBar {
+    attribute minimumLength : Length;
+    attribute maximumLength : Length;
+    attribute currentLength : Length;
+    attribute torsionalStiffness : Force;
+    attribute allowableBendingLoad : Force;
+
+    port leftEndPort : MechanicalMountPort;
+    port rightEndPort : MechanicalMountPort;
+    port adjustmentPort : AdjustmentPort;
+
+    part telescopingTube : TelescopingTube;
+    part lengthLock : LockingFastener;
+  }
+
+  part def RotationalClamp {
+    attribute side : FootSide;
+    attribute abductionAngle : Angle;
+    attribute dorsiflexionOffset : Angle;
+    attribute angleLockTorque : Force;
+
+    port shoeMountPort : MechanicalMountPort;
+    port barMountPort : MechanicalMountPort;
+
+    part angleScale : AngleScale;
+    part pivot : IndexedPivot;
+    part lockingScrew : LockingFastener;
+  }
+
+  part def PassiveFitMonitor {
+    port caregiverPort : CaregiverInterfacePort;
+    port leftShoePort : AdjustmentPort;
+    port rightShoePort : AdjustmentPort;
+    port barAdjustmentPort : AdjustmentPort;
+
+    attribute leftHeelSeated : Boolean;
+    attribute rightHeelSeated : Boolean;
+    attribute leftStrapPressure : Pressure;
+    attribute rightStrapPressure : Pressure;
+    attribute allLocksEngaged : Boolean;
+  }
+
+  part def HeelCup {
+    attribute cupDepth : Length;
+    attribute medialWallHeight : Length;
+    attribute lateralWallHeight : Length;
+    port structurePort : MechanicalMountPort;
+  }
+
+  part def RetentionStrap {
+    attribute strapWidth : Length;
+    attribute tension : Force;
+    attribute contactPressure : Pressure;
+    port anchorPort : MechanicalMountPort;
+  }
+
+  part def SolePlate {
+    attribute plateLength : Length;
+    attribute plateWidth : Length;
+    attribute plateMass : Mass;
+    port structurePort : MechanicalMountPort;
+    port mountPort : MechanicalMountPort;
+  }
+
+  part def TelescopingTube {
+    attribute innerTubeLength : Length;
+    attribute outerTubeLength : Length;
+    attribute overlapLength : Length;
+  }
+
+  part def LockingFastener {
+    attribute clampForce : Force;
+    attribute locked : Boolean;
+  }
+
+  part def AngleScale {
+    attribute minimumAngle : Angle;
+    attribute maximumAngle : Angle;
+    attribute increment : Angle;
+  }
+
+  part def IndexedPivot {
+    attribute selectedAngle : Angle;
+    attribute indexIncrement : Angle;
+    attribute rotationalFreePlay : Angle;
+  }
+
+  port def MechanicalMountPort {
+    inout item load : CorrectiveLoad;
+  }
+
+  action def FitBraceAction {
+    in item command : WearCommand;
+    in item leftFoot : Foot;
+    in item rightFoot : Foot;
+    out item status : FitStatus;
+
+    first start;
+    then setBarLength;
+    then setLeftClampAngle;
+    then setRightClampAngle;
+    then seatLeftHeel;
+    then seatRightHeel;
+    then tensionStraps;
+    then verifyFit;
+    then done;
+
+    action setBarLength;
+    action setLeftClampAngle;
+    action setRightClampAngle;
+    action seatLeftHeel;
+    action seatRightHeel;
+    action tensionStraps;
+    action verifyFit;
+  }
+
+  action def MaintainAbductionAction {
+    in item leftFoot : Foot;
+    in item rightFoot : Foot;
+    in item command : WearCommand;
+    out item leftCorrectiveLoad : CorrectiveLoad;
+    out item rightCorrectiveLoad : CorrectiveLoad;
+
+    first start;
+    then constrainFeet;
+    then distributeLoad;
+    then maintainDorsiflexion;
+    then complete;
+
+    action constrainFeet;
+    action distributeLoad;
+    action maintainDorsiflexion;
+  }
+
+  state def BraceUseStateMachine {
+    state stowed;
+    state fitting;
+    state therapeuticWear;
+    state inspection;
+    state removed;
+
+    entry;
+    then stowed;
+
+    transition stowed_to_fitting
+      first stowed
+      accept WearCommand
+      then fitting;
+
+    transition fitting_to_wear
+      first fitting
+      if fitReady
+      then therapeuticWear;
+
+    transition fitting_to_removed
+      first fitting
+      if fitRejected
+      then removed;
+
+    transition wear_to_inspection
+      first therapeuticWear
+      if scheduledCheckDue
+      then inspection;
+
+    transition inspection_to_wear
+      first inspection
+      if fitReady
+      then therapeuticWear;
+
+    transition inspection_to_removed
+      first inspection
+      if skinPressureHigh
+      then removed;
+
+    transition wear_to_removed
+      first therapeuticWear
+      if wearDurationComplete
+      then removed;
+
+    transition removed_to_stowed
+      first removed
+      then stowed;
+
+    attribute fitReady : Boolean;
+    attribute fitRejected : Boolean;
+    attribute scheduledCheckDue : Boolean;
+    attribute skinPressureHigh : Boolean;
+    attribute wearDurationComplete : Boolean;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall hold the left and right feet at prescribed abduction and dorsiflexion angles through a rigid adjustable bar and therapeutic shoe interfaces during scheduled wear. */
+
+    subject brace : DenisBrowneBarSystem;
+
+    require constraint {
+      brace.leftClamp.abductionAngle == brace.caregiverPort.wearCommand.leftAbductionSetpoint and
+      brace.rightClamp.abductionAngle == brace.caregiverPort.wearCommand.rightAbductionSetpoint
+    }
+  }
+
+  requirement def AdjustabilityRequirement {
+    doc
+      /* The bar shall support symmetric adjustment to accommodate patient growth and clinically prescribed shoe spacing. */
+
+    subject bar : AdjustableAbductionBar;
+
+    require constraint {
+      bar.currentLength >= bar.minimumLength and
+      bar.currentLength <= bar.maximumLength
+    }
+  }
+
+  requirement def RetentionRequirement {
+    doc
+      /* Each shoe shall retain the heel seated in the heel cup while limiting strap contact pressure to acceptable therapeutic-use values. */
+
+    subject shoe : TherapeuticShoe;
+
+    require constraint {
+      shoe.instepStrap.contactPressure <= shoe.maxStrapPressure and
+      shoe.toeStrap.contactPressure <= shoe.maxStrapPressure
+    }
+  }
+
+  requirement def LockingRequirement {
+    doc
+      /* Angle and length locks shall remain engaged throughout therapeutic wear. */
+
+    subject brace : DenisBrowneBarSystem;
+
+    require constraint {
+      brace.leftClamp.lockingScrew.locked and
+      brace.rightClamp.lockingScrew.locked and
+      brace.abductionBar.lengthLock.locked
+    }
+  }
+
+  requirement def PassiveSafetyRequirement {
+    doc
+      /* The system shall provide fit status indicating heel seating, strap acceptability, pressure acceptability, and bar lock status before therapeutic wear begins. */
+
+    subject monitor : PassiveFitMonitor;
+
+    require constraint {
+      monitor.leftHeelSeated and
+      monitor.rightHeelSeated and
+      monitor.allLocksEngaged
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by DenisBrowneBarSystem::maintainFootAbduction;
+  satisfy AdjustabilityRequirement by AdjustableAbductionBar;
+  satisfy RetentionRequirement by TherapeuticShoe;
+  satisfy LockingRequirement by LockingFastener;
+  satisfy PassiveSafetyRequirement by PassiveFitMonitor;
+}

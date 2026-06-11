@@ -1,0 +1,689 @@
+package PumpingSubsystem_ChopperPump {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Power :> Real {
+        unit = "kW";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def VibrationLevel :> Real {
+        unit = "mm/s";
+    }
+
+    attribute def SolidsDiameter :> Real {
+        unit = "mm";
+    }
+
+    attribute def Volume :> Real {
+        unit = "L";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def RawFluid {
+        attribute temperature : Temperature;
+        attribute solidsFraction : Percent;
+        attribute maxSolidsDiameter : SolidsDiameter;
+        attribute viscosity : Real;
+    }
+
+    item def ChoppedFluid :> RawFluid {
+        attribute particleSizeAfterChopping : SolidsDiameter;
+    }
+
+    item def ElectricalPower {
+        attribute lineVoltage : Voltage;
+        attribute phaseCurrent : Current;
+        attribute frequency : Real;
+    }
+
+    item def ControlSignal {
+        attribute enabled : Boolean;
+        attribute requestedSpeed : RotationalSpeed;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def SensorSignal {
+        attribute valid : Boolean;
+        attribute measuredValue : Real;
+    }
+
+    port def FluidInletPort {
+        in item fluidIn : RawFluid;
+        attribute pressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    port def FluidOutletPort {
+        out item fluidOut : ChoppedFluid;
+        attribute pressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : SensorSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurement : SensorSignal;
+    }
+
+    part def IsolationValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute position : Percent;
+        attribute commandedOpen : Boolean;
+
+        action open {
+            first start;
+            then setPosition;
+            action setPosition {
+                out attribute finalPosition : Percent = 100.0;
+            }
+            then done;
+        }
+
+        action close {
+            first start;
+            then setPosition;
+            action setPosition {
+                out attribute finalPosition : Percent = 0.0;
+            }
+            then done;
+        }
+
+        state valveState {
+            state Closed;
+            state Opening;
+            state Open;
+            state Closing;
+
+            initial then Closed;
+
+            transition Closed_to_Opening
+                first Closed
+                accept openCommand
+                then Opening;
+
+            transition Opening_to_Open
+                first Opening
+                if position >= 95.0
+                then Open;
+
+            transition Open_to_Closing
+                first Open
+                accept closeCommand
+                then Closing;
+
+            transition Closing_to_Closed
+                first Closing
+                if position <= 5.0
+                then Closed;
+        }
+    }
+
+    part def ChopperPump {
+        port suction : FluidInletPort;
+        port discharge : FluidOutletPort;
+        port power : ElectricalPowerPort;
+        port control : ControlPort;
+        port speedFeedback : MeasurementPort;
+        port vibrationFeedback : MeasurementPort;
+
+        attribute ratedFlow : FlowRate = 850.0;
+        attribute ratedDifferentialPressure : Pressure = 420.0;
+        attribute ratedSpeed : RotationalSpeed = 1750.0;
+        attribute minimumContinuousSpeed : RotationalSpeed = 650.0;
+        attribute maximumSolidsDiameter : SolidsDiameter = 75.0;
+        attribute motorRatedPower : Power = 45.0;
+        attribute shaftTorque : Torque;
+        attribute casingPressureLimit : Pressure = 950.0;
+        attribute vibrationTripLimit : VibrationLevel = 11.0;
+        attribute speed : RotationalSpeed;
+        attribute differentialPressure : Pressure;
+        attribute hydraulicEfficiency : Percent;
+        attribute running : Boolean;
+        attribute faulted : Boolean;
+
+        action startPump {
+            in attribute requestedSpeed : RotationalSpeed;
+            out attribute started : Boolean;
+
+            first verifyPermissives;
+            action verifyPermissives {
+                out attribute permissiveOk : Boolean =
+                    suction.pressure > 20.0 and
+                    discharge.pressure < casingPressureLimit and
+                    requestedSpeed >= minimumContinuousSpeed and
+                    requestedSpeed <= ratedSpeed;
+            }
+
+            then energizeMotor;
+            action energizeMotor {
+                in item electricalSupply : ElectricalPower;
+                out attribute motorEnergized : Boolean = true;
+            }
+
+            then accelerateImpeller;
+            action accelerateImpeller {
+                out attribute achievedSpeed : RotationalSpeed = requestedSpeed;
+            }
+
+            then establishFlow;
+            action establishFlow {
+                out item processedFluid : ChoppedFluid;
+                out attribute flowEstablished : Boolean =
+                    suction.flow > 0.0 and discharge.flow <= ratedFlow;
+            }
+        }
+
+        action stopPump {
+            first rampDown;
+            action rampDown {
+                out attribute finalSpeed : RotationalSpeed = 0.0;
+            }
+            then deenergizeMotor;
+            action deenergizeMotor {
+                out attribute motorEnergized : Boolean = false;
+            }
+        }
+
+        action chopAndPumpFluid {
+            in item incoming : RawFluid;
+            out item outgoing : ChoppedFluid;
+
+            first shearSolids;
+            action shearSolids {
+                in item raw : RawFluid = incoming;
+                out attribute reducedParticleSize : SolidsDiameter;
+            }
+
+            then pressurizeFluid;
+            action pressurizeFluid {
+                out attribute outletPressure : Pressure =
+                    suction.pressure + differentialPressure;
+            }
+
+            then dischargeFluid;
+            action dischargeFluid {
+                out item delivered : ChoppedFluid = outgoing;
+            }
+        }
+
+        state operatingState {
+            state Off;
+            state Starting;
+            state Running;
+            state Degraded;
+            state Stopping;
+            state Faulted;
+            state EmergencyStopped;
+
+            initial then Off;
+
+            transition Off_to_Starting
+                first Off
+                accept startCommand
+                if faulted == false
+                then Starting;
+
+            transition Starting_to_Running
+                first Starting
+                if speed >= minimumContinuousSpeed and discharge.flow > 0.0
+                then Running;
+
+            transition Running_to_Degraded
+                first Running
+                if vibrationFeedback.measurement.measuredValue >= 8.0 or hydraulicEfficiency < 55.0
+                then Degraded;
+
+            transition Degraded_to_Running
+                first Degraded
+                if vibrationFeedback.measurement.measuredValue < 8.0 and hydraulicEfficiency >= 55.0
+                then Running;
+
+            transition Running_to_Stopping
+                first Running
+                accept stopCommand
+                then Stopping;
+
+            transition Degraded_to_Stopping
+                first Degraded
+                accept stopCommand
+                then Stopping;
+
+            transition Stopping_to_Off
+                first Stopping
+                if speed <= 10.0
+                then Off;
+
+            transition Running_to_Faulted
+                first Running
+                if discharge.pressure > casingPressureLimit or vibrationFeedback.measurement.measuredValue >= vibrationTripLimit
+                then Faulted;
+
+            transition Degraded_to_Faulted
+                first Degraded
+                if discharge.pressure > casingPressureLimit or vibrationFeedback.measurement.measuredValue >= vibrationTripLimit
+                then Faulted;
+
+            transition Any_to_EmergencyStopped
+                accept emergencyStop
+                then EmergencyStopped;
+        }
+    }
+
+    part def VariableFrequencyDrive {
+        port powerInput : ElectricalPowerPort;
+        port motorOutput : ElectricalPowerPort;
+        port control : ControlPort;
+        port speedFeedback : MeasurementPort;
+
+        attribute commandedSpeed : RotationalSpeed;
+        attribute outputFrequency : Real;
+        attribute outputCurrent : Current;
+        attribute dcBusVoltage : Voltage;
+        attribute driveHealthy : Boolean;
+
+        action regulateMotorSpeed {
+            in attribute speedSetpoint : RotationalSpeed;
+            out attribute outputFrequencyCommand : Real;
+            out attribute currentLimitActive : Boolean;
+        }
+
+        state driveState {
+            state Disabled;
+            state Ready;
+            state Enabled;
+            state Tripped;
+
+            initial then Disabled;
+
+            transition Disabled_to_Ready
+                first Disabled
+                if powerInput.powerIn.lineVoltage >= 440.0 and driveHealthy
+                then Ready;
+
+            transition Ready_to_Enabled
+                first Ready
+                accept enableCommand
+                then Enabled;
+
+            transition Enabled_to_Tripped
+                first Enabled
+                if outputCurrent > 90.0 or dcBusVoltage < 500.0
+                then Tripped;
+
+            transition Enabled_to_Ready
+                first Enabled
+                accept disableCommand
+                then Ready;
+        }
+    }
+
+    part def PressureTransmitter {
+        port processConnection : FluidInletPort;
+        port signal : MeasurementPort;
+
+        attribute rangeLow : Pressure = 0.0;
+        attribute rangeHigh : Pressure = 1000.0;
+        attribute accuracy : Percent = 0.25;
+        attribute measuredPressure : Pressure;
+
+        action measurePressure {
+            out item pressureSignal : SensorSignal;
+        }
+    }
+
+    part def FlowMeter {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        port signal : MeasurementPort;
+
+        attribute minimumFlow : FlowRate = 0.0;
+        attribute maximumFlow : FlowRate = 1200.0;
+        attribute measuredFlow : FlowRate;
+        attribute accuracy : Percent = 1.0;
+
+        action measureFlow {
+            out item flowSignal : SensorSignal;
+        }
+    }
+
+    part def CheckValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute crackingPressure : Pressure = 8.0;
+        attribute reverseLeakageAllowed : FlowRate = 0.5;
+        attribute open : Boolean;
+
+        state checkValveState {
+            state Shut;
+            state Passing;
+
+            initial then Shut;
+
+            transition Shut_to_Passing
+                first Shut
+                if inlet.pressure > outlet.pressure + crackingPressure
+                then Passing;
+
+            transition Passing_to_Shut
+                first Passing
+                if outlet.pressure >= inlet.pressure
+                then Shut;
+        }
+    }
+
+    part def LocalController {
+        port operatorCommand : ControlPort;
+        port pumpCommand : ControlPort;
+        port driveCommand : ControlPort;
+        port suctionPressureInput : MeasurementPort;
+        port dischargePressureInput : MeasurementPort;
+        port flowInput : MeasurementPort;
+        port vibrationInput : MeasurementPort;
+
+        attribute requestedFlow : FlowRate;
+        attribute requestedSpeed : RotationalSpeed;
+        attribute lowSuctionPressureTrip : Pressure = 15.0;
+        attribute highDischargePressureTrip : Pressure = 900.0;
+        attribute minimumFlowAlarm : FlowRate = 120.0;
+        attribute automaticMode : Boolean;
+        attribute shutdownActive : Boolean;
+
+        action computeSpeedDemand {
+            in attribute flowSetpoint : FlowRate;
+            in attribute actualFlow : FlowRate;
+            out attribute speedDemand : RotationalSpeed;
+        }
+
+        action protectPump {
+            out attribute tripCommand : Boolean =
+                suctionPressureInput.measurement.measuredValue < lowSuctionPressureTrip or
+                dischargePressureInput.measurement.measuredValue > highDischargePressureTrip or
+                vibrationInput.measurement.measuredValue >= 11.0;
+        }
+
+        state controllerState {
+            state Idle;
+            state Available;
+            state CommandingRun;
+            state Monitoring;
+            state Shutdown;
+
+            initial then Idle;
+
+            transition Idle_to_Available
+                first Idle
+                if automaticMode == true and shutdownActive == false
+                then Available;
+
+            transition Available_to_CommandingRun
+                first Available
+                accept runRequest
+                then CommandingRun;
+
+            transition CommandingRun_to_Monitoring
+                first CommandingRun
+                if flowInput.measurement.measuredValue > minimumFlowAlarm
+                then Monitoring;
+
+            transition Monitoring_to_Shutdown
+                first Monitoring
+                if shutdownActive == true
+                then Shutdown;
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                accept resetRequest
+                if shutdownActive == false
+                then Idle;
+        }
+    }
+
+    part def PumpingSubsystem {
+        port fluidSupply : FluidInletPort;
+        port fluidDelivery : FluidOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port supervisoryControl : ControlPort;
+
+        part suctionIsolationValve : IsolationValve;
+        part suctionPressureTransmitter : PressureTransmitter;
+        part chopperPump : ChopperPump;
+        part variableFrequencyDrive : VariableFrequencyDrive;
+        part dischargeCheckValve : CheckValve;
+        part dischargeIsolationValve : IsolationValve;
+        part dischargePressureTransmitter : PressureTransmitter;
+        part flowMeter : FlowMeter;
+        part localController : LocalController;
+
+        attribute designFlow : FlowRate = 850.0;
+        attribute minimumStableFlow : FlowRate = 120.0;
+        attribute designDifferentialPressure : Pressure = 420.0;
+        attribute maximumOperatingPressure : Pressure = 900.0;
+        attribute allowableFluidTemperatureLow : Temperature = 2.0;
+        attribute allowableFluidTemperatureHigh : Temperature = 60.0;
+        attribute maximumIncomingSolidsDiameter : SolidsDiameter = 75.0;
+        attribute requiredParticleSizeAfterChopping : SolidsDiameter = 20.0;
+        attribute availableSupplyVoltage : Voltage = 480.0;
+
+        connect fluidSupply to suctionIsolationValve.inlet;
+        connect suctionIsolationValve.outlet to suctionPressureTransmitter.processConnection;
+        connect suctionPressureTransmitter.processConnection to chopperPump.suction;
+        connect chopperPump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeIsolationValve.inlet;
+        connect dischargeIsolationValve.outlet to flowMeter.inlet;
+        connect flowMeter.outlet to dischargePressureTransmitter.processConnection;
+        connect dischargePressureTransmitter.processConnection to fluidDelivery;
+
+        connect electricalSupply to variableFrequencyDrive.powerInput;
+        connect variableFrequencyDrive.motorOutput to chopperPump.power;
+
+        connect supervisoryControl to localController.operatorCommand;
+        connect localController.pumpCommand to chopperPump.control;
+        connect localController.driveCommand to variableFrequencyDrive.control;
+        connect suctionPressureTransmitter.signal to localController.suctionPressureInput;
+        connect dischargePressureTransmitter.signal to localController.dischargePressureInput;
+        connect flowMeter.signal to localController.flowInput;
+        connect chopperPump.vibrationFeedback to localController.vibrationInput;
+        connect variableFrequencyDrive.speedFeedback to chopperPump.speedFeedback;
+
+        action normalPumpOperation {
+            first receiveRunRequest;
+            action receiveRunRequest {
+                in item operatorCommand : ControlSignal;
+            }
+
+            then openSuctionValve;
+            action openSuctionValve {
+                out attribute suctionValveOpen : Boolean = true;
+            }
+
+            then openDischargeValve;
+            action openDischargeValve {
+                out attribute dischargeValveOpen : Boolean = true;
+            }
+
+            then startDrive;
+            action startDrive {
+                out attribute driveEnabled : Boolean = true;
+            }
+
+            then startChopperPump;
+            action startChopperPump {
+                out attribute pumpStarted : Boolean = true;
+            }
+
+            then regulateFlow;
+            action regulateFlow {
+                in attribute desiredFlow : FlowRate = designFlow;
+                out attribute actualFlow : FlowRate;
+            }
+
+            then deliverProcessedFluid;
+            action deliverProcessedFluid {
+                out item deliveredFluid : ChoppedFluid;
+            }
+        }
+
+        action controlledShutdown {
+            first reduceSpeed;
+            action reduceSpeed {
+                out attribute reducedSpeed : RotationalSpeed = 650.0;
+            }
+
+            then stopPump;
+            action stopPump {
+                out attribute pumpRunning : Boolean = false;
+            }
+
+            then closeDischargeValve;
+            action closeDischargeValve {
+                out attribute dischargeValveClosed : Boolean = true;
+            }
+
+            then closeSuctionValve;
+            action closeSuctionValve {
+                out attribute suctionValveClosed : Boolean = true;
+            }
+        }
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+    }
+
+    requirement flowCapacityRequirement : PumpingSubsystemRequirement {
+        doc /* The pumping subsystem shall deliver chopped fluid at not less than 850 L/min at the design differential pressure. */
+        require constraint {
+            subsystem.flowMeter.measuredFlow >= subsystem.designFlow
+        }
+    }
+
+    requirement pressureRequirement : PumpingSubsystemRequirement {
+        doc /* The pumping subsystem shall provide at least 420 kPa differential pressure while operating at design flow. */
+        require constraint {
+            subsystem.chopperPump.differentialPressure >= subsystem.designDifferentialPressure
+        }
+    }
+
+    requirement solidsHandlingRequirement : PumpingSubsystemRequirement {
+        doc /* The chopper pump shall accept raw fluid containing solids up to 75 mm diameter and reduce discharged particle size to 20 mm or less. */
+        require constraint {
+            subsystem.maximumIncomingSolidsDiameter <= subsystem.chopperPump.maximumSolidsDiameter and
+            subsystem.requiredParticleSizeAfterChopping <= 20.0
+        }
+    }
+
+    requirement temperatureRequirement : PumpingSubsystemRequirement {
+        doc /* The subsystem shall operate with process fluid temperature from 2 degC to 60 degC. */
+        require constraint {
+            subsystem.fluidSupply.fluidIn.temperature >= subsystem.allowableFluidTemperatureLow and
+            subsystem.fluidSupply.fluidIn.temperature <= subsystem.allowableFluidTemperatureHigh
+        }
+    }
+
+    requirement overpressureProtectionRequirement : PumpingSubsystemRequirement {
+        doc /* The controller shall command shutdown before discharge pressure exceeds 900 kPa. */
+        require constraint {
+            subsystem.localController.highDischargePressureTrip <= subsystem.maximumOperatingPressure
+        }
+    }
+
+    requirement lowSuctionProtectionRequirement : PumpingSubsystemRequirement {
+        doc /* The subsystem shall trip the pump when suction pressure falls below 15 kPa. */
+        require constraint {
+            subsystem.localController.lowSuctionPressureTrip == 15.0
+        }
+    }
+
+    requirement reverseFlowPreventionRequirement : PumpingSubsystemRequirement {
+        doc /* The discharge check valve shall limit reverse leakage to no more than 0.5 L/min. */
+        require constraint {
+            subsystem.dischargeCheckValve.reverseLeakageAllowed <= 0.5
+        }
+    }
+
+    requirement vibrationProtectionRequirement : PumpingSubsystemRequirement {
+        doc /* The pump shall transition to faulted state when vibration reaches 11 mm/s. */
+        require constraint {
+            subsystem.chopperPump.vibrationTripLimit <= 11.0
+        }
+    }
+
+    requirement electricalSupplyRequirement : PumpingSubsystemRequirement {
+        doc /* The subsystem shall operate from a 480 V three-phase electrical supply through a variable frequency drive. */
+        require constraint {
+            subsystem.availableSupplyVoltage == 480.0
+        }
+    }
+
+    requirement maintainMinimumFlowRequirement : PumpingSubsystemRequirement {
+        doc /* The controller shall alarm or shut down the pump if flow remains below 120 L/min during commanded operation. */
+        require constraint {
+            subsystem.localController.minimumFlowAlarm >= subsystem.minimumStableFlow
+        }
+    }
+
+    requirement isolationRequirement : PumpingSubsystemRequirement {
+        doc /* The subsystem shall include independently controllable suction and discharge isolation valves. */
+        require constraint {
+            subsystem.suctionIsolationValve.commandedOpen != subsystem.dischargeIsolationValve.commandedOpen or
+            subsystem.suctionIsolationValve.commandedOpen == subsystem.dischargeIsolationValve.commandedOpen
+        }
+    }
+
+    satisfy flowCapacityRequirement by PumpingSubsystem::chopperPump;
+    satisfy pressureRequirement by PumpingSubsystem::chopperPump;
+    satisfy solidsHandlingRequirement by PumpingSubsystem::chopperPump;
+    satisfy temperatureRequirement by PumpingSubsystem;
+    satisfy overpressureProtectionRequirement by PumpingSubsystem::localController;
+    satisfy lowSuctionProtectionRequirement by PumpingSubsystem::localController;
+    satisfy reverseFlowPreventionRequirement by PumpingSubsystem::dischargeCheckValve;
+    satisfy vibrationProtectionRequirement by PumpingSubsystem::chopperPump;
+    satisfy electricalSupplyRequirement by PumpingSubsystem::variableFrequencyDrive;
+    satisfy maintainMinimumFlowRequirement by PumpingSubsystem::localController;
+    satisfy isolationRequirement by PumpingSubsystem::suctionIsolationValve;
+    satisfy isolationRequirement by PumpingSubsystem::dischargeIsolationValve;
+
+}

@@ -1,0 +1,835 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-g2ed6jnp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2f5-889d-7e63-8cf8-0240dd4dd9d2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Hypothermia cap and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HypothermiaCapSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Temperature :> ISQ::temperature {
+    unit = "degC";
+  }
+
+  attribute def FlowRate :> ISQ::volumeFlowRate {
+    unit = "L/min";
+  }
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = "kPa";
+  }
+
+  attribute def Duration :> ISQ::time {
+    unit = "min";
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = "W";
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def Percent :> ScalarValues::Real {
+    unit = "%";
+  }
+
+  item def Coolant {
+    attribute temperature : Temperature;
+    attribute flowRate : FlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def ThermalEnergy {
+    attribute heatTransferRate : Power;
+    attribute sourceTemperature : Temperature;
+    attribute sinkTemperature : Temperature;
+  }
+
+  item def SensorSignal {
+    attribute measuredTemperature : Temperature;
+    attribute confidence : Percent;
+    attribute sampleAge : Duration;
+  }
+
+  item def ControlCommand {
+    attribute targetTemperature : Temperature;
+    attribute pumpDutyCycle : Percent;
+    attribute chillerPowerCommand : Percent;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute powerAvailable : Power;
+  }
+
+  port def CoolantPort {
+    inout coolant : Coolant;
+  }
+
+  port def ThermalContactPort {
+    inout thermalEnergy : ThermalEnergy;
+  }
+
+  port def SensorPort {
+    out signal : SensorSignal;
+  }
+
+  port def CommandPort {
+    in command : ControlCommand;
+  }
+
+  port def PowerPort {
+    in power : ElectricalPower;
+  }
+
+  part def PatientScalp {
+    port scalpThermalInterface : ThermalContactPort;
+    attribute scalpTemperature : Temperature = 37.0 [degC];
+    attribute minimumSafeTemperature : Temperature = 10.0 [degC];
+  }
+
+  part def CoolingCap {
+    port inlet : CoolantPort;
+    port outlet : CoolantPort;
+    port patientContact : ThermalContactPort;
+
+    part flexibleBladder {
+      attribute coolantVolume : Real = 0.45;
+      attribute maxPressure : Pressure = 35.0 [kPa];
+    }
+
+    part thermalGelLayer {
+      attribute contactCoverage : Percent = 92.0 [%];
+      attribute nominalThermalResistance : Real = 0.18;
+    }
+
+    part insulationLayer {
+      attribute externalHeatGainLimit : Power = 8.0 [W];
+    }
+  }
+
+  part def TemperatureSensor {
+    port sensingInterface : ThermalContactPort;
+    port measurementOutput : SensorPort;
+
+    attribute accuracy : Temperature = 0.2 [degC];
+    attribute samplePeriod : Duration = 0.1 [min];
+
+    action measureTemperature {
+      in sensedTemperature : Temperature;
+      out signal : SensorSignal;
+
+      first start;
+      then createSignal;
+
+      action createSignal {
+        out signal : SensorSignal {
+          measuredTemperature = sensedTemperature;
+          confidence = 98.0 [%];
+          sampleAge = 0.0 [min];
+        }
+      }
+    }
+  }
+
+  part def CoolantPump {
+    port suction : CoolantPort;
+    port discharge : CoolantPort;
+    port commandInput : CommandPort;
+    port electricalInput : PowerPort;
+
+    attribute commandedDutyCycle : Percent = 0.0 [%];
+    attribute maximumFlowRate : FlowRate = 2.5 [L/min];
+    attribute nominalFlowRate : FlowRate = 1.4 [L/min];
+    attribute maximumPressure : Pressure = 45.0 [kPa];
+  }
+
+  part def ThermoelectricChiller {
+    port warmCoolantIn : CoolantPort;
+    port chilledCoolantOut : CoolantPort;
+    port commandInput : CommandPort;
+    port electricalInput : PowerPort;
+
+    attribute commandedPower : Percent = 0.0 [%];
+    attribute maximumCoolingPower : Power = 90.0 [W];
+    attribute minimumCoolantTemperature : Temperature = 3.0 [degC];
+  }
+
+  part def CoolantReservoir {
+    port returnPort : CoolantPort;
+    port supplyPort : CoolantPort;
+
+    attribute reservoirVolume : Real = 1.2;
+    attribute fillLevel : Percent = 100.0 [%];
+    attribute coolantTemperature : Temperature = 20.0 [degC];
+  }
+
+  part def Controller {
+    port scalpTemperatureInput : SensorPort;
+    port coolantTemperatureInput : SensorPort;
+    port commandOutput : CommandPort;
+    port electricalInput : PowerPort;
+
+    attribute targetScalpTemperature : Temperature = 18.0 [degC];
+    attribute allowableTemperatureError : Temperature = 1.0 [degC];
+    attribute maximumCoolingDuration : Duration = 240.0 [min];
+    attribute alarmActive : Boolean = false;
+
+    action computeCoolingCommand {
+      in scalpSignal : SensorSignal;
+      in coolantSignal : SensorSignal;
+      out command : ControlCommand;
+
+      first evaluateError;
+      then setActuatorDemand;
+
+      action evaluateError {
+        in measured : Temperature = scalpSignal.measuredTemperature;
+        out error : Temperature = measured - targetScalpTemperature;
+      }
+
+      action setActuatorDemand {
+        out command : ControlCommand {
+          targetTemperature = targetScalpTemperature;
+          pumpDutyCycle = 65.0 [%];
+          chillerPowerCommand = 70.0 [%];
+        }
+      }
+    }
+
+    state def TherapyControlStateMachine {
+      entry action initializeTherapy;
+      state Off;
+      state PreCheck;
+      state CoolDown;
+      state MaintainTherapeuticRange;
+      state Rewarm;
+      state Completed;
+      state Fault;
+
+      transition first Off;
+      transition Off_to_PreCheck
+        first Off
+        accept startTherapy
+        then PreCheck;
+
+      transition PreCheck_to_CoolDown
+        first PreCheck
+        if coolantAvailable and sensorValid and capContactAdequate
+        then CoolDown;
+
+      transition PreCheck_to_Fault
+        first PreCheck
+        if not coolantAvailable or not sensorValid or not capContactAdequate
+        then Fault;
+
+      transition CoolDown_to_Maintain
+        first CoolDown
+        if scalpTemperatureInput.signal.measuredTemperature <= targetScalpTemperature + allowableTemperatureError
+        then MaintainTherapeuticRange;
+
+      transition Maintain_to_Rewarm
+        first MaintainTherapeuticRange
+        if therapyElapsedTime >= maximumCoolingDuration
+        then Rewarm;
+
+      transition Rewarm_to_Completed
+        first Rewarm
+        if scalpTemperatureInput.signal.measuredTemperature >= 32.0 [degC]
+        then Completed;
+
+      transition Any_to_Fault
+        first Off, PreCheck, CoolDown, MaintainTherapeuticRange, Rewarm
+        if scalpTemperatureInput.signal.measuredTemperature < 10.0 [degC]
+        then Fault;
+    }
+  }
+
+  part def AlarmModule {
+    port controllerSignal : SensorPort;
+    port electricalInput : PowerPort;
+
+    attribute audibleAlarmLevel : Real = 70.0;
+    attribute visualAlarmActive : Boolean = false;
+
+    action issueAlarm {
+      in reasonCode : String;
+      out visualAlarmActive : Boolean = true;
+    }
+  }
+
+  part def PowerSupply {
+    port output : PowerPort;
+
+    attribute supplyVoltage : Voltage = 24.0 [V];
+    attribute maximumPower : Power = 180.0 [W];
+  }
+
+  part def HypothermiaCapSystem {
+    port scalpInterface : ThermalContactPort;
+    port mainsPowerInput : PowerPort;
+
+    part patientScalp : PatientScalp;
+    part cap : CoolingCap;
+    part scalpSensor : TemperatureSensor;
+    part coolantSensor : TemperatureSensor;
+    part pump : CoolantPump;
+    part chiller : ThermoelectricChiller;
+    part reservoir : CoolantReservoir;
+    part controller : Controller;
+    part alarm : AlarmModule;
+    part powerSupply : PowerSupply;
+
+    attribute prescribedTargetTemperature : Temperature = 18.0 [degC];
+    attribute prescribedTherapyDuration : Duration = 180.0 [min];
+    attribute systemStatus : String = "Ready";
+
+    connect scalpInterface to patientScalp.scalpThermalInterface;
+    connect patientScalp.scalpThermalInterface to cap.patientContact;
+    connect patientScalp.scalpThermalInterface to scalpSensor.sensingInterface;
+
+    connect reservoir.supplyPort to chiller.warmCoolantIn;
+    connect chiller.chilledCoolantOut to pump.suction;
+    connect pump.discharge to cap.inlet;
+    connect cap.outlet to reservoir.returnPort;
+
+    connect cap.outlet to coolantSensor.sensingInterface;
+
+    connect scalpSensor.measurementOutput to controller.scalpTemperatureInput;
+    connect coolantSensor.measurementOutput to controller.coolantTemperatureInput;
+    connect controller.commandOutput to pump.commandInput;
+    connect controller.commandOutput to chiller.commandInput;
+    connect scalpSensor.measurementOutput to alarm.controllerSignal;
+
+    connect mainsPowerInput to powerSupply.output;
+    connect powerSupply.output to controller.electricalInput;
+    connect powerSupply.output to pump.electricalInput;
+    connect powerSupply.output to chiller.electricalInput;
+    connect powerSupply.output to alarm.electricalInput;
+
+    action provideControlledScalpCooling {
+      in initialScalpTemperature : Temperature;
+      in prescribedTarget : Temperature;
+      out achievedTherapeuticCooling : Boolean;
+
+      first verifyReadiness;
+      then circulateChilledCoolant;
+      then regulateHeatExtraction;
+      then monitorSafety;
+      then completeTherapy;
+
+      action verifyReadiness {
+        out ready : Boolean = true;
+      }
+
+      action circulateChilledCoolant {
+        in targetTemperature : Temperature = prescribedTarget;
+        out coolantFlow : FlowRate = 1.4 [L/min];
+      }
+
+      action regulateHeatExtraction {
+        in scalpTemperature : Temperature = initialScalpTemperature;
+        out heatRemoved : ThermalEnergy {
+          heatTransferRate = 45.0 [W];
+          sourceTemperature = scalpTemperature;
+          sinkTemperature = prescribedTarget;
+        }
+      }
+
+      action monitorSafety {
+        out safe : Boolean =
+          scalpSensor.measurementOutput.signal.measuredTemperature >= patientScalp.minimumSafeTemperature;
+      }
+
+      action completeTherapy {
+        out achievedTherapeuticCooling : Boolean = true;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HypothermiaCapSystem;
+
+    doc /* The hypothermia cap system shall provide controlled, localized cooling of the patient's scalp by circulating chilled coolant through a cap, extracting heat through a compliant thermal interface, and automatically regulating coolant flow and cooling power to maintain the prescribed therapeutic scalp temperature. */
+
+    require constraint {
+      system.prescribedTargetTemperature >= 15.0 [degC] and
+      system.prescribedTargetTemperature <= 22.0 [degC]
+    }
+  }
+
+  requirement def TemperatureControlRequirement {
+    subject controller : Controller;
+
+    doc /* During active therapy, the controller shall maintain measured scalp temperature within plus or minus 1 degC of the prescribed target temperature after the initial cool-down period. */
+
+    require constraint {
+      controller.allowableTemperatureError <= 1.0 [degC]
+    }
+  }
+
+  requirement def SafetyTemperatureRequirement {
+    subject system : HypothermiaCapSystem;
+
+    doc /* The system shall prevent scalp temperature from falling below the minimum safe temperature and shall enter a fault state if unsafe overcooling is detected. */
+
+    require constraint {
+      system.patientScalp.scalpTemperature >= system.patientScalp.minimumSafeTemperature
+    }
+  }
+
+  requirement def CoolantFlowRequirement {
+    subject pump : CoolantPump;
+
+    doc /* The pump shall provide sufficient coolant circulation through the cap to support therapeutic heat extraction while remaining below the maximum cap pressure. */
+
+    require constraint {
+      pump.nominalFlowRate >= 1.0 [L/min] and
+      pump.nominalFlowRate <= pump.maximumFlowRate and
+      pump.maximumPressure <= 45.0 [kPa]
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject powerSupply : PowerSupply;
+
+    doc /* The power supply shall provide enough electrical power for the controller, pump, chiller, sensors, and alarm module during active cooling therapy. */
+
+    require constraint {
+      powerSupply.supplyVoltage == 24.0 [V] and
+      powerSupply.maximumPower >= 150.0 [W]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HypothermiaCapSystem;
+  satisfy TemperatureControlRequirement by Controller;
+  satisfy SafetyTemperatureRequirement by HypothermiaCapSystem;
+  satisfy CoolantFlowRequirement by CoolantPump;
+  satisfy PowerRequirement by PowerSupply;
+}
+tokens used
+4,377
+package HypothermiaCapSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Temperature :> ISQ::temperature {
+    unit = "degC";
+  }
+
+  attribute def FlowRate :> ISQ::volumeFlowRate {
+    unit = "L/min";
+  }
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = "kPa";
+  }
+
+  attribute def Duration :> ISQ::time {
+    unit = "min";
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = "W";
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def Percent :> ScalarValues::Real {
+    unit = "%";
+  }
+
+  item def Coolant {
+    attribute temperature : Temperature;
+    attribute flowRate : FlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def ThermalEnergy {
+    attribute heatTransferRate : Power;
+    attribute sourceTemperature : Temperature;
+    attribute sinkTemperature : Temperature;
+  }
+
+  item def SensorSignal {
+    attribute measuredTemperature : Temperature;
+    attribute confidence : Percent;
+    attribute sampleAge : Duration;
+  }
+
+  item def ControlCommand {
+    attribute targetTemperature : Temperature;
+    attribute pumpDutyCycle : Percent;
+    attribute chillerPowerCommand : Percent;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute powerAvailable : Power;
+  }
+
+  port def CoolantPort {
+    inout coolant : Coolant;
+  }
+
+  port def ThermalContactPort {
+    inout thermalEnergy : ThermalEnergy;
+  }
+
+  port def SensorPort {
+    out signal : SensorSignal;
+  }
+
+  port def CommandPort {
+    in command : ControlCommand;
+  }
+
+  port def PowerPort {
+    in power : ElectricalPower;
+  }
+
+  part def PatientScalp {
+    port scalpThermalInterface : ThermalContactPort;
+    attribute scalpTemperature : Temperature = 37.0 [degC];
+    attribute minimumSafeTemperature : Temperature = 10.0 [degC];
+  }
+
+  part def CoolingCap {
+    port inlet : CoolantPort;
+    port outlet : CoolantPort;
+    port patientContact : ThermalContactPort;
+
+    part flexibleBladder {
+      attribute coolantVolume : Real = 0.45;
+      attribute maxPressure : Pressure = 35.0 [kPa];
+    }
+
+    part thermalGelLayer {
+      attribute contactCoverage : Percent = 92.0 [%];
+      attribute nominalThermalResistance : Real = 0.18;
+    }
+
+    part insulationLayer {
+      attribute externalHeatGainLimit : Power = 8.0 [W];
+    }
+  }
+
+  part def TemperatureSensor {
+    port sensingInterface : ThermalContactPort;
+    port measurementOutput : SensorPort;
+
+    attribute accuracy : Temperature = 0.2 [degC];
+    attribute samplePeriod : Duration = 0.1 [min];
+
+    action measureTemperature {
+      in sensedTemperature : Temperature;
+      out signal : SensorSignal;
+
+      first start;
+      then createSignal;
+
+      action createSignal {
+        out signal : SensorSignal {
+          measuredTemperature = sensedTemperature;
+          confidence = 98.0 [%];
+          sampleAge = 0.0 [min];
+        }
+      }
+    }
+  }
+
+  part def CoolantPump {
+    port suction : CoolantPort;
+    port discharge : CoolantPort;
+    port commandInput : CommandPort;
+    port electricalInput : PowerPort;
+
+    attribute commandedDutyCycle : Percent = 0.0 [%];
+    attribute maximumFlowRate : FlowRate = 2.5 [L/min];
+    attribute nominalFlowRate : FlowRate = 1.4 [L/min];
+    attribute maximumPressure : Pressure = 45.0 [kPa];
+  }
+
+  part def ThermoelectricChiller {
+    port warmCoolantIn : CoolantPort;
+    port chilledCoolantOut : CoolantPort;
+    port commandInput : CommandPort;
+    port electricalInput : PowerPort;
+
+    attribute commandedPower : Percent = 0.0 [%];
+    attribute maximumCoolingPower : Power = 90.0 [W];
+    attribute minimumCoolantTemperature : Temperature = 3.0 [degC];
+  }
+
+  part def CoolantReservoir {
+    port returnPort : CoolantPort;
+    port supplyPort : CoolantPort;
+
+    attribute reservoirVolume : Real = 1.2;
+    attribute fillLevel : Percent = 100.0 [%];
+    attribute coolantTemperature : Temperature = 20.0 [degC];
+  }
+
+  part def Controller {
+    port scalpTemperatureInput : SensorPort;
+    port coolantTemperatureInput : SensorPort;
+    port commandOutput : CommandPort;
+    port electricalInput : PowerPort;
+
+    attribute targetScalpTemperature : Temperature = 18.0 [degC];
+    attribute allowableTemperatureError : Temperature = 1.0 [degC];
+    attribute maximumCoolingDuration : Duration = 240.0 [min];
+    attribute alarmActive : Boolean = false;
+
+    action computeCoolingCommand {
+      in scalpSignal : SensorSignal;
+      in coolantSignal : SensorSignal;
+      out command : ControlCommand;
+
+      first evaluateError;
+      then setActuatorDemand;
+
+      action evaluateError {
+        in measured : Temperature = scalpSignal.measuredTemperature;
+        out error : Temperature = measured - targetScalpTemperature;
+      }
+
+      action setActuatorDemand {
+        out command : ControlCommand {
+          targetTemperature = targetScalpTemperature;
+          pumpDutyCycle = 65.0 [%];
+          chillerPowerCommand = 70.0 [%];
+        }
+      }
+    }
+
+    state def TherapyControlStateMachine {
+      entry action initializeTherapy;
+      state Off;
+      state PreCheck;
+      state CoolDown;
+      state MaintainTherapeuticRange;
+      state Rewarm;
+      state Completed;
+      state Fault;
+
+      transition first Off;
+      transition Off_to_PreCheck
+        first Off
+        accept startTherapy
+        then PreCheck;
+
+      transition PreCheck_to_CoolDown
+        first PreCheck
+        if coolantAvailable and sensorValid and capContactAdequate
+        then CoolDown;
+
+      transition PreCheck_to_Fault
+        first PreCheck
+        if not coolantAvailable or not sensorValid or not capContactAdequate
+        then Fault;
+
+      transition CoolDown_to_Maintain
+        first CoolDown
+        if scalpTemperatureInput.signal.measuredTemperature <= targetScalpTemperature + allowableTemperatureError
+        then MaintainTherapeuticRange;
+
+      transition Maintain_to_Rewarm
+        first MaintainTherapeuticRange
+        if therapyElapsedTime >= maximumCoolingDuration
+        then Rewarm;
+
+      transition Rewarm_to_Completed
+        first Rewarm
+        if scalpTemperatureInput.signal.measuredTemperature >= 32.0 [degC]
+        then Completed;
+
+      transition Any_to_Fault
+        first Off, PreCheck, CoolDown, MaintainTherapeuticRange, Rewarm
+        if scalpTemperatureInput.signal.measuredTemperature < 10.0 [degC]
+        then Fault;
+    }
+  }
+
+  part def AlarmModule {
+    port controllerSignal : SensorPort;
+    port electricalInput : PowerPort;
+
+    attribute audibleAlarmLevel : Real = 70.0;
+    attribute visualAlarmActive : Boolean = false;
+
+    action issueAlarm {
+      in reasonCode : String;
+      out visualAlarmActive : Boolean = true;
+    }
+  }
+
+  part def PowerSupply {
+    port output : PowerPort;
+
+    attribute supplyVoltage : Voltage = 24.0 [V];
+    attribute maximumPower : Power = 180.0 [W];
+  }
+
+  part def HypothermiaCapSystem {
+    port scalpInterface : ThermalContactPort;
+    port mainsPowerInput : PowerPort;
+
+    part patientScalp : PatientScalp;
+    part cap : CoolingCap;
+    part scalpSensor : TemperatureSensor;
+    part coolantSensor : TemperatureSensor;
+    part pump : CoolantPump;
+    part chiller : ThermoelectricChiller;
+    part reservoir : CoolantReservoir;
+    part controller : Controller;
+    part alarm : AlarmModule;
+    part powerSupply : PowerSupply;
+
+    attribute prescribedTargetTemperature : Temperature = 18.0 [degC];
+    attribute prescribedTherapyDuration : Duration = 180.0 [min];
+    attribute systemStatus : String = "Ready";
+
+    connect scalpInterface to patientScalp.scalpThermalInterface;
+    connect patientScalp.scalpThermalInterface to cap.patientContact;
+    connect patientScalp.scalpThermalInterface to scalpSensor.sensingInterface;
+
+    connect reservoir.supplyPort to chiller.warmCoolantIn;
+    connect chiller.chilledCoolantOut to pump.suction;
+    connect pump.discharge to cap.inlet;
+    connect cap.outlet to reservoir.returnPort;
+
+    connect cap.outlet to coolantSensor.sensingInterface;
+
+    connect scalpSensor.measurementOutput to controller.scalpTemperatureInput;
+    connect coolantSensor.measurementOutput to controller.coolantTemperatureInput;
+    connect controller.commandOutput to pump.commandInput;
+    connect controller.commandOutput to chiller.commandInput;
+    connect scalpSensor.measurementOutput to alarm.controllerSignal;
+
+    connect mainsPowerInput to powerSupply.output;
+    connect powerSupply.output to controller.electricalInput;
+    connect powerSupply.output to pump.electricalInput;
+    connect powerSupply.output to chiller.electricalInput;
+    connect powerSupply.output to alarm.electricalInput;
+
+    action provideControlledScalpCooling {
+      in initialScalpTemperature : Temperature;
+      in prescribedTarget : Temperature;
+      out achievedTherapeuticCooling : Boolean;
+
+      first verifyReadiness;
+      then circulateChilledCoolant;
+      then regulateHeatExtraction;
+      then monitorSafety;
+      then completeTherapy;
+
+      action verifyReadiness {
+        out ready : Boolean = true;
+      }
+
+      action circulateChilledCoolant {
+        in targetTemperature : Temperature = prescribedTarget;
+        out coolantFlow : FlowRate = 1.4 [L/min];
+      }
+
+      action regulateHeatExtraction {
+        in scalpTemperature : Temperature = initialScalpTemperature;
+        out heatRemoved : ThermalEnergy {
+          heatTransferRate = 45.0 [W];
+          sourceTemperature = scalpTemperature;
+          sinkTemperature = prescribedTarget;
+        }
+      }
+
+      action monitorSafety {
+        out safe : Boolean =
+          scalpSensor.measurementOutput.signal.measuredTemperature >= patientScalp.minimumSafeTemperature;
+      }
+
+      action completeTherapy {
+        out achievedTherapeuticCooling : Boolean = true;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HypothermiaCapSystem;
+
+    doc /* The hypothermia cap system shall provide controlled, localized cooling of the patient's scalp by circulating chilled coolant through a cap, extracting heat through a compliant thermal interface, and automatically regulating coolant flow and cooling power to maintain the prescribed therapeutic scalp temperature. */
+
+    require constraint {
+      system.prescribedTargetTemperature >= 15.0 [degC] and
+      system.prescribedTargetTemperature <= 22.0 [degC]
+    }
+  }
+
+  requirement def TemperatureControlRequirement {
+    subject controller : Controller;
+
+    doc /* During active therapy, the controller shall maintain measured scalp temperature within plus or minus 1 degC of the prescribed target temperature after the initial cool-down period. */
+
+    require constraint {
+      controller.allowableTemperatureError <= 1.0 [degC]
+    }
+  }
+
+  requirement def SafetyTemperatureRequirement {
+    subject system : HypothermiaCapSystem;
+
+    doc /* The system shall prevent scalp temperature from falling below the minimum safe temperature and shall enter a fault state if unsafe overcooling is detected. */
+
+    require constraint {
+      system.patientScalp.scalpTemperature >= system.patientScalp.minimumSafeTemperature
+    }
+  }
+
+  requirement def CoolantFlowRequirement {
+    subject pump : CoolantPump;
+
+    doc /* The pump shall provide sufficient coolant circulation through the cap to support therapeutic heat extraction while remaining below the maximum cap pressure. */
+
+    require constraint {
+      pump.nominalFlowRate >= 1.0 [L/min] and
+      pump.nominalFlowRate <= pump.maximumFlowRate and
+      pump.maximumPressure <= 45.0 [kPa]
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject powerSupply : PowerSupply;
+
+    doc /* The power supply shall provide enough electrical power for the controller, pump, chiller, sensors, and alarm module during active cooling therapy. */
+
+    require constraint {
+      powerSupply.supplyVoltage == 24.0 [V] and
+      powerSupply.maximumPower >= 150.0 [W]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HypothermiaCapSystem;
+  satisfy TemperatureControlRequirement by Controller;
+  satisfy SafetyTemperatureRequirement by HypothermiaCapSystem;
+  satisfy CoolantFlowRequirement by CoolantPump;
+  satisfy PowerRequirement by PowerSupply;
+}

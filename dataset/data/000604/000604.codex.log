@@ -1,0 +1,943 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-c0ksqfr7
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb382-9826-75a3-9af1-4aefda21e541
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Extracorporeal membrane oxygenation and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ECMOSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def FlowRate {
+    :> quantityKind = ISQ::volumeFlowRate;
+    :> unit = SI::litre / SI::minute;
+  }
+
+  attribute def Pressure {
+    :> quantityKind = ISQ::pressure;
+    :> unit = SI::millimetreOfMercury;
+  }
+
+  attribute def OxygenSaturation {
+    :> unit = SI::percent;
+  }
+
+  attribute def GasFlowRate {
+    :> quantityKind = ISQ::volumeFlowRate;
+    :> unit = SI::litre / SI::minute;
+  }
+
+  attribute def Temperature {
+    :> quantityKind = ISQ::thermodynamicTemperature;
+    :> unit = SI::degreeCelsius;
+  }
+
+  attribute def RotationalSpeed {
+    :> unit = SI::revolution / SI::minute;
+  }
+
+  attribute def Concentration {
+    :> unit = SI::millimole / SI::litre;
+  }
+
+  item def VenousBlood {
+    attribute oxygenSaturation : OxygenSaturation;
+    attribute carbonDioxideConcentration : Concentration;
+    attribute hemoglobinConcentration : Concentration;
+    attribute temperature : Temperature;
+    attribute flow : FlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def ArterializedBlood :> VenousBlood {
+    attribute targetOxygenSaturation : OxygenSaturation;
+  }
+
+  item def SweepGas {
+    attribute oxygenFraction : Real;
+    attribute flow : GasFlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def ControlSignal {
+    attribute pumpSpeedCommand : RotationalSpeed;
+    attribute sweepGasCommand : GasFlowRate;
+    attribute oxygenBlendCommand : Real;
+  }
+
+  item def SensorData {
+    attribute venousPressure : Pressure;
+    attribute arterialPressure : Pressure;
+    attribute bloodFlow : FlowRate;
+    attribute preOxygenatorSaturation : OxygenSaturation;
+    attribute postOxygenatorSaturation : OxygenSaturation;
+    attribute bloodTemperature : Temperature;
+  }
+
+  port def BloodInletPort {
+    in item blood : VenousBlood;
+  }
+
+  port def BloodOutletPort {
+    out item blood : ArterializedBlood;
+  }
+
+  port def BloodPassThroughPort {
+    in item incomingBlood : VenousBlood;
+    out item outgoingBlood : VenousBlood;
+  }
+
+  port def GasInletPort {
+    in item gas : SweepGas;
+  }
+
+  port def GasExhaustPort {
+    out item gas : SweepGas;
+  }
+
+  port def SensorPort {
+    out item data : SensorData;
+  }
+
+  port def CommandPort {
+    in item command : ControlSignal;
+  }
+
+  port def AlarmPort {
+    out item alarmMessage : String;
+  }
+
+  action def DrainVenousBlood {
+    in item patientVenousBlood : VenousBlood;
+    out item circuitBlood : VenousBlood;
+  }
+
+  action def PumpBlood {
+    in item inletBlood : VenousBlood;
+    in pumpSpeed : RotationalSpeed;
+    out item pressurizedBlood : VenousBlood;
+  }
+
+  action def ExchangeGasAcrossMembrane {
+    in item deoxygenatedBlood : VenousBlood;
+    in item sweepGas : SweepGas;
+    out item oxygenatedBlood : ArterializedBlood;
+    out item exhaustGas : SweepGas;
+  }
+
+  action def ReturnArterializedBlood {
+    in item treatedBlood : ArterializedBlood;
+    out item patientReturnBlood : ArterializedBlood;
+  }
+
+  action def RegulateECMO {
+    in item sensed : SensorData;
+    out item command : ControlSignal;
+
+    action evaluatePerfusion;
+    action adjustPumpSpeed;
+    action adjustSweepGas;
+    action adjustOxygenBlend;
+
+    flow evaluatePerfusion to adjustPumpSpeed;
+    flow evaluatePerfusion to adjustSweepGas;
+    flow evaluatePerfusion to adjustOxygenBlend;
+  }
+
+  action def ProvideExtracorporealGasExchange {
+    in item venousBlood : VenousBlood;
+    in item suppliedGas : SweepGas;
+    out item arterializedBlood : ArterializedBlood;
+    out item exhaustGas : SweepGas;
+
+    action drain : DrainVenousBlood;
+    action pump : PumpBlood;
+    action exchange : ExchangeGasAcrossMembrane;
+    action returnBlood : ReturnArterializedBlood;
+
+    flow venousBlood to drain.patientVenousBlood;
+    flow drain.circuitBlood to pump.inletBlood;
+    flow pump.pressurizedBlood to exchange.deoxygenatedBlood;
+    flow suppliedGas to exchange.sweepGas;
+    flow exchange.oxygenatedBlood to returnBlood.treatedBlood;
+    flow returnBlood.patientReturnBlood to arterializedBlood;
+    flow exchange.exhaustGas to exhaustGas;
+  }
+
+  state def ECMOOperatingState {
+    entry action initializeSelfChecks;
+    exit action recordOperatingLog;
+
+    state Off;
+    state Priming;
+    state Ready;
+    state Running;
+    state Alarm;
+    state EmergencyStop;
+    state Weaning;
+    state Shutdown;
+
+    transition first Off then Priming
+      accept StartPriming;
+
+    transition Priming then Ready
+      accept PrimingComplete
+      if circuitAirDetected == false and primingVolumeAdequate == true;
+
+    transition Ready then Running
+      accept StartSupport
+      if cannulaConnectionsSecure == true;
+
+    transition Running then Alarm
+      accept UnsafeCondition
+      if venousPressureLow == true or arterialPressureHigh == true or postOxygenatorSaturationLow == true;
+
+    transition Alarm then Running
+      accept AlarmCleared
+      if unsafeConditionResolved == true;
+
+    transition Alarm then EmergencyStop
+      accept CriticalFailure
+      if pumpFailure == true or majorAirDetected == true;
+
+    transition Running then Weaning
+      accept BeginWeaning
+      if patientGasExchangeRecovering == true;
+
+    transition Weaning then Running
+      accept ResumeFullSupport
+      if patientOxygenSaturationUnstable == true;
+
+    transition Weaning then Shutdown
+      accept EndSupport
+      if nativeCardiopulmonaryFunctionAdequate == true;
+
+    transition EmergencyStop then Shutdown
+      accept SecureCircuit;
+
+    transition Shutdown then Off
+      accept PowerDownComplete;
+  }
+
+  part def Cannula {
+    attribute internalDiameter : Length;
+    attribute maximumRatedFlow : FlowRate;
+    attribute insertionSite : String;
+
+    port bloodPort : BloodPassThroughPort;
+  }
+
+  part def BloodPump {
+    attribute commandedSpeed : RotationalSpeed;
+    attribute actualSpeed : RotationalSpeed;
+    attribute maximumFlow : FlowRate;
+    attribute outletPressureLimit : Pressure;
+
+    port inlet : BloodInletPort;
+    port outlet : BloodOutletPort;
+    port command : CommandPort;
+    port sensor : SensorPort;
+
+    perform action pumpBlood : PumpBlood;
+  }
+
+  part def MembraneOxygenator {
+    attribute membraneSurfaceArea : Area;
+    attribute maximumBloodFlow : FlowRate;
+    attribute maximumSweepGasFlow : GasFlowRate;
+    attribute pressureDrop : Pressure;
+    attribute oxygenTransferEfficiency : Real;
+
+    port bloodIn : BloodInletPort;
+    port bloodOut : BloodOutletPort;
+    port gasIn : GasInletPort;
+    port gasOut : GasExhaustPort;
+    port sensor : SensorPort;
+
+    perform action gasExchange : ExchangeGasAcrossMembrane;
+  }
+
+  part def HeatExchanger {
+    attribute setPointTemperature : Temperature;
+    attribute actualTemperature : Temperature;
+    attribute temperatureTolerance : Temperature;
+
+    port bloodIn : BloodInletPort;
+    port bloodOut : BloodOutletPort;
+    port command : CommandPort;
+    port sensor : SensorPort;
+  }
+
+  part def SweepGasBlender {
+    attribute oxygenFractionSetPoint : Real;
+    attribute actualOxygenFraction : Real;
+    attribute maximumGasFlow : GasFlowRate;
+
+    port gasOut : GasInletPort;
+    port command : CommandPort;
+    port sensor : SensorPort;
+  }
+
+  part def PressureSensor {
+    attribute measuredPressure : Pressure;
+    attribute measurementRangeLow : Pressure;
+    attribute measurementRangeHigh : Pressure;
+
+    port sensor : SensorPort;
+  }
+
+  part def FlowSensor {
+    attribute measuredFlow : FlowRate;
+    attribute minimumMeasuredFlow : FlowRate;
+    attribute maximumMeasuredFlow : FlowRate;
+
+    port sensor : SensorPort;
+  }
+
+  part def SaturationSensor {
+    attribute measuredSaturation : OxygenSaturation;
+    attribute lowAlarmThreshold : OxygenSaturation;
+
+    port sensor : SensorPort;
+  }
+
+  part def Controller {
+    attribute targetBloodFlow : FlowRate;
+    attribute targetPostOxygenatorSaturation : OxygenSaturation;
+    attribute targetCarbonDioxideRemovalLevel : Real;
+    attribute minimumVenousPressure : Pressure;
+    attribute maximumArterialPressure : Pressure;
+
+    port sensorInput : SensorPort;
+    port commandOutput : CommandPort;
+    port alarmOutput : AlarmPort;
+
+    perform action closedLoopControl : RegulateECMO;
+  }
+
+  part def PatientInterface {
+    port venousDrainage : BloodOutletPort;
+    port arterialReturn : BloodInletPort;
+  }
+
+  part def ECMOConsole {
+    attribute supportedMode : String;
+    attribute nominalBloodFlow : FlowRate = 4.5 [SI::litre / SI::minute];
+    attribute nominalSweepGasFlow : GasFlowRate = 5.0 [SI::litre / SI::minute];
+    attribute nominalPostOxygenatorSaturation : OxygenSaturation = 95 [SI::percent];
+
+    part controller : Controller;
+    part pump : BloodPump;
+    part oxygenator : MembraneOxygenator;
+    part heatExchanger : HeatExchanger;
+    part gasBlender : SweepGasBlender;
+
+    part venousPressureSensor : PressureSensor;
+    part arterialPressureSensor : PressureSensor;
+    part bloodFlowSensor : FlowSensor;
+    part preOxygenatorSaturationSensor : SaturationSensor;
+    part postOxygenatorSaturationSensor : SaturationSensor;
+
+    port venousBloodIn : BloodInletPort;
+    port arterialBloodOut : BloodOutletPort;
+    port alarmOut : AlarmPort;
+
+    connect venousBloodIn to pump.inlet;
+    connect pump.outlet to heatExchanger.bloodIn;
+    connect heatExchanger.bloodOut to oxygenator.bloodIn;
+    connect oxygenator.bloodOut to arterialBloodOut;
+    connect gasBlender.gasOut to oxygenator.gasIn;
+
+    connect venousPressureSensor.sensor to controller.sensorInput;
+    connect arterialPressureSensor.sensor to controller.sensorInput;
+    connect bloodFlowSensor.sensor to controller.sensorInput;
+    connect preOxygenatorSaturationSensor.sensor to controller.sensorInput;
+    connect postOxygenatorSaturationSensor.sensor to controller.sensorInput;
+    connect oxygenator.sensor to controller.sensorInput;
+    connect pump.sensor to controller.sensorInput;
+    connect heatExchanger.sensor to controller.sensorInput;
+
+    connect controller.commandOutput to pump.command;
+    connect controller.commandOutput to gasBlender.command;
+    connect controller.commandOutput to heatExchanger.command;
+    connect controller.alarmOutput to alarmOut;
+
+    exhibit state operatingState : ECMOOperatingState;
+    perform action primaryFunction : ProvideExtracorporealGasExchange;
+  }
+
+  part def ExtracorporealMembraneOxygenationSystem {
+    attribute systemPurpose : String = "Temporarily drains venous blood from a patient, pumps it through an external membrane oxygenator for oxygen addition and carbon dioxide removal, controls blood temperature and flow, and returns arterialized blood to support cardiopulmonary function.";
+    attribute clinicalConfiguration : String = "venoarterial or venovenous ECMO";
+    attribute designBloodFlowRangeLow : FlowRate = 1.0 [SI::litre / SI::minute];
+    attribute designBloodFlowRangeHigh : FlowRate = 7.0 [SI::litre / SI::minute];
+    attribute designSweepGasRangeLow : GasFlowRate = 0.5 [SI::litre / SI::minute];
+    attribute designSweepGasRangeHigh : GasFlowRate = 15.0 [SI::litre / SI::minute];
+
+    part patientInterface : PatientInterface;
+    part venousCannula : Cannula {
+      :>> insertionSite = "central vein or right atrium";
+      :>> maximumRatedFlow = 7.0 [SI::litre / SI::minute];
+    }
+    part returnCannula : Cannula {
+      :>> insertionSite = "arterial system or central vein";
+      :>> maximumRatedFlow = 7.0 [SI::litre / SI::minute];
+    }
+    part console : ECMOConsole;
+
+    connect patientInterface.venousDrainage to venousCannula.bloodPort;
+    connect venousCannula.bloodPort to console.venousBloodIn;
+    connect console.arterialBloodOut to returnCannula.bloodPort;
+    connect returnCannula.bloodPort to patientInterface.arterialReturn;
+
+    perform action supportGasExchange : ProvideExtracorporealGasExchange;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject ecmo : ExtracorporealMembraneOxygenationSystem;
+
+    require constraint {
+      ecmo.systemPurpose ==
+      "Temporarily drains venous blood from a patient, pumps it through an external membrane oxygenator for oxygen addition and carbon dioxide removal, controls blood temperature and flow, and returns arterialized blood to support cardiopulmonary function."
+    }
+  }
+
+  requirement def BloodFlowRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.nominalBloodFlow >= 1.0 [SI::litre / SI::minute] and
+      console.nominalBloodFlow <= 7.0 [SI::litre / SI::minute]
+    }
+  }
+
+  requirement def OxygenationRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.nominalPostOxygenatorSaturation >= 95 [SI::percent]
+    }
+  }
+
+  requirement def PressureSafetyRequirement {
+    subject controller : Controller;
+
+    require constraint {
+      controller.minimumVenousPressure >= -100 [SI::millimetreOfMercury] and
+      controller.maximumArterialPressure <= 400 [SI::millimetreOfMercury]
+    }
+  }
+
+  requirement def GasControlRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.nominalSweepGasFlow >= 0.5 [SI::litre / SI::minute] and
+      console.nominalSweepGasFlow <= 15.0 [SI::litre / SI::minute]
+    }
+  }
+
+  requirement def ThermalManagementRequirement {
+    subject exchanger : HeatExchanger;
+
+    require constraint {
+      exchanger.setPointTemperature >= 35.0 [SI::degreeCelsius] and
+      exchanger.setPointTemperature <= 38.0 [SI::degreeCelsius]
+    }
+  }
+
+  requirement def AlarmRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.controller.minimumVenousPressure < 0 [SI::millimetreOfMercury] and
+      console.controller.maximumArterialPressure > 0 [SI::millimetreOfMercury]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by ExtracorporealMembraneOxygenationSystem;
+  satisfy BloodFlowRequirement by ECMOConsole;
+  satisfy OxygenationRequirement by ECMOConsole;
+  satisfy GasControlRequirement by ECMOConsole;
+  satisfy PressureSafetyRequirement by Controller;
+  satisfy ThermalManagementRequirement by HeatExchanger;
+  satisfy AlarmRequirement by ECMOConsole;
+
+}
+tokens used
+3,768
+package ECMOSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def FlowRate {
+    :> quantityKind = ISQ::volumeFlowRate;
+    :> unit = SI::litre / SI::minute;
+  }
+
+  attribute def Pressure {
+    :> quantityKind = ISQ::pressure;
+    :> unit = SI::millimetreOfMercury;
+  }
+
+  attribute def OxygenSaturation {
+    :> unit = SI::percent;
+  }
+
+  attribute def GasFlowRate {
+    :> quantityKind = ISQ::volumeFlowRate;
+    :> unit = SI::litre / SI::minute;
+  }
+
+  attribute def Temperature {
+    :> quantityKind = ISQ::thermodynamicTemperature;
+    :> unit = SI::degreeCelsius;
+  }
+
+  attribute def RotationalSpeed {
+    :> unit = SI::revolution / SI::minute;
+  }
+
+  attribute def Concentration {
+    :> unit = SI::millimole / SI::litre;
+  }
+
+  item def VenousBlood {
+    attribute oxygenSaturation : OxygenSaturation;
+    attribute carbonDioxideConcentration : Concentration;
+    attribute hemoglobinConcentration : Concentration;
+    attribute temperature : Temperature;
+    attribute flow : FlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def ArterializedBlood :> VenousBlood {
+    attribute targetOxygenSaturation : OxygenSaturation;
+  }
+
+  item def SweepGas {
+    attribute oxygenFraction : Real;
+    attribute flow : GasFlowRate;
+    attribute pressure : Pressure;
+  }
+
+  item def ControlSignal {
+    attribute pumpSpeedCommand : RotationalSpeed;
+    attribute sweepGasCommand : GasFlowRate;
+    attribute oxygenBlendCommand : Real;
+  }
+
+  item def SensorData {
+    attribute venousPressure : Pressure;
+    attribute arterialPressure : Pressure;
+    attribute bloodFlow : FlowRate;
+    attribute preOxygenatorSaturation : OxygenSaturation;
+    attribute postOxygenatorSaturation : OxygenSaturation;
+    attribute bloodTemperature : Temperature;
+  }
+
+  port def BloodInletPort {
+    in item blood : VenousBlood;
+  }
+
+  port def BloodOutletPort {
+    out item blood : ArterializedBlood;
+  }
+
+  port def BloodPassThroughPort {
+    in item incomingBlood : VenousBlood;
+    out item outgoingBlood : VenousBlood;
+  }
+
+  port def GasInletPort {
+    in item gas : SweepGas;
+  }
+
+  port def GasExhaustPort {
+    out item gas : SweepGas;
+  }
+
+  port def SensorPort {
+    out item data : SensorData;
+  }
+
+  port def CommandPort {
+    in item command : ControlSignal;
+  }
+
+  port def AlarmPort {
+    out item alarmMessage : String;
+  }
+
+  action def DrainVenousBlood {
+    in item patientVenousBlood : VenousBlood;
+    out item circuitBlood : VenousBlood;
+  }
+
+  action def PumpBlood {
+    in item inletBlood : VenousBlood;
+    in pumpSpeed : RotationalSpeed;
+    out item pressurizedBlood : VenousBlood;
+  }
+
+  action def ExchangeGasAcrossMembrane {
+    in item deoxygenatedBlood : VenousBlood;
+    in item sweepGas : SweepGas;
+    out item oxygenatedBlood : ArterializedBlood;
+    out item exhaustGas : SweepGas;
+  }
+
+  action def ReturnArterializedBlood {
+    in item treatedBlood : ArterializedBlood;
+    out item patientReturnBlood : ArterializedBlood;
+  }
+
+  action def RegulateECMO {
+    in item sensed : SensorData;
+    out item command : ControlSignal;
+
+    action evaluatePerfusion;
+    action adjustPumpSpeed;
+    action adjustSweepGas;
+    action adjustOxygenBlend;
+
+    flow evaluatePerfusion to adjustPumpSpeed;
+    flow evaluatePerfusion to adjustSweepGas;
+    flow evaluatePerfusion to adjustOxygenBlend;
+  }
+
+  action def ProvideExtracorporealGasExchange {
+    in item venousBlood : VenousBlood;
+    in item suppliedGas : SweepGas;
+    out item arterializedBlood : ArterializedBlood;
+    out item exhaustGas : SweepGas;
+
+    action drain : DrainVenousBlood;
+    action pump : PumpBlood;
+    action exchange : ExchangeGasAcrossMembrane;
+    action returnBlood : ReturnArterializedBlood;
+
+    flow venousBlood to drain.patientVenousBlood;
+    flow drain.circuitBlood to pump.inletBlood;
+    flow pump.pressurizedBlood to exchange.deoxygenatedBlood;
+    flow suppliedGas to exchange.sweepGas;
+    flow exchange.oxygenatedBlood to returnBlood.treatedBlood;
+    flow returnBlood.patientReturnBlood to arterializedBlood;
+    flow exchange.exhaustGas to exhaustGas;
+  }
+
+  state def ECMOOperatingState {
+    entry action initializeSelfChecks;
+    exit action recordOperatingLog;
+
+    state Off;
+    state Priming;
+    state Ready;
+    state Running;
+    state Alarm;
+    state EmergencyStop;
+    state Weaning;
+    state Shutdown;
+
+    transition first Off then Priming
+      accept StartPriming;
+
+    transition Priming then Ready
+      accept PrimingComplete
+      if circuitAirDetected == false and primingVolumeAdequate == true;
+
+    transition Ready then Running
+      accept StartSupport
+      if cannulaConnectionsSecure == true;
+
+    transition Running then Alarm
+      accept UnsafeCondition
+      if venousPressureLow == true or arterialPressureHigh == true or postOxygenatorSaturationLow == true;
+
+    transition Alarm then Running
+      accept AlarmCleared
+      if unsafeConditionResolved == true;
+
+    transition Alarm then EmergencyStop
+      accept CriticalFailure
+      if pumpFailure == true or majorAirDetected == true;
+
+    transition Running then Weaning
+      accept BeginWeaning
+      if patientGasExchangeRecovering == true;
+
+    transition Weaning then Running
+      accept ResumeFullSupport
+      if patientOxygenSaturationUnstable == true;
+
+    transition Weaning then Shutdown
+      accept EndSupport
+      if nativeCardiopulmonaryFunctionAdequate == true;
+
+    transition EmergencyStop then Shutdown
+      accept SecureCircuit;
+
+    transition Shutdown then Off
+      accept PowerDownComplete;
+  }
+
+  part def Cannula {
+    attribute internalDiameter : Length;
+    attribute maximumRatedFlow : FlowRate;
+    attribute insertionSite : String;
+
+    port bloodPort : BloodPassThroughPort;
+  }
+
+  part def BloodPump {
+    attribute commandedSpeed : RotationalSpeed;
+    attribute actualSpeed : RotationalSpeed;
+    attribute maximumFlow : FlowRate;
+    attribute outletPressureLimit : Pressure;
+
+    port inlet : BloodInletPort;
+    port outlet : BloodOutletPort;
+    port command : CommandPort;
+    port sensor : SensorPort;
+
+    perform action pumpBlood : PumpBlood;
+  }
+
+  part def MembraneOxygenator {
+    attribute membraneSurfaceArea : Area;
+    attribute maximumBloodFlow : FlowRate;
+    attribute maximumSweepGasFlow : GasFlowRate;
+    attribute pressureDrop : Pressure;
+    attribute oxygenTransferEfficiency : Real;
+
+    port bloodIn : BloodInletPort;
+    port bloodOut : BloodOutletPort;
+    port gasIn : GasInletPort;
+    port gasOut : GasExhaustPort;
+    port sensor : SensorPort;
+
+    perform action gasExchange : ExchangeGasAcrossMembrane;
+  }
+
+  part def HeatExchanger {
+    attribute setPointTemperature : Temperature;
+    attribute actualTemperature : Temperature;
+    attribute temperatureTolerance : Temperature;
+
+    port bloodIn : BloodInletPort;
+    port bloodOut : BloodOutletPort;
+    port command : CommandPort;
+    port sensor : SensorPort;
+  }
+
+  part def SweepGasBlender {
+    attribute oxygenFractionSetPoint : Real;
+    attribute actualOxygenFraction : Real;
+    attribute maximumGasFlow : GasFlowRate;
+
+    port gasOut : GasInletPort;
+    port command : CommandPort;
+    port sensor : SensorPort;
+  }
+
+  part def PressureSensor {
+    attribute measuredPressure : Pressure;
+    attribute measurementRangeLow : Pressure;
+    attribute measurementRangeHigh : Pressure;
+
+    port sensor : SensorPort;
+  }
+
+  part def FlowSensor {
+    attribute measuredFlow : FlowRate;
+    attribute minimumMeasuredFlow : FlowRate;
+    attribute maximumMeasuredFlow : FlowRate;
+
+    port sensor : SensorPort;
+  }
+
+  part def SaturationSensor {
+    attribute measuredSaturation : OxygenSaturation;
+    attribute lowAlarmThreshold : OxygenSaturation;
+
+    port sensor : SensorPort;
+  }
+
+  part def Controller {
+    attribute targetBloodFlow : FlowRate;
+    attribute targetPostOxygenatorSaturation : OxygenSaturation;
+    attribute targetCarbonDioxideRemovalLevel : Real;
+    attribute minimumVenousPressure : Pressure;
+    attribute maximumArterialPressure : Pressure;
+
+    port sensorInput : SensorPort;
+    port commandOutput : CommandPort;
+    port alarmOutput : AlarmPort;
+
+    perform action closedLoopControl : RegulateECMO;
+  }
+
+  part def PatientInterface {
+    port venousDrainage : BloodOutletPort;
+    port arterialReturn : BloodInletPort;
+  }
+
+  part def ECMOConsole {
+    attribute supportedMode : String;
+    attribute nominalBloodFlow : FlowRate = 4.5 [SI::litre / SI::minute];
+    attribute nominalSweepGasFlow : GasFlowRate = 5.0 [SI::litre / SI::minute];
+    attribute nominalPostOxygenatorSaturation : OxygenSaturation = 95 [SI::percent];
+
+    part controller : Controller;
+    part pump : BloodPump;
+    part oxygenator : MembraneOxygenator;
+    part heatExchanger : HeatExchanger;
+    part gasBlender : SweepGasBlender;
+
+    part venousPressureSensor : PressureSensor;
+    part arterialPressureSensor : PressureSensor;
+    part bloodFlowSensor : FlowSensor;
+    part preOxygenatorSaturationSensor : SaturationSensor;
+    part postOxygenatorSaturationSensor : SaturationSensor;
+
+    port venousBloodIn : BloodInletPort;
+    port arterialBloodOut : BloodOutletPort;
+    port alarmOut : AlarmPort;
+
+    connect venousBloodIn to pump.inlet;
+    connect pump.outlet to heatExchanger.bloodIn;
+    connect heatExchanger.bloodOut to oxygenator.bloodIn;
+    connect oxygenator.bloodOut to arterialBloodOut;
+    connect gasBlender.gasOut to oxygenator.gasIn;
+
+    connect venousPressureSensor.sensor to controller.sensorInput;
+    connect arterialPressureSensor.sensor to controller.sensorInput;
+    connect bloodFlowSensor.sensor to controller.sensorInput;
+    connect preOxygenatorSaturationSensor.sensor to controller.sensorInput;
+    connect postOxygenatorSaturationSensor.sensor to controller.sensorInput;
+    connect oxygenator.sensor to controller.sensorInput;
+    connect pump.sensor to controller.sensorInput;
+    connect heatExchanger.sensor to controller.sensorInput;
+
+    connect controller.commandOutput to pump.command;
+    connect controller.commandOutput to gasBlender.command;
+    connect controller.commandOutput to heatExchanger.command;
+    connect controller.alarmOutput to alarmOut;
+
+    exhibit state operatingState : ECMOOperatingState;
+    perform action primaryFunction : ProvideExtracorporealGasExchange;
+  }
+
+  part def ExtracorporealMembraneOxygenationSystem {
+    attribute systemPurpose : String = "Temporarily drains venous blood from a patient, pumps it through an external membrane oxygenator for oxygen addition and carbon dioxide removal, controls blood temperature and flow, and returns arterialized blood to support cardiopulmonary function.";
+    attribute clinicalConfiguration : String = "venoarterial or venovenous ECMO";
+    attribute designBloodFlowRangeLow : FlowRate = 1.0 [SI::litre / SI::minute];
+    attribute designBloodFlowRangeHigh : FlowRate = 7.0 [SI::litre / SI::minute];
+    attribute designSweepGasRangeLow : GasFlowRate = 0.5 [SI::litre / SI::minute];
+    attribute designSweepGasRangeHigh : GasFlowRate = 15.0 [SI::litre / SI::minute];
+
+    part patientInterface : PatientInterface;
+    part venousCannula : Cannula {
+      :>> insertionSite = "central vein or right atrium";
+      :>> maximumRatedFlow = 7.0 [SI::litre / SI::minute];
+    }
+    part returnCannula : Cannula {
+      :>> insertionSite = "arterial system or central vein";
+      :>> maximumRatedFlow = 7.0 [SI::litre / SI::minute];
+    }
+    part console : ECMOConsole;
+
+    connect patientInterface.venousDrainage to venousCannula.bloodPort;
+    connect venousCannula.bloodPort to console.venousBloodIn;
+    connect console.arterialBloodOut to returnCannula.bloodPort;
+    connect returnCannula.bloodPort to patientInterface.arterialReturn;
+
+    perform action supportGasExchange : ProvideExtracorporealGasExchange;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject ecmo : ExtracorporealMembraneOxygenationSystem;
+
+    require constraint {
+      ecmo.systemPurpose ==
+      "Temporarily drains venous blood from a patient, pumps it through an external membrane oxygenator for oxygen addition and carbon dioxide removal, controls blood temperature and flow, and returns arterialized blood to support cardiopulmonary function."
+    }
+  }
+
+  requirement def BloodFlowRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.nominalBloodFlow >= 1.0 [SI::litre / SI::minute] and
+      console.nominalBloodFlow <= 7.0 [SI::litre / SI::minute]
+    }
+  }
+
+  requirement def OxygenationRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.nominalPostOxygenatorSaturation >= 95 [SI::percent]
+    }
+  }
+
+  requirement def PressureSafetyRequirement {
+    subject controller : Controller;
+
+    require constraint {
+      controller.minimumVenousPressure >= -100 [SI::millimetreOfMercury] and
+      controller.maximumArterialPressure <= 400 [SI::millimetreOfMercury]
+    }
+  }
+
+  requirement def GasControlRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.nominalSweepGasFlow >= 0.5 [SI::litre / SI::minute] and
+      console.nominalSweepGasFlow <= 15.0 [SI::litre / SI::minute]
+    }
+  }
+
+  requirement def ThermalManagementRequirement {
+    subject exchanger : HeatExchanger;
+
+    require constraint {
+      exchanger.setPointTemperature >= 35.0 [SI::degreeCelsius] and
+      exchanger.setPointTemperature <= 38.0 [SI::degreeCelsius]
+    }
+  }
+
+  requirement def AlarmRequirement {
+    subject console : ECMOConsole;
+
+    require constraint {
+      console.controller.minimumVenousPressure < 0 [SI::millimetreOfMercury] and
+      console.controller.maximumArterialPressure > 0 [SI::millimetreOfMercury]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by ExtracorporealMembraneOxygenationSystem;
+  satisfy BloodFlowRequirement by ECMOConsole;
+  satisfy OxygenationRequirement by ECMOConsole;
+  satisfy GasControlRequirement by ECMOConsole;
+  satisfy PressureSafetyRequirement by Controller;
+  satisfy ThermalManagementRequirement by HeatExchanger;
+  satisfy AlarmRequirement by ECMOConsole;
+
+}

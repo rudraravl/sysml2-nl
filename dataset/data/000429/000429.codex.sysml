@@ -1,0 +1,518 @@
+package BonannoCatheterHighLevelDesign {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        :>> unit = "mm";
+        attribute value : Real;
+    }
+
+    attribute def DiameterValue {
+        :>> unit = "Fr";
+        attribute value : Real;
+    }
+
+    attribute def VolumeValue {
+        :>> unit = "mL";
+        attribute value : Real;
+    }
+
+    attribute def FlowRateValue {
+        :>> unit = "mL/min";
+        attribute value : Real;
+    }
+
+    attribute def PressureValue {
+        :>> unit = "cmH2O";
+        attribute value : Real;
+    }
+
+    attribute def TimeValue {
+        :>> unit = "s";
+        attribute value : Real;
+    }
+
+    attribute def ForceValue {
+        :>> unit = "N";
+        attribute value : Real;
+    }
+
+    enum def SterilityState {
+        enum sterile;
+        enum exposed;
+        enum contaminated;
+        enum disposed;
+    }
+
+    enum def CatheterPosition {
+        enum packaged;
+        enum prepared;
+        enum introducedThroughAbdominalWall;
+        enum intravesical;
+        enum connectedToDrainage;
+        enum removed;
+    }
+
+    enum def DrainageMode {
+        enum noFlow;
+        enum passiveGravityDrainage;
+        enum intermittentAspiration;
+        enum occluded;
+    }
+
+    item def Urine {
+        attribute volume : VolumeValue;
+        attribute temperature : Real;
+        attribute particulatePresent : Boolean;
+    }
+
+    item def SterileBarrier {
+        attribute integrityIntact : Boolean;
+        attribute sterility : SterilityState;
+    }
+
+    item def BladderFluid {
+        attribute retainedVolume : VolumeValue;
+        attribute bladderPressure : PressureValue;
+    }
+
+    item def DrainageEffluent :> Urine {
+        attribute collectedVolume : VolumeValue;
+    }
+
+    item def InsertionForce {
+        attribute magnitude : ForceValue;
+    }
+
+    item def ClinicalStatus {
+        attribute bladderDecompressed : Boolean;
+        attribute visibleFlowConfirmed : Boolean;
+        attribute obstructionSuspected : Boolean;
+        attribute leakageObserved : Boolean;
+    }
+
+    port def FluidInletPort {
+        in item bladderFluid : BladderFluid;
+    }
+
+    port def FluidOutletPort {
+        out item urineOut : DrainageEffluent;
+    }
+
+    port def DrainageInterfacePort {
+        in item urineFromCatheter : DrainageEffluent;
+        out item backPressure : PressureValue;
+    }
+
+    port def AccessPort {
+        in item insertionForce : InsertionForce;
+        out item placementStatus : ClinicalStatus;
+    }
+
+    port def SterileInterfacePort {
+        in item sterileBarrier : SterileBarrier;
+        out item sterilityStatus : SterilityState;
+    }
+
+    port def MonitoringPort {
+        out item clinicalStatus : ClinicalStatus;
+        out item flowRate : FlowRateValue;
+    }
+
+    part def PatientBladder {
+        attribute capacity : VolumeValue = (value = 500.0);
+        attribute currentRetainedVolume : VolumeValue = (value = 450.0);
+        attribute internalPressure : PressureValue = (value = 18.0);
+
+        port fluidExit : FluidInletPort;
+        port statusOut : MonitoringPort;
+    }
+
+    part def TrocarNeedleAssembly {
+        attribute outerDiameter : DiameterValue = (value = 6.0);
+        attribute usableLength : LengthValue = (value = 120.0);
+        attribute tipSharpnessVerified : Boolean = true;
+        attribute sterileState : SterilityState = sterile;
+
+        port tissueAccess : AccessPort;
+        port sterileBoundary : SterileInterfacePort;
+    }
+
+    part def BonannoCatheterTube {
+        attribute nominalSize : DiameterValue = (value = 12.0);
+        attribute effectiveLength : LengthValue = (value = 250.0);
+        attribute internalLumenDiameter : DiameterValue = (value = 3.2);
+        attribute maxRecommendedFlowRate : FlowRateValue = (value = 40.0);
+        attribute minimumKinkRadius : LengthValue = (value = 25.0);
+        attribute position : CatheterPosition = packaged;
+        attribute sterileState : SterilityState = sterile;
+        attribute flowMode : DrainageMode = noFlow;
+
+        port proximalInlet : FluidInletPort;
+        port distalOutlet : FluidOutletPort;
+        port placementAccess : AccessPort;
+        port monitor : MonitoringPort;
+    }
+
+    part def FixationAndSeal {
+        attribute retentionSecure : Boolean = false;
+        attribute skinSealMaintained : Boolean = false;
+        attribute allowableTension : ForceValue = (value = 2.0);
+
+        port catheterInterface : AccessPort;
+        port statusOut : MonitoringPort;
+    }
+
+    part def DrainageConnector {
+        attribute luerCompatible : Boolean = true;
+        attribute leakTight : Boolean = true;
+        attribute primingVolume : VolumeValue = (value = 1.5);
+
+        port catheterSide : FluidInletPort;
+        port bagSide : FluidOutletPort;
+    }
+
+    part def CollectionBag {
+        attribute capacity : VolumeValue = (value = 2000.0);
+        attribute collectedVolume : VolumeValue = (value = 0.0);
+        attribute antiRefluxValvePresent : Boolean = true;
+        attribute vented : Boolean = true;
+
+        port inlet : DrainageInterfacePort;
+        port statusOut : MonitoringPort;
+    }
+
+    part def SterilePackaging {
+        attribute barrierIntact : Boolean = true;
+        attribute sterility : SterilityState = sterile;
+        attribute shelfLifeMonths : Integer = 36;
+
+        port sterileOutput : SterileInterfacePort;
+    }
+
+    part def BonannoCatheterDrainageSystem {
+        attribute primaryFunction : String =
+            "Provide temporary suprapubic urinary bladder drainage by creating a controlled percutaneous flow path from the bladder to an external collection container.";
+        attribute intendedDrainageMode : DrainageMode = passiveGravityDrainage;
+        attribute systemSterility : SterilityState = sterile;
+        attribute confirmedIntravesicalPlacement : Boolean = false;
+        attribute targetMinimumFlowRate : FlowRateValue = (value = 5.0);
+        attribute targetMaximumSafePressure : PressureValue = (value = 25.0);
+
+        part bladder : PatientBladder;
+        part trocar : TrocarNeedleAssembly;
+        part catheter : BonannoCatheterTube;
+        part fixation : FixationAndSeal;
+        part connector : DrainageConnector;
+        part bag : CollectionBag;
+        part packaging : SterilePackaging;
+
+        port clinicalMonitor : MonitoringPort;
+
+        connection sterileSupply
+            connect packaging.sterileOutput to trocar.sterileBoundary;
+
+        connection bladderToCatheter
+            connect bladder.fluidExit to catheter.proximalInlet;
+
+        connection catheterToConnector
+            connect catheter.distalOutlet to connector.catheterSide;
+
+        connection connectorToBag
+            connect connector.bagSide to bag.inlet;
+
+        connection placementPath
+            connect trocar.tissueAccess to catheter.placementAccess;
+
+        connection fixationPath
+            connect fixation.catheterInterface to catheter.placementAccess;
+
+        connection catheterStatus
+            connect catheter.monitor to clinicalMonitor;
+
+        connection bagStatus
+            connect bag.statusOut to clinicalMonitor;
+    }
+
+    action def PrepareSterileCatheter {
+        in item packagedBarrier : SterileBarrier;
+        out item preparedBarrier : SterileBarrier;
+
+        first verifyBarrierIntegrity;
+        then exposeSterileComponents;
+        then maintainAsepticField;
+
+        action verifyBarrierIntegrity {
+            assert constraint { packagedBarrier.integrityIntact == true; }
+        }
+
+        action exposeSterileComponents {
+            preparedBarrier.integrityIntact = false;
+            preparedBarrier.sterility = sterile;
+        }
+
+        action maintainAsepticField {
+            assert constraint { preparedBarrier.sterility == sterile; }
+        }
+    }
+
+    action def EstablishSuprapubicAccess {
+        in item insertionLoad : InsertionForce;
+        out item placement : ClinicalStatus;
+
+        first alignIntroducer;
+        then advanceThroughAbdominalWall;
+        then confirmUrineReturn;
+
+        action alignIntroducer;
+        action advanceThroughAbdominalWall {
+            assert constraint { insertionLoad.magnitude.value <= 10.0; }
+        }
+
+        action confirmUrineReturn {
+            placement.visibleFlowConfirmed = true;
+            placement.bladderDecompressed = false;
+            placement.obstructionSuspected = false;
+        }
+    }
+
+    action def InitiatePassiveDrainage {
+        in item bladderFluid : BladderFluid;
+        out item effluent : DrainageEffluent;
+        out item status : ClinicalStatus;
+        out item measuredFlow : FlowRateValue;
+
+        first openDrainagePath;
+        then verifyGravityGradient;
+        then drainBladder;
+        then reportStatus;
+
+        action openDrainagePath;
+        action verifyGravityGradient;
+        action drainBladder {
+            measuredFlow.value = 15.0;
+            effluent.collectedVolume.value = bladderFluid.retainedVolume.value;
+        }
+
+        action reportStatus {
+            status.visibleFlowConfirmed = true;
+            status.bladderDecompressed = true;
+            status.obstructionSuspected = false;
+            status.leakageObserved = false;
+        }
+    }
+
+    action def MonitorDrainage {
+        in item currentFlow : FlowRateValue;
+        in item currentPressure : PressureValue;
+        out item status : ClinicalStatus;
+
+        first assessFlow;
+        then assessPressure;
+        then classifyDrainageState;
+
+        action assessFlow {
+            if currentFlow.value <= 0.5 then {
+                status.obstructionSuspected = true;
+            } else {
+                status.obstructionSuspected = false;
+            }
+        }
+
+        action assessPressure {
+            if currentPressure.value > 25.0 then {
+                status.bladderDecompressed = false;
+            }
+        }
+
+        action classifyDrainageState {
+            status.visibleFlowConfirmed = currentFlow.value > 0.5;
+        }
+    }
+
+    action def RemoveAndDispose {
+        in item catheterStatus : ClinicalStatus;
+        out item finalSterilityState : SterilityState;
+
+        first stopFlow;
+        then withdrawCatheter;
+        then applySiteDressing;
+        then disposeDevice;
+
+        action stopFlow;
+        action withdrawCatheter;
+        action applySiteDressing;
+        action disposeDevice {
+            finalSterilityState = disposed;
+        }
+    }
+
+    state def BonannoCatheterLifecycle {
+        entry action PrepareSterileCatheter;
+
+        state Packaged;
+        state Prepared;
+        state AccessEstablished;
+        state IntravesicalPlacementConfirmed;
+        state Draining;
+        state Monitoring;
+        state OcclusionSuspected;
+        state Removed;
+        state Disposed;
+
+        transition Packaged_to_Prepared
+            first Packaged
+            accept sterilePackageOpened
+            then Prepared;
+
+        transition Prepared_to_AccessEstablished
+            first Prepared
+            accept introducerAdvanced
+            then AccessEstablished;
+
+        transition AccessEstablished_to_Confirmed
+            first AccessEstablished
+            accept urineReturnObserved
+            then IntravesicalPlacementConfirmed;
+
+        transition Confirmed_to_Draining
+            first IntravesicalPlacementConfirmed
+            accept drainageBagConnected
+            then Draining;
+
+        transition Draining_to_Monitoring
+            first Draining
+            accept stableFlowObserved
+            then Monitoring;
+
+        transition Monitoring_to_OcclusionSuspected
+            first Monitoring
+            accept flowBelowThreshold
+            then OcclusionSuspected;
+
+        transition OcclusionSuspected_to_Monitoring
+            first OcclusionSuspected
+            accept flowRestored
+            then Monitoring;
+
+        transition Monitoring_to_Removed
+            first Monitoring
+            accept therapyComplete
+            then Removed;
+
+        transition Removed_to_Disposed
+            first Removed
+            accept deviceDiscarded
+            then Disposed;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* The system shall provide a controlled suprapubic urinary drainage path from the bladder to an external collection bag. */
+
+        require constraint {
+            system.confirmedIntravesicalPlacement == true implies
+            system.intendedDrainageMode == passiveGravityDrainage
+        }
+    }
+
+    requirement def SterilityRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* Patient-contacting components shall remain sterile until preparation for use. */
+
+        require constraint {
+            system.packaging.barrierIntact == true implies
+            system.catheter.sterileState == sterile and
+            system.trocar.sterileState == sterile
+        }
+    }
+
+    requirement def FlowRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* Once correctly connected, the catheter path shall support visible urinary drainage above the minimum target flow rate unless obstruction is present. */
+
+        require constraint {
+            system.catheter.flowMode == passiveGravityDrainage implies
+            system.targetMinimumFlowRate.value >= 5.0
+        }
+    }
+
+    requirement def CollectionCapacityRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* The collection bag shall have sufficient capacity for initial bladder decompression. */
+
+        require constraint {
+            system.bag.capacity.value >= system.bladder.capacity.value
+        }
+    }
+
+    requirement def PressureProtectionRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* The drainage path shall avoid sustained elevated bladder pressure during confirmed drainage. */
+
+        require constraint {
+            system.bladder.internalPressure.value <= system.targetMaximumSafePressure.value
+        }
+    }
+
+    requirement def LeakResistanceRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* Fluid interfaces shall remain leak-tight during passive drainage. */
+
+        require constraint {
+            system.connector.leakTight == true and
+            system.fixation.skinSealMaintained == true
+        }
+    }
+
+    requirement def RetentionRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* The fixation element shall resist ordinary catheter line tension without displacement. */
+
+        require constraint {
+            system.fixation.retentionSecure == true and
+            system.fixation.allowableTension.value >= 2.0
+        }
+    }
+
+    requirement def AntiRefluxRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* The collection subsystem shall reduce reverse flow from the collection container toward the catheter. */
+
+        require constraint {
+            system.bag.antiRefluxValvePresent == true
+        }
+    }
+
+    requirement def DisposalRequirement {
+        subject system : BonannoCatheterDrainageSystem;
+
+        doc /* After removal, patient-contacting components shall transition to a disposed state. */
+
+        require constraint {
+            system.catheter.position == removed implies
+            system.systemSterility == disposed
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by BonannoCatheterDrainageSystem;
+    satisfy SterilityRequirement by BonannoCatheterDrainageSystem;
+    satisfy FlowRequirement by BonannoCatheterDrainageSystem;
+    satisfy CollectionCapacityRequirement by BonannoCatheterDrainageSystem;
+    satisfy PressureProtectionRequirement by BonannoCatheterDrainageSystem;
+    satisfy LeakResistanceRequirement by BonannoCatheterDrainageSystem;
+    satisfy RetentionRequirement by BonannoCatheterDrainageSystem;
+    satisfy AntiRefluxRequirement by BonannoCatheterDrainageSystem;
+    satisfy DisposalRequirement by BonannoCatheterDrainageSystem;
+
+    part bonannoCatheterDrainageSystem : BonannoCatheterDrainageSystem;
+}

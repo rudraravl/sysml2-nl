@@ -1,0 +1,383 @@
+package BubbleLevelSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def LiquidLevel :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    value def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    value def FlowRate {
+        unit = "L/min";
+        quantityKind = "volumetric flow rate";
+    }
+
+    value def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    value def Voltage {
+        unit = SI::volt;
+    }
+
+    value def Current {
+        unit = SI::ampere;
+    }
+
+    value def Percent {
+        unit = "%";
+    }
+
+    item def Gas {
+        attribute pressure : Pressure;
+        attribute flow : FlowRate;
+        attribute temperature : Temperature;
+    }
+
+    item def Liquid {
+        attribute density : Real;
+        attribute level : LiquidLevel;
+        attribute temperature : Temperature;
+    }
+
+    item def PressureSignal {
+        attribute measuredPressure : Pressure;
+        attribute signalVoltage : Voltage;
+        attribute quality : Percent;
+    }
+
+    item def LevelEstimate {
+        attribute level : LiquidLevel;
+        attribute compensatedPressure : Pressure;
+        attribute confidence : Percent;
+        attribute timestamp_s : Real;
+    }
+
+    item def DiagnosticReport {
+        attribute supplyPressureOk : Boolean;
+        attribute flowOk : Boolean;
+        attribute sensorOk : Boolean;
+        attribute tubeBlocked : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    port def GasSupplyPort {
+        in item suppliedGas : Gas;
+    }
+
+    port def BubbleTubePort {
+        out item purgeGas : Gas;
+        in item liquidBackPressure : PressureSignal;
+    }
+
+    port def LiquidInterfacePort {
+        in item processLiquid : Liquid;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    port def DataOutputPort {
+        out item levelEstimate : LevelEstimate;
+        out item diagnostics : DiagnosticReport;
+    }
+
+    port def ServicePort {
+        in attribute zeroCommand : Boolean;
+        in attribute spanCommand : Boolean;
+        in attribute testCommand : Boolean;
+        out attribute serviceStatus : Integer;
+    }
+
+    action def RegulateBubbleFlow {
+        in item gasIn : Gas;
+        in attribute targetFlow : FlowRate;
+        out item gasOut : Gas;
+        out attribute valvePosition : Percent;
+    }
+
+    action def SenseBackPressure {
+        in item bubbleGas : Gas;
+        in item liquid : Liquid;
+        out item pressureSignal : PressureSignal;
+    }
+
+    action def ConvertPressureToLevel {
+        in item pressureSignal : PressureSignal;
+        in attribute liquidDensity_kg_per_m3 : Real;
+        in attribute gravity_m_per_s2 : Real;
+        in attribute tubeTipElevation : LiquidLevel;
+        out item levelEstimate : LevelEstimate;
+    }
+
+    action def CheckBubbleTubeHealth {
+        in item gas : Gas;
+        in item pressureSignal : PressureSignal;
+        out item diagnostics : DiagnosticReport;
+    }
+
+    action def PublishMeasurement {
+        in item estimate : LevelEstimate;
+        in item diagnostics : DiagnosticReport;
+        out item publishedEstimate : LevelEstimate;
+        out item publishedDiagnostics : DiagnosticReport;
+    }
+
+    part def BubbleSensor {
+        port gasPort : BubbleTubePort;
+        port liquidPort : LiquidInterfacePort;
+
+        attribute tubeInnerDiameter_m : Real = 0.004;
+        attribute tubeTipElevation : LiquidLevel = 0.0 [SI::metre];
+        attribute minimumBubbleFlow : FlowRate = 0.15 ["L/min"];
+        attribute nominalBubbleFlow : FlowRate = 0.30 ["L/min"];
+        attribute maximumBubbleFlow : FlowRate = 0.50 ["L/min"];
+
+        action sense : SenseBackPressure;
+    }
+
+    part def PressureTransducer {
+        port pressureInput : BubbleTubePort;
+        port power : ElectricalPowerPort;
+
+        attribute rangeMin : Pressure = 0.0 [SI::pascal];
+        attribute rangeMax : Pressure = 50000.0 [SI::pascal];
+        attribute accuracyPercentOfSpan : Percent = 0.25 ["%"];
+        attribute outputMin : Voltage = 0.5 [SI::volt];
+        attribute outputMax : Voltage = 4.5 [SI::volt];
+
+        action convert {
+            in item backPressure : PressureSignal;
+            out item electricalSignal : PressureSignal;
+        }
+    }
+
+    part def BubbleFlowController {
+        port gasSupply : GasSupplyPort;
+        port bubbleOutlet : BubbleTubePort;
+        port power : ElectricalPowerPort;
+
+        attribute targetFlow : FlowRate = 0.30 ["L/min"];
+        attribute lowSupplyPressureLimit : Pressure = 150000.0 [SI::pascal];
+        attribute highSupplyPressureLimit : Pressure = 700000.0 [SI::pascal];
+        attribute valvePosition : Percent;
+
+        action regulate : RegulateBubbleFlow;
+    }
+
+    part def ProcessingElectronics {
+        port pressureInput : BubbleTubePort;
+        port power : ElectricalPowerPort;
+        port data : DataOutputPort;
+        port service : ServicePort;
+
+        attribute liquidDensity_kg_per_m3 : Real = 1000.0;
+        attribute gravity_m_per_s2 : Real = 9.80665;
+        attribute samplePeriod_s : Real = 1.0;
+        attribute lowLevelLimit : LiquidLevel = 0.05 [SI::metre];
+        attribute highLevelLimit : LiquidLevel = 4.00 [SI::metre];
+        attribute calibrationOffset : Pressure = 0.0 [SI::pascal];
+        attribute calibrationSpan : Real = 1.0;
+
+        action computeLevel : ConvertPressureToLevel;
+        action diagnose : CheckBubbleTubeHealth;
+        action publish : PublishMeasurement;
+
+        state measurementControl {
+            entry; then idle;
+
+            state idle;
+            state selfTest;
+            state purge;
+            state measuring;
+            state calibratingZero;
+            state calibratingSpan;
+            state fault;
+
+            transition first idle;
+            transition idle_to_selfTest
+                first idle
+                accept service.testCommand
+                then selfTest;
+
+            transition selfTest_to_purge
+                first selfTest
+                if service.testCommand == false
+                then purge;
+
+            transition purge_to_measuring
+                first purge
+                if pressureInput.liquidBackPressure.quality >= 80.0 ["%"]
+                then measuring;
+
+            transition measuring_to_zero
+                first measuring
+                accept service.zeroCommand
+                then calibratingZero;
+
+            transition measuring_to_span
+                first measuring
+                accept service.spanCommand
+                then calibratingSpan;
+
+            transition measuring_to_fault
+                first measuring
+                if pressureInput.liquidBackPressure.quality < 50.0 ["%"]
+                then fault;
+
+            transition zero_to_measuring
+                first calibratingZero
+                if service.zeroCommand == false
+                then measuring;
+
+            transition span_to_measuring
+                first calibratingSpan
+                if service.spanCommand == false
+                then measuring;
+
+            transition fault_to_purge
+                first fault
+                accept service.testCommand
+                then purge;
+        }
+    }
+
+    part def Housing {
+        attribute ingressProtectionCode : String = "IP66";
+        attribute material : String = "316 stainless steel";
+        attribute ambientTemperatureMin : Temperature = 253.15 [SI::kelvin];
+        attribute ambientTemperatureMax : Temperature = 333.15 [SI::kelvin];
+    }
+
+    part def BubbleLevelSensingUnit {
+        port gasIn : GasSupplyPort;
+        port liquidInterface : LiquidInterfacePort;
+        port powerIn : ElectricalPowerPort;
+        port dataOut : DataOutputPort;
+        port service : ServicePort;
+
+        part flowController : BubbleFlowController;
+        part bubbleSensor : BubbleSensor;
+        part transducer : PressureTransducer;
+        part electronics : ProcessingElectronics;
+        part enclosure : Housing;
+
+        attribute measuredQuantity : String = "liquid level";
+        attribute nominalRange : LiquidLevel = 4.0 [SI::metre];
+        attribute requiredAccuracy : LiquidLevel = 0.01 [SI::metre];
+        attribute responseTime_s : Real = 2.0;
+
+        connect gasIn to flowController.gasSupply;
+        connect powerIn to flowController.power;
+        connect powerIn to transducer.power;
+        connect powerIn to electronics.power;
+        connect flowController.bubbleOutlet to bubbleSensor.gasPort;
+        connect bubbleSensor.gasPort to transducer.pressureInput;
+        connect liquidInterface to bubbleSensor.liquidPort;
+        connect transducer.pressureInput to electronics.pressureInput;
+        connect electronics.data to dataOut;
+        connect electronics.service to service;
+
+        perform flowController.regulate;
+        perform bubbleSensor.sense;
+        perform electronics.computeLevel;
+        perform electronics.diagnose;
+        perform electronics.publish;
+    }
+
+    requirement def MeasureLiquidLevelRequirement {
+        subject unit : BubbleLevelSensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "liquid level"
+        }
+
+        require constraint {
+            unit.nominalRange >= 4.0 [SI::metre]
+        }
+
+        require constraint {
+            unit.requiredAccuracy <= 0.01 [SI::metre]
+        }
+    }
+
+    requirement def BubbleSensorPrincipleRequirement {
+        subject unit : BubbleLevelSensingUnit;
+
+        require constraint {
+            unit.bubbleSensor.nominalBubbleFlow >= unit.bubbleSensor.minimumBubbleFlow and
+            unit.bubbleSensor.nominalBubbleFlow <= unit.bubbleSensor.maximumBubbleFlow
+        }
+
+        require constraint {
+            unit.flowController.targetFlow == unit.bubbleSensor.nominalBubbleFlow
+        }
+    }
+
+    requirement def PressureToLevelConversionRequirement {
+        subject electronics : ProcessingElectronics;
+
+        require constraint {
+            electronics.gravity_m_per_s2 > 9.7 and electronics.gravity_m_per_s2 < 9.9
+        }
+
+        require constraint {
+            electronics.liquidDensity_kg_per_m3 > 500.0 and electronics.liquidDensity_kg_per_m3 < 2000.0
+        }
+    }
+
+    requirement def DiagnosticsRequirement {
+        subject unit : BubbleLevelSensingUnit;
+
+        require constraint {
+            unit.dataOut.diagnostics.sensorOk == true implies
+            unit.dataOut.diagnostics.calibrationValid == true
+        }
+
+        require constraint {
+            unit.dataOut.diagnostics.tubeBlocked == true implies
+            unit.dataOut.diagnostics.flowOk == false
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject enclosure : Housing;
+
+        require constraint {
+            enclosure.ingressProtectionCode == "IP66"
+        }
+
+        require constraint {
+            enclosure.ambientTemperatureMin <= 253.15 [SI::kelvin] and
+            enclosure.ambientTemperatureMax >= 333.15 [SI::kelvin]
+        }
+    }
+
+    requirement def OutputRequirement {
+        subject unit : BubbleLevelSensingUnit;
+
+        require constraint {
+            unit.responseTime_s <= 2.0
+        }
+
+        require constraint {
+            unit.dataOut.levelEstimate.confidence >= 95.0 ["%"]
+        }
+    }
+
+    satisfy MeasureLiquidLevelRequirement by BubbleLevelSensingUnit;
+    satisfy BubbleSensorPrincipleRequirement by BubbleLevelSensingUnit;
+    satisfy PressureToLevelConversionRequirement by ProcessingElectronics;
+    satisfy DiagnosticsRequirement by BubbleLevelSensingUnit;
+    satisfy EnvironmentalRequirement by Housing;
+    satisfy OutputRequirement by BubbleLevelSensingUnit;
+
+}

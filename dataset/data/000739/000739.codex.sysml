@@ -1,0 +1,625 @@
+package PortableOxygenConcentratorModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value def Percent :> Real {
+        doc /* Percentage value from 0 to 100. */
+    }
+
+    value def LiterPerMinute :> Real {
+        doc /* Volumetric gas flow rate in liters per minute. */
+    }
+
+    value def BreathPerMinute :> Real {
+        doc /* Respiratory rate in breaths per minute. */
+    }
+
+    value def DecibelA :> Real {
+        doc /* A-weighted sound pressure level. */
+    }
+
+    value def Hour :> Real {
+        doc /* Duration measured in hours. */
+    }
+
+    value def WattHour :> Real {
+        doc /* Electrical energy storage capacity. */
+    }
+
+    value def Celsius :> Real {
+        doc /* Temperature measured in degrees Celsius. */
+    }
+
+    item def AmbientAir {
+        attribute oxygenFraction : Percent;
+        attribute nitrogenFraction : Percent;
+        attribute pressure : PressureValue;
+        attribute temperature : Celsius;
+        attribute particulateLoad : Real;
+    }
+
+    item def ConcentratedOxygen {
+        attribute oxygenPurity : Percent;
+        attribute deliveredFlow : LiterPerMinute;
+        attribute pressure : PressureValue;
+        attribute humidity : Percent;
+        attribute temperature : Celsius;
+    }
+
+    item def ExhaustGas {
+        attribute oxygenFraction : Percent;
+        attribute nitrogenFraction : Percent;
+        attribute flowRate : LiterPerMinute;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute availableEnergy : WattHour;
+    }
+
+    item def UserCommand {
+        attribute powerRequested : Boolean;
+        attribute prescribedFlowSetting : LiterPerMinute;
+        attribute pulseDoseModeRequested : Boolean;
+        attribute continuousModeRequested : Boolean;
+        attribute alarmSilenceRequested : Boolean;
+    }
+
+    item def DeviceStatus {
+        attribute operatingState : String;
+        attribute batteryStateOfCharge : Percent;
+        attribute oxygenPurity : Percent;
+        attribute deliveredFlow : LiterPerMinute;
+        attribute activeAlarmCount : Integer;
+        attribute maintenanceRequired : Boolean;
+    }
+
+    item def AlarmSignal {
+        attribute alarmCode : String;
+        attribute priority : String;
+        attribute audible : Boolean;
+        attribute visual : Boolean;
+    }
+
+    port def AirIntakePort {
+        in item air : AmbientAir;
+    }
+
+    port def OxygenOutletPort {
+        out item oxygen : ConcentratedOxygen;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def PowerInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def UserInterfacePort {
+        in item command : UserCommand;
+        out item status : DeviceStatus;
+        out item alarm : AlarmSignal;
+    }
+
+    port def SensorSignalPort {
+        out attribute measuredValue : Real;
+        out attribute valid : Boolean;
+    }
+
+    port def ControlSignalPort {
+        out attribute commandValue : Real;
+        out attribute enabled : Boolean;
+    }
+
+    part def IntakeFilter {
+        port intake : AirIntakePort;
+        port filteredAirOut : AirIntakePort;
+
+        attribute filtrationEfficiency : Percent = 95.0;
+        attribute replacementIntervalHours : Hour = 1000.0;
+        attribute pressureDropLimit : PressureValue;
+    }
+
+    part def Compressor {
+        port airIn : AirIntakePort;
+        port compressedAirOut : AirIntakePort;
+        port powerIn : PowerInputPort;
+        port speedCommand : ControlSignalPort;
+
+        attribute nominalPower : PowerValue = 85.0 [W];
+        attribute maximumOutletPressure : PressureValue = 210.0 [kPa];
+        attribute speed : Real;
+        attribute temperature : Celsius;
+    }
+
+    part def HeatExchanger {
+        port hotCompressedAirIn : AirIntakePort;
+        port cooledCompressedAirOut : AirIntakePort;
+
+        attribute targetOutletTemperature : Celsius = 40.0;
+        attribute maximumOutletTemperature : Celsius = 55.0;
+    }
+
+    part def MolecularSieveBed {
+        port compressedAirIn : AirIntakePort;
+        port oxygenRichGasOut : OxygenOutletPort;
+        port exhaustOut : ExhaustPort;
+
+        attribute bedPressure : PressureValue;
+        attribute adsorptionCycleTime : TimeValue = 7.0 [s];
+        attribute regenerationCycleTime : TimeValue = 7.0 [s];
+        attribute sieveMaterial : String = "zeolite";
+    }
+
+    part def ProductTank {
+        port oxygenIn : OxygenOutletPort;
+        port oxygenOut : OxygenOutletPort;
+
+        attribute tankPressure : PressureValue;
+        attribute usableVolume : VolumeValue = 0.45 [l];
+        attribute pressureReliefSetpoint : PressureValue = 240.0 [kPa];
+    }
+
+    part def FlowRegulator {
+        port oxygenIn : OxygenOutletPort;
+        port oxygenOut : OxygenOutletPort;
+        port flowCommand : ControlSignalPort;
+
+        attribute selectedFlowSetting : LiterPerMinute;
+        attribute continuousFlowRangeMin : LiterPerMinute = 0.25;
+        attribute continuousFlowRangeMax : LiterPerMinute = 3.00;
+        attribute pulseDoseVolume : VolumeValue;
+    }
+
+    part def CannulaInterface {
+        port oxygenIn : OxygenOutletPort;
+        port patientOutlet : OxygenOutletPort;
+
+        attribute outletPressureLimit : PressureValue = 35.0 [kPa];
+        attribute compatibleCannulaLength : LengthValue = 2.1 [m];
+    }
+
+    part def BatteryPack {
+        port powerOut : PowerInputPort;
+
+        attribute nominalVoltage : VoltageValue = 14.4 [V];
+        attribute capacity : WattHour = 96.0;
+        attribute stateOfCharge : Percent;
+        attribute remainingRunTime : Hour;
+        attribute chargeCycles : Integer;
+    }
+
+    part def ExternalPowerAdapter {
+        port acPowerIn : PowerInputPort;
+        port dcPowerOut : PowerInputPort;
+
+        attribute inputVoltageMin : VoltageValue = 100.0 [V];
+        attribute inputVoltageMax : VoltageValue = 240.0 [V];
+        attribute outputVoltage : VoltageValue = 19.0 [V];
+        attribute maximumOutputPower : PowerValue = 120.0 [W];
+    }
+
+    part def PowerManager {
+        port batteryPowerIn : PowerInputPort;
+        port externalPowerIn : PowerInputPort;
+        port regulatedPowerOut : PowerInputPort;
+
+        attribute activePowerSource : String;
+        attribute busVoltage : VoltageValue;
+        attribute loadPower : PowerValue;
+        attribute chargingEnabled : Boolean;
+    }
+
+    part def OxygenPuritySensor {
+        port sampleIn : OxygenOutletPort;
+        port signalOut : SensorSignalPort;
+
+        attribute measuredPurity : Percent;
+        attribute accuracy : Percent = 2.0;
+        attribute minimumValidPurity : Percent = 82.0;
+    }
+
+    part def FlowSensor {
+        port sampleIn : OxygenOutletPort;
+        port signalOut : SensorSignalPort;
+
+        attribute measuredFlow : LiterPerMinute;
+        attribute accuracy : LiterPerMinute = 0.05;
+    }
+
+    part def PressureSensor {
+        port sampleIn : OxygenOutletPort;
+        port signalOut : SensorSignalPort;
+
+        attribute measuredPressure : PressureValue;
+        attribute accuracy : PressureValue = 2.0 [kPa];
+    }
+
+    part def BreathDetectionSensor {
+        port sampleIn : OxygenOutletPort;
+        port signalOut : SensorSignalPort;
+
+        attribute inspiratoryPressureDropThreshold : PressureValue = 0.20 [kPa];
+        attribute detectedRespiratoryRate : BreathPerMinute;
+        attribute breathDetected : Boolean;
+    }
+
+    part def Controller {
+        port userInterface : UserInterfacePort;
+        port oxygenPuritySignal : SensorSignalPort;
+        port flowSignal : SensorSignalPort;
+        port pressureSignal : SensorSignalPort;
+        port breathSignal : SensorSignalPort;
+        port compressorCommand : ControlSignalPort;
+        port flowRegulatorCommand : ControlSignalPort;
+
+        attribute desiredFlow : LiterPerMinute;
+        attribute pulseDoseMode : Boolean;
+        attribute continuousMode : Boolean;
+        attribute oxygenPurityLowThreshold : Percent = 82.0;
+        attribute oxygenPurityNominalMinimum : Percent = 87.0;
+        attribute maximumAllowedPressure : PressureValue = 230.0 [kPa];
+        attribute controlCycleTime : TimeValue = 100.0 [ms];
+    }
+
+    part def UserInterface {
+        port uiPort : UserInterfacePort;
+
+        attribute powerButtonPressed : Boolean;
+        attribute selectedFlowSetting : LiterPerMinute;
+        attribute batteryDisplay : Percent;
+        attribute purityDisplay : Percent;
+        attribute alarmMuted : Boolean;
+    }
+
+    part def AlarmModule {
+        port alarmPort : UserInterfacePort;
+
+        attribute soundLevel : DecibelA = 65.0;
+        attribute lowBatteryAlarmActive : Boolean;
+        attribute lowOxygenAlarmActive : Boolean;
+        attribute noBreathAlarmActive : Boolean;
+        attribute highPressureAlarmActive : Boolean;
+    }
+
+    action def ConcentrateOxygen {
+        in item ambientAir : AmbientAir;
+        in item electricalEnergy : ElectricalEnergy;
+        in attribute prescribedFlow : LiterPerMinute;
+        out item oxygen : ConcentratedOxygen;
+        out item exhaust : ExhaustGas;
+
+        attribute targetOxygenPurity : Percent = 90.0;
+        attribute nitrogenRemovalFraction : Percent;
+    }
+
+    action def DeliverTherapeuticOxygen {
+        in item oxygen : ConcentratedOxygen;
+        in attribute prescribedFlow : LiterPerMinute;
+        in attribute pulseDoseMode : Boolean;
+        out item patientOxygen : ConcentratedOxygen;
+
+        attribute deliverySynchronizedToBreath : Boolean;
+    }
+
+    action def MonitorAndProtect {
+        in item status : DeviceStatus;
+        out item alarm : AlarmSignal;
+
+        attribute protectiveShutdownRequired : Boolean;
+    }
+
+    state def ConcentratorOperatingState {
+        state Off;
+        state Startup;
+        state SelfTest;
+        state WarmingUp;
+        state ContinuousDelivery;
+        state PulseDoseDelivery;
+        state AlarmActive;
+        state FaultShutdown;
+
+        transition Off_to_Startup
+            first Off
+            accept UserCommand
+            if command.powerRequested
+            then Startup;
+
+        transition Startup_to_SelfTest
+            first Startup
+            then SelfTest;
+
+        transition SelfTest_to_WarmingUp
+            first SelfTest
+            if selfTestPassed
+            then WarmingUp;
+
+        transition SelfTest_to_FaultShutdown
+            first SelfTest
+            if not selfTestPassed
+            then FaultShutdown;
+
+        transition WarmingUp_to_ContinuousDelivery
+            first WarmingUp
+            if warmupComplete and command.continuousModeRequested
+            then ContinuousDelivery;
+
+        transition WarmingUp_to_PulseDoseDelivery
+            first WarmingUp
+            if warmupComplete and command.pulseDoseModeRequested
+            then PulseDoseDelivery;
+
+        transition ContinuousDelivery_to_PulseDoseDelivery
+            first ContinuousDelivery
+            accept UserCommand
+            if command.pulseDoseModeRequested
+            then PulseDoseDelivery;
+
+        transition PulseDoseDelivery_to_ContinuousDelivery
+            first PulseDoseDelivery
+            accept UserCommand
+            if command.continuousModeRequested
+            then ContinuousDelivery;
+
+        transition Delivery_to_AlarmActive
+            first ContinuousDelivery
+            if oxygenPurityLow or highPressure or lowBattery
+            then AlarmActive;
+
+        transition PulseDelivery_to_AlarmActive
+            first PulseDoseDelivery
+            if oxygenPurityLow or highPressure or noBreathDetected
+            then AlarmActive;
+
+        transition AlarmActive_to_Delivery
+            first AlarmActive
+            if alarmCleared and command.continuousModeRequested
+            then ContinuousDelivery;
+
+        transition AlarmActive_to_PulseDelivery
+            first AlarmActive
+            if alarmCleared and command.pulseDoseModeRequested
+            then PulseDoseDelivery;
+
+        transition Any_to_Off
+            first Off
+            accept UserCommand
+            if not command.powerRequested
+            then Off;
+    }
+
+    part def PortableOxygenConcentrator {
+        doc /* Primary function: draw ambient air, remove nitrogen by pressure swing adsorption, and deliver oxygen-enriched breathing gas to a patient at a prescribed flow or pulse dose while monitoring safety-critical operating conditions. */
+
+        port ambientAirIn : AirIntakePort;
+        port patientOxygenOut : OxygenOutletPort;
+        port nitrogenExhaustOut : ExhaustPort;
+        port externalPowerIn : PowerInputPort;
+        port userAccess : UserInterfacePort;
+
+        part intakeFilter : IntakeFilter;
+        part compressor : Compressor;
+        part cooler : HeatExchanger;
+        part sieveBedA : MolecularSieveBed;
+        part sieveBedB : MolecularSieveBed;
+        part productTank : ProductTank;
+        part flowRegulator : FlowRegulator;
+        part cannulaInterface : CannulaInterface;
+        part batteryPack : BatteryPack;
+        part powerAdapter : ExternalPowerAdapter;
+        part powerManager : PowerManager;
+        part oxygenPuritySensor : OxygenPuritySensor;
+        part flowSensor : FlowSensor;
+        part pressureSensor : PressureSensor;
+        part breathSensor : BreathDetectionSensor;
+        part controller : Controller;
+        part userInterfacePanel : UserInterface;
+        part alarmModule : AlarmModule;
+
+        attribute mass : MassValue = 2.4 [kg];
+        attribute nominalOxygenPurity : Percent = 90.0;
+        attribute minimumTherapeuticPurity : Percent = 87.0;
+        attribute maximumContinuousFlow : LiterPerMinute = 3.0;
+        attribute minimumContinuousFlow : LiterPerMinute = 0.25;
+        attribute maximumSoundLevel : DecibelA = 48.0;
+        attribute minimumBatteryRunTimeAtSetting2 : Hour = 4.5;
+        attribute operatingTemperatureMin : Celsius = 5.0;
+        attribute operatingTemperatureMax : Celsius = 40.0;
+
+        connection airIntakeConnection
+            connect ambientAirIn to intakeFilter.intake;
+
+        connection filteredAirConnection
+            connect intakeFilter.filteredAirOut to compressor.airIn;
+
+        connection compressedAirConnection
+            connect compressor.compressedAirOut to cooler.hotCompressedAirIn;
+
+        connection cooledAirToSieveA
+            connect cooler.cooledCompressedAirOut to sieveBedA.compressedAirIn;
+
+        connection cooledAirToSieveB
+            connect cooler.cooledCompressedAirOut to sieveBedB.compressedAirIn;
+
+        connection oxygenFromSieveAToTank
+            connect sieveBedA.oxygenRichGasOut to productTank.oxygenIn;
+
+        connection oxygenFromSieveBToTank
+            connect sieveBedB.oxygenRichGasOut to productTank.oxygenIn;
+
+        connection sieveAExhaustConnection
+            connect sieveBedA.exhaustOut to nitrogenExhaustOut;
+
+        connection sieveBExhaustConnection
+            connect sieveBedB.exhaustOut to nitrogenExhaustOut;
+
+        connection tankToRegulator
+            connect productTank.oxygenOut to flowRegulator.oxygenIn;
+
+        connection regulatorToCannula
+            connect flowRegulator.oxygenOut to cannulaInterface.oxygenIn;
+
+        connection cannulaToPatient
+            connect cannulaInterface.patientOutlet to patientOxygenOut;
+
+        connection batteryPowerConnection
+            connect batteryPack.powerOut to powerManager.batteryPowerIn;
+
+        connection externalPowerConnection
+            connect externalPowerIn to powerAdapter.acPowerIn;
+
+        connection adapterPowerConnection
+            connect powerAdapter.dcPowerOut to powerManager.externalPowerIn;
+
+        connection regulatedPowerToCompressor
+            connect powerManager.regulatedPowerOut to compressor.powerIn;
+
+        connection puritySampleConnection
+            connect productTank.oxygenOut to oxygenPuritySensor.sampleIn;
+
+        connection flowSampleConnection
+            connect flowRegulator.oxygenOut to flowSensor.sampleIn;
+
+        connection pressureSampleConnection
+            connect productTank.oxygenOut to pressureSensor.sampleIn;
+
+        connection breathSampleConnection
+            connect cannulaInterface.patientOutlet to breathSensor.sampleIn;
+
+        connection puritySignalConnection
+            connect oxygenPuritySensor.signalOut to controller.oxygenPuritySignal;
+
+        connection flowSignalConnection
+            connect flowSensor.signalOut to controller.flowSignal;
+
+        connection pressureSignalConnection
+            connect pressureSensor.signalOut to controller.pressureSignal;
+
+        connection breathSignalConnection
+            connect breathSensor.signalOut to controller.breathSignal;
+
+        connection compressorControlConnection
+            connect controller.compressorCommand to compressor.speedCommand;
+
+        connection flowControlConnection
+            connect controller.flowRegulatorCommand to flowRegulator.flowCommand;
+
+        connection userPanelConnection
+            connect userAccess to userInterfacePanel.uiPort;
+
+        connection controllerUserConnection
+            connect userAccess to controller.userInterface;
+
+        connection alarmConnection
+            connect userAccess to alarmModule.alarmPort;
+
+        perform action concentrate : ConcentrateOxygen {
+            in ambientAir = ambientAirIn.air;
+            in electricalEnergy = powerManager.regulatedPowerOut.energy;
+            in prescribedFlow = controller.desiredFlow;
+            out oxygen = patientOxygenOut.oxygen;
+            out exhaust = nitrogenExhaustOut.exhaust;
+        }
+
+        perform action deliver : DeliverTherapeuticOxygen {
+            in oxygen = productTank.oxygenOut.oxygen;
+            in prescribedFlow = controller.desiredFlow;
+            in pulseDoseMode = controller.pulseDoseMode;
+            out patientOxygen = patientOxygenOut.oxygen;
+        }
+
+        perform action monitor : MonitorAndProtect {
+            in status = userAccess.status;
+            out alarm = userAccess.alarm;
+        }
+
+        exhibit state operatingState : ConcentratorOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall convert ambient air into oxygen-enriched breathing gas and deliver it to a patient through a cannula interface. */
+
+        subject poc : PortableOxygenConcentrator;
+
+        require constraint {
+            poc.patientOxygenOut.oxygen.oxygenPurity >= poc.minimumTherapeuticPurity
+        }
+    }
+
+    requirement def FlowDeliveryRequirement {
+        doc /* The system shall deliver user-selected continuous oxygen flow within its rated flow range. */
+
+        subject poc : PortableOxygenConcentrator;
+
+        require constraint {
+            poc.patientOxygenOut.oxygen.deliveredFlow >= poc.minimumContinuousFlow and
+            poc.patientOxygenOut.oxygen.deliveredFlow <= poc.maximumContinuousFlow
+        }
+    }
+
+    requirement def OxygenPurityRequirement {
+        doc /* The oxygen product shall maintain nominal purity during normal operation after warmup. */
+
+        subject poc : PortableOxygenConcentrator;
+
+        require constraint {
+            poc.patientOxygenOut.oxygen.oxygenPurity >= 87.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        doc /* The system shall support portable operation from an internal rechargeable battery. */
+
+        subject poc : PortableOxygenConcentrator;
+
+        require constraint {
+            poc.batteryPack.capacity >= 90.0 and
+            poc.minimumBatteryRunTimeAtSetting2 >= 4.0
+        }
+    }
+
+    requirement def SafetyMonitoringRequirement {
+        doc /* The system shall detect low oxygen purity, low battery, high pressure, and absent breath conditions and annunciate alarms. */
+
+        subject poc : PortableOxygenConcentrator;
+
+        require constraint {
+            poc.controller.oxygenPurityLowThreshold == poc.oxygenPuritySensor.minimumValidPurity and
+            poc.alarmModule.soundLevel >= 60.0
+        }
+    }
+
+    requirement def AcousticRequirement {
+        doc /* The device shall remain suitable for home and portable use by limiting operating noise. */
+
+        subject poc : PortableOxygenConcentrator;
+
+        require constraint {
+            poc.maximumSoundLevel <= 50.0
+        }
+    }
+
+    requirement def EnvironmentalOperationRequirement {
+        doc /* The device shall operate over typical indoor and portable-use ambient temperatures. */
+
+        subject poc : PortableOxygenConcentrator;
+
+        require constraint {
+            poc.operatingTemperatureMin <= 5.0 and
+            poc.operatingTemperatureMax >= 40.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PortableOxygenConcentrator;
+    satisfy FlowDeliveryRequirement by PortableOxygenConcentrator;
+    satisfy OxygenPurityRequirement by PortableOxygenConcentrator;
+    satisfy BatteryOperationRequirement by PortableOxygenConcentrator;
+    satisfy SafetyMonitoringRequirement by PortableOxygenConcentrator;
+    satisfy AcousticRequirement by PortableOxygenConcentrator;
+    satisfy EnvironmentalOperationRequirement by PortableOxygenConcentrator;
+}

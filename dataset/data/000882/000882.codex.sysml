@@ -1,0 +1,328 @@
+package GallonPerWattHourSystem {
+
+    attribute def gallon;
+    attribute def wattHour;
+    attribute def volt;
+    attribute def ampere;
+    attribute def watt;
+    attribute def second;
+    attribute def psi;
+    attribute def percent;
+
+    item def Water {
+        attribute volume :> gallon;
+        attribute pressure :> psi;
+        attribute temperatureCelsius;
+    }
+
+    item def ElectricalEnergy {
+        attribute energy :> wattHour;
+        attribute voltage :> volt;
+        attribute current :> ampere;
+        attribute power :> watt;
+    }
+
+    item def EfficiencyReport {
+        attribute deliveredVolume :> gallon;
+        attribute consumedEnergy :> wattHour;
+        attribute gallonsPerWattHour;
+        attribute timestampSeconds :> second;
+    }
+
+    port def WaterInPort {
+        in item waterIn : Water;
+    }
+
+    port def WaterOutPort {
+        out item waterOut : Water;
+    }
+
+    port def EnergyInPort {
+        in item energyIn : ElectricalEnergy;
+    }
+
+    port def DataOutPort {
+        out item reportOut : EfficiencyReport;
+    }
+
+    part def GallonPerWattHourDeliverySystem {
+        attribute targetEfficiency;
+        attribute measuredEfficiency;
+        attribute accumulatedVolume :> gallon;
+        attribute accumulatedEnergy :> wattHour;
+        attribute minimumOutletPressure :> psi;
+        attribute controllerDutyCycle :> percent;
+
+        port waterSupply : WaterInPort;
+        port deliveredWater : WaterOutPort;
+        port electricalInput : EnergyInPort;
+        port telemetry : DataOutPort;
+
+        part pump : VariableSpeedPump;
+        part motorDrive : MotorDrive;
+        part batteryMeter : EnergyMeter;
+        part flowMeter : FlowMeter;
+        part pressureSensor : PressureSensor;
+        part controller : EfficiencyController;
+        part display : OperatorDisplay;
+
+        connect waterSupply.waterIn to pump.inlet.waterIn;
+        connect pump.outlet.waterOut to flowMeter.inlet.waterIn;
+        connect flowMeter.outlet.waterOut to pressureSensor.inlet.waterIn;
+        connect pressureSensor.outlet.waterOut to deliveredWater.waterOut;
+
+        connect electricalInput.energyIn to batteryMeter.energyInput.energyIn;
+        connect batteryMeter.energyOutput.energyIn to motorDrive.energyInput.energyIn;
+        connect motorDrive.motorPower.energyIn to pump.powerInput.energyIn;
+
+        connect flowMeter.flowData.reportOut to controller.flowTelemetry.reportOut;
+        connect batteryMeter.energyData.reportOut to controller.energyTelemetry.reportOut;
+        connect pressureSensor.pressureData.reportOut to controller.pressureTelemetry.reportOut;
+        connect controller.operatorReport.reportOut to display.displayInput.reportOut;
+        connect controller.operatorReport.reportOut to telemetry.reportOut;
+
+        perform action deliverFluidEfficiently;
+        exhibit state operatingStates;
+    }
+
+    part def VariableSpeedPump {
+        attribute displacementPerRevolution :> gallon;
+        attribute speedCommand;
+        attribute hydraulicEfficiency :> percent;
+
+        port inlet : WaterInPort;
+        port outlet : WaterOutPort;
+        port powerInput : EnergyInPort;
+
+        action pumpWater {
+            in item inletWater : Water;
+            in item driveEnergy : ElectricalEnergy;
+            out item outletWater : Water;
+        }
+    }
+
+    part def MotorDrive {
+        attribute commandedDutyCycle :> percent;
+        attribute electricalEfficiency :> percent;
+
+        port energyInput : EnergyInPort;
+        port motorPower : EnergyInPort;
+
+        action convertElectricalPower {
+            in item sourceEnergy : ElectricalEnergy;
+            out item conditionedEnergy : ElectricalEnergy;
+        }
+    }
+
+    part def EnergyMeter {
+        attribute instantaneousPower :> watt;
+        attribute totalEnergy :> wattHour;
+        attribute samplePeriod :> second;
+
+        port energyInput : EnergyInPort;
+        port energyOutput : EnergyInPort;
+        port energyData : DataOutPort;
+
+        action measureEnergy {
+            in item electricalEnergy : ElectricalEnergy;
+            out item energyReport : EfficiencyReport;
+        }
+    }
+
+    part def FlowMeter {
+        attribute instantaneousFlowRate;
+        attribute totalVolume :> gallon;
+        attribute samplePeriod :> second;
+
+        port inlet : WaterInPort;
+        port outlet : WaterOutPort;
+        port flowData : DataOutPort;
+
+        action measureDeliveredVolume {
+            in item flowingWater : Water;
+            out item volumeReport : EfficiencyReport;
+        }
+    }
+
+    part def PressureSensor {
+        attribute outletPressure :> psi;
+        attribute minimumValidPressure :> psi;
+
+        port inlet : WaterInPort;
+        port outlet : WaterOutPort;
+        port pressureData : DataOutPort;
+
+        action measurePressure {
+            in item pressurizedWater : Water;
+            out item pressureReport : EfficiencyReport;
+        }
+    }
+
+    part def EfficiencyController {
+        attribute computedGallonsPerWattHour;
+        attribute targetGallonsPerWattHour;
+        attribute pressureLimit :> psi;
+        attribute dutyCycleCommand :> percent;
+
+        port flowTelemetry : DataOutPort;
+        port energyTelemetry : DataOutPort;
+        port pressureTelemetry : DataOutPort;
+        port operatorReport : DataOutPort;
+
+        action computeEfficiency {
+            in item volumeReport : EfficiencyReport;
+            in item energyReport : EfficiencyReport;
+            out item efficiencyReport : EfficiencyReport;
+        }
+
+        action regulatePump {
+            in item efficiencyReport : EfficiencyReport;
+            out attribute dutyCycleCommand : percent;
+        }
+    }
+
+    part def OperatorDisplay {
+        attribute displayedEfficiency;
+        attribute displayedVolume :> gallon;
+        attribute displayedEnergy :> wattHour;
+
+        port displayInput : DataOutPort;
+
+        action showEfficiency {
+            in item report : EfficiencyReport;
+        }
+    }
+
+    action def deliverFluidEfficiently {
+        objective {
+            doc
+            /* Primary high-level function: convert electrical energy into delivered water volume while continuously reporting and maximizing gallons delivered per watt-hour consumed. */
+        }
+
+        first startEnergyMeasurement;
+        then startFlowMeasurement;
+        then energizePump;
+        then computeGallonPerWattHour;
+        then regulatePumpSpeed;
+        then publishEfficiencyReport;
+
+        action startEnergyMeasurement;
+        action startFlowMeasurement;
+        action energizePump;
+        action computeGallonPerWattHour;
+        action regulatePumpSpeed;
+        action publishEfficiencyReport;
+    }
+
+    state def operatingStates {
+        entry; then Idle;
+
+        state Idle;
+        state Priming;
+        state Pumping;
+        state Optimizing;
+        state Reporting;
+        state Fault;
+        state Shutdown;
+
+        transition Idle_to_Priming
+            first Idle
+            accept StartCommand
+            then Priming;
+
+        transition Priming_to_Pumping
+            first Priming
+            if outletPressure >= minimumOutletPressure
+            then Pumping;
+
+        transition Pumping_to_Optimizing
+            first Pumping
+            if accumulatedEnergy > 0 [wattHour]
+            then Optimizing;
+
+        transition Optimizing_to_Reporting
+            first Optimizing
+            then Reporting;
+
+        transition Reporting_to_Pumping
+            first Reporting
+            if measuredEfficiency >= targetEfficiency
+            then Pumping;
+
+        transition Reporting_to_Optimizing
+            first Reporting
+            if measuredEfficiency < targetEfficiency
+            then Optimizing;
+
+        transition Any_to_Fault
+            first Idle
+            accept FaultDetected
+            then Fault;
+
+        transition Fault_to_Shutdown
+            first Fault
+            accept StopCommand
+            then Shutdown;
+    }
+
+    requirement def GallonPerWattHourPerformanceRequirement {
+        doc
+        /* The system shall deliver water and compute efficiency in gallons per watt-hour as its primary performance measure. */
+
+        attribute requiredEfficiency;
+        attribute allowedError : percent;
+
+        require constraint {
+            measuredEfficiency >= requiredEfficiency
+        }
+    }
+
+    requirement def EnergyMeasurementRequirement {
+        doc
+        /* The system shall measure consumed electrical energy in watt-hours with bounded reporting error. */
+
+        attribute maximumEnergyError : percent = 2 [percent];
+
+        require constraint {
+            maximumEnergyError <= 2 [percent]
+        }
+    }
+
+    requirement def VolumeMeasurementRequirement {
+        doc
+        /* The system shall measure delivered volume in gallons with bounded reporting error. */
+
+        attribute maximumVolumeError : percent = 2 [percent];
+
+        require constraint {
+            maximumVolumeError <= 2 [percent]
+        }
+    }
+
+    requirement def PressureProtectionRequirement {
+        doc
+        /* The system shall prevent efficiency reports from counting delivered volume unless outlet pressure is above the configured minimum. */
+
+        attribute minimumPressure : psi = 20 [psi];
+
+        require constraint {
+            outletPressure >= minimumPressure
+        }
+    }
+
+    requirement def ReportingRequirement {
+        doc
+        /* The system shall publish delivered gallons, consumed watt-hours, and gallons per watt-hour during operation. */
+
+        require constraint {
+            accumulatedEnergy > 0 [wattHour]
+        }
+    }
+
+    satisfy GallonPerWattHourDeliverySystem by GallonPerWattHourPerformanceRequirement;
+    satisfy EnergyMeter by EnergyMeasurementRequirement;
+    satisfy FlowMeter by VolumeMeasurementRequirement;
+    satisfy PressureSensor by PressureProtectionRequirement;
+    satisfy EfficiencyController by ReportingRequirement;
+
+}

@@ -1,0 +1,339 @@
+package NailClipperSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Millimeter :> LengthValue {
+        unit = mm;
+    }
+
+    value def Newton :> ForceValue {
+        unit = N;
+    }
+
+    value def Degree :> PlaneAngleValue {
+        unit = deg;
+    }
+
+    value def Second :> TimeValue {
+        unit = s;
+    }
+
+    value def ClipCount {
+        quantityKind = "count";
+    }
+
+    item def Fingernail {
+        attribute thickness : Millimeter;
+        attribute freeEdgeLength : Millimeter;
+        attribute curvatureRadius : Millimeter;
+        attribute hardness : Newton;
+    }
+
+    item def ClippedNailFragment {
+        attribute fragmentLength : Millimeter;
+        attribute fragmentWidth : Millimeter;
+        attribute retainedByCatcher : Boolean;
+    }
+
+    item def UserFinger {
+        attribute fingerWidth : Millimeter;
+        attribute nail : Fingernail;
+    }
+
+    item def UserForce {
+        attribute magnitude : Newton;
+        attribute duration : Second;
+        attribute applicationAngle : Degree;
+    }
+
+    item def MechanicalMotion {
+        attribute leverRotation : Degree;
+        attribute jawClosure : Millimeter;
+        attribute compressionForce : Newton;
+    }
+
+    port def FingerSupportPort {
+        in item finger : UserFinger;
+    }
+
+    port def ForceInputPort {
+        in item force : UserForce;
+    }
+
+    port def MotionTransferPort {
+        inout item motion : MechanicalMotion;
+    }
+
+    port def CuttingPort {
+        in item nail : Fingernail;
+        out item fragment : ClippedNailFragment;
+    }
+
+    port def FragmentCollectionPort {
+        in item fragment : ClippedNailFragment;
+    }
+
+    part def NailClipper {
+        attribute jawOpening : Millimeter;
+        attribute maximumCuttingForce : Newton;
+        attribute cuttingEdgeGapClosed : Millimeter;
+        attribute leverTravelAngle : Degree;
+        attribute expectedServiceLife : ClipCount;
+
+        port forceInput : ForceInputPort;
+        port fingerSupport : FingerSupportPort;
+        port cuttingInterface : CuttingPort;
+        port fragmentCollector : FragmentCollectionPort;
+
+        part upperJaw : UpperJaw {
+            attribute cuttingEdgeRadius = 0.15 [mm];
+        }
+
+        part lowerJaw : LowerJaw {
+            attribute cuttingEdgeRadius = 0.15 [mm];
+        }
+
+        part lever : PressLever {
+            attribute length = 55 [mm];
+            attribute maximumRotation = 35 [deg];
+        }
+
+        part rivetPin : PivotPin {
+            attribute diameter = 3 [mm];
+        }
+
+        part springBody : FlexibleBodySpring {
+            attribute restoringForce = 6 [N];
+        }
+
+        part nailFile : NailFile {
+            attribute abrasiveLength = 38 [mm];
+        }
+
+        part fragmentCatcher : NailFragmentCatcher {
+            attribute capacity = 20;
+        }
+
+        connect forceInput to lever.userPressPort;
+        connect lever.motionOutput to rivetPin.motionInput;
+        connect rivetPin.motionOutput to upperJaw.motionInput;
+        connect upperJaw.cuttingPort to cuttingInterface;
+        connect lowerJaw.supportPort to fingerSupport;
+        connect cuttingInterface to fragmentCollector;
+        connect fragmentCollector to fragmentCatcher.collectionPort;
+
+        action def ClipNail {
+            in item inputFinger : UserFinger;
+            in item appliedForce : UserForce;
+            out item clippedFragment : ClippedNailFragment;
+
+            first start;
+            then positionNail;
+            then applyLeverForce;
+            then closeCuttingEdges;
+            then shearNailEdge;
+            then collectFragment;
+            then releaseLever;
+            then done;
+
+            action positionNail {
+                in item inputFinger : UserFinger;
+            }
+
+            action applyLeverForce {
+                in item appliedForce : UserForce;
+                out item transmittedMotion : MechanicalMotion;
+            }
+
+            action closeCuttingEdges {
+                in item transmittedMotion : MechanicalMotion;
+            }
+
+            action shearNailEdge {
+                in item inputFinger : UserFinger;
+                out item clippedFragment : ClippedNailFragment;
+            }
+
+            action collectFragment {
+                in item clippedFragment : ClippedNailFragment;
+            }
+
+            action releaseLever;
+        }
+
+        state def OperatingState {
+            entry action initializeOpenPosition;
+
+            state Open {
+                entry action holdJawsSeparated;
+            }
+
+            state NailInserted {
+                entry action alignFreeEdgeBetweenCuttingEdges;
+            }
+
+            state Pressed {
+                entry action rotateLeverAboutPivot;
+            }
+
+            state Cutting {
+                entry action concentrateForceAtOpposedEdges;
+            }
+
+            state FragmentCaptured {
+                entry action guideFragmentIntoCatcher;
+            }
+
+            state Released {
+                entry action restoreJawOpening;
+            }
+
+            transition first Open;
+            transition Open to NailInserted
+                accept item finger : UserFinger
+                if finger.nail.freeEdgeLength > 0.5 [mm];
+
+            transition NailInserted to Pressed
+                accept item force : UserForce
+                if force.magnitude >= 12 [N];
+
+            transition Pressed to Cutting
+                if leverTravelAngle >= 20 [deg];
+
+            transition Cutting to FragmentCaptured
+                if cuttingEdgeGapClosed <= 0.05 [mm];
+
+            transition FragmentCaptured to Released
+                accept item force : UserForce
+                if force.magnitude < 2 [N];
+
+            transition Released to Open;
+        }
+    }
+
+    part def UpperJaw {
+        attribute cuttingEdgeRadius : Millimeter;
+        port motionInput : MotionTransferPort;
+        port cuttingPort : CuttingPort;
+    }
+
+    part def LowerJaw {
+        attribute cuttingEdgeRadius : Millimeter;
+        port supportPort : FingerSupportPort;
+    }
+
+    part def PressLever {
+        attribute length : Millimeter;
+        attribute maximumRotation : Degree;
+        port userPressPort : ForceInputPort;
+        port motionOutput : MotionTransferPort;
+    }
+
+    part def PivotPin {
+        attribute diameter : Millimeter;
+        port motionInput : MotionTransferPort;
+        port motionOutput : MotionTransferPort;
+    }
+
+    part def FlexibleBodySpring {
+        attribute restoringForce : Newton;
+        port motionInput : MotionTransferPort;
+        port motionOutput : MotionTransferPort;
+    }
+
+    part def NailFile {
+        attribute abrasiveLength : Millimeter;
+
+        action def SmoothNailEdge {
+            in item nail : Fingernail;
+            out item smoothedNail : Fingernail;
+        }
+    }
+
+    part def NailFragmentCatcher {
+        attribute capacity : ClipCount;
+        attribute currentFragmentCount : ClipCount;
+        port collectionPort : FragmentCollectionPort;
+    }
+
+    part def User {
+        attribute maximumComfortablePressForce : Newton;
+        port pressOutput : ForceInputPort;
+        port fingerOutput : FingerSupportPort;
+    }
+
+    part def NailClippingContext {
+        part user : User {
+            attribute maximumComfortablePressForce = 45 [N];
+        }
+
+        part clipper : NailClipper {
+            attribute jawOpening = 2.2 [mm];
+            attribute maximumCuttingForce = 80 [N];
+            attribute cuttingEdgeGapClosed = 0.02 [mm];
+            attribute leverTravelAngle = 35 [deg];
+            attribute expectedServiceLife = 5000;
+        }
+
+        item fingernailSample : Fingernail {
+            attribute thickness = 0.6 [mm];
+            attribute freeEdgeLength = 2.5 [mm];
+            attribute curvatureRadius = 9 [mm];
+            attribute hardness = 18 [N];
+        }
+
+        connect user.pressOutput to clipper.forceInput;
+        connect user.fingerOutput to clipper.fingerSupport;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject clipper : NailClipper;
+
+        doc /* The nail clipper shall trim the free edge of a human fingernail by converting manual user force into amplified jaw closure that shears the nail between opposed cutting edges. */
+
+        require constraint {
+            clipper.maximumCuttingForce >= 35 [N]
+        }
+
+        require constraint {
+            clipper.jawOpening >= 1.5 [mm]
+        }
+    }
+
+    requirement def SafeUseRequirement {
+        subject clipper : NailClipper;
+
+        doc /* The nail clipper shall limit normal user interaction to pressing the lever and positioning the nail, while keeping the pivot and cutting geometry stable during clipping. */
+
+        require constraint {
+            clipper.leverTravelAngle <= 40 [deg]
+        }
+    }
+
+    requirement def FragmentManagementRequirement {
+        subject clipper : NailClipper;
+
+        doc /* The nail clipper shall direct clipped nail fragments toward a catcher or controlled exit path after the cutting action. */
+
+        require constraint {
+            clipper.fragmentCatcher.capacity >= 10
+        }
+    }
+
+    requirement def DurabilityRequirement {
+        subject clipper : NailClipper;
+
+        doc /* The nail clipper shall maintain effective cutting performance over repeated clipping cycles. */
+
+        require constraint {
+            clipper.expectedServiceLife >= 3000
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NailClippingContext::clipper;
+    satisfy SafeUseRequirement by NailClippingContext::clipper;
+    satisfy FragmentManagementRequirement by NailClippingContext::clipper;
+    satisfy DurabilityRequirement by NailClippingContext::clipper;
+}

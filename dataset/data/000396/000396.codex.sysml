@@ -1,0 +1,483 @@
+package RoboticSystemUsingModelRobot {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent specializes Real;
+    attribute def Confidence specializes Real;
+    attribute def Identifier specializes String;
+    attribute def Timestamp specializes Real {
+        unit = s;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : ElectricCurrent;
+        attribute power : Power;
+    }
+
+    item def MotionCommand {
+        attribute targetLinearVelocity : Speed;
+        attribute targetAngularVelocity : AngularVelocity;
+        attribute commandTime : Timestamp;
+    }
+
+    item def PoseEstimate {
+        attribute x : Length;
+        attribute y : Length;
+        attribute heading : PlaneAngle;
+        attribute covarianceTrace : Real;
+        attribute time : Timestamp;
+    }
+
+    item def TaskPlan {
+        attribute planId : Identifier;
+        attribute waypointCount : Integer;
+        attribute expectedDuration : Time;
+        attribute requiredPayloadMass : Mass;
+    }
+
+    item def PayloadItem {
+        attribute payloadId : Identifier;
+        attribute mass : Mass;
+        attribute width : Length;
+        attribute depth : Length;
+        attribute height : Length;
+    }
+
+    item def SensorFrame {
+        attribute frameId : Identifier;
+        attribute captureTime : Timestamp;
+        attribute obstacleDistance : Length;
+        attribute targetConfidence : Confidence;
+    }
+
+    item def DiagnosticReport {
+        attribute reportTime : Timestamp;
+        attribute batteryStateOfCharge : Percent;
+        attribute localizationQuality : Confidence;
+        attribute actuatorHealth : Percent;
+        attribute activeFaultCount : Integer;
+    }
+
+    port def PowerInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def PowerOutputPort {
+        out item energy : ElectricalEnergy;
+    }
+
+    port def MotionCommandPort {
+        in item command : MotionCommand;
+    }
+
+    port def PoseOutputPort {
+        out item pose : PoseEstimate;
+    }
+
+    port def SensorOutputPort {
+        out item frame : SensorFrame;
+    }
+
+    port def PlanInputPort {
+        in item plan : TaskPlan;
+    }
+
+    port def PayloadPort {
+        inout item payload : PayloadItem;
+    }
+
+    port def DiagnosticPort {
+        out item report : DiagnosticReport;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 48 [V];
+        attribute capacity : Energy = 1800 [W*h];
+        attribute maximumContinuousCurrent : ElectricCurrent = 80 [A];
+        attribute stateOfCharge : Percent = 100.0;
+
+        port powerOut : PowerOutputPort;
+
+        action provideElectricalEnergy {
+            out item suppliedEnergy : ElectricalEnergy;
+            suppliedEnergy.voltage = nominalVoltage;
+            suppliedEnergy.current = 20 [A];
+            suppliedEnergy.power = suppliedEnergy.voltage * suppliedEnergy.current;
+        }
+
+        requirement sufficientEnergy {
+            doc /* The battery shall maintain enough charge to complete the assigned task and return to the docking station. */
+            require constraint { stateOfCharge >= 20.0 }
+        }
+    }
+
+    part def DriveBase {
+        attribute maximumLinearSpeed : Speed = 1.5 [m/s];
+        attribute maximumAngularSpeed : AngularVelocity = 1.8 [rad/s];
+        attribute wheelRadius : Length = 0.125 [m];
+        attribute trackWidth : Length = 0.62 [m];
+
+        port powerIn : PowerInputPort;
+        port commandIn : MotionCommandPort;
+
+        action executeMotionCommand {
+            in item command : MotionCommand;
+            attribute leftWheelSpeed : AngularVelocity;
+            attribute rightWheelSpeed : AngularVelocity;
+            leftWheelSpeed = (command.targetLinearVelocity - command.targetAngularVelocity * trackWidth / 2.0) / wheelRadius;
+            rightWheelSpeed = (command.targetLinearVelocity + command.targetAngularVelocity * trackWidth / 2.0) / wheelRadius;
+        }
+
+        requirement velocityLimits {
+            doc /* The drive base shall reject commands exceeding configured linear or angular speed limits. */
+            require constraint {
+                commandIn.command.targetLinearVelocity <= maximumLinearSpeed and
+                commandIn.command.targetAngularVelocity <= maximumAngularSpeed
+            }
+        }
+    }
+
+    part def PerceptionSuite {
+        attribute cameraHorizontalFieldOfView : PlaneAngle = 90 [deg];
+        attribute lidarRange : Length = 25 [m];
+        attribute minimumDetectableObstacle : Length = 0.05 [m];
+
+        port powerIn : PowerInputPort;
+        port sensorOut : SensorOutputPort;
+
+        action acquireEnvironmentFrame {
+            out item frame : SensorFrame;
+            frame.obstacleDistance = 10 [m];
+            frame.targetConfidence = 0.92;
+        }
+
+        requirement obstacleDetection {
+            doc /* The perception suite shall detect obstacles at least 5 m ahead of the robot travel path. */
+            require constraint { lidarRange >= 5 [m] }
+        }
+    }
+
+    part def LocalizationUnit {
+        attribute nominalPositionAccuracy : Length = 0.03 [m];
+        attribute nominalHeadingAccuracy : PlaneAngle = 1.5 [deg];
+
+        port powerIn : PowerInputPort;
+        port sensorIn : SensorOutputPort;
+        port poseOut : PoseOutputPort;
+
+        action estimatePose {
+            in item frame : SensorFrame;
+            out item pose : PoseEstimate;
+            pose.covarianceTrace = 0.004;
+        }
+
+        requirement localizationAccuracy {
+            doc /* The localization unit shall estimate robot position with error not exceeding 0.10 m during task execution. */
+            require constraint { nominalPositionAccuracy <= 0.10 [m] }
+        }
+    }
+
+    part def ManipulatorArm {
+        attribute degreesOfFreedom : Integer = 6;
+        attribute maximumReach : Length = 0.85 [m];
+        attribute maximumPayloadMass : Mass = 8 [kg];
+        attribute positioningAccuracy : Length = 0.005 [m];
+
+        port powerIn : PowerInputPort;
+        port payloadInterface : PayloadPort;
+
+        action graspPayload {
+            inout item payload : PayloadItem;
+            require constraint { payload.mass <= maximumPayloadMass }
+        }
+
+        action releasePayload {
+            inout item payload : PayloadItem;
+        }
+
+        requirement payloadHandling {
+            doc /* The manipulator shall grasp, transport, and release payloads up to 5 kg without human assistance. */
+            require constraint { maximumPayloadMass >= 5 [kg] }
+        }
+    }
+
+    part def TaskController {
+        attribute controlCyclePeriod : Time = 0.02 [s];
+        attribute obstacleStopDistance : Length = 0.75 [m];
+        attribute minimumTaskConfidence : Confidence = 0.80;
+
+        port planIn : PlanInputPort;
+        port sensorIn : SensorOutputPort;
+        port poseIn : PoseOutputPort;
+        port commandOut : MotionCommandPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action computeMotionCommand {
+            in item plan : TaskPlan;
+            in item pose : PoseEstimate;
+            in item frame : SensorFrame;
+            out item command : MotionCommand;
+
+            if frame.obstacleDistance < obstacleStopDistance {
+                command.targetLinearVelocity = 0 [m/s];
+                command.targetAngularVelocity = 0 [rad/s];
+            } else {
+                command.targetLinearVelocity = 0.8 [m/s];
+                command.targetAngularVelocity = 0.2 [rad/s];
+            }
+        }
+
+        action publishDiagnostics {
+            out item report : DiagnosticReport;
+            report.localizationQuality = 0.95;
+            report.actuatorHealth = 0.98;
+            report.activeFaultCount = 0;
+        }
+    }
+
+    part def DockingStation {
+        attribute chargeVoltage : Voltage = 54 [V];
+        attribute maximumChargeCurrent : ElectricCurrent = 30 [A];
+
+        port powerOut : PowerOutputPort;
+        port diagnosticIn : DiagnosticPort;
+    }
+
+    part def ModelRobot {
+        attribute robotId : Identifier = "MODEL-ROBOT-001";
+        attribute length : Length = 1.20 [m];
+        attribute width : Length = 0.74 [m];
+        attribute height : Length = 1.45 [m];
+        attribute curbMass : Mass = 72 [kg];
+        attribute ratedPayloadMass : Mass = 5 [kg];
+        attribute operatingTemperatureMin : Temperature = 273.15 [K];
+        attribute operatingTemperatureMax : Temperature = 313.15 [K];
+
+        part battery : BatteryPack;
+        part drive : DriveBase;
+        part perception : PerceptionSuite;
+        part localization : LocalizationUnit;
+        part manipulator : ManipulatorArm;
+        part controller : TaskController;
+
+        port missionPlan : PlanInputPort;
+        port payloadBay : PayloadPort;
+        port diagnostics : DiagnosticPort;
+
+        connect battery.powerOut to drive.powerIn;
+        connect battery.powerOut to perception.powerIn;
+        connect battery.powerOut to localization.powerIn;
+        connect battery.powerOut to manipulator.powerIn;
+        connect perception.sensorOut to localization.sensorIn;
+        connect perception.sensorOut to controller.sensorIn;
+        connect localization.poseOut to controller.poseIn;
+        connect controller.commandOut to drive.commandIn;
+        connect controller.diagnosticOut to diagnostics;
+        connect missionPlan to controller.planIn;
+        connect payloadBay to manipulator.payloadInterface;
+
+        state def OperationalStateMachine {
+            entry action initialize {
+                attribute bootComplete : Boolean = true;
+            }
+
+            state Off;
+            state Initializing;
+            state Idle;
+            state Planning;
+            state Navigating;
+            state Manipulating;
+            state ReturningToDock;
+            state Charging;
+            state Fault;
+
+            transition first Off then Initializing;
+            transition Initializing then Idle
+                accept after 5 [s];
+
+            transition Idle then Planning
+                accept item plan : TaskPlan
+                if plan.waypointCount > 0;
+
+            transition Planning then Navigating
+                accept after 1 [s];
+
+            transition Navigating then Manipulating
+                accept item pose : PoseEstimate
+                if pose.covarianceTrace < 0.02;
+
+            transition Manipulating then ReturningToDock
+                accept after 15 [s];
+
+            transition ReturningToDock then Charging
+                accept after 60 [s];
+
+            transition Charging then Idle
+                accept after 1800 [s];
+
+            transition Navigating then Fault
+                accept item frame : SensorFrame
+                if frame.obstacleDistance < 0.20 [m];
+
+            transition Manipulating then Fault
+                accept item payload : PayloadItem
+                if payload.mass > ratedPayloadMass;
+
+            transition Fault then Idle
+                accept after 10 [s];
+        }
+
+        action performPrimaryTask {
+            in item assignedPlan : TaskPlan;
+            inout item payload : PayloadItem;
+            out item completionReport : DiagnosticReport;
+
+            first start;
+            then perceive;
+            then localize;
+            then navigateToPickup;
+            then pickPayload;
+            then navigateToDelivery;
+            then placePayload;
+            then reportCompletion;
+
+            action start {
+                controller.planIn.plan = assignedPlan;
+            }
+
+            action perceive {
+                out item frame : SensorFrame;
+                frame = perception.acquireEnvironmentFrame.frame;
+            }
+
+            action localize {
+                in item frame : SensorFrame;
+                out item pose : PoseEstimate;
+                pose = localization.estimatePose.pose;
+            }
+
+            action navigateToPickup {
+                in item pose : PoseEstimate;
+                in item frame : SensorFrame;
+                out item command : MotionCommand;
+                command = controller.computeMotionCommand.command;
+                drive.executeMotionCommand(command);
+            }
+
+            action pickPayload {
+                manipulator.graspPayload(payload);
+            }
+
+            action navigateToDelivery {
+                in item pose : PoseEstimate;
+                in item frame : SensorFrame;
+                out item command : MotionCommand;
+                command = controller.computeMotionCommand.command;
+                drive.executeMotionCommand(command);
+            }
+
+            action placePayload {
+                manipulator.releasePayload(payload);
+            }
+
+            action reportCompletion {
+                completionReport = controller.publishDiagnostics.report;
+            }
+        }
+
+        requirement primaryTaskPerformance {
+            doc /* The robotic system shall use the ModelRobot to autonomously pick up an assigned payload, navigate through the workspace, and deliver the payload to the specified destination. */
+            require constraint {
+                ratedPayloadMass >= 5 [kg] and
+                drive.maximumLinearSpeed >= 1.0 [m/s] and
+                controller.minimumTaskConfidence >= 0.80
+            }
+        }
+
+        requirement safetyStop {
+            doc /* The ModelRobot shall command zero velocity when an obstacle is detected within 0.75 m of its forward travel path. */
+            require constraint { controller.obstacleStopDistance == 0.75 [m] }
+        }
+
+        requirement diagnostics {
+            doc /* The ModelRobot shall publish diagnostic status during autonomous task execution at least once every second. */
+            require constraint { controller.controlCyclePeriod <= 1 [s] }
+        }
+    }
+
+    part def RoboticWorkcell {
+        attribute workcellLength : Length = 20 [m];
+        attribute workcellWidth : Length = 12 [m];
+        attribute maximumAllowedRobotSpeed : Speed = 1.2 [m/s];
+
+        part modelRobot : ModelRobot;
+        part dock : DockingStation;
+
+        port externalMissionPlan : PlanInputPort;
+        port externalPayloadAccess : PayloadPort;
+        port workcellDiagnostics : DiagnosticPort;
+
+        connect externalMissionPlan to modelRobot.missionPlan;
+        connect externalPayloadAccess to modelRobot.payloadBay;
+        connect modelRobot.diagnostics to workcellDiagnostics;
+        connect dock.powerOut to modelRobot.battery.powerOut;
+
+        item defaultPayload : PayloadItem {
+            attribute payloadId = "PAYLOAD-A17";
+            attribute mass = 4.2 [kg];
+            attribute width = 0.30 [m];
+            attribute depth = 0.24 [m];
+            attribute height = 0.18 [m];
+        }
+
+        item defaultPlan : TaskPlan {
+            attribute planId = "DELIVERY-ROUTE-04";
+            attribute waypointCount = 8;
+            attribute expectedDuration = 240 [s];
+            attribute requiredPayloadMass = 4.2 [kg];
+        }
+
+        action executeWorkcellMission {
+            in item plan : TaskPlan = defaultPlan;
+            inout item payload : PayloadItem = defaultPayload;
+            out item report : DiagnosticReport;
+
+            report = modelRobot.performPrimaryTask(plan, payload).completionReport;
+        }
+
+        requirement workcellBoundary {
+            doc /* The ModelRobot shall remain inside the 20 m by 12 m robotic workcell during primary task execution. */
+            require constraint {
+                modelRobot.localization.poseOut.pose.x >= 0 [m] and
+                modelRobot.localization.poseOut.pose.x <= workcellLength and
+                modelRobot.localization.poseOut.pose.y >= 0 [m] and
+                modelRobot.localization.poseOut.pose.y <= workcellWidth
+            }
+        }
+
+        requirement speedLimit {
+            doc /* The workcell shall limit ModelRobot commanded speed to no more than 1.2 m/s. */
+            require constraint {
+                modelRobot.controller.commandOut.command.targetLinearVelocity <= maximumAllowedRobotSpeed
+            }
+        }
+    }
+
+    requirement def AutonomousPayloadDeliveryRequirement {
+        subject system : RoboticWorkcell;
+
+        doc /* The robotic system shall perform its primary autonomous payload delivery task using the ModelRobot as the only mobile robot. */
+
+        require constraint {
+            system.modelRobot.ratedPayloadMass >= system.defaultPlan.requiredPayloadMass and
+            system.defaultPlan.waypointCount >= 2 and
+            system.modelRobot.battery.stateOfCharge >= 20.0
+        }
+    }
+
+    satisfy AutonomousPayloadDeliveryRequirement by RoboticWorkcell::modelRobot;
+
+}

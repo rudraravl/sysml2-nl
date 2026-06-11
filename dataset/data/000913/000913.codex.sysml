@@ -1,0 +1,424 @@
+package MatC_Family_System_Model {
+
+  enum def MatCVariantKind {
+    enum MatC_100;
+    enum MatC_200;
+    enum MatC_400;
+  }
+
+  enum def OperatingMode {
+    enum Off;
+    enum Standby;
+    enum Condition;
+    enum Discharge;
+    enum Fault;
+    enum Maintenance;
+  }
+
+  enum def MaterialState {
+    enum Received;
+    enum Measured;
+    enum Conditioned;
+    enum Verified;
+    enum Rejected;
+    enum Released;
+  }
+
+  attribute def Mass_kg :> ScalarValues::Real;
+  attribute def FlowRate_kg_per_h :> ScalarValues::Real;
+  attribute def Temperature_degC :> ScalarValues::Real;
+  attribute def Power_kW :> ScalarValues::Real;
+  attribute def Energy_kWh :> ScalarValues::Real;
+  attribute def Pressure_kPa :> ScalarValues::Real;
+  attribute def Humidity_percent :> ScalarValues::Real;
+  attribute def Speed_rpm :> ScalarValues::Real;
+  attribute def Time_s :> ScalarValues::Real;
+  attribute def Length_mm :> ScalarValues::Real;
+  attribute def Voltage_V :> ScalarValues::Real;
+  attribute def Current_A :> ScalarValues::Real;
+  attribute def Fraction_percent :> ScalarValues::Real;
+
+  item def MatCMaterial {
+    attribute batchId : ScalarValues::String;
+    attribute state : MaterialState;
+    attribute mass : Mass_kg;
+    attribute inletTemperature : Temperature_degC;
+    attribute outletTemperature : Temperature_degC;
+    attribute moistureContent : Humidity_percent;
+    attribute particleUniformity : Fraction_percent;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage_V;
+    attribute current : Current_A;
+    attribute power : Power_kW;
+  }
+
+  item def ControlCommand {
+    attribute requestedMode : OperatingMode;
+    attribute targetTemperature : Temperature_degC;
+    attribute targetMoisture : Humidity_percent;
+    attribute targetThroughput : FlowRate_kg_per_h;
+  }
+
+  item def StatusReport {
+    attribute activeMode : OperatingMode;
+    attribute currentThroughput : FlowRate_kg_per_h;
+    attribute chamberTemperature : Temperature_degC;
+    attribute materialMoisture : Humidity_percent;
+    attribute accumulatedEnergy : Energy_kWh;
+    attribute faultCode : ScalarValues::String;
+  }
+
+  port def MaterialInputPort {
+    in item material : MatCMaterial;
+  }
+
+  port def MaterialOutputPort {
+    out item material : MatCMaterial;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def StatusPort {
+    out item status : StatusReport;
+  }
+
+  port def ThermalPort {
+    inout attribute temperature : Temperature_degC;
+    inout attribute heatFlow : Power_kW;
+  }
+
+  port def RotaryMechanicalPort {
+    inout attribute speed : Speed_rpm;
+    inout attribute torqueCommand : ScalarValues::Real;
+  }
+
+  part def FeedModule {
+    attribute hopperCapacity : Mass_kg;
+    attribute maximumFeedRate : FlowRate_kg_per_h;
+    attribute meteringAccuracy : Fraction_percent;
+
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port drive : RotaryMechanicalPort;
+    port statusOut : StatusPort;
+  }
+
+  part def MeasurementModule {
+    attribute temperatureAccuracy : Temperature_degC;
+    attribute moistureAccuracy : Humidity_percent;
+    attribute samplingPeriod : Time_s;
+
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port statusOut : StatusPort;
+  }
+
+  part def ConditioningChamber {
+    attribute chamberVolume : ScalarValues::Real;
+    attribute minimumTemperature : Temperature_degC;
+    attribute maximumTemperature : Temperature_degC;
+    attribute residenceTime : Time_s;
+    attribute workingPressure : Pressure_kPa;
+
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port thermalInterface : ThermalPort;
+    port agitatorDrive : RotaryMechanicalPort;
+    port statusOut : StatusPort;
+  }
+
+  part def ThermalControlModule {
+    attribute heatingCapacity : Power_kW;
+    attribute coolingCapacity : Power_kW;
+    attribute temperatureStability : Temperature_degC;
+
+    port powerIn : PowerInputPort;
+    port chamberThermal : ThermalPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def AgitationModule {
+    attribute minimumSpeed : Speed_rpm;
+    attribute maximumSpeed : Speed_rpm;
+    attribute nominalSpeed : Speed_rpm;
+
+    port powerIn : PowerInputPort;
+    port mechanicalOut : RotaryMechanicalPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def DischargeModule {
+    attribute dischargeRate : FlowRate_kg_per_h;
+    attribute diverterResponseTime : Time_s;
+
+    port materialIn : MaterialInputPort;
+    port acceptedOut : MaterialOutputPort;
+    port rejectedOut : MaterialOutputPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+  }
+
+  part def MatCController {
+    attribute controlCycle : Time_s;
+    attribute selectedVariant : MatCVariantKind;
+    attribute activeMode : OperatingMode;
+
+    port commandIn : CommandPort;
+    port systemStatusOut : StatusPort;
+    port feedCommandOut : CommandPort;
+    port thermalCommandOut : CommandPort;
+    port agitationCommandOut : CommandPort;
+    port dischargeCommandOut : CommandPort;
+    port feedStatusIn : StatusPort;
+    port measurementStatusIn : StatusPort;
+    port chamberStatusIn : StatusPort;
+    port thermalStatusIn : StatusPort;
+    port agitationStatusIn : StatusPort;
+    port dischargeStatusIn : StatusPort;
+  }
+
+  action def ReceiveMaterial {
+    in item incoming : MatCMaterial;
+    out item received : MatCMaterial;
+  }
+
+  action def MeasureMaterialCondition {
+    in item received : MatCMaterial;
+    out item measured : MatCMaterial;
+  }
+
+  action def ConditionMaterial {
+    in item measured : MatCMaterial;
+    in attribute targetTemperature : Temperature_degC;
+    in attribute targetMoisture : Humidity_percent;
+    out item conditioned : MatCMaterial;
+  }
+
+  action def VerifyMaterial {
+    in item conditioned : MatCMaterial;
+    out item verified : MatCMaterial;
+    out attribute acceptable : ScalarValues::Boolean;
+  }
+
+  action def ReleaseMaterial {
+    in item verified : MatCMaterial;
+    out item released : MatCMaterial;
+  }
+
+  action def RejectMaterial {
+    in item verified : MatCMaterial;
+    out item rejected : MatCMaterial;
+  }
+
+  action def MatCPrimaryFunction {
+    in item rawMaterial : MatCMaterial;
+    in item command : ControlCommand;
+    out item conformingMaterial : MatCMaterial;
+    out item nonconformingMaterial : MatCMaterial;
+    out item report : StatusReport;
+
+    action receive : ReceiveMaterial {
+      in incoming = rawMaterial;
+    }
+
+    action measure : MeasureMaterialCondition {
+      in received = receive.received;
+    }
+
+    action condition : ConditionMaterial {
+      in measured = measure.measured;
+      in targetTemperature = command.targetTemperature;
+      in targetMoisture = command.targetMoisture;
+    }
+
+    action verify : VerifyMaterial {
+      in conditioned = condition.conditioned;
+    }
+
+    action release : ReleaseMaterial {
+      in verified = verify.verified;
+    }
+
+    action reject : RejectMaterial {
+      in verified = verify.verified;
+    }
+
+    flow release.released to conformingMaterial;
+    flow reject.rejected to nonconformingMaterial;
+  }
+
+  state def MatCOperatingStateMachine {
+    state off;
+    state standby;
+    state conditioning;
+    state discharging;
+    state fault;
+    state maintenance;
+
+    transition initial then off;
+    transition off_to_standby first off then standby;
+    transition standby_to_condition first standby then conditioning;
+    transition conditioning_to_discharge first conditioning then discharging;
+    transition discharge_to_standby first discharging then standby;
+    transition any_to_fault first standby then fault;
+    transition fault_to_maintenance first fault then maintenance;
+    transition maintenance_to_standby first maintenance then standby;
+  }
+
+  part def MatCSystem {
+    attribute familyName : ScalarValues::String = "MatC";
+    attribute variant : MatCVariantKind;
+    attribute nominalThroughput : FlowRate_kg_per_h;
+    attribute maximumThroughput : FlowRate_kg_per_h;
+    attribute installedPower : Power_kW;
+    attribute nominalEnergyPerBatch : Energy_kWh;
+    attribute allowableInletTemperatureMin : Temperature_degC;
+    attribute allowableInletTemperatureMax : Temperature_degC;
+    attribute targetOutletTemperature : Temperature_degC;
+    attribute targetMoistureContent : Humidity_percent;
+
+    port materialIn : MaterialInputPort;
+    port acceptedMaterialOut : MaterialOutputPort;
+    port rejectedMaterialOut : MaterialOutputPort;
+    port powerIn : PowerInputPort;
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+
+    part feed : FeedModule;
+    part measurement : MeasurementModule;
+    part chamber : ConditioningChamber;
+    part thermal : ThermalControlModule;
+    part agitation : AgitationModule;
+    part discharge : DischargeModule;
+    part controller : MatCController;
+
+    connection feed_path_1 connect materialIn to feed.materialIn;
+    connection feed_path_2 connect feed.materialOut to measurement.materialIn;
+    connection feed_path_3 connect measurement.materialOut to chamber.materialIn;
+    connection feed_path_4 connect chamber.materialOut to discharge.materialIn;
+    connection accepted_path connect discharge.acceptedOut to acceptedMaterialOut;
+    connection rejected_path connect discharge.rejectedOut to rejectedMaterialOut;
+
+    connection thermal_power connect powerIn to thermal.powerIn;
+    connection agitation_power connect powerIn to agitation.powerIn;
+    connection thermal_to_chamber connect thermal.chamberThermal to chamber.thermalInterface;
+    connection agitator_to_chamber connect agitation.mechanicalOut to chamber.agitatorDrive;
+
+    connection operator_command connect commandIn to controller.commandIn;
+    connection thermal_command connect controller.thermalCommandOut to thermal.commandIn;
+    connection agitation_command connect controller.agitationCommandOut to agitation.commandIn;
+    connection discharge_command connect controller.dischargeCommandOut to discharge.commandIn;
+
+    connection feed_status connect feed.statusOut to controller.feedStatusIn;
+    connection measurement_status connect measurement.statusOut to controller.measurementStatusIn;
+    connection chamber_status connect chamber.statusOut to controller.chamberStatusIn;
+    connection thermal_status connect thermal.statusOut to controller.thermalStatusIn;
+    connection agitation_status connect agitation.statusOut to controller.agitationStatusIn;
+    connection discharge_status connect discharge.statusOut to controller.dischargeStatusIn;
+    connection system_status connect controller.systemStatusOut to statusOut;
+
+    perform action primaryFunction : MatCPrimaryFunction;
+    exhibit state operatingStates : MatCOperatingStateMachine;
+  }
+
+  part matc100 : MatCSystem {
+    attribute variant = MatCVariantKind::MatC_100;
+    attribute nominalThroughput = 100.0;
+    attribute maximumThroughput = 125.0;
+    attribute installedPower = 18.0;
+    attribute nominalEnergyPerBatch = 4.5;
+    attribute allowableInletTemperatureMin = 5.0;
+    attribute allowableInletTemperatureMax = 45.0;
+    attribute targetOutletTemperature = 32.0;
+    attribute targetMoistureContent = 8.0;
+  }
+
+  part matc200 : MatCSystem {
+    attribute variant = MatCVariantKind::MatC_200;
+    attribute nominalThroughput = 200.0;
+    attribute maximumThroughput = 250.0;
+    attribute installedPower = 34.0;
+    attribute nominalEnergyPerBatch = 8.0;
+    attribute allowableInletTemperatureMin = 5.0;
+    attribute allowableInletTemperatureMax = 45.0;
+    attribute targetOutletTemperature = 32.0;
+    attribute targetMoistureContent = 8.0;
+  }
+
+  part matc400 : MatCSystem {
+    attribute variant = MatCVariantKind::MatC_400;
+    attribute nominalThroughput = 400.0;
+    attribute maximumThroughput = 500.0;
+    attribute installedPower = 62.0;
+    attribute nominalEnergyPerBatch = 15.0;
+    attribute allowableInletTemperatureMin = 5.0;
+    attribute allowableInletTemperatureMax = 45.0;
+    attribute targetOutletTemperature = 32.0;
+    attribute targetMoistureContent = 8.0;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject matc : MatCSystem;
+
+    require constraint {
+      matc.nominalThroughput > 0.0
+    }
+
+    require constraint {
+      matc.maximumThroughput >= matc.nominalThroughput
+    }
+
+    doc /* The MatC family shall receive incoming material, measure its condition, regulate temperature and moisture through controlled conditioning, verify conformance, and route conforming and nonconforming material to separate outputs. */
+  }
+
+  requirement def MaterialConditioningRequirement {
+    subject matc : MatCSystem;
+
+    require constraint {
+      matc.targetOutletTemperature >= 20.0 and matc.targetOutletTemperature <= 40.0
+    }
+
+    require constraint {
+      matc.targetMoistureContent >= 4.0 and matc.targetMoistureContent <= 12.0
+    }
+
+    doc /* The MatC system shall condition processed material to the commanded thermal and moisture setpoints before release. */
+  }
+
+  requirement def FamilyScalabilityRequirement {
+    subject matc : MatCSystem;
+
+    require constraint {
+      matc.variant == MatCVariantKind::MatC_100 or
+      matc.variant == MatCVariantKind::MatC_200 or
+      matc.variant == MatCVariantKind::MatC_400
+    }
+
+    doc /* Each MatC family member shall preserve the same high-level interfaces and primary function while scaling throughput and installed power by variant. */
+  }
+
+  requirement def OperationalStateRequirement {
+    subject matc : MatCSystem;
+
+    require constraint {
+      matc.controller.controlCycle <= 1.0
+    }
+
+    doc /* The MatC controller shall coordinate feed, measurement, conditioning, agitation, thermal regulation, discharge, status reporting, and fault handling through defined operating states. */
+  }
+
+  satisfy PrimaryFunctionRequirement by MatCSystem;
+  satisfy MaterialConditioningRequirement by MatCSystem;
+  satisfy FamilyScalabilityRequirement by MatCSystem;
+  satisfy OperationalStateRequirement by MatCSystem;
+}

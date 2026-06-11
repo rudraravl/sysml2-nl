@@ -1,0 +1,433 @@
+package AlgerBrushSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def RotationalSpeed :> scalarValues::Real {
+        unit = "rpm";
+    }
+
+    attribute def Torque :> scalarValues::Real {
+        unit = "mN*m";
+    }
+
+    attribute def Voltage :> scalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def Current :> scalarValues::Real {
+        unit = "mA";
+    }
+
+    attribute def Capacity :> scalarValues::Real {
+        unit = "mAh";
+    }
+
+    attribute def Diameter :> scalarValues::Real {
+        unit = "mm";
+    }
+
+    attribute def Length :> scalarValues::Real {
+        unit = "mm";
+    }
+
+    attribute def Force :> scalarValues::Real {
+        unit = "N";
+    }
+
+    attribute def TimeDuration :> scalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def Temperature :> scalarValues::Real {
+        unit = "degC";
+    }
+
+    attribute def SterilityState :> scalarValues::String;
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def MechanicalRotation {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+    }
+
+    item def UserCommand {
+        attribute enabled : Boolean;
+        attribute requestedSpeed : RotationalSpeed;
+    }
+
+    item def ClinicalTarget {
+        attribute targetType : String;
+        attribute approximateDiameter : Diameter;
+        attribute cornealContactAllowed : Boolean;
+    }
+
+    item def RemovedMaterial {
+        attribute materialType : String;
+        attribute estimatedVolume : scalarValues::Real;
+    }
+
+    item def SterileBarrier {
+        attribute condition : SterilityState;
+    }
+
+    port def ElectricalPowerPort {
+        out item power : ElectricalEnergy;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalEnergy;
+    }
+
+    port def ControlInputPort {
+        in item command : UserCommand;
+    }
+
+    port def RotationOutputPort {
+        out item rotation : MechanicalRotation;
+    }
+
+    port def RotationInputPort {
+        in item rotation : MechanicalRotation;
+    }
+
+    port def BurrContactPort {
+        in item target : ClinicalTarget;
+        out item removedMaterial : RemovedMaterial;
+        attribute appliedForce : Force;
+        attribute contactDuration : TimeDuration;
+    }
+
+    port def SterileInterfacePort {
+        inout item barrier : SterileBarrier;
+    }
+
+    part def BatteryCell {
+        attribute nominalVoltage : Voltage = 1.5 [V];
+        attribute capacity : Capacity = 1100 [mAh];
+        attribute remainingCapacity : Capacity;
+        attribute maximumCurrent : Current = 800 [mA];
+
+        port powerOut : ElectricalPowerPort;
+
+        state def BatteryState {
+            state charged;
+            state inUse;
+            state depleted;
+
+            transition first charged;
+            transition charged_to_inUse
+                first charged
+                then inUse
+                if remainingCapacity > 0 [mAh];
+
+            transition inUse_to_depleted
+                first inUse
+                then depleted
+                if remainingCapacity <= 0 [mAh];
+        }
+    }
+
+    part def MotorAssembly {
+        attribute ratedVoltage : Voltage = 1.5 [V];
+        attribute noLoadSpeed : RotationalSpeed = 4200 [rpm];
+        attribute workingSpeed : RotationalSpeed;
+        attribute stallTorque : Torque = 0.85 ["mN*m"];
+        attribute windingTemperature : Temperature;
+
+        port powerIn : PowerInputPort;
+        port controlIn : ControlInputPort;
+        port rotationOut : RotationOutputPort;
+
+        action def ConvertElectricalToRotaryMotion {
+            in item suppliedPower : ElectricalEnergy;
+            in item command : UserCommand;
+            out item shaftRotation : MechanicalRotation;
+
+            assert suppliedPower.voltage >= 1.1 [V];
+            assert suppliedPower.voltage <= 1.7 [V];
+            assert command.enabled == true;
+        }
+
+        state def MotorState {
+            state off;
+            state accelerating;
+            state running;
+            state stalled;
+
+            transition first off;
+
+            transition off_to_accelerating
+                first off
+                then accelerating
+                if controlIn.command.enabled == true;
+
+            transition accelerating_to_running
+                first accelerating
+                then running
+                if workingSpeed >= controlIn.command.requestedSpeed * 0.90;
+
+            transition running_to_off
+                first running
+                then off
+                if controlIn.command.enabled == false;
+
+            transition running_to_stalled
+                first running
+                then stalled
+                if workingSpeed < 500 [rpm];
+
+            transition stalled_to_off
+                first stalled
+                then off
+                if controlIn.command.enabled == false;
+        }
+    }
+
+    part def SpeedControlSwitch {
+        attribute switchClosed : Boolean = false;
+        attribute selectedSpeed : RotationalSpeed = 3800 [rpm];
+
+        port commandOut : ControlInputPort;
+
+        action def GenerateUserCommand {
+            out item command : UserCommand;
+        }
+    }
+
+    part def DriveShaft {
+        attribute shaftLength : Length = 38 [mm];
+        attribute shaftDiameter : Diameter = 1.2 [mm];
+        attribute maximumRunout : Diameter = 0.05 [mm];
+
+        port rotationIn : RotationInputPort;
+        port rotationOut : RotationOutputPort;
+    }
+
+    part def BurrTip {
+        attribute burrDiameter : Diameter = 0.5 [mm];
+        attribute exposedLength : Length = 1.5 [mm];
+        attribute material : String = "stainless steel";
+        attribute surfaceFinish : String = "fine abrasive";
+        attribute maximumContactForce : Force = 0.20 [N];
+        attribute maximumContinuousContactTime : TimeDuration = 4.0 [s];
+
+        port rotationIn : RotationInputPort;
+        port contact : BurrContactPort;
+        port sterileInterface : SterileInterfacePort;
+
+        action def RemoveCornealRustRingMaterial {
+            in item target : ClinicalTarget;
+            in item rotation : MechanicalRotation;
+            out item removedMaterial : RemovedMaterial;
+
+            assert target.targetType == "corneal rust ring" or target.targetType == "superficial corneal foreign body residue";
+            assert target.cornealContactAllowed == true;
+            assert rotation.speed >= 2500 [rpm];
+            assert rotation.speed <= 4500 [rpm];
+            assert contact.appliedForce <= maximumContactForce;
+            assert contact.contactDuration <= maximumContinuousContactTime;
+        }
+    }
+
+    part def HandpieceHousing {
+        attribute overallLength : Length = 135 [mm];
+        attribute gripDiameter : Diameter = 14 [mm];
+        attribute mass : scalarValues::Real = 42.0;
+        attribute material : String = "medical-grade polymer";
+        attribute sealedAgainstFluidIngress : Boolean = true;
+
+        part batteryCompartment : BatteryCell;
+        part motorMount : MotorAssembly;
+        part switch : SpeedControlSwitch;
+        part shaft : DriveShaft;
+        part tip : BurrTip;
+    }
+
+    part def SterileDisposableBurrCover {
+        attribute sterileBeforeUse : Boolean = true;
+        attribute singleUseOnly : Boolean = true;
+        attribute packageIntegrity : SterilityState = "intact";
+        attribute compatibleTipDiameter : Diameter = 0.5 [mm];
+
+        port sterileInterface : SterileInterfacePort;
+    }
+
+    part def Operator {
+        attribute role : String = "trained clinician";
+        attribute handStability : String = "controlled";
+
+        port commandPort : ControlInputPort;
+    }
+
+    part def PatientEye {
+        attribute corneaPresent : Boolean = true;
+        attribute topicalAnestheticApplied : Boolean = true;
+        attribute eyeStabilized : Boolean = true;
+
+        part cornealTarget {
+            attribute targetType : String = "corneal rust ring";
+            attribute approximateDiameter : Diameter = 1.0 [mm];
+            attribute cornealContactAllowed : Boolean = true;
+        }
+
+        port treatmentSite : BurrContactPort;
+    }
+
+    part def AlgerBrushSystem {
+        attribute primaryFunction : String =
+            "Provide controlled high-speed rotation of a fine burr tip so a trained clinician can gently remove superficial corneal rust ring material or residual foreign-body debris while limiting contact force, contact duration, and tissue exposure.";
+
+        part handpiece : HandpieceHousing;
+        part sterileCover : SterileDisposableBurrCover;
+        part clinician : Operator;
+        part eye : PatientEye;
+
+        connect handpiece.batteryCompartment.powerOut to handpiece.motorMount.powerIn;
+        connect handpiece.switch.commandOut to handpiece.motorMount.controlIn;
+        connect handpiece.motorMount.rotationOut to handpiece.shaft.rotationIn;
+        connect handpiece.shaft.rotationOut to handpiece.tip.rotationIn;
+        connect handpiece.tip.contact to eye.treatmentSite;
+        connect handpiece.tip.sterileInterface to sterileCover.sterileInterface;
+
+        action def PrepareForUse {
+            out prepared : Boolean;
+
+            first start;
+            then verifyBattery;
+            then inspectSterileCover;
+            then attachBurrCover;
+            then confirmFreeRotation;
+            then done;
+
+            assert sterileCover.packageIntegrity == "intact";
+            assert handpiece.batteryCompartment.remainingCapacity > 100 [mAh];
+        }
+
+        action def PerformRustRingRemoval {
+            in item clinicalTarget : ClinicalTarget;
+            out item removedMaterial : RemovedMaterial;
+
+            first alignTip;
+            then enableMotor;
+            then applyLightIntermittentContact;
+            then withdrawTip;
+            then disableMotor;
+            then inspectTreatmentSite;
+
+            assert clinicalTarget.targetType == "corneal rust ring";
+            assert eye.topicalAnestheticApplied == true;
+            assert eye.eyeStabilized == true;
+            assert handpiece.tip.contact.appliedForce <= 0.20 [N];
+            assert handpiece.tip.contact.contactDuration <= 4.0 [s];
+        }
+
+        action def ShutdownAndDispose {
+            first switchOff;
+            then removeDisposableCover;
+            then discardSingleUseCover;
+            then cleanHandpieceExterior;
+            then storeDevice;
+
+            assert handpiece.switch.switchClosed == false;
+        }
+
+        state def SystemLifecycle {
+            state stored;
+            state prepared;
+            state armed;
+            state treating;
+            state shutdown;
+            state fault;
+
+            transition first stored;
+
+            transition stored_to_prepared
+                first stored
+                then prepared
+                if sterileCover.packageIntegrity == "intact"
+                and handpiece.batteryCompartment.remainingCapacity > 100 [mAh];
+
+            transition prepared_to_armed
+                first prepared
+                then armed
+                if handpiece.switch.switchClosed == false;
+
+            transition armed_to_treating
+                first armed
+                then treating
+                if handpiece.switch.switchClosed == true
+                and eye.topicalAnestheticApplied == true;
+
+            transition treating_to_armed
+                first treating
+                then armed
+                if handpiece.switch.switchClosed == false;
+
+            transition armed_to_shutdown
+                first armed
+                then shutdown
+                if sterileCover.singleUseOnly == true;
+
+            transition treating_to_fault
+                first treating
+                then fault
+                if handpiece.tip.contact.appliedForce > handpiece.tip.maximumContactForce
+                or handpiece.motorMount.workingSpeed < 500 [rpm];
+
+            transition fault_to_shutdown
+                first fault
+                then shutdown
+                if handpiece.switch.switchClosed == false;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall rotate a fine burr tip under clinician control to remove superficial corneal rust ring material or residual foreign-body debris from the corneal surface. */
+    }
+
+    requirement def ControlledRotationRequirement {
+        doc
+        /* The system shall provide burr rotation between 2500 rpm and 4500 rpm during clinical contact. */
+    }
+
+    requirement def ContactForceRequirement {
+        doc
+        /* The system shall support use with a burr contact force not exceeding 0.20 N at the treatment site. */
+    }
+
+    requirement def ContactDurationRequirement {
+        doc
+        /* The system shall limit continuous burr-to-corneal-target contact to no more than 4.0 seconds per application. */
+    }
+
+    requirement def SterilityRequirement {
+        doc
+        /* The patient-contacting burr interface shall be protected by a sterile single-use barrier before clinical use. */
+    }
+
+    requirement def PowerRequirement {
+        doc
+        /* The system shall operate from an internal low-voltage battery cell supplying nominal 1.5 V electrical power to the motor assembly. */
+    }
+
+    requirement def FaultResponseRequirement {
+        doc
+        /* The system shall transition to a fault condition if excessive contact force or motor stall is detected during treatment. */
+    }
+
+    part algerBrush : AlgerBrushSystem;
+
+    satisfy PrimaryFunctionRequirement by algerBrush;
+    satisfy ControlledRotationRequirement by algerBrush.handpiece.motorMount;
+    satisfy ContactForceRequirement by algerBrush.handpiece.tip;
+    satisfy ContactDurationRequirement by algerBrush.handpiece.tip;
+    satisfy SterilityRequirement by algerBrush.sterileCover;
+    satisfy PowerRequirement by algerBrush.handpiece.batteryCompartment;
+    satisfy FaultResponseRequirement by algerBrush;
+}

@@ -1,0 +1,443 @@
+package OxygenatorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "mmHg";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def GasFraction {
+        :> ScalarValues::Real;
+        unit = "1";
+    }
+
+    attribute def Concentration {
+        :> ScalarValues::Real;
+        unit = "mmol/L";
+    }
+
+    item def VenousBlood {
+        attribute oxygenSaturation : Percent;
+        attribute carbonDioxidePartialPressure : Pressure;
+        attribute oxygenPartialPressure : Pressure;
+        attribute temperature : Temperature;
+        attribute hemoglobinConcentration : Concentration;
+    }
+
+    item def ArterializedBlood {
+        attribute oxygenSaturation : Percent;
+        attribute carbonDioxidePartialPressure : Pressure;
+        attribute oxygenPartialPressure : Pressure;
+        attribute temperature : Temperature;
+        attribute hemoglobinConcentration : Concentration;
+    }
+
+    item def SweepGas {
+        attribute oxygenFraction : GasFraction;
+        attribute carbonDioxideFraction : GasFraction;
+        attribute flowRate : FlowRate;
+        attribute temperature : Temperature;
+    }
+
+    item def ExhaustGas {
+        attribute oxygenFraction : GasFraction;
+        attribute carbonDioxideFraction : GasFraction;
+        attribute flowRate : FlowRate;
+        attribute humidity : Percent;
+    }
+
+    item def HeatTransferFluid {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flowRate : FlowRate;
+    }
+
+    item def ControlCommand {
+        attribute targetOxygenSaturation : Percent;
+        attribute targetBloodTemperature : Temperature;
+        attribute targetSweepGasFlow : FlowRate;
+        attribute targetOxygenFraction : GasFraction;
+    }
+
+    item def SensorReading {
+        attribute measuredBloodFlow : FlowRate;
+        attribute measuredInletPressure : Pressure;
+        attribute measuredOutletPressure : Pressure;
+        attribute measuredOxygenSaturation : Percent;
+        attribute measuredCarbonDioxidePartialPressure : Pressure;
+        attribute measuredBloodTemperature : Temperature;
+    }
+
+    port def BloodInletPort {
+        in item blood : VenousBlood;
+    }
+
+    port def BloodOutletPort {
+        out item blood : ArterializedBlood;
+    }
+
+    port def GasInletPort {
+        in item gas : SweepGas;
+    }
+
+    port def GasOutletPort {
+        out item gas : ExhaustGas;
+    }
+
+    port def ThermalFluidInletPort {
+        in item fluid : HeatTransferFluid;
+    }
+
+    port def ThermalFluidOutletPort {
+        out item fluid : HeatTransferFluid;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        out item reading : SensorReading;
+    }
+
+    port def InternalBloodPort {
+        inout item blood;
+    }
+
+    port def InternalGasPort {
+        inout item gas;
+    }
+
+    part def BloodPump {
+        port bloodIn : BloodInletPort;
+        port bloodOut : BloodOutletPort;
+        port telemetry : TelemetryPort;
+
+        attribute commandedFlow : FlowRate = 4.5;
+        attribute minimumFlow : FlowRate = 0.5;
+        attribute maximumFlow : FlowRate = 7.0;
+        attribute pressureRise : Pressure = 120.0;
+
+        action pumpBlood {
+            in item incomingBlood : VenousBlood;
+            out item pressurizedBlood : VenousBlood;
+            attribute deliveredFlow : FlowRate;
+        }
+    }
+
+    part def GasBlender {
+        port commandIn : CommandPort;
+        port gasOut : GasInletPort;
+
+        attribute oxygenFractionSetting : GasFraction = 0.60;
+        attribute minimumOxygenFraction : GasFraction = 0.21;
+        attribute maximumOxygenFraction : GasFraction = 1.00;
+        attribute sweepFlowSetting : FlowRate = 5.0;
+
+        action blendSweepGas {
+            in item command : ControlCommand;
+            out item blendedGas : SweepGas;
+        }
+    }
+
+    part def HeatExchanger {
+        port bloodIn : InternalBloodPort;
+        port bloodOut : InternalBloodPort;
+        port thermalFluidIn : ThermalFluidInletPort;
+        port thermalFluidOut : ThermalFluidOutletPort;
+
+        attribute targetBloodTemperature : Temperature = 37.0;
+        attribute maximumBloodTemperature : Temperature = 39.0;
+        attribute minimumBloodTemperature : Temperature = 32.0;
+
+        action regulateTemperature {
+            in item untreatedBlood : VenousBlood;
+            in item heatTransferFluid : HeatTransferFluid;
+            out item conditionedBlood : VenousBlood;
+        }
+    }
+
+    part def HollowFiberMembraneBundle {
+        port bloodIn : InternalBloodPort;
+        port bloodOut : BloodOutletPort;
+        port gasIn : GasInletPort;
+        port gasOut : GasOutletPort;
+
+        attribute membraneSurfaceArea : Real = 1.8;
+        attribute primingVolume : Real = 250.0;
+        attribute maximumBloodFlow : FlowRate = 7.0;
+        attribute maximumGasFlow : FlowRate = 15.0;
+        attribute nominalOxygenTransferRate : Real = 250.0;
+        attribute nominalCarbonDioxideRemovalRate : Real = 200.0;
+
+        action exchangeGases {
+            in item venousBlood : VenousBlood;
+            in item sweepGas : SweepGas;
+            out item arterializedBlood : ArterializedBlood;
+            out item exhaustGas : ExhaustGas;
+        }
+    }
+
+    part def PressureMonitor {
+        port inletTelemetry : TelemetryPort;
+        port outletTelemetry : TelemetryPort;
+
+        attribute highInletPressureLimit : Pressure = 350.0;
+        attribute highPressureDropLimit : Pressure = 100.0;
+
+        action detectPressureFault {
+            in item reading : SensorReading;
+            out attribute pressureFault : Boolean;
+        }
+    }
+
+    part def BloodGasMonitor {
+        port telemetryOut : TelemetryPort;
+
+        attribute lowOxygenSaturationLimit : Percent = 90.0;
+        attribute highCarbonDioxideLimit : Pressure = 55.0;
+        attribute desiredOxygenSaturation : Percent = 95.0;
+
+        action assessGasExchange {
+            in item reading : SensorReading;
+            out attribute adequateOxygenation : Boolean;
+            out attribute adequateCarbonDioxideRemoval : Boolean;
+        }
+    }
+
+    part def OxygenatorController {
+        port commandIn : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port commandOut : CommandPort;
+
+        attribute operatingMode : String;
+        attribute targetOxygenSaturation : Percent = 95.0;
+        attribute targetBloodTemperature : Temperature = 37.0;
+        attribute targetSweepFlow : FlowRate = 5.0;
+        attribute targetOxygenFraction : GasFraction = 0.60;
+
+        action computeControlCommand {
+            in item reading : SensorReading;
+            out item command : ControlCommand;
+        }
+
+        state def OxygenatorControlStateMachine {
+            state Off;
+            state Priming;
+            state Ready;
+            state Oxygenating;
+            state Alarm;
+            state Shutdown;
+
+            transition first Off then Priming
+                accept StartPriming;
+
+            transition Priming then Ready
+                accept PrimeComplete;
+
+            transition Ready then Oxygenating
+                accept StartSupport;
+
+            transition Oxygenating then Alarm
+                accept UnsafePressure or LowOxygenTransfer or GasSupplyFault;
+
+            transition Alarm then Oxygenating
+                accept FaultCleared;
+
+            transition Oxygenating then Shutdown
+                accept StopSupport;
+
+            transition Shutdown then Off
+                accept PowerDown;
+        }
+    }
+
+    part def Oxygenator {
+        port venousBloodIn : BloodInletPort;
+        port arterialBloodOut : BloodOutletPort;
+        port sweepGasIn : GasInletPort;
+        port exhaustGasOut : GasOutletPort;
+        port thermalFluidIn : ThermalFluidInletPort;
+        port thermalFluidOut : ThermalFluidOutletPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        part pump : BloodPump;
+        part heatExchanger : HeatExchanger;
+        part membraneBundle : HollowFiberMembraneBundle;
+        part gasBlender : GasBlender;
+        part pressureMonitor : PressureMonitor;
+        part bloodGasMonitor : BloodGasMonitor;
+        part controller : OxygenatorController;
+
+        attribute supportedBloodFlow : FlowRate = 4.5;
+        attribute supportedSweepGasFlow : FlowRate = 5.0;
+        attribute postOxygenatorSaturationTarget : Percent = 95.0;
+        attribute postOxygenatorCarbonDioxideTarget : Pressure = 45.0;
+        attribute normalOperatingTemperature : Temperature = 37.0;
+        attribute maximumAllowablePressureDrop : Pressure = 100.0;
+
+        connect venousBloodIn to pump.bloodIn;
+        connect pump.bloodOut to heatExchanger.bloodIn;
+        connect heatExchanger.bloodOut to membraneBundle.bloodIn;
+        connect membraneBundle.bloodOut to arterialBloodOut;
+
+        connect commandIn to controller.commandIn;
+        connect controller.commandOut to gasBlender.commandIn;
+        connect gasBlender.gasOut to membraneBundle.gasIn;
+        connect membraneBundle.gasOut to exhaustGasOut;
+
+        connect thermalFluidIn to heatExchanger.thermalFluidIn;
+        connect heatExchanger.thermalFluidOut to thermalFluidOut;
+
+        connect pump.telemetry to pressureMonitor.inletTelemetry;
+        connect bloodGasMonitor.telemetryOut to controller.telemetryIn;
+        connect controller.commandOut to telemetryOut;
+
+        action provideExtracorporealGasExchange {
+            in item deoxygenatedBlood : VenousBlood;
+            in item oxygenRichSweepGas : SweepGas;
+            in item temperatureControlFluid : HeatTransferFluid;
+            out item oxygenatedBlood : ArterializedBlood;
+            out item carbonDioxideRichExhaustGas : ExhaustGas;
+
+            first start;
+            then pumpFlow;
+            then conditionTemperature;
+            then diffuseOxygenAndCarbonDioxide;
+            then deliverArterializedBlood;
+            then done;
+
+            action pumpFlow {
+                in item deoxygenatedBlood : VenousBlood;
+                out item flowingBlood : VenousBlood;
+            }
+
+            action conditionTemperature {
+                in item flowingBlood : VenousBlood;
+                in item temperatureControlFluid : HeatTransferFluid;
+                out item temperatureConditionedBlood : VenousBlood;
+            }
+
+            action diffuseOxygenAndCarbonDioxide {
+                in item temperatureConditionedBlood : VenousBlood;
+                in item oxygenRichSweepGas : SweepGas;
+                out item oxygenatedBlood : ArterializedBlood;
+                out item exhaustGas : ExhaustGas;
+            }
+
+            action deliverArterializedBlood {
+                in item oxygenatedBlood : ArterializedBlood;
+                out item patientReturnBlood : ArterializedBlood;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject oxygenator : Oxygenator;
+
+        doc /*
+        The oxygenator shall perform extracorporeal gas exchange by receiving venous blood,
+        transferring oxygen from sweep gas into the blood, removing carbon dioxide from the
+        blood into the exhaust gas path, and returning temperature-conditioned arterialized
+        blood suitable for patient support.
+        */
+
+        require constraint {
+            oxygenator.postOxygenatorSaturationTarget >= 95.0
+        }
+
+        require constraint {
+            oxygenator.postOxygenatorCarbonDioxideTarget <= 45.0
+        }
+    }
+
+    requirement def BloodFlowRequirement {
+        subject oxygenator : Oxygenator;
+
+        doc /*
+        The oxygenator shall support continuous blood flow sufficient for adult
+        cardiopulmonary support while limiting pressure drop across the membrane bundle.
+        */
+
+        require constraint {
+            oxygenator.supportedBloodFlow >= 0.5 and
+            oxygenator.supportedBloodFlow <= 7.0
+        }
+
+        require constraint {
+            oxygenator.maximumAllowablePressureDrop <= 100.0
+        }
+    }
+
+    requirement def SweepGasRequirement {
+        subject oxygenator : Oxygenator;
+
+        doc /*
+        The oxygenator shall accept controlled sweep gas with adjustable oxygen fraction
+        and flow rate to regulate oxygen transfer and carbon dioxide removal.
+        */
+
+        require constraint {
+            oxygenator.supportedSweepGasFlow >= 0.5 and
+            oxygenator.supportedSweepGasFlow <= 15.0
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        subject oxygenator : Oxygenator;
+
+        doc /*
+        The oxygenator shall regulate blood temperature through an integrated heat exchanger
+        so that returned blood remains near normothermic temperature during operation.
+        */
+
+        require constraint {
+            oxygenator.normalOperatingTemperature >= 36.0 and
+            oxygenator.normalOperatingTemperature <= 38.0
+        }
+    }
+
+    requirement def MonitoringRequirement {
+        subject oxygenator : Oxygenator;
+
+        doc /*
+        The oxygenator shall monitor blood flow, inlet pressure, outlet pressure,
+        oxygen saturation, carbon dioxide level, and blood temperature to support
+        closed-loop operation and alarm detection.
+        */
+    }
+
+    part oxygenatorSystem : Oxygenator {
+        attribute supportedBloodFlow = 4.5;
+        attribute supportedSweepGasFlow = 5.0;
+        attribute postOxygenatorSaturationTarget = 95.0;
+        attribute postOxygenatorCarbonDioxideTarget = 45.0;
+        attribute normalOperatingTemperature = 37.0;
+        attribute maximumAllowablePressureDrop = 100.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by oxygenatorSystem;
+    satisfy BloodFlowRequirement by oxygenatorSystem;
+    satisfy SweepGasRequirement by oxygenatorSystem;
+    satisfy ThermalManagementRequirement by oxygenatorSystem;
+    satisfy MonitoringRequirement by oxygenatorSystem;
+}

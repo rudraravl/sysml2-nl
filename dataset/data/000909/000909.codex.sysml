@@ -1,0 +1,623 @@
+package KnudsenPumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def TemperatureDifference :> ISQ::temperature;
+    attribute def PressureDifference :> ISQ::pressure;
+    attribute def VolumetricFlowRate :> ISQ::volumeFlowRate;
+    attribute def HeatFlowRate :> ISQ::power;
+    attribute def Porosity {
+        attribute value : Real;
+    }
+
+    item def WorkingFluid {
+        attribute absolutePressure : ISQ::pressure;
+        attribute temperature : ISQ::temperature;
+        attribute density : ISQ::density;
+        attribute dynamicViscosity : ISQ::dynamicViscosity;
+        attribute molarMass : ISQ::molarMass;
+        attribute meanFreePath : ISQ::length;
+    }
+
+    item def ThermalEnergy {
+        attribute heatRate : ISQ::power;
+        attribute sourceTemperature : ISQ::temperature;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ISQ::electricPotential;
+        attribute current : ISQ::electricCurrent;
+        attribute power : ISQ::power;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommandKind;
+        attribute requestedFlowRate : VolumetricFlowRate;
+        attribute requestedOutletPressure : ISQ::pressure;
+    }
+
+    enum def PumpCommandKind {
+        enum idle;
+        enum start;
+        enum regulateFlow;
+        enum regulatePressure;
+        enum purge;
+        enum shutdown;
+        enum faultReset;
+    }
+
+    enum def PumpHealthKind {
+        enum nominal;
+        enum warming;
+        enum degraded;
+        enum blocked;
+        enum overTemperature;
+        enum sensorFault;
+        enum powerFault;
+        enum shutdown;
+    }
+
+    port def FluidPort {
+        inout fluid : WorkingFluid;
+        attribute portPressure : ISQ::pressure;
+        attribute portTemperature : ISQ::temperature;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    port def ThermalPort {
+        inout heat : ThermalEnergy;
+        attribute heatRate : ISQ::power;
+        attribute interfaceTemperature : ISQ::temperature;
+    }
+
+    port def PowerPort {
+        in powerIn : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in commandIn : ControlSignal;
+    }
+
+    port def TelemetryPort {
+        out inletPressure : ISQ::pressure;
+        out outletPressure : ISQ::pressure;
+        out hotSideTemperature : ISQ::temperature;
+        out coldSideTemperature : ISQ::temperature;
+        out measuredFlowRate : VolumetricFlowRate;
+        out health : PumpHealthKind;
+    }
+
+    part def PorousKnudsenMembrane {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port hotThermalFace : ThermalPort;
+        port coldThermalFace : ThermalPort;
+
+        attribute membraneThickness : ISQ::length = 1.5 [mm];
+        attribute activeArea : ISQ::area = 0.012 [m^2];
+        attribute meanPoreRadius : ISQ::length = 80 [nm];
+        attribute porosity : Real = 0.42;
+        attribute tortuosity : Real = 2.1;
+        attribute accommodationCoefficient : Real = 0.92;
+        attribute maximumAllowableTemperature : ISQ::temperature = 525 [K];
+        attribute nominalTemperatureDifference : TemperatureDifference = 80 [K];
+        attribute knudsenNumber : Real;
+        attribute generatedPressureRise : PressureDifference;
+        attribute transmittedFlowRate : VolumetricFlowRate;
+
+        constraint knudsenTransport {
+            generatedPressureRise > 0 [Pa];
+            generatedPressureRise <= 12000 [Pa];
+            transmittedFlowRate >= 0 [m^3/s];
+            knudsenNumber >= 1.0;
+            hotThermalFace.interfaceTemperature > coldThermalFace.interfaceTemperature;
+            generatedPressureRise ==
+                outlet.portPressure - inlet.portPressure;
+        }
+    }
+
+    part def MicrochannelManifold {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute channelCount : Integer = 48;
+        attribute hydraulicDiameter : ISQ::length = 250 [um];
+        attribute wettedLength : ISQ::length = 65 [mm];
+        attribute internalVolume : ISQ::volume = 4.8 [cm^3];
+        attribute pressureLossAtNominalFlow : ISQ::pressure = 650 [Pa];
+        attribute maximumParticleSize : ISQ::length = 10 [um];
+    }
+
+    part def ThermalGradientStage {
+        port thermalSupply : ThermalPort;
+        port wasteHeatReject : ThermalPort;
+        port membraneHotFace : ThermalPort;
+        port membraneColdFace : ThermalPort;
+        port power : PowerPort;
+
+        part heater {
+            port power : PowerPort;
+            port heatOut : ThermalPort;
+            attribute electricalResistance : ISQ::resistance = 24 [Ohm];
+            attribute maximumPower : ISQ::power = 35 [W];
+            attribute commandedPower : ISQ::power;
+            attribute heaterTemperature : ISQ::temperature;
+        }
+
+        part heatSink {
+            port heatIn : ThermalPort;
+            port reject : ThermalPort;
+            attribute thermalResistanceToAmbient : ISQ::thermalResistance = 1.8 [K/W];
+            attribute heatSinkTemperature : ISQ::temperature;
+            attribute rejectedHeatRate : ISQ::power;
+        }
+
+        part thermalSpreader {
+            port heatIn : ThermalPort;
+            port hotFace : ThermalPort;
+            attribute conductance : ISQ::thermalConductance = 4.5 [W/K];
+            attribute spreadingEfficiency : Real = 0.87;
+        }
+
+        attribute hotSideTemperature : ISQ::temperature;
+        attribute coldSideTemperature : ISQ::temperature;
+        attribute temperatureDifference : TemperatureDifference;
+        attribute warmupTime : ISQ::time = 18 [s];
+        attribute maximumGradient : TemperatureDifference = 130 [K];
+
+        connect power to heater.power;
+        connect heater.heatOut to thermalSpreader.heatIn;
+        connect thermalSpreader.hotFace to membraneHotFace;
+        connect membraneColdFace to heatSink.heatIn;
+        connect heatSink.reject to wasteHeatReject;
+
+        constraint thermalGradientLimit {
+            temperatureDifference == hotSideTemperature - coldSideTemperature;
+            temperatureDifference >= 0 [K];
+            temperatureDifference <= maximumGradient;
+            hotSideTemperature <= 520 [K];
+        }
+    }
+
+    part def FlowSensor {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute measuredFlowRate : VolumetricFlowRate;
+        attribute measurementRangeMaximum : VolumetricFlowRate = 1.2e-6 [m^3/s];
+        attribute accuracy : Real = 0.03;
+        attribute responseTime : ISQ::time = 120 [ms];
+
+        connect inlet to outlet;
+    }
+
+    part def PressureSensor {
+        port sensedFluid : FluidPort;
+
+        attribute measuredPressure : ISQ::pressure;
+        attribute rangeMinimum : ISQ::pressure = 20 [kPa];
+        attribute rangeMaximum : ISQ::pressure = 250 [kPa];
+        attribute accuracy : Real = 0.005;
+    }
+
+    part def TemperatureSensor {
+        port thermalInterface : ThermalPort;
+
+        attribute measuredTemperature : ISQ::temperature;
+        attribute rangeMinimum : ISQ::temperature = 250 [K];
+        attribute rangeMaximum : ISQ::temperature = 550 [K];
+        attribute accuracy : ISQ::temperature = 0.5 [K];
+    }
+
+    part def IsolationValve {
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        attribute isOpen : Boolean;
+        attribute leakageWhenClosed : VolumetricFlowRate = 1.0e-11 [m^3/s];
+        attribute openPressureDrop : ISQ::pressure = 80 [Pa];
+        attribute actuationTime : ISQ::time = 220 [ms];
+
+        action openValve {
+            first start;
+            then setOpen;
+            action setOpen {
+                out openState : Boolean = true;
+            }
+        }
+
+        action closeValve {
+            first start;
+            then setClosed;
+            action setClosed {
+                out openState : Boolean = false;
+            }
+        }
+    }
+
+    part def KnudsenPumpController {
+        port command : CommandPort;
+        port telemetry : TelemetryPort;
+        port powerInput : PowerPort;
+
+        attribute commandedFlowRate : VolumetricFlowRate;
+        attribute commandedOutletPressure : ISQ::pressure;
+        attribute heaterPowerCommand : ISQ::power;
+        attribute valveOpenCommand : Boolean;
+        attribute healthState : PumpHealthKind;
+        attribute startupTemperatureDifference : TemperatureDifference = 45 [K];
+        attribute nominalOutletPressure : ISQ::pressure = 135 [kPa];
+        attribute nominalFlowRate : VolumetricFlowRate = 4.0e-7 [m^3/s];
+        attribute maximumSafeHotSideTemperature : ISQ::temperature = 515 [K];
+        attribute minimumEffectiveTemperatureDifference : TemperatureDifference = 25 [K];
+
+        state def ControllerStateMachine {
+            entry action initialize {
+                out initialHeaterPower : ISQ::power = 0 [W];
+                out initialValveCommand : Boolean = false;
+            }
+
+            state off;
+            state standby;
+            state warming;
+            state pumping;
+            state pressureRegulation;
+            state flowRegulation;
+            state purging;
+            state faulted;
+            state coolingDown;
+
+            transition first off then standby
+                accept command.commandIn.command == PumpCommandKind::faultReset;
+
+            transition standby then warming
+                accept command.commandIn.command == PumpCommandKind::start
+                do enableHeater;
+
+            transition warming then pumping
+                accept telemetry.hotSideTemperature - telemetry.coldSideTemperature >= startupTemperatureDifference
+                do openFlowPath;
+
+            transition pumping then flowRegulation
+                accept command.commandIn.command == PumpCommandKind::regulateFlow;
+
+            transition pumping then pressureRegulation
+                accept command.commandIn.command == PumpCommandKind::regulatePressure;
+
+            transition flowRegulation then pumping
+                accept command.commandIn.command == PumpCommandKind::idle;
+
+            transition pressureRegulation then pumping
+                accept command.commandIn.command == PumpCommandKind::idle;
+
+            transition pumping then purging
+                accept command.commandIn.command == PumpCommandKind::purge
+                do commandPurgeFlow;
+
+            transition purging then standby
+                accept command.commandIn.command == PumpCommandKind::idle
+                do closeFlowPath;
+
+            transition standby then off
+                accept command.commandIn.command == PumpCommandKind::shutdown;
+
+            transition warming then coolingDown
+                accept command.commandIn.command == PumpCommandKind::shutdown
+                do disableHeater;
+
+            transition pumping then coolingDown
+                accept command.commandIn.command == PumpCommandKind::shutdown
+                do disableHeater;
+
+            transition coolingDown then off
+                accept telemetry.hotSideTemperature < 315 [K]
+                do closeFlowPath;
+
+            transition warming then faulted
+                accept telemetry.hotSideTemperature > maximumSafeHotSideTemperature
+                do isolateFault;
+
+            transition pumping then faulted
+                accept telemetry.health != PumpHealthKind::nominal
+                do isolateFault;
+
+            transition flowRegulation then faulted
+                accept telemetry.health != PumpHealthKind::nominal
+                do isolateFault;
+
+            transition pressureRegulation then faulted
+                accept telemetry.health != PumpHealthKind::nominal
+                do isolateFault;
+
+            transition faulted then standby
+                accept command.commandIn.command == PumpCommandKind::faultReset
+                do resetFault;
+
+            action enableHeater {
+                out heaterPower : ISQ::power = 18 [W];
+            }
+
+            action disableHeater {
+                out heaterPower : ISQ::power = 0 [W];
+            }
+
+            action openFlowPath {
+                out valveCommand : Boolean = true;
+            }
+
+            action closeFlowPath {
+                out valveCommand : Boolean = false;
+            }
+
+            action commandPurgeFlow {
+                out heaterPower : ISQ::power = 28 [W];
+                out valveCommand : Boolean = true;
+            }
+
+            action isolateFault {
+                out heaterPower : ISQ::power = 0 [W];
+                out valveCommand : Boolean = false;
+            }
+
+            action resetFault {
+                out health : PumpHealthKind = PumpHealthKind::nominal;
+            }
+        }
+    }
+
+    part def KnudsenPumpingSubsystem {
+        port fluidInlet : FluidPort;
+        port fluidOutlet : FluidPort;
+        port electricalInput : PowerPort;
+        port heatReject : ThermalPort;
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+
+        part inletValve : IsolationValve;
+        part inletManifold : MicrochannelManifold;
+        part membrane : PorousKnudsenMembrane;
+        part outletManifold : MicrochannelManifold;
+        part outletValve : IsolationValve;
+        part flowSensor : FlowSensor;
+        part inletPressureSensor : PressureSensor;
+        part outletPressureSensor : PressureSensor;
+        part hotTemperatureSensor : TemperatureSensor;
+        part coldTemperatureSensor : TemperatureSensor;
+        part thermalStage : ThermalGradientStage;
+        part controller : KnudsenPumpController;
+
+        attribute designFluid : WorkingFluid;
+        attribute nominalInletPressure : ISQ::pressure = 101.3 [kPa];
+        attribute nominalOutletPressure : ISQ::pressure = 110.0 [kPa];
+        attribute maximumOutletPressure : ISQ::pressure = 130.0 [kPa];
+        attribute minimumOperatingPressure : ISQ::pressure = 20.0 [kPa];
+        attribute nominalFlowRate : VolumetricFlowRate = 4.0e-7 [m^3/s];
+        attribute maximumFlowRate : VolumetricFlowRate = 9.0e-7 [m^3/s];
+        attribute minimumStartupTemperatureDifference : TemperatureDifference = 45 [K];
+        attribute nominalTemperatureDifference : TemperatureDifference = 80 [K];
+        attribute maximumElectricalPower : ISQ::power = 42 [W];
+        attribute dryMass : ISQ::mass = 0.86 [kg];
+        attribute internalFluidVolume : ISQ::volume = 14.2 [cm^3];
+        attribute health : PumpHealthKind;
+
+        connect fluidInlet to inletValve.upstream;
+        connect inletValve.downstream to inletManifold.inlet;
+        connect inletManifold.outlet to inletPressureSensor.sensedFluid;
+        connect inletManifold.outlet to membrane.inlet;
+        connect membrane.outlet to outletManifold.inlet;
+        connect outletManifold.outlet to outletPressureSensor.sensedFluid;
+        connect outletManifold.outlet to flowSensor.inlet;
+        connect flowSensor.outlet to outletValve.upstream;
+        connect outletValve.downstream to fluidOutlet;
+
+        connect electricalInput to thermalStage.power;
+        connect electricalInput to controller.powerInput;
+        connect thermalStage.wasteHeatReject to heatReject;
+        connect thermalStage.membraneHotFace to membrane.hotThermalFace;
+        connect thermalStage.membraneColdFace to membrane.coldThermalFace;
+        connect hotTemperatureSensor.thermalInterface to membrane.hotThermalFace;
+        connect coldTemperatureSensor.thermalInterface to membrane.coldThermalFace;
+
+        connect commandInput to controller.command;
+        connect controller.telemetry to telemetryOutput;
+
+        action startPump {
+            in requestedFlow : VolumetricFlowRate;
+            first validateCommand;
+            then warmMembrane;
+            then openValves;
+            then regulateTransport;
+
+            action validateCommand {
+                in requestedFlow : VolumetricFlowRate;
+                out accepted : Boolean;
+            }
+
+            action warmMembrane {
+                in targetTemperatureDifference : TemperatureDifference = nominalTemperatureDifference;
+                out heaterPower : ISQ::power;
+            }
+
+            action openValves {
+                out inletValveOpen : Boolean = true;
+                out outletValveOpen : Boolean = true;
+            }
+
+            action regulateTransport {
+                in flowSetpoint : VolumetricFlowRate;
+                out achievedFlow : VolumetricFlowRate;
+                out pressureRise : PressureDifference;
+            }
+        }
+
+        action stopPump {
+            first rampDownHeater;
+            then closeOutletValve;
+            then closeInletValve;
+            then reportStopped;
+
+            action rampDownHeater {
+                out heaterPower : ISQ::power = 0 [W];
+            }
+
+            action closeOutletValve {
+                out valveOpen : Boolean = false;
+            }
+
+            action closeInletValve {
+                out valveOpen : Boolean = false;
+            }
+
+            action reportStopped {
+                out healthState : PumpHealthKind = PumpHealthKind::shutdown;
+            }
+        }
+
+        action regulateFlow {
+            in setpoint : VolumetricFlowRate;
+            in measuredFlow : VolumetricFlowRate;
+            out heaterPowerCorrection : ISQ::power;
+
+            constraint flowControlBounds {
+                setpoint >= 5.0e-8 [m^3/s];
+                setpoint <= maximumFlowRate;
+            }
+        }
+
+        action regulatePressure {
+            in setpoint : ISQ::pressure;
+            in measuredOutletPressure : ISQ::pressure;
+            out heaterPowerCorrection : ISQ::power;
+
+            constraint pressureControlBounds {
+                setpoint <= maximumOutletPressure;
+                setpoint >= nominalInletPressure;
+            }
+        }
+
+        constraint performanceEnvelope {
+            nominalOutletPressure - nominalInletPressure >= 8500 [Pa];
+            maximumOutletPressure <= 130 [kPa];
+            maximumFlowRate <= 9.0e-7 [m^3/s];
+            maximumElectricalPower <= 42 [W];
+            nominalTemperatureDifference >= minimumStartupTemperatureDifference;
+        }
+
+        constraint thermalSafety {
+            thermalStage.hotSideTemperature <= 515 [K];
+            thermalStage.coldSideTemperature <= 390 [K];
+            thermalStage.temperatureDifference <= 130 [K];
+        }
+
+        constraint fluidCompatibility {
+            membrane.meanPoreRadius < 0.5 * designFluid.meanFreePath;
+            designFluid.dynamicViscosity > 0 [Pa*s];
+            designFluid.absolutePressure >= minimumOperatingPressure;
+        }
+    }
+
+    requirement def PumpingFunctionRequirement {
+        doc /* The subsystem shall move working fluid from inlet to outlet using thermal transpiration through a porous Knudsen membrane. */
+        subject pump : KnudsenPumpingSubsystem;
+
+        require constraint {
+            pump.fluidOutlet.portPressure > pump.fluidInlet.portPressure;
+            pump.membrane.generatedPressureRise >= 8500 [Pa];
+            pump.flowSensor.measuredFlowRate >= 4.0e-7 [m^3/s];
+        }
+    }
+
+    requirement def ThermalGradientRequirement {
+        doc /* The subsystem shall establish and maintain a temperature difference across the Knudsen membrane sufficient to generate molecular flow. */
+        subject pump : KnudsenPumpingSubsystem;
+
+        require constraint {
+            pump.thermalStage.temperatureDifference >= 45 [K];
+            pump.thermalStage.temperatureDifference <= 130 [K];
+            pump.thermalStage.hotSideTemperature <= 515 [K];
+        }
+    }
+
+    requirement def NoMovingFluidMachineryRequirement {
+        doc /* The pumping pressure shall be produced without rotating impellers, diaphragms, pistons, or other moving fluid-displacement machinery in the primary pumping element. */
+        subject pump : KnudsenPumpingSubsystem;
+
+        require constraint {
+            pump.membrane.meanPoreRadius <= 100 [nm];
+            pump.membrane.knudsenNumber >= 1.0;
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The subsystem shall operate from an electrical supply without exceeding the specified steady-state power budget. */
+        subject pump : KnudsenPumpingSubsystem;
+
+        require constraint {
+            pump.maximumElectricalPower <= 42 [W];
+        }
+    }
+
+    requirement def IsolationRequirement {
+        doc /* The subsystem shall isolate the fluid path during shutdown and faulted operation. */
+        subject pump : KnudsenPumpingSubsystem;
+
+        require constraint {
+            pump.inletValve.leakageWhenClosed <= 1.0e-11 [m^3/s];
+            pump.outletValve.leakageWhenClosed <= 1.0e-11 [m^3/s];
+        }
+    }
+
+    requirement def SensingRequirement {
+        doc /* The subsystem shall measure inlet pressure, outlet pressure, membrane hot-side temperature, membrane cold-side temperature, and delivered flow rate for closed-loop control. */
+        subject pump : KnudsenPumpingSubsystem;
+
+        require constraint {
+            pump.inletPressureSensor.accuracy <= 0.005;
+            pump.outletPressureSensor.accuracy <= 0.005;
+            pump.flowSensor.accuracy <= 0.03;
+            pump.hotTemperatureSensor.accuracy <= 0.5 [K];
+            pump.coldTemperatureSensor.accuracy <= 0.5 [K];
+        }
+    }
+
+    requirement def FaultProtectionRequirement {
+        doc /* The subsystem shall remove heater power and close isolation valves if excessive temperature, blocked flow, or sensor fault conditions are detected. */
+        subject pump : KnudsenPumpingSubsystem;
+
+        require constraint {
+            pump.thermalStage.hotSideTemperature <= 515 [K];
+            pump.health != PumpHealthKind::overTemperature;
+            pump.health != PumpHealthKind::blocked;
+            pump.health != PumpHealthKind::sensorFault;
+        }
+    }
+
+    satisfy PumpingFunctionRequirement by KnudsenPumpingSubsystem;
+    satisfy ThermalGradientRequirement by KnudsenPumpingSubsystem;
+    satisfy NoMovingFluidMachineryRequirement by PorousKnudsenMembrane;
+    satisfy PowerRequirement by ThermalGradientStage;
+    satisfy IsolationRequirement by IsolationValve;
+    satisfy SensingRequirement by FlowSensor;
+    satisfy SensingRequirement by PressureSensor;
+    satisfy SensingRequirement by TemperatureSensor;
+    satisfy FaultProtectionRequirement by KnudsenPumpController;
+
+    part exampleSubsystem : KnudsenPumpingSubsystem {
+        attribute designFluid : WorkingFluid {
+            attribute absolutePressure = 101.3 [kPa];
+            attribute temperature = 300 [K];
+            attribute density = 1.18 [kg/m^3];
+            attribute dynamicViscosity = 18.5e-6 [Pa*s];
+            attribute molarMass = 28.97e-3 [kg/mol];
+            attribute meanFreePath = 68 [nm];
+        }
+
+        attribute nominalInletPressure = 101.3 [kPa];
+        attribute nominalOutletPressure = 110.0 [kPa];
+        attribute nominalFlowRate = 4.0e-7 [m^3/s];
+        attribute nominalTemperatureDifference = 80 [K];
+        attribute health = PumpHealthKind::nominal;
+    }
+}

@@ -1,0 +1,737 @@
+package MobileRobotPrimaryTaskSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Meter {
+        :>> unit = "m";
+        :>> quantityKind = "length";
+    }
+
+    attribute def Second {
+        :>> unit = "s";
+        :>> quantityKind = "time";
+    }
+
+    attribute def Kilogram {
+        :>> unit = "kg";
+        :>> quantityKind = "mass";
+    }
+
+    attribute def MeterPerSecond {
+        :>> unit = "m/s";
+        :>> quantityKind = "speed";
+    }
+
+    attribute def Watt {
+        :>> unit = "W";
+        :>> quantityKind = "power";
+    }
+
+    attribute def Volt {
+        :>> unit = "V";
+        :>> quantityKind = "electricPotential";
+    }
+
+    attribute def AmpereHour {
+        :>> unit = "A*h";
+        :>> quantityKind = "electricCharge";
+    }
+
+    attribute def Percent {
+        :>> unit = "%";
+        :>> quantityKind = "ratio";
+    }
+
+    attribute def Degree {
+        :>> unit = "deg";
+        :>> quantityKind = "angle";
+    }
+
+    attribute def Newton {
+        :>> unit = "N";
+        :>> quantityKind = "force";
+    }
+
+    item def Pose {
+        attribute x : Real;
+        attribute y : Real;
+        attribute heading : Real;
+    }
+
+    item def Velocity {
+        attribute linear : Real;
+        attribute angular : Real;
+    }
+
+    item def NavigationGoal {
+        attribute goalPose : Pose;
+        attribute allowedPositionError : Real;
+        attribute allowedHeadingError : Real;
+    }
+
+    item def NavigationStatus {
+        attribute currentPose : Pose;
+        attribute distanceRemaining : Real;
+        attribute estimatedTimeRemaining : Real;
+        attribute statusCode : NavigationStatusCode;
+    }
+
+    enum def NavigationStatusCode {
+        enum idle;
+        enum planning;
+        enum moving;
+        enum blocked;
+        enum arrived;
+        enum failed;
+    }
+
+    item def ObstacleReport {
+        attribute obstacleDetected : Boolean;
+        attribute nearestObstacleDistance : Real;
+        attribute bearing : Real;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : Real;
+        attribute voltage : Real;
+        attribute currentDraw : Real;
+        attribute remainingRuntime : Real;
+    }
+
+    item def PayloadItem {
+        attribute identifier : String;
+        attribute mass : Real;
+        attribute fragile : Boolean;
+        attribute pickupPose : Pose;
+        attribute deliveryPose : Pose;
+    }
+
+    item def TaskOrder {
+        attribute orderId : String;
+        attribute payload : PayloadItem;
+        attribute priority : Integer;
+        attribute deadline : Real;
+    }
+
+    item def TaskResult {
+        attribute orderId : String;
+        attribute completed : Boolean;
+        attribute completionTime : Real;
+        attribute finalPose : Pose;
+        attribute faultCode : String;
+    }
+
+    item def MotorCommand {
+        attribute leftWheelSpeed : Real;
+        attribute rightWheelSpeed : Real;
+    }
+
+    item def MotorTelemetry {
+        attribute leftWheelSpeed : Real;
+        attribute rightWheelSpeed : Real;
+        attribute leftMotorCurrent : Real;
+        attribute rightMotorCurrent : Real;
+    }
+
+    port def TaskCommandPort {
+        in item order : TaskOrder;
+        out item result : TaskResult;
+    }
+
+    port def NavigationPort {
+        in item goal : NavigationGoal;
+        out item status : NavigationStatus;
+    }
+
+    port def MotionCommandPort {
+        in item command : MotorCommand;
+        out item telemetry : MotorTelemetry;
+    }
+
+    port def SensorPort {
+        out item pose : Pose;
+        out item velocity : Velocity;
+        out item obstacleReport : ObstacleReport;
+    }
+
+    port def BatteryPort {
+        out item batteryStatus : BatteryStatus;
+    }
+
+    port def PayloadPort {
+        in item payloadCommand : PayloadItem;
+        out item payloadState : PayloadItem;
+    }
+
+    port def OperatorPort {
+        in item taskOrder : TaskOrder;
+        out item taskResult : TaskResult;
+        out item robotStatus : NavigationStatus;
+        out item powerStatus : BatteryStatus;
+    }
+
+    part def RoboticDeliverySystem {
+        attribute maximumPayloadMass : Real = 8.0;
+        attribute nominalOperatingSpeed : Real = 1.2;
+        attribute minimumSafeBatteryCharge : Real = 20.0;
+
+        port operatorInterface : OperatorPort;
+
+        part mobileRobot : MobileRobot;
+        part taskSupervisor : TaskSupervisor;
+        part chargingDock : ChargingDock;
+
+        connect operatorInterface.taskOrder to taskSupervisor.operatorOrders.order;
+        connect taskSupervisor.operatorOrders.result to operatorInterface.taskResult;
+
+        connect taskSupervisor.robotTaskOrders.order to mobileRobot.taskInterface.order;
+        connect mobileRobot.taskInterface.result to taskSupervisor.robotTaskOrders.result;
+
+        connect mobileRobot.navigationStatus.status to operatorInterface.robotStatus;
+        connect mobileRobot.powerSystem.batteryTelemetry.batteryStatus to operatorInterface.powerStatus;
+
+        connect mobileRobot.dockPowerConnector to chargingDock.robotPowerConnector;
+    }
+
+    part def MobileRobot {
+        attribute mass : Real = 42.0;
+        attribute maximumSpeed : Real = 1.8;
+        attribute safeStoppingDistance : Real = 0.45;
+        attribute wheelBase : Real = 0.52;
+        attribute bodyLength : Real = 0.78;
+        attribute bodyWidth : Real = 0.55;
+
+        port taskInterface : TaskCommandPort;
+        port navigationStatus : NavigationPort;
+        port dockPowerConnector : BatteryPort;
+
+        part chassis : Chassis;
+        part driveBase : DifferentialDriveBase;
+        part perceptionSystem : PerceptionSystem;
+        part localizationSystem : LocalizationSystem;
+        part navigationController : NavigationController;
+        part payloadHandler : PayloadHandler;
+        part powerSystem : PowerSystem;
+        part safetyController : SafetyController;
+        part taskExecutive : RobotTaskExecutive;
+
+        connect taskInterface.order to taskExecutive.taskOrders.order;
+        connect taskExecutive.taskOrders.result to taskInterface.result;
+
+        connect taskExecutive.navigationRequests.goal to navigationController.navigationCommand.goal;
+        connect navigationController.navigationCommand.status to taskExecutive.navigationRequests.status;
+
+        connect localizationSystem.poseEstimate.pose to navigationController.sensorInput.pose;
+        connect localizationSystem.poseEstimate.velocity to navigationController.sensorInput.velocity;
+        connect perceptionSystem.obstacleOutput.obstacleReport to navigationController.sensorInput.obstacleReport;
+
+        connect navigationController.motionOutput.command to safetyController.motionInput.command;
+        connect safetyController.safeMotionOutput.command to driveBase.motionCommand.command;
+        connect driveBase.motionCommand.telemetry to safetyController.safeMotionOutput.telemetry;
+
+        connect powerSystem.batteryTelemetry.batteryStatus to taskExecutive.batteryInput.batteryStatus;
+        connect powerSystem.batteryTelemetry.batteryStatus to safetyController.batteryInput.batteryStatus;
+
+        connect taskExecutive.payloadControl.payloadCommand to payloadHandler.payloadInterface.payloadCommand;
+        connect payloadHandler.payloadInterface.payloadState to taskExecutive.payloadControl.payloadState;
+
+        connect navigationController.navigationCommand.status to navigationStatus.status;
+    }
+
+    part def Chassis {
+        attribute frameMass : Real = 12.5;
+        attribute payloadMountHeight : Real = 0.42;
+        attribute enclosureIngressProtectionRating : String = "IP54";
+    }
+
+    part def DifferentialDriveBase {
+        attribute wheelRadius : Real = 0.105;
+        attribute maximumWheelTorque : Real = 18.0;
+        attribute maximumDrivePower : Real = 650.0;
+
+        port motionCommand : MotionCommandPort;
+
+        part leftMotor : DriveMotor;
+        part rightMotor : DriveMotor;
+        part leftWheel : Wheel;
+        part rightWheel : Wheel;
+
+        connect motionCommand.command.leftWheelSpeed to leftMotor.commandedSpeed;
+        connect motionCommand.command.rightWheelSpeed to rightMotor.commandedSpeed;
+        connect leftMotor.actualSpeed to motionCommand.telemetry.leftWheelSpeed;
+        connect rightMotor.actualSpeed to motionCommand.telemetry.rightWheelSpeed;
+        connect leftMotor.currentDraw to motionCommand.telemetry.leftMotorCurrent;
+        connect rightMotor.currentDraw to motionCommand.telemetry.rightMotorCurrent;
+    }
+
+    part def DriveMotor {
+        attribute ratedVoltage : Real = 24.0;
+        attribute peakTorque : Real = 18.0;
+        attribute commandedSpeed : Real;
+        attribute actualSpeed : Real;
+        attribute currentDraw : Real;
+    }
+
+    part def Wheel {
+        attribute diameter : Real = 0.21;
+        attribute treadMaterial : String = "non-marking rubber";
+    }
+
+    part def PerceptionSystem {
+        port obstacleOutput : SensorPort;
+
+        part lidar : LidarSensor;
+        part frontDepthCamera : DepthCamera;
+        part bumperArray : ContactBumperArray;
+
+        connect lidar.obstacleReport to obstacleOutput.obstacleReport;
+    }
+
+    part def LidarSensor {
+        attribute range : Real = 12.0;
+        attribute angularResolution : Real = 0.5;
+        attribute scanRate : Real = 15.0;
+
+        out item obstacleReport : ObstacleReport;
+    }
+
+    part def DepthCamera {
+        attribute range : Real = 6.0;
+        attribute horizontalFieldOfView : Real = 87.0;
+        attribute verticalFieldOfView : Real = 58.0;
+    }
+
+    part def ContactBumperArray {
+        attribute frontContactDetected : Boolean;
+        attribute rearContactDetected : Boolean;
+        attribute leftContactDetected : Boolean;
+        attribute rightContactDetected : Boolean;
+    }
+
+    part def LocalizationSystem {
+        port poseEstimate : SensorPort;
+
+        part wheelEncoders : WheelEncoderSet;
+        part inertialMeasurementUnit : InertialMeasurementUnit;
+        part mapMatcher : MapMatcher;
+
+        connect mapMatcher.estimatedPose to poseEstimate.pose;
+        connect mapMatcher.estimatedVelocity to poseEstimate.velocity;
+    }
+
+    part def WheelEncoderSet {
+        attribute ticksPerRevolution : Integer = 4096;
+        attribute leftWheelDistance : Real;
+        attribute rightWheelDistance : Real;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute yawRate : Real;
+        attribute accelerationX : Real;
+        attribute accelerationY : Real;
+    }
+
+    part def MapMatcher {
+        attribute mapResolution : Real = 0.05;
+        attribute poseConfidence : Real;
+
+        out item estimatedPose : Pose;
+        out item estimatedVelocity : Velocity;
+    }
+
+    part def NavigationController {
+        attribute pathUpdateRate : Real = 10.0;
+        attribute obstacleClearance : Real = 0.35;
+        attribute maximumPlanLength : Real = 80.0;
+
+        port navigationCommand : NavigationPort;
+        port sensorInput : SensorPort;
+        port motionOutput : MotionCommandPort;
+
+        perform action planAndFollowPath;
+    }
+
+    part def PayloadHandler {
+        attribute gripperOpeningWidth : Real = 0.36;
+        attribute maximumLiftForce : Real = 120.0;
+        attribute secured : Boolean;
+
+        port payloadInterface : PayloadPort;
+
+        part liftActuator : LiftActuator;
+        part gripper : Gripper;
+        part payloadPresenceSensor : PayloadPresenceSensor;
+    }
+
+    part def LiftActuator {
+        attribute liftHeight : Real = 0.28;
+        attribute liftSpeed : Real = 0.04;
+    }
+
+    part def Gripper {
+        attribute gripForce : Real = 65.0;
+        attribute open : Boolean;
+    }
+
+    part def PayloadPresenceSensor {
+        attribute payloadDetected : Boolean;
+    }
+
+    part def PowerSystem {
+        attribute nominalVoltage : Real = 24.0;
+        attribute batteryCapacity : Real = 42.0;
+        attribute maximumContinuousPower : Real = 900.0;
+
+        port batteryTelemetry : BatteryPort;
+
+        part batteryPack : BatteryPack;
+        part powerDistributionUnit : PowerDistributionUnit;
+
+        connect batteryPack.status to batteryTelemetry.batteryStatus;
+    }
+
+    part def BatteryPack {
+        attribute stateOfCharge : Real = 100.0;
+        attribute voltage : Real = 25.2;
+        attribute capacity : Real = 42.0;
+        attribute maximumDischargeCurrent : Real = 45.0;
+
+        out item status : BatteryStatus;
+    }
+
+    part def PowerDistributionUnit {
+        attribute driveRailVoltage : Real = 24.0;
+        attribute computeRailVoltage : Real = 12.0;
+        attribute sensorRailVoltage : Real = 5.0;
+    }
+
+    part def SafetyController {
+        attribute emergencyStopActive : Boolean;
+        attribute speedLimitWhenObstacleNear : Real = 0.25;
+        attribute minimumObstacleDistance : Real = 0.30;
+
+        port motionInput : MotionCommandPort;
+        port safeMotionOutput : MotionCommandPort;
+        port batteryInput : BatteryPort;
+
+        perform action enforceSafetyLimits;
+    }
+
+    part def RobotTaskExecutive {
+        attribute activeOrderId : String;
+        attribute taskStartTime : Real;
+        attribute taskTimeout : Real = 900.0;
+
+        port taskOrders : TaskCommandPort;
+        port navigationRequests : NavigationPort;
+        port payloadControl : PayloadPort;
+        port batteryInput : BatteryPort;
+
+        perform action executeDeliveryTask;
+        exhibit state robotMissionState;
+    }
+
+    part def TaskSupervisor {
+        attribute queuedOrders : Integer;
+        attribute completedOrders : Integer;
+
+        port operatorOrders : TaskCommandPort;
+        port robotTaskOrders : TaskCommandPort;
+    }
+
+    part def ChargingDock {
+        attribute dockPose : Pose;
+        attribute chargeVoltage : Real = 29.4;
+        attribute chargeCurrent : Real = 8.0;
+
+        port robotPowerConnector : BatteryPort;
+    }
+
+    action def ExecuteDeliveryTask {
+        in item order : TaskOrder;
+        in item battery : BatteryStatus;
+        out item result : TaskResult;
+
+        first start;
+        then verifyPayloadCapacity;
+        then navigateToPickup;
+        then acquirePayload;
+        then navigateToDelivery;
+        then releasePayload;
+        then reportCompletion;
+
+        action start {
+            out item activeOrder : TaskOrder;
+        }
+
+        action verifyPayloadCapacity {
+            in item activeOrder : TaskOrder;
+            out item acceptedOrder : TaskOrder;
+        }
+
+        action navigateToPickup {
+            in item acceptedOrder : TaskOrder;
+            out item pickupArrivalStatus : NavigationStatus;
+        }
+
+        action acquirePayload {
+            in item acceptedOrder : TaskOrder;
+            out item securedPayload : PayloadItem;
+        }
+
+        action navigateToDelivery {
+            in item securedPayload : PayloadItem;
+            out item deliveryArrivalStatus : NavigationStatus;
+        }
+
+        action releasePayload {
+            in item securedPayload : PayloadItem;
+            out item releasedPayload : PayloadItem;
+        }
+
+        action reportCompletion {
+            in item releasedPayload : PayloadItem;
+            out item result : TaskResult;
+        }
+    }
+
+    action def PlanAndFollowPath {
+        in item goal : NavigationGoal;
+        in item currentPose : Pose;
+        in item obstacleReport : ObstacleReport;
+        out item command : MotorCommand;
+        out item status : NavigationStatus;
+
+        first computeRoute;
+        then trackRoute;
+        then updateStatus;
+
+        action computeRoute {
+            in item goal : NavigationGoal;
+            in item currentPose : Pose;
+            out item routeFeasible : Boolean;
+        }
+
+        action trackRoute {
+            in item obstacleReport : ObstacleReport;
+            in item routeFeasible : Boolean;
+            out item command : MotorCommand;
+        }
+
+        action updateStatus {
+            in item goal : NavigationGoal;
+            in item currentPose : Pose;
+            out item status : NavigationStatus;
+        }
+    }
+
+    action def EnforceSafetyLimits {
+        in item requestedCommand : MotorCommand;
+        in item obstacleReport : ObstacleReport;
+        in item battery : BatteryStatus;
+        out item limitedCommand : MotorCommand;
+
+        first evaluateObstacleClearance;
+        then evaluatePowerState;
+        then publishSafeCommand;
+
+        action evaluateObstacleClearance {
+            in item obstacleReport : ObstacleReport;
+            out item obstacleSafe : Boolean;
+        }
+
+        action evaluatePowerState {
+            in item battery : BatteryStatus;
+            out item powerSafe : Boolean;
+        }
+
+        action publishSafeCommand {
+            in item requestedCommand : MotorCommand;
+            in item obstacleSafe : Boolean;
+            in item powerSafe : Boolean;
+            out item limitedCommand : MotorCommand;
+        }
+    }
+
+    state def RobotMissionState {
+        entry action initializeMission;
+
+        state idle;
+        state acceptingTask;
+        state navigatingToPickup;
+        state acquiringPayload;
+        state navigatingToDelivery;
+        state releasingPayload;
+        state returningToDock;
+        state charging;
+        state faulted;
+        state completed;
+
+        transition initial then idle;
+
+        transition idle_to_acceptingTask
+            first idle
+            accept TaskOrder
+            then acceptingTask;
+
+        transition acceptingTask_to_navigatingToPickup
+            first acceptingTask
+            if taskValidated
+            then navigatingToPickup;
+
+        transition acceptingTask_to_faulted
+            first acceptingTask
+            if taskRejected
+            then faulted;
+
+        transition navigatingToPickup_to_acquiringPayload
+            first navigatingToPickup
+            if arrivedAtPickup
+            then acquiringPayload;
+
+        transition navigatingToPickup_to_faulted
+            first navigatingToPickup
+            if navigationFailed
+            then faulted;
+
+        transition acquiringPayload_to_navigatingToDelivery
+            first acquiringPayload
+            if payloadSecured
+            then navigatingToDelivery;
+
+        transition acquiringPayload_to_faulted
+            first acquiringPayload
+            if payloadNotDetected
+            then faulted;
+
+        transition navigatingToDelivery_to_releasingPayload
+            first navigatingToDelivery
+            if arrivedAtDelivery
+            then releasingPayload;
+
+        transition navigatingToDelivery_to_returningToDock
+            first navigatingToDelivery
+            if batteryLow
+            then returningToDock;
+
+        transition releasingPayload_to_completed
+            first releasingPayload
+            if payloadReleased
+            then completed;
+
+        transition completed_to_idle
+            first completed
+            then idle;
+
+        transition returningToDock_to_charging
+            first returningToDock
+            if arrivedAtDock
+            then charging;
+
+        transition charging_to_idle
+            first charging
+            if batteryCharged
+            then idle;
+
+        transition faulted_to_returningToDock
+            first faulted
+            if recoveryCommanded
+            then returningToDock;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject system : RoboticDeliverySystem;
+
+        require constraint {
+            system.mobileRobot.taskExecutive.taskTimeout <= 900.0
+        }
+
+        doc /* The robotic system shall perform its primary task of autonomous payload delivery using the MobileRobot as the task-executing platform. */
+    }
+
+    requirement def MobileRobotUseRequirement {
+        subject robot : MobileRobot;
+
+        require constraint {
+            robot.maximumSpeed >= 1.0
+        }
+
+        doc /* The MobileRobot shall navigate between pickup and delivery poses without relying on fixed external conveyors or manually pushed carts. */
+    }
+
+    requirement def PayloadCapacityRequirement {
+        subject robot : MobileRobot;
+
+        require constraint {
+            robot.payloadHandler.maximumLiftForce >= 80.0
+        }
+
+        doc /* The MobileRobot shall acquire, carry, and release payloads with mass up to 8 kg. */
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        subject controller : NavigationController;
+
+        require constraint {
+            controller.obstacleClearance >= 0.30
+        }
+
+        doc /* The MobileRobot shall maintain obstacle clearance of at least 0.30 m during autonomous navigation. */
+    }
+
+    requirement def BatteryRequirement {
+        subject power : PowerSystem;
+
+        require constraint {
+            power.batteryPack.stateOfCharge >= 20.0
+        }
+
+        doc /* The MobileRobot shall reserve sufficient battery energy to return to the charging dock from any active task segment. */
+    }
+
+    requirement def SafetyStopRequirement {
+        subject safety : SafetyController;
+
+        require constraint {
+            safety.minimumObstacleDistance >= 0.30
+        }
+
+        doc /* The MobileRobot shall limit or stop drive motion when an obstacle is detected inside the minimum safe distance. */
+    }
+
+    requirement def CompletionReportingRequirement {
+        subject executive : RobotTaskExecutive;
+
+        require constraint {
+            executive.taskTimeout <= 900.0
+        }
+
+        doc /* The MobileRobot shall report task completion status, final pose, completion time, and any fault code to the operator interface. */
+    }
+
+    satisfy PrimaryTaskRequirement by RoboticDeliverySystem;
+    satisfy MobileRobotUseRequirement by MobileRobot;
+    satisfy PayloadCapacityRequirement by PayloadHandler;
+    satisfy NavigationAccuracyRequirement by NavigationController;
+    satisfy BatteryRequirement by PowerSystem;
+    satisfy SafetyStopRequirement by SafetyController;
+    satisfy CompletionReportingRequirement by RobotTaskExecutive;
+
+    part roboticDeliverySystem : RoboticDeliverySystem {
+        :>> maximumPayloadMass = 8.0;
+        :>> nominalOperatingSpeed = 1.2;
+        :>> minimumSafeBatteryCharge = 20.0;
+
+        part mobileRobot {
+            :>> mass = 42.0;
+            :>> maximumSpeed = 1.8;
+            :>> safeStoppingDistance = 0.45;
+        }
+
+        part chargingDock {
+            :>> chargeVoltage = 29.4;
+            :>> chargeCurrent = 8.0;
+        }
+    }
+}

@@ -1,0 +1,710 @@
+package PumpingSubsystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    item def Fluid {
+        attribute density : MassDensity;
+        attribute dynamicViscosity : DynamicViscosity;
+        attribute vaporPressure : Pressure;
+        attribute temperature : Temperature;
+        attribute solidsVolumeFraction : Real;
+        attribute corrosive : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute frequency : Frequency;
+        attribute phaseCount : Integer;
+        attribute powerFactor : Real;
+    }
+
+    item def MechanicalRotation {
+        attribute speed : Frequency;
+        attribute torque : Torque;
+        attribute shaftPower : Power;
+        attribute direction : RotationDirectionKind;
+    }
+
+    enum def RotationDirectionKind {
+        enum clockwise;
+        enum counterClockwise;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommandKind;
+        attribute speedSetpoint : Frequency;
+        attribute enable : Boolean;
+        attribute resetFault : Boolean;
+    }
+
+    enum def PumpCommandKind {
+        enum stop;
+        enum start;
+        enum runAtSpeed;
+        enum flush;
+        enum emergencyStop;
+    }
+
+    item def StatusSignal {
+        attribute operatingState : PumpOperatingStateKind;
+        attribute actualSpeed : Frequency;
+        attribute dischargePressure : Pressure;
+        attribute suctionPressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+        attribute motorTemperature : Temperature;
+        attribute statorTemperature : Temperature;
+        attribute faultActive : Boolean;
+        attribute faultCode : FaultCodeKind;
+    }
+
+    enum def PumpOperatingStateKind {
+        enum off;
+        enum ready;
+        enum priming;
+        enum running;
+        enum flushing;
+        enum stopping;
+        enum faulted;
+    }
+
+    enum def FaultCodeKind {
+        enum none;
+        enum lowSuctionPressure;
+        enum highDischargePressure;
+        enum dryRun;
+        enum overTemperature;
+        enum overload;
+        enum sealLeak;
+        enum emergencyStopActive;
+    }
+
+    item def Leakage {
+        attribute leakRate : VolumeFlowRate;
+        attribute detected : Boolean;
+    }
+
+    port def FluidPort {
+        inout fluid : Fluid;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    port def ElectricalPowerPort {
+        in power : ElectricalPower;
+    }
+
+    port def RotationPort {
+        inout rotation : MechanicalRotation;
+    }
+
+    port def ControlPort {
+        in commandSignal : ControlSignal;
+    }
+
+    port def StatusPort {
+        out statusSignal : StatusSignal;
+    }
+
+    port def DrainPort {
+        out leakage : Leakage;
+    }
+
+    port def CoolingPort {
+        inout coolant : Fluid;
+        attribute heatRemovalRate : Power;
+    }
+
+    value def LiterPerMinute : VolumeFlowRate {
+        unit = SI::litre / SI::minute;
+    }
+
+    value def Bar : Pressure {
+        unit = 100000.0 * SI::Pa;
+    }
+
+    value def RevolutionPerMinute : Frequency {
+        unit = SI::cycle / SI::minute;
+    }
+
+    part def VariableFrequencyDrive {
+        port electricalIn : ElectricalPowerPort;
+        port controlIn : ControlPort;
+        port statusOut : StatusPort;
+        port motorRotationCommand : RotationPort;
+
+        attribute inputVoltage : ElectricPotential = 480 [SI::V];
+        attribute maxOutputFrequency : Frequency = 90 [SI::Hz];
+        attribute minOutputFrequency : Frequency = 5 [SI::Hz];
+        attribute ratedPower : Power = 15000 [SI::W];
+        attribute accelerationTime : Time = 8 [SI::s];
+        attribute decelerationTime : Time = 10 [SI::s];
+        attribute overloadLimit : Real = 1.15;
+
+        action def ConvertElectricalPower {
+            in requestedSpeed : Frequency;
+            in inputPower : ElectricalPower;
+            out commandedRotation : MechanicalRotation;
+
+            assert requestedSpeed >= minOutputFrequency;
+            assert requestedSpeed <= maxOutputFrequency;
+
+            commandedRotation.speed = requestedSpeed;
+            commandedRotation.direction = RotationDirectionKind::clockwise;
+        }
+    }
+
+    part def ElectricMotor {
+        port electricalDrive : ElectricalPowerPort;
+        port shaftOut : RotationPort;
+        port statusOut : StatusPort;
+
+        attribute ratedPower : Power = 15000 [SI::W];
+        attribute ratedSpeed : Frequency = 29.17 [SI::Hz];
+        attribute ratedTorque : Torque = 82 [SI::N * SI::m];
+        attribute efficiency : Real = 0.91;
+        attribute insulationClassTemperatureLimit : Temperature = 428.15 [SI::K];
+        attribute windingTemperature : Temperature;
+        attribute bearingTemperature : Temperature;
+
+        action def ProduceRotation {
+            in electricalInput : ElectricalPower;
+            out rotationOutput : MechanicalRotation;
+
+            rotationOutput.shaftPower = electricalInput.voltage * electricalInput.current * electricalInput.powerFactor * efficiency;
+            rotationOutput.direction = RotationDirectionKind::clockwise;
+        }
+    }
+
+    part def FlexibleCoupling {
+        port motorSide : RotationPort;
+        port pumpSide : RotationPort;
+
+        attribute torsionalStiffness : Real = 1800;
+        attribute allowableMisalignment : Length = 0.4 [SI::mm];
+        attribute serviceFactor : Real = 1.5;
+        attribute guardInstalled : Boolean = true;
+
+        action def TransmitTorque {
+            in inputRotation : MechanicalRotation;
+            out outputRotation : MechanicalRotation;
+
+            outputRotation.speed = inputRotation.speed;
+            outputRotation.torque = inputRotation.torque;
+            outputRotation.shaftPower = inputRotation.shaftPower;
+            outputRotation.direction = inputRotation.direction;
+        }
+    }
+
+    part def ProgressingCavityPumpElement {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port shaftIn : RotationPort;
+        port drain : DrainPort;
+
+        attribute nominalDisplacementPerRevolution : Volume = 0.0042 [SI::m^3];
+        attribute maximumContinuousSpeed : Frequency = 5.83 [SI::Hz];
+        attribute minimumContinuousSpeed : Frequency = 0.33 [SI::Hz];
+        attribute maximumDifferentialPressure : Pressure = 1200000 [SI::Pa];
+        attribute volumetricEfficiency : Real = 0.86;
+        attribute mechanicalEfficiency : Real = 0.78;
+        attribute rotorMaterial : String = "duplex stainless steel";
+        attribute statorMaterial : String = "nitrile elastomer";
+        attribute statorTemperatureLimit : Temperature = 358.15 [SI::K];
+        attribute allowedSolidsVolumeFraction : Real = 0.18;
+        attribute dryRunMaximumDuration : Time = 5 [SI::s];
+
+        action def PumpFluid {
+            in inletFluid : Fluid;
+            in rotationInput : MechanicalRotation;
+            out outletFluid : Fluid;
+            out deliveredFlow : VolumeFlowRate;
+            out differentialPressure : Pressure;
+
+            assert rotationInput.speed >= minimumContinuousSpeed;
+            assert rotationInput.speed <= maximumContinuousSpeed;
+            assert inletFluid.solidsVolumeFraction <= allowedSolidsVolumeFraction;
+
+            deliveredFlow = nominalDisplacementPerRevolution * rotationInput.speed * volumetricEfficiency;
+            differentialPressure = discharge.pressure - suction.pressure;
+            assert differentialPressure <= maximumDifferentialPressure;
+
+            outletFluid = inletFluid;
+            outletFluid.temperature = inletFluid.temperature + 2.0 [SI::K];
+        }
+    }
+
+    part def SuctionStrainer {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute meshOpening : Length = 3 [SI::mm];
+        attribute cleanPressureDrop : Pressure = 15000 [SI::Pa];
+        attribute pluggedPressureDropLimit : Pressure = 70000 [SI::Pa];
+        attribute bypassAllowed : Boolean = false;
+
+        action def RemoveLargeParticles {
+            in rawFluid : Fluid;
+            out strainedFluid : Fluid;
+
+            strainedFluid = rawFluid;
+            assert outlet.pressure <= inlet.pressure;
+        }
+    }
+
+    part def InletIsolationValve {
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        attribute position : Real = 1.0;
+        attribute fullOpenPressureDrop : Pressure = 10000 [SI::Pa];
+        attribute failPositionOpen : Boolean = false;
+
+        action def RegulateInlet {
+            in inletFluid : Fluid;
+            out outletFluid : Fluid;
+
+            assert position >= 0.0;
+            assert position <= 1.0;
+            outletFluid = inletFluid;
+        }
+    }
+
+    part def OutletCheckValve {
+        port pumpSide : FluidPort;
+        port processSide : FluidPort;
+
+        attribute crackingPressure : Pressure = 25000 [SI::Pa];
+        attribute reverseLeakageLimit : VolumeFlowRate = 0.1 [SI::litre / SI::minute];
+
+        action def PreventReverseFlow {
+            assert processSide.flowRate >= -reverseLeakageLimit;
+        }
+    }
+
+    part def DischargeReliefValve {
+        port inlet : FluidPort;
+        port returnToSuction : FluidPort;
+
+        attribute setPressure : Pressure = 1100000 [SI::Pa];
+        attribute reseatPressure : Pressure = 950000 [SI::Pa];
+        attribute capacity : VolumeFlowRate = 450 [SI::litre / SI::minute];
+
+        action def RelieveOverpressure {
+            in dischargePressure : Pressure;
+            out reliefFlow : VolumeFlowRate;
+
+            if dischargePressure >= setPressure {
+                reliefFlow = capacity;
+            } else {
+                reliefFlow = 0 [SI::m^3 / SI::s];
+            }
+        }
+    }
+
+    part def PressureTransmitter {
+        port processConnection : FluidPort;
+        port statusOut : StatusPort;
+
+        attribute rangeLow : Pressure = 0 [SI::Pa];
+        attribute rangeHigh : Pressure = 1600000 [SI::Pa];
+        attribute accuracy : Real = 0.0025;
+        attribute measuredPressure : Pressure;
+    }
+
+    part def FlowMeter {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port statusOut : StatusPort;
+
+        attribute minimumMeasurableFlow : VolumeFlowRate = 5 [SI::litre / SI::minute];
+        attribute maximumMeasurableFlow : VolumeFlowRate = 500 [SI::litre / SI::minute];
+        attribute accuracy : Real = 0.01;
+        attribute measuredFlow : VolumeFlowRate;
+    }
+
+    part def TemperatureSensor {
+        port thermalContact : FluidPort;
+        port statusOut : StatusPort;
+
+        attribute rangeLow : Temperature = 273.15 [SI::K];
+        attribute rangeHigh : Temperature = 423.15 [SI::K];
+        attribute measuredTemperature : Temperature;
+    }
+
+    part def SealLeakDetector {
+        port drainIn : DrainPort;
+        port statusOut : StatusPort;
+
+        attribute alarmLeakRate : VolumeFlowRate = 0.05 [SI::litre / SI::minute];
+        attribute detectedLeakRate : VolumeFlowRate;
+
+        action def DetectSealLeak {
+            out sealLeakDetected : Boolean;
+
+            sealLeakDetected = detectedLeakRate >= alarmLeakRate;
+        }
+    }
+
+    part def PumpController {
+        port operatorControl : ControlPort;
+        port driveCommand : ControlPort;
+        port statusIn : StatusPort;
+        port statusOut : StatusPort;
+
+        attribute startPermissive : Boolean;
+        attribute emergencyStopHealthy : Boolean = true;
+        attribute lowSuctionPressureTrip : Pressure = 50000 [SI::Pa];
+        attribute highDischargePressureTrip : Pressure = 1150000 [SI::Pa];
+        attribute dryRunFlowTrip : VolumeFlowRate = 2 [SI::litre / SI::minute];
+        attribute highMotorTemperatureTrip : Temperature = 423.15 [SI::K];
+        attribute highStatorTemperatureTrip : Temperature = 353.15 [SI::K];
+        attribute commandedSpeed : Frequency = 3.33 [SI::Hz];
+
+        state def ControlStateMachine {
+            entry; then Off;
+
+            state Off {
+                entry action {
+                    driveCommand.commandSignal.command = PumpCommandKind::stop;
+                    driveCommand.commandSignal.enable = false;
+                }
+                transition to Ready
+                    accept ControlSignal
+                    if operatorControl.commandSignal.enable and emergencyStopHealthy;
+            }
+
+            state Ready {
+                entry action {
+                    startPermissive = true;
+                    driveCommand.commandSignal.enable = false;
+                }
+                transition to Priming
+                    accept ControlSignal
+                    if operatorControl.commandSignal.command == PumpCommandKind::start and startPermissive;
+                transition to Faulted
+                    if not emergencyStopHealthy;
+            }
+
+            state Priming {
+                entry action {
+                    driveCommand.commandSignal.enable = true;
+                    driveCommand.commandSignal.command = PumpCommandKind::runAtSpeed;
+                    driveCommand.commandSignal.speedSetpoint = 0.83 [SI::Hz];
+                }
+                transition to Running
+                    after 15 [SI::s]
+                    if statusIn.statusSignal.suctionPressure > lowSuctionPressureTrip;
+                transition to Faulted
+                    if statusIn.statusSignal.flowRate <= dryRunFlowTrip;
+            }
+
+            state Running {
+                entry action {
+                    driveCommand.commandSignal.enable = true;
+                    driveCommand.commandSignal.command = PumpCommandKind::runAtSpeed;
+                    driveCommand.commandSignal.speedSetpoint = commandedSpeed;
+                }
+                transition to Stopping
+                    accept ControlSignal
+                    if operatorControl.commandSignal.command == PumpCommandKind::stop;
+                transition to Flushing
+                    accept ControlSignal
+                    if operatorControl.commandSignal.command == PumpCommandKind::flush;
+                transition to Faulted
+                    if statusIn.statusSignal.suctionPressure < lowSuctionPressureTrip;
+                transition to Faulted
+                    if statusIn.statusSignal.dischargePressure > highDischargePressureTrip;
+                transition to Faulted
+                    if statusIn.statusSignal.motorTemperature > highMotorTemperatureTrip;
+                transition to Faulted
+                    if statusIn.statusSignal.statorTemperature > highStatorTemperatureTrip;
+                transition to Faulted
+                    if not emergencyStopHealthy;
+            }
+
+            state Flushing {
+                entry action {
+                    driveCommand.commandSignal.enable = true;
+                    driveCommand.commandSignal.command = PumpCommandKind::flush;
+                    driveCommand.commandSignal.speedSetpoint = 1.67 [SI::Hz];
+                }
+                transition to Stopping after 60 [SI::s];
+                transition to Faulted
+                    if not emergencyStopHealthy;
+            }
+
+            state Stopping {
+                entry action {
+                    driveCommand.commandSignal.command = PumpCommandKind::stop;
+                    driveCommand.commandSignal.enable = false;
+                }
+                transition to Ready after 10 [SI::s]
+                    if emergencyStopHealthy;
+            }
+
+            state Faulted {
+                entry action {
+                    driveCommand.commandSignal.command = PumpCommandKind::emergencyStop;
+                    driveCommand.commandSignal.enable = false;
+                    statusOut.statusSignal.faultActive = true;
+                }
+                transition to Off
+                    accept ControlSignal
+                    if operatorControl.commandSignal.resetFault and emergencyStopHealthy;
+            }
+        }
+    }
+
+    part def PumpingSubsystem {
+        port suctionInlet : FluidPort;
+        port dischargeOutlet : FluidPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommands : ControlPort;
+        port subsystemStatus : StatusPort;
+        port sealDrain : DrainPort;
+        port coolingLoop : CoolingPort;
+
+        part inletValve : InletIsolationValve;
+        part suctionStrainer : SuctionStrainer;
+        part pump : ProgressingCavityPumpElement;
+        part checkValve : OutletCheckValve;
+        part reliefValve : DischargeReliefValve;
+        part flowMeter : FlowMeter;
+        part suctionPressureTransmitter : PressureTransmitter;
+        part dischargePressureTransmitter : PressureTransmitter;
+        part dischargeTemperatureSensor : TemperatureSensor;
+        part sealLeakDetector : SealLeakDetector;
+        part controller : PumpController;
+        part drive : VariableFrequencyDrive;
+        part motor : ElectricMotor;
+        part coupling : FlexibleCoupling;
+
+        attribute designFlowRate : VolumeFlowRate = 250 [SI::litre / SI::minute];
+        attribute minimumFlowRate : VolumeFlowRate = 20 [SI::litre / SI::minute];
+        attribute maximumFlowRate : VolumeFlowRate = 400 [SI::litre / SI::minute];
+        attribute normalDischargePressure : Pressure = 850000 [SI::Pa];
+        attribute maximumAllowableWorkingPressure : Pressure = 1600000 [SI::Pa];
+        attribute nominalSuctionPressure : Pressure = 150000 [SI::Pa];
+        attribute ambientTemperature : Temperature = 298.15 [SI::K];
+        attribute availabilityTarget : Real = 0.98;
+
+        connect suctionInlet to inletValve.upstream;
+        connect inletValve.downstream to suctionStrainer.inlet;
+        connect suctionStrainer.outlet to pump.suction;
+        connect pump.discharge to checkValve.pumpSide;
+        connect checkValve.processSide to flowMeter.inlet;
+        connect flowMeter.outlet to dischargeOutlet;
+
+        connect pump.discharge to reliefValve.inlet;
+        connect reliefValve.returnToSuction to pump.suction;
+
+        connect pump.suction to suctionPressureTransmitter.processConnection;
+        connect pump.discharge to dischargePressureTransmitter.processConnection;
+        connect flowMeter.outlet to dischargeTemperatureSensor.thermalContact;
+        connect pump.drain to sealLeakDetector.drainIn;
+        connect pump.drain to sealDrain;
+
+        connect electricalSupply to drive.electricalIn;
+        connect operatorCommands to controller.operatorControl;
+        connect controller.driveCommand to drive.controlIn;
+        connect drive.motorRotationCommand to motor.electricalDrive;
+        connect motor.shaftOut to coupling.motorSide;
+        connect coupling.pumpSide to pump.shaftIn;
+
+        connect suctionPressureTransmitter.statusOut to controller.statusIn;
+        connect dischargePressureTransmitter.statusOut to controller.statusIn;
+        connect flowMeter.statusOut to controller.statusIn;
+        connect dischargeTemperatureSensor.statusOut to controller.statusIn;
+        connect sealLeakDetector.statusOut to controller.statusIn;
+        connect controller.statusOut to subsystemStatus;
+
+        action def StartPumping {
+            in commandedFlow : VolumeFlowRate;
+            out achievedFlow : VolumeFlowRate;
+
+            assert commandedFlow >= minimumFlowRate;
+            assert commandedFlow <= maximumFlowRate;
+            controller.commandedSpeed = commandedFlow / (pump.nominalDisplacementPerRevolution * pump.volumetricEfficiency);
+            achievedFlow = commandedFlow;
+        }
+
+        action def ShutdownPumping {
+            out stopped : Boolean;
+
+            controller.driveCommand.commandSignal.command = PumpCommandKind::stop;
+            controller.driveCommand.commandSignal.enable = false;
+            stopped = true;
+        }
+
+        action def ProtectAgainstDryRun {
+            out tripRequired : Boolean;
+
+            tripRequired =
+                subsystemStatus.statusSignal.suctionPressure < controller.lowSuctionPressureTrip or
+                subsystemStatus.statusSignal.flowRate < controller.dryRunFlowTrip;
+        }
+
+        action def MaintainDischargePressure {
+            in targetPressure : Pressure;
+            out adjustedSpeed : Frequency;
+
+            assert targetPressure <= normalDischargePressure;
+            adjustedSpeed = controller.commandedSpeed;
+        }
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+    }
+
+    requirement reqMoveFluid : PumpingSubsystemRequirement {
+        doc /* The pumping subsystem shall move process fluid from the suction inlet to the discharge outlet using a progressing cavity pump as the hydraulic energy conversion element. */
+        require constraint {
+            subsystem.pump.nominalDisplacementPerRevolution > 0 [SI::m^3] and
+            subsystem.designFlowRate >= subsystem.minimumFlowRate and
+            subsystem.designFlowRate <= subsystem.maximumFlowRate;
+        }
+    }
+
+    requirement reqProgressingCavityArchitecture : PumpingSubsystemRequirement {
+        doc /* The hydraulic pumping element shall be a progressing cavity pump with rotor, elastomeric stator behavior, positive displacement flow, and speed-controlled output. */
+        require constraint {
+            subsystem.pump.maximumDifferentialPressure >= subsystem.normalDischargePressure - subsystem.nominalSuctionPressure and
+            subsystem.pump.volumetricEfficiency >= 0.75;
+        }
+    }
+
+    requirement reqFlowCapacity : PumpingSubsystemRequirement {
+        doc /* The subsystem shall deliver 250 liters per minute at the normal operating pressure with clean process fluid at nominal viscosity. */
+        require constraint {
+            subsystem.designFlowRate == 250 [SI::litre / SI::minute] and
+            subsystem.normalDischargePressure == 850000 [SI::Pa];
+        }
+    }
+
+    requirement reqPressureProtection : PumpingSubsystemRequirement {
+        doc /* The subsystem shall protect downstream equipment from overpressure by stopping the drive or relieving flow before discharge pressure exceeds the maximum allowable working pressure. */
+        require constraint {
+            subsystem.reliefValve.setPressure < subsystem.maximumAllowableWorkingPressure and
+            subsystem.controller.highDischargePressureTrip < subsystem.maximumAllowableWorkingPressure;
+        }
+    }
+
+    requirement reqDryRunProtection : PumpingSubsystemRequirement {
+        doc /* The subsystem shall detect low suction pressure or no-flow conditions and stop the progressing cavity pump before elastomer stator damage occurs. */
+        require constraint {
+            subsystem.controller.lowSuctionPressureTrip > 0 [SI::Pa] and
+            subsystem.pump.dryRunMaximumDuration <= 5 [SI::s];
+        }
+    }
+
+    requirement reqVariableSpeedControl : PumpingSubsystemRequirement {
+        doc /* The subsystem shall provide variable speed control from minimum continuous pump speed to maximum continuous pump speed. */
+        require constraint {
+            subsystem.drive.minOutputFrequency <= subsystem.pump.minimumContinuousSpeed and
+            subsystem.drive.maxOutputFrequency >= subsystem.pump.maximumContinuousSpeed;
+        }
+    }
+
+    requirement reqReverseFlowPrevention : PumpingSubsystemRequirement {
+        doc /* The subsystem shall prevent reverse flow from the discharge outlet to the pump cavity when the pump is stopped. */
+        require constraint {
+            subsystem.checkValve.reverseLeakageLimit <= 0.1 [SI::litre / SI::minute];
+        }
+    }
+
+    requirement reqInstrumentation : PumpingSubsystemRequirement {
+        doc /* The subsystem shall measure suction pressure, discharge pressure, discharge flow, discharge temperature, shaft drive status, and seal leakage. */
+        require constraint {
+            subsystem.suctionPressureTransmitter.rangeHigh >= subsystem.nominalSuctionPressure and
+            subsystem.dischargePressureTransmitter.rangeHigh >= subsystem.maximumAllowableWorkingPressure and
+            subsystem.flowMeter.maximumMeasurableFlow >= subsystem.maximumFlowRate and
+            subsystem.sealLeakDetector.alarmLeakRate <= 0.05 [SI::litre / SI::minute];
+        }
+    }
+
+    requirement reqMaintainability : PumpingSubsystemRequirement {
+        doc /* The subsystem shall include isolation, drainage, coupling guard, and sensor interfaces to support safe inspection and maintenance. */
+        require constraint {
+            subsystem.inletValve.failPositionOpen == false and
+            subsystem.coupling.guardInstalled == true;
+        }
+    }
+
+    satisfy reqMoveFluid by PumpingSubsystem;
+    satisfy reqProgressingCavityArchitecture by PumpingSubsystem::pump;
+    satisfy reqFlowCapacity by PumpingSubsystem::StartPumping;
+    satisfy reqPressureProtection by PumpingSubsystem::reliefValve;
+    satisfy reqPressureProtection by PumpingSubsystem::controller;
+    satisfy reqDryRunProtection by PumpingSubsystem::ProtectAgainstDryRun;
+    satisfy reqVariableSpeedControl by PumpingSubsystem::drive;
+    satisfy reqReverseFlowPrevention by PumpingSubsystem::checkValve;
+    satisfy reqInstrumentation by PumpingSubsystem;
+    satisfy reqMaintainability by PumpingSubsystem;
+
+    analysis def PumpSizingAnalysis {
+        subject subsystem : PumpingSubsystem;
+
+        in desiredFlow : VolumeFlowRate = subsystem.designFlowRate;
+        in displacement : Volume = subsystem.pump.nominalDisplacementPerRevolution;
+        in efficiency : Real = subsystem.pump.volumetricEfficiency;
+        out requiredPumpSpeed : Frequency;
+
+        requiredPumpSpeed = desiredFlow / (displacement * efficiency);
+
+        assert requiredPumpSpeed >= subsystem.pump.minimumContinuousSpeed;
+        assert requiredPumpSpeed <= subsystem.pump.maximumContinuousSpeed;
+    }
+
+    analysis def HydraulicPowerAnalysis {
+        subject subsystem : PumpingSubsystem;
+
+        in flow : VolumeFlowRate = subsystem.designFlowRate;
+        in differentialPressure : Pressure = subsystem.normalDischargePressure - subsystem.nominalSuctionPressure;
+        out hydraulicPower : Power;
+        out shaftPowerRequired : Power;
+
+        hydraulicPower = flow * differentialPressure;
+        shaftPowerRequired = hydraulicPower / subsystem.pump.mechanicalEfficiency;
+
+        assert shaftPowerRequired <= subsystem.motor.ratedPower;
+    }
+
+    part pumpingSubsystemInstance : PumpingSubsystem {
+        attribute designFlowRate = 250 [SI::litre / SI::minute];
+        attribute minimumFlowRate = 20 [SI::litre / SI::minute];
+        attribute maximumFlowRate = 400 [SI::litre / SI::minute];
+        attribute normalDischargePressure = 850000 [SI::Pa];
+        attribute nominalSuctionPressure = 150000 [SI::Pa];
+
+        part pump {
+            attribute nominalDisplacementPerRevolution = 0.0042 [SI::m^3];
+            attribute maximumDifferentialPressure = 1200000 [SI::Pa];
+            attribute volumetricEfficiency = 0.86;
+            attribute mechanicalEfficiency = 0.78;
+            attribute rotorMaterial = "duplex stainless steel";
+            attribute statorMaterial = "nitrile elastomer";
+        }
+
+        part motor {
+            attribute ratedPower = 15000 [SI::W];
+            attribute ratedSpeed = 29.17 [SI::Hz];
+            attribute efficiency = 0.91;
+        }
+
+        part reliefValve {
+            attribute setPressure = 1100000 [SI::Pa];
+            attribute capacity = 450 [SI::litre / SI::minute];
+        }
+
+        part controller {
+            attribute lowSuctionPressureTrip = 50000 [SI::Pa];
+            attribute highDischargePressureTrip = 1150000 [SI::Pa];
+            attribute dryRunFlowTrip = 2 [SI::litre / SI::minute];
+            attribute commandedSpeed = 1.15 [SI::Hz];
+        }
+    }
+}

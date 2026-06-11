@@ -1,0 +1,859 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-wdagp76d
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb333-a9fe-7c01-914f-7f6eded593bc
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Abductor wedge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AbductorWedgeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length;
+    attribute def AngleValue :> ISQ::planeAngle;
+    attribute def MassValue :> ISQ::mass;
+    attribute def ForceValue :> ISQ::force;
+    attribute def PressureValue :> ISQ::pressure;
+    attribute def TimeValue :> ISQ::time;
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature;
+
+    item def ThighLoad {
+        attribute magnitude : ForceValue;
+        attribute contactArea : ISQ::area;
+    }
+
+    item def StrapTension {
+        attribute tension : ForceValue;
+    }
+
+    item def CleaningAgent {
+        attribute ph : Real;
+        attribute liquidVolume : ISQ::volume;
+    }
+
+    item def PatientLeg {
+        attribute massSupported : MassValue;
+        attribute thighCircumference : LengthValue;
+        attribute skinTemperature : TemperatureValue;
+    }
+
+    port def LegSupportPort {
+        in item leg : PatientLeg;
+        in item load : ThighLoad;
+    }
+
+    port def RestraintPort {
+        in item tensionCommand : StrapTension;
+        out item appliedTension : StrapTension;
+    }
+
+    port def CleaningPort {
+        in item agent : CleaningAgent;
+    }
+
+    port def InspectionPort {
+        out attribute coverIntegrityOk : Boolean;
+        out attribute foamIntegrityOk : Boolean;
+        out attribute strapIntegrityOk : Boolean;
+    }
+
+    value def AbductorWedgeGeometry {
+        attribute overallLength : LengthValue;
+        attribute proximalWidth : LengthValue;
+        attribute distalWidth : LengthValue;
+        attribute height : LengthValue;
+        attribute wedgeIncludedAngle : AngleValue;
+        attribute legChannelRadius : LengthValue;
+    }
+
+    value def MaterialProperties {
+        attribute density : ISQ::massDensity;
+        attribute compressiveModulus : PressureValue;
+        attribute maxSurfacePressure : PressureValue;
+        attribute waterAbsorptionFraction : Real;
+    }
+
+    enum def WedgeUseState {
+        enum idle;
+        enum positioned;
+        enum secured;
+        enum supportingAbduction;
+        enum cleaning;
+        enum inspectionFailed;
+    }
+
+    part def FoamCore {
+        attribute geometry : AbductorWedgeGeometry;
+        attribute material : MaterialProperties;
+        attribute mass : MassValue;
+        attribute compressionUnderNominalLoad : LengthValue;
+        attribute allowableLoad : ForceValue;
+
+        port leftSupport : LegSupportPort;
+        port rightSupport : LegSupportPort;
+
+        constraint allowableCompression {
+            compressionUnderNominalLoad <= 0.015 [m];
+        }
+
+        constraint loadCapacity {
+            allowableLoad >= 450 [N];
+        }
+    }
+
+    part def WaterproofCover {
+        attribute thickness : LengthValue;
+        attribute seamStrength : ForceValue;
+        attribute surfaceFrictionCoefficient : Real;
+        attribute liquidIngressAllowed : Boolean = false;
+
+        port cleaningInterface : CleaningPort;
+        port inspectionInterface : InspectionPort;
+
+        constraint minimumSeamStrength {
+            seamStrength >= 120 [N];
+        }
+    }
+
+    part def LeftRetentionStrap {
+        attribute length : LengthValue;
+        attribute width : LengthValue;
+        attribute maxTension : ForceValue;
+        attribute currentTension : ForceValue;
+
+        port restraint : RestraintPort;
+
+        constraint safeTension {
+            currentTension <= maxTension;
+        }
+    }
+
+    part def RightRetentionStrap {
+        attribute length : LengthValue;
+        attribute width : LengthValue;
+        attribute maxTension : ForceValue;
+        attribute currentTension : ForceValue;
+
+        port restraint : RestraintPort;
+
+        constraint safeTension {
+            currentTension <= maxTension;
+        }
+    }
+
+    part def NonSlipBase {
+        attribute contactLength : LengthValue;
+        attribute contactWidth : LengthValue;
+        attribute staticFrictionCoefficient : Real;
+        attribute allowableShearLoad : ForceValue;
+
+        constraint minimumFriction {
+            staticFrictionCoefficient >= 0.65;
+        }
+    }
+
+    action def PositionWedge {
+        in item leftLeg : PatientLeg;
+        in item rightLeg : PatientLeg;
+        out attribute alignmentAchieved : Boolean;
+
+        first start;
+        then placeBetweenLegs;
+        then alignThighChannels;
+        then verifyHipAbductionAngle;
+        then done;
+
+        action placeBetweenLegs;
+        action alignThighChannels;
+        action verifyHipAbductionAngle;
+    }
+
+    action def SecureLegs {
+        in item requestedLeftTension : StrapTension;
+        in item requestedRightTension : StrapTension;
+        out attribute secured : Boolean;
+
+        first start;
+        then tensionLeftStrap;
+        then tensionRightStrap;
+        then verifyCirculationClearance;
+        then done;
+
+        action tensionLeftStrap;
+        action tensionRightStrap;
+        action verifyCirculationClearance;
+    }
+
+    action def SupportAbduction {
+        in item leftLoad : ThighLoad;
+        in item rightLoad : ThighLoad;
+        out attribute maintainedAngle : AngleValue;
+        out attribute peakInterfacePressure : PressureValue;
+
+        first start;
+        then distributeLoads;
+        then resistAdductionMoment;
+        then maintainSeparation;
+        then done;
+
+        action distributeLoads;
+        action resistAdductionMoment;
+        action maintainSeparation;
+    }
+
+    action def CleanWedge {
+        in item cleaningAgent : CleaningAgent;
+        out attribute cleanAndDry : Boolean;
+
+        first start;
+        then wipeCoverSurface;
+        then inspectSeams;
+        then drySurface;
+        then done;
+
+        action wipeCoverSurface;
+        action inspectSeams;
+        action drySurface;
+    }
+
+    state def AbductorWedgeLifecycle {
+        entry action initialize;
+
+        state idle;
+        state positioned;
+        state secured;
+        state supportingAbduction;
+        state cleaning;
+        state inspectionFailed;
+
+        transition first idle;
+        transition idle_to_positioned
+            first idle
+            accept positionCommand
+            then positioned;
+
+        transition positioned_to_secured
+            first positioned
+            accept strapsTensioned
+            then secured;
+
+        transition secured_to_supporting
+            first secured
+            accept patientLoadApplied
+            then supportingAbduction;
+
+        transition supporting_to_cleaning
+            first supportingAbduction
+            accept useComplete
+            then cleaning;
+
+        transition cleaning_to_idle
+            first cleaning
+            accept inspectionPassed
+            then idle;
+
+        transition any_to_failed
+            first idle
+            accept defectDetected
+            then inspectionFailed;
+
+        transition failed_to_idle
+            first inspectionFailed
+            accept repairedAndReleased
+            then idle;
+
+        action initialize;
+    }
+
+    part def AbductorWedgeSystem {
+        attribute primaryFunction : String =
+            "Maintain controlled separation of a patient's thighs to support hip abduction and reduce unintended adduction during positioning, recovery, or transport.";
+
+        attribute nominalAbductionAngle : AngleValue = 30 [deg];
+        attribute allowedAbductionAngleTolerance : AngleValue = 5 [deg];
+        attribute maximumPatientSupportedMass : MassValue = 140 [kg];
+        attribute maximumInterfacePressure : PressureValue = 6 [kPa];
+        attribute expectedServiceLife : TimeValue = 2 [a];
+
+        part core : FoamCore {
+            attribute geometry.overallLength = 0.610 [m];
+            attribute geometry.proximalWidth = 0.240 [m];
+            attribute geometry.distalWidth = 0.160 [m];
+            attribute geometry.height = 0.180 [m];
+            attribute geometry.wedgeIncludedAngle = 30 [deg];
+            attribute geometry.legChannelRadius = 0.065 [m];
+            attribute mass = 0.85 [kg];
+            attribute compressionUnderNominalLoad = 0.010 [m];
+            attribute allowableLoad = 500 [N];
+        }
+
+        part cover : WaterproofCover {
+            attribute thickness = 0.0008 [m];
+            attribute seamStrength = 150 [N];
+            attribute surfaceFrictionCoefficient = 0.48;
+        }
+
+        part leftStrap : LeftRetentionStrap {
+            attribute length = 0.750 [m];
+            attribute width = 0.050 [m];
+            attribute maxTension = 80 [N];
+            attribute currentTension = 35 [N];
+        }
+
+        part rightStrap : RightRetentionStrap {
+            attribute length = 0.750 [m];
+            attribute width = 0.050 [m];
+            attribute maxTension = 80 [N];
+            attribute currentTension = 35 [N];
+        }
+
+        part base : NonSlipBase {
+            attribute contactLength = 0.610 [m];
+            attribute contactWidth = 0.200 [m];
+            attribute staticFrictionCoefficient = 0.75;
+            attribute allowableShearLoad = 180 [N];
+        }
+
+        port leftLegInterface : LegSupportPort;
+        port rightLegInterface : LegSupportPort;
+        port leftStrapInterface : RestraintPort;
+        port rightStrapInterface : RestraintPort;
+        port cleaningInterface : CleaningPort;
+        port inspectionInterface : InspectionPort;
+
+        connect leftLegInterface to core.leftSupport;
+        connect rightLegInterface to core.rightSupport;
+        connect leftStrapInterface to leftStrap.restraint;
+        connect rightStrapInterface to rightStrap.restraint;
+        connect cleaningInterface to cover.cleaningInterface;
+        connect inspectionInterface to cover.inspectionInterface;
+
+        perform action position : PositionWedge;
+        perform action secure : SecureLegs;
+        perform action support : SupportAbduction;
+        perform action clean : CleanWedge;
+
+        exhibit state lifecycle : AbductorWedgeLifecycle;
+
+        constraint angleControl {
+            nominalAbductionAngle >= 25 [deg] and nominalAbductionAngle <= 35 [deg];
+        }
+
+        constraint patientMassLimit {
+            maximumPatientSupportedMass <= 140 [kg];
+        }
+
+        constraint surfacePressureLimit {
+            maximumInterfacePressure <= 6 [kPa];
+        }
+    }
+
+    requirement def MaintainHipAbduction {
+        subject wedge : AbductorWedgeSystem;
+        attribute requiredAngle : AngleValue = 30 [deg];
+        attribute tolerance : AngleValue = 5 [deg];
+
+        doc /* The abductor wedge shall maintain the patient's thighs in controlled abduction during supported use. */
+
+        require constraint {
+            wedge.nominalAbductionAngle >= requiredAngle - tolerance and
+            wedge.nominalAbductionAngle <= requiredAngle + tolerance;
+        }
+    }
+
+    requirement def SupportPatientLoad {
+        subject wedge : AbductorWedgeSystem;
+        attribute requiredSupportedMass : MassValue = 140 [kg];
+
+        doc /* The abductor wedge shall support leg loads associated with a patient mass up to the rated maximum without permanent deformation. */
+
+        require constraint {
+            wedge.maximumPatientSupportedMass >= requiredSupportedMass;
+        }
+    }
+
+    requirement def LimitInterfacePressure {
+        subject wedge : AbductorWedgeSystem;
+        attribute allowedPressure : PressureValue = 6 [kPa];
+
+        doc /* The abductor wedge shall distribute thigh contact loads so that sustained interface pressure remains below the specified limit. */
+
+        require constraint {
+            wedge.maximumInterfacePressure <= allowedPressure;
+        }
+    }
+
+    requirement def PermitCleaning {
+        subject wedge : AbductorWedgeSystem;
+
+        doc /* The abductor wedge shall provide a cleanable external cover that resists liquid ingress during normal clinical cleaning. */
+
+        require constraint {
+            wedge.cover.liquidIngressAllowed == false;
+        }
+    }
+
+    requirement def PreventSliding {
+        subject wedge : AbductorWedgeSystem;
+        attribute minimumStaticFriction : Real = 0.65;
+
+        doc /* The abductor wedge shall resist sliding on a bed or support surface during normal positioning loads. */
+
+        require constraint {
+            wedge.base.staticFrictionCoefficient >= minimumStaticFriction;
+        }
+    }
+
+    requirement def StrapSafety {
+        subject wedge : AbductorWedgeSystem;
+        attribute maximumSafeTension : ForceValue = 80 [N];
+
+        doc /* Each retention strap shall limit applied tension to prevent excessive localized compression of the patient's legs. */
+
+        require constraint {
+            wedge.leftStrap.currentTension <= maximumSafeTension and
+            wedge.rightStrap.currentTension <= maximumSafeTension;
+        }
+    }
+
+    satisfy MaintainHipAbduction by AbductorWedgeSystem;
+    satisfy SupportPatientLoad by AbductorWedgeSystem;
+    satisfy LimitInterfacePressure by AbductorWedgeSystem;
+    satisfy PermitCleaning by AbductorWedgeSystem;
+    satisfy PreventSliding by AbductorWedgeSystem;
+    satisfy StrapSafety by AbductorWedgeSystem;
+}
+tokens used
+4,319
+package AbductorWedgeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length;
+    attribute def AngleValue :> ISQ::planeAngle;
+    attribute def MassValue :> ISQ::mass;
+    attribute def ForceValue :> ISQ::force;
+    attribute def PressureValue :> ISQ::pressure;
+    attribute def TimeValue :> ISQ::time;
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature;
+
+    item def ThighLoad {
+        attribute magnitude : ForceValue;
+        attribute contactArea : ISQ::area;
+    }
+
+    item def StrapTension {
+        attribute tension : ForceValue;
+    }
+
+    item def CleaningAgent {
+        attribute ph : Real;
+        attribute liquidVolume : ISQ::volume;
+    }
+
+    item def PatientLeg {
+        attribute massSupported : MassValue;
+        attribute thighCircumference : LengthValue;
+        attribute skinTemperature : TemperatureValue;
+    }
+
+    port def LegSupportPort {
+        in item leg : PatientLeg;
+        in item load : ThighLoad;
+    }
+
+    port def RestraintPort {
+        in item tensionCommand : StrapTension;
+        out item appliedTension : StrapTension;
+    }
+
+    port def CleaningPort {
+        in item agent : CleaningAgent;
+    }
+
+    port def InspectionPort {
+        out attribute coverIntegrityOk : Boolean;
+        out attribute foamIntegrityOk : Boolean;
+        out attribute strapIntegrityOk : Boolean;
+    }
+
+    value def AbductorWedgeGeometry {
+        attribute overallLength : LengthValue;
+        attribute proximalWidth : LengthValue;
+        attribute distalWidth : LengthValue;
+        attribute height : LengthValue;
+        attribute wedgeIncludedAngle : AngleValue;
+        attribute legChannelRadius : LengthValue;
+    }
+
+    value def MaterialProperties {
+        attribute density : ISQ::massDensity;
+        attribute compressiveModulus : PressureValue;
+        attribute maxSurfacePressure : PressureValue;
+        attribute waterAbsorptionFraction : Real;
+    }
+
+    enum def WedgeUseState {
+        enum idle;
+        enum positioned;
+        enum secured;
+        enum supportingAbduction;
+        enum cleaning;
+        enum inspectionFailed;
+    }
+
+    part def FoamCore {
+        attribute geometry : AbductorWedgeGeometry;
+        attribute material : MaterialProperties;
+        attribute mass : MassValue;
+        attribute compressionUnderNominalLoad : LengthValue;
+        attribute allowableLoad : ForceValue;
+
+        port leftSupport : LegSupportPort;
+        port rightSupport : LegSupportPort;
+
+        constraint allowableCompression {
+            compressionUnderNominalLoad <= 0.015 [m];
+        }
+
+        constraint loadCapacity {
+            allowableLoad >= 450 [N];
+        }
+    }
+
+    part def WaterproofCover {
+        attribute thickness : LengthValue;
+        attribute seamStrength : ForceValue;
+        attribute surfaceFrictionCoefficient : Real;
+        attribute liquidIngressAllowed : Boolean = false;
+
+        port cleaningInterface : CleaningPort;
+        port inspectionInterface : InspectionPort;
+
+        constraint minimumSeamStrength {
+            seamStrength >= 120 [N];
+        }
+    }
+
+    part def LeftRetentionStrap {
+        attribute length : LengthValue;
+        attribute width : LengthValue;
+        attribute maxTension : ForceValue;
+        attribute currentTension : ForceValue;
+
+        port restraint : RestraintPort;
+
+        constraint safeTension {
+            currentTension <= maxTension;
+        }
+    }
+
+    part def RightRetentionStrap {
+        attribute length : LengthValue;
+        attribute width : LengthValue;
+        attribute maxTension : ForceValue;
+        attribute currentTension : ForceValue;
+
+        port restraint : RestraintPort;
+
+        constraint safeTension {
+            currentTension <= maxTension;
+        }
+    }
+
+    part def NonSlipBase {
+        attribute contactLength : LengthValue;
+        attribute contactWidth : LengthValue;
+        attribute staticFrictionCoefficient : Real;
+        attribute allowableShearLoad : ForceValue;
+
+        constraint minimumFriction {
+            staticFrictionCoefficient >= 0.65;
+        }
+    }
+
+    action def PositionWedge {
+        in item leftLeg : PatientLeg;
+        in item rightLeg : PatientLeg;
+        out attribute alignmentAchieved : Boolean;
+
+        first start;
+        then placeBetweenLegs;
+        then alignThighChannels;
+        then verifyHipAbductionAngle;
+        then done;
+
+        action placeBetweenLegs;
+        action alignThighChannels;
+        action verifyHipAbductionAngle;
+    }
+
+    action def SecureLegs {
+        in item requestedLeftTension : StrapTension;
+        in item requestedRightTension : StrapTension;
+        out attribute secured : Boolean;
+
+        first start;
+        then tensionLeftStrap;
+        then tensionRightStrap;
+        then verifyCirculationClearance;
+        then done;
+
+        action tensionLeftStrap;
+        action tensionRightStrap;
+        action verifyCirculationClearance;
+    }
+
+    action def SupportAbduction {
+        in item leftLoad : ThighLoad;
+        in item rightLoad : ThighLoad;
+        out attribute maintainedAngle : AngleValue;
+        out attribute peakInterfacePressure : PressureValue;
+
+        first start;
+        then distributeLoads;
+        then resistAdductionMoment;
+        then maintainSeparation;
+        then done;
+
+        action distributeLoads;
+        action resistAdductionMoment;
+        action maintainSeparation;
+    }
+
+    action def CleanWedge {
+        in item cleaningAgent : CleaningAgent;
+        out attribute cleanAndDry : Boolean;
+
+        first start;
+        then wipeCoverSurface;
+        then inspectSeams;
+        then drySurface;
+        then done;
+
+        action wipeCoverSurface;
+        action inspectSeams;
+        action drySurface;
+    }
+
+    state def AbductorWedgeLifecycle {
+        entry action initialize;
+
+        state idle;
+        state positioned;
+        state secured;
+        state supportingAbduction;
+        state cleaning;
+        state inspectionFailed;
+
+        transition first idle;
+        transition idle_to_positioned
+            first idle
+            accept positionCommand
+            then positioned;
+
+        transition positioned_to_secured
+            first positioned
+            accept strapsTensioned
+            then secured;
+
+        transition secured_to_supporting
+            first secured
+            accept patientLoadApplied
+            then supportingAbduction;
+
+        transition supporting_to_cleaning
+            first supportingAbduction
+            accept useComplete
+            then cleaning;
+
+        transition cleaning_to_idle
+            first cleaning
+            accept inspectionPassed
+            then idle;
+
+        transition any_to_failed
+            first idle
+            accept defectDetected
+            then inspectionFailed;
+
+        transition failed_to_idle
+            first inspectionFailed
+            accept repairedAndReleased
+            then idle;
+
+        action initialize;
+    }
+
+    part def AbductorWedgeSystem {
+        attribute primaryFunction : String =
+            "Maintain controlled separation of a patient's thighs to support hip abduction and reduce unintended adduction during positioning, recovery, or transport.";
+
+        attribute nominalAbductionAngle : AngleValue = 30 [deg];
+        attribute allowedAbductionAngleTolerance : AngleValue = 5 [deg];
+        attribute maximumPatientSupportedMass : MassValue = 140 [kg];
+        attribute maximumInterfacePressure : PressureValue = 6 [kPa];
+        attribute expectedServiceLife : TimeValue = 2 [a];
+
+        part core : FoamCore {
+            attribute geometry.overallLength = 0.610 [m];
+            attribute geometry.proximalWidth = 0.240 [m];
+            attribute geometry.distalWidth = 0.160 [m];
+            attribute geometry.height = 0.180 [m];
+            attribute geometry.wedgeIncludedAngle = 30 [deg];
+            attribute geometry.legChannelRadius = 0.065 [m];
+            attribute mass = 0.85 [kg];
+            attribute compressionUnderNominalLoad = 0.010 [m];
+            attribute allowableLoad = 500 [N];
+        }
+
+        part cover : WaterproofCover {
+            attribute thickness = 0.0008 [m];
+            attribute seamStrength = 150 [N];
+            attribute surfaceFrictionCoefficient = 0.48;
+        }
+
+        part leftStrap : LeftRetentionStrap {
+            attribute length = 0.750 [m];
+            attribute width = 0.050 [m];
+            attribute maxTension = 80 [N];
+            attribute currentTension = 35 [N];
+        }
+
+        part rightStrap : RightRetentionStrap {
+            attribute length = 0.750 [m];
+            attribute width = 0.050 [m];
+            attribute maxTension = 80 [N];
+            attribute currentTension = 35 [N];
+        }
+
+        part base : NonSlipBase {
+            attribute contactLength = 0.610 [m];
+            attribute contactWidth = 0.200 [m];
+            attribute staticFrictionCoefficient = 0.75;
+            attribute allowableShearLoad = 180 [N];
+        }
+
+        port leftLegInterface : LegSupportPort;
+        port rightLegInterface : LegSupportPort;
+        port leftStrapInterface : RestraintPort;
+        port rightStrapInterface : RestraintPort;
+        port cleaningInterface : CleaningPort;
+        port inspectionInterface : InspectionPort;
+
+        connect leftLegInterface to core.leftSupport;
+        connect rightLegInterface to core.rightSupport;
+        connect leftStrapInterface to leftStrap.restraint;
+        connect rightStrapInterface to rightStrap.restraint;
+        connect cleaningInterface to cover.cleaningInterface;
+        connect inspectionInterface to cover.inspectionInterface;
+
+        perform action position : PositionWedge;
+        perform action secure : SecureLegs;
+        perform action support : SupportAbduction;
+        perform action clean : CleanWedge;
+
+        exhibit state lifecycle : AbductorWedgeLifecycle;
+
+        constraint angleControl {
+            nominalAbductionAngle >= 25 [deg] and nominalAbductionAngle <= 35 [deg];
+        }
+
+        constraint patientMassLimit {
+            maximumPatientSupportedMass <= 140 [kg];
+        }
+
+        constraint surfacePressureLimit {
+            maximumInterfacePressure <= 6 [kPa];
+        }
+    }
+
+    requirement def MaintainHipAbduction {
+        subject wedge : AbductorWedgeSystem;
+        attribute requiredAngle : AngleValue = 30 [deg];
+        attribute tolerance : AngleValue = 5 [deg];
+
+        doc /* The abductor wedge shall maintain the patient's thighs in controlled abduction during supported use. */
+
+        require constraint {
+            wedge.nominalAbductionAngle >= requiredAngle - tolerance and
+            wedge.nominalAbductionAngle <= requiredAngle + tolerance;
+        }
+    }
+
+    requirement def SupportPatientLoad {
+        subject wedge : AbductorWedgeSystem;
+        attribute requiredSupportedMass : MassValue = 140 [kg];
+
+        doc /* The abductor wedge shall support leg loads associated with a patient mass up to the rated maximum without permanent deformation. */
+
+        require constraint {
+            wedge.maximumPatientSupportedMass >= requiredSupportedMass;
+        }
+    }
+
+    requirement def LimitInterfacePressure {
+        subject wedge : AbductorWedgeSystem;
+        attribute allowedPressure : PressureValue = 6 [kPa];
+
+        doc /* The abductor wedge shall distribute thigh contact loads so that sustained interface pressure remains below the specified limit. */
+
+        require constraint {
+            wedge.maximumInterfacePressure <= allowedPressure;
+        }
+    }
+
+    requirement def PermitCleaning {
+        subject wedge : AbductorWedgeSystem;
+
+        doc /* The abductor wedge shall provide a cleanable external cover that resists liquid ingress during normal clinical cleaning. */
+
+        require constraint {
+            wedge.cover.liquidIngressAllowed == false;
+        }
+    }
+
+    requirement def PreventSliding {
+        subject wedge : AbductorWedgeSystem;
+        attribute minimumStaticFriction : Real = 0.65;
+
+        doc /* The abductor wedge shall resist sliding on a bed or support surface during normal positioning loads. */
+
+        require constraint {
+            wedge.base.staticFrictionCoefficient >= minimumStaticFriction;
+        }
+    }
+
+    requirement def StrapSafety {
+        subject wedge : AbductorWedgeSystem;
+        attribute maximumSafeTension : ForceValue = 80 [N];
+
+        doc /* Each retention strap shall limit applied tension to prevent excessive localized compression of the patient's legs. */
+
+        require constraint {
+            wedge.leftStrap.currentTension <= maximumSafeTension and
+            wedge.rightStrap.currentTension <= maximumSafeTension;
+        }
+    }
+
+    satisfy MaintainHipAbduction by AbductorWedgeSystem;
+    satisfy SupportPatientLoad by AbductorWedgeSystem;
+    satisfy LimitInterfacePressure by AbductorWedgeSystem;
+    satisfy PermitCleaning by AbductorWedgeSystem;
+    satisfy PreventSliding by AbductorWedgeSystem;
+    satisfy StrapSafety by AbductorWedgeSystem;
+}

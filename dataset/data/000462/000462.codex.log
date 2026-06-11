@@ -1,0 +1,1303 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-n4yud2dj
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb2f9-b2a9-7052-8d73-54ab7885d43f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Instruments used in obstetrics and gynecology and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ObstetricsGynecologyInstrumentModel {
+
+  enum def ClinicalModeKind {
+    enum pelvicExamination;
+    enum cervicalAssessment;
+    enum fetalMonitoring;
+    enum deliveryAssistance;
+    enum tissueSampling;
+    enum uterineEvacuation;
+    enum sterilization;
+  }
+
+  enum def SterilityStateKind {
+    enum sterile;
+    enum clean;
+    enum contaminated;
+    enum processing;
+  }
+
+  enum def PatientContactKind {
+    enum nonContact;
+    enum mucosalContact;
+    enum tissueContact;
+    enum uterineContact;
+  }
+
+  value def Length_mm {
+    attribute value : Real;
+    attribute unit : String = "mm";
+  }
+
+  value def Force_N {
+    attribute value : Real;
+    attribute unit : String = "N";
+  }
+
+  value def Pressure_kPa {
+    attribute value : Real;
+    attribute unit : String = "kPa";
+  }
+
+  value def Frequency_MHz {
+    attribute value : Real;
+    attribute unit : String = "MHz";
+  }
+
+  value def HeartRate_bpm {
+    attribute value : Real;
+    attribute unit : String = "beats/min";
+  }
+
+  value def Temperature_C {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  value def Time_s {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  value def Volume_mL {
+    attribute value : Real;
+    attribute unit : String = "mL";
+  }
+
+  item def PatientAnatomy {
+    attribute contactSite : String;
+    attribute patientContact : PatientContactKind;
+  }
+
+  item def VaginalCanal :> PatientAnatomy {
+    attribute contactSite = "vaginal canal";
+    attribute patientContact = PatientContactKind::mucosalContact;
+  }
+
+  item def Cervix :> PatientAnatomy {
+    attribute contactSite = "cervix";
+    attribute patientContact = PatientContactKind::mucosalContact;
+  }
+
+  item def UterineCavity :> PatientAnatomy {
+    attribute contactSite = "uterine cavity";
+    attribute patientContact = PatientContactKind::uterineContact;
+  }
+
+  item def FetalSignal {
+    attribute fetalHeartRate : HeartRate_bpm;
+    attribute signalQuality : Real;
+  }
+
+  item def UltrasoundImageFrame {
+    attribute centerFrequency : Frequency_MHz;
+    attribute imageDepth : Length_mm;
+    attribute frameTime : Time_s;
+  }
+
+  item def TissueSample {
+    attribute sampleVolume : Volume_mL;
+    attribute sourceSite : String;
+    attribute preserved : Boolean;
+  }
+
+  item def FluidOrTissueAspirate {
+    attribute collectedVolume : Volume_mL;
+    attribute vacuumPressure : Pressure_kPa;
+  }
+
+  item def SterileInstrument {
+    attribute sterilityState : SterilityStateKind;
+    attribute expirationTimeRemaining : Time_s;
+  }
+
+  item def OperatorCommand {
+    attribute requestedMode : ClinicalModeKind;
+    attribute enabled : Boolean;
+  }
+
+  item def SafetyAlert {
+    attribute alertCode : String;
+    attribute severity : Integer;
+    attribute message : String;
+  }
+
+  port def AnatomyContactPort {
+    in item anatomy : PatientAnatomy;
+    out item contactForce : Force_N;
+  }
+
+  port def VisualizationPort {
+    out item viewFrame : UltrasoundImageFrame;
+  }
+
+  port def DopplerSignalPort {
+    out item fetalSignal : FetalSignal;
+  }
+
+  port def SamplePort {
+    in item tissueSite : PatientAnatomy;
+    out item sample : TissueSample;
+  }
+
+  port def SuctionPort {
+    in item uterineSite : UterineCavity;
+    out item aspirate : FluidOrTissueAspirate;
+  }
+
+  port def SterilityPort {
+    in item sterileInput : SterileInstrument;
+    out item sterileOutput : SterileInstrument;
+  }
+
+  port def CommandPort {
+    in item command : OperatorCommand;
+  }
+
+  port def AlertPort {
+    out item alert : SafetyAlert;
+  }
+
+  part def VaginalSpeculum {
+    attribute bladeLength : Length_mm = (value = 90.0);
+    attribute bladeWidth : Length_mm = (value = 32.0);
+    attribute maximumOpening : Length_mm = (value = 58.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port contact : AnatomyContactPort;
+    port safety : AlertPort;
+
+    action def PositionAndOpen {
+      in item canal : VaginalCanal;
+      out item exposedCervix : Cervix;
+      attribute opening : Length_mm;
+      attribute appliedForce : Force_N;
+    }
+
+    state def SpeculumUseState {
+      state Closed;
+      state Inserted;
+      state Opened;
+      state Locked;
+      state Removed;
+      state Contaminated;
+
+      transition first then Closed;
+      transition Closed then Inserted accept OperatorCommand
+        if command.requestedMode == ClinicalModeKind::pelvicExamination;
+      transition Inserted then Opened;
+      transition Opened then Locked;
+      transition Locked then Removed;
+      transition Removed then Contaminated;
+    }
+  }
+
+  part def Tenaculum {
+    attribute jawLength : Length_mm = (value = 18.0);
+    attribute maximumGripForce : Force_N = (value = 22.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port contact : AnatomyContactPort;
+    port safety : AlertPort;
+
+    action def StabilizeCervix {
+      in item cervix : Cervix;
+      out item stabilizedCervix : Cervix;
+      attribute gripForce : Force_N;
+    }
+
+    state def TenaculumState {
+      state Ready;
+      state Applied;
+      state Stabilizing;
+      state Released;
+      state Contaminated;
+
+      transition first then Ready;
+      transition Ready then Applied;
+      transition Applied then Stabilizing;
+      transition Stabilizing then Released;
+      transition Released then Contaminated;
+    }
+  }
+
+  part def ObstetricForceps {
+    attribute bladeLength : Length_mm = (value = 220.0);
+    attribute pelvicCurveRadius : Length_mm = (value = 105.0);
+    attribute maximumTractionForce : Force_N = (value = 80.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port contact : AnatomyContactPort;
+    port safety : AlertPort;
+
+    action def AssistDelivery {
+      in item maternalCanal : VaginalCanal;
+      out item appliedTraction : Force_N;
+      attribute tractionLimit : Force_N = (value = 80.0);
+    }
+
+    state def ForcepsUseState {
+      state SterileReady;
+      state Positioned;
+      state Articulated;
+      state TractionApplied;
+      state DeliveryComplete;
+      state Removed;
+
+      transition first then SterileReady;
+      transition SterileReady then Positioned
+        if sterilityState == SterilityStateKind::sterile;
+      transition Positioned then Articulated;
+      transition Articulated then TractionApplied;
+      transition TractionApplied then DeliveryComplete;
+      transition DeliveryComplete then Removed;
+    }
+  }
+
+  part def UltrasoundProbe {
+    attribute transducerFrequency : Frequency_MHz = (value = 5.0);
+    attribute imagingDepth : Length_mm = (value = 160.0);
+    attribute surfaceTemperatureLimit : Temperature_C = (value = 41.0);
+    attribute patientContact : PatientContactKind = PatientContactKind::mucosalContact;
+
+    port contact : AnatomyContactPort;
+    port imageOut : VisualizationPort;
+    port commandIn : CommandPort;
+    port safety : AlertPort;
+
+    action def AcquirePelvicImage {
+      in item anatomy : PatientAnatomy;
+      out item imageFrame : UltrasoundImageFrame;
+      attribute dwellTime : Time_s;
+    }
+
+    state def ProbeState {
+      state Idle;
+      state Coupled;
+      state Imaging;
+      state Frozen;
+      state Disinfecting;
+
+      transition first then Idle;
+      transition Idle then Coupled accept OperatorCommand
+        if command.requestedMode == ClinicalModeKind::cervicalAssessment;
+      transition Coupled then Imaging;
+      transition Imaging then Frozen;
+      transition Frozen then Disinfecting;
+      transition Disinfecting then Idle;
+    }
+  }
+
+  part def FetalDoppler {
+    attribute carrierFrequency : Frequency_MHz = (value = 2.0);
+    attribute minimumDetectableHeartRate : HeartRate_bpm = (value = 60.0);
+    attribute maximumDetectableHeartRate : HeartRate_bpm = (value = 220.0);
+
+    port contact : AnatomyContactPort;
+    port fetalSignalOut : DopplerSignalPort;
+    port commandIn : CommandPort;
+    port safety : AlertPort;
+
+    action def DetectFetalHeartRate {
+      in item maternalSurface : PatientAnatomy;
+      out item fetalSignal : FetalSignal;
+      attribute acquisitionTime : Time_s = (value = 10.0);
+    }
+
+    state def DopplerState {
+      state Off;
+      state Ready;
+      state Searching;
+      state SignalLocked;
+      state Reporting;
+      state Cleaning;
+
+      transition first then Off;
+      transition Off then Ready accept OperatorCommand
+        if command.enabled;
+      transition Ready then Searching
+        if command.requestedMode == ClinicalModeKind::fetalMonitoring;
+      transition Searching then SignalLocked;
+      transition SignalLocked then Reporting;
+      transition Reporting then Cleaning;
+      transition Cleaning then Off;
+    }
+  }
+
+  part def EndometrialBiopsyPipelle {
+    attribute outerDiameter : Length_mm = (value = 3.1);
+    attribute insertionLength : Length_mm = (value = 235.0);
+    attribute sampleCapacity : Volume_mL = (value = 1.5);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port sampling : SamplePort;
+    port safety : AlertPort;
+
+    action def CollectEndometrialSample {
+      in item cavity : UterineCavity;
+      out item endometrialSample : TissueSample;
+      attribute negativePressure : Pressure_kPa = (value = -45.0);
+    }
+
+    state def PipelleState {
+      state PackagedSterile;
+      state Inserted;
+      state Sampling;
+      state Withdrawn;
+      state SampleTransferred;
+      state Discarded;
+
+      transition first then PackagedSterile;
+      transition PackagedSterile then Inserted
+        if sterilityState == SterilityStateKind::sterile;
+      transition Inserted then Sampling;
+      transition Sampling then Withdrawn;
+      transition Withdrawn then SampleTransferred;
+      transition SampleTransferred then Discarded;
+    }
+  }
+
+  part def VacuumAspirationCannula {
+    attribute cannulaDiameter : Length_mm = (value = 6.0);
+    attribute workingLength : Length_mm = (value = 240.0);
+    attribute maximumVacuum : Pressure_kPa = (value = -85.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port suction : SuctionPort;
+    port safety : AlertPort;
+
+    action def EvacuateUterineContents {
+      in item cavity : UterineCavity;
+      out item aspirate : FluidOrTissueAspirate;
+      attribute appliedVacuum : Pressure_kPa;
+      attribute evacuationTime : Time_s;
+    }
+
+    state def CannulaState {
+      state Sterile;
+      state Primed;
+      state Inserted;
+      state Aspirating;
+      state Cleared;
+      state Removed;
+      state Disposed;
+
+      transition first then Sterile;
+      transition Sterile then Primed;
+      transition Primed then Inserted;
+      transition Inserted then Aspirating;
+      transition Aspirating then Cleared;
+      transition Cleared then Removed;
+      transition Removed then Disposed;
+    }
+  }
+
+  part def SterilizationTray {
+    attribute processingTemperature : Temperature_C = (value = 134.0);
+    attribute exposureTime : Time_s = (value = 240.0);
+    attribute loadCapacity : Integer = 12;
+
+    port sterileFlow : SterilityPort;
+    port safety : AlertPort;
+
+    action def ProcessReusableInstrument {
+      in item contaminatedInstrument : SterileInstrument;
+      out item sterilizedInstrument : SterileInstrument;
+      attribute validatedCycle : Boolean;
+    }
+
+    state def TrayState {
+      state Open;
+      state Loaded;
+      state Sealed;
+      state Processing;
+      state Cooling;
+      state SterileStorage;
+
+      transition first then Open;
+      transition Open then Loaded;
+      transition Loaded then Sealed;
+      transition Sealed then Processing;
+      transition Processing then Cooling;
+      transition Cooling then SterileStorage;
+    }
+  }
+
+  part def ObGynInstrumentSystem {
+    attribute primaryFunction : String =
+      "Provide sterile mechanical, visualization, monitoring, sampling, and suction-assisted clinical interfaces for high-level obstetric and gynecologic examination, diagnosis, fetal assessment, and procedural support.";
+    attribute activeMode : ClinicalModeKind;
+    attribute maximumPermittedContactForce : Force_N = (value = 80.0);
+    attribute maximumProbeSurfaceTemperature : Temperature_C = (value = 41.0);
+
+    port operatorCommands : CommandPort;
+    port clinicalAlerts : AlertPort;
+
+    part speculum : VaginalSpeculum;
+    part tenaculum : Tenaculum;
+    part deliveryForceps : ObstetricForceps;
+    part ultrasoundProbe : UltrasoundProbe;
+    part fetalDoppler : FetalDoppler;
+    part biopsyPipelle : EndometrialBiopsyPipelle;
+    part aspirationCannula : VacuumAspirationCannula;
+    part sterilizationTray : SterilizationTray;
+
+    connect operatorCommands to ultrasoundProbe.commandIn;
+    connect operatorCommands to fetalDoppler.commandIn;
+    connect speculum.safety to clinicalAlerts;
+    connect tenaculum.safety to clinicalAlerts;
+    connect deliveryForceps.safety to clinicalAlerts;
+    connect ultrasoundProbe.safety to clinicalAlerts;
+    connect fetalDoppler.safety to clinicalAlerts;
+    connect biopsyPipelle.safety to clinicalAlerts;
+    connect aspirationCannula.safety to clinicalAlerts;
+    connect sterilizationTray.safety to clinicalAlerts;
+
+    action def PerformPelvicExamination {
+      in item canal : VaginalCanal;
+      out item cervixVisible : Cervix;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::pelvicExamination;
+
+      first start;
+      then positionSpeculum : speculum.PositionAndOpen;
+      then stabilize : tenaculum.StabilizeCervix;
+      then done;
+
+      flow canal to positionSpeculum.canal;
+      flow positionSpeculum.exposedCervix to stabilize.cervix;
+      flow stabilize.stabilizedCervix to cervixVisible;
+    }
+
+    action def PerformFetalAssessment {
+      in item maternalSurface : PatientAnatomy;
+      out item fetalHeartSignal : FetalSignal;
+      out item imageFrame : UltrasoundImageFrame;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::fetalMonitoring;
+
+      first start;
+      then image : ultrasoundProbe.AcquirePelvicImage;
+      then doppler : fetalDoppler.DetectFetalHeartRate;
+      then done;
+
+      flow maternalSurface to image.anatomy;
+      flow maternalSurface to doppler.maternalSurface;
+      flow image.imageFrame to imageFrame;
+      flow doppler.fetalSignal to fetalHeartSignal;
+    }
+
+    action def PerformEndometrialSampling {
+      in item cavity : UterineCavity;
+      out item diagnosticSample : TissueSample;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::tissueSampling;
+
+      first start;
+      then collect : biopsyPipelle.CollectEndometrialSample;
+      then done;
+
+      flow cavity to collect.cavity;
+      flow collect.endometrialSample to diagnosticSample;
+    }
+
+    action def PerformUterineEvacuation {
+      in item cavity : UterineCavity;
+      out item collectedAspirate : FluidOrTissueAspirate;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::uterineEvacuation;
+
+      first start;
+      then evacuate : aspirationCannula.EvacuateUterineContents;
+      then done;
+
+      flow cavity to evacuate.cavity;
+      flow evacuate.aspirate to collectedAspirate;
+    }
+
+    action def ReprocessReusableInstruments {
+      in item usedInstrument : SterileInstrument;
+      out item readyInstrument : SterileInstrument;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::sterilization;
+
+      first start;
+      then cycle : sterilizationTray.ProcessReusableInstrument;
+      then done;
+
+      flow usedInstrument to cycle.contaminatedInstrument;
+      flow cycle.sterilizedInstrument to readyInstrument;
+    }
+
+    state def SystemClinicalState {
+      state Shutdown;
+      state InventoryCheck;
+      state SterileReady;
+      state ExaminationMode;
+      state MonitoringMode;
+      state ProcedureMode;
+      state ReprocessingMode;
+      state FaultHold;
+
+      transition first then Shutdown;
+      transition Shutdown then InventoryCheck accept OperatorCommand
+        if command.enabled;
+      transition InventoryCheck then SterileReady;
+      transition SterileReady then ExaminationMode
+        if command.requestedMode == ClinicalModeKind::pelvicExamination or command.requestedMode == ClinicalModeKind::cervicalAssessment;
+      transition SterileReady then MonitoringMode
+        if command.requestedMode == ClinicalModeKind::fetalMonitoring;
+      transition SterileReady then ProcedureMode
+        if command.requestedMode == ClinicalModeKind::deliveryAssistance or command.requestedMode == ClinicalModeKind::tissueSampling or command.requestedMode == ClinicalModeKind::uterineEvacuation;
+      transition ExaminationMode then ReprocessingMode;
+      transition MonitoringMode then ReprocessingMode;
+      transition ProcedureMode then ReprocessingMode;
+      transition ReprocessingMode then SterileReady;
+      transition ExaminationMode then FaultHold accept SafetyAlert
+        if alert.severity >= 3;
+      transition MonitoringMode then FaultHold accept SafetyAlert
+        if alert.severity >= 3;
+      transition ProcedureMode then FaultHold accept SafetyAlert
+        if alert.severity >= 3;
+      transition FaultHold then InventoryCheck accept OperatorCommand
+        if command.enabled;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* The obstetrics and gynecology instrument system shall provide a coordinated set of sterile clinical instruments whose primary high-level function is to support examination, visualization, fetal monitoring, sampling, delivery assistance, uterine evacuation, and reprocessing workflows. */
+
+    require constraint {
+      system.primaryFunction != ""
+    }
+  }
+
+  requirement def SterilityRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Instruments that contact mucosa, cervix, uterus, tissue, or aspirated material shall be sterile before patient use and shall enter reprocessing or disposal after use. */
+
+    require constraint {
+      system.speculum.sterilityState == SterilityStateKind::sterile and
+      system.tenaculum.sterilityState == SterilityStateKind::sterile and
+      system.deliveryForceps.sterilityState == SterilityStateKind::sterile and
+      system.biopsyPipelle.sterilityState == SterilityStateKind::sterile and
+      system.aspirationCannula.sterilityState == SterilityStateKind::sterile
+    }
+  }
+
+  requirement def MechanicalSafetyRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Mechanical instruments shall limit contact or traction forces to values appropriate for clinical use and shall emit an alert when commanded force exceeds the configured limit. */
+
+    require constraint {
+      system.deliveryForceps.maximumTractionForce.value <= system.maximumPermittedContactForce.value and
+      system.tenaculum.maximumGripForce.value <= system.maximumPermittedContactForce.value
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Active electronic probes used for imaging or Doppler monitoring shall maintain patient-contact surface temperature at or below the configured limit. */
+
+    require constraint {
+      system.ultrasoundProbe.surfaceTemperatureLimit.value <= system.maximumProbeSurfaceTemperature.value
+    }
+  }
+
+  requirement def FetalMonitoringRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* The fetal Doppler instrument shall detect and report fetal heart-rate signals within the expected clinical monitoring range. */
+
+    require constraint {
+      system.fetalDoppler.minimumDetectableHeartRate.value <= 60.0 and
+      system.fetalDoppler.maximumDetectableHeartRate.value >= 200.0
+    }
+  }
+
+  requirement def SamplingTraceabilityRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Tissue sampling instruments shall output a preserved tissue sample with source-site identification for diagnostic workflow traceability. */
+
+    require constraint {
+      system.biopsyPipelle.sampleCapacity.value > 0.0
+    }
+  }
+
+  part obGynInstrumentSystem : ObGynInstrumentSystem;
+
+  satisfy PrimaryFunctionRequirement by obGynInstrumentSystem;
+  satisfy SterilityRequirement by obGynInstrumentSystem;
+  satisfy MechanicalSafetyRequirement by obGynInstrumentSystem;
+  satisfy ThermalSafetyRequirement by obGynInstrumentSystem;
+  satisfy FetalMonitoringRequirement by obGynInstrumentSystem;
+  satisfy SamplingTraceabilityRequirement by obGynInstrumentSystem;
+}
+tokens used
+6,457
+package ObstetricsGynecologyInstrumentModel {
+
+  enum def ClinicalModeKind {
+    enum pelvicExamination;
+    enum cervicalAssessment;
+    enum fetalMonitoring;
+    enum deliveryAssistance;
+    enum tissueSampling;
+    enum uterineEvacuation;
+    enum sterilization;
+  }
+
+  enum def SterilityStateKind {
+    enum sterile;
+    enum clean;
+    enum contaminated;
+    enum processing;
+  }
+
+  enum def PatientContactKind {
+    enum nonContact;
+    enum mucosalContact;
+    enum tissueContact;
+    enum uterineContact;
+  }
+
+  value def Length_mm {
+    attribute value : Real;
+    attribute unit : String = "mm";
+  }
+
+  value def Force_N {
+    attribute value : Real;
+    attribute unit : String = "N";
+  }
+
+  value def Pressure_kPa {
+    attribute value : Real;
+    attribute unit : String = "kPa";
+  }
+
+  value def Frequency_MHz {
+    attribute value : Real;
+    attribute unit : String = "MHz";
+  }
+
+  value def HeartRate_bpm {
+    attribute value : Real;
+    attribute unit : String = "beats/min";
+  }
+
+  value def Temperature_C {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  value def Time_s {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  value def Volume_mL {
+    attribute value : Real;
+    attribute unit : String = "mL";
+  }
+
+  item def PatientAnatomy {
+    attribute contactSite : String;
+    attribute patientContact : PatientContactKind;
+  }
+
+  item def VaginalCanal :> PatientAnatomy {
+    attribute contactSite = "vaginal canal";
+    attribute patientContact = PatientContactKind::mucosalContact;
+  }
+
+  item def Cervix :> PatientAnatomy {
+    attribute contactSite = "cervix";
+    attribute patientContact = PatientContactKind::mucosalContact;
+  }
+
+  item def UterineCavity :> PatientAnatomy {
+    attribute contactSite = "uterine cavity";
+    attribute patientContact = PatientContactKind::uterineContact;
+  }
+
+  item def FetalSignal {
+    attribute fetalHeartRate : HeartRate_bpm;
+    attribute signalQuality : Real;
+  }
+
+  item def UltrasoundImageFrame {
+    attribute centerFrequency : Frequency_MHz;
+    attribute imageDepth : Length_mm;
+    attribute frameTime : Time_s;
+  }
+
+  item def TissueSample {
+    attribute sampleVolume : Volume_mL;
+    attribute sourceSite : String;
+    attribute preserved : Boolean;
+  }
+
+  item def FluidOrTissueAspirate {
+    attribute collectedVolume : Volume_mL;
+    attribute vacuumPressure : Pressure_kPa;
+  }
+
+  item def SterileInstrument {
+    attribute sterilityState : SterilityStateKind;
+    attribute expirationTimeRemaining : Time_s;
+  }
+
+  item def OperatorCommand {
+    attribute requestedMode : ClinicalModeKind;
+    attribute enabled : Boolean;
+  }
+
+  item def SafetyAlert {
+    attribute alertCode : String;
+    attribute severity : Integer;
+    attribute message : String;
+  }
+
+  port def AnatomyContactPort {
+    in item anatomy : PatientAnatomy;
+    out item contactForce : Force_N;
+  }
+
+  port def VisualizationPort {
+    out item viewFrame : UltrasoundImageFrame;
+  }
+
+  port def DopplerSignalPort {
+    out item fetalSignal : FetalSignal;
+  }
+
+  port def SamplePort {
+    in item tissueSite : PatientAnatomy;
+    out item sample : TissueSample;
+  }
+
+  port def SuctionPort {
+    in item uterineSite : UterineCavity;
+    out item aspirate : FluidOrTissueAspirate;
+  }
+
+  port def SterilityPort {
+    in item sterileInput : SterileInstrument;
+    out item sterileOutput : SterileInstrument;
+  }
+
+  port def CommandPort {
+    in item command : OperatorCommand;
+  }
+
+  port def AlertPort {
+    out item alert : SafetyAlert;
+  }
+
+  part def VaginalSpeculum {
+    attribute bladeLength : Length_mm = (value = 90.0);
+    attribute bladeWidth : Length_mm = (value = 32.0);
+    attribute maximumOpening : Length_mm = (value = 58.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port contact : AnatomyContactPort;
+    port safety : AlertPort;
+
+    action def PositionAndOpen {
+      in item canal : VaginalCanal;
+      out item exposedCervix : Cervix;
+      attribute opening : Length_mm;
+      attribute appliedForce : Force_N;
+    }
+
+    state def SpeculumUseState {
+      state Closed;
+      state Inserted;
+      state Opened;
+      state Locked;
+      state Removed;
+      state Contaminated;
+
+      transition first then Closed;
+      transition Closed then Inserted accept OperatorCommand
+        if command.requestedMode == ClinicalModeKind::pelvicExamination;
+      transition Inserted then Opened;
+      transition Opened then Locked;
+      transition Locked then Removed;
+      transition Removed then Contaminated;
+    }
+  }
+
+  part def Tenaculum {
+    attribute jawLength : Length_mm = (value = 18.0);
+    attribute maximumGripForce : Force_N = (value = 22.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port contact : AnatomyContactPort;
+    port safety : AlertPort;
+
+    action def StabilizeCervix {
+      in item cervix : Cervix;
+      out item stabilizedCervix : Cervix;
+      attribute gripForce : Force_N;
+    }
+
+    state def TenaculumState {
+      state Ready;
+      state Applied;
+      state Stabilizing;
+      state Released;
+      state Contaminated;
+
+      transition first then Ready;
+      transition Ready then Applied;
+      transition Applied then Stabilizing;
+      transition Stabilizing then Released;
+      transition Released then Contaminated;
+    }
+  }
+
+  part def ObstetricForceps {
+    attribute bladeLength : Length_mm = (value = 220.0);
+    attribute pelvicCurveRadius : Length_mm = (value = 105.0);
+    attribute maximumTractionForce : Force_N = (value = 80.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port contact : AnatomyContactPort;
+    port safety : AlertPort;
+
+    action def AssistDelivery {
+      in item maternalCanal : VaginalCanal;
+      out item appliedTraction : Force_N;
+      attribute tractionLimit : Force_N = (value = 80.0);
+    }
+
+    state def ForcepsUseState {
+      state SterileReady;
+      state Positioned;
+      state Articulated;
+      state TractionApplied;
+      state DeliveryComplete;
+      state Removed;
+
+      transition first then SterileReady;
+      transition SterileReady then Positioned
+        if sterilityState == SterilityStateKind::sterile;
+      transition Positioned then Articulated;
+      transition Articulated then TractionApplied;
+      transition TractionApplied then DeliveryComplete;
+      transition DeliveryComplete then Removed;
+    }
+  }
+
+  part def UltrasoundProbe {
+    attribute transducerFrequency : Frequency_MHz = (value = 5.0);
+    attribute imagingDepth : Length_mm = (value = 160.0);
+    attribute surfaceTemperatureLimit : Temperature_C = (value = 41.0);
+    attribute patientContact : PatientContactKind = PatientContactKind::mucosalContact;
+
+    port contact : AnatomyContactPort;
+    port imageOut : VisualizationPort;
+    port commandIn : CommandPort;
+    port safety : AlertPort;
+
+    action def AcquirePelvicImage {
+      in item anatomy : PatientAnatomy;
+      out item imageFrame : UltrasoundImageFrame;
+      attribute dwellTime : Time_s;
+    }
+
+    state def ProbeState {
+      state Idle;
+      state Coupled;
+      state Imaging;
+      state Frozen;
+      state Disinfecting;
+
+      transition first then Idle;
+      transition Idle then Coupled accept OperatorCommand
+        if command.requestedMode == ClinicalModeKind::cervicalAssessment;
+      transition Coupled then Imaging;
+      transition Imaging then Frozen;
+      transition Frozen then Disinfecting;
+      transition Disinfecting then Idle;
+    }
+  }
+
+  part def FetalDoppler {
+    attribute carrierFrequency : Frequency_MHz = (value = 2.0);
+    attribute minimumDetectableHeartRate : HeartRate_bpm = (value = 60.0);
+    attribute maximumDetectableHeartRate : HeartRate_bpm = (value = 220.0);
+
+    port contact : AnatomyContactPort;
+    port fetalSignalOut : DopplerSignalPort;
+    port commandIn : CommandPort;
+    port safety : AlertPort;
+
+    action def DetectFetalHeartRate {
+      in item maternalSurface : PatientAnatomy;
+      out item fetalSignal : FetalSignal;
+      attribute acquisitionTime : Time_s = (value = 10.0);
+    }
+
+    state def DopplerState {
+      state Off;
+      state Ready;
+      state Searching;
+      state SignalLocked;
+      state Reporting;
+      state Cleaning;
+
+      transition first then Off;
+      transition Off then Ready accept OperatorCommand
+        if command.enabled;
+      transition Ready then Searching
+        if command.requestedMode == ClinicalModeKind::fetalMonitoring;
+      transition Searching then SignalLocked;
+      transition SignalLocked then Reporting;
+      transition Reporting then Cleaning;
+      transition Cleaning then Off;
+    }
+  }
+
+  part def EndometrialBiopsyPipelle {
+    attribute outerDiameter : Length_mm = (value = 3.1);
+    attribute insertionLength : Length_mm = (value = 235.0);
+    attribute sampleCapacity : Volume_mL = (value = 1.5);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port sampling : SamplePort;
+    port safety : AlertPort;
+
+    action def CollectEndometrialSample {
+      in item cavity : UterineCavity;
+      out item endometrialSample : TissueSample;
+      attribute negativePressure : Pressure_kPa = (value = -45.0);
+    }
+
+    state def PipelleState {
+      state PackagedSterile;
+      state Inserted;
+      state Sampling;
+      state Withdrawn;
+      state SampleTransferred;
+      state Discarded;
+
+      transition first then PackagedSterile;
+      transition PackagedSterile then Inserted
+        if sterilityState == SterilityStateKind::sterile;
+      transition Inserted then Sampling;
+      transition Sampling then Withdrawn;
+      transition Withdrawn then SampleTransferred;
+      transition SampleTransferred then Discarded;
+    }
+  }
+
+  part def VacuumAspirationCannula {
+    attribute cannulaDiameter : Length_mm = (value = 6.0);
+    attribute workingLength : Length_mm = (value = 240.0);
+    attribute maximumVacuum : Pressure_kPa = (value = -85.0);
+    attribute sterilityState : SterilityStateKind = SterilityStateKind::sterile;
+
+    port suction : SuctionPort;
+    port safety : AlertPort;
+
+    action def EvacuateUterineContents {
+      in item cavity : UterineCavity;
+      out item aspirate : FluidOrTissueAspirate;
+      attribute appliedVacuum : Pressure_kPa;
+      attribute evacuationTime : Time_s;
+    }
+
+    state def CannulaState {
+      state Sterile;
+      state Primed;
+      state Inserted;
+      state Aspirating;
+      state Cleared;
+      state Removed;
+      state Disposed;
+
+      transition first then Sterile;
+      transition Sterile then Primed;
+      transition Primed then Inserted;
+      transition Inserted then Aspirating;
+      transition Aspirating then Cleared;
+      transition Cleared then Removed;
+      transition Removed then Disposed;
+    }
+  }
+
+  part def SterilizationTray {
+    attribute processingTemperature : Temperature_C = (value = 134.0);
+    attribute exposureTime : Time_s = (value = 240.0);
+    attribute loadCapacity : Integer = 12;
+
+    port sterileFlow : SterilityPort;
+    port safety : AlertPort;
+
+    action def ProcessReusableInstrument {
+      in item contaminatedInstrument : SterileInstrument;
+      out item sterilizedInstrument : SterileInstrument;
+      attribute validatedCycle : Boolean;
+    }
+
+    state def TrayState {
+      state Open;
+      state Loaded;
+      state Sealed;
+      state Processing;
+      state Cooling;
+      state SterileStorage;
+
+      transition first then Open;
+      transition Open then Loaded;
+      transition Loaded then Sealed;
+      transition Sealed then Processing;
+      transition Processing then Cooling;
+      transition Cooling then SterileStorage;
+    }
+  }
+
+  part def ObGynInstrumentSystem {
+    attribute primaryFunction : String =
+      "Provide sterile mechanical, visualization, monitoring, sampling, and suction-assisted clinical interfaces for high-level obstetric and gynecologic examination, diagnosis, fetal assessment, and procedural support.";
+    attribute activeMode : ClinicalModeKind;
+    attribute maximumPermittedContactForce : Force_N = (value = 80.0);
+    attribute maximumProbeSurfaceTemperature : Temperature_C = (value = 41.0);
+
+    port operatorCommands : CommandPort;
+    port clinicalAlerts : AlertPort;
+
+    part speculum : VaginalSpeculum;
+    part tenaculum : Tenaculum;
+    part deliveryForceps : ObstetricForceps;
+    part ultrasoundProbe : UltrasoundProbe;
+    part fetalDoppler : FetalDoppler;
+    part biopsyPipelle : EndometrialBiopsyPipelle;
+    part aspirationCannula : VacuumAspirationCannula;
+    part sterilizationTray : SterilizationTray;
+
+    connect operatorCommands to ultrasoundProbe.commandIn;
+    connect operatorCommands to fetalDoppler.commandIn;
+    connect speculum.safety to clinicalAlerts;
+    connect tenaculum.safety to clinicalAlerts;
+    connect deliveryForceps.safety to clinicalAlerts;
+    connect ultrasoundProbe.safety to clinicalAlerts;
+    connect fetalDoppler.safety to clinicalAlerts;
+    connect biopsyPipelle.safety to clinicalAlerts;
+    connect aspirationCannula.safety to clinicalAlerts;
+    connect sterilizationTray.safety to clinicalAlerts;
+
+    action def PerformPelvicExamination {
+      in item canal : VaginalCanal;
+      out item cervixVisible : Cervix;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::pelvicExamination;
+
+      first start;
+      then positionSpeculum : speculum.PositionAndOpen;
+      then stabilize : tenaculum.StabilizeCervix;
+      then done;
+
+      flow canal to positionSpeculum.canal;
+      flow positionSpeculum.exposedCervix to stabilize.cervix;
+      flow stabilize.stabilizedCervix to cervixVisible;
+    }
+
+    action def PerformFetalAssessment {
+      in item maternalSurface : PatientAnatomy;
+      out item fetalHeartSignal : FetalSignal;
+      out item imageFrame : UltrasoundImageFrame;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::fetalMonitoring;
+
+      first start;
+      then image : ultrasoundProbe.AcquirePelvicImage;
+      then doppler : fetalDoppler.DetectFetalHeartRate;
+      then done;
+
+      flow maternalSurface to image.anatomy;
+      flow maternalSurface to doppler.maternalSurface;
+      flow image.imageFrame to imageFrame;
+      flow doppler.fetalSignal to fetalHeartSignal;
+    }
+
+    action def PerformEndometrialSampling {
+      in item cavity : UterineCavity;
+      out item diagnosticSample : TissueSample;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::tissueSampling;
+
+      first start;
+      then collect : biopsyPipelle.CollectEndometrialSample;
+      then done;
+
+      flow cavity to collect.cavity;
+      flow collect.endometrialSample to diagnosticSample;
+    }
+
+    action def PerformUterineEvacuation {
+      in item cavity : UterineCavity;
+      out item collectedAspirate : FluidOrTissueAspirate;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::uterineEvacuation;
+
+      first start;
+      then evacuate : aspirationCannula.EvacuateUterineContents;
+      then done;
+
+      flow cavity to evacuate.cavity;
+      flow evacuate.aspirate to collectedAspirate;
+    }
+
+    action def ReprocessReusableInstruments {
+      in item usedInstrument : SterileInstrument;
+      out item readyInstrument : SterileInstrument;
+      attribute mode : ClinicalModeKind = ClinicalModeKind::sterilization;
+
+      first start;
+      then cycle : sterilizationTray.ProcessReusableInstrument;
+      then done;
+
+      flow usedInstrument to cycle.contaminatedInstrument;
+      flow cycle.sterilizedInstrument to readyInstrument;
+    }
+
+    state def SystemClinicalState {
+      state Shutdown;
+      state InventoryCheck;
+      state SterileReady;
+      state ExaminationMode;
+      state MonitoringMode;
+      state ProcedureMode;
+      state ReprocessingMode;
+      state FaultHold;
+
+      transition first then Shutdown;
+      transition Shutdown then InventoryCheck accept OperatorCommand
+        if command.enabled;
+      transition InventoryCheck then SterileReady;
+      transition SterileReady then ExaminationMode
+        if command.requestedMode == ClinicalModeKind::pelvicExamination or command.requestedMode == ClinicalModeKind::cervicalAssessment;
+      transition SterileReady then MonitoringMode
+        if command.requestedMode == ClinicalModeKind::fetalMonitoring;
+      transition SterileReady then ProcedureMode
+        if command.requestedMode == ClinicalModeKind::deliveryAssistance or command.requestedMode == ClinicalModeKind::tissueSampling or command.requestedMode == ClinicalModeKind::uterineEvacuation;
+      transition ExaminationMode then ReprocessingMode;
+      transition MonitoringMode then ReprocessingMode;
+      transition ProcedureMode then ReprocessingMode;
+      transition ReprocessingMode then SterileReady;
+      transition ExaminationMode then FaultHold accept SafetyAlert
+        if alert.severity >= 3;
+      transition MonitoringMode then FaultHold accept SafetyAlert
+        if alert.severity >= 3;
+      transition ProcedureMode then FaultHold accept SafetyAlert
+        if alert.severity >= 3;
+      transition FaultHold then InventoryCheck accept OperatorCommand
+        if command.enabled;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* The obstetrics and gynecology instrument system shall provide a coordinated set of sterile clinical instruments whose primary high-level function is to support examination, visualization, fetal monitoring, sampling, delivery assistance, uterine evacuation, and reprocessing workflows. */
+
+    require constraint {
+      system.primaryFunction != ""
+    }
+  }
+
+  requirement def SterilityRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Instruments that contact mucosa, cervix, uterus, tissue, or aspirated material shall be sterile before patient use and shall enter reprocessing or disposal after use. */
+
+    require constraint {
+      system.speculum.sterilityState == SterilityStateKind::sterile and
+      system.tenaculum.sterilityState == SterilityStateKind::sterile and
+      system.deliveryForceps.sterilityState == SterilityStateKind::sterile and
+      system.biopsyPipelle.sterilityState == SterilityStateKind::sterile and
+      system.aspirationCannula.sterilityState == SterilityStateKind::sterile
+    }
+  }
+
+  requirement def MechanicalSafetyRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Mechanical instruments shall limit contact or traction forces to values appropriate for clinical use and shall emit an alert when commanded force exceeds the configured limit. */
+
+    require constraint {
+      system.deliveryForceps.maximumTractionForce.value <= system.maximumPermittedContactForce.value and
+      system.tenaculum.maximumGripForce.value <= system.maximumPermittedContactForce.value
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Active electronic probes used for imaging or Doppler monitoring shall maintain patient-contact surface temperature at or below the configured limit. */
+
+    require constraint {
+      system.ultrasoundProbe.surfaceTemperatureLimit.value <= system.maximumProbeSurfaceTemperature.value
+    }
+  }
+
+  requirement def FetalMonitoringRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* The fetal Doppler instrument shall detect and report fetal heart-rate signals within the expected clinical monitoring range. */
+
+    require constraint {
+      system.fetalDoppler.minimumDetectableHeartRate.value <= 60.0 and
+      system.fetalDoppler.maximumDetectableHeartRate.value >= 200.0
+    }
+  }
+
+  requirement def SamplingTraceabilityRequirement {
+    subject system : ObGynInstrumentSystem;
+
+    doc
+      /* Tissue sampling instruments shall output a preserved tissue sample with source-site identification for diagnostic workflow traceability. */
+
+    require constraint {
+      system.biopsyPipelle.sampleCapacity.value > 0.0
+    }
+  }
+
+  part obGynInstrumentSystem : ObGynInstrumentSystem;
+
+  satisfy PrimaryFunctionRequirement by obGynInstrumentSystem;
+  satisfy SterilityRequirement by obGynInstrumentSystem;
+  satisfy MechanicalSafetyRequirement by obGynInstrumentSystem;
+  satisfy ThermalSafetyRequirement by obGynInstrumentSystem;
+  satisfy FetalMonitoringRequirement by obGynInstrumentSystem;
+  satisfy SamplingTraceabilityRequirement by obGynInstrumentSystem;
+}

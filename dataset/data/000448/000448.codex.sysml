@@ -1,0 +1,325 @@
+package EsophagealStentSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def LengthValue :> ISQ::length;
+  attribute def DiameterValue :> ISQ::length;
+  attribute def ForceValue :> ISQ::force;
+  attribute def PressureValue :> ISQ::pressure;
+  attribute def TimeValue :> ISQ::time;
+  attribute def TemperatureValue :> ISQ::thermodynamicTemperature;
+
+  enum def StentDeploymentState {
+    enum compressed;
+    enum partiallyExpanded;
+    enum fullyExpanded;
+    enum migrated;
+    enum removed;
+  }
+
+  enum def EsophagealRegion {
+    enum upperEsophagus;
+    enum midEsophagus;
+    enum lowerEsophagus;
+    enum gastroesophagealJunction;
+  }
+
+  item def FoodBolus {
+    attribute bolusDiameter : DiameterValue;
+    attribute bolusConsistency : String;
+  }
+
+  item def Saliva {
+    attribute flowRate : Real;
+  }
+
+  item def GastricReflux {
+    attribute acidityPH : Real;
+    attribute refluxPressure : PressureValue;
+  }
+
+  item def EndoscopeView {
+    attribute imageResolution : String;
+    attribute targetVisible : Boolean;
+  }
+
+  item def DeploymentCommand {
+    attribute releaseRequested : Boolean;
+    attribute targetRegion : EsophagealRegion;
+  }
+
+  item def RadialExpansionForce {
+    attribute magnitude : ForceValue;
+    attribute distributedOverLength : LengthValue;
+  }
+
+  item def EsophagealLumenPatency {
+    attribute minimumOpenDiameter : DiameterValue;
+    attribute obstructionReduced : Boolean;
+  }
+
+  port def LumenInterfacePort {
+    in item incomingFood : FoodBolus;
+    in item incomingSaliva : Saliva;
+    out item passedFood : FoodBolus;
+    out item patency : EsophagealLumenPatency;
+  }
+
+  port def TissueContactPort {
+    out item radialForce : RadialExpansionForce;
+    in item refluxExposure : GastricReflux;
+  }
+
+  port def DeliveryControlPort {
+    in item command : DeploymentCommand;
+    out item visualization : EndoscopeView;
+  }
+
+  part def EsophagealStent {
+    attribute nominalLength : LengthValue = 100 [mm];
+    attribute compressedDiameter : DiameterValue = 8 [mm];
+    attribute expandedDiameter : DiameterValue = 20 [mm];
+    attribute wallThickness : LengthValue = 0.35 [mm];
+    attribute radialForceAtBodyTemp : ForceValue = 4.5 [N];
+    attribute bodyTemperature : TemperatureValue = 310.15 [K];
+    attribute deploymentState : StentDeploymentState = StentDeploymentState::compressed;
+    attribute isCovered : Boolean = true;
+    attribute antiMigrationFlaresPresent : Boolean = true;
+
+    port proximalLumen : LumenInterfacePort;
+    port distalLumen : LumenInterfacePort;
+    port outerWall : TissueContactPort;
+
+    part nitinolFrame {
+      attribute strutThickness : LengthValue = 0.22 [mm];
+      attribute selfExpanding : Boolean = true;
+      attribute radiopaqueMarkers : Integer = 4;
+    }
+
+    part polymerCover {
+      attribute coverMaterial : String = "biocompatible silicone membrane";
+      attribute leakResistancePressure : PressureValue = 6 [kPa];
+      attribute preventsTumorIngrowth : Boolean = true;
+    }
+
+    part proximalFlare {
+      attribute flareDiameter : DiameterValue = 24 [mm];
+      attribute migrationResistanceContribution : ForceValue = 1.2 [N];
+    }
+
+    part distalFlare {
+      attribute flareDiameter : DiameterValue = 24 [mm];
+      attribute migrationResistanceContribution : ForceValue = 1.2 [N];
+    }
+
+    action deploy {
+      in item deploymentCommand : DeploymentCommand;
+      out item deliveredForce : RadialExpansionForce;
+      out item restoredPatency : EsophagealLumenPatency;
+
+      first start;
+      then verifyTarget;
+      then releaseConstraint;
+      then expandFrame;
+      then seatAgainstWall;
+      then confirmPatency;
+      then done;
+
+      action verifyTarget {
+        out targetAccepted : Boolean;
+      }
+
+      action releaseConstraint {
+        out released : Boolean;
+      }
+
+      action expandFrame {
+        in released : Boolean;
+        out item deliveredForce : RadialExpansionForce;
+      }
+
+      action seatAgainstWall {
+        in item deliveredForce : RadialExpansionForce;
+        out seated : Boolean;
+      }
+
+      action confirmPatency {
+        in seated : Boolean;
+        out item restoredPatency : EsophagealLumenPatency;
+      }
+
+      flow start to verifyTarget;
+      flow verifyTarget to releaseConstraint;
+      flow releaseConstraint to expandFrame;
+      flow expandFrame to seatAgainstWall;
+      flow seatAgainstWall to confirmPatency;
+      flow confirmPatency to done;
+    }
+
+    state def StentLifecycle {
+      entry action initializeCompressed;
+      state Compressed;
+      state PartiallyExpanded;
+      state FullyExpanded;
+      state Migrated;
+      state Removed;
+
+      transition first Compressed;
+      transition Compressed to PartiallyExpanded
+        accept DeploymentCommand
+        if command.releaseRequested;
+
+      transition PartiallyExpanded to FullyExpanded
+        if radialForceAtBodyTemp >= 3.5 [N];
+
+      transition FullyExpanded to Migrated
+        if antiMigrationFlaresPresent == false;
+
+      transition FullyExpanded to Removed
+        accept DeploymentCommand
+        if command.releaseRequested == false;
+
+      transition Migrated to Removed
+        accept DeploymentCommand;
+    }
+  }
+
+  part def DeliveryCatheter {
+    attribute outerDiameter : DiameterValue = 7 [mm];
+    attribute workingLength : LengthValue = 700 [mm];
+    attribute constraintSheathRetracted : Boolean = false;
+
+    port controller : DeliveryControlPort;
+    port distalReleasePort : DeliveryControlPort;
+
+    part handle {
+      attribute triggerTravel : LengthValue = 35 [mm];
+      attribute lockEngaged : Boolean = true;
+    }
+
+    part constraintSheath {
+      attribute sheathInnerDiameter : DiameterValue = 8.5 [mm];
+      attribute sheathRetractionDistance : LengthValue = 120 [mm];
+    }
+
+    action retractSheath {
+      in item command : DeploymentCommand;
+      out released : Boolean;
+    }
+  }
+
+  part def Esophagus {
+    attribute targetRegion : EsophagealRegion = EsophagealRegion::lowerEsophagus;
+    attribute diseasedLumenDiameter : DiameterValue = 5 [mm];
+    attribute desiredLumenDiameter : DiameterValue = 18 [mm];
+    attribute strictureLength : LengthValue = 70 [mm];
+    attribute wallCompliance : Real = 0.42;
+
+    port proximalSegment : LumenInterfacePort;
+    port distalSegment : LumenInterfacePort;
+    port innerWall : TissueContactPort;
+
+    part malignantStricture {
+      attribute obstructionDiameter : DiameterValue = 5 [mm];
+      attribute obstructionLength : LengthValue = 70 [mm];
+      attribute progressiveNarrowing : Boolean = true;
+    }
+  }
+
+  part def EndoscopicPlacementSystem {
+    attribute procedureDurationLimit : TimeValue = 1800 [s];
+
+    part stent : EsophagealStent;
+    part catheter : DeliveryCatheter;
+    part patientEsophagus : Esophagus;
+
+    port operatorControl : DeliveryControlPort;
+
+    connection proximalFoodPath connect patientEsophagus.proximalSegment to stent.proximalLumen;
+    connection distalFoodPath connect stent.distalLumen to patientEsophagus.distalSegment;
+    connection tissueContact connect stent.outerWall to patientEsophagus.innerWall;
+    connection controlPath connect operatorControl to catheter.controller;
+    connection releasePath connect catheter.distalReleasePort to operatorControl;
+
+    action restoreEsophagealPatency {
+      in item command : DeploymentCommand;
+      in item obstructedFood : FoodBolus;
+      out item passedFood : FoodBolus;
+      out item finalPatency : EsophagealLumenPatency;
+
+      first positionCatheter;
+      then deployStent;
+      then verifyFoodPassage;
+      then complete;
+
+      action positionCatheter {
+        out positioned : Boolean;
+      }
+
+      action deployStent {
+        in positioned : Boolean;
+        out item finalPatency : EsophagealLumenPatency;
+      }
+
+      action verifyFoodPassage {
+        in item obstructedFood : FoodBolus;
+        in item finalPatency : EsophagealLumenPatency;
+        out item passedFood : FoodBolus;
+      }
+
+      flow positionCatheter to deployStent;
+      flow deployStent to verifyFoodPassage;
+      flow verifyFoodPassage to complete;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The esophageal stent shall restore and maintain an open passage through a narrowed esophageal segment so that swallowed material can pass from the proximal esophagus to the distal esophagus. */
+    subject system : EndoscopicPlacementSystem;
+    require constraint {
+      system.patientEsophagus.desiredLumenDiameter >= 18 [mm]
+    }
+  }
+
+  requirement def RadialSupportRequirement {
+    doc /* The implanted stent shall provide sufficient outward radial support to oppose compressive narrowing from the diseased esophageal wall. */
+    subject stent : EsophagealStent;
+    require constraint {
+      stent.radialForceAtBodyTemp >= 3.5 [N]
+    }
+  }
+
+  requirement def DeploymentProfileRequirement {
+    doc /* The stent shall be deliverable in a compressed configuration through an endoscopic delivery catheter and expand after release at the target esophageal region. */
+    subject stent : EsophagealStent;
+    require constraint {
+      stent.compressedDiameter <= 8 [mm] and stent.expandedDiameter >= 18 [mm]
+    }
+  }
+
+  requirement def CoverageRequirement {
+    doc /* The stent covering shall limit tissue ingrowth and help preserve lumen patency during the intended treatment interval. */
+    subject stent : EsophagealStent;
+    require constraint {
+      stent.isCovered == true
+    }
+  }
+
+  requirement def AntiMigrationRequirement {
+    doc /* The stent shall include geometry that resists clinically significant migration after full expansion. */
+    subject stent : EsophagealStent;
+    require constraint {
+      stent.antiMigrationFlaresPresent == true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by EndoscopicPlacementSystem::restoreEsophagealPatency;
+  satisfy RadialSupportRequirement by EsophagealStent::nitinolFrame;
+  satisfy DeploymentProfileRequirement by DeliveryCatheter::constraintSheath;
+  satisfy CoverageRequirement by EsophagealStent::polymerCover;
+  satisfy AntiMigrationRequirement by EsophagealStent::proximalFlare;
+  satisfy AntiMigrationRequirement by EsophagealStent::distalFlare;
+
+}

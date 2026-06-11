@@ -1,0 +1,531 @@
+package DowntonPumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def VolumetricFlowRate :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def RotationalSpeed :> ISQ::angularVelocity {
+        unit = SI::revolutionPerMinute;
+    }
+
+    attribute def ElectricPower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    item def WorkingFluid {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : VolumetricFlowRate;
+        attribute density : Real;
+        attribute viscosity : Real;
+    }
+
+    item def ControlSignal {
+        attribute commandPercent : Real;
+        attribute enable : Boolean;
+        attribute emergencyStop : Boolean;
+    }
+
+    item def StatusSignal {
+        attribute running : Boolean;
+        attribute faulted : Boolean;
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute measuredFlow : VolumetricFlowRate;
+        attribute motorSpeed : RotationalSpeed;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : ElectricPower;
+    }
+
+    port def FluidPort {
+        inout fluid : WorkingFluid;
+    }
+
+    port def ElectricalPowerPort {
+        in energy : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in command : ControlSignal;
+    }
+
+    port def StatusPort {
+        out status : StatusSignal;
+    }
+
+    part def IsolationValve {
+        port upstream : FluidPort;
+        port downstream : FluidPort;
+
+        attribute openCommand : Boolean;
+        attribute positionPercent : Real;
+        attribute pressureDrop : Pressure;
+
+        state def ValveState {
+            state closed;
+            state opening;
+            state open;
+            state closing;
+            state failed;
+
+            entry action initialize {
+                positionPercent := 0.0;
+            }
+
+            transition first closed;
+            transition closed_to_opening
+                first closed then opening
+                accept openCommand == true;
+            transition opening_to_open
+                first opening then open
+                accept positionPercent >= 100.0;
+            transition open_to_closing
+                first open then closing
+                accept openCommand == false;
+            transition closing_to_closed
+                first closing then closed
+                accept positionPercent <= 0.0;
+        }
+
+        action def ModulateValve {
+            in targetOpen : Boolean;
+            out actualPosition : Real;
+
+            if targetOpen {
+                actualPosition := 100.0;
+            } else {
+                actualPosition := 0.0;
+            }
+        }
+    }
+
+    part def Strainer {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute meshRatingMicrometre : Real = 250.0;
+        attribute foulingPercent : Real;
+        attribute differentialPressure : Pressure;
+        attribute bypassRequired : Boolean;
+
+        action def FilterFluid {
+            in incoming : WorkingFluid;
+            out filtered : WorkingFluid;
+
+            filtered := incoming;
+            differentialPressure := incoming.flowRate * 15000.0;
+            bypassRequired := differentialPressure > 35000.0[SI::pascal];
+        }
+    }
+
+    part def DowntonPump {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port powerInput : ElectricalPowerPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+
+        attribute ratedFlow : VolumetricFlowRate = 0.045[SI::cubicMetrePerSecond];
+        attribute ratedDifferentialPressure : Pressure = 620000.0[SI::pascal];
+        attribute minimumSuctionPressure : Pressure = 120000.0[SI::pascal];
+        attribute maximumDischargePressure : Pressure = 900000.0[SI::pascal];
+        attribute nominalSpeed : RotationalSpeed = 1800.0[SI::revolutionPerMinute];
+        attribute efficiency : Real = 0.78;
+        attribute commandedSpeed : RotationalSpeed;
+        attribute actualSpeed : RotationalSpeed;
+        attribute measuredDifferentialPressure : Pressure;
+        attribute bearingTemperature : Temperature;
+        attribute sealLeakageRate : VolumetricFlowRate;
+        attribute cavitationDetected : Boolean;
+        attribute dryRunDetected : Boolean;
+        attribute faultLatched : Boolean;
+
+        action def StartPump {
+            in command : ControlSignal;
+            out accepted : Boolean;
+
+            accepted := command.enable and not command.emergencyStop and not faultLatched;
+            if accepted {
+                commandedSpeed := nominalSpeed * command.commandPercent / 100.0;
+            }
+        }
+
+        action def StopPump {
+            commandedSpeed := 0.0[SI::revolutionPerMinute];
+        }
+
+        action def TransferFluid {
+            in suctionFluid : WorkingFluid;
+            out dischargeFluid : WorkingFluid;
+
+            dischargeFluid := suctionFluid;
+            measuredDifferentialPressure :=
+                ratedDifferentialPressure * (actualSpeed / nominalSpeed) * (actualSpeed / nominalSpeed);
+            dischargeFluid.pressure := suctionFluid.pressure + measuredDifferentialPressure;
+            dischargeFluid.flowRate := ratedFlow * actualSpeed / nominalSpeed;
+            cavitationDetected := suctionFluid.pressure < minimumSuctionPressure;
+            dryRunDetected := suctionFluid.flowRate < 0.002[SI::cubicMetrePerSecond];
+            sealLeakageRate := dischargeFluid.flowRate * 0.0002;
+        }
+
+        action def DiagnosePump {
+            out fault : Boolean;
+
+            fault :=
+                cavitationDetected or
+                dryRunDetected or
+                discharge.fluid.pressure > maximumDischargePressure or
+                bearingTemperature > 370.0[SI::kelvin];
+
+            if fault {
+                faultLatched := true;
+            }
+        }
+
+        state def PumpOperatingState {
+            state off;
+            state standby;
+            state accelerating;
+            state running;
+            state stopping;
+            state faulted;
+
+            transition initial_to_off
+                first off;
+
+            transition off_to_standby
+                first off then standby
+                accept commandInput.command.enable == true and commandInput.command.emergencyStop == false;
+
+            transition standby_to_accelerating
+                first standby then accelerating
+                accept commandInput.command.commandPercent > 0.0 and not faultLatched;
+
+            transition accelerating_to_running
+                first accelerating then running
+                accept actualSpeed >= commandedSpeed * 0.98;
+
+            transition running_to_stopping
+                first running then stopping
+                accept commandInput.command.commandPercent <= 0.0 or commandInput.command.enable == false;
+
+            transition stopping_to_off
+                first stopping then off
+                accept actualSpeed <= 10.0[SI::revolutionPerMinute];
+
+            transition any_to_faulted
+                first off then faulted
+                accept faultLatched or commandInput.command.emergencyStop;
+
+            transition faulted_to_off
+                first faulted then off
+                accept commandInput.command.enable == false and commandInput.command.emergencyStop == false;
+        }
+    }
+
+    part def CheckValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute crackingPressure : Pressure = 10000.0[SI::pascal];
+        attribute reverseFlowBlocked : Boolean = true;
+        attribute open : Boolean;
+
+        action def PreventBackflow {
+            in upstreamPressure : Pressure;
+            in downstreamPressure : Pressure;
+            out permitsForwardFlow : Boolean;
+
+            permitsForwardFlow := upstreamPressure > downstreamPressure + crackingPressure;
+            open := permitsForwardFlow;
+        }
+    }
+
+    part def PressureSensor {
+        port process : FluidPort;
+        port status : StatusPort;
+
+        attribute rangeMinimum : Pressure = 0.0[SI::pascal];
+        attribute rangeMaximum : Pressure = 1000000.0[SI::pascal];
+        attribute measuredPressure : Pressure;
+        attribute healthy : Boolean = true;
+
+        action def MeasurePressure {
+            measuredPressure := process.fluid.pressure;
+        }
+    }
+
+    part def FlowMeter {
+        port process : FluidPort;
+        port status : StatusPort;
+
+        attribute rangeMaximum : VolumetricFlowRate = 0.08[SI::cubicMetrePerSecond];
+        attribute measuredFlow : VolumetricFlowRate;
+        attribute healthy : Boolean = true;
+
+        action def MeasureFlow {
+            measuredFlow := process.fluid.flowRate;
+        }
+    }
+
+    part def PumpController {
+        port commandIn : CommandPort;
+        port pumpCommand : CommandPort;
+        port pumpStatus : StatusPort;
+        port subsystemStatus : StatusPort;
+
+        attribute targetFlow : VolumetricFlowRate;
+        attribute actualFlow : VolumetricFlowRate;
+        attribute outletPressure : Pressure;
+        attribute speedCommandPercent : Real;
+        attribute permissiveSatisfied : Boolean;
+        attribute shutdownRequested : Boolean;
+
+        action def ComputeSpeedCommand {
+            in requestedFlow : VolumetricFlowRate;
+            in measuredFlow : VolumetricFlowRate;
+            out commandPercent : Real;
+
+            commandPercent := 100.0 * requestedFlow / 0.045[SI::cubicMetrePerSecond];
+            if commandPercent > 100.0 {
+                commandPercent := 100.0;
+            }
+            if commandPercent < 0.0 {
+                commandPercent := 0.0;
+            }
+        }
+
+        action def ApplyProtectionLogic {
+            out enablePump : Boolean;
+
+            permissiveSatisfied :=
+                pumpStatus.status.inletPressure >= 120000.0[SI::pascal] and
+                pumpStatus.status.outletPressure <= 900000.0[SI::pascal] and
+                not commandIn.command.emergencyStop;
+
+            shutdownRequested :=
+                commandIn.command.emergencyStop or pumpStatus.status.faulted;
+
+            enablePump := permissiveSatisfied and not shutdownRequested;
+        }
+
+        state def ControllerMode {
+            state disabled;
+            state ready;
+            state regulating;
+            state protectiveShutdown;
+
+            transition first disabled;
+
+            transition disabled_to_ready
+                first disabled then ready
+                accept commandIn.command.enable == true;
+
+            transition ready_to_regulating
+                first ready then regulating
+                accept commandIn.command.commandPercent > 0.0 and permissiveSatisfied;
+
+            transition regulating_to_ready
+                first regulating then ready
+                accept commandIn.command.commandPercent == 0.0;
+
+            transition any_to_shutdown
+                first regulating then protectiveShutdown
+                accept shutdownRequested;
+
+            transition shutdown_to_disabled
+                first protectiveShutdown then disabled
+                accept commandIn.command.enable == false;
+        }
+    }
+
+    part def DowntonPumpingSubsystem {
+        port fluidInlet : FluidPort;
+        port fluidOutlet : FluidPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommand : CommandPort;
+        port subsystemStatus : StatusPort;
+
+        part inletValve : IsolationValve;
+        part inletStrainer : Strainer;
+        part downtonPump : DowntonPump;
+        part dischargeCheckValve : CheckValve;
+        part outletValve : IsolationValve;
+        part suctionPressureSensor : PressureSensor;
+        part dischargePressureSensor : PressureSensor;
+        part dischargeFlowMeter : FlowMeter;
+        part controller : PumpController;
+
+        attribute designFlow : VolumetricFlowRate = 0.04[SI::cubicMetrePerSecond];
+        attribute minimumDeliveredFlow : VolumetricFlowRate = 0.036[SI::cubicMetrePerSecond];
+        attribute requiredOutletPressure : Pressure = 550000.0[SI::pascal];
+        attribute maximumAllowedLeakage : VolumetricFlowRate = 0.00002[SI::cubicMetrePerSecond];
+        attribute standbyPowerLimit : ElectricPower = 150.0[SI::watt];
+        attribute operatingPowerLimit : ElectricPower = 42000.0[SI::watt];
+
+        connect fluidInlet to inletValve.upstream;
+        connect inletValve.downstream to inletStrainer.inlet;
+        connect inletStrainer.outlet to downtonPump.suction;
+        connect downtonPump.discharge to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to outletValve.upstream;
+        connect outletValve.downstream to fluidOutlet;
+
+        connect electricalSupply to downtonPump.powerInput;
+        connect operatorCommand to controller.commandIn;
+        connect controller.pumpCommand to downtonPump.commandInput;
+        connect downtonPump.statusOutput to controller.pumpStatus;
+        connect controller.subsystemStatus to subsystemStatus;
+
+        connect downtonPump.suction to suctionPressureSensor.process;
+        connect downtonPump.discharge to dischargePressureSensor.process;
+        connect outletValve.downstream to dischargeFlowMeter.process;
+
+        action def PumpingCycle {
+            in incomingFluid : WorkingFluid;
+            out deliveredFluid : WorkingFluid;
+
+            inletValve.ModulateValve(true, inletValve.positionPercent);
+            outletValve.ModulateValve(true, outletValve.positionPercent);
+            inletStrainer.FilterFluid(incomingFluid, downtonPump.suction.fluid);
+            downtonPump.StartPump(controller.pumpCommand.command, downtonPump.statusOutput.status.running);
+            downtonPump.TransferFluid(downtonPump.suction.fluid, downtonPump.discharge.fluid);
+            dischargeCheckValve.PreventBackflow(
+                downtonPump.discharge.fluid.pressure,
+                fluidOutlet.fluid.pressure,
+                dischargeCheckValve.open
+            );
+            suctionPressureSensor.MeasurePressure();
+            dischargePressureSensor.MeasurePressure();
+            dischargeFlowMeter.MeasureFlow();
+            downtonPump.DiagnosePump(downtonPump.statusOutput.status.faulted);
+            deliveredFluid := outletValve.downstream.fluid;
+        }
+    }
+
+    requirement def MoveFluidRequirement {
+        subject subsystem : DowntonPumpingSubsystem;
+
+        doc /* The pumping subsystem shall move working fluid from the inlet interface to the outlet interface using the Downton pump as the active pressure-generating device. */
+
+        require constraint {
+            subsystem.fluidOutlet.fluid.flowRate >= subsystem.minimumDeliveredFlow
+        }
+    }
+
+    requirement def OutletPressureRequirement {
+        subject subsystem : DowntonPumpingSubsystem;
+
+        doc /* The subsystem shall provide the required outlet pressure during commanded operation. */
+
+        require constraint {
+            subsystem.fluidOutlet.fluid.pressure >= subsystem.requiredOutletPressure
+        }
+    }
+
+    requirement def SuctionProtectionRequirement {
+        subject pump : DowntonPump;
+
+        doc /* The Downton pump shall not continue normal running when suction pressure is below the minimum allowable suction pressure. */
+
+        require constraint {
+            pump.suction.fluid.pressure < pump.minimumSuctionPressure implies pump.faultLatched == true
+        }
+    }
+
+    requirement def BackflowPreventionRequirement {
+        subject valve : CheckValve;
+
+        doc /* The discharge check valve shall block reverse flow from the outlet side toward the Downton pump. */
+
+        require constraint {
+            valve.reverseFlowBlocked == true
+        }
+    }
+
+    requirement def LeakageRequirement {
+        subject subsystem : DowntonPumpingSubsystem;
+
+        doc /* Downton pump seal leakage shall remain below the maximum allowed subsystem leakage rate during operation. */
+
+        require constraint {
+            subsystem.downtonPump.sealLeakageRate <= subsystem.maximumAllowedLeakage
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject subsystem : DowntonPumpingSubsystem;
+
+        doc /* Electrical power consumed by the Downton pump shall remain within the operating power limit. */
+
+        require constraint {
+            subsystem.electricalSupply.energy.power <= subsystem.operatingPowerLimit
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject subsystem : DowntonPumpingSubsystem;
+
+        doc /* When emergency stop is asserted, the controller shall disable the Downton pump command and the pump shall transition to a non-running condition. */
+
+        require constraint {
+            subsystem.operatorCommand.command.emergencyStop implies
+            subsystem.downtonPump.statusOutput.status.running == false
+        }
+    }
+
+    satisfy MoveFluidRequirement by DowntonPumpingSubsystem;
+    satisfy OutletPressureRequirement by DowntonPumpingSubsystem;
+    satisfy SuctionProtectionRequirement by DowntonPump;
+    satisfy BackflowPreventionRequirement by CheckValve;
+    satisfy LeakageRequirement by DowntonPumpingSubsystem;
+    satisfy PowerRequirement by DowntonPumpingSubsystem;
+    satisfy EmergencyStopRequirement by DowntonPumpingSubsystem;
+
+    part downtonPumpingSubsystem : DowntonPumpingSubsystem {
+        attribute designFlow = 0.04[SI::cubicMetrePerSecond];
+        attribute minimumDeliveredFlow = 0.036[SI::cubicMetrePerSecond];
+        attribute requiredOutletPressure = 550000.0[SI::pascal];
+
+        part downtonPump {
+            attribute ratedFlow = 0.045[SI::cubicMetrePerSecond];
+            attribute ratedDifferentialPressure = 620000.0[SI::pascal];
+            attribute minimumSuctionPressure = 120000.0[SI::pascal];
+            attribute maximumDischargePressure = 900000.0[SI::pascal];
+            attribute nominalSpeed = 1800.0[SI::revolutionPerMinute];
+            attribute efficiency = 0.78;
+        }
+
+        part inletStrainer {
+            attribute meshRatingMicrometre = 250.0;
+        }
+
+        part dischargeCheckValve {
+            attribute crackingPressure = 10000.0[SI::pascal];
+            attribute reverseFlowBlocked = true;
+        }
+    }
+}

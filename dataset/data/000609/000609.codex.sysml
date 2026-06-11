@@ -1,0 +1,432 @@
+package FirstAidKitSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Count :> ScalarValues::Integer;
+  attribute def Percent :> ScalarValues::Real;
+  attribute def CurrencyUSD :> ScalarValues::Real;
+  attribute def SterilityStatus :> ScalarValues::String;
+  attribute def ExpirationDate :> ScalarValues::String;
+  attribute def LotCode :> ScalarValues::String;
+  attribute def InstructionsText :> ScalarValues::String;
+
+  item def InjuredPerson {
+    attribute triagePriority : Count;
+    attribute bleedingSeverity : Percent;
+    attribute painLevel : Count;
+  }
+
+  item def FirstAidSupply {
+    attribute lot : LotCode;
+    attribute expiration : ExpirationDate;
+    attribute sterile : SterilityStatus;
+  }
+
+  item def Bandage :> FirstAidSupply {
+    attribute width : LengthValue;
+    attribute length : LengthValue;
+    attribute absorbency : Percent;
+  }
+
+  item def GauzePad :> FirstAidSupply {
+    attribute padArea : AreaValue;
+    attribute layers : Count;
+  }
+
+  item def AdhesiveTape :> FirstAidSupply {
+    attribute rollLength : LengthValue;
+    attribute tapeWidth : LengthValue;
+  }
+
+  item def AntisepticWipe :> FirstAidSupply {
+    attribute solutionVolume : VolumeValue;
+    attribute alcoholContent : Percent;
+  }
+
+  item def MedicalGlove :> FirstAidSupply {
+    attribute size : ScalarValues::String;
+    attribute pairCount : Count;
+  }
+
+  item def TraumaShears :> FirstAidSupply {
+    attribute bladeLength : LengthValue;
+    attribute reusable : ScalarValues::Boolean;
+  }
+
+  item def ColdPack :> FirstAidSupply {
+    attribute coolingDuration : TimeValue;
+    attribute activationForce : ForceValue;
+  }
+
+  item def FirstAidGuide :> FirstAidSupply {
+    attribute revision : ScalarValues::String;
+    attribute content : InstructionsText;
+  }
+
+  item def WasteItem {
+    attribute biohazardRisk : Percent;
+    attribute sealed : ScalarValues::Boolean;
+  }
+
+  item def TreatmentRecord {
+    attribute incidentTime : TimeValue;
+    attribute suppliesUsed : Count;
+    attribute responderNotes : InstructionsText;
+  }
+
+  port def SupplyAccessPort {
+    out item supply : FirstAidSupply;
+    in item usedSupply : FirstAidSupply;
+  }
+
+  port def PatientCarePort {
+    in item patient : InjuredPerson;
+    out item record : TreatmentRecord;
+  }
+
+  port def DisposalPort {
+    in item waste : WasteItem;
+  }
+
+  port def InspectionPort {
+    out attribute inventoryCompleteness : Percent;
+    out attribute expiredItemCount : Count;
+  }
+
+  part def Compartment {
+    attribute capacityVolume : VolumeValue;
+    attribute occupiedVolume : VolumeValue;
+    attribute label : ScalarValues::String;
+
+    port access : SupplyAccessPort;
+
+    constraint volumeLimit {
+      occupiedVolume <= capacityVolume
+    }
+  }
+
+  part def SupplyInventory {
+    attribute requiredBandages : Count = 20;
+    attribute requiredGauzePads : Count = 12;
+    attribute requiredWipes : Count = 10;
+    attribute requiredGlovePairs : Count = 4;
+    attribute completeness : Percent;
+    attribute expiredItems : Count;
+
+    part adhesiveBandages : Bandage[20] {
+      width = 19 [mm];
+      length = 76 [mm];
+      absorbency = 85.0;
+      sterile = "sealed sterile";
+    }
+
+    part largeBandages : Bandage[6] {
+      width = 50 [mm];
+      length = 100 [mm];
+      absorbency = 90.0;
+      sterile = "sealed sterile";
+    }
+
+    part gauzePads : GauzePad[12] {
+      padArea = 100 [cm^2];
+      layers = 8;
+      sterile = "sealed sterile";
+    }
+
+    part tapeRoll : AdhesiveTape[1] {
+      rollLength = 4.5 [m];
+      tapeWidth = 25 [mm];
+      sterile = "clean non-sterile";
+    }
+
+    part antisepticWipes : AntisepticWipe[10] {
+      solutionVolume = 2 [mL];
+      alcoholContent = 70.0;
+      sterile = "sealed sterile";
+    }
+
+    part gloves : MedicalGlove[4] {
+      size = "medium";
+      pairCount = 1;
+      sterile = "clean non-sterile";
+    }
+
+    part shears : TraumaShears[1] {
+      bladeLength = 140 [mm];
+      reusable = true;
+      sterile = "clean non-sterile";
+    }
+
+    part coldPacks : ColdPack[2] {
+      coolingDuration = 900 [s];
+      activationForce = 45 [N];
+      sterile = "sealed clean";
+    }
+
+    part guide : FirstAidGuide[1] {
+      revision = "2026-01";
+      content = "Assess scene safety, call emergency services when needed, control bleeding, clean minor wounds, dress injuries, monitor patient.";
+      sterile = "not applicable";
+    }
+
+    port access : SupplyAccessPort;
+    port inspection : InspectionPort;
+  }
+
+  part def CaseShell {
+    attribute externalLength : LengthValue = 300 [mm];
+    attribute externalWidth : LengthValue = 210 [mm];
+    attribute externalHeight : LengthValue = 120 [mm];
+    attribute massEmpty : MassValue = 0.8 [kg];
+    attribute waterResistance : Percent = 75.0;
+    attribute latchClosed : ScalarValues::Boolean;
+
+    part woundCareCompartment : Compartment {
+      capacityVolume = 2.2 [L];
+      label = "Wound Care";
+    }
+
+    part medicationCompartment : Compartment {
+      capacityVolume = 0.8 [L];
+      label = "Support Items";
+    }
+
+    part toolCompartment : Compartment {
+      capacityVolume = 1.0 [L];
+      label = "Tools and Protection";
+    }
+
+    port access : SupplyAccessPort;
+  }
+
+  part def FirstAidKit {
+    attribute totalMass : MassValue = 2.4 [kg];
+    attribute nominalServiceLife : TimeValue = 1095 [d];
+    attribute maxOperatingTemperature : TemperatureValue = 40 [Cel];
+    attribute minOperatingTemperature : TemperatureValue = -10 [Cel];
+    attribute inspectionInterval : TimeValue = 30 [d];
+    attribute readyForUse : ScalarValues::Boolean;
+    attribute replacementCost : CurrencyUSD = 45.00;
+
+    part caseShell : CaseShell;
+    part inventory : SupplyInventory;
+
+    port supplyPort : SupplyAccessPort;
+    port carePort : PatientCarePort;
+    port wastePort : DisposalPort;
+    port inspectionPort : InspectionPort;
+
+    connect caseShell.access to supplyPort;
+    connect inventory.access to supplyPort;
+    connect inventory.inspection to inspectionPort;
+
+    constraint storageTemperatureLimit {
+      minOperatingTemperature <= maxOperatingTemperature
+    }
+
+    constraint readinessRule {
+      readyForUse == (inventory.completeness >= 95.0 and inventory.expiredItems == 0 and caseShell.latchClosed == true)
+    }
+  }
+
+  action def OpenKit {
+    inout kit : FirstAidKit;
+    out available : ScalarValues::Boolean;
+
+    first start;
+    then releaseLatch;
+    then exposeCompartments;
+    then done;
+
+    action releaseLatch {
+      kit.caseShell.latchClosed = false;
+    }
+
+    action exposeCompartments {
+      available = true;
+    }
+  }
+
+  action def InspectInventory {
+    inout kit : FirstAidKit;
+    out completeness : Percent;
+    out expiredCount : Count;
+
+    first start;
+    then countRequiredItems;
+    then checkExpirationDates;
+    then updateReadiness;
+    then done;
+
+    action countRequiredItems {
+      completeness = kit.inventory.completeness;
+    }
+
+    action checkExpirationDates {
+      expiredCount = kit.inventory.expiredItems;
+    }
+
+    action updateReadiness {
+      kit.readyForUse = (completeness >= 95.0 and expiredCount == 0);
+    }
+  }
+
+  action def TreatMinorWound {
+    in item patient : InjuredPerson;
+    inout kit : FirstAidKit;
+    out item record : TreatmentRecord;
+    out item waste : WasteItem;
+
+    first assessScene;
+    then protectResponder;
+    then controlBleeding;
+    then cleanWound;
+    then applyDressing;
+    then documentCare;
+    then done;
+
+    action assessScene {
+      patient.triagePriority = 2;
+    }
+
+    action protectResponder {
+      item glovesUsed : MedicalGlove;
+    }
+
+    action controlBleeding {
+      patient.bleedingSeverity = 20.0;
+      item gauzeUsed : GauzePad;
+    }
+
+    action cleanWound {
+      item wipeUsed : AntisepticWipe;
+    }
+
+    action applyDressing {
+      item bandageUsed : Bandage;
+      item tapeUsed : AdhesiveTape;
+    }
+
+    action documentCare {
+      record.suppliesUsed = 5;
+      record.responderNotes = "Minor wound cleaned, bleeding controlled, dressing applied, patient advised to seek medical attention if symptoms worsen.";
+      waste.biohazardRisk = 60.0;
+      waste.sealed = true;
+    }
+  }
+
+  state def KitOperationalState {
+    entry action InspectInventory;
+
+    state Stored;
+    state Opened;
+    state InUse;
+    state NeedsRestock;
+    state Expired;
+    state Ready;
+
+    transition initial then Stored;
+
+    transition Stored_to_Ready
+      first Stored
+      accept when inventoryCompleteness >= 95.0 and expiredItemCount == 0
+      then Ready;
+
+    transition Ready_to_Opened
+      first Ready
+      accept OpenKit
+      then Opened;
+
+    transition Opened_to_InUse
+      first Opened
+      accept TreatMinorWound
+      then InUse;
+
+    transition InUse_to_NeedsRestock
+      first InUse
+      accept when inventoryCompleteness < 95.0
+      then NeedsRestock;
+
+    transition Ready_to_Expired
+      first Ready
+      accept when expiredItemCount > 0
+      then Expired;
+
+    transition NeedsRestock_to_Ready
+      first NeedsRestock
+      accept when inventoryCompleteness >= 95.0 and expiredItemCount == 0
+      then Ready;
+
+    transition Expired_to_Ready
+      first Expired
+      accept when expiredItemCount == 0 and inventoryCompleteness >= 95.0
+      then Ready;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The first aid kit shall provide immediate access to organized medical supplies and simple treatment guidance for stabilizing minor injuries and supporting emergency response until professional medical care is available. */
+    subject kit : FirstAidKit;
+
+    require constraint {
+      kit.readyForUse == true
+    }
+  }
+
+  requirement def SupplyCompletenessRequirement {
+    doc /* The kit shall maintain at least 95 percent of required first aid supplies available and unexpired during normal service. */
+    subject kit : FirstAidKit;
+
+    require constraint {
+      kit.inventory.completeness >= 95.0 and kit.inventory.expiredItems == 0
+    }
+  }
+
+  requirement def AccessibilityRequirement {
+    doc /* A user shall be able to open the kit and access wound care supplies without tools. */
+    subject kit : FirstAidKit;
+
+    require constraint {
+      kit.caseShell.latchClosed == false implies kit.readyForUse == true
+    }
+  }
+
+  requirement def EnvironmentalStorageRequirement {
+    doc /* The kit shall preserve supplies during storage across common indoor and vehicle temperature ranges. */
+    subject kit : FirstAidKit;
+
+    require constraint {
+      kit.minOperatingTemperature <= -10 [Cel] and kit.maxOperatingTemperature >= 40 [Cel]
+    }
+  }
+
+  requirement def TreatmentSupportRequirement {
+    doc /* The kit shall support a basic minor wound treatment sequence including responder protection, bleeding control, wound cleaning, dressing application, and care documentation. */
+    subject treatment : TreatMinorWound;
+
+    require constraint {
+      true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by FirstAidKit;
+  satisfy SupplyCompletenessRequirement by SupplyInventory;
+  satisfy AccessibilityRequirement by CaseShell;
+  satisfy EnvironmentalStorageRequirement by FirstAidKit;
+  satisfy TreatmentSupportRequirement by TreatMinorWound;
+
+  part firstAidKitSystem : FirstAidKit {
+    readyForUse = true;
+
+    part caseShell {
+      latchClosed = true;
+    }
+
+    part inventory {
+      completeness = 100.0;
+      expiredItems = 0;
+    }
+  }
+
+}

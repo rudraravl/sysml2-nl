@@ -1,0 +1,482 @@
+package MultileafCollimatorSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def millimeter :> SI::metre {
+        unit = "mm";
+    }
+
+    attribute def millisecond :> SI::second {
+        unit = "ms";
+    }
+
+    attribute def milligray :> SI::gray {
+        unit = "mGy";
+    }
+
+    attribute def millimeterPerSecond {
+        unit = "mm/s";
+    }
+
+    attribute def newton {
+        unit = "N";
+    }
+
+    attribute def degree {
+        unit = "deg";
+    }
+
+    enum def BeamMode {
+        enum Off;
+        enum Setup;
+        enum Treatment;
+        enum Interrupted;
+        enum Fault;
+    }
+
+    enum def LeafState {
+        enum Homed;
+        enum Moving;
+        enum Positioned;
+        enum Jammed;
+        enum Disabled;
+    }
+
+    item def BeamAperture {
+        attribute fieldWidth : millimeter;
+        attribute fieldHeight : millimeter;
+        attribute centerX : millimeter;
+        attribute centerY : millimeter;
+        attribute rotationAngle : degree;
+    }
+
+    item def LeafPositionCommand {
+        attribute leafId : Integer;
+        attribute targetPosition : millimeter;
+        attribute maxVelocity : millimeterPerSecond;
+        attribute deadline : millisecond;
+    }
+
+    item def LeafPositionFeedback {
+        attribute leafId : Integer;
+        attribute measuredPosition : millimeter;
+        attribute positionError : millimeter;
+        attribute state : LeafState;
+    }
+
+    item def BeamInterlockSignal {
+        attribute asserted : Boolean;
+        attribute reasonCode : String;
+    }
+
+    item def TreatmentPlanSegment {
+        attribute segmentId : Integer;
+        attribute nominalDose : milligray;
+        attribute aperture : BeamAperture;
+    }
+
+    item def PhotonBeam {
+        attribute energy : Real;
+        attribute doseRate : Real;
+        attribute enabled : Boolean;
+    }
+
+    item def ShapedPhotonBeam :> PhotonBeam {
+        attribute deliveredAperture : BeamAperture;
+        attribute leakageDose : milligray;
+    }
+
+    port def BeamInPort {
+        in item incomingBeam : PhotonBeam;
+    }
+
+    port def BeamOutPort {
+        out item outgoingBeam : ShapedPhotonBeam;
+    }
+
+    port def CommandPort {
+        in item command : LeafPositionCommand;
+    }
+
+    port def FeedbackPort {
+        out item feedback : LeafPositionFeedback;
+    }
+
+    port def InterlockPort {
+        out item interlock : BeamInterlockSignal;
+    }
+
+    port def PlanPort {
+        in item segment : TreatmentPlanSegment;
+    }
+
+    port def PowerPort {
+        in attribute voltage : Real;
+        in attribute current : Real;
+    }
+
+    part def Leaf {
+        attribute leafId : Integer;
+        attribute width : millimeter;
+        attribute thickness : millimeter;
+        attribute travelRange : millimeter;
+        attribute currentPosition : millimeter;
+        attribute targetPosition : millimeter;
+        attribute maxSpeed : millimeterPerSecond;
+        attribute positionTolerance : millimeter;
+        attribute actuatorForce : newton;
+        attribute state : LeafState;
+
+        port commandPort : CommandPort;
+        port feedbackPort : FeedbackPort;
+        port powerPort : PowerPort;
+
+        action moveToTarget {
+            in attribute requestedPosition : millimeter;
+            out attribute achievedPosition : millimeter;
+
+            first start;
+            then validatePosition;
+            then energizeMotor;
+            then monitorEncoder;
+            then stopAtTarget;
+            then reportPosition;
+        }
+
+        state leafControl {
+            entry; then homing;
+
+            state homing;
+            state ready;
+            state moving;
+            state positioned;
+            state faulted;
+
+            transition homing_to_ready
+                first homing
+                accept when currentPosition == 0 [true]
+                then ready;
+
+            transition ready_to_moving
+                first ready
+                accept commandPort.command
+                if commandPort.command.targetPosition >= 0 and commandPort.command.targetPosition <= travelRange
+                then moving;
+
+            transition moving_to_positioned
+                first moving
+                accept when abs(currentPosition - targetPosition) <= positionTolerance
+                then positioned;
+
+            transition any_to_faulted
+                first moving
+                accept when abs(currentPosition - targetPosition) > positionTolerance and commandPort.command.deadline <= 0
+                then faulted;
+        }
+    }
+
+    part def LeafBank {
+        attribute bankId : String;
+        attribute leafCount : Integer;
+        attribute bankTravelLimit : millimeter;
+
+        part leaves[60] : Leaf;
+
+        port commands[60] : CommandPort;
+        port feedbacks[60] : FeedbackPort;
+        port power : PowerPort;
+
+        action positionBank {
+            in item segment : TreatmentPlanSegment;
+            out item bankFeedback[60] : LeafPositionFeedback;
+        }
+    }
+
+    part def TreatmentPlanInterface {
+        port planInput : PlanPort;
+        port commandOutput[120] : CommandPort;
+
+        action decomposeApertureToLeafCommands {
+            in item segment : TreatmentPlanSegment;
+            out item commands[120] : LeafPositionCommand;
+        }
+    }
+
+    part def LeafController {
+        attribute controlCycleTime : millisecond = 5;
+        attribute allowedPositionError : millimeter = 0.25;
+        attribute beamHoldRequired : Boolean;
+
+        port planPort : PlanPort;
+        port leafCommandPorts[120] : CommandPort;
+        port leafFeedbackPorts[120] : FeedbackPort;
+        port interlockPort : InterlockPort;
+
+        action computeLeafTargets {
+            in item segment : TreatmentPlanSegment;
+            out item commandSet[120] : LeafPositionCommand;
+        }
+
+        action evaluateReadiness {
+            in item feedbackSet[120] : LeafPositionFeedback;
+            out item interlock : BeamInterlockSignal;
+        }
+
+        state controllerMode {
+            entry; then idle;
+
+            state idle;
+            state loadingSegment;
+            state commandingLeaves;
+            state verifyingAperture;
+            state readyForBeam;
+            state interlocked;
+
+            transition idle_to_loading
+                first idle
+                accept planPort.segment
+                then loadingSegment;
+
+            transition loading_to_commanding
+                first loadingSegment
+                then commandingLeaves;
+
+            transition commanding_to_verifying
+                first commandingLeaves
+                accept when true
+                then verifyingAperture;
+
+            transition verifying_to_ready
+                first verifyingAperture
+                accept when beamHoldRequired == false
+                then readyForBeam;
+
+            transition verifying_to_interlocked
+                first verifyingAperture
+                accept when beamHoldRequired == true
+                then interlocked;
+        }
+    }
+
+    part def BeamMonitor {
+        attribute measuredDoseRate : Real;
+        attribute accumulatedDose : milligray;
+        attribute beamMode : BeamMode;
+
+        port interlockInput : InterlockPort;
+        port beamInput : BeamInPort;
+        port beamOutput : BeamOutPort;
+
+        action inhibitBeam {
+            in item interlock : BeamInterlockSignal;
+            out attribute beamEnabled : Boolean;
+        }
+    }
+
+    part def CollimatorHousing {
+        attribute sourceToMLCDistance : millimeter;
+        attribute maximumFieldWidth : millimeter;
+        attribute maximumFieldHeight : millimeter;
+        attribute leakageLimit : milligray;
+        attribute thermalLimit : Real;
+
+        part bankA : LeafBank {
+            attribute bankId = "A";
+            attribute leafCount = 60;
+        }
+
+        part bankB : LeafBank {
+            attribute bankId = "B";
+            attribute leafCount = 60;
+        }
+
+        port beamIn : BeamInPort;
+        port beamOut : BeamOutPort;
+        port power : PowerPort;
+    }
+
+    part def MultileafCollimatorSystem {
+        attribute primaryFunction : String =
+            "Precisely shape and dynamically modulate a therapeutic photon radiation beam by positioning opposed tungsten leaves to form a treatment-plan-defined aperture while preventing beam delivery when leaf positions are unsafe or out of tolerance.";
+
+        attribute maximumLeafPositionError : millimeter = 0.25;
+        attribute nominalLeafWidthAtIsocenter : millimeter = 5;
+        attribute minimumLeafTransmission : Real = 0.02;
+        attribute operatingMode : BeamMode;
+
+        part housing : CollimatorHousing {
+            attribute sourceToMLCDistance = 500;
+            attribute maximumFieldWidth = 400;
+            attribute maximumFieldHeight = 400;
+            attribute leakageLimit = 1;
+        }
+
+        part controller : LeafController;
+        part planInterface : TreatmentPlanInterface;
+        part beamMonitor : BeamMonitor;
+
+        port treatmentPlanInput : PlanPort;
+        port photonBeamInput : BeamInPort;
+        port shapedBeamOutput : BeamOutPort;
+        port externalPower : PowerPort;
+        port safetyInterlock : InterlockPort;
+
+        connection plan_to_interface
+            connect treatmentPlanInput to planInterface.planInput;
+
+        connection interface_to_controller
+            connect planInterface.planInput to controller.planPort;
+
+        connection controller_to_bankA
+            connect controller.leafCommandPorts[0..59] to housing.bankA.commands;
+
+        connection controller_to_bankB
+            connect controller.leafCommandPorts[60..119] to housing.bankB.commands;
+
+        connection bankA_feedback_to_controller
+            connect housing.bankA.feedbacks to controller.leafFeedbackPorts[0..59];
+
+        connection bankB_feedback_to_controller
+            connect housing.bankB.feedbacks to controller.leafFeedbackPorts[60..119];
+
+        connection beam_input_to_housing
+            connect photonBeamInput to housing.beamIn;
+
+        connection housing_to_monitor
+            connect housing.beamOut to beamMonitor.beamInput;
+
+        connection monitor_to_output
+            connect beamMonitor.beamOutput to shapedBeamOutput;
+
+        connection controller_interlock_to_monitor
+            connect controller.interlockPort to beamMonitor.interlockInput;
+
+        connection controller_interlock_to_external
+            connect controller.interlockPort to safetyInterlock;
+
+        connection power_to_housing
+            connect externalPower to housing.power;
+
+        action deliverSegment {
+            in item segment : TreatmentPlanSegment;
+            in item beam : PhotonBeam;
+            out item shapedBeam : ShapedPhotonBeam;
+
+            first receiveTreatmentSegment;
+            then calculateLeafPositions;
+            then moveOpposingLeafBanks;
+            then verifyLeafAperture;
+            then permitBeamIfSafe;
+            then shapePhotonBeam;
+            then reportDeliveredAperture;
+        }
+
+        state systemOperation {
+            entry; then poweredOff;
+
+            state poweredOff;
+            state initializing;
+            state standby;
+            state loadingPlanSegment;
+            state positioningLeaves;
+            state apertureVerified;
+            state beamEnabled;
+            state beamInterrupted;
+            state fault;
+
+            transition power_on
+                first poweredOff
+                accept when externalPower.voltage > 0
+                then initializing;
+
+            transition initialized
+                first initializing
+                accept when true
+                then standby;
+
+            transition segment_received
+                first standby
+                accept treatmentPlanInput.segment
+                then loadingPlanSegment;
+
+            transition plan_loaded
+                first loadingPlanSegment
+                then positioningLeaves;
+
+            transition leaves_ready
+                first positioningLeaves
+                accept when controller.beamHoldRequired == false
+                then apertureVerified;
+
+            transition aperture_to_beam
+                first apertureVerified
+                accept photonBeamInput.incomingBeam
+                if photonBeamInput.incomingBeam.enabled == true
+                then beamEnabled;
+
+            transition beam_hold
+                first beamEnabled
+                accept safetyInterlock.interlock
+                if safetyInterlock.interlock.asserted == true
+                then beamInterrupted;
+
+            transition recover_interruption
+                first beamInterrupted
+                accept when controller.beamHoldRequired == false
+                then apertureVerified;
+
+            transition fault_detected
+                first positioningLeaves
+                accept when controller.beamHoldRequired == true
+                then fault;
+        }
+    }
+
+    requirement def ShapeTreatmentBeam {
+        subject mlc : MultileafCollimatorSystem;
+        doc /* The multileaf collimator shall shape the incoming therapeutic photon beam into the aperture specified by each treatment plan segment. */
+        require constraint {
+            mlc.shapedBeamOutput.outgoingBeam.deliveredAperture.fieldWidth <= mlc.housing.maximumFieldWidth and
+            mlc.shapedBeamOutput.outgoingBeam.deliveredAperture.fieldHeight <= mlc.housing.maximumFieldHeight
+        }
+    }
+
+    requirement def LeafPositionAccuracy {
+        subject mlc : MultileafCollimatorSystem;
+        doc /* Each leaf shall reach its commanded target position within the allowed tolerance before beam delivery is enabled. */
+        require constraint {
+            mlc.maximumLeafPositionError <= 0.25
+        }
+    }
+
+    requirement def BeamSafetyInterlock {
+        subject mlc : MultileafCollimatorSystem;
+        doc /* The system shall assert a beam interlock when any enabled leaf is jammed, disabled, late, or outside the permitted position tolerance. */
+        require constraint {
+            mlc.safetyInterlock.interlock.asserted == true implies mlc.operatingMode != BeamMode::Treatment
+        }
+    }
+
+    requirement def LeakageControl {
+        subject mlc : MultileafCollimatorSystem;
+        doc /* The closed leaves and collimator housing shall limit radiation leakage outside the planned aperture. */
+        require constraint {
+            mlc.shapedBeamOutput.outgoingBeam.leakageDose <= mlc.housing.leakageLimit
+        }
+    }
+
+    requirement def DynamicModulation {
+        subject mlc : MultileafCollimatorSystem;
+        doc /* The system shall support sequential treatment plan segments by repositioning leaves and verifying aperture conformance between delivered beam segments. */
+        require constraint {
+            mlc.controller.controlCycleTime <= 10
+        }
+    }
+
+    satisfy ShapeTreatmentBeam by MultileafCollimatorSystem;
+    satisfy LeafPositionAccuracy by MultileafCollimatorSystem;
+    satisfy BeamSafetyInterlock by MultileafCollimatorSystem;
+    satisfy LeakageControl by MultileafCollimatorSystem;
+    satisfy DynamicModulation by MultileafCollimatorSystem;
+}

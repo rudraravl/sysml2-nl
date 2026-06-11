@@ -1,0 +1,413 @@
+package MillerAbbottTubeModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Length :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Diameter :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::litre;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = SI::litre / SI::minute;
+    }
+
+    attribute def TimeDuration :> ISQ::duration {
+        unit = SI::second;
+    }
+
+    attribute def Fraction {
+        :>> range = "0..1";
+    }
+
+    item def Gas {
+        attribute pressure : Pressure;
+        attribute volume : Volume;
+    }
+
+    item def IntestinalFluid {
+        attribute volume : Volume;
+        attribute viscosity : Real;
+        attribute particulateFraction : Fraction;
+    }
+
+    item def IrrigationFluid {
+        attribute volume : Volume;
+        attribute temperature : ISQ::temperature;
+    }
+
+    item def SuctionFlow {
+        attribute flowRate : FlowRate;
+        attribute negativePressure : Pressure;
+    }
+
+    item def PatientSignal {
+        attribute painScore : Integer;
+        attribute abdominalDistension : Fraction;
+        attribute nauseaPresent : Boolean;
+    }
+
+    port def DrainagePort {
+        out item drainedFluid : IntestinalFluid;
+        in item suction : SuctionFlow;
+    }
+
+    port def InflationPort {
+        in item inflationGas : Gas;
+        out item balloonPressureReading : Gas;
+    }
+
+    port def IrrigationPort {
+        in item irrigationFluid : IrrigationFluid;
+    }
+
+    port def PatientInterfacePort {
+        in item bowelContents : IntestinalFluid;
+        out item decompressedContents : IntestinalFluid;
+        out item clinicalSignal : PatientSignal;
+    }
+
+    port def MonitoringPort {
+        out item monitoredPressure : Gas;
+        out item monitoredDrainage : SuctionFlow;
+    }
+
+    part def MillerAbbottTube {
+        attribute totalLength : Length = 3.0 [SI::metre];
+        attribute outerDiameter : Diameter = 0.0055 [SI::metre];
+        attribute drainageLumenInnerDiameter : Diameter = 0.0032 [SI::metre];
+        attribute balloonLumenInnerDiameter : Diameter = 0.0011 [SI::metre];
+        attribute maximumBalloonVolume : Volume = 0.03 [SI::litre];
+        attribute maximumBalloonPressure : Pressure = 8000 [SI::pascal];
+        attribute recommendedSuctionPressure : Pressure = -12000 [SI::pascal];
+
+        port proximalDrainagePort : DrainagePort;
+        port proximalInflationPort : InflationPort;
+        port proximalIrrigationPort : IrrigationPort;
+        port distalPatientPort : PatientInterfacePort;
+        port monitoringPort : MonitoringPort;
+
+        part drainageLumen {
+            attribute innerDiameter : Diameter = drainageLumenInnerDiameter;
+            attribute patency : Fraction = 1.0;
+            attribute retainedFluidVolume : Volume;
+            port proximal : DrainagePort;
+            port distal : PatientInterfacePort;
+        }
+
+        part balloonInflationLumen {
+            attribute innerDiameter : Diameter = balloonLumenInnerDiameter;
+            attribute leakRate : FlowRate = 0.0 [SI::litre / SI::minute];
+            port proximal : InflationPort;
+            port distal : InflationPort;
+        }
+
+        part distalBalloon {
+            attribute inflatedVolume : Volume = 0.0 [SI::litre];
+            attribute internalPressure : Pressure = 0 [SI::pascal];
+            attribute tractionEnabled : Boolean = false;
+            port inflationInterface : InflationPort;
+        }
+
+        part radiopaqueTip {
+            attribute tipLength : Length = 0.03 [SI::metre];
+            attribute positionVisibleByXray : Boolean = true;
+        }
+
+        part distalSideHoles {
+            attribute count : Integer = 6;
+            attribute holeDiameter : Diameter = 0.0012 [SI::metre];
+            attribute obstructionFraction : Fraction = 0.0;
+        }
+
+        connect proximalDrainagePort to drainageLumen.proximal;
+        connect drainageLumen.distal to distalPatientPort;
+        connect proximalInflationPort to balloonInflationLumen.proximal;
+        connect balloonInflationLumen.distal to distalBalloon.inflationInterface;
+        connect proximalIrrigationPort to drainageLumen.proximal;
+        connect distalBalloon.inflationInterface to monitoringPort;
+
+        action def InsertTube {
+            in insertionLength : Length;
+            out tipPositionConfirmed : Boolean;
+            first start;
+            then advanceThroughNose;
+            then passStomach;
+            then positionInSmallBowel;
+            then verifyTip;
+            then done;
+
+            action advanceThroughNose;
+            action passStomach;
+            action positionInSmallBowel;
+            action verifyTip {
+                out tipPositionConfirmed : Boolean;
+            }
+        }
+
+        action def InflateBalloon {
+            in gasVolume : Volume;
+            in targetPressure : Pressure;
+            out balloonReady : Boolean;
+
+            first checkLimit;
+            then deliverGas;
+            then measurePressure;
+            then confirmInflation;
+            then done;
+
+            action checkLimit {
+                assert constraint {
+                    gasVolume <= maximumBalloonVolume and targetPressure <= maximumBalloonPressure
+                }
+            }
+
+            action deliverGas;
+            action measurePressure;
+            action confirmInflation {
+                out balloonReady : Boolean;
+            }
+        }
+
+        action def DecompressIntestine {
+            in suctionSetting : Pressure;
+            out removedVolume : Volume;
+            out symptomRelief : PatientSignal;
+
+            first applySuction;
+            then collectFluidAndGas;
+            then monitorDrainage;
+            then assessPatient;
+            then done;
+
+            action applySuction {
+                assert constraint {
+                    suctionSetting >= recommendedSuctionPressure
+                }
+            }
+
+            action collectFluidAndGas {
+                out removedVolume : Volume;
+            }
+
+            action monitorDrainage;
+            action assessPatient {
+                out symptomRelief : PatientSignal;
+            }
+        }
+
+        action def DeflateAndRemove {
+            out safeToRemove : Boolean;
+
+            first stopSuction;
+            then withdrawGas;
+            then confirmBalloonCollapsed;
+            then removeTube;
+            then done;
+
+            action stopSuction;
+            action withdrawGas;
+            action confirmBalloonCollapsed {
+                out safeToRemove : Boolean;
+            }
+            action removeTube;
+        }
+
+        state def TubeOperationalState {
+            entry;
+            state packaged;
+            state inserted;
+            state positionConfirmed;
+            state balloonInflated;
+            state decompressionActive;
+            state decompressionComplete;
+            state removed;
+            state fault;
+
+            transition first packaged;
+            transition packaged_to_inserted
+                first packaged
+                accept InsertTube
+                then inserted;
+
+            transition inserted_to_positionConfirmed
+                first inserted
+                if tipPositionConfirmed == true
+                then positionConfirmed;
+
+            transition positionConfirmed_to_balloonInflated
+                first positionConfirmed
+                accept InflateBalloon
+                if balloonReady == true
+                then balloonInflated;
+
+            transition balloonInflated_to_decompressionActive
+                first balloonInflated
+                accept DecompressIntestine
+                then decompressionActive;
+
+            transition decompressionActive_to_complete
+                first decompressionActive
+                if removedVolume > 0.5 [SI::litre]
+                then decompressionComplete;
+
+            transition complete_to_removed
+                first decompressionComplete
+                accept DeflateAndRemove
+                if safeToRemove == true
+                then removed;
+
+            transition overpressure_fault
+                first balloonInflated
+                if distalBalloon.internalPressure > maximumBalloonPressure
+                then fault;
+
+            transition occlusion_fault
+                first decompressionActive
+                if distalSideHoles.obstructionFraction > 0.8
+                then fault;
+        }
+    }
+
+    part def PatientSmallBowel {
+        attribute intraluminalPressure : Pressure;
+        attribute accumulatedFluidVolume : Volume;
+        attribute distensionFraction : Fraction;
+
+        port bowelInterface : PatientInterfacePort;
+    }
+
+    part def SuctionCanister {
+        attribute canisterCapacity : Volume = 2.0 [SI::litre];
+        attribute collectedVolume : Volume = 0.0 [SI::litre];
+        attribute appliedNegativePressure : Pressure = -12000 [SI::pascal];
+
+        port suctionConnection : DrainagePort;
+    }
+
+    part def InflationSyringe {
+        attribute syringeCapacity : Volume = 0.05 [SI::litre];
+        attribute deliveredVolume : Volume;
+        attribute deliveryPressure : Pressure;
+
+        port syringeConnection : InflationPort;
+    }
+
+    part def IrrigationSyringe {
+        attribute syringeCapacity : Volume = 0.06 [SI::litre];
+
+        port irrigationConnection : IrrigationPort;
+    }
+
+    part def BedsideMonitor {
+        attribute drainageAlarmThreshold : FlowRate = 0.01 [SI::litre / SI::minute];
+        attribute balloonPressureAlarmThreshold : Pressure = 7500 [SI::pascal];
+
+        port monitorInput : MonitoringPort;
+    }
+
+    part def MillerAbbottDecompressionSystem {
+        attribute primaryFunction : String =
+            "Provide nasoenteric decompression of obstructed or distended small bowel by advancing a long double-lumen tube with an inflatable distal balloon, using the balloon to assist intestinal progression, and evacuating accumulated gas and fluid through the drainage lumen.";
+
+        part tube : MillerAbbottTube;
+        part patientBowel : PatientSmallBowel;
+        part suctionCanister : SuctionCanister;
+        part inflationSyringe : InflationSyringe;
+        part irrigationSyringe : IrrigationSyringe;
+        part bedsideMonitor : BedsideMonitor;
+
+        connect tube.distalPatientPort to patientBowel.bowelInterface;
+        connect tube.proximalDrainagePort to suctionCanister.suctionConnection;
+        connect tube.proximalInflationPort to inflationSyringe.syringeConnection;
+        connect tube.proximalIrrigationPort to irrigationSyringe.irrigationConnection;
+        connect tube.monitoringPort to bedsideMonitor.monitorInput;
+
+        perform action tube.InsertTube {
+            insertionLength = 2.4 [SI::metre];
+        }
+
+        perform action tube.InflateBalloon {
+            gasVolume = 0.025 [SI::litre];
+            targetPressure = 6000 [SI::pascal];
+        }
+
+        perform action tube.DecompressIntestine {
+            suctionSetting = -12000 [SI::pascal];
+        }
+
+        perform action tube.DeflateAndRemove;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : MillerAbbottDecompressionSystem;
+
+        doc
+        /*
+         The system shall decompress the small bowel by removing accumulated gas and intestinal fluid through a drainage lumen while a distal inflatable balloon supports tube advancement and positioning.
+        */
+
+        require constraint {
+            system.tube.drainageLumen.patency >= 0.7 and
+            system.patientBowel.accumulatedFluidVolume >= 0.0 [SI::litre]
+        }
+    }
+
+    requirement def BalloonSafetyRequirement {
+        subject tube : MillerAbbottTube;
+
+        doc
+        /*
+         The balloon shall remain below the maximum allowable volume and pressure during inflation and decompression.
+        */
+
+        require constraint {
+            tube.distalBalloon.inflatedVolume <= tube.maximumBalloonVolume and
+            tube.distalBalloon.internalPressure <= tube.maximumBalloonPressure
+        }
+    }
+
+    requirement def DrainagePerformanceRequirement {
+        subject system : MillerAbbottDecompressionSystem;
+
+        doc
+        /*
+         When suction is active, the system shall transport intestinal fluid and gas from the distal patient interface to the suction canister.
+        */
+
+        require constraint {
+            system.suctionCanister.appliedNegativePressure <= -8000 [SI::pascal] and
+            system.suctionCanister.collectedVolume <= system.suctionCanister.canisterCapacity
+        }
+    }
+
+    requirement def VisibilityRequirement {
+        subject tube : MillerAbbottTube;
+
+        doc
+        /*
+         The distal tip shall be radiographically visible to support confirmation of tube position before balloon-assisted decompression.
+        */
+
+        require constraint {
+            tube.radiopaqueTip.positionVisibleByXray == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MillerAbbottDecompressionSystem;
+    satisfy BalloonSafetyRequirement by MillerAbbottTube;
+    satisfy DrainagePerformanceRequirement by MillerAbbottDecompressionSystem;
+    satisfy VisibilityRequirement by MillerAbbottTube;
+}

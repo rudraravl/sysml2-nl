@@ -1,0 +1,647 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tuzacvvo
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb47d-a8cf-7f62-91c8-ad55b31a9071
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Concentric reducer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ConcentricReducerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ScalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def VolumetricFlowRate :> ScalarValues::Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Diameter :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Length :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Thickness :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Temperature :> ScalarValues::Real {
+        unit = "K";
+    }
+
+    attribute def Roughness :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Density :> ScalarValues::Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def DynamicViscosity :> ScalarValues::Real {
+        unit = "Pa*s";
+    }
+
+    attribute def Velocity :> ScalarValues::Real {
+        unit = "m/s";
+    }
+
+    attribute def Stress :> ScalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def Mass :> ScalarValues::Real {
+        unit = "kg";
+    }
+
+    item def ProcessFluid {
+        attribute density : Density;
+        attribute viscosity : DynamicViscosity;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    item def MechanicalLoad {
+        attribute axialForce : ScalarValues::Real;
+        attribute bendingMoment : ScalarValues::Real;
+        attribute internalPressure : Pressure;
+    }
+
+    port def FluidPort {
+        inout item fluid : ProcessFluid;
+        attribute portPressure : Pressure;
+        attribute portTemperature : Temperature;
+        attribute portFlowRate : VolumetricFlowRate;
+        attribute nominalDiameter : Diameter;
+    }
+
+    port def StructuralMountPort {
+        in item load : MechanicalLoad;
+    }
+
+    part def PipeSegment {
+        attribute nominalDiameter : Diameter;
+        attribute innerDiameter : Diameter;
+        attribute wallThickness : Thickness;
+        attribute designPressure : Pressure;
+        attribute designTemperature : Temperature;
+
+        port endPort : FluidPort;
+        port supportPort : StructuralMountPort;
+    }
+
+    part def ConcentricReducer {
+        attribute inletDiameter : Diameter = 0.200;
+        attribute outletDiameter : Diameter = 0.100;
+        attribute reducerLength : Length = 0.320;
+        attribute wallThickness : Thickness = 0.008;
+        attribute internalRoughness : Roughness = 0.000045;
+        attribute designPressure : Pressure = 1600000.0;
+        attribute designTemperature : Temperature = 450.0;
+        attribute allowableStress : Stress = 138000000.0;
+        attribute dryMass : Mass = 14.5;
+
+        port largeEnd : FluidPort;
+        port smallEnd : FluidPort;
+        port bodySupport : StructuralMountPort;
+
+        part inletTransitionLip {
+            attribute diameter : Diameter = inletDiameter;
+            attribute thickness : Thickness = wallThickness;
+        }
+
+        part taperedBody {
+            attribute startDiameter : Diameter = inletDiameter;
+            attribute endDiameter : Diameter = outletDiameter;
+            attribute length : Length = reducerLength;
+            attribute coneAngle : ScalarValues::Real = 8.88;
+            attribute roughness : Roughness = internalRoughness;
+        }
+
+        part outletTransitionLip {
+            attribute diameter : Diameter = outletDiameter;
+            attribute thickness : Thickness = wallThickness;
+        }
+
+        action def ReduceFlowDiameter {
+            in item incomingFluid : ProcessFluid;
+            out item outgoingFluid : ProcessFluid;
+
+            attribute inletVelocity : Velocity;
+            attribute outletVelocity : Velocity;
+            attribute pressureDrop : Pressure;
+            attribute flowContinuitySatisfied : Boolean;
+
+            assert constraint {
+                outgoingFluid.flowRate == incomingFluid.flowRate
+            }
+
+            assert constraint {
+                outgoingFluid.temperature == incomingFluid.temperature
+            }
+
+            assert constraint {
+                outgoingFluid.pressure < incomingFluid.pressure
+            }
+        }
+
+        action reduceFlow : ReduceFlowDiameter {
+            in incomingFluid = largeEnd.fluid;
+            out outgoingFluid = smallEnd.fluid;
+        }
+
+        state def ReducerOperatingState {
+            state Installed;
+            state Pressurized;
+            state Flowing;
+            state OverPressure;
+            state Isolated;
+            state Failed;
+
+            initial then Installed;
+
+            transition Installed_to_Pressurized
+                first Installed
+                then Pressurized
+                accept pressurize
+                if largeEnd.portPressure > 0.0;
+
+            transition Pressurized_to_Flowing
+                first Pressurized
+                then Flowing
+                accept startFlow
+                if largeEnd.portFlowRate > 0.0;
+
+            transition Flowing_to_OverPressure
+                first Flowing
+                then OverPressure
+                if largeEnd.portPressure > designPressure;
+
+            transition OverPressure_to_Failed
+                first OverPressure
+                then Failed
+                if largeEnd.portPressure > designPressure * 1.25;
+
+            transition Flowing_to_Isolated
+                first Flowing
+                then Isolated
+                accept closeIsolation
+                if largeEnd.portFlowRate == 0.0;
+
+            transition Isolated_to_Pressurized
+                first Isolated
+                then Pressurized
+                accept reopenIsolation
+                if largeEnd.portPressure <= designPressure;
+        }
+
+        perform stateMachine : ReducerOperatingState;
+    }
+
+    part def ReducerAssembly {
+        attribute normalOperatingPressure : Pressure = 850000.0;
+        attribute maximumAllowablePressure : Pressure = 1600000.0;
+        attribute normalFlowRate : VolumetricFlowRate = 0.040;
+        attribute inletNominalDiameter : Diameter = 0.200;
+        attribute outletNominalDiameter : Diameter = 0.100;
+
+        part upstreamPipe : PipeSegment {
+            attribute nominalDiameter = 0.200;
+            attribute innerDiameter = 0.200;
+            attribute wallThickness = 0.008;
+            attribute designPressure = 1600000.0;
+            attribute designTemperature = 450.0;
+        }
+
+        part reducer : ConcentricReducer {
+            attribute inletDiameter = 0.200;
+            attribute outletDiameter = 0.100;
+            attribute reducerLength = 0.320;
+            attribute designPressure = 1600000.0;
+        }
+
+        part downstreamPipe : PipeSegment {
+            attribute nominalDiameter = 0.100;
+            attribute innerDiameter = 0.100;
+            attribute wallThickness = 0.006;
+            attribute designPressure = 1600000.0;
+            attribute designTemperature = 450.0;
+        }
+
+        port systemInlet : FluidPort;
+        port systemOutlet : FluidPort;
+
+        connect systemInlet to upstreamPipe.endPort;
+        connect upstreamPipe.endPort to reducer.largeEnd;
+        connect reducer.smallEnd to downstreamPipe.endPort;
+        connect downstreamPipe.endPort to systemOutlet;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The concentric reducer shall provide a symmetric transition between a larger upstream pipe and a smaller downstream pipe while maintaining a common centerline and continuous process-fluid flow. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.largeEnd.nominalDiameter > reducer.smallEnd.nominalDiameter
+        }
+
+        require constraint {
+            reducer.largeEnd.portFlowRate == reducer.smallEnd.portFlowRate
+        }
+    }
+
+    requirement def CenterlineAlignmentRequirement {
+        doc
+        /* The reducer shall keep the inlet and outlet bores coaxial so that the connected piping remains aligned on a single centerline. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.taperedBody.startDiameter == reducer.inletDiameter
+        }
+
+        require constraint {
+            reducer.taperedBody.endDiameter == reducer.outletDiameter
+        }
+    }
+
+    requirement def PressureContainmentRequirement {
+        doc
+        /* The reducer body shall contain the specified internal design pressure without exceeding allowable material stress. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.designPressure >= 1600000.0
+        }
+
+        require constraint {
+            reducer.allowableStress >= 138000000.0
+        }
+    }
+
+    requirement def FlowContinuityRequirement {
+        doc
+        /* The reducer shall preserve mass continuity during steady operation with no intentional fluid storage or leakage. */
+
+        subject assembly : ReducerAssembly;
+
+        require constraint {
+            assembly.systemInlet.portFlowRate == assembly.systemOutlet.portFlowRate
+        }
+    }
+
+    requirement def TemperatureCompatibilityRequirement {
+        doc
+        /* The reducer shall remain suitable for operation at the maximum process-fluid temperature. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.designTemperature >= 450.0
+        }
+    }
+
+    part concentricReducerSystem : ReducerAssembly {
+        satisfy PrimaryFunctionRequirement by reducer;
+        satisfy CenterlineAlignmentRequirement by reducer;
+        satisfy PressureContainmentRequirement by reducer;
+        satisfy FlowContinuityRequirement by this;
+        satisfy TemperatureCompatibilityRequirement by reducer;
+    }
+
+}
+tokens used
+3,411
+package ConcentricReducerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ScalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def VolumetricFlowRate :> ScalarValues::Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Diameter :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Length :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Thickness :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Temperature :> ScalarValues::Real {
+        unit = "K";
+    }
+
+    attribute def Roughness :> ScalarValues::Real {
+        unit = "m";
+    }
+
+    attribute def Density :> ScalarValues::Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def DynamicViscosity :> ScalarValues::Real {
+        unit = "Pa*s";
+    }
+
+    attribute def Velocity :> ScalarValues::Real {
+        unit = "m/s";
+    }
+
+    attribute def Stress :> ScalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def Mass :> ScalarValues::Real {
+        unit = "kg";
+    }
+
+    item def ProcessFluid {
+        attribute density : Density;
+        attribute viscosity : DynamicViscosity;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    item def MechanicalLoad {
+        attribute axialForce : ScalarValues::Real;
+        attribute bendingMoment : ScalarValues::Real;
+        attribute internalPressure : Pressure;
+    }
+
+    port def FluidPort {
+        inout item fluid : ProcessFluid;
+        attribute portPressure : Pressure;
+        attribute portTemperature : Temperature;
+        attribute portFlowRate : VolumetricFlowRate;
+        attribute nominalDiameter : Diameter;
+    }
+
+    port def StructuralMountPort {
+        in item load : MechanicalLoad;
+    }
+
+    part def PipeSegment {
+        attribute nominalDiameter : Diameter;
+        attribute innerDiameter : Diameter;
+        attribute wallThickness : Thickness;
+        attribute designPressure : Pressure;
+        attribute designTemperature : Temperature;
+
+        port endPort : FluidPort;
+        port supportPort : StructuralMountPort;
+    }
+
+    part def ConcentricReducer {
+        attribute inletDiameter : Diameter = 0.200;
+        attribute outletDiameter : Diameter = 0.100;
+        attribute reducerLength : Length = 0.320;
+        attribute wallThickness : Thickness = 0.008;
+        attribute internalRoughness : Roughness = 0.000045;
+        attribute designPressure : Pressure = 1600000.0;
+        attribute designTemperature : Temperature = 450.0;
+        attribute allowableStress : Stress = 138000000.0;
+        attribute dryMass : Mass = 14.5;
+
+        port largeEnd : FluidPort;
+        port smallEnd : FluidPort;
+        port bodySupport : StructuralMountPort;
+
+        part inletTransitionLip {
+            attribute diameter : Diameter = inletDiameter;
+            attribute thickness : Thickness = wallThickness;
+        }
+
+        part taperedBody {
+            attribute startDiameter : Diameter = inletDiameter;
+            attribute endDiameter : Diameter = outletDiameter;
+            attribute length : Length = reducerLength;
+            attribute coneAngle : ScalarValues::Real = 8.88;
+            attribute roughness : Roughness = internalRoughness;
+        }
+
+        part outletTransitionLip {
+            attribute diameter : Diameter = outletDiameter;
+            attribute thickness : Thickness = wallThickness;
+        }
+
+        action def ReduceFlowDiameter {
+            in item incomingFluid : ProcessFluid;
+            out item outgoingFluid : ProcessFluid;
+
+            attribute inletVelocity : Velocity;
+            attribute outletVelocity : Velocity;
+            attribute pressureDrop : Pressure;
+            attribute flowContinuitySatisfied : Boolean;
+
+            assert constraint {
+                outgoingFluid.flowRate == incomingFluid.flowRate
+            }
+
+            assert constraint {
+                outgoingFluid.temperature == incomingFluid.temperature
+            }
+
+            assert constraint {
+                outgoingFluid.pressure < incomingFluid.pressure
+            }
+        }
+
+        action reduceFlow : ReduceFlowDiameter {
+            in incomingFluid = largeEnd.fluid;
+            out outgoingFluid = smallEnd.fluid;
+        }
+
+        state def ReducerOperatingState {
+            state Installed;
+            state Pressurized;
+            state Flowing;
+            state OverPressure;
+            state Isolated;
+            state Failed;
+
+            initial then Installed;
+
+            transition Installed_to_Pressurized
+                first Installed
+                then Pressurized
+                accept pressurize
+                if largeEnd.portPressure > 0.0;
+
+            transition Pressurized_to_Flowing
+                first Pressurized
+                then Flowing
+                accept startFlow
+                if largeEnd.portFlowRate > 0.0;
+
+            transition Flowing_to_OverPressure
+                first Flowing
+                then OverPressure
+                if largeEnd.portPressure > designPressure;
+
+            transition OverPressure_to_Failed
+                first OverPressure
+                then Failed
+                if largeEnd.portPressure > designPressure * 1.25;
+
+            transition Flowing_to_Isolated
+                first Flowing
+                then Isolated
+                accept closeIsolation
+                if largeEnd.portFlowRate == 0.0;
+
+            transition Isolated_to_Pressurized
+                first Isolated
+                then Pressurized
+                accept reopenIsolation
+                if largeEnd.portPressure <= designPressure;
+        }
+
+        perform stateMachine : ReducerOperatingState;
+    }
+
+    part def ReducerAssembly {
+        attribute normalOperatingPressure : Pressure = 850000.0;
+        attribute maximumAllowablePressure : Pressure = 1600000.0;
+        attribute normalFlowRate : VolumetricFlowRate = 0.040;
+        attribute inletNominalDiameter : Diameter = 0.200;
+        attribute outletNominalDiameter : Diameter = 0.100;
+
+        part upstreamPipe : PipeSegment {
+            attribute nominalDiameter = 0.200;
+            attribute innerDiameter = 0.200;
+            attribute wallThickness = 0.008;
+            attribute designPressure = 1600000.0;
+            attribute designTemperature = 450.0;
+        }
+
+        part reducer : ConcentricReducer {
+            attribute inletDiameter = 0.200;
+            attribute outletDiameter = 0.100;
+            attribute reducerLength = 0.320;
+            attribute designPressure = 1600000.0;
+        }
+
+        part downstreamPipe : PipeSegment {
+            attribute nominalDiameter = 0.100;
+            attribute innerDiameter = 0.100;
+            attribute wallThickness = 0.006;
+            attribute designPressure = 1600000.0;
+            attribute designTemperature = 450.0;
+        }
+
+        port systemInlet : FluidPort;
+        port systemOutlet : FluidPort;
+
+        connect systemInlet to upstreamPipe.endPort;
+        connect upstreamPipe.endPort to reducer.largeEnd;
+        connect reducer.smallEnd to downstreamPipe.endPort;
+        connect downstreamPipe.endPort to systemOutlet;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The concentric reducer shall provide a symmetric transition between a larger upstream pipe and a smaller downstream pipe while maintaining a common centerline and continuous process-fluid flow. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.largeEnd.nominalDiameter > reducer.smallEnd.nominalDiameter
+        }
+
+        require constraint {
+            reducer.largeEnd.portFlowRate == reducer.smallEnd.portFlowRate
+        }
+    }
+
+    requirement def CenterlineAlignmentRequirement {
+        doc
+        /* The reducer shall keep the inlet and outlet bores coaxial so that the connected piping remains aligned on a single centerline. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.taperedBody.startDiameter == reducer.inletDiameter
+        }
+
+        require constraint {
+            reducer.taperedBody.endDiameter == reducer.outletDiameter
+        }
+    }
+
+    requirement def PressureContainmentRequirement {
+        doc
+        /* The reducer body shall contain the specified internal design pressure without exceeding allowable material stress. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.designPressure >= 1600000.0
+        }
+
+        require constraint {
+            reducer.allowableStress >= 138000000.0
+        }
+    }
+
+    requirement def FlowContinuityRequirement {
+        doc
+        /* The reducer shall preserve mass continuity during steady operation with no intentional fluid storage or leakage. */
+
+        subject assembly : ReducerAssembly;
+
+        require constraint {
+            assembly.systemInlet.portFlowRate == assembly.systemOutlet.portFlowRate
+        }
+    }
+
+    requirement def TemperatureCompatibilityRequirement {
+        doc
+        /* The reducer shall remain suitable for operation at the maximum process-fluid temperature. */
+
+        subject reducer : ConcentricReducer;
+
+        require constraint {
+            reducer.designTemperature >= 450.0
+        }
+    }
+
+    part concentricReducerSystem : ReducerAssembly {
+        satisfy PrimaryFunctionRequirement by reducer;
+        satisfy CenterlineAlignmentRequirement by reducer;
+        satisfy PressureContainmentRequirement by reducer;
+        satisfy FlowContinuityRequirement by this;
+        satisfy TemperatureCompatibilityRequirement by reducer;
+    }
+
+}

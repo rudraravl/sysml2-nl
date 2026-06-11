@@ -1,0 +1,993 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-e952kqtd
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb438-61b8-74d3-951e-84c4ef5b2a46
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Tissue Doppler echocardiography and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TissueDopplerEchocardiographySystem {
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Frequency :> frequency;
+  attribute def Velocity :> speed;
+  attribute def Pressure :> pressure;
+  attribute def Power :> power;
+  attribute def Voltage :> electricPotential;
+  attribute def TimeDuration :> time;
+  attribute def FrameRate :> frequency;
+  attribute def Distance :> length;
+  attribute def Temperature :> thermodynamicTemperature;
+
+  item def Patient {
+    attribute patientIdentifier : String;
+    attribute bodySurfaceTemperature : Temperature;
+  }
+
+  item def UltrasoundPulse {
+    attribute centerFrequency : Frequency;
+    attribute pulseRepetitionFrequency : Frequency;
+    attribute acousticPressure : Pressure;
+    attribute pulseDuration : TimeDuration;
+    attribute beamAngleRelativeToTissueMotion : Real;
+  }
+
+  item def TissueEcho {
+    attribute receivedFrequency : Frequency;
+    attribute amplitude : Real;
+    attribute timeOfFlight : TimeDuration;
+    attribute sampleDepth : Distance;
+  }
+
+  item def RFSignal {
+    attribute carrierFrequency : Frequency;
+    attribute signalAmplitude : Voltage;
+    attribute samplingRate : Frequency;
+  }
+
+  item def IQSampleStream {
+    attribute sampleRate : Frequency;
+    attribute inPhaseSamples : Real[*];
+    attribute quadratureSamples : Real[*];
+  }
+
+  item def TissueVelocitySample {
+    attribute depth : Distance;
+    attribute lateralPosition : Distance;
+    attribute axialVelocity : Velocity;
+    attribute confidence : Real;
+  }
+
+  item def TissueVelocityMap {
+    attribute frameTime : TimeDuration;
+    attribute frameRate : FrameRate;
+    attribute velocitySamples : TissueVelocitySample[*];
+    attribute maximumDisplayedVelocity : Velocity;
+    attribute minimumDisplayedVelocity : Velocity;
+  }
+
+  item def DopplerTissueImage {
+    attribute widthPixels : Integer;
+    attribute heightPixels : Integer;
+    attribute colorEncodedVelocityMap : TissueVelocityMap;
+    attribute grayscaleAnatomyReference : Real[*];
+  }
+
+  item def DiagnosticMeasurement {
+    attribute annularPeakSystolicVelocity : Velocity;
+    attribute earlyDiastolicVelocity : Velocity;
+    attribute lateDiastolicVelocity : Velocity;
+    attribute ePrimeSeptal : Velocity;
+    attribute ePrimeLateral : Velocity;
+  }
+
+  item def DiagnosticReport {
+    attribute studyIdentifier : String;
+    attribute acquisitionTime : TimeDuration;
+    attribute measurements : DiagnosticMeasurement;
+    attribute interpretationSummary : String;
+  }
+
+  port def AcousticProbePort {
+    out item transmittedPulse : UltrasoundPulse;
+    in item receivedEcho : TissueEcho;
+  }
+
+  port def PatientAcousticPort {
+    in item incidentPulse : UltrasoundPulse;
+    out item reflectedEcho : TissueEcho;
+  }
+
+  port def AnalogSignalPort {
+    out item analogRF : RFSignal;
+    in item controlVoltage : Voltage;
+  }
+
+  port def DigitalSignalPort {
+    out item digitalIQ : IQSampleStream;
+    in item processingCommand : String;
+  }
+
+  port def ImageDataPort {
+    out item imageFrame : DopplerTissueImage;
+    out item velocityMap : TissueVelocityMap;
+  }
+
+  port def UserInterfacePort {
+    in item operatorCommand : String;
+    out item displayedImage : DopplerTissueImage;
+    out item displayedReport : DiagnosticReport;
+  }
+
+  port def PowerPort {
+    in item supplyVoltage : Voltage;
+    in item availablePower : Power;
+  }
+
+  part def TissueDopplerEchocardiographySystem {
+    attribute primaryFunction : String =
+      "Acquire ultrasound echoes from moving myocardial tissue, estimate tissue velocity from Doppler frequency shift, and display color and spectral tissue Doppler information for cardiac functional assessment.";
+
+    attribute nominalTransmitFrequency : Frequency = 2.5 [MHz];
+    attribute maximumTransmitFrequency : Frequency = 7.0 [MHz];
+    attribute nominalFrameRate : FrameRate = 80 [Hz];
+    attribute maximumTissueVelocityRange : Velocity = 0.30 [m/s];
+    attribute maximumImagingDepth : Distance = 0.16 [m];
+
+    port powerInput : PowerPort;
+    port userInterface : UserInterfacePort;
+
+    part patientInterface : PatientCouplingInterface;
+    part transducerProbe : PhasedArrayTissueDopplerProbe;
+    part beamformer : DigitalBeamformer;
+    part dopplerProcessor : TissueDopplerProcessor;
+    part imageRenderer : DopplerImageRenderer;
+    part measurementEngine : CardiacMeasurementEngine;
+    part safetyMonitor : AcousticSafetyMonitor;
+    part operatorConsole : OperatorConsole;
+    part reportGenerator : ReportGenerator;
+
+    connect transducerProbe.acousticPort to patientInterface.probeSideAcousticPort;
+    connect patientInterface.patientSideAcousticPort to patientInterface.examinedPatientAcousticPort;
+    connect transducerProbe.rfPort to beamformer.rfInput;
+    connect beamformer.iqOutput to dopplerProcessor.iqInput;
+    connect dopplerProcessor.velocityOutput to imageRenderer.velocityInput;
+    connect imageRenderer.imageOutput to operatorConsole.displayInput;
+    connect dopplerProcessor.velocityOutput to measurementEngine.velocityInput;
+    connect measurementEngine.measurementOutput to reportGenerator.measurementInput;
+    connect reportGenerator.reportOutput to operatorConsole.reportInput;
+    connect safetyMonitor.probeControlOutput to transducerProbe.controlInput;
+    connect operatorConsole.commandOutput to beamformer.commandInput;
+    connect operatorConsole.commandOutput to dopplerProcessor.commandInput;
+    connect operatorConsole.userPort to userInterface;
+
+    perform action acquireAndDisplayTissueDoppler : AcquireAndDisplayTissueDoppler;
+    exhibit state imagingSessionState : TissueDopplerImagingSessionStateMachine;
+  }
+
+  part def PatientCouplingInterface {
+    port probeSideAcousticPort : AcousticProbePort;
+    port patientSideAcousticPort : AcousticProbePort;
+    port examinedPatientAcousticPort : PatientAcousticPort;
+
+    attribute couplingMedium : String = "ultrasound gel";
+    attribute acousticImpedanceMatched : Boolean = true;
+  }
+
+  part def PhasedArrayTissueDopplerProbe {
+    port acousticPort : AcousticProbePort;
+    port rfPort : AnalogSignalPort;
+    port controlInput : AnalogSignalPort;
+
+    attribute elementCount : Integer = 64;
+    attribute centerFrequency : Frequency = 2.5 [MHz];
+    attribute bandwidth : Frequency = 1.5 [MHz];
+    attribute apertureWidth : Distance = 0.022 [m];
+    attribute maximumSurfaceTemperature : Temperature = 315.15 [K];
+
+    perform action transmitPulse : TransmitFocusedPulse;
+    perform action receiveEcho : ReceiveTissueEcho;
+  }
+
+  part def DigitalBeamformer {
+    port rfInput : AnalogSignalPort;
+    port iqOutput : DigitalSignalPort;
+    port commandInput : DigitalSignalPort;
+
+    attribute analogToDigitalSamplingRate : Frequency = 40 [MHz];
+    attribute receiveLineCount : Integer = 128;
+    attribute dynamicReceiveFocusingEnabled : Boolean = true;
+
+    perform action beamformEchoes : BeamformReceivedEchoes;
+  }
+
+  part def TissueDopplerProcessor {
+    port iqInput : DigitalSignalPort;
+    port commandInput : DigitalSignalPort;
+    port velocityOutput : ImageDataPort;
+
+    attribute wallFilterCutoffFrequency : Frequency = 80 [Hz];
+    attribute autocorrelationWindowLength : Integer = 8;
+    attribute angleCorrectionEnabled : Boolean = true;
+    attribute aliasingLimit : Velocity = 0.25 [m/s];
+
+    perform action estimateVelocity : EstimateTissueVelocity;
+  }
+
+  part def DopplerImageRenderer {
+    port velocityInput : ImageDataPort;
+    port imageOutput : ImageDataPort;
+
+    attribute colorMapName : String = "red-blue tissue velocity";
+    attribute grayscaleOverlayOpacity : Real = 0.55;
+    attribute displayedFrameRate : FrameRate = 60 [Hz];
+
+    perform action renderImage : RenderColorTissueDopplerImage;
+  }
+
+  part def CardiacMeasurementEngine {
+    port velocityInput : ImageDataPort;
+    port measurementOutput : MeasurementPort;
+
+    attribute sampleVolumeDiameter : Distance = 0.005 [m];
+    attribute annularTrackingEnabled : Boolean = true;
+
+    perform action measureMyocardialVelocities : MeasureCardiacTissueVelocities;
+  }
+
+  port def MeasurementPort {
+    out item measurement : DiagnosticMeasurement;
+  }
+
+  part def AcousticSafetyMonitor {
+    port probeControlOutput : AnalogSignalPort;
+
+    attribute maximumMechanicalIndex : Real = 1.9;
+    attribute maximumThermalIndex : Real = 1.0;
+    attribute acousticOutputPowerLimit : Power = 0.720 [W];
+
+    perform action enforceAcousticLimits : EnforceAcousticSafetyLimits;
+  }
+
+  part def OperatorConsole {
+    port displayInput : ImageDataPort;
+    port reportInput : ReportPort;
+    port commandOutput : DigitalSignalPort;
+    port userPort : UserInterfacePort;
+
+    attribute displayWidthPixels : Integer = 1920;
+    attribute displayHeightPixels : Integer = 1080;
+    attribute cineLoopDuration : TimeDuration = 10 [s];
+  }
+
+  port def ReportPort {
+    in item report : DiagnosticReport;
+    out item reportOut : DiagnosticReport;
+  }
+
+  part def ReportGenerator {
+    port measurementInput : MeasurementPort;
+    port reportOutput : ReportPort;
+
+    attribute reportFormat : String = "structured echocardiography report";
+  }
+
+  action def AcquireAndDisplayTissueDoppler {
+    in item patient : Patient;
+    out item diagnosticReport : DiagnosticReport;
+    out item displayedImage : DopplerTissueImage;
+
+    action prepareProbe : PrepareProbe;
+    action transmitPulse : TransmitFocusedPulse;
+    action receiveEcho : ReceiveTissueEcho;
+    action beamformEchoes : BeamformReceivedEchoes;
+    action estimateVelocity : EstimateTissueVelocity;
+    action renderImage : RenderColorTissueDopplerImage;
+    action measureVelocity : MeasureCardiacTissueVelocities;
+    action generateReport : GenerateDiagnosticReport;
+
+    flow prepareProbe.preparedPatient to transmitPulse.patient;
+    flow transmitPulse.pulse to receiveEcho.incidentPulse;
+    flow receiveEcho.rfSignal to beamformEchoes.rfSignal;
+    flow beamformEchoes.iqSamples to estimateVelocity.iqSamples;
+    flow estimateVelocity.velocityMap to renderImage.velocityMap;
+    flow renderImage.image to displayedImage;
+    flow estimateVelocity.velocityMap to measureVelocity.velocityMap;
+    flow measureVelocity.measurement to generateReport.measurement;
+    flow generateReport.report to diagnosticReport;
+  }
+
+  action def PrepareProbe {
+    in item patient : Patient;
+    out item preparedPatient : Patient;
+  }
+
+  action def TransmitFocusedPulse {
+    in item patient : Patient;
+    out item pulse : UltrasoundPulse;
+
+    attribute selectedTransmitFrequency : Frequency = 2.5 [MHz];
+    attribute selectedPulseRepetitionFrequency : Frequency = 5.0 [kHz];
+    attribute transmitFocusDepth : Distance = 0.08 [m];
+  }
+
+  action def ReceiveTissueEcho {
+    in item incidentPulse : UltrasoundPulse;
+    out item echo : TissueEcho;
+    out item rfSignal : RFSignal;
+
+    attribute receiveGain : Real = 42.0;
+    attribute timeGainCompensationEnabled : Boolean = true;
+  }
+
+  action def BeamformReceivedEchoes {
+    in item rfSignal : RFSignal;
+    out item iqSamples : IQSampleStream;
+
+    attribute receiveApertureElements : Integer = 48;
+    attribute demodulationFrequency : Frequency = 2.5 [MHz];
+  }
+
+  action def EstimateTissueVelocity {
+    in item iqSamples : IQSampleStream;
+    out item velocityMap : TissueVelocityMap;
+
+    attribute dopplerEquationUsed : String = "v = deltaFrequency * c / (2 * transmitFrequency * cos(theta))";
+    attribute assumedSoftTissueSoundSpeed : Velocity = 1540 [m/s];
+    attribute rejectBloodFlowByLowPassTissueWallFilter : Boolean = true;
+  }
+
+  action def RenderColorTissueDopplerImage {
+    in item velocityMap : TissueVelocityMap;
+    out item image : DopplerTissueImage;
+
+    attribute positiveVelocityColor : String = "red";
+    attribute negativeVelocityColor : String = "blue";
+    attribute zeroVelocityColor : String = "black";
+  }
+
+  action def MeasureCardiacTissueVelocities {
+    in item velocityMap : TissueVelocityMap;
+    out item measurement : DiagnosticMeasurement;
+
+    attribute measurementSites : String = "septal and lateral mitral annulus";
+  }
+
+  action def EnforceAcousticSafetyLimits {
+    in item requestedPulse : UltrasoundPulse;
+    out item permittedPulse : UltrasoundPulse;
+
+    assert constraint mechanicalIndexWithinLimit {
+      requestedPulse.acousticPressure <= 1.9 [MPa]
+    }
+  }
+
+  action def GenerateDiagnosticReport {
+    in item measurement : DiagnosticMeasurement;
+    out item report : DiagnosticReport;
+  }
+
+  state def TissueDopplerImagingSessionStateMachine {
+    entry action initializeSystem : PrepareProbe;
+
+    state Standby;
+    state ProbeContactCheck;
+    state BModeLocalization;
+    state TissueDopplerAcquisition;
+    state VelocityEstimation;
+    state ImageDisplay;
+    state Measurement;
+    state ReportReady;
+    state SafetyLimited;
+    state Shutdown;
+
+    initial then Standby;
+
+    transition startExam
+      first Standby
+      accept operatorStartCommand
+      then ProbeContactCheck;
+
+    transition contactEstablished
+      first ProbeContactCheck
+      accept adequateAcousticCoupling
+      then BModeLocalization;
+
+    transition tissueDopplerModeSelected
+      first BModeLocalization
+      accept tissueDopplerCommand
+      then TissueDopplerAcquisition;
+
+    transition echoesAvailable
+      first TissueDopplerAcquisition
+      accept rfEchoFrameReceived
+      then VelocityEstimation;
+
+    transition velocityFrameComputed
+      first VelocityEstimation
+      accept velocityMapReady
+      then ImageDisplay;
+
+    transition requestMeasurement
+      first ImageDisplay
+      accept measurementCommand
+      then Measurement;
+
+    transition measurementCompleted
+      first Measurement
+      accept diagnosticValuesReady
+      then ReportReady;
+
+    transition continueImaging
+      first ImageDisplay
+      accept nextFrameRequested
+      then TissueDopplerAcquisition;
+
+    transition acousticLimitExceeded
+      first TissueDopplerAcquisition
+      accept safetyLimitEvent
+      then SafetyLimited;
+
+    transition reduceOutputAndResume
+      first SafetyLimited
+      accept outputReduced
+      then TissueDopplerAcquisition;
+
+    transition endExam
+      first ReportReady
+      accept operatorEndCommand
+      then Shutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : TissueDopplerEchocardiographySystem;
+
+    doc
+      /* The system shall provide a high-level clinical function of noninvasively estimating and displaying myocardial tissue motion by transmitting ultrasound, receiving tissue echoes, calculating Doppler velocity, and presenting tissue Doppler images and measurements to the operator. */
+
+    require constraint primaryFunctionPresent {
+      system.nominalTransmitFrequency >= 2.0 [MHz] and
+      system.nominalTransmitFrequency <= 7.0 [MHz] and
+      system.nominalFrameRate >= 40 [Hz]
+    }
+  }
+
+  requirement def TissueVelocityMeasurementRequirement {
+    subject processor : TissueDopplerProcessor;
+
+    doc
+      /* The tissue Doppler processor shall estimate axial myocardial tissue velocity from phase shift in sequential IQ echo samples while suppressing high-velocity blood-flow components. */
+
+    require constraint velocityRangeAdequate {
+      processor.aliasingLimit >= 0.20 [m/s]
+    }
+  }
+
+  requirement def AcousticSafetyRequirement {
+    subject monitor : AcousticSafetyMonitor;
+
+    doc
+      /* Acoustic output shall be limited so that mechanical and thermal exposure remain within diagnostic ultrasound safety limits during tissue Doppler operation. */
+
+    require constraint acousticLimits {
+      monitor.maximumMechanicalIndex <= 1.9 and
+      monitor.maximumThermalIndex <= 1.0
+    }
+  }
+
+  requirement def DisplayRequirement {
+    subject renderer : DopplerImageRenderer;
+
+    doc
+      /* The renderer shall display myocardial tissue velocity as a color-coded overlay on anatomical reference imagery at an update rate suitable for real-time cardiac motion assessment. */
+
+    require constraint realTimeDisplay {
+      renderer.displayedFrameRate >= 30 [Hz]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by TissueDopplerEchocardiographySystem;
+  satisfy TissueVelocityMeasurementRequirement by TissueDopplerProcessor;
+  satisfy AcousticSafetyRequirement by AcousticSafetyMonitor;
+  satisfy DisplayRequirement by DopplerImageRenderer;
+}
+tokens used
+5,361
+package TissueDopplerEchocardiographySystem {
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Frequency :> frequency;
+  attribute def Velocity :> speed;
+  attribute def Pressure :> pressure;
+  attribute def Power :> power;
+  attribute def Voltage :> electricPotential;
+  attribute def TimeDuration :> time;
+  attribute def FrameRate :> frequency;
+  attribute def Distance :> length;
+  attribute def Temperature :> thermodynamicTemperature;
+
+  item def Patient {
+    attribute patientIdentifier : String;
+    attribute bodySurfaceTemperature : Temperature;
+  }
+
+  item def UltrasoundPulse {
+    attribute centerFrequency : Frequency;
+    attribute pulseRepetitionFrequency : Frequency;
+    attribute acousticPressure : Pressure;
+    attribute pulseDuration : TimeDuration;
+    attribute beamAngleRelativeToTissueMotion : Real;
+  }
+
+  item def TissueEcho {
+    attribute receivedFrequency : Frequency;
+    attribute amplitude : Real;
+    attribute timeOfFlight : TimeDuration;
+    attribute sampleDepth : Distance;
+  }
+
+  item def RFSignal {
+    attribute carrierFrequency : Frequency;
+    attribute signalAmplitude : Voltage;
+    attribute samplingRate : Frequency;
+  }
+
+  item def IQSampleStream {
+    attribute sampleRate : Frequency;
+    attribute inPhaseSamples : Real[*];
+    attribute quadratureSamples : Real[*];
+  }
+
+  item def TissueVelocitySample {
+    attribute depth : Distance;
+    attribute lateralPosition : Distance;
+    attribute axialVelocity : Velocity;
+    attribute confidence : Real;
+  }
+
+  item def TissueVelocityMap {
+    attribute frameTime : TimeDuration;
+    attribute frameRate : FrameRate;
+    attribute velocitySamples : TissueVelocitySample[*];
+    attribute maximumDisplayedVelocity : Velocity;
+    attribute minimumDisplayedVelocity : Velocity;
+  }
+
+  item def DopplerTissueImage {
+    attribute widthPixels : Integer;
+    attribute heightPixels : Integer;
+    attribute colorEncodedVelocityMap : TissueVelocityMap;
+    attribute grayscaleAnatomyReference : Real[*];
+  }
+
+  item def DiagnosticMeasurement {
+    attribute annularPeakSystolicVelocity : Velocity;
+    attribute earlyDiastolicVelocity : Velocity;
+    attribute lateDiastolicVelocity : Velocity;
+    attribute ePrimeSeptal : Velocity;
+    attribute ePrimeLateral : Velocity;
+  }
+
+  item def DiagnosticReport {
+    attribute studyIdentifier : String;
+    attribute acquisitionTime : TimeDuration;
+    attribute measurements : DiagnosticMeasurement;
+    attribute interpretationSummary : String;
+  }
+
+  port def AcousticProbePort {
+    out item transmittedPulse : UltrasoundPulse;
+    in item receivedEcho : TissueEcho;
+  }
+
+  port def PatientAcousticPort {
+    in item incidentPulse : UltrasoundPulse;
+    out item reflectedEcho : TissueEcho;
+  }
+
+  port def AnalogSignalPort {
+    out item analogRF : RFSignal;
+    in item controlVoltage : Voltage;
+  }
+
+  port def DigitalSignalPort {
+    out item digitalIQ : IQSampleStream;
+    in item processingCommand : String;
+  }
+
+  port def ImageDataPort {
+    out item imageFrame : DopplerTissueImage;
+    out item velocityMap : TissueVelocityMap;
+  }
+
+  port def UserInterfacePort {
+    in item operatorCommand : String;
+    out item displayedImage : DopplerTissueImage;
+    out item displayedReport : DiagnosticReport;
+  }
+
+  port def PowerPort {
+    in item supplyVoltage : Voltage;
+    in item availablePower : Power;
+  }
+
+  part def TissueDopplerEchocardiographySystem {
+    attribute primaryFunction : String =
+      "Acquire ultrasound echoes from moving myocardial tissue, estimate tissue velocity from Doppler frequency shift, and display color and spectral tissue Doppler information for cardiac functional assessment.";
+
+    attribute nominalTransmitFrequency : Frequency = 2.5 [MHz];
+    attribute maximumTransmitFrequency : Frequency = 7.0 [MHz];
+    attribute nominalFrameRate : FrameRate = 80 [Hz];
+    attribute maximumTissueVelocityRange : Velocity = 0.30 [m/s];
+    attribute maximumImagingDepth : Distance = 0.16 [m];
+
+    port powerInput : PowerPort;
+    port userInterface : UserInterfacePort;
+
+    part patientInterface : PatientCouplingInterface;
+    part transducerProbe : PhasedArrayTissueDopplerProbe;
+    part beamformer : DigitalBeamformer;
+    part dopplerProcessor : TissueDopplerProcessor;
+    part imageRenderer : DopplerImageRenderer;
+    part measurementEngine : CardiacMeasurementEngine;
+    part safetyMonitor : AcousticSafetyMonitor;
+    part operatorConsole : OperatorConsole;
+    part reportGenerator : ReportGenerator;
+
+    connect transducerProbe.acousticPort to patientInterface.probeSideAcousticPort;
+    connect patientInterface.patientSideAcousticPort to patientInterface.examinedPatientAcousticPort;
+    connect transducerProbe.rfPort to beamformer.rfInput;
+    connect beamformer.iqOutput to dopplerProcessor.iqInput;
+    connect dopplerProcessor.velocityOutput to imageRenderer.velocityInput;
+    connect imageRenderer.imageOutput to operatorConsole.displayInput;
+    connect dopplerProcessor.velocityOutput to measurementEngine.velocityInput;
+    connect measurementEngine.measurementOutput to reportGenerator.measurementInput;
+    connect reportGenerator.reportOutput to operatorConsole.reportInput;
+    connect safetyMonitor.probeControlOutput to transducerProbe.controlInput;
+    connect operatorConsole.commandOutput to beamformer.commandInput;
+    connect operatorConsole.commandOutput to dopplerProcessor.commandInput;
+    connect operatorConsole.userPort to userInterface;
+
+    perform action acquireAndDisplayTissueDoppler : AcquireAndDisplayTissueDoppler;
+    exhibit state imagingSessionState : TissueDopplerImagingSessionStateMachine;
+  }
+
+  part def PatientCouplingInterface {
+    port probeSideAcousticPort : AcousticProbePort;
+    port patientSideAcousticPort : AcousticProbePort;
+    port examinedPatientAcousticPort : PatientAcousticPort;
+
+    attribute couplingMedium : String = "ultrasound gel";
+    attribute acousticImpedanceMatched : Boolean = true;
+  }
+
+  part def PhasedArrayTissueDopplerProbe {
+    port acousticPort : AcousticProbePort;
+    port rfPort : AnalogSignalPort;
+    port controlInput : AnalogSignalPort;
+
+    attribute elementCount : Integer = 64;
+    attribute centerFrequency : Frequency = 2.5 [MHz];
+    attribute bandwidth : Frequency = 1.5 [MHz];
+    attribute apertureWidth : Distance = 0.022 [m];
+    attribute maximumSurfaceTemperature : Temperature = 315.15 [K];
+
+    perform action transmitPulse : TransmitFocusedPulse;
+    perform action receiveEcho : ReceiveTissueEcho;
+  }
+
+  part def DigitalBeamformer {
+    port rfInput : AnalogSignalPort;
+    port iqOutput : DigitalSignalPort;
+    port commandInput : DigitalSignalPort;
+
+    attribute analogToDigitalSamplingRate : Frequency = 40 [MHz];
+    attribute receiveLineCount : Integer = 128;
+    attribute dynamicReceiveFocusingEnabled : Boolean = true;
+
+    perform action beamformEchoes : BeamformReceivedEchoes;
+  }
+
+  part def TissueDopplerProcessor {
+    port iqInput : DigitalSignalPort;
+    port commandInput : DigitalSignalPort;
+    port velocityOutput : ImageDataPort;
+
+    attribute wallFilterCutoffFrequency : Frequency = 80 [Hz];
+    attribute autocorrelationWindowLength : Integer = 8;
+    attribute angleCorrectionEnabled : Boolean = true;
+    attribute aliasingLimit : Velocity = 0.25 [m/s];
+
+    perform action estimateVelocity : EstimateTissueVelocity;
+  }
+
+  part def DopplerImageRenderer {
+    port velocityInput : ImageDataPort;
+    port imageOutput : ImageDataPort;
+
+    attribute colorMapName : String = "red-blue tissue velocity";
+    attribute grayscaleOverlayOpacity : Real = 0.55;
+    attribute displayedFrameRate : FrameRate = 60 [Hz];
+
+    perform action renderImage : RenderColorTissueDopplerImage;
+  }
+
+  part def CardiacMeasurementEngine {
+    port velocityInput : ImageDataPort;
+    port measurementOutput : MeasurementPort;
+
+    attribute sampleVolumeDiameter : Distance = 0.005 [m];
+    attribute annularTrackingEnabled : Boolean = true;
+
+    perform action measureMyocardialVelocities : MeasureCardiacTissueVelocities;
+  }
+
+  port def MeasurementPort {
+    out item measurement : DiagnosticMeasurement;
+  }
+
+  part def AcousticSafetyMonitor {
+    port probeControlOutput : AnalogSignalPort;
+
+    attribute maximumMechanicalIndex : Real = 1.9;
+    attribute maximumThermalIndex : Real = 1.0;
+    attribute acousticOutputPowerLimit : Power = 0.720 [W];
+
+    perform action enforceAcousticLimits : EnforceAcousticSafetyLimits;
+  }
+
+  part def OperatorConsole {
+    port displayInput : ImageDataPort;
+    port reportInput : ReportPort;
+    port commandOutput : DigitalSignalPort;
+    port userPort : UserInterfacePort;
+
+    attribute displayWidthPixels : Integer = 1920;
+    attribute displayHeightPixels : Integer = 1080;
+    attribute cineLoopDuration : TimeDuration = 10 [s];
+  }
+
+  port def ReportPort {
+    in item report : DiagnosticReport;
+    out item reportOut : DiagnosticReport;
+  }
+
+  part def ReportGenerator {
+    port measurementInput : MeasurementPort;
+    port reportOutput : ReportPort;
+
+    attribute reportFormat : String = "structured echocardiography report";
+  }
+
+  action def AcquireAndDisplayTissueDoppler {
+    in item patient : Patient;
+    out item diagnosticReport : DiagnosticReport;
+    out item displayedImage : DopplerTissueImage;
+
+    action prepareProbe : PrepareProbe;
+    action transmitPulse : TransmitFocusedPulse;
+    action receiveEcho : ReceiveTissueEcho;
+    action beamformEchoes : BeamformReceivedEchoes;
+    action estimateVelocity : EstimateTissueVelocity;
+    action renderImage : RenderColorTissueDopplerImage;
+    action measureVelocity : MeasureCardiacTissueVelocities;
+    action generateReport : GenerateDiagnosticReport;
+
+    flow prepareProbe.preparedPatient to transmitPulse.patient;
+    flow transmitPulse.pulse to receiveEcho.incidentPulse;
+    flow receiveEcho.rfSignal to beamformEchoes.rfSignal;
+    flow beamformEchoes.iqSamples to estimateVelocity.iqSamples;
+    flow estimateVelocity.velocityMap to renderImage.velocityMap;
+    flow renderImage.image to displayedImage;
+    flow estimateVelocity.velocityMap to measureVelocity.velocityMap;
+    flow measureVelocity.measurement to generateReport.measurement;
+    flow generateReport.report to diagnosticReport;
+  }
+
+  action def PrepareProbe {
+    in item patient : Patient;
+    out item preparedPatient : Patient;
+  }
+
+  action def TransmitFocusedPulse {
+    in item patient : Patient;
+    out item pulse : UltrasoundPulse;
+
+    attribute selectedTransmitFrequency : Frequency = 2.5 [MHz];
+    attribute selectedPulseRepetitionFrequency : Frequency = 5.0 [kHz];
+    attribute transmitFocusDepth : Distance = 0.08 [m];
+  }
+
+  action def ReceiveTissueEcho {
+    in item incidentPulse : UltrasoundPulse;
+    out item echo : TissueEcho;
+    out item rfSignal : RFSignal;
+
+    attribute receiveGain : Real = 42.0;
+    attribute timeGainCompensationEnabled : Boolean = true;
+  }
+
+  action def BeamformReceivedEchoes {
+    in item rfSignal : RFSignal;
+    out item iqSamples : IQSampleStream;
+
+    attribute receiveApertureElements : Integer = 48;
+    attribute demodulationFrequency : Frequency = 2.5 [MHz];
+  }
+
+  action def EstimateTissueVelocity {
+    in item iqSamples : IQSampleStream;
+    out item velocityMap : TissueVelocityMap;
+
+    attribute dopplerEquationUsed : String = "v = deltaFrequency * c / (2 * transmitFrequency * cos(theta))";
+    attribute assumedSoftTissueSoundSpeed : Velocity = 1540 [m/s];
+    attribute rejectBloodFlowByLowPassTissueWallFilter : Boolean = true;
+  }
+
+  action def RenderColorTissueDopplerImage {
+    in item velocityMap : TissueVelocityMap;
+    out item image : DopplerTissueImage;
+
+    attribute positiveVelocityColor : String = "red";
+    attribute negativeVelocityColor : String = "blue";
+    attribute zeroVelocityColor : String = "black";
+  }
+
+  action def MeasureCardiacTissueVelocities {
+    in item velocityMap : TissueVelocityMap;
+    out item measurement : DiagnosticMeasurement;
+
+    attribute measurementSites : String = "septal and lateral mitral annulus";
+  }
+
+  action def EnforceAcousticSafetyLimits {
+    in item requestedPulse : UltrasoundPulse;
+    out item permittedPulse : UltrasoundPulse;
+
+    assert constraint mechanicalIndexWithinLimit {
+      requestedPulse.acousticPressure <= 1.9 [MPa]
+    }
+  }
+
+  action def GenerateDiagnosticReport {
+    in item measurement : DiagnosticMeasurement;
+    out item report : DiagnosticReport;
+  }
+
+  state def TissueDopplerImagingSessionStateMachine {
+    entry action initializeSystem : PrepareProbe;
+
+    state Standby;
+    state ProbeContactCheck;
+    state BModeLocalization;
+    state TissueDopplerAcquisition;
+    state VelocityEstimation;
+    state ImageDisplay;
+    state Measurement;
+    state ReportReady;
+    state SafetyLimited;
+    state Shutdown;
+
+    initial then Standby;
+
+    transition startExam
+      first Standby
+      accept operatorStartCommand
+      then ProbeContactCheck;
+
+    transition contactEstablished
+      first ProbeContactCheck
+      accept adequateAcousticCoupling
+      then BModeLocalization;
+
+    transition tissueDopplerModeSelected
+      first BModeLocalization
+      accept tissueDopplerCommand
+      then TissueDopplerAcquisition;
+
+    transition echoesAvailable
+      first TissueDopplerAcquisition
+      accept rfEchoFrameReceived
+      then VelocityEstimation;
+
+    transition velocityFrameComputed
+      first VelocityEstimation
+      accept velocityMapReady
+      then ImageDisplay;
+
+    transition requestMeasurement
+      first ImageDisplay
+      accept measurementCommand
+      then Measurement;
+
+    transition measurementCompleted
+      first Measurement
+      accept diagnosticValuesReady
+      then ReportReady;
+
+    transition continueImaging
+      first ImageDisplay
+      accept nextFrameRequested
+      then TissueDopplerAcquisition;
+
+    transition acousticLimitExceeded
+      first TissueDopplerAcquisition
+      accept safetyLimitEvent
+      then SafetyLimited;
+
+    transition reduceOutputAndResume
+      first SafetyLimited
+      accept outputReduced
+      then TissueDopplerAcquisition;
+
+    transition endExam
+      first ReportReady
+      accept operatorEndCommand
+      then Shutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : TissueDopplerEchocardiographySystem;
+
+    doc
+      /* The system shall provide a high-level clinical function of noninvasively estimating and displaying myocardial tissue motion by transmitting ultrasound, receiving tissue echoes, calculating Doppler velocity, and presenting tissue Doppler images and measurements to the operator. */
+
+    require constraint primaryFunctionPresent {
+      system.nominalTransmitFrequency >= 2.0 [MHz] and
+      system.nominalTransmitFrequency <= 7.0 [MHz] and
+      system.nominalFrameRate >= 40 [Hz]
+    }
+  }
+
+  requirement def TissueVelocityMeasurementRequirement {
+    subject processor : TissueDopplerProcessor;
+
+    doc
+      /* The tissue Doppler processor shall estimate axial myocardial tissue velocity from phase shift in sequential IQ echo samples while suppressing high-velocity blood-flow components. */
+
+    require constraint velocityRangeAdequate {
+      processor.aliasingLimit >= 0.20 [m/s]
+    }
+  }
+
+  requirement def AcousticSafetyRequirement {
+    subject monitor : AcousticSafetyMonitor;
+
+    doc
+      /* Acoustic output shall be limited so that mechanical and thermal exposure remain within diagnostic ultrasound safety limits during tissue Doppler operation. */
+
+    require constraint acousticLimits {
+      monitor.maximumMechanicalIndex <= 1.9 and
+      monitor.maximumThermalIndex <= 1.0
+    }
+  }
+
+  requirement def DisplayRequirement {
+    subject renderer : DopplerImageRenderer;
+
+    doc
+      /* The renderer shall display myocardial tissue velocity as a color-coded overlay on anatomical reference imagery at an update rate suitable for real-time cardiac motion assessment. */
+
+    require constraint realTimeDisplay {
+      renderer.displayedFrameRate >= 30 [Hz]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by TissueDopplerEchocardiographySystem;
+  satisfy TissueVelocityMeasurementRequirement by TissueDopplerProcessor;
+  satisfy AcousticSafetyRequirement by AcousticSafetyMonitor;
+  satisfy DisplayRequirement by DopplerImageRenderer;
+}

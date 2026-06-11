@@ -1,0 +1,403 @@
+package PuritanBennettVentilatorSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "cmH2O";
+    }
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Volume {
+        :> scalarValues::Real;
+        unit = "mL";
+    }
+
+    attribute def OxygenFraction {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def TimeDuration {
+        :> scalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def ElectricalPower {
+        :> scalarValues::Real;
+        unit = "W";
+    }
+
+    item def MedicalAir;
+    item def Oxygen;
+    item def MixedBreathingGas {
+        attribute fio2 : OxygenFraction;
+        attribute flow : FlowRate;
+        attribute pressure : Pressure;
+        attribute tidalVolume : Volume;
+    }
+
+    item def ExhaledGas {
+        attribute flow : FlowRate;
+        attribute pressure : Pressure;
+        attribute volume : Volume;
+        attribute measuredOxygen : OxygenFraction;
+    }
+
+    item def SensorSignal {
+        attribute samplePeriod : TimeDuration;
+    }
+
+    item def VentilationCommand {
+        attribute targetPressure : Pressure;
+        attribute targetVolume : Volume;
+        attribute targetFlow : FlowRate;
+        attribute inspiratoryTime : TimeDuration;
+        attribute oxygenSetpoint : OxygenFraction;
+    }
+
+    item def AlarmNotification {
+        attribute priority : String;
+        attribute message : String;
+    }
+
+    port def GasInletPort {
+        in item gas;
+    }
+
+    port def GasOutletPort {
+        out item gas;
+    }
+
+    port def BidirectionalPatientPort {
+        out item inspiredGas : MixedBreathingGas;
+        in item expiredGas : ExhaledGas;
+    }
+
+    port def SignalOutPort {
+        out item signal : SensorSignal;
+    }
+
+    port def CommandPort {
+        in item command : VentilationCommand;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmNotification;
+    }
+
+    part def GasSupplyModule {
+        port airIn : GasInletPort {
+            in item gas : MedicalAir;
+        }
+        port oxygenIn : GasInletPort {
+            in item gas : Oxygen;
+        }
+        port mixedGasOut : GasOutletPort {
+            out item gas : MixedBreathingGas;
+        }
+
+        attribute nominalAirPressure : Pressure = 50.0;
+        attribute nominalOxygenPressure : Pressure = 50.0;
+        attribute deliveredFiO2 : OxygenFraction = 21.0;
+
+        action mixGas {
+            in item air : MedicalAir;
+            in item oxygen : Oxygen;
+            in attribute oxygenSetpoint : OxygenFraction;
+            out item mixedGas : MixedBreathingGas;
+        }
+    }
+
+    part def InspiratoryDeliveryModule {
+        port gasIn : GasInletPort {
+            in item gas : MixedBreathingGas;
+        }
+        port gasOut : GasOutletPort {
+            out item gas : MixedBreathingGas;
+        }
+        port commandIn : CommandPort;
+
+        attribute peakInspiratoryPressureLimit : Pressure = 40.0;
+        attribute maxInspiratoryFlow : FlowRate = 120.0;
+        attribute commandedTidalVolume : Volume = 500.0;
+
+        action deliverInspiration {
+            in item sourceGas : MixedBreathingGas;
+            in item command : VentilationCommand;
+            out item deliveredGas : MixedBreathingGas;
+        }
+    }
+
+    part def ExhalationModule {
+        port patientExpiredGasIn : GasInletPort {
+            in item gas : ExhaledGas;
+        }
+        port exhaustOut : GasOutletPort {
+            out item gas : ExhaledGas;
+        }
+
+        attribute peepSetpoint : Pressure = 5.0;
+        attribute maxExhaledVolume : Volume = 2000.0;
+
+        action regulateExhalation {
+            in item expiredGas : ExhaledGas;
+            in attribute peep : Pressure;
+            out item exhaustedGas : ExhaledGas;
+        }
+    }
+
+    part def PatientCircuit {
+        port ventilatorSide : BidirectionalPatientPort;
+        port patientSide : BidirectionalPatientPort;
+
+        attribute circuitCompliance : Real = 0.8;
+        attribute leakFlowLimit : FlowRate = 10.0;
+    }
+
+    part def PatientInterface {
+        port circuitPort : BidirectionalPatientPort;
+
+        attribute airwayPressure : Pressure;
+        attribute spontaneousFlow : FlowRate;
+        attribute deliveredTidalVolume : Volume;
+    }
+
+    part def SensorModule {
+        port inspiredGasIn : GasInletPort {
+            in item gas : MixedBreathingGas;
+        }
+        port expiredGasIn : GasInletPort {
+            in item gas : ExhaledGas;
+        }
+        port sensorOut : SignalOutPort;
+
+        attribute measuredAirwayPressure : Pressure;
+        attribute measuredFlow : FlowRate;
+        attribute measuredExhaledVolume : Volume;
+        attribute measuredFiO2 : OxygenFraction;
+
+        action sampleVentilationData {
+            in item inspiredGas : MixedBreathingGas;
+            in item expiredGas : ExhaledGas;
+            out item signal : SensorSignal;
+        }
+    }
+
+    part def ControlProcessor {
+        port sensorIn {
+            in item signal : SensorSignal;
+        }
+        port commandOut {
+            out item command : VentilationCommand;
+        }
+        port alarmOut : AlarmPort;
+
+        attribute breathRate : Real = 16.0;
+        attribute tidalVolumeSetpoint : Volume = 500.0;
+        attribute pressureSupportSetpoint : Pressure = 12.0;
+        attribute peepSetpoint : Pressure = 5.0;
+        attribute fio2Setpoint : OxygenFraction = 40.0;
+        attribute highPressureAlarmLimit : Pressure = 45.0;
+        attribute lowPressureAlarmLimit : Pressure = 3.0;
+
+        action computeBreathCommand {
+            in item signal : SensorSignal;
+            out item command : VentilationCommand;
+        }
+
+        action evaluateAlarms {
+            in item signal : SensorSignal;
+            out item alarm : AlarmNotification;
+        }
+
+        state def VentilationControllerStateMachine {
+            state Off;
+            state StartupSelfTest;
+            state Standby;
+            state Ventilating;
+            state AlarmActive;
+            state Shutdown;
+
+            transition first Off;
+            transition Off_to_Startup
+                first Off then StartupSelfTest;
+
+            transition Startup_to_Standby
+                first StartupSelfTest then Standby;
+
+            transition Standby_to_Ventilating
+                first Standby then Ventilating;
+
+            transition Ventilating_to_Alarm
+                first Ventilating then AlarmActive;
+
+            transition Alarm_to_Ventilating
+                first AlarmActive then Ventilating;
+
+            transition Any_to_Shutdown
+                first Ventilating then Shutdown;
+        }
+    }
+
+    part def UserInterface {
+        port commandOut {
+            out item command : VentilationCommand;
+        }
+        port alarmIn {
+            in item alarm : AlarmNotification;
+        }
+
+        attribute selectedMode : String = "AssistControl";
+        attribute displayedAirwayPressure : Pressure;
+        attribute displayedTidalVolume : Volume;
+        attribute displayedFiO2 : OxygenFraction;
+
+        action acceptClinicianSettings {
+            out item command : VentilationCommand;
+        }
+
+        action displayAlarm {
+            in item alarm : AlarmNotification;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute mainsAvailable : Boolean = true;
+        attribute batteryCharge : Real = 100.0;
+        attribute ventilatorPowerDemand : ElectricalPower = 180.0;
+
+        action provideElectricalPower {
+            out attribute availablePower : ElectricalPower;
+        }
+    }
+
+    part def PuritanBennettBasedVentilator {
+        doc /* Primary function: provide controlled and monitored mechanical ventilation by blending air and oxygen, delivering timed inspiratory gas to a patient, regulating exhalation and positive end-expiratory pressure, monitoring airway conditions, and alarming when delivery or patient response falls outside configured clinical limits. */
+
+        part gasSupply : GasSupplyModule;
+        part inspiratoryDelivery : InspiratoryDeliveryModule;
+        part exhalation : ExhalationModule;
+        part circuit : PatientCircuit;
+        part patientInterface : PatientInterface;
+        part sensors : SensorModule;
+        part controller : ControlProcessor;
+        part ui : UserInterface;
+        part power : PowerSubsystem;
+
+        port airSupply : GasInletPort {
+            in item gas : MedicalAir;
+        }
+        port oxygenSupply : GasInletPort {
+            in item gas : Oxygen;
+        }
+        port patientConnection : BidirectionalPatientPort;
+        port alarmOutput : AlarmPort;
+
+        connect airSupply to gasSupply.airIn;
+        connect oxygenSupply to gasSupply.oxygenIn;
+        connect gasSupply.mixedGasOut to inspiratoryDelivery.gasIn;
+        connect inspiratoryDelivery.gasOut to circuit.ventilatorSide;
+        connect circuit.patientSide to patientInterface.circuitPort;
+        connect patientInterface.circuitPort to exhalation.patientExpiredGasIn;
+        connect inspiratoryDelivery.gasOut to sensors.inspiredGasIn;
+        connect exhalation.exhaustOut to sensors.expiredGasIn;
+        connect sensors.sensorOut to controller.sensorIn;
+        connect controller.commandOut to inspiratoryDelivery.commandIn;
+        connect ui.commandOut to inspiratoryDelivery.commandIn;
+        connect controller.alarmOut to ui.alarmIn;
+        connect controller.alarmOut to alarmOutput;
+        connect patientConnection to circuit.patientSide;
+
+        action performVentilationCycle {
+            first start;
+            then acceptSettings;
+            then blendGas;
+            then computeCommand;
+            then deliverBreath;
+            then regulateExhale;
+            then sampleData;
+            then assessAlarm;
+            then done;
+
+            action acceptSettings : ui.acceptClinicianSettings;
+            action blendGas : gasSupply.mixGas;
+            action computeCommand : controller.computeBreathCommand;
+            action deliverBreath : inspiratoryDelivery.deliverInspiration;
+            action regulateExhale : exhalation.regulateExhalation;
+            action sampleData : sensors.sampleVentilationData;
+            action assessAlarm : controller.evaluateAlarms;
+        }
+    }
+
+    requirement def ProvideMechanicalVentilation {
+        doc /* The system shall provide positive-pressure mechanical ventilation to a connected patient by delivering clinician-configured breaths through a patient circuit. */
+        subject ventilator : PuritanBennettBasedVentilator;
+        require constraint {
+            ventilator.controller.tidalVolumeSetpoint >= 100.0 and
+            ventilator.controller.tidalVolumeSetpoint <= 2000.0
+        }
+    }
+
+    requirement def ControlOxygenConcentration {
+        doc /* The system shall blend oxygen and medical air to maintain the configured oxygen concentration for inspired gas. */
+        subject ventilator : PuritanBennettBasedVentilator;
+        require constraint {
+            ventilator.controller.fio2Setpoint >= 21.0 and
+            ventilator.controller.fio2Setpoint <= 100.0
+        }
+    }
+
+    requirement def LimitAirwayPressure {
+        doc /* The system shall limit airway pressure and generate a high-priority alarm when measured pressure exceeds the configured high pressure threshold. */
+        subject ventilator : PuritanBennettBasedVentilator;
+        require constraint {
+            ventilator.controller.highPressureAlarmLimit <= 60.0
+        }
+    }
+
+    requirement def MaintainPositiveEndExpiratoryPressure {
+        doc /* The system shall regulate exhalation to maintain positive end-expiratory pressure at the configured setpoint. */
+        subject ventilator : PuritanBennettBasedVentilator;
+        require constraint {
+            ventilator.exhalation.peepSetpoint >= 0.0 and
+            ventilator.exhalation.peepSetpoint <= 25.0
+        }
+    }
+
+    requirement def MonitorVentilation {
+        doc /* The system shall continuously monitor airway pressure, gas flow, exhaled volume, and oxygen concentration during ventilation. */
+        subject ventilator : PuritanBennettBasedVentilator;
+        require constraint {
+            ventilator.sensors.measuredFlow >= 0.0
+        }
+    }
+
+    requirement def ProvideAlarmNotification {
+        doc /* The system shall provide audible or visible alarm notifications for pressure, volume, oxygen, power, or circuit conditions outside safe clinical limits. */
+        subject ventilator : PuritanBennettBasedVentilator;
+    }
+
+    requirement def SupportBackupPower {
+        doc /* The system shall continue operating from battery power when mains power is unavailable for short-term patient support and transport within a care area. */
+        subject ventilator : PuritanBennettBasedVentilator;
+        require constraint {
+            ventilator.power.batteryCharge >= 0.0 and
+            ventilator.power.batteryCharge <= 100.0
+        }
+    }
+
+    satisfy ProvideMechanicalVentilation by PuritanBennettBasedVentilator;
+    satisfy ControlOxygenConcentration by PuritanBennettBasedVentilator::gasSupply;
+    satisfy LimitAirwayPressure by PuritanBennettBasedVentilator::controller;
+    satisfy MaintainPositiveEndExpiratoryPressure by PuritanBennettBasedVentilator::exhalation;
+    satisfy MonitorVentilation by PuritanBennettBasedVentilator::sensors;
+    satisfy ProvideAlarmNotification by PuritanBennettBasedVentilator::ui;
+    satisfy SupportBackupPower by PuritanBennettBasedVentilator::power;
+}

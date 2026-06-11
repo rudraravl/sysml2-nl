@@ -1,0 +1,753 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p0ygnvaq
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb42e-5a22-75b1-9f0b-b07c831a5d52
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Stroboscope and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package StroboscopeModel {
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def Volt :> ISQ::voltage;
+  value def Ampere :> ISQ::electricCurrent;
+  value def Watt :> ISQ::power;
+  value def Hertz :> ISQ::frequency;
+  value def Second :> ISQ::time;
+  value def Millisecond :> ISQ::time;
+  value def Percent;
+  value def Lumen :> ISQ::luminousFlux;
+  value def Candela :> ISQ::luminousIntensity;
+  value def DegreeCelsius :> ISQ::thermodynamicTemperature;
+  value def Meter :> ISQ::length;
+
+  item def ElectricalPower {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def FlashCommand {
+    attribute requestedFlashRate : Hertz;
+    attribute requestedDutyCycle : Percent;
+    attribute requestedIntensity : Percent;
+  }
+
+  item def TimingSignal {
+    attribute period : Second;
+    attribute pulseWidth : Millisecond;
+    attribute phaseOffset : Second;
+  }
+
+  item def LightPulse {
+    attribute peakIntensity : Candela;
+    attribute luminousFlux : Lumen;
+    attribute duration : Millisecond;
+    attribute repetitionRate : Hertz;
+  }
+
+  item def TemperatureReading {
+    attribute temperature : DegreeCelsius;
+  }
+
+  item def UserSetting {
+    attribute flashRate : Hertz;
+    attribute dutyCycle : Percent;
+    attribute intensity : Percent;
+  }
+
+  item def CoolingAir {
+    attribute flowRatePercent : Percent;
+    attribute inletTemperature : DegreeCelsius;
+  }
+
+  port def PowerInputPort {
+    in item suppliedPower : ElectricalPower;
+  }
+
+  port def ControlInputPort {
+    in item setting : UserSetting;
+  }
+
+  port def LightOutputPort {
+    out item pulse : LightPulse;
+  }
+
+  port def TimingPort {
+    out item timing : TimingSignal;
+  }
+
+  port def ThermalPort {
+    in item sensedTemperature : TemperatureReading;
+    out item coolingDemand : Percent;
+  }
+
+  port def CoolingPort {
+    in item air : CoolingAir;
+  }
+
+  part def Stroboscope {
+    attribute maximumFlashRate : Hertz = 12000 [Hz];
+    attribute minimumFlashRate : Hertz = 0.5 [Hz];
+    attribute maximumDutyCycle : Percent = 20;
+    attribute nominalInputVoltage : Volt = 24 [V];
+    attribute maximumOpticalPower : Watt = 60 [W];
+
+    port powerInput : PowerInputPort;
+    port operatorInput : ControlInputPort;
+    port lightOutput : LightOutputPort;
+    port coolingInput : CoolingPort;
+
+    part powerModule : PowerConditioningModule;
+    part userInterface : UserInterface;
+    part timingController : TimingController;
+    part ledDriver : PulsePowerDriver;
+    part opticalEmitter : FlashEmitter;
+    part thermalManager : ThermalManager;
+    part enclosure : Enclosure;
+
+    connect powerInput.suppliedPower to powerModule.inputPower;
+    connect powerModule.conditionedPower to userInterface.power;
+    connect powerModule.conditionedPower to timingController.power;
+    connect powerModule.conditionedPower to ledDriver.power;
+
+    connect operatorInput.setting to userInterface.externalSetting;
+    connect userInterface.validatedSetting to timingController.flashCommand;
+    connect timingController.timingOut to ledDriver.timingIn;
+    connect ledDriver.drivePulse to opticalEmitter.driveInput;
+    connect opticalEmitter.lightPulse to lightOutput.pulse;
+
+    connect opticalEmitter.temperature to thermalManager.emitterTemperature;
+    connect ledDriver.temperature to thermalManager.driverTemperature;
+    connect thermalManager.coolingDemand to enclosure.coolingCommand;
+    connect coolingInput.air to enclosure.coolingAir;
+  }
+
+  part def PowerConditioningModule {
+    attribute inputVoltageRangeLow : Volt = 18 [V];
+    attribute inputVoltageRangeHigh : Volt = 30 [V];
+    attribute regulatedVoltage : Volt = 12 [V];
+    attribute maximumOutputPower : Watt = 120 [W];
+
+    in item inputPower : ElectricalPower;
+    out item conditionedPower : ElectricalPower;
+
+    action regulatePower {
+      in item rawPower : ElectricalPower;
+      out item regulatedPower : ElectricalPower;
+    }
+  }
+
+  part def UserInterface {
+    attribute defaultFlashRate : Hertz = 100 [Hz];
+    attribute defaultDutyCycle : Percent = 5;
+    attribute defaultIntensity : Percent = 50;
+
+    in item power : ElectricalPower;
+    in item externalSetting : UserSetting;
+    out item validatedSetting : FlashCommand;
+
+    action validateSetting {
+      in item requested : UserSetting;
+      out item command : FlashCommand;
+    }
+  }
+
+  part def TimingController {
+    attribute clockAccuracy : Percent = 0.01;
+    attribute minimumPulseWidth : Millisecond = 0.01 [ms];
+    attribute maximumPulseWidth : Millisecond = 5 [ms];
+
+    in item power : ElectricalPower;
+    in item flashCommand : FlashCommand;
+    out item timingOut : TimingSignal;
+
+    action computePulseTiming {
+      in item command : FlashCommand;
+      out item timing : TimingSignal;
+    }
+
+    state behavior controllerState {
+      entry action initializeClock;
+
+      state Off;
+      state Ready;
+      state Flashing;
+      state Fault;
+
+      transition initial then Off;
+      transition Off then Ready
+        accept PowerAvailable;
+
+      transition Ready then Flashing
+        accept ValidFlashCommand
+        do computePulseTiming;
+
+      transition Flashing then Ready
+        accept StopCommand;
+
+      transition Ready then Fault
+        accept InvalidCommand;
+
+      transition Flashing then Fault
+        accept TimingOverrun;
+
+      transition Fault then Ready
+        accept FaultCleared;
+    }
+  }
+
+  part def PulsePowerDriver {
+    attribute peakDriveCurrent : Ampere = 8 [A];
+    attribute maximumAveragePower : Watt = 80 [W];
+    attribute currentRiseTime : Millisecond = 0.02 [ms];
+
+    in item power : ElectricalPower;
+    in item timingIn : TimingSignal;
+    out item drivePulse : ElectricalPower;
+    out item temperature : TemperatureReading;
+
+    action generateDrivePulse {
+      in item timing : TimingSignal;
+      in item supply : ElectricalPower;
+      out item pulsedPower : ElectricalPower;
+    }
+  }
+
+  part def FlashEmitter {
+    attribute emitterType : String = "high-intensity LED array";
+    attribute peakLuminousIntensity : Candela = 120000 [cd];
+    attribute beamDistance : Meter = 5 [m];
+    attribute opticalEfficiency : Percent = 32;
+
+    in item driveInput : ElectricalPower;
+    out item lightPulse : LightPulse;
+    out item temperature : TemperatureReading;
+
+    action convertElectricalPulseToLightPulse {
+      in item pulsedPower : ElectricalPower;
+      out item opticalPulse : LightPulse;
+    }
+  }
+
+  part def ThermalManager {
+    attribute warningTemperature : DegreeCelsius = 75 [degC];
+    attribute shutdownTemperature : DegreeCelsius = 90 [degC];
+
+    in item emitterTemperature : TemperatureReading;
+    in item driverTemperature : TemperatureReading;
+    out item coolingDemand : Percent;
+
+    action calculateCoolingDemand {
+      in item emitterTemp : TemperatureReading;
+      in item driverTemp : TemperatureReading;
+      out item fanDemand : Percent;
+    }
+
+    state behavior thermalState {
+      state Normal;
+      state Warm;
+      state OverTemperature;
+      state ShutdownRequired;
+
+      transition initial then Normal;
+
+      transition Normal then Warm
+        accept TemperatureAboveWarning;
+
+      transition Warm then Normal
+        accept TemperatureBelowWarning;
+
+      transition Warm then OverTemperature
+        accept TemperatureAboveLimit;
+
+      transition OverTemperature then ShutdownRequired
+        accept TemperatureStillRising;
+
+      transition ShutdownRequired then Normal
+        accept TemperatureRecovered;
+    }
+  }
+
+  part def Enclosure {
+    attribute ingressProtection : String = "IP40";
+    attribute material : String = "anodized aluminum";
+    attribute heatSinkArea : Meter = 0.18 [m];
+
+    in item coolingAir : CoolingAir;
+    in item coolingCommand : Percent;
+
+    action dissipateHeat {
+      in item air : CoolingAir;
+      in item demand : Percent;
+    }
+  }
+
+  action def ProduceStroboscopicIllumination {
+    in item operatorSetting : UserSetting;
+    in item suppliedPower : ElectricalPower;
+    out item synchronizedLightPulse : LightPulse;
+
+    first action acceptSettings {
+      in item setting : UserSetting = operatorSetting;
+      out item command : FlashCommand;
+    }
+
+    then action calculateTiming {
+      in item command : FlashCommand;
+      out item timing : TimingSignal;
+    }
+
+    then action energizeEmitter {
+      in item timing : TimingSignal;
+      in item power : ElectricalPower = suppliedPower;
+      out item pulsePower : ElectricalPower;
+    }
+
+    then action emitPulse {
+      in item pulsePower : ElectricalPower;
+      out item light : LightPulse = synchronizedLightPulse;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject stroboscope : Stroboscope;
+
+    doc
+    /* The stroboscope shall convert continuous electrical input power and operator-selected flash settings into a controlled train of short, bright light pulses so that periodic motion can appear slowed, stopped, or phase-shifted to an observer. */
+
+    require constraint {
+      stroboscope.minimumFlashRate <= stroboscope.maximumFlashRate
+    }
+  }
+
+  requirement def FlashRateControlRequirement {
+    subject stroboscope : Stroboscope;
+
+    require constraint {
+      stroboscope.minimumFlashRate == 0.5 [Hz] and
+      stroboscope.maximumFlashRate >= 12000 [Hz]
+    }
+  }
+
+  requirement def PulseDurationRequirement {
+    subject controller : TimingController;
+
+    require constraint {
+      controller.minimumPulseWidth <= 0.01 [ms] and
+      controller.maximumPulseWidth <= 5 [ms]
+    }
+  }
+
+  requirement def OpticalOutputRequirement {
+    subject emitter : FlashEmitter;
+
+    require constraint {
+      emitter.peakLuminousIntensity >= 100000 [cd]
+    }
+  }
+
+  requirement def ThermalProtectionRequirement {
+    subject thermalManager : ThermalManager;
+
+    require constraint {
+      thermalManager.warningTemperature < thermalManager.shutdownTemperature
+    }
+  }
+
+  requirement def PowerCompatibilityRequirement {
+    subject powerModule : PowerConditioningModule;
+
+    require constraint {
+      powerModule.inputVoltageRangeLow <= 24 [V] and
+      powerModule.inputVoltageRangeHigh >= 24 [V]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by Stroboscope;
+  satisfy FlashRateControlRequirement by Stroboscope;
+  satisfy PulseDurationRequirement by TimingController;
+  satisfy OpticalOutputRequirement by FlashEmitter;
+  satisfy ThermalProtectionRequirement by ThermalManager;
+  satisfy PowerCompatibilityRequirement by PowerConditioningModule;
+}
+tokens used
+4,146
+package StroboscopeModel {
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def Volt :> ISQ::voltage;
+  value def Ampere :> ISQ::electricCurrent;
+  value def Watt :> ISQ::power;
+  value def Hertz :> ISQ::frequency;
+  value def Second :> ISQ::time;
+  value def Millisecond :> ISQ::time;
+  value def Percent;
+  value def Lumen :> ISQ::luminousFlux;
+  value def Candela :> ISQ::luminousIntensity;
+  value def DegreeCelsius :> ISQ::thermodynamicTemperature;
+  value def Meter :> ISQ::length;
+
+  item def ElectricalPower {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def FlashCommand {
+    attribute requestedFlashRate : Hertz;
+    attribute requestedDutyCycle : Percent;
+    attribute requestedIntensity : Percent;
+  }
+
+  item def TimingSignal {
+    attribute period : Second;
+    attribute pulseWidth : Millisecond;
+    attribute phaseOffset : Second;
+  }
+
+  item def LightPulse {
+    attribute peakIntensity : Candela;
+    attribute luminousFlux : Lumen;
+    attribute duration : Millisecond;
+    attribute repetitionRate : Hertz;
+  }
+
+  item def TemperatureReading {
+    attribute temperature : DegreeCelsius;
+  }
+
+  item def UserSetting {
+    attribute flashRate : Hertz;
+    attribute dutyCycle : Percent;
+    attribute intensity : Percent;
+  }
+
+  item def CoolingAir {
+    attribute flowRatePercent : Percent;
+    attribute inletTemperature : DegreeCelsius;
+  }
+
+  port def PowerInputPort {
+    in item suppliedPower : ElectricalPower;
+  }
+
+  port def ControlInputPort {
+    in item setting : UserSetting;
+  }
+
+  port def LightOutputPort {
+    out item pulse : LightPulse;
+  }
+
+  port def TimingPort {
+    out item timing : TimingSignal;
+  }
+
+  port def ThermalPort {
+    in item sensedTemperature : TemperatureReading;
+    out item coolingDemand : Percent;
+  }
+
+  port def CoolingPort {
+    in item air : CoolingAir;
+  }
+
+  part def Stroboscope {
+    attribute maximumFlashRate : Hertz = 12000 [Hz];
+    attribute minimumFlashRate : Hertz = 0.5 [Hz];
+    attribute maximumDutyCycle : Percent = 20;
+    attribute nominalInputVoltage : Volt = 24 [V];
+    attribute maximumOpticalPower : Watt = 60 [W];
+
+    port powerInput : PowerInputPort;
+    port operatorInput : ControlInputPort;
+    port lightOutput : LightOutputPort;
+    port coolingInput : CoolingPort;
+
+    part powerModule : PowerConditioningModule;
+    part userInterface : UserInterface;
+    part timingController : TimingController;
+    part ledDriver : PulsePowerDriver;
+    part opticalEmitter : FlashEmitter;
+    part thermalManager : ThermalManager;
+    part enclosure : Enclosure;
+
+    connect powerInput.suppliedPower to powerModule.inputPower;
+    connect powerModule.conditionedPower to userInterface.power;
+    connect powerModule.conditionedPower to timingController.power;
+    connect powerModule.conditionedPower to ledDriver.power;
+
+    connect operatorInput.setting to userInterface.externalSetting;
+    connect userInterface.validatedSetting to timingController.flashCommand;
+    connect timingController.timingOut to ledDriver.timingIn;
+    connect ledDriver.drivePulse to opticalEmitter.driveInput;
+    connect opticalEmitter.lightPulse to lightOutput.pulse;
+
+    connect opticalEmitter.temperature to thermalManager.emitterTemperature;
+    connect ledDriver.temperature to thermalManager.driverTemperature;
+    connect thermalManager.coolingDemand to enclosure.coolingCommand;
+    connect coolingInput.air to enclosure.coolingAir;
+  }
+
+  part def PowerConditioningModule {
+    attribute inputVoltageRangeLow : Volt = 18 [V];
+    attribute inputVoltageRangeHigh : Volt = 30 [V];
+    attribute regulatedVoltage : Volt = 12 [V];
+    attribute maximumOutputPower : Watt = 120 [W];
+
+    in item inputPower : ElectricalPower;
+    out item conditionedPower : ElectricalPower;
+
+    action regulatePower {
+      in item rawPower : ElectricalPower;
+      out item regulatedPower : ElectricalPower;
+    }
+  }
+
+  part def UserInterface {
+    attribute defaultFlashRate : Hertz = 100 [Hz];
+    attribute defaultDutyCycle : Percent = 5;
+    attribute defaultIntensity : Percent = 50;
+
+    in item power : ElectricalPower;
+    in item externalSetting : UserSetting;
+    out item validatedSetting : FlashCommand;
+
+    action validateSetting {
+      in item requested : UserSetting;
+      out item command : FlashCommand;
+    }
+  }
+
+  part def TimingController {
+    attribute clockAccuracy : Percent = 0.01;
+    attribute minimumPulseWidth : Millisecond = 0.01 [ms];
+    attribute maximumPulseWidth : Millisecond = 5 [ms];
+
+    in item power : ElectricalPower;
+    in item flashCommand : FlashCommand;
+    out item timingOut : TimingSignal;
+
+    action computePulseTiming {
+      in item command : FlashCommand;
+      out item timing : TimingSignal;
+    }
+
+    state behavior controllerState {
+      entry action initializeClock;
+
+      state Off;
+      state Ready;
+      state Flashing;
+      state Fault;
+
+      transition initial then Off;
+      transition Off then Ready
+        accept PowerAvailable;
+
+      transition Ready then Flashing
+        accept ValidFlashCommand
+        do computePulseTiming;
+
+      transition Flashing then Ready
+        accept StopCommand;
+
+      transition Ready then Fault
+        accept InvalidCommand;
+
+      transition Flashing then Fault
+        accept TimingOverrun;
+
+      transition Fault then Ready
+        accept FaultCleared;
+    }
+  }
+
+  part def PulsePowerDriver {
+    attribute peakDriveCurrent : Ampere = 8 [A];
+    attribute maximumAveragePower : Watt = 80 [W];
+    attribute currentRiseTime : Millisecond = 0.02 [ms];
+
+    in item power : ElectricalPower;
+    in item timingIn : TimingSignal;
+    out item drivePulse : ElectricalPower;
+    out item temperature : TemperatureReading;
+
+    action generateDrivePulse {
+      in item timing : TimingSignal;
+      in item supply : ElectricalPower;
+      out item pulsedPower : ElectricalPower;
+    }
+  }
+
+  part def FlashEmitter {
+    attribute emitterType : String = "high-intensity LED array";
+    attribute peakLuminousIntensity : Candela = 120000 [cd];
+    attribute beamDistance : Meter = 5 [m];
+    attribute opticalEfficiency : Percent = 32;
+
+    in item driveInput : ElectricalPower;
+    out item lightPulse : LightPulse;
+    out item temperature : TemperatureReading;
+
+    action convertElectricalPulseToLightPulse {
+      in item pulsedPower : ElectricalPower;
+      out item opticalPulse : LightPulse;
+    }
+  }
+
+  part def ThermalManager {
+    attribute warningTemperature : DegreeCelsius = 75 [degC];
+    attribute shutdownTemperature : DegreeCelsius = 90 [degC];
+
+    in item emitterTemperature : TemperatureReading;
+    in item driverTemperature : TemperatureReading;
+    out item coolingDemand : Percent;
+
+    action calculateCoolingDemand {
+      in item emitterTemp : TemperatureReading;
+      in item driverTemp : TemperatureReading;
+      out item fanDemand : Percent;
+    }
+
+    state behavior thermalState {
+      state Normal;
+      state Warm;
+      state OverTemperature;
+      state ShutdownRequired;
+
+      transition initial then Normal;
+
+      transition Normal then Warm
+        accept TemperatureAboveWarning;
+
+      transition Warm then Normal
+        accept TemperatureBelowWarning;
+
+      transition Warm then OverTemperature
+        accept TemperatureAboveLimit;
+
+      transition OverTemperature then ShutdownRequired
+        accept TemperatureStillRising;
+
+      transition ShutdownRequired then Normal
+        accept TemperatureRecovered;
+    }
+  }
+
+  part def Enclosure {
+    attribute ingressProtection : String = "IP40";
+    attribute material : String = "anodized aluminum";
+    attribute heatSinkArea : Meter = 0.18 [m];
+
+    in item coolingAir : CoolingAir;
+    in item coolingCommand : Percent;
+
+    action dissipateHeat {
+      in item air : CoolingAir;
+      in item demand : Percent;
+    }
+  }
+
+  action def ProduceStroboscopicIllumination {
+    in item operatorSetting : UserSetting;
+    in item suppliedPower : ElectricalPower;
+    out item synchronizedLightPulse : LightPulse;
+
+    first action acceptSettings {
+      in item setting : UserSetting = operatorSetting;
+      out item command : FlashCommand;
+    }
+
+    then action calculateTiming {
+      in item command : FlashCommand;
+      out item timing : TimingSignal;
+    }
+
+    then action energizeEmitter {
+      in item timing : TimingSignal;
+      in item power : ElectricalPower = suppliedPower;
+      out item pulsePower : ElectricalPower;
+    }
+
+    then action emitPulse {
+      in item pulsePower : ElectricalPower;
+      out item light : LightPulse = synchronizedLightPulse;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject stroboscope : Stroboscope;
+
+    doc
+    /* The stroboscope shall convert continuous electrical input power and operator-selected flash settings into a controlled train of short, bright light pulses so that periodic motion can appear slowed, stopped, or phase-shifted to an observer. */
+
+    require constraint {
+      stroboscope.minimumFlashRate <= stroboscope.maximumFlashRate
+    }
+  }
+
+  requirement def FlashRateControlRequirement {
+    subject stroboscope : Stroboscope;
+
+    require constraint {
+      stroboscope.minimumFlashRate == 0.5 [Hz] and
+      stroboscope.maximumFlashRate >= 12000 [Hz]
+    }
+  }
+
+  requirement def PulseDurationRequirement {
+    subject controller : TimingController;
+
+    require constraint {
+      controller.minimumPulseWidth <= 0.01 [ms] and
+      controller.maximumPulseWidth <= 5 [ms]
+    }
+  }
+
+  requirement def OpticalOutputRequirement {
+    subject emitter : FlashEmitter;
+
+    require constraint {
+      emitter.peakLuminousIntensity >= 100000 [cd]
+    }
+  }
+
+  requirement def ThermalProtectionRequirement {
+    subject thermalManager : ThermalManager;
+
+    require constraint {
+      thermalManager.warningTemperature < thermalManager.shutdownTemperature
+    }
+  }
+
+  requirement def PowerCompatibilityRequirement {
+    subject powerModule : PowerConditioningModule;
+
+    require constraint {
+      powerModule.inputVoltageRangeLow <= 24 [V] and
+      powerModule.inputVoltageRangeHigh >= 24 [V]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by Stroboscope;
+  satisfy FlashRateControlRequirement by Stroboscope;
+  satisfy PulseDurationRequirement by TimingController;
+  satisfy OpticalOutputRequirement by FlashEmitter;
+  satisfy ThermalProtectionRequirement by ThermalManager;
+  satisfy PowerCompatibilityRequirement by PowerConditioningModule;
+}

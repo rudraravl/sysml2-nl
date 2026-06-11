@@ -1,0 +1,1415 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-n9qfvpam
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb38e-e56e-71a0-b6f6-9da999cca54f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Free-electron laser and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FreeElectronLaserSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def ElectronEnergy :> ISQ::energy {
+    unit = SI::megaelectronvolt;
+  }
+
+  attribute def BeamCurrent :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def MagneticField :> ISQ::magneticFluxDensity {
+    unit = SI::tesla;
+  }
+
+  attribute def Wavelength :> ISQ::length {
+    unit = SI::nanometre;
+  }
+
+  attribute def PulseEnergy :> ISQ::energy {
+    unit = SI::millijoule;
+  }
+
+  attribute def RepetitionRate :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def VacuumPressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def TimingJitter :> ISQ::time {
+    unit = SI::femtosecond;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  item def ElectronBunch {
+    attribute energy : ElectronEnergy;
+    attribute peakCurrent : BeamCurrent;
+    attribute bunchCharge : ISQ::electricCharge;
+    attribute normalizedEmittance : ISQ::length;
+    attribute bunchLength : ISQ::time;
+    attribute energySpread : Real;
+  }
+
+  item def SeedLaserPulse {
+    attribute wavelength : Wavelength;
+    attribute pulseEnergy : PulseEnergy;
+    attribute duration : ISQ::time;
+    attribute timingOffset : TimingJitter;
+  }
+
+  item def XRayLaserPulse {
+    attribute wavelength : Wavelength;
+    attribute pulseEnergy : PulseEnergy;
+    attribute duration : ISQ::time;
+    attribute photonFlux : Real;
+    attribute spectralBandwidth : Real;
+  }
+
+  item def RadioFrequencyPower {
+    attribute frequency : ISQ::frequency;
+    attribute power : ISQ::power;
+    attribute phase : ISQ::planeAngle;
+    attribute amplitudeStability : Real;
+  }
+
+  item def MagneticFieldCommand {
+    attribute targetField : MagneticField;
+    attribute fieldRampRate : Real;
+  }
+
+  item def BeamDiagnosticsData {
+    attribute measuredEnergy : ElectronEnergy;
+    attribute measuredCurrent : BeamCurrent;
+    attribute beamPositionX : ISQ::length;
+    attribute beamPositionY : ISQ::length;
+    attribute emittanceEstimate : ISQ::length;
+    attribute lossFraction : Real;
+  }
+
+  item def FacilityTimingSignal {
+    attribute repetitionRate : RepetitionRate;
+    attribute fiducialTime : ISQ::time;
+    attribute jitter : TimingJitter;
+  }
+
+  item def CoolingWater {
+    attribute inletTemperature : Temperature;
+    attribute outletTemperature : Temperature;
+    attribute flowRate : Real;
+    attribute pressure : ISQ::pressure;
+  }
+
+  port def ElectronBeamPort {
+    out item beamOut : ElectronBunch;
+    in item beamIn : ElectronBunch;
+  }
+
+  port def OpticalPulsePort {
+    out item pulseOut : XRayLaserPulse;
+    in item pulseIn : XRayLaserPulse;
+  }
+
+  port def SeedPulsePort {
+    out item seedOut : SeedLaserPulse;
+    in item seedIn : SeedLaserPulse;
+  }
+
+  port def RFPowerPort {
+    out item rfOut : RadioFrequencyPower;
+    in item rfIn : RadioFrequencyPower;
+  }
+
+  port def MagnetControlPort {
+    out item commandOut : MagneticFieldCommand;
+    in item commandIn : MagneticFieldCommand;
+  }
+
+  port def DiagnosticsPort {
+    out item dataOut : BeamDiagnosticsData;
+    in item dataIn : BeamDiagnosticsData;
+  }
+
+  port def TimingPort {
+    out item timingOut : FacilityTimingSignal;
+    in item timingIn : FacilityTimingSignal;
+  }
+
+  port def CoolingPort {
+    out item waterOut : CoolingWater;
+    in item waterIn : CoolingWater;
+  }
+
+  part def PhotocathodeInjector {
+    attribute cathodeQuantumEfficiency : Real;
+    attribute gunVoltage : ISQ::electricPotential;
+    attribute nominalCharge : ISQ::electricCharge;
+    attribute vacuumPressure : VacuumPressure;
+
+    port timing : TimingPort;
+    port seedLaser : SeedPulsePort;
+    port electronBeam : ElectronBeamPort;
+    port diagnostics : DiagnosticsPort;
+
+    action emitElectronBunch {
+      in item drivePulse : SeedLaserPulse;
+      out item emittedBeam : ElectronBunch;
+    }
+  }
+
+  part def RadioFrequencyAccelerator {
+    attribute acceleratingGradient : Real;
+    attribute linacLength : ISQ::length;
+    attribute targetEnergy : ElectronEnergy;
+    attribute phaseStability : ISQ::planeAngle;
+    attribute cryogenicTemperature : Temperature;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port rfPower : RFPowerPort;
+    port cooling : CoolingPort;
+    port diagnostics : DiagnosticsPort;
+
+    action accelerate {
+      in item lowEnergyBeam : ElectronBunch;
+      in item rfDrive : RadioFrequencyPower;
+      out item highEnergyBeam : ElectronBunch;
+    }
+  }
+
+  part def BeamTransportLine {
+    attribute nominalBetaFunction : ISQ::length;
+    attribute orbitTolerance : ISQ::length;
+    attribute maximumLossFraction : Real;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    part quadrupoleArray {
+      attribute numberOfMagnets : Integer = 48;
+      attribute maximumGradient : Real;
+    }
+
+    part steeringCorrectors {
+      attribute numberOfCorrectors : Integer = 32;
+      attribute maximumKickAngle : ISQ::planeAngle;
+    }
+
+    action focusAndSteer {
+      in item incomingBeam : ElectronBunch;
+      in item latticeCommand : MagneticFieldCommand;
+      out item matchedBeam : ElectronBunch;
+    }
+  }
+
+  part def BunchCompressor {
+    attribute compressionFactor : Real;
+    attribute chicaneBendField : MagneticField;
+    attribute targetBunchLength : ISQ::time;
+    attribute coherentSynchrotronRadiationLimit : Real;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    action compress {
+      in item longBeam : ElectronBunch;
+      out item shortBeam : ElectronBunch;
+    }
+  }
+
+  part def UndulatorSegment {
+    attribute periodLength : ISQ::length;
+    attribute numberOfPeriods : Integer;
+    attribute peakMagneticField : MagneticField;
+    attribute undulatorParameterK : Real;
+    attribute gap : ISQ::length;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port opticalInput : OpticalPulsePort;
+    port opticalOutput : OpticalPulsePort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    action amplifyRadiation {
+      in item resonantBeam : ElectronBunch;
+      in item inputRadiation : XRayLaserPulse;
+      out item spentBeam : ElectronBunch;
+      out item amplifiedPulse : XRayLaserPulse;
+    }
+  }
+
+  part def UndulatorLine {
+    attribute resonantWavelength : Wavelength;
+    attribute saturationLength : ISQ::length;
+    attribute totalMagneticLength : ISQ::length;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port opticalOutput : OpticalPulsePort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    part segment1 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    part segment2 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    part segment3 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    part segment4 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    connection c1 connect beamInput to segment1.beamInput;
+    connection c2 connect segment1.beamOutput to segment2.beamInput;
+    connection c3 connect segment2.beamOutput to segment3.beamInput;
+    connection c4 connect segment3.beamOutput to segment4.beamInput;
+    connection c5 connect segment4.beamOutput to beamOutput;
+
+    connection o1 connect segment1.opticalOutput to segment2.opticalInput;
+    connection o2 connect segment2.opticalOutput to segment3.opticalInput;
+    connection o3 connect segment3.opticalOutput to segment4.opticalInput;
+    connection o4 connect segment4.opticalOutput to opticalOutput;
+  }
+
+  part def PhotonBeamline {
+    attribute mirrorReflectivity : Real;
+    attribute monochromatorBandwidth : Real;
+    attribute deliveryEfficiency : Real;
+    attribute outputWavelengthRangeMin : Wavelength;
+    attribute outputWavelengthRangeMax : Wavelength;
+
+    port xrayInput : OpticalPulsePort;
+    port xrayOutput : OpticalPulsePort;
+    port diagnostics : DiagnosticsPort;
+
+    part gasAttenuator {
+      attribute attenuationRange : Real;
+      attribute gasPressure : VacuumPressure;
+    }
+
+    part monochromator {
+      attribute resolvingPower : Real;
+      attribute gratingAngle : ISQ::planeAngle;
+    }
+
+    action conditionPhotonBeam {
+      in item rawPulse : XRayLaserPulse;
+      out item deliveredPulse : XRayLaserPulse;
+    }
+  }
+
+  part def BeamDump {
+    attribute maximumAveragePower : ISQ::power;
+    attribute shieldingThickness : ISQ::length;
+    attribute coolingCapacity : ISQ::power;
+
+    port beamInput : ElectronBeamPort;
+    port cooling : CoolingPort;
+    port diagnostics : DiagnosticsPort;
+
+    action absorbSpentBeam {
+      in item spentBeam : ElectronBunch;
+    }
+  }
+
+  part def TimingAndSynchronizationSystem {
+    attribute masterClockFrequency : ISQ::frequency;
+    attribute maximumJitter : TimingJitter;
+
+    port injectorTiming : TimingPort;
+    port rfTiming : TimingPort;
+    port diagnosticsTiming : TimingPort;
+    port photonTiming : TimingPort;
+
+    action distributeTiming {
+      out item synchronizedTiming : FacilityTimingSignal;
+    }
+  }
+
+  part def LowLevelRFSystem {
+    attribute rfFrequency : ISQ::frequency;
+    attribute phaseNoise : Real;
+    attribute amplitudeRegulationError : Real;
+
+    port timing : TimingPort;
+    port rfOutput : RFPowerPort;
+    port diagnostics : DiagnosticsPort;
+
+    action regulateRF {
+      in item timingReference : FacilityTimingSignal;
+      out item regulatedRF : RadioFrequencyPower;
+    }
+  }
+
+  part def MagnetPowerSupplySystem {
+    attribute currentStability : Real;
+    attribute maximumCurrent : ISQ::electricCurrent;
+
+    port controlOutput : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    action regulateMagnets {
+      out item commandedField : MagneticFieldCommand;
+    }
+  }
+
+  part def MachineProtectionSystem {
+    attribute tripResponseTime : ISQ::time;
+    attribute maximumAllowedBeamLoss : Real;
+    attribute personnelSafetyInterlockActive : Boolean;
+
+    port injectorPermit : DiagnosticsPort;
+    port acceleratorPermit : DiagnosticsPort;
+    port transportPermit : DiagnosticsPort;
+    port undulatorPermit : DiagnosticsPort;
+    port dumpPermit : DiagnosticsPort;
+
+    action evaluatePermit {
+      in item beamData : BeamDiagnosticsData;
+      out attribute permitBeam : Boolean;
+    }
+  }
+
+  part def OperatorControlSystem {
+    attribute operatingMode : String;
+    attribute targetPhotonWavelength : Wavelength;
+    attribute targetPulseEnergy : PulseEnergy;
+    attribute targetRepetitionRate : RepetitionRate;
+
+    port timingCommand : TimingPort;
+    port rfDiagnostics : DiagnosticsPort;
+    port beamDiagnostics : DiagnosticsPort;
+    port photonDiagnostics : DiagnosticsPort;
+    port magnetCommand : MagnetControlPort;
+
+    action configureExperiment {
+      out item timingRequest : FacilityTimingSignal;
+      out item magneticSetpoint : MagneticFieldCommand;
+    }
+  }
+
+  part def FreeElectronLaserFacility {
+    attribute nominalElectronEnergy : ElectronEnergy = 8000 [SI::megaelectronvolt];
+    attribute nominalPeakCurrent : BeamCurrent = 3000 [SI::ampere];
+    attribute nominalPhotonWavelength : Wavelength = 0.15 [SI::nanometre];
+    attribute nominalPulseEnergy : PulseEnergy = 2.0 [SI::millijoule];
+    attribute nominalRepetitionRate : RepetitionRate = 120 [SI::hertz];
+    attribute maximumTimingJitter : TimingJitter = 50 [SI::femtosecond];
+
+    port deliveredPhotonBeam : OpticalPulsePort;
+
+    part injector : PhotocathodeInjector {
+      attribute cathodeQuantumEfficiency = 0.04;
+      attribute gunVoltage = 120000 [SI::volt];
+      attribute nominalCharge = 250 [SI::picocoulomb];
+      attribute vacuumPressure = 1.0e-8 [SI::pascal];
+    }
+
+    part rfSystem : LowLevelRFSystem {
+      attribute rfFrequency = 1300 [SI::megahertz];
+      attribute phaseNoise = 1.0e-4;
+      attribute amplitudeRegulationError = 2.0e-4;
+    }
+
+    part accelerator : RadioFrequencyAccelerator {
+      attribute acceleratingGradient = 25.0;
+      attribute linacLength = 900 [SI::metre];
+      attribute targetEnergy = 8000 [SI::megaelectronvolt];
+      attribute phaseStability = 0.02 [SI::degree];
+      attribute cryogenicTemperature = 2.0 [SI::kelvin];
+    }
+
+    part compressor1 : BunchCompressor {
+      attribute compressionFactor = 8.0;
+      attribute chicaneBendField = 0.35 [SI::tesla];
+      attribute targetBunchLength = 120 [SI::femtosecond];
+      attribute coherentSynchrotronRadiationLimit = 0.03;
+    }
+
+    part transport : BeamTransportLine {
+      attribute nominalBetaFunction = 18 [SI::metre];
+      attribute orbitTolerance = 20 [SI::micrometre];
+      attribute maximumLossFraction = 1.0e-5;
+    }
+
+    part compressor2 : BunchCompressor {
+      attribute compressionFactor = 5.0;
+      attribute chicaneBendField = 0.42 [SI::tesla];
+      attribute targetBunchLength = 25 [SI::femtosecond];
+      attribute coherentSynchrotronRadiationLimit = 0.05;
+    }
+
+    part undulator : UndulatorLine {
+      attribute resonantWavelength = 0.15 [SI::nanometre];
+      attribute saturationLength = 75 [SI::metre];
+      attribute totalMagneticLength = 125 [SI::metre];
+    }
+
+    part photonBeamline : PhotonBeamline {
+      attribute mirrorReflectivity = 0.92;
+      attribute monochromatorBandwidth = 1.0e-4;
+      attribute deliveryEfficiency = 0.65;
+      attribute outputWavelengthRangeMin = 0.05 [SI::nanometre];
+      attribute outputWavelengthRangeMax = 5.0 [SI::nanometre];
+    }
+
+    part beamDump : BeamDump {
+      attribute maximumAveragePower = 100000 [SI::watt];
+      attribute shieldingThickness = 2.5 [SI::metre];
+      attribute coolingCapacity = 150000 [SI::watt];
+    }
+
+    part timing : TimingAndSynchronizationSystem {
+      attribute masterClockFrequency = 1300 [SI::megahertz];
+      attribute maximumJitter = 35 [SI::femtosecond];
+    }
+
+    part magnetSystem : MagnetPowerSupplySystem {
+      attribute currentStability = 1.0e-5;
+      attribute maximumCurrent = 600 [SI::ampere];
+    }
+
+    part protection : MachineProtectionSystem {
+      attribute tripResponseTime = 5 [SI::microsecond];
+      attribute maximumAllowedBeamLoss = 1.0e-4;
+      attribute personnelSafetyInterlockActive = true;
+    }
+
+    part control : OperatorControlSystem {
+      attribute operatingMode = "User photon delivery";
+      attribute targetPhotonWavelength = 0.15 [SI::nanometre];
+      attribute targetPulseEnergy = 2.0 [SI::millijoule];
+      attribute targetRepetitionRate = 120 [SI::hertz];
+    }
+
+    connection beam01 connect injector.electronBeam to accelerator.beamInput;
+    connection beam02 connect accelerator.beamOutput to compressor1.beamInput;
+    connection beam03 connect compressor1.beamOutput to transport.beamInput;
+    connection beam04 connect transport.beamOutput to compressor2.beamInput;
+    connection beam05 connect compressor2.beamOutput to undulator.beamInput;
+    connection beam06 connect undulator.beamOutput to beamDump.beamInput;
+
+    connection photon01 connect undulator.opticalOutput to photonBeamline.xrayInput;
+    connection photon02 connect photonBeamline.xrayOutput to deliveredPhotonBeam;
+
+    connection rf01 connect rfSystem.rfOutput to accelerator.rfPower;
+
+    connection timing01 connect timing.injectorTiming to injector.timing;
+    connection timing02 connect timing.rfTiming to rfSystem.timing;
+    connection timing03 connect timing.diagnosticsTiming to control.timingCommand;
+    connection timing04 connect timing.photonTiming to photonBeamline.diagnostics;
+
+    connection magnet01 connect magnetSystem.controlOutput to transport.magnetCommand;
+    connection magnet02 connect magnetSystem.controlOutput to compressor1.magnetCommand;
+    connection magnet03 connect magnetSystem.controlOutput to compressor2.magnetCommand;
+    connection magnet04 connect magnetSystem.controlOutput to undulator.magnetCommand;
+    connection magnet05 connect control.magnetCommand to magnetSystem.controlOutput;
+
+    connection diag01 connect injector.diagnostics to control.beamDiagnostics;
+    connection diag02 connect accelerator.diagnostics to control.rfDiagnostics;
+    connection diag03 connect transport.diagnostics to protection.transportPermit;
+    connection diag04 connect undulator.diagnostics to protection.undulatorPermit;
+    connection diag05 connect photonBeamline.diagnostics to control.photonDiagnostics;
+    connection diag06 connect beamDump.diagnostics to protection.dumpPermit;
+
+    action generateCoherentPhotonPulse {
+      in item requestedTiming : FacilityTimingSignal;
+      out item deliveredPulse : XRayLaserPulse;
+
+      first startInjector;
+      then accelerateBeam;
+      then compressBeam;
+      then matchBeamToUndulator;
+      then produceRadiation;
+      then conditionRadiation;
+      then disposeSpentBeam;
+
+      action startInjector {
+        out item beam0 : ElectronBunch;
+      }
+
+      action accelerateBeam {
+        in item beam0 : ElectronBunch;
+        out item beam1 : ElectronBunch;
+      }
+
+      action compressBeam {
+        in item beam1 : ElectronBunch;
+        out item beam2 : ElectronBunch;
+      }
+
+      action matchBeamToUndulator {
+        in item beam2 : ElectronBunch;
+        out item beam3 : ElectronBunch;
+      }
+
+      action produceRadiation {
+        in item beam3 : ElectronBunch;
+        out item spentBeam : ElectronBunch;
+        out item rawPulse : XRayLaserPulse;
+      }
+
+      action conditionRadiation {
+        in item rawPulse : XRayLaserPulse;
+        out item deliveredPulse : XRayLaserPulse;
+      }
+
+      action disposeSpentBeam {
+        in item spentBeam : ElectronBunch;
+      }
+    }
+
+    state def FELFacilityStateMachine {
+      entry action initializeControlSystem;
+
+      state Off;
+      state Standby;
+      state VacuumPumpdown;
+      state RFConditioning;
+      state BeamTuning;
+      state LasingOptimization;
+      state PhotonDelivery;
+      state MachineProtectionTrip;
+      state ControlledShutdown;
+
+      transition initial then Off;
+      transition powerApplied first Off then Standby;
+      transition vacuumReady first Standby then VacuumPumpdown;
+      transition pressureBelowLimit first VacuumPumpdown then RFConditioning;
+      transition rfStable first RFConditioning then BeamTuning;
+      transition beamTransportStable first BeamTuning then LasingOptimization;
+      transition gainSaturated first LasingOptimization then PhotonDelivery;
+      transition faultDetected first Standby then MachineProtectionTrip;
+      transition faultDetectedDuringRF first RFConditioning then MachineProtectionTrip;
+      transition faultDetectedDuringBeam first BeamTuning then MachineProtectionTrip;
+      transition faultDetectedDuringLasing first LasingOptimization then MachineProtectionTrip;
+      transition faultDetectedDuringDelivery first PhotonDelivery then MachineProtectionTrip;
+      transition faultCleared first MachineProtectionTrip then Standby;
+      transition operatorShutdown first PhotonDelivery then ControlledShutdown;
+      transition shutdownComplete first ControlledShutdown then Off;
+
+      state PhotonDelivery {
+        entry action enableUserBeamline;
+        do action generateCoherentPhotonPulse;
+        exit action closePhotonShutters;
+      }
+
+      state MachineProtectionTrip {
+        entry action inhibitInjector;
+        entry action removeRFDrive;
+        entry action dumpStoredBeam;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The Free Electron Laser facility shall transform synchronized electron bunches into high-brightness, coherent, tunable short-wavelength photon pulses by accelerating, compressing, transporting, and passing the electron beam through an undulator line, then conditioning and delivering the resulting radiation to an experimental beamline. */
+
+    subject fel : FreeElectronLaserFacility;
+
+    require constraint {
+      fel.nominalElectronEnergy >= 6000 [SI::megaelectronvolt] and
+      fel.nominalPeakCurrent >= 1000 [SI::ampere] and
+      fel.nominalPhotonWavelength <= 1.0 [SI::nanometre] and
+      fel.nominalPulseEnergy >= 0.1 [SI::millijoule]
+    }
+  }
+
+  requirement def BeamQualityRequirement {
+    doc
+    /* The facility shall preserve electron beam quality sufficient for exponential optical gain in the undulator. */
+
+    subject bunch : ElectronBunch;
+
+    require constraint {
+      bunch.energy >= 6000 [SI::megaelectronvolt] and
+      bunch.peakCurrent >= 1000 [SI::ampere] and
+      bunch.energySpread <= 0.001
+    }
+  }
+
+  requirement def SynchronizationRequirement {
+    doc
+    /* The facility timing system shall maintain electron beam, RF, seed laser, diagnostics, and photon beamline synchronization within the jitter budget required for stable lasing and pump-probe experiments. */
+
+    subject fel : FreeElectronLaserFacility;
+
+    require constraint {
+      fel.maximumTimingJitter <= 50 [SI::femtosecond]
+    }
+  }
+
+  requirement def RadiationDeliveryRequirement {
+    doc
+    /* The photon beamline shall deliver conditioned coherent radiation with selectable attenuation, spectral conditioning, and stable transport to the experimental user interface. */
+
+    subject pulse : XRayLaserPulse;
+
+    require constraint {
+      pulse.wavelength >= 0.05 [SI::nanometre] and
+      pulse.wavelength <= 5.0 [SI::nanometre] and
+      pulse.pulseEnergy >= 0.05 [SI::millijoule] and
+      pulse.spectralBandwidth <= 0.01
+    }
+  }
+
+  requirement def MachineProtectionRequirement {
+    doc
+    /* The machine protection system shall inhibit beam production or terminate active beam operation before equipment damage or unsafe radiation conditions can occur. */
+
+    subject mps : MachineProtectionSystem;
+
+    require constraint {
+      mps.tripResponseTime <= 10 [SI::microsecond] and
+      mps.maximumAllowedBeamLoss <= 1.0e-4 and
+      mps.personnelSafetyInterlockActive == true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by FreeElectronLaserFacility::generateCoherentPhotonPulse;
+  satisfy SynchronizationRequirement by FreeElectronLaserFacility::timing;
+  satisfy MachineProtectionRequirement by FreeElectronLaserFacility::protection;
+}
+tokens used
+13,419
+package FreeElectronLaserSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def ElectronEnergy :> ISQ::energy {
+    unit = SI::megaelectronvolt;
+  }
+
+  attribute def BeamCurrent :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def MagneticField :> ISQ::magneticFluxDensity {
+    unit = SI::tesla;
+  }
+
+  attribute def Wavelength :> ISQ::length {
+    unit = SI::nanometre;
+  }
+
+  attribute def PulseEnergy :> ISQ::energy {
+    unit = SI::millijoule;
+  }
+
+  attribute def RepetitionRate :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def VacuumPressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def TimingJitter :> ISQ::time {
+    unit = SI::femtosecond;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  item def ElectronBunch {
+    attribute energy : ElectronEnergy;
+    attribute peakCurrent : BeamCurrent;
+    attribute bunchCharge : ISQ::electricCharge;
+    attribute normalizedEmittance : ISQ::length;
+    attribute bunchLength : ISQ::time;
+    attribute energySpread : Real;
+  }
+
+  item def SeedLaserPulse {
+    attribute wavelength : Wavelength;
+    attribute pulseEnergy : PulseEnergy;
+    attribute duration : ISQ::time;
+    attribute timingOffset : TimingJitter;
+  }
+
+  item def XRayLaserPulse {
+    attribute wavelength : Wavelength;
+    attribute pulseEnergy : PulseEnergy;
+    attribute duration : ISQ::time;
+    attribute photonFlux : Real;
+    attribute spectralBandwidth : Real;
+  }
+
+  item def RadioFrequencyPower {
+    attribute frequency : ISQ::frequency;
+    attribute power : ISQ::power;
+    attribute phase : ISQ::planeAngle;
+    attribute amplitudeStability : Real;
+  }
+
+  item def MagneticFieldCommand {
+    attribute targetField : MagneticField;
+    attribute fieldRampRate : Real;
+  }
+
+  item def BeamDiagnosticsData {
+    attribute measuredEnergy : ElectronEnergy;
+    attribute measuredCurrent : BeamCurrent;
+    attribute beamPositionX : ISQ::length;
+    attribute beamPositionY : ISQ::length;
+    attribute emittanceEstimate : ISQ::length;
+    attribute lossFraction : Real;
+  }
+
+  item def FacilityTimingSignal {
+    attribute repetitionRate : RepetitionRate;
+    attribute fiducialTime : ISQ::time;
+    attribute jitter : TimingJitter;
+  }
+
+  item def CoolingWater {
+    attribute inletTemperature : Temperature;
+    attribute outletTemperature : Temperature;
+    attribute flowRate : Real;
+    attribute pressure : ISQ::pressure;
+  }
+
+  port def ElectronBeamPort {
+    out item beamOut : ElectronBunch;
+    in item beamIn : ElectronBunch;
+  }
+
+  port def OpticalPulsePort {
+    out item pulseOut : XRayLaserPulse;
+    in item pulseIn : XRayLaserPulse;
+  }
+
+  port def SeedPulsePort {
+    out item seedOut : SeedLaserPulse;
+    in item seedIn : SeedLaserPulse;
+  }
+
+  port def RFPowerPort {
+    out item rfOut : RadioFrequencyPower;
+    in item rfIn : RadioFrequencyPower;
+  }
+
+  port def MagnetControlPort {
+    out item commandOut : MagneticFieldCommand;
+    in item commandIn : MagneticFieldCommand;
+  }
+
+  port def DiagnosticsPort {
+    out item dataOut : BeamDiagnosticsData;
+    in item dataIn : BeamDiagnosticsData;
+  }
+
+  port def TimingPort {
+    out item timingOut : FacilityTimingSignal;
+    in item timingIn : FacilityTimingSignal;
+  }
+
+  port def CoolingPort {
+    out item waterOut : CoolingWater;
+    in item waterIn : CoolingWater;
+  }
+
+  part def PhotocathodeInjector {
+    attribute cathodeQuantumEfficiency : Real;
+    attribute gunVoltage : ISQ::electricPotential;
+    attribute nominalCharge : ISQ::electricCharge;
+    attribute vacuumPressure : VacuumPressure;
+
+    port timing : TimingPort;
+    port seedLaser : SeedPulsePort;
+    port electronBeam : ElectronBeamPort;
+    port diagnostics : DiagnosticsPort;
+
+    action emitElectronBunch {
+      in item drivePulse : SeedLaserPulse;
+      out item emittedBeam : ElectronBunch;
+    }
+  }
+
+  part def RadioFrequencyAccelerator {
+    attribute acceleratingGradient : Real;
+    attribute linacLength : ISQ::length;
+    attribute targetEnergy : ElectronEnergy;
+    attribute phaseStability : ISQ::planeAngle;
+    attribute cryogenicTemperature : Temperature;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port rfPower : RFPowerPort;
+    port cooling : CoolingPort;
+    port diagnostics : DiagnosticsPort;
+
+    action accelerate {
+      in item lowEnergyBeam : ElectronBunch;
+      in item rfDrive : RadioFrequencyPower;
+      out item highEnergyBeam : ElectronBunch;
+    }
+  }
+
+  part def BeamTransportLine {
+    attribute nominalBetaFunction : ISQ::length;
+    attribute orbitTolerance : ISQ::length;
+    attribute maximumLossFraction : Real;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    part quadrupoleArray {
+      attribute numberOfMagnets : Integer = 48;
+      attribute maximumGradient : Real;
+    }
+
+    part steeringCorrectors {
+      attribute numberOfCorrectors : Integer = 32;
+      attribute maximumKickAngle : ISQ::planeAngle;
+    }
+
+    action focusAndSteer {
+      in item incomingBeam : ElectronBunch;
+      in item latticeCommand : MagneticFieldCommand;
+      out item matchedBeam : ElectronBunch;
+    }
+  }
+
+  part def BunchCompressor {
+    attribute compressionFactor : Real;
+    attribute chicaneBendField : MagneticField;
+    attribute targetBunchLength : ISQ::time;
+    attribute coherentSynchrotronRadiationLimit : Real;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    action compress {
+      in item longBeam : ElectronBunch;
+      out item shortBeam : ElectronBunch;
+    }
+  }
+
+  part def UndulatorSegment {
+    attribute periodLength : ISQ::length;
+    attribute numberOfPeriods : Integer;
+    attribute peakMagneticField : MagneticField;
+    attribute undulatorParameterK : Real;
+    attribute gap : ISQ::length;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port opticalInput : OpticalPulsePort;
+    port opticalOutput : OpticalPulsePort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    action amplifyRadiation {
+      in item resonantBeam : ElectronBunch;
+      in item inputRadiation : XRayLaserPulse;
+      out item spentBeam : ElectronBunch;
+      out item amplifiedPulse : XRayLaserPulse;
+    }
+  }
+
+  part def UndulatorLine {
+    attribute resonantWavelength : Wavelength;
+    attribute saturationLength : ISQ::length;
+    attribute totalMagneticLength : ISQ::length;
+
+    port beamInput : ElectronBeamPort;
+    port beamOutput : ElectronBeamPort;
+    port opticalOutput : OpticalPulsePort;
+    port magnetCommand : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    part segment1 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    part segment2 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    part segment3 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    part segment4 : UndulatorSegment {
+      attribute periodLength = 0.026 [SI::metre];
+      attribute numberOfPeriods = 120;
+      attribute peakMagneticField = 1.15 [SI::tesla];
+      attribute undulatorParameterK = 2.8;
+      attribute gap = 0.006 [SI::metre];
+    }
+
+    connection c1 connect beamInput to segment1.beamInput;
+    connection c2 connect segment1.beamOutput to segment2.beamInput;
+    connection c3 connect segment2.beamOutput to segment3.beamInput;
+    connection c4 connect segment3.beamOutput to segment4.beamInput;
+    connection c5 connect segment4.beamOutput to beamOutput;
+
+    connection o1 connect segment1.opticalOutput to segment2.opticalInput;
+    connection o2 connect segment2.opticalOutput to segment3.opticalInput;
+    connection o3 connect segment3.opticalOutput to segment4.opticalInput;
+    connection o4 connect segment4.opticalOutput to opticalOutput;
+  }
+
+  part def PhotonBeamline {
+    attribute mirrorReflectivity : Real;
+    attribute monochromatorBandwidth : Real;
+    attribute deliveryEfficiency : Real;
+    attribute outputWavelengthRangeMin : Wavelength;
+    attribute outputWavelengthRangeMax : Wavelength;
+
+    port xrayInput : OpticalPulsePort;
+    port xrayOutput : OpticalPulsePort;
+    port diagnostics : DiagnosticsPort;
+
+    part gasAttenuator {
+      attribute attenuationRange : Real;
+      attribute gasPressure : VacuumPressure;
+    }
+
+    part monochromator {
+      attribute resolvingPower : Real;
+      attribute gratingAngle : ISQ::planeAngle;
+    }
+
+    action conditionPhotonBeam {
+      in item rawPulse : XRayLaserPulse;
+      out item deliveredPulse : XRayLaserPulse;
+    }
+  }
+
+  part def BeamDump {
+    attribute maximumAveragePower : ISQ::power;
+    attribute shieldingThickness : ISQ::length;
+    attribute coolingCapacity : ISQ::power;
+
+    port beamInput : ElectronBeamPort;
+    port cooling : CoolingPort;
+    port diagnostics : DiagnosticsPort;
+
+    action absorbSpentBeam {
+      in item spentBeam : ElectronBunch;
+    }
+  }
+
+  part def TimingAndSynchronizationSystem {
+    attribute masterClockFrequency : ISQ::frequency;
+    attribute maximumJitter : TimingJitter;
+
+    port injectorTiming : TimingPort;
+    port rfTiming : TimingPort;
+    port diagnosticsTiming : TimingPort;
+    port photonTiming : TimingPort;
+
+    action distributeTiming {
+      out item synchronizedTiming : FacilityTimingSignal;
+    }
+  }
+
+  part def LowLevelRFSystem {
+    attribute rfFrequency : ISQ::frequency;
+    attribute phaseNoise : Real;
+    attribute amplitudeRegulationError : Real;
+
+    port timing : TimingPort;
+    port rfOutput : RFPowerPort;
+    port diagnostics : DiagnosticsPort;
+
+    action regulateRF {
+      in item timingReference : FacilityTimingSignal;
+      out item regulatedRF : RadioFrequencyPower;
+    }
+  }
+
+  part def MagnetPowerSupplySystem {
+    attribute currentStability : Real;
+    attribute maximumCurrent : ISQ::electricCurrent;
+
+    port controlOutput : MagnetControlPort;
+    port diagnostics : DiagnosticsPort;
+
+    action regulateMagnets {
+      out item commandedField : MagneticFieldCommand;
+    }
+  }
+
+  part def MachineProtectionSystem {
+    attribute tripResponseTime : ISQ::time;
+    attribute maximumAllowedBeamLoss : Real;
+    attribute personnelSafetyInterlockActive : Boolean;
+
+    port injectorPermit : DiagnosticsPort;
+    port acceleratorPermit : DiagnosticsPort;
+    port transportPermit : DiagnosticsPort;
+    port undulatorPermit : DiagnosticsPort;
+    port dumpPermit : DiagnosticsPort;
+
+    action evaluatePermit {
+      in item beamData : BeamDiagnosticsData;
+      out attribute permitBeam : Boolean;
+    }
+  }
+
+  part def OperatorControlSystem {
+    attribute operatingMode : String;
+    attribute targetPhotonWavelength : Wavelength;
+    attribute targetPulseEnergy : PulseEnergy;
+    attribute targetRepetitionRate : RepetitionRate;
+
+    port timingCommand : TimingPort;
+    port rfDiagnostics : DiagnosticsPort;
+    port beamDiagnostics : DiagnosticsPort;
+    port photonDiagnostics : DiagnosticsPort;
+    port magnetCommand : MagnetControlPort;
+
+    action configureExperiment {
+      out item timingRequest : FacilityTimingSignal;
+      out item magneticSetpoint : MagneticFieldCommand;
+    }
+  }
+
+  part def FreeElectronLaserFacility {
+    attribute nominalElectronEnergy : ElectronEnergy = 8000 [SI::megaelectronvolt];
+    attribute nominalPeakCurrent : BeamCurrent = 3000 [SI::ampere];
+    attribute nominalPhotonWavelength : Wavelength = 0.15 [SI::nanometre];
+    attribute nominalPulseEnergy : PulseEnergy = 2.0 [SI::millijoule];
+    attribute nominalRepetitionRate : RepetitionRate = 120 [SI::hertz];
+    attribute maximumTimingJitter : TimingJitter = 50 [SI::femtosecond];
+
+    port deliveredPhotonBeam : OpticalPulsePort;
+
+    part injector : PhotocathodeInjector {
+      attribute cathodeQuantumEfficiency = 0.04;
+      attribute gunVoltage = 120000 [SI::volt];
+      attribute nominalCharge = 250 [SI::picocoulomb];
+      attribute vacuumPressure = 1.0e-8 [SI::pascal];
+    }
+
+    part rfSystem : LowLevelRFSystem {
+      attribute rfFrequency = 1300 [SI::megahertz];
+      attribute phaseNoise = 1.0e-4;
+      attribute amplitudeRegulationError = 2.0e-4;
+    }
+
+    part accelerator : RadioFrequencyAccelerator {
+      attribute acceleratingGradient = 25.0;
+      attribute linacLength = 900 [SI::metre];
+      attribute targetEnergy = 8000 [SI::megaelectronvolt];
+      attribute phaseStability = 0.02 [SI::degree];
+      attribute cryogenicTemperature = 2.0 [SI::kelvin];
+    }
+
+    part compressor1 : BunchCompressor {
+      attribute compressionFactor = 8.0;
+      attribute chicaneBendField = 0.35 [SI::tesla];
+      attribute targetBunchLength = 120 [SI::femtosecond];
+      attribute coherentSynchrotronRadiationLimit = 0.03;
+    }
+
+    part transport : BeamTransportLine {
+      attribute nominalBetaFunction = 18 [SI::metre];
+      attribute orbitTolerance = 20 [SI::micrometre];
+      attribute maximumLossFraction = 1.0e-5;
+    }
+
+    part compressor2 : BunchCompressor {
+      attribute compressionFactor = 5.0;
+      attribute chicaneBendField = 0.42 [SI::tesla];
+      attribute targetBunchLength = 25 [SI::femtosecond];
+      attribute coherentSynchrotronRadiationLimit = 0.05;
+    }
+
+    part undulator : UndulatorLine {
+      attribute resonantWavelength = 0.15 [SI::nanometre];
+      attribute saturationLength = 75 [SI::metre];
+      attribute totalMagneticLength = 125 [SI::metre];
+    }
+
+    part photonBeamline : PhotonBeamline {
+      attribute mirrorReflectivity = 0.92;
+      attribute monochromatorBandwidth = 1.0e-4;
+      attribute deliveryEfficiency = 0.65;
+      attribute outputWavelengthRangeMin = 0.05 [SI::nanometre];
+      attribute outputWavelengthRangeMax = 5.0 [SI::nanometre];
+    }
+
+    part beamDump : BeamDump {
+      attribute maximumAveragePower = 100000 [SI::watt];
+      attribute shieldingThickness = 2.5 [SI::metre];
+      attribute coolingCapacity = 150000 [SI::watt];
+    }
+
+    part timing : TimingAndSynchronizationSystem {
+      attribute masterClockFrequency = 1300 [SI::megahertz];
+      attribute maximumJitter = 35 [SI::femtosecond];
+    }
+
+    part magnetSystem : MagnetPowerSupplySystem {
+      attribute currentStability = 1.0e-5;
+      attribute maximumCurrent = 600 [SI::ampere];
+    }
+
+    part protection : MachineProtectionSystem {
+      attribute tripResponseTime = 5 [SI::microsecond];
+      attribute maximumAllowedBeamLoss = 1.0e-4;
+      attribute personnelSafetyInterlockActive = true;
+    }
+
+    part control : OperatorControlSystem {
+      attribute operatingMode = "User photon delivery";
+      attribute targetPhotonWavelength = 0.15 [SI::nanometre];
+      attribute targetPulseEnergy = 2.0 [SI::millijoule];
+      attribute targetRepetitionRate = 120 [SI::hertz];
+    }
+
+    connection beam01 connect injector.electronBeam to accelerator.beamInput;
+    connection beam02 connect accelerator.beamOutput to compressor1.beamInput;
+    connection beam03 connect compressor1.beamOutput to transport.beamInput;
+    connection beam04 connect transport.beamOutput to compressor2.beamInput;
+    connection beam05 connect compressor2.beamOutput to undulator.beamInput;
+    connection beam06 connect undulator.beamOutput to beamDump.beamInput;
+
+    connection photon01 connect undulator.opticalOutput to photonBeamline.xrayInput;
+    connection photon02 connect photonBeamline.xrayOutput to deliveredPhotonBeam;
+
+    connection rf01 connect rfSystem.rfOutput to accelerator.rfPower;
+
+    connection timing01 connect timing.injectorTiming to injector.timing;
+    connection timing02 connect timing.rfTiming to rfSystem.timing;
+    connection timing03 connect timing.diagnosticsTiming to control.timingCommand;
+    connection timing04 connect timing.photonTiming to photonBeamline.diagnostics;
+
+    connection magnet01 connect magnetSystem.controlOutput to transport.magnetCommand;
+    connection magnet02 connect magnetSystem.controlOutput to compressor1.magnetCommand;
+    connection magnet03 connect magnetSystem.controlOutput to compressor2.magnetCommand;
+    connection magnet04 connect magnetSystem.controlOutput to undulator.magnetCommand;
+    connection magnet05 connect control.magnetCommand to magnetSystem.controlOutput;
+
+    connection diag01 connect injector.diagnostics to control.beamDiagnostics;
+    connection diag02 connect accelerator.diagnostics to control.rfDiagnostics;
+    connection diag03 connect transport.diagnostics to protection.transportPermit;
+    connection diag04 connect undulator.diagnostics to protection.undulatorPermit;
+    connection diag05 connect photonBeamline.diagnostics to control.photonDiagnostics;
+    connection diag06 connect beamDump.diagnostics to protection.dumpPermit;
+
+    action generateCoherentPhotonPulse {
+      in item requestedTiming : FacilityTimingSignal;
+      out item deliveredPulse : XRayLaserPulse;
+
+      first startInjector;
+      then accelerateBeam;
+      then compressBeam;
+      then matchBeamToUndulator;
+      then produceRadiation;
+      then conditionRadiation;
+      then disposeSpentBeam;
+
+      action startInjector {
+        out item beam0 : ElectronBunch;
+      }
+
+      action accelerateBeam {
+        in item beam0 : ElectronBunch;
+        out item beam1 : ElectronBunch;
+      }
+
+      action compressBeam {
+        in item beam1 : ElectronBunch;
+        out item beam2 : ElectronBunch;
+      }
+
+      action matchBeamToUndulator {
+        in item beam2 : ElectronBunch;
+        out item beam3 : ElectronBunch;
+      }
+
+      action produceRadiation {
+        in item beam3 : ElectronBunch;
+        out item spentBeam : ElectronBunch;
+        out item rawPulse : XRayLaserPulse;
+      }
+
+      action conditionRadiation {
+        in item rawPulse : XRayLaserPulse;
+        out item deliveredPulse : XRayLaserPulse;
+      }
+
+      action disposeSpentBeam {
+        in item spentBeam : ElectronBunch;
+      }
+    }
+
+    state def FELFacilityStateMachine {
+      entry action initializeControlSystem;
+
+      state Off;
+      state Standby;
+      state VacuumPumpdown;
+      state RFConditioning;
+      state BeamTuning;
+      state LasingOptimization;
+      state PhotonDelivery;
+      state MachineProtectionTrip;
+      state ControlledShutdown;
+
+      transition initial then Off;
+      transition powerApplied first Off then Standby;
+      transition vacuumReady first Standby then VacuumPumpdown;
+      transition pressureBelowLimit first VacuumPumpdown then RFConditioning;
+      transition rfStable first RFConditioning then BeamTuning;
+      transition beamTransportStable first BeamTuning then LasingOptimization;
+      transition gainSaturated first LasingOptimization then PhotonDelivery;
+      transition faultDetected first Standby then MachineProtectionTrip;
+      transition faultDetectedDuringRF first RFConditioning then MachineProtectionTrip;
+      transition faultDetectedDuringBeam first BeamTuning then MachineProtectionTrip;
+      transition faultDetectedDuringLasing first LasingOptimization then MachineProtectionTrip;
+      transition faultDetectedDuringDelivery first PhotonDelivery then MachineProtectionTrip;
+      transition faultCleared first MachineProtectionTrip then Standby;
+      transition operatorShutdown first PhotonDelivery then ControlledShutdown;
+      transition shutdownComplete first ControlledShutdown then Off;
+
+      state PhotonDelivery {
+        entry action enableUserBeamline;
+        do action generateCoherentPhotonPulse;
+        exit action closePhotonShutters;
+      }
+
+      state MachineProtectionTrip {
+        entry action inhibitInjector;
+        entry action removeRFDrive;
+        entry action dumpStoredBeam;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The Free Electron Laser facility shall transform synchronized electron bunches into high-brightness, coherent, tunable short-wavelength photon pulses by accelerating, compressing, transporting, and passing the electron beam through an undulator line, then conditioning and delivering the resulting radiation to an experimental beamline. */
+
+    subject fel : FreeElectronLaserFacility;
+
+    require constraint {
+      fel.nominalElectronEnergy >= 6000 [SI::megaelectronvolt] and
+      fel.nominalPeakCurrent >= 1000 [SI::ampere] and
+      fel.nominalPhotonWavelength <= 1.0 [SI::nanometre] and
+      fel.nominalPulseEnergy >= 0.1 [SI::millijoule]
+    }
+  }
+
+  requirement def BeamQualityRequirement {
+    doc
+    /* The facility shall preserve electron beam quality sufficient for exponential optical gain in the undulator. */
+
+    subject bunch : ElectronBunch;
+
+    require constraint {
+      bunch.energy >= 6000 [SI::megaelectronvolt] and
+      bunch.peakCurrent >= 1000 [SI::ampere] and
+      bunch.energySpread <= 0.001
+    }
+  }
+
+  requirement def SynchronizationRequirement {
+    doc
+    /* The facility timing system shall maintain electron beam, RF, seed laser, diagnostics, and photon beamline synchronization within the jitter budget required for stable lasing and pump-probe experiments. */
+
+    subject fel : FreeElectronLaserFacility;
+
+    require constraint {
+      fel.maximumTimingJitter <= 50 [SI::femtosecond]
+    }
+  }
+
+  requirement def RadiationDeliveryRequirement {
+    doc
+    /* The photon beamline shall deliver conditioned coherent radiation with selectable attenuation, spectral conditioning, and stable transport to the experimental user interface. */
+
+    subject pulse : XRayLaserPulse;
+
+    require constraint {
+      pulse.wavelength >= 0.05 [SI::nanometre] and
+      pulse.wavelength <= 5.0 [SI::nanometre] and
+      pulse.pulseEnergy >= 0.05 [SI::millijoule] and
+      pulse.spectralBandwidth <= 0.01
+    }
+  }
+
+  requirement def MachineProtectionRequirement {
+    doc
+    /* The machine protection system shall inhibit beam production or terminate active beam operation before equipment damage or unsafe radiation conditions can occur. */
+
+    subject mps : MachineProtectionSystem;
+
+    require constraint {
+      mps.tripResponseTime <= 10 [SI::microsecond] and
+      mps.maximumAllowedBeamLoss <= 1.0e-4 and
+      mps.personnelSafetyInterlockActive == true
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by FreeElectronLaserFacility::generateCoherentPhotonPulse;
+  satisfy SynchronizationRequirement by FreeElectronLaserFacility::timing;
+  satisfy MachineProtectionRequirement by FreeElectronLaserFacility::protection;
+}

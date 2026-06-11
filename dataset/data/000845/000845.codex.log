@@ -1,0 +1,849 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-h6hydx9a
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb46c-04b4-7cc3-91fb-8eee52bb995b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Archimedes' screw and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ArchimedesScrewSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Length :> Real {
+        unit = "m";
+    }
+
+    attribute def Diameter :> Real {
+        unit = "m";
+    }
+
+    attribute def Angle :> Real {
+        unit = "deg";
+    }
+
+    attribute def AngularSpeed :> Real {
+        unit = "rev/min";
+    }
+
+    attribute def VolumetricFlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/s";
+    }
+
+    attribute def Density :> Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def FillRatio :> Real {
+        unit = "1";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    item def BulkMaterial {
+        attribute density : Density;
+        attribute particleDiameter : Length;
+        attribute moistureFraction : Real;
+    }
+
+    item def Water {
+        attribute density : Density = 1000.0;
+    }
+
+    item def RotationalMechanicalPower {
+        attribute speed : AngularSpeed;
+        attribute torque : Torque;
+        attribute power : Power;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+        attribute power : Power;
+    }
+
+    port def MaterialInletPort {
+        in item incomingMaterial : BulkMaterial;
+    }
+
+    port def MaterialOutletPort {
+        out item dischargedMaterial : BulkMaterial;
+    }
+
+    port def WaterInletPort {
+        in item incomingWater : Water;
+    }
+
+    port def WaterOutletPort {
+        out item dischargedWater : Water;
+    }
+
+    port def ElectricalPowerPort {
+        in item suppliedPower : ElectricalPower;
+    }
+
+    port def ShaftPowerPort {
+        out item deliveredShaftPower : RotationalMechanicalPower;
+    }
+
+    port def ControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        in attribute targetSpeed : AngularSpeed;
+        out attribute actualSpeed : AngularSpeed;
+        out attribute faultActive : Boolean;
+    }
+
+    part def Motor {
+        attribute ratedPower : Power = 5500.0;
+        attribute ratedSpeed : AngularSpeed = 1750.0;
+        attribute efficiency : Efficiency = 0.91;
+
+        port electricalInput : ElectricalPowerPort;
+        port shaftOutput : ShaftPowerPort;
+
+        perform action ConvertElectricalToRotationalPower {
+            in item electricalInputPower : ElectricalPower;
+            out item shaftPower : RotationalMechanicalPower;
+        }
+    }
+
+    part def GearReducer {
+        attribute reductionRatio : Real = 30.0;
+        attribute efficiency : Efficiency = 0.94;
+        attribute outputSpeed : AngularSpeed;
+        attribute outputTorque : Torque;
+
+        port highSpeedInput : ShaftPowerPort;
+        port lowSpeedOutput : ShaftPowerPort;
+
+        perform action ReduceSpeedIncreaseTorque {
+            in item highSpeedPower : RotationalMechanicalPower;
+            out item lowSpeedPower : RotationalMechanicalPower;
+        }
+    }
+
+    part def HelicalScrew {
+        attribute outerDiameter : Diameter = 0.45;
+        attribute shaftDiameter : Diameter = 0.12;
+        attribute pitch : Length = 0.35;
+        attribute length : Length = 4.50;
+        attribute flightThickness : Length = 0.008;
+        attribute rotationalSpeed : AngularSpeed;
+        attribute requiredTorque : Torque;
+        attribute fillRatio : FillRatio = 0.42;
+
+        port driveInput : ShaftPowerPort;
+
+        perform action RotateFlights {
+            in item shaftPower : RotationalMechanicalPower;
+            out attribute screwSpeed : AngularSpeed;
+        }
+    }
+
+    part def Trough {
+        attribute insideDiameter : Diameter = 0.48;
+        attribute length : Length = 4.70;
+        attribute inclinationAngle : Angle = 32.0;
+        attribute linerClearance : Length = 0.015;
+        attribute sealed : Boolean = true;
+
+        port inlet : MaterialInletPort;
+        port outlet : MaterialOutletPort;
+    }
+
+    part def BearingAssembly {
+        attribute radialLoadLimit : Real = 12000.0;
+        attribute axialLoadLimit : Real = 8000.0;
+        attribute lubricationRequired : Boolean = true;
+        attribute temperatureLimit : Real = 85.0;
+    }
+
+    part def SupportFrame {
+        attribute baseLength : Length = 5.20;
+        attribute baseWidth : Length = 0.90;
+        attribute installedInclination : Angle = 32.0;
+        attribute corrosionProtection : Boolean = true;
+    }
+
+    part def SpeedController {
+        attribute commandedSpeed : AngularSpeed;
+        attribute measuredSpeed : AngularSpeed;
+        attribute overloadDetected : Boolean;
+        attribute emergencyStopActive : Boolean;
+
+        port controlInterface : ControlPort;
+
+        perform action RegulateSpeed {
+            in attribute desiredSpeed : AngularSpeed;
+            in attribute currentSpeed : AngularSpeed;
+            out attribute motorCommand : Real;
+        }
+    }
+
+    part def ArchimedesScrewConveyor {
+        attribute designFlowRate : VolumetricFlowRate = 0.018;
+        attribute maximumFlowRate : VolumetricFlowRate = 0.025;
+        attribute liftHeight : Length = 2.35;
+        attribute inclinationAngle : Angle = 32.0;
+        attribute operatingEfficiency : Efficiency = 0.68;
+        attribute nominalSpeed : AngularSpeed = 58.0;
+        attribute maximumSpeed : AngularSpeed = 72.0;
+        attribute minimumSpeed : AngularSpeed = 18.0;
+
+        port materialInlet : MaterialInletPort;
+        port materialOutlet : MaterialOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port control : ControlPort;
+
+        part motor : Motor;
+        part reducer : GearReducer;
+        part screw : HelicalScrew;
+        part trough : Trough;
+        part lowerBearing : BearingAssembly;
+        part upperBearing : BearingAssembly;
+        part frame : SupportFrame;
+        part controller : SpeedController;
+
+        connect electricalSupply to motor.electricalInput;
+        connect motor.shaftOutput to reducer.highSpeedInput;
+        connect reducer.lowSpeedOutput to screw.driveInput;
+        connect materialInlet to trough.inlet;
+        connect trough.outlet to materialOutlet;
+        connect control to controller.controlInterface;
+
+        perform action ConveyMaterialUphill {
+            in item feedMaterial : BulkMaterial;
+            in attribute requestedSpeed : AngularSpeed;
+            out item elevatedMaterial : BulkMaterial;
+            out attribute actualFlowRate : VolumetricFlowRate;
+
+            first startMotor;
+            then accelerateScrew;
+            then captureMaterialAtLowerEnd;
+            then liftMaterialAlongInclinedTrough;
+            then dischargeMaterialAtUpperEnd;
+
+            action startMotor;
+            action accelerateScrew;
+            action captureMaterialAtLowerEnd;
+            action liftMaterialAlongInclinedTrough;
+            action dischargeMaterialAtUpperEnd;
+        }
+
+        state def OperatingStateMachine {
+            state Off;
+            state Starting;
+            state Running;
+            state Stopping;
+            state Faulted;
+
+            initial then Off;
+
+            transition Off_to_Starting
+                first Off
+                accept control.startCommand
+                then Starting;
+
+            transition Starting_to_Running
+                first Starting
+                if screw.rotationalSpeed >= minimumSpeed
+                then Running;
+
+            transition Running_to_Stopping
+                first Running
+                accept control.stopCommand
+                then Stopping;
+
+            transition Stopping_to_Off
+                first Stopping
+                if screw.rotationalSpeed <= 0.5
+                then Off;
+
+            transition Running_to_Faulted
+                first Running
+                if controller.overloadDetected or controller.emergencyStopActive
+                then Faulted;
+
+            transition Starting_to_Faulted
+                first Starting
+                if controller.overloadDetected or controller.emergencyStopActive
+                then Faulted;
+
+            transition Faulted_to_Off
+                first Faulted
+                accept control.stopCommand
+                then Off;
+        }
+    }
+
+    part def ArchimedesScrewPump {
+        attribute designFlowRate : VolumetricFlowRate = 0.030;
+        attribute liftHeight : Length = 1.80;
+        attribute inclinationAngle : Angle = 28.0;
+        attribute nominalSpeed : AngularSpeed = 42.0;
+        attribute operatingEfficiency : Efficiency = 0.72;
+
+        port waterInlet : WaterInletPort;
+        port waterOutlet : WaterOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port control : ControlPort;
+
+        part motor : Motor;
+        part reducer : GearReducer;
+        part screw : HelicalScrew {
+            attribute outerDiameter : Diameter = 0.60;
+            attribute pitch : Length = 0.48;
+            attribute length : Length = 3.90;
+            attribute fillRatio : FillRatio = 0.70;
+        }
+        part trough : Trough {
+            attribute insideDiameter : Diameter = 0.64;
+            attribute length : Length = 4.10;
+            attribute inclinationAngle : Angle = 28.0;
+            attribute sealed : Boolean = false;
+        }
+        part lowerBearing : BearingAssembly;
+        part upperBearing : BearingAssembly;
+        part frame : SupportFrame;
+        part controller : SpeedController;
+
+        connect electricalSupply to motor.electricalInput;
+        connect motor.shaftOutput to reducer.highSpeedInput;
+        connect reducer.lowSpeedOutput to screw.driveInput;
+        connect control to controller.controlInterface;
+
+        perform action LiftWater {
+            in item lowElevationWater : Water;
+            in attribute commandedSpeed : AngularSpeed;
+            out item raisedWater : Water;
+            out attribute deliveredFlowRate : VolumetricFlowRate;
+
+            first rotateScrew;
+            then trapWaterBetweenFlights;
+            then advanceWaterUpIncline;
+            then dischargeWaterAtHigherElevation;
+
+            action rotateScrew;
+            action trapWaterBetweenFlights;
+            action advanceWaterUpIncline;
+            action dischargeWaterAtHigherElevation;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The system shall use a rotating helical screw within an inclined trough to capture material at a lower inlet, advance it upward along the screw axis, and discharge it at a higher outlet. */
+
+        require constraint {
+            screwSystem.designFlowRate >= 0.018 and
+            screwSystem.liftHeight >= 2.0 and
+            screwSystem.operatingEfficiency >= 0.60
+        }
+    }
+
+    requirement def SpeedControlRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The controller shall maintain screw rotational speed within the allowable operating range during normal conveying. */
+
+        require constraint {
+            screwSystem.nominalSpeed >= screwSystem.minimumSpeed and
+            screwSystem.nominalSpeed <= screwSystem.maximumSpeed
+        }
+    }
+
+    requirement def MechanicalDriveRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The mechanical drive shall convert supplied electrical power into low-speed, high-torque shaft power suitable for rotating the screw under loaded conditions. */
+
+        require constraint {
+            screwSystem.motor.ratedPower >= 5000.0 and
+            screwSystem.reducer.reductionRatio >= 20.0 and
+            screwSystem.reducer.efficiency >= 0.90
+        }
+    }
+
+    requirement def ContainmentRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The trough shall contain material during upward transport and provide a close clearance around the helical screw to limit backflow and leakage. */
+
+        require constraint {
+            screwSystem.trough.insideDiameter > screwSystem.screw.outerDiameter and
+            screwSystem.trough.linerClearance <= 0.025
+        }
+    }
+
+    requirement def FaultResponseRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The system shall transition to a faulted state when overload or emergency stop conditions are detected. */
+
+        require constraint {
+            screwSystem.controller.overloadDetected implies screwSystem.control.faultActive
+        }
+    }
+
+    part archimedesScrewMaterialLiftSystem : ArchimedesScrewConveyor {
+        attribute designFlowRate : VolumetricFlowRate = 0.020;
+        attribute liftHeight : Length = 2.50;
+        attribute inclinationAngle : Angle = 32.0;
+        attribute nominalSpeed : AngularSpeed = 58.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy SpeedControlRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy MechanicalDriveRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy ContainmentRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy FaultResponseRequirement by archimedesScrewMaterialLiftSystem;
+
+}
+tokens used
+4,216
+package ArchimedesScrewSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Length :> Real {
+        unit = "m";
+    }
+
+    attribute def Diameter :> Real {
+        unit = "m";
+    }
+
+    attribute def Angle :> Real {
+        unit = "deg";
+    }
+
+    attribute def AngularSpeed :> Real {
+        unit = "rev/min";
+    }
+
+    attribute def VolumetricFlowRate :> Real {
+        unit = "m^3/s";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/s";
+    }
+
+    attribute def Density :> Real {
+        unit = "kg/m^3";
+    }
+
+    attribute def FillRatio :> Real {
+        unit = "1";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    item def BulkMaterial {
+        attribute density : Density;
+        attribute particleDiameter : Length;
+        attribute moistureFraction : Real;
+    }
+
+    item def Water {
+        attribute density : Density = 1000.0;
+    }
+
+    item def RotationalMechanicalPower {
+        attribute speed : AngularSpeed;
+        attribute torque : Torque;
+        attribute power : Power;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+        attribute power : Power;
+    }
+
+    port def MaterialInletPort {
+        in item incomingMaterial : BulkMaterial;
+    }
+
+    port def MaterialOutletPort {
+        out item dischargedMaterial : BulkMaterial;
+    }
+
+    port def WaterInletPort {
+        in item incomingWater : Water;
+    }
+
+    port def WaterOutletPort {
+        out item dischargedWater : Water;
+    }
+
+    port def ElectricalPowerPort {
+        in item suppliedPower : ElectricalPower;
+    }
+
+    port def ShaftPowerPort {
+        out item deliveredShaftPower : RotationalMechanicalPower;
+    }
+
+    port def ControlPort {
+        in attribute startCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        in attribute targetSpeed : AngularSpeed;
+        out attribute actualSpeed : AngularSpeed;
+        out attribute faultActive : Boolean;
+    }
+
+    part def Motor {
+        attribute ratedPower : Power = 5500.0;
+        attribute ratedSpeed : AngularSpeed = 1750.0;
+        attribute efficiency : Efficiency = 0.91;
+
+        port electricalInput : ElectricalPowerPort;
+        port shaftOutput : ShaftPowerPort;
+
+        perform action ConvertElectricalToRotationalPower {
+            in item electricalInputPower : ElectricalPower;
+            out item shaftPower : RotationalMechanicalPower;
+        }
+    }
+
+    part def GearReducer {
+        attribute reductionRatio : Real = 30.0;
+        attribute efficiency : Efficiency = 0.94;
+        attribute outputSpeed : AngularSpeed;
+        attribute outputTorque : Torque;
+
+        port highSpeedInput : ShaftPowerPort;
+        port lowSpeedOutput : ShaftPowerPort;
+
+        perform action ReduceSpeedIncreaseTorque {
+            in item highSpeedPower : RotationalMechanicalPower;
+            out item lowSpeedPower : RotationalMechanicalPower;
+        }
+    }
+
+    part def HelicalScrew {
+        attribute outerDiameter : Diameter = 0.45;
+        attribute shaftDiameter : Diameter = 0.12;
+        attribute pitch : Length = 0.35;
+        attribute length : Length = 4.50;
+        attribute flightThickness : Length = 0.008;
+        attribute rotationalSpeed : AngularSpeed;
+        attribute requiredTorque : Torque;
+        attribute fillRatio : FillRatio = 0.42;
+
+        port driveInput : ShaftPowerPort;
+
+        perform action RotateFlights {
+            in item shaftPower : RotationalMechanicalPower;
+            out attribute screwSpeed : AngularSpeed;
+        }
+    }
+
+    part def Trough {
+        attribute insideDiameter : Diameter = 0.48;
+        attribute length : Length = 4.70;
+        attribute inclinationAngle : Angle = 32.0;
+        attribute linerClearance : Length = 0.015;
+        attribute sealed : Boolean = true;
+
+        port inlet : MaterialInletPort;
+        port outlet : MaterialOutletPort;
+    }
+
+    part def BearingAssembly {
+        attribute radialLoadLimit : Real = 12000.0;
+        attribute axialLoadLimit : Real = 8000.0;
+        attribute lubricationRequired : Boolean = true;
+        attribute temperatureLimit : Real = 85.0;
+    }
+
+    part def SupportFrame {
+        attribute baseLength : Length = 5.20;
+        attribute baseWidth : Length = 0.90;
+        attribute installedInclination : Angle = 32.0;
+        attribute corrosionProtection : Boolean = true;
+    }
+
+    part def SpeedController {
+        attribute commandedSpeed : AngularSpeed;
+        attribute measuredSpeed : AngularSpeed;
+        attribute overloadDetected : Boolean;
+        attribute emergencyStopActive : Boolean;
+
+        port controlInterface : ControlPort;
+
+        perform action RegulateSpeed {
+            in attribute desiredSpeed : AngularSpeed;
+            in attribute currentSpeed : AngularSpeed;
+            out attribute motorCommand : Real;
+        }
+    }
+
+    part def ArchimedesScrewConveyor {
+        attribute designFlowRate : VolumetricFlowRate = 0.018;
+        attribute maximumFlowRate : VolumetricFlowRate = 0.025;
+        attribute liftHeight : Length = 2.35;
+        attribute inclinationAngle : Angle = 32.0;
+        attribute operatingEfficiency : Efficiency = 0.68;
+        attribute nominalSpeed : AngularSpeed = 58.0;
+        attribute maximumSpeed : AngularSpeed = 72.0;
+        attribute minimumSpeed : AngularSpeed = 18.0;
+
+        port materialInlet : MaterialInletPort;
+        port materialOutlet : MaterialOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port control : ControlPort;
+
+        part motor : Motor;
+        part reducer : GearReducer;
+        part screw : HelicalScrew;
+        part trough : Trough;
+        part lowerBearing : BearingAssembly;
+        part upperBearing : BearingAssembly;
+        part frame : SupportFrame;
+        part controller : SpeedController;
+
+        connect electricalSupply to motor.electricalInput;
+        connect motor.shaftOutput to reducer.highSpeedInput;
+        connect reducer.lowSpeedOutput to screw.driveInput;
+        connect materialInlet to trough.inlet;
+        connect trough.outlet to materialOutlet;
+        connect control to controller.controlInterface;
+
+        perform action ConveyMaterialUphill {
+            in item feedMaterial : BulkMaterial;
+            in attribute requestedSpeed : AngularSpeed;
+            out item elevatedMaterial : BulkMaterial;
+            out attribute actualFlowRate : VolumetricFlowRate;
+
+            first startMotor;
+            then accelerateScrew;
+            then captureMaterialAtLowerEnd;
+            then liftMaterialAlongInclinedTrough;
+            then dischargeMaterialAtUpperEnd;
+
+            action startMotor;
+            action accelerateScrew;
+            action captureMaterialAtLowerEnd;
+            action liftMaterialAlongInclinedTrough;
+            action dischargeMaterialAtUpperEnd;
+        }
+
+        state def OperatingStateMachine {
+            state Off;
+            state Starting;
+            state Running;
+            state Stopping;
+            state Faulted;
+
+            initial then Off;
+
+            transition Off_to_Starting
+                first Off
+                accept control.startCommand
+                then Starting;
+
+            transition Starting_to_Running
+                first Starting
+                if screw.rotationalSpeed >= minimumSpeed
+                then Running;
+
+            transition Running_to_Stopping
+                first Running
+                accept control.stopCommand
+                then Stopping;
+
+            transition Stopping_to_Off
+                first Stopping
+                if screw.rotationalSpeed <= 0.5
+                then Off;
+
+            transition Running_to_Faulted
+                first Running
+                if controller.overloadDetected or controller.emergencyStopActive
+                then Faulted;
+
+            transition Starting_to_Faulted
+                first Starting
+                if controller.overloadDetected or controller.emergencyStopActive
+                then Faulted;
+
+            transition Faulted_to_Off
+                first Faulted
+                accept control.stopCommand
+                then Off;
+        }
+    }
+
+    part def ArchimedesScrewPump {
+        attribute designFlowRate : VolumetricFlowRate = 0.030;
+        attribute liftHeight : Length = 1.80;
+        attribute inclinationAngle : Angle = 28.0;
+        attribute nominalSpeed : AngularSpeed = 42.0;
+        attribute operatingEfficiency : Efficiency = 0.72;
+
+        port waterInlet : WaterInletPort;
+        port waterOutlet : WaterOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port control : ControlPort;
+
+        part motor : Motor;
+        part reducer : GearReducer;
+        part screw : HelicalScrew {
+            attribute outerDiameter : Diameter = 0.60;
+            attribute pitch : Length = 0.48;
+            attribute length : Length = 3.90;
+            attribute fillRatio : FillRatio = 0.70;
+        }
+        part trough : Trough {
+            attribute insideDiameter : Diameter = 0.64;
+            attribute length : Length = 4.10;
+            attribute inclinationAngle : Angle = 28.0;
+            attribute sealed : Boolean = false;
+        }
+        part lowerBearing : BearingAssembly;
+        part upperBearing : BearingAssembly;
+        part frame : SupportFrame;
+        part controller : SpeedController;
+
+        connect electricalSupply to motor.electricalInput;
+        connect motor.shaftOutput to reducer.highSpeedInput;
+        connect reducer.lowSpeedOutput to screw.driveInput;
+        connect control to controller.controlInterface;
+
+        perform action LiftWater {
+            in item lowElevationWater : Water;
+            in attribute commandedSpeed : AngularSpeed;
+            out item raisedWater : Water;
+            out attribute deliveredFlowRate : VolumetricFlowRate;
+
+            first rotateScrew;
+            then trapWaterBetweenFlights;
+            then advanceWaterUpIncline;
+            then dischargeWaterAtHigherElevation;
+
+            action rotateScrew;
+            action trapWaterBetweenFlights;
+            action advanceWaterUpIncline;
+            action dischargeWaterAtHigherElevation;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The system shall use a rotating helical screw within an inclined trough to capture material at a lower inlet, advance it upward along the screw axis, and discharge it at a higher outlet. */
+
+        require constraint {
+            screwSystem.designFlowRate >= 0.018 and
+            screwSystem.liftHeight >= 2.0 and
+            screwSystem.operatingEfficiency >= 0.60
+        }
+    }
+
+    requirement def SpeedControlRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The controller shall maintain screw rotational speed within the allowable operating range during normal conveying. */
+
+        require constraint {
+            screwSystem.nominalSpeed >= screwSystem.minimumSpeed and
+            screwSystem.nominalSpeed <= screwSystem.maximumSpeed
+        }
+    }
+
+    requirement def MechanicalDriveRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The mechanical drive shall convert supplied electrical power into low-speed, high-torque shaft power suitable for rotating the screw under loaded conditions. */
+
+        require constraint {
+            screwSystem.motor.ratedPower >= 5000.0 and
+            screwSystem.reducer.reductionRatio >= 20.0 and
+            screwSystem.reducer.efficiency >= 0.90
+        }
+    }
+
+    requirement def ContainmentRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The trough shall contain material during upward transport and provide a close clearance around the helical screw to limit backflow and leakage. */
+
+        require constraint {
+            screwSystem.trough.insideDiameter > screwSystem.screw.outerDiameter and
+            screwSystem.trough.linerClearance <= 0.025
+        }
+    }
+
+    requirement def FaultResponseRequirement {
+        subject screwSystem : ArchimedesScrewConveyor;
+
+        doc /* The system shall transition to a faulted state when overload or emergency stop conditions are detected. */
+
+        require constraint {
+            screwSystem.controller.overloadDetected implies screwSystem.control.faultActive
+        }
+    }
+
+    part archimedesScrewMaterialLiftSystem : ArchimedesScrewConveyor {
+        attribute designFlowRate : VolumetricFlowRate = 0.020;
+        attribute liftHeight : Length = 2.50;
+        attribute inclinationAngle : Angle = 32.0;
+        attribute nominalSpeed : AngularSpeed = 58.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy SpeedControlRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy MechanicalDriveRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy ContainmentRequirement by archimedesScrewMaterialLiftSystem;
+    satisfy FaultResponseRequirement by archimedesScrewMaterialLiftSystem;
+
+}

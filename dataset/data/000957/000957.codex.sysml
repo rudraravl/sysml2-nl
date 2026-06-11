@@ -1,0 +1,543 @@
+package WaterladderPumpingSubsystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def PressureValue :> Real {
+        unit = "kPa";
+    }
+
+    attribute def FlowRateValue :> Real {
+        unit = "L/min";
+    }
+
+    attribute def VolumeValue :> Real {
+        unit = "L";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    attribute def RotationalSpeedValue :> Real {
+        unit = "rpm";
+    }
+
+    attribute def PowerValue :> Real {
+        unit = "W";
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = "V";
+    }
+
+    attribute def CurrentValue :> Real {
+        unit = "A";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    item def Water {
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+        attribute volumeFlow : FlowRateValue;
+        attribute contaminantLevel : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommandKind;
+        attribute requestedFlow : FlowRateValue;
+        attribute requestedPressure : PressureValue;
+    }
+
+    item def SensorSignal {
+        attribute measuredFlow : FlowRateValue;
+        attribute measuredPressure : PressureValue;
+        attribute measuredLevel : Real;
+        attribute valid : Boolean;
+    }
+
+    enum def PumpCommandKind {
+        enum off;
+        enum prime;
+        enum start;
+        enum run;
+        enum stop;
+        enum faultReset;
+    }
+
+    enum def PumpOperatingMode {
+        enum idle;
+        enum priming;
+        enum pumping;
+        enum stopping;
+        enum faulted;
+        enum maintenance;
+    }
+
+    port def FluidInPort {
+        in item fluidIn : Water;
+    }
+
+    port def FluidOutPort {
+        out item fluidOut : Water;
+    }
+
+    port def ElectricalPowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item controlIn : ControlSignal;
+    }
+
+    port def SensorOutputPort {
+        out item sensorOut : SensorSignal;
+    }
+
+    port def DrainPort {
+        out item drainedFluid : Water;
+    }
+
+    part def InletReservoir {
+        attribute usableVolume : VolumeValue = 500.0;
+        attribute currentVolume : VolumeValue;
+        attribute minimumOperatingVolume : VolumeValue = 30.0;
+        attribute fluidTemperature : TemperatureValue;
+        attribute levelFraction : Real;
+
+        port outlet : FluidOutPort;
+        port levelTelemetry : SensorOutputPort;
+    }
+
+    part def SuctionLine {
+        attribute nominalDiameter : Real = 38.0;
+        attribute length : Real = 2.5;
+        attribute maxVacuumPressureDrop : PressureValue = 18.0;
+        attribute checkValveCrackingPressure : PressureValue = 2.0;
+
+        port inlet : FluidInPort;
+        port outlet : FluidOutPort;
+        port drain : DrainPort;
+    }
+
+    part def WaterladderPump {
+        attribute targetFlow : FlowRateValue = 75.0;
+        attribute actualFlow : FlowRateValue;
+        attribute inletPressure : PressureValue;
+        attribute dischargePressure : PressureValue;
+        attribute maxDischargePressure : PressureValue = 450.0;
+        attribute nominalDischargePressure : PressureValue = 280.0;
+        attribute minimumNetPositiveSuctionPressure : PressureValue = 25.0;
+        attribute impellerSpeed : RotationalSpeedValue;
+        attribute nominalSpeed : RotationalSpeedValue = 1750.0;
+        attribute hydraulicEfficiency : Real = 0.72;
+        attribute primed : Boolean = false;
+        attribute cavitationDetected : Boolean = false;
+        attribute dryRunDetected : Boolean = false;
+
+        port suction : FluidInPort;
+        port discharge : FluidOutPort;
+        port drivePower : ElectricalPowerPort;
+        port commandPort : ControlInputPort;
+        port telemetry : SensorOutputPort;
+
+        part waterladderStage[4] : PumpStage {
+            attribute stagePressureRise : PressureValue = 70.0;
+        }
+
+        part casing : PumpCasing;
+        part shaftSeal : MechanicalSeal;
+        part motor : ElectricMotor;
+    }
+
+    part def PumpStage {
+        attribute stagePressureRise : PressureValue;
+        attribute bladeCount : Integer = 12;
+        attribute ladderPocketVolume : VolumeValue = 0.18;
+        attribute slipFraction : Real = 0.06;
+
+        port stageInlet : FluidInPort;
+        port stageOutlet : FluidOutPort;
+    }
+
+    part def PumpCasing {
+        attribute material : String = "316 stainless steel";
+        attribute designPressure : PressureValue = 600.0;
+        attribute hydrostaticTestPressure : PressureValue = 900.0;
+        attribute corrosionAllowance : Real = 1.5;
+
+        port inletNozzle : FluidInPort;
+        port outletNozzle : FluidOutPort;
+        port casingDrain : DrainPort;
+    }
+
+    part def MechanicalSeal {
+        attribute leakageRateLimit : FlowRateValue = 0.02;
+        attribute sealFlushFlow : FlowRateValue = 1.5;
+        attribute maximumFaceTemperature : TemperatureValue = 85.0;
+
+        port flushIn : FluidInPort;
+        port leakageOut : DrainPort;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : PowerValue = 2200.0;
+        attribute ratedVoltage : VoltageValue = 240.0;
+        attribute fullLoadCurrent : CurrentValue = 11.0;
+        attribute ratedSpeed : RotationalSpeedValue = 1750.0;
+        attribute windingTemperature : TemperatureValue;
+        attribute thermalTripTemperature : TemperatureValue = 120.0;
+
+        port electricalInput : ElectricalPowerPort;
+    }
+
+    part def DischargeLine {
+        attribute nominalDiameter : Real = 32.0;
+        attribute length : Real = 8.0;
+        attribute pressureDropAtNominalFlow : PressureValue = 35.0;
+        attribute reliefPressureSetting : PressureValue = 420.0;
+
+        port inlet : FluidInPort;
+        port outlet : FluidOutPort;
+        port reliefDrain : DrainPort;
+    }
+
+    part def OutletManifold {
+        attribute headerVolume : VolumeValue = 12.0;
+        attribute maxWorkingPressure : PressureValue = 500.0;
+
+        port inlet : FluidInPort;
+        port serviceOutlet : FluidOutPort;
+        port bypassOutlet : FluidOutPort;
+    }
+
+    part def FlowSensor {
+        attribute measurementRangeMax : FlowRateValue = 150.0;
+        attribute accuracyPercentFullScale : Real = 1.0;
+        attribute measuredFlow : FlowRateValue;
+        attribute signalValid : Boolean;
+
+        port sensedFluid : FluidInPort;
+        port telemetry : SensorOutputPort;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeMax : PressureValue = 600.0;
+        attribute accuracyPercentFullScale : Real = 0.5;
+        attribute measuredPressure : PressureValue;
+        attribute signalValid : Boolean;
+
+        port pressureTap : FluidInPort;
+        port telemetry : SensorOutputPort;
+    }
+
+    part def PumpController {
+        attribute commandedMode : PumpOperatingMode = PumpOperatingMode::idle;
+        attribute flowSetpoint : FlowRateValue = 75.0;
+        attribute pressureSetpoint : PressureValue = 280.0;
+        attribute startDelay : TimeValue = 2.0;
+        attribute dryRunTimeout : TimeValue = 5.0;
+        attribute faultLatched : Boolean = false;
+
+        port powerCommand : ControlInputPort;
+        port reservoirFeedback : SensorOutputPort;
+        port flowFeedback : SensorOutputPort;
+        port pressureFeedback : SensorOutputPort;
+        port pumpCommand : ControlInputPort;
+    }
+
+    part def PowerSupply {
+        attribute supplyVoltage : VoltageValue = 240.0;
+        attribute availableCurrent : CurrentValue = 20.0;
+        attribute breakerTripCurrent : CurrentValue = 25.0;
+
+        port outputPower : ElectricalPowerPort;
+    }
+
+    part def DrainCollection {
+        attribute collectionVolume : VolumeValue = 25.0;
+        attribute highLevelAlarmFraction : Real = 0.8;
+
+        port inlet : FluidInPort;
+    }
+
+    action def PrimePump {
+        in reservoirLevel : Real;
+        in inletPressure : PressureValue;
+        out primed : Boolean;
+
+        first startPriming;
+        then verifyLiquidAtSuction;
+
+        action startPriming;
+        action verifyLiquidAtSuction;
+
+        constraint {
+            primed == (reservoirLevel > 0.10 and inletPressure > 5.0)
+        }
+    }
+
+    action def RegulateFlow {
+        in measuredFlow : FlowRateValue;
+        in flowSetpoint : FlowRateValue;
+        in measuredPressure : PressureValue;
+        in pressureLimit : PressureValue;
+        out requestedSpeed : RotationalSpeedValue;
+
+        action calculateFlowError;
+        action applyPressureLimit;
+        action commandMotorSpeed;
+
+        first calculateFlowError;
+        then applyPressureLimit;
+        then commandMotorSpeed;
+
+        constraint {
+            requestedSpeed >= 600.0 and requestedSpeed <= 1750.0
+        }
+
+        constraint {
+            measuredPressure <= pressureLimit
+        }
+    }
+
+    action def StopPumpSafely {
+        in currentFlow : FlowRateValue;
+        out stopped : Boolean;
+
+        action rampDownMotor;
+        action closeCheckValve;
+        action confirmZeroFlow;
+
+        first rampDownMotor;
+        then closeCheckValve;
+        then confirmZeroFlow;
+
+        constraint {
+            stopped == (currentFlow <= 1.0)
+        }
+    }
+
+    state def PumpControlStateMachine {
+        attribute mode : PumpOperatingMode;
+
+        entry action initializeController;
+
+        state idle;
+        state priming;
+        state pumping;
+        state stopping;
+        state faulted;
+        state maintenance;
+
+        transition idle_to_priming
+            first idle
+            then priming
+            accept ControlSignal
+            if command == PumpCommandKind::prime;
+
+        transition priming_to_pumping
+            first priming
+            then pumping
+            accept SensorSignal
+            if valid and measuredLevel > 0.10;
+
+        transition pumping_to_stopping
+            first pumping
+            then stopping
+            accept ControlSignal
+            if command == PumpCommandKind::stop;
+
+        transition pumping_to_faulted_lowLevel
+            first pumping
+            then faulted
+            accept SensorSignal
+            if valid and measuredLevel <= 0.05;
+
+        transition pumping_to_faulted_overPressure
+            first pumping
+            then faulted
+            accept SensorSignal
+            if valid and measuredPressure > 420.0;
+
+        transition priming_to_faulted_timeout
+            first priming
+            then faulted
+            accept SensorSignal
+            if not valid;
+
+        transition stopping_to_idle
+            first stopping
+            then idle
+            accept SensorSignal
+            if valid and measuredFlow <= 1.0;
+
+        transition faulted_to_idle
+            first faulted
+            then idle
+            accept ControlSignal
+            if command == PumpCommandKind::faultReset;
+
+        transition idle_to_maintenance
+            first idle
+            then maintenance
+            accept ControlSignal
+            if command == PumpCommandKind::off;
+
+        transition maintenance_to_idle
+            first maintenance
+            then idle
+            accept ControlSignal
+            if command == PumpCommandKind::faultReset;
+    }
+
+    part def WaterladderPumpingSubsystem {
+        attribute requiredFlowRate : FlowRateValue = 75.0;
+        attribute requiredDischargePressure : PressureValue = 280.0;
+        attribute maximumAllowablePressure : PressureValue = 420.0;
+        attribute minimumReservoirLevelFraction : Real = 0.10;
+        attribute operatingTemperatureMin : TemperatureValue = 2.0;
+        attribute operatingTemperatureMax : TemperatureValue = 45.0;
+
+        port fluidSupply : FluidInPort;
+        port pumpedFluidOutput : FluidOutPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommand : ControlInputPort;
+        port subsystemTelemetry : SensorOutputPort;
+        port drainOutlet : DrainPort;
+
+        part reservoir : InletReservoir;
+        part suctionLine : SuctionLine;
+        part pump : WaterladderPump;
+        part dischargeLine : DischargeLine;
+        part manifold : OutletManifold;
+        part flowSensor : FlowSensor;
+        part pressureSensor : PressureSensor;
+        part controller : PumpController;
+        part powerSupply : PowerSupply;
+        part drainTank : DrainCollection;
+        part controlState : PumpControlStateMachine;
+
+        connection externalSupplyToReservoir connect fluidSupply to reservoir.outlet;
+        connection reservoirToSuction connect reservoir.outlet to suctionLine.inlet;
+        connection suctionToPump connect suctionLine.outlet to pump.suction;
+        connection pumpToDischarge connect pump.discharge to dischargeLine.inlet;
+        connection dischargeToManifold connect dischargeLine.outlet to manifold.inlet;
+        connection manifoldToOutput connect manifold.serviceOutlet to pumpedFluidOutput;
+
+        connection supplyPowerToPowerSupply connect electricalSupply to powerSupply.outputPower;
+        connection powerSupplyToPumpMotor connect powerSupply.outputPower to pump.drivePower;
+
+        connection operatorToController connect operatorCommand to controller.powerCommand;
+        connection controllerToPump connect controller.pumpCommand to pump.commandPort;
+
+        connection reservoirTelemetryToController connect reservoir.levelTelemetry to controller.reservoirFeedback;
+        connection flowSensorToController connect flowSensor.telemetry to controller.flowFeedback;
+        connection pressureSensorToController connect pressureSensor.telemetry to controller.pressureFeedback;
+        connection pumpTelemetryToSubsystem connect pump.telemetry to subsystemTelemetry;
+
+        connection dischargeTapToFlowSensor connect dischargeLine.outlet to flowSensor.sensedFluid;
+        connection manifoldTapToPressureSensor connect manifold.inlet to pressureSensor.pressureTap;
+
+        connection suctionDrainToTank connect suctionLine.drain to drainTank.inlet;
+        connection casingDrainToTank connect pump.casing.casingDrain to drainTank.inlet;
+        connection reliefDrainToTank connect dischargeLine.reliefDrain to drainTank.inlet;
+        connection tankToExternalDrain connect drainTank.inlet to drainOutlet;
+
+        perform action PrimePump {
+            in reservoirLevel = reservoir.levelFraction;
+            in inletPressure = pump.inletPressure;
+            out primed = pump.primed;
+        }
+
+        perform action RegulateFlow {
+            in measuredFlow = flowSensor.measuredFlow;
+            in flowSetpoint = controller.flowSetpoint;
+            in measuredPressure = pressureSensor.measuredPressure;
+            in pressureLimit = maximumAllowablePressure;
+            out requestedSpeed = pump.impellerSpeed;
+        }
+
+        perform action StopPumpSafely {
+            in currentFlow = pump.actualFlow;
+            out stopped;
+        }
+    }
+
+    requirement def FlowPerformanceRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.pump.actualFlow >= 70.0 and subsystem.pump.actualFlow <= 80.0
+        }
+    }
+
+    requirement def PressurePerformanceRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.pump.dischargePressure >= 260.0 and subsystem.pump.dischargePressure <= 320.0
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.pressureSensor.measuredPressure <= subsystem.maximumAllowablePressure
+        }
+    }
+
+    requirement def DryRunProtectionRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.reservoir.levelFraction > 0.05 or subsystem.pump.dryRunDetected == true
+        }
+    }
+
+    requirement def PrimingRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.pump.primed == true before subsystem.controlState.mode == PumpOperatingMode::pumping
+        }
+    }
+
+    requirement def ElectricalCompatibilityRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.powerSupply.supplyVoltage == 240.0 and
+            subsystem.powerSupply.availableCurrent >= subsystem.pump.motor.fullLoadCurrent
+        }
+    }
+
+    requirement def TemperatureOperatingRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.reservoir.fluidTemperature >= subsystem.operatingTemperatureMin and
+            subsystem.reservoir.fluidTemperature <= subsystem.operatingTemperatureMax
+        }
+    }
+
+    requirement def LeakageRequirement {
+        subject subsystem : WaterladderPumpingSubsystem;
+        require constraint {
+            subsystem.pump.shaftSeal.leakageRateLimit <= 0.02
+        }
+    }
+
+    satisfy FlowPerformanceRequirement by WaterladderPumpingSubsystem::pump;
+    satisfy PressurePerformanceRequirement by WaterladderPumpingSubsystem::pump;
+    satisfy OverPressureProtectionRequirement by WaterladderPumpingSubsystem::pressureSensor;
+    satisfy DryRunProtectionRequirement by WaterladderPumpingSubsystem::controller;
+    satisfy PrimingRequirement by WaterladderPumpingSubsystem::controlState;
+    satisfy ElectricalCompatibilityRequirement by WaterladderPumpingSubsystem::powerSupply;
+    satisfy TemperatureOperatingRequirement by WaterladderPumpingSubsystem::reservoir;
+    satisfy LeakageRequirement by WaterladderPumpingSubsystem::pump::shaftSeal;
+}

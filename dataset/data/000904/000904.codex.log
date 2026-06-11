@@ -1,0 +1,743 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-f_p7uat2
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4ab-0e49-7f92-9382-9f3b03df5153
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Injector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package InjectorSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def PressureValue :> Real {
+    unit = "Pa";
+  }
+
+  attribute def FlowRateValue :> Real {
+    unit = "m^3/s";
+  }
+
+  attribute def VoltageValue :> Real {
+    unit = "V";
+  }
+
+  attribute def CurrentValue :> Real {
+    unit = "A";
+  }
+
+  attribute def DurationValue :> Real {
+    unit = "s";
+  }
+
+  attribute def TemperatureValue :> Real {
+    unit = "K";
+  }
+
+  attribute def VolumeValue :> Real {
+    unit = "m^3";
+  }
+
+  attribute def PercentageValue :> Real {
+    unit = "%";
+  }
+
+  item def PressurizedFluid {
+    attribute pressure : PressureValue;
+    attribute temperature : TemperatureValue;
+    attribute contaminationLevel : PercentageValue;
+  }
+
+  item def AtomizedSpray {
+    attribute coneAngle : Real;
+    attribute meanDropletDiameter : Real;
+    attribute flowRate : FlowRateValue;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : VoltageValue;
+    attribute current : CurrentValue;
+  }
+
+  item def InjectionCommand {
+    attribute requestedPulseWidth : DurationValue;
+    attribute requestedFlowRate : FlowRateValue;
+    attribute enable : Boolean;
+  }
+
+  item def InjectionStatus {
+    attribute valveOpen : Boolean;
+    attribute measuredPressure : PressureValue;
+    attribute deliveredVolume : VolumeValue;
+    attribute faultActive : Boolean;
+  }
+
+  port def FluidInletPort {
+    in item fluid : PressurizedFluid;
+  }
+
+  port def SprayOutletPort {
+    out item spray : AtomizedSpray;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : InjectionCommand;
+  }
+
+  port def StatusPort {
+    out item status : InjectionStatus;
+  }
+
+  part def Injector {
+    attribute maxInletPressure : PressureValue = 20000000.0;
+    attribute minInletPressure : PressureValue = 500000.0;
+    attribute nominalFlowRate : FlowRateValue = 0.0000012;
+    attribute openingDelay : DurationValue = 0.001;
+    attribute closingDelay : DurationValue = 0.0012;
+    attribute coilResistance : Real = 12.0;
+    attribute maxCoilTemperature : TemperatureValue = 423.15;
+
+    port inlet : FluidInletPort;
+    port outlet : SprayOutletPort;
+    port powerInput : ElectricalPowerPort;
+    port commandInput : CommandPort;
+    port statusOutput : StatusPort;
+
+    part filter {
+      attribute filtrationEfficiency : PercentageValue = 98.5;
+      attribute maxParticleSize : Real = 0.00002;
+    }
+
+    part solenoidCoil {
+      attribute resistance : Real = 12.0;
+      attribute inductance : Real = 0.006;
+      attribute temperature : TemperatureValue = 298.15;
+    }
+
+    part armature {
+      attribute stroke : Real = 0.00015;
+      attribute responseTime : DurationValue = 0.001;
+    }
+
+    part needleValve {
+      attribute seatDiameter : Real = 0.001;
+      attribute open : Boolean = false;
+      attribute leakageRateClosed : FlowRateValue = 0.0000000002;
+    }
+
+    part nozzle {
+      attribute orificeCount : Integer = 6;
+      attribute orificeDiameter : Real = 0.00016;
+      attribute nominalConeAngle : Real = 60.0;
+    }
+
+    action injectFluid {
+      in item command : InjectionCommand;
+      in item inletFluid : PressurizedFluid;
+      out item spray : AtomizedSpray;
+      out item status : InjectionStatus;
+
+      first start;
+      then validateCommand;
+      then energizeCoil;
+      then openNeedle;
+      then meterFluid;
+      then atomizeFluid;
+      then closeNeedle;
+      then reportStatus;
+      then done;
+
+      action validateCommand {
+        in item command : InjectionCommand;
+      }
+
+      action energizeCoil {
+        in item power : ElectricalPower;
+      }
+
+      action openNeedle {
+        out openState : Boolean;
+      }
+
+      action meterFluid {
+        in pulseWidth : DurationValue;
+        out deliveredVolume : VolumeValue;
+      }
+
+      action atomizeFluid {
+        in item inletFluid : PressurizedFluid;
+        out item spray : AtomizedSpray;
+      }
+
+      action closeNeedle {
+        out openState : Boolean;
+      }
+
+      action reportStatus {
+        out item status : InjectionStatus;
+      }
+    }
+
+    state def InjectorOperatingState {
+      state Off;
+      state Ready;
+      state Priming;
+      state Injecting;
+      state Closing;
+      state Fault;
+
+      initial then Off;
+
+      transition Off_to_Ready
+        first Off
+        accept InjectionCommand
+        if command.enable
+        then Ready;
+
+      transition Ready_to_Priming
+        first Ready
+        accept InjectionCommand
+        if command.requestedPulseWidth > 0.0
+        then Priming;
+
+      transition Priming_to_Injecting
+        first Priming
+        after openingDelay
+        then Injecting;
+
+      transition Injecting_to_Closing
+        first Injecting
+        after command.requestedPulseWidth
+        then Closing;
+
+      transition Closing_to_Ready
+        first Closing
+        after closingDelay
+        then Ready;
+
+      transition Any_to_Fault
+        first Ready
+        if solenoidCoil.temperature > maxCoilTemperature
+        then Fault;
+
+      transition Fault_to_Off
+        first Fault
+        accept InjectionCommand
+        if not command.enable
+        then Off;
+    }
+  }
+
+  part def FluidSupply {
+    attribute reservoirVolume : VolumeValue = 0.002;
+    attribute supplyPressure : PressureValue = 5000000.0;
+    attribute fluidTemperature : TemperatureValue = 293.15;
+
+    port outlet : FluidInletPort;
+  }
+
+  part def InjectorController {
+    attribute commandedPulseWidth : DurationValue = 0.004;
+    attribute targetFlowRate : FlowRateValue = 0.0000012;
+    attribute diagnosticsEnabled : Boolean = true;
+
+    port commandOutput : CommandPort;
+    port statusInput : StatusPort;
+
+    action computeInjectionCommand {
+      in targetVolume : VolumeValue;
+      in railPressure : PressureValue;
+      out item command : InjectionCommand;
+    }
+  }
+
+  part def PowerDriver {
+    attribute nominalVoltage : VoltageValue = 12.0;
+    attribute peakCurrentLimit : CurrentValue = 4.0;
+    attribute holdCurrentLimit : CurrentValue = 1.2;
+
+    port powerOutput : ElectricalPowerPort;
+  }
+
+  part def ReceivingChamber {
+    attribute chamberPressure : PressureValue = 101325.0;
+    attribute collectedVolume : VolumeValue = 0.0;
+
+    port sprayInput : SprayOutletPort;
+  }
+
+  part def InjectorBasedSystem {
+    attribute primaryFunction : String = "Meter and deliver a commanded quantity of pressurized fluid as an atomized spray into a receiving chamber.";
+
+    part supply : FluidSupply;
+    part controller : InjectorController;
+    part driver : PowerDriver;
+    part injector : Injector;
+    part chamber : ReceivingChamber;
+
+    connect supply.outlet to injector.inlet;
+    connect driver.powerOutput to injector.powerInput;
+    connect controller.commandOutput to injector.commandInput;
+    connect injector.statusOutput to controller.statusInput;
+    connect injector.outlet to chamber.sprayInput;
+
+    perform injector.injectFluid;
+  }
+
+  requirement def PrimaryInjectionFunction {
+    subject system : InjectorBasedSystem;
+
+    doc
+    /* The system shall use an injector to transform controlled electrical and command inputs into a metered discharge of pressurized fluid as an atomized spray. */
+
+    require constraint {
+      system.injector.nominalFlowRate > 0.0
+    }
+  }
+
+  requirement def PressureCompatibility {
+    subject injector : Injector;
+
+    doc
+    /* The injector shall operate only when inlet pressure remains within the supported pressure range. */
+
+    require constraint {
+      injector.minInletPressure <= injector.maxInletPressure
+    }
+  }
+
+  requirement def CommandedMetering {
+    subject system : InjectorBasedSystem;
+
+    doc
+    /* The delivered spray volume shall be proportional to commanded pulse width and nominal flow rate during normal injection. */
+
+    require constraint {
+      system.controller.commandedPulseWidth > 0.0 and
+      system.injector.nominalFlowRate > 0.0
+    }
+  }
+
+  requirement def ElectricalActuation {
+    subject driver : PowerDriver;
+
+    doc
+    /* The power driver shall provide bounded electrical energy sufficient to actuate the injector solenoid without exceeding current limits. */
+
+    require constraint {
+      driver.nominalVoltage >= 9.0 and
+      driver.nominalVoltage <= 16.0 and
+      driver.peakCurrentLimit > driver.holdCurrentLimit
+    }
+  }
+
+  requirement def ClosedValveLeakage {
+    subject injector : Injector;
+
+    doc
+    /* The injector needle valve shall limit leakage when commanded closed. */
+
+    require constraint {
+      injector.needleValve.leakageRateClosed <= 0.000000001
+    }
+  }
+
+  requirement def SprayFormation {
+    subject injector : Injector;
+
+    doc
+    /* The nozzle shall form an atomized spray suitable for distribution in the receiving chamber. */
+
+    require constraint {
+      injector.nozzle.orificeCount >= 1 and
+      injector.nozzle.nominalConeAngle >= 30.0 and
+      injector.nozzle.nominalConeAngle <= 90.0
+    }
+  }
+
+  satisfy PrimaryInjectionFunction by InjectorBasedSystem;
+  satisfy PressureCompatibility by Injector;
+  satisfy CommandedMetering by InjectorBasedSystem;
+  satisfy ElectricalActuation by PowerDriver;
+  satisfy ClosedValveLeakage by Injector;
+  satisfy SprayFormation by Injector;
+}
+tokens used
+2,623
+package InjectorSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def PressureValue :> Real {
+    unit = "Pa";
+  }
+
+  attribute def FlowRateValue :> Real {
+    unit = "m^3/s";
+  }
+
+  attribute def VoltageValue :> Real {
+    unit = "V";
+  }
+
+  attribute def CurrentValue :> Real {
+    unit = "A";
+  }
+
+  attribute def DurationValue :> Real {
+    unit = "s";
+  }
+
+  attribute def TemperatureValue :> Real {
+    unit = "K";
+  }
+
+  attribute def VolumeValue :> Real {
+    unit = "m^3";
+  }
+
+  attribute def PercentageValue :> Real {
+    unit = "%";
+  }
+
+  item def PressurizedFluid {
+    attribute pressure : PressureValue;
+    attribute temperature : TemperatureValue;
+    attribute contaminationLevel : PercentageValue;
+  }
+
+  item def AtomizedSpray {
+    attribute coneAngle : Real;
+    attribute meanDropletDiameter : Real;
+    attribute flowRate : FlowRateValue;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : VoltageValue;
+    attribute current : CurrentValue;
+  }
+
+  item def InjectionCommand {
+    attribute requestedPulseWidth : DurationValue;
+    attribute requestedFlowRate : FlowRateValue;
+    attribute enable : Boolean;
+  }
+
+  item def InjectionStatus {
+    attribute valveOpen : Boolean;
+    attribute measuredPressure : PressureValue;
+    attribute deliveredVolume : VolumeValue;
+    attribute faultActive : Boolean;
+  }
+
+  port def FluidInletPort {
+    in item fluid : PressurizedFluid;
+  }
+
+  port def SprayOutletPort {
+    out item spray : AtomizedSpray;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : InjectionCommand;
+  }
+
+  port def StatusPort {
+    out item status : InjectionStatus;
+  }
+
+  part def Injector {
+    attribute maxInletPressure : PressureValue = 20000000.0;
+    attribute minInletPressure : PressureValue = 500000.0;
+    attribute nominalFlowRate : FlowRateValue = 0.0000012;
+    attribute openingDelay : DurationValue = 0.001;
+    attribute closingDelay : DurationValue = 0.0012;
+    attribute coilResistance : Real = 12.0;
+    attribute maxCoilTemperature : TemperatureValue = 423.15;
+
+    port inlet : FluidInletPort;
+    port outlet : SprayOutletPort;
+    port powerInput : ElectricalPowerPort;
+    port commandInput : CommandPort;
+    port statusOutput : StatusPort;
+
+    part filter {
+      attribute filtrationEfficiency : PercentageValue = 98.5;
+      attribute maxParticleSize : Real = 0.00002;
+    }
+
+    part solenoidCoil {
+      attribute resistance : Real = 12.0;
+      attribute inductance : Real = 0.006;
+      attribute temperature : TemperatureValue = 298.15;
+    }
+
+    part armature {
+      attribute stroke : Real = 0.00015;
+      attribute responseTime : DurationValue = 0.001;
+    }
+
+    part needleValve {
+      attribute seatDiameter : Real = 0.001;
+      attribute open : Boolean = false;
+      attribute leakageRateClosed : FlowRateValue = 0.0000000002;
+    }
+
+    part nozzle {
+      attribute orificeCount : Integer = 6;
+      attribute orificeDiameter : Real = 0.00016;
+      attribute nominalConeAngle : Real = 60.0;
+    }
+
+    action injectFluid {
+      in item command : InjectionCommand;
+      in item inletFluid : PressurizedFluid;
+      out item spray : AtomizedSpray;
+      out item status : InjectionStatus;
+
+      first start;
+      then validateCommand;
+      then energizeCoil;
+      then openNeedle;
+      then meterFluid;
+      then atomizeFluid;
+      then closeNeedle;
+      then reportStatus;
+      then done;
+
+      action validateCommand {
+        in item command : InjectionCommand;
+      }
+
+      action energizeCoil {
+        in item power : ElectricalPower;
+      }
+
+      action openNeedle {
+        out openState : Boolean;
+      }
+
+      action meterFluid {
+        in pulseWidth : DurationValue;
+        out deliveredVolume : VolumeValue;
+      }
+
+      action atomizeFluid {
+        in item inletFluid : PressurizedFluid;
+        out item spray : AtomizedSpray;
+      }
+
+      action closeNeedle {
+        out openState : Boolean;
+      }
+
+      action reportStatus {
+        out item status : InjectionStatus;
+      }
+    }
+
+    state def InjectorOperatingState {
+      state Off;
+      state Ready;
+      state Priming;
+      state Injecting;
+      state Closing;
+      state Fault;
+
+      initial then Off;
+
+      transition Off_to_Ready
+        first Off
+        accept InjectionCommand
+        if command.enable
+        then Ready;
+
+      transition Ready_to_Priming
+        first Ready
+        accept InjectionCommand
+        if command.requestedPulseWidth > 0.0
+        then Priming;
+
+      transition Priming_to_Injecting
+        first Priming
+        after openingDelay
+        then Injecting;
+
+      transition Injecting_to_Closing
+        first Injecting
+        after command.requestedPulseWidth
+        then Closing;
+
+      transition Closing_to_Ready
+        first Closing
+        after closingDelay
+        then Ready;
+
+      transition Any_to_Fault
+        first Ready
+        if solenoidCoil.temperature > maxCoilTemperature
+        then Fault;
+
+      transition Fault_to_Off
+        first Fault
+        accept InjectionCommand
+        if not command.enable
+        then Off;
+    }
+  }
+
+  part def FluidSupply {
+    attribute reservoirVolume : VolumeValue = 0.002;
+    attribute supplyPressure : PressureValue = 5000000.0;
+    attribute fluidTemperature : TemperatureValue = 293.15;
+
+    port outlet : FluidInletPort;
+  }
+
+  part def InjectorController {
+    attribute commandedPulseWidth : DurationValue = 0.004;
+    attribute targetFlowRate : FlowRateValue = 0.0000012;
+    attribute diagnosticsEnabled : Boolean = true;
+
+    port commandOutput : CommandPort;
+    port statusInput : StatusPort;
+
+    action computeInjectionCommand {
+      in targetVolume : VolumeValue;
+      in railPressure : PressureValue;
+      out item command : InjectionCommand;
+    }
+  }
+
+  part def PowerDriver {
+    attribute nominalVoltage : VoltageValue = 12.0;
+    attribute peakCurrentLimit : CurrentValue = 4.0;
+    attribute holdCurrentLimit : CurrentValue = 1.2;
+
+    port powerOutput : ElectricalPowerPort;
+  }
+
+  part def ReceivingChamber {
+    attribute chamberPressure : PressureValue = 101325.0;
+    attribute collectedVolume : VolumeValue = 0.0;
+
+    port sprayInput : SprayOutletPort;
+  }
+
+  part def InjectorBasedSystem {
+    attribute primaryFunction : String = "Meter and deliver a commanded quantity of pressurized fluid as an atomized spray into a receiving chamber.";
+
+    part supply : FluidSupply;
+    part controller : InjectorController;
+    part driver : PowerDriver;
+    part injector : Injector;
+    part chamber : ReceivingChamber;
+
+    connect supply.outlet to injector.inlet;
+    connect driver.powerOutput to injector.powerInput;
+    connect controller.commandOutput to injector.commandInput;
+    connect injector.statusOutput to controller.statusInput;
+    connect injector.outlet to chamber.sprayInput;
+
+    perform injector.injectFluid;
+  }
+
+  requirement def PrimaryInjectionFunction {
+    subject system : InjectorBasedSystem;
+
+    doc
+    /* The system shall use an injector to transform controlled electrical and command inputs into a metered discharge of pressurized fluid as an atomized spray. */
+
+    require constraint {
+      system.injector.nominalFlowRate > 0.0
+    }
+  }
+
+  requirement def PressureCompatibility {
+    subject injector : Injector;
+
+    doc
+    /* The injector shall operate only when inlet pressure remains within the supported pressure range. */
+
+    require constraint {
+      injector.minInletPressure <= injector.maxInletPressure
+    }
+  }
+
+  requirement def CommandedMetering {
+    subject system : InjectorBasedSystem;
+
+    doc
+    /* The delivered spray volume shall be proportional to commanded pulse width and nominal flow rate during normal injection. */
+
+    require constraint {
+      system.controller.commandedPulseWidth > 0.0 and
+      system.injector.nominalFlowRate > 0.0
+    }
+  }
+
+  requirement def ElectricalActuation {
+    subject driver : PowerDriver;
+
+    doc
+    /* The power driver shall provide bounded electrical energy sufficient to actuate the injector solenoid without exceeding current limits. */
+
+    require constraint {
+      driver.nominalVoltage >= 9.0 and
+      driver.nominalVoltage <= 16.0 and
+      driver.peakCurrentLimit > driver.holdCurrentLimit
+    }
+  }
+
+  requirement def ClosedValveLeakage {
+    subject injector : Injector;
+
+    doc
+    /* The injector needle valve shall limit leakage when commanded closed. */
+
+    require constraint {
+      injector.needleValve.leakageRateClosed <= 0.000000001
+    }
+  }
+
+  requirement def SprayFormation {
+    subject injector : Injector;
+
+    doc
+    /* The nozzle shall form an atomized spray suitable for distribution in the receiving chamber. */
+
+    require constraint {
+      injector.nozzle.orificeCount >= 1 and
+      injector.nozzle.nominalConeAngle >= 30.0 and
+      injector.nozzle.nominalConeAngle <= 90.0
+    }
+  }
+
+  satisfy PrimaryInjectionFunction by InjectorBasedSystem;
+  satisfy PressureCompatibility by Injector;
+  satisfy CommandedMetering by InjectorBasedSystem;
+  satisfy ElectricalActuation by PowerDriver;
+  satisfy ClosedValveLeakage by Injector;
+  satisfy SprayFormation by Injector;
+}

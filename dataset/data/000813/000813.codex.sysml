@@ -1,0 +1,433 @@
+package UrineCollectionDeviceModel {
+  private import ScalarValues::*;
+  private import ISQ::*;
+  private import SI::*;
+
+  attribute def UrineVolume :> volume;
+  attribute def FlowRate :> volume;
+  attribute def Pressure :> pressure;
+  attribute def Duration :> time;
+  attribute def Mass :> mass;
+  attribute def Temperature :> thermodynamicTemperature;
+  attribute def FillFraction :> Real;
+
+  item def Urine {
+    attribute volume : UrineVolume;
+    attribute temperature : Temperature;
+    attribute approximateMass : Mass;
+  }
+
+  item def Air {
+    attribute pressure : Pressure;
+  }
+
+  item def CleaningFluid {
+    attribute volume : UrineVolume;
+  }
+
+  port def UrineInletPort {
+    in item incomingUrine : Urine;
+  }
+
+  port def UrineOutletPort {
+    out item outgoingUrine : Urine;
+  }
+
+  port def VentPort {
+    inout item ventedAir : Air;
+  }
+
+  port def DrainPort {
+    out item drainedUrine : Urine;
+  }
+
+  port def CleaningPort {
+    in item rinseFluid : CleaningFluid;
+  }
+
+  part def AnatomicalInterface {
+    attribute rimSealPressure : Pressure;
+    attribute expectedUseDuration : Duration;
+    port inlet : UrineInletPort;
+    port outlet : UrineOutletPort;
+  }
+
+  part def SplashGuard {
+    attribute retainedSplashVolume : UrineVolume;
+    port inlet : UrineInletPort;
+    port outlet : UrineOutletPort;
+  }
+
+  part def FlowChannel {
+    attribute internalDiameter : length;
+    attribute channelLength : length;
+    attribute nominalFlowRate : FlowRate;
+    port inlet : UrineInletPort;
+    port outlet : UrineOutletPort;
+  }
+
+  part def BackflowPreventer {
+    attribute crackingPressure : Pressure;
+    attribute reverseLeakRate : FlowRate;
+    port inlet : UrineInletPort;
+    port outlet : UrineOutletPort;
+  }
+
+  part def CollectionContainer {
+    attribute maximumCapacity : UrineVolume;
+    attribute currentVolume : UrineVolume;
+    attribute fillLevel : FillFraction;
+    attribute overflowThreshold : FillFraction;
+    port inlet : UrineInletPort;
+    port drain : DrainPort;
+    port vent : VentPort;
+  }
+
+  part def ClosureCap {
+    attribute sealed : Boolean;
+    attribute sealCompression : length;
+  }
+
+  part def LevelIndicator {
+    attribute measuredVolume : UrineVolume;
+    attribute visibleFillFraction : FillFraction;
+  }
+
+  part def OdorSealVent {
+    attribute activatedCarbonMass : Mass;
+    attribute nominalVentPressure : Pressure;
+    port vent : VentPort;
+  }
+
+  part def UrineCollectionDevice {
+    doc
+    /*
+     * Primary function:
+     * Receive urine from a user through an anatomical interface, guide it through
+     * a controlled channel, prevent reverse flow, and retain the collected urine
+     * in a sealed container until it is drained or disposed.
+     */
+
+    attribute ratedCapacity : UrineVolume = 1000 [mL];
+    attribute minimumUsableCapacity : UrineVolume = 750 [mL];
+    attribute maximumRecommendedFlowRate : FlowRate = 35 [mL/s];
+    attribute maximumUseDuration : Duration = 8 [h];
+    attribute leakDetected : Boolean = false;
+    attribute readyForUse : Boolean = false;
+
+    port userInput : UrineInletPort;
+    port drainOutput : DrainPort;
+    port cleaningInput : CleaningPort;
+    port atmosphericVent : VentPort;
+
+    part interface : AnatomicalInterface {
+      attribute rimSealPressure = 2 [kPa];
+      attribute expectedUseDuration = 8 [h];
+    }
+
+    part guard : SplashGuard {
+      attribute retainedSplashVolume = 15 [mL];
+    }
+
+    part channel : FlowChannel {
+      attribute internalDiameter = 9 [mm];
+      attribute channelLength = 180 [mm];
+      attribute nominalFlowRate = 25 [mL/s];
+    }
+
+    part valve : BackflowPreventer {
+      attribute crackingPressure = 0.5 [kPa];
+      attribute reverseLeakRate = 0 [mL/s];
+    }
+
+    part container : CollectionContainer {
+      attribute maximumCapacity = 1000 [mL];
+      attribute currentVolume = 0 [mL];
+      attribute fillLevel = 0.0;
+      attribute overflowThreshold = 0.90;
+    }
+
+    part cap : ClosureCap {
+      attribute sealed = true;
+      attribute sealCompression = 1.5 [mm];
+    }
+
+    part indicator : LevelIndicator {
+      attribute measuredVolume = 0 [mL];
+      attribute visibleFillFraction = 0.0;
+    }
+
+    part odorVent : OdorSealVent {
+      attribute activatedCarbonMass = 8 [g];
+      attribute nominalVentPressure = 0.2 [kPa];
+    }
+
+    connect userInput to interface.inlet;
+    connect interface.outlet to guard.inlet;
+    connect guard.outlet to channel.inlet;
+    connect channel.outlet to valve.inlet;
+    connect valve.outlet to container.inlet;
+    connect container.drain to drainOutput;
+    connect container.vent to odorVent.vent;
+    connect odorVent.vent to atmosphericVent;
+
+    action collectUrine {
+      in item inputUrine : Urine;
+      out item storedUrine : Urine;
+
+      first startCollection;
+      then receiveAtInterface;
+      then guideThroughSplashGuard;
+      then transferThroughChannel;
+      then preventReverseFlow;
+      then storeInContainer;
+      then updateLevelIndicator;
+      then done;
+
+      action startCollection {
+        readyForUse = true;
+      }
+
+      action receiveAtInterface {
+        inputUrine = userInput.incomingUrine;
+      }
+
+      action guideThroughSplashGuard {
+        guard.retainedSplashVolume <= 15 [mL];
+      }
+
+      action transferThroughChannel {
+        channel.nominalFlowRate <= maximumRecommendedFlowRate;
+      }
+
+      action preventReverseFlow {
+        valve.reverseLeakRate == 0 [mL/s];
+      }
+
+      action storeInContainer {
+        container.currentVolume = container.currentVolume + inputUrine.volume;
+        storedUrine = inputUrine;
+      }
+
+      action updateLevelIndicator {
+        indicator.measuredVolume = container.currentVolume;
+        indicator.visibleFillFraction = container.currentVolume / container.maximumCapacity;
+        container.fillLevel = indicator.visibleFillFraction;
+      }
+    }
+
+    action drainContainer {
+      out item removedUrine : Urine;
+
+      first openDrain;
+      then emptyContainer;
+      then resealDrain;
+      then done;
+
+      action openDrain {
+        cap.sealed = false;
+      }
+
+      action emptyContainer {
+        removedUrine = drainOutput.drainedUrine;
+        container.currentVolume = 0 [mL];
+        container.fillLevel = 0.0;
+        indicator.measuredVolume = 0 [mL];
+        indicator.visibleFillFraction = 0.0;
+      }
+
+      action resealDrain {
+        cap.sealed = true;
+      }
+    }
+
+    action rinseDevice {
+      in item rinse : CleaningFluid;
+
+      first introduceRinseFluid;
+      then flushChannel;
+      then drainRinseFluid;
+      then restoreReadyState;
+      then done;
+
+      action introduceRinseFluid {
+        rinse = cleaningInput.rinseFluid;
+      }
+
+      action flushChannel {
+        rinse.volume >= 100 [mL];
+      }
+
+      action drainRinseFluid {
+        container.currentVolume = 0 [mL];
+      }
+
+      action restoreReadyState {
+        readyForUse = true;
+        leakDetected = false;
+      }
+    }
+
+    state deviceState {
+      entry action initialize {
+        readyForUse = false;
+        leakDetected = false;
+      }
+
+      state Stored;
+      state Ready;
+      state Collecting;
+      state NearCapacity;
+      state Full;
+      state Draining;
+      state Cleaning;
+      state Fault;
+
+      initial then Stored;
+
+      transition Stored_to_Ready
+        first Stored
+        accept PrepareForUse
+        then Ready {
+          effect action {
+            readyForUse = true;
+          }
+        }
+
+      transition Ready_to_Collecting
+        first Ready
+        accept UrineFlowDetected
+        then Collecting;
+
+      transition Collecting_to_Ready
+        first Collecting
+        accept FlowStopped
+        if container.fillLevel < container.overflowThreshold
+        then Ready;
+
+      transition Collecting_to_NearCapacity
+        first Collecting
+        if container.fillLevel >= container.overflowThreshold and container.fillLevel < 1.0
+        then NearCapacity;
+
+      transition NearCapacity_to_Full
+        first NearCapacity
+        if container.fillLevel >= 1.0
+        then Full;
+
+      transition Ready_to_Draining
+        first Ready
+        accept DrainRequested
+        then Draining;
+
+      transition Full_to_Draining
+        first Full
+        accept DrainRequested
+        then Draining;
+
+      transition Draining_to_Cleaning
+        first Draining
+        accept DrainComplete
+        then Cleaning;
+
+      transition Cleaning_to_Ready
+        first Cleaning
+        accept CleaningComplete
+        then Ready {
+          effect action {
+            readyForUse = true;
+          }
+        }
+
+      transition Any_to_Fault
+        first Ready
+        accept LeakDetected
+        then Fault {
+          effect action {
+            leakDetected = true;
+            readyForUse = false;
+          }
+        }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject device : UrineCollectionDevice;
+
+    doc
+    /*
+     * The device shall collect urine from a user, route the fluid into a
+     * contained reservoir, prevent backflow, and retain the urine until
+     * controlled drainage or disposal.
+     */
+
+    require constraint {
+      device.container.maximumCapacity >= device.minimumUsableCapacity
+    }
+
+    require constraint {
+      device.valve.reverseLeakRate == 0 [mL/s]
+    }
+  }
+
+  requirement def CapacityRequirement {
+    subject device : UrineCollectionDevice;
+
+    require constraint {
+      device.container.maximumCapacity >= 1000 [mL]
+    }
+
+    require constraint {
+      device.container.overflowThreshold <= 0.90
+    }
+  }
+
+  requirement def FlowRequirement {
+    subject device : UrineCollectionDevice;
+
+    require constraint {
+      device.channel.nominalFlowRate <= device.maximumRecommendedFlowRate
+    }
+
+    require constraint {
+      device.channel.nominalFlowRate >= 10 [mL/s]
+    }
+  }
+
+  requirement def LeakResistanceRequirement {
+    subject device : UrineCollectionDevice;
+
+    require constraint {
+      device.leakDetected == false
+    }
+
+    require constraint {
+      device.cap.sealed == true
+    }
+  }
+
+  requirement def VentingRequirement {
+    subject device : UrineCollectionDevice;
+
+    require constraint {
+      device.odorVent.nominalVentPressure <= 0.5 [kPa]
+    }
+  }
+
+  requirement def CleanabilityRequirement {
+    subject device : UrineCollectionDevice;
+
+    require constraint {
+      device.cleaningInput.rinseFluid.volume >= 100 [mL]
+    }
+  }
+
+  part urineCollectionDevice : UrineCollectionDevice;
+
+  satisfy PrimaryFunctionRequirement by urineCollectionDevice;
+  satisfy CapacityRequirement by urineCollectionDevice;
+  satisfy FlowRequirement by urineCollectionDevice;
+  satisfy LeakResistanceRequirement by urineCollectionDevice;
+  satisfy VentingRequirement by urineCollectionDevice;
+  satisfy CleanabilityRequirement by urineCollectionDevice;
+}

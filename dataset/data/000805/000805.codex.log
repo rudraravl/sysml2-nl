@@ -1,0 +1,837 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2qvmy39u
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb445-435d-7592-8dc8-508d079222e2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Truss and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TrussSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def AreaValue :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def StressValue :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def AngleValue {
+        :>> scalar : Real;
+        unit = SI::degree;
+    }
+
+    item def Load {
+        attribute magnitude : ForceValue;
+        attribute directionAngle : AngleValue;
+        attribute applicationPointId : String;
+    }
+
+    item def ReactionForce {
+        attribute verticalComponent : ForceValue;
+        attribute horizontalComponent : ForceValue;
+        attribute supportId : String;
+    }
+
+    item def StructuralDemand {
+        attribute axialForce : ForceValue;
+        attribute utilizationRatio : Real;
+    }
+
+    item def StructuralCapacity {
+        attribute tensileCapacity : ForceValue;
+        attribute compressiveCapacity : ForceValue;
+        attribute allowableStress : StressValue;
+    }
+
+    item def LoadPath {
+        attribute description : String;
+        attribute totalTransferredLoad : ForceValue;
+    }
+
+    port def LoadInputPort {
+        in item appliedLoad : Load;
+    }
+
+    port def ReactionOutputPort {
+        out item reaction : ReactionForce;
+    }
+
+    port def DemandExchangePort {
+        out item demand : StructuralDemand;
+        in item capacity : StructuralCapacity;
+    }
+
+    port def LoadTransferPort {
+        inout item loadPath : LoadPath;
+    }
+
+    part def Joint {
+        attribute jointId : String;
+        attribute xLocation : LengthValue;
+        attribute yLocation : LengthValue;
+        attribute isPinned : Boolean;
+        attribute connectedMemberCount : Integer;
+
+        port loadPort : LoadInputPort;
+        port transferPort : LoadTransferPort;
+    }
+
+    part def Support {
+        attribute supportId : String;
+        attribute supportType : String;
+        attribute permitsRotation : Boolean;
+        attribute permitsHorizontalTranslation : Boolean;
+        attribute permitsVerticalTranslation : Boolean;
+
+        port loadPort : LoadInputPort;
+        port reactionPort : ReactionOutputPort;
+    }
+
+    part def TrussMember {
+        attribute memberId : String;
+        attribute length : LengthValue;
+        attribute crossSectionArea : AreaValue;
+        attribute elasticModulus : StressValue;
+        attribute yieldStress : StressValue;
+        attribute mass : MassValue;
+        attribute orientationAngle : AngleValue;
+        attribute currentAxialForce : ForceValue;
+        attribute currentStress : StressValue;
+        attribute safetyFactor : Real;
+
+        port endA : LoadTransferPort;
+        port endB : LoadTransferPort;
+        port demandPort : DemandExchangePort;
+
+        action computeAxialDemand {
+            in item transferredLoad : LoadPath;
+            out item memberDemand : StructuralDemand;
+
+            first start;
+            then resolveLoadAlongMember;
+            then calculateStress;
+            then publishDemand;
+            then done;
+
+            action resolveLoadAlongMember;
+            action calculateStress;
+            action publishDemand;
+        }
+
+        state def MemberIntegrityState {
+            entry action evaluateMember;
+
+            state unloaded;
+            state tension;
+            state compression;
+            state overstressed;
+            state failed;
+
+            transition first unloaded;
+            transition unloaded_to_tension
+                first unloaded
+                then tension
+                if currentAxialForce > 0 [N];
+
+            transition unloaded_to_compression
+                first unloaded
+                then compression
+                if currentAxialForce < 0 [N];
+
+            transition tension_to_overstressed
+                first tension
+                then overstressed
+                if safetyFactor < 1.0;
+
+            transition compression_to_overstressed
+                first compression
+                then overstressed
+                if safetyFactor < 1.0;
+
+            transition overstressed_to_failed
+                first overstressed
+                then failed
+                if currentStress > yieldStress;
+        }
+    }
+
+    part def DeckInterface {
+        attribute interfaceLength : LengthValue;
+        attribute distributedLoadCapacity : ForceValue;
+
+        port liveLoadInput : LoadInputPort;
+        port deadLoadInput : LoadInputPort;
+        port transferPort : LoadTransferPort;
+    }
+
+    part def Truss {
+        attribute span : LengthValue;
+        attribute height : LengthValue;
+        attribute designLoad : ForceValue;
+        attribute totalMass : MassValue;
+        attribute requiredMinimumSafetyFactor : Real;
+        attribute primaryFunction : String = "Receive externally applied loads and transfer them through axial forces in triangular members to supports while maintaining structural shape and serviceability.";
+
+        port externalLoadInput : LoadInputPort;
+        port leftReactionOutput : ReactionOutputPort;
+        port rightReactionOutput : ReactionOutputPort;
+
+        part deck : DeckInterface {
+            :>> interfaceLength = span;
+        }
+
+        part leftSupport : Support {
+            :>> supportId = "S-L";
+            :>> supportType = "Pinned";
+            :>> permitsRotation = true;
+            :>> permitsHorizontalTranslation = false;
+            :>> permitsVerticalTranslation = false;
+        }
+
+        part rightSupport : Support {
+            :>> supportId = "S-R";
+            :>> supportType = "Roller";
+            :>> permitsRotation = true;
+            :>> permitsHorizontalTranslation = true;
+            :>> permitsVerticalTranslation = false;
+        }
+
+        part jointA : Joint {
+            :>> jointId = "J-A";
+            :>> xLocation = 0 [m];
+            :>> yLocation = 0 [m];
+            :>> isPinned = true;
+        }
+
+        part jointB : Joint {
+            :>> jointId = "J-B";
+            :>> xLocation = span / 4;
+            :>> yLocation = height;
+            :>> isPinned = true;
+        }
+
+        part jointC : Joint {
+            :>> jointId = "J-C";
+            :>> xLocation = span / 2;
+            :>> yLocation = 0 [m];
+            :>> isPinned = true;
+        }
+
+        part jointD : Joint {
+            :>> jointId = "J-D";
+            :>> xLocation = 3 * span / 4;
+            :>> yLocation = height;
+            :>> isPinned = true;
+        }
+
+        part jointE : Joint {
+            :>> jointId = "J-E";
+            :>> xLocation = span;
+            :>> yLocation = 0 [m];
+            :>> isPinned = true;
+        }
+
+        part bottomChordABase : TrussMember {
+            :>> memberId = "M-AC";
+            :>> orientationAngle = 0 [degree];
+        }
+
+        part bottomChordBBase : TrussMember {
+            :>> memberId = "M-CE";
+            :>> orientationAngle = 0 [degree];
+        }
+
+        part topChordLeft : TrussMember {
+            :>> memberId = "M-AB";
+            :>> orientationAngle = 45 [degree];
+        }
+
+        part topChordCenter : TrussMember {
+            :>> memberId = "M-BD";
+            :>> orientationAngle = 0 [degree];
+        }
+
+        part topChordRight : TrussMember {
+            :>> memberId = "M-DE";
+            :>> orientationAngle = -45 [degree];
+        }
+
+        part diagonalLeft : TrussMember {
+            :>> memberId = "M-BC";
+            :>> orientationAngle = -45 [degree];
+        }
+
+        part diagonalRight : TrussMember {
+            :>> memberId = "M-CD";
+            :>> orientationAngle = 45 [degree];
+        }
+
+        connect externalLoadInput.appliedLoad to deck.liveLoadInput.appliedLoad;
+        connect deck.transferPort.loadPath to jointB.transferPort.loadPath;
+        connect deck.transferPort.loadPath to jointD.transferPort.loadPath;
+
+        connect jointA.transferPort.loadPath to bottomChordABase.endA.loadPath;
+        connect bottomChordABase.endB.loadPath to jointC.transferPort.loadPath;
+        connect jointC.transferPort.loadPath to bottomChordBBase.endA.loadPath;
+        connect bottomChordBBase.endB.loadPath to jointE.transferPort.loadPath;
+
+        connect jointA.transferPort.loadPath to topChordLeft.endA.loadPath;
+        connect topChordLeft.endB.loadPath to jointB.transferPort.loadPath;
+        connect jointB.transferPort.loadPath to topChordCenter.endA.loadPath;
+        connect topChordCenter.endB.loadPath to jointD.transferPort.loadPath;
+        connect jointD.transferPort.loadPath to topChordRight.endA.loadPath;
+        connect topChordRight.endB.loadPath to jointE.transferPort.loadPath;
+
+        connect jointB.transferPort.loadPath to diagonalLeft.endA.loadPath;
+        connect diagonalLeft.endB.loadPath to jointC.transferPort.loadPath;
+        connect jointC.transferPort.loadPath to diagonalRight.endA.loadPath;
+        connect diagonalRight.endB.loadPath to jointD.transferPort.loadPath;
+
+        connect jointA.loadPort.appliedLoad to leftSupport.loadPort.appliedLoad;
+        connect jointE.loadPort.appliedLoad to rightSupport.loadPort.appliedLoad;
+        connect leftSupport.reactionPort.reaction to leftReactionOutput.reaction;
+        connect rightSupport.reactionPort.reaction to rightReactionOutput.reaction;
+
+        action distributeLoads {
+            in item inputLoad : Load;
+            out item transferredPath : LoadPath;
+
+            first receiveLoad;
+            then splitToPanelPoints;
+            then transferToMembers;
+            then done;
+
+            action receiveLoad;
+            action splitToPanelPoints;
+            action transferToMembers;
+        }
+
+        action resolveSupportReactions {
+            in item totalLoad : Load;
+            out item leftReaction : ReactionForce;
+            out item rightReaction : ReactionForce;
+
+            first sumForces;
+            then sumMoments;
+            then assignReactions;
+            then done;
+
+            action sumForces;
+            action sumMoments;
+            action assignReactions;
+        }
+
+        state def TrussOperationalState {
+            entry action monitorLoads;
+
+            state noLoad;
+            state carryingServiceLoad;
+            state carryingPeakLoad;
+            state degraded;
+            state unsafe;
+
+            transition first noLoad;
+
+            transition loadApplied
+                first noLoad
+                then carryingServiceLoad
+                if designLoad > 0 [N];
+
+            transition peakLoadReached
+                first carryingServiceLoad
+                then carryingPeakLoad
+                if designLoad >= 0.8 * designLoad;
+
+            transition degradationDetected
+                first carryingServiceLoad
+                then degraded
+                if requiredMinimumSafetyFactor < 1.5;
+
+            transition peakDegradationDetected
+                first carryingPeakLoad
+                then degraded
+                if requiredMinimumSafetyFactor < 1.5;
+
+            transition unsafeDetected
+                first degraded
+                then unsafe
+                if requiredMinimumSafetyFactor < 1.0;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The truss system shall provide a stable structural load path that transfers applied vertical and lateral loads from the deck interface through connected triangular members to the supports primarily by axial tension and compression. */
+    }
+
+    requirement def GeometryRequirement {
+        doc /* The truss shall maintain a triangulated geometry so that loads are resolved into axial member forces and global shape stability is preserved under design loading. */
+    }
+
+    requirement def SupportReactionRequirement {
+        doc /* The truss shall deliver reaction forces to a pinned support and a roller support such that static equilibrium is maintained for the specified design load. */
+    }
+
+    requirement def StrengthRequirement {
+        doc /* Each truss member shall have tensile and compressive capacity greater than or equal to the maximum calculated axial demand multiplied by the required minimum safety factor. */
+    }
+
+    requirement def ServiceabilityRequirement {
+        doc /* The truss shall limit deformation sufficiently to preserve alignment of the supported interface during normal service loading. */
+    }
+
+    requirement def InspectionRequirement {
+        doc /* The truss shall expose member demand, capacity, stress, and utilization information for inspection and maintenance assessment. */
+    }
+
+    part trussSystem : Truss {
+        :>> span = 24 [m];
+        :>> height = 4 [m];
+        :>> designLoad = 250000 [N];
+        :>> totalMass = 7200 [kg];
+        :>> requiredMinimumSafetyFactor = 2.0;
+
+        satisfy PrimaryFunctionRequirement by trussSystem;
+        satisfy GeometryRequirement by trussSystem;
+        satisfy SupportReactionRequirement by trussSystem;
+        satisfy StrengthRequirement by trussSystem;
+        satisfy ServiceabilityRequirement by trussSystem;
+        satisfy InspectionRequirement by trussSystem;
+    }
+}
+tokens used
+3,154
+package TrussSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def AreaValue :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def StressValue :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def AngleValue {
+        :>> scalar : Real;
+        unit = SI::degree;
+    }
+
+    item def Load {
+        attribute magnitude : ForceValue;
+        attribute directionAngle : AngleValue;
+        attribute applicationPointId : String;
+    }
+
+    item def ReactionForce {
+        attribute verticalComponent : ForceValue;
+        attribute horizontalComponent : ForceValue;
+        attribute supportId : String;
+    }
+
+    item def StructuralDemand {
+        attribute axialForce : ForceValue;
+        attribute utilizationRatio : Real;
+    }
+
+    item def StructuralCapacity {
+        attribute tensileCapacity : ForceValue;
+        attribute compressiveCapacity : ForceValue;
+        attribute allowableStress : StressValue;
+    }
+
+    item def LoadPath {
+        attribute description : String;
+        attribute totalTransferredLoad : ForceValue;
+    }
+
+    port def LoadInputPort {
+        in item appliedLoad : Load;
+    }
+
+    port def ReactionOutputPort {
+        out item reaction : ReactionForce;
+    }
+
+    port def DemandExchangePort {
+        out item demand : StructuralDemand;
+        in item capacity : StructuralCapacity;
+    }
+
+    port def LoadTransferPort {
+        inout item loadPath : LoadPath;
+    }
+
+    part def Joint {
+        attribute jointId : String;
+        attribute xLocation : LengthValue;
+        attribute yLocation : LengthValue;
+        attribute isPinned : Boolean;
+        attribute connectedMemberCount : Integer;
+
+        port loadPort : LoadInputPort;
+        port transferPort : LoadTransferPort;
+    }
+
+    part def Support {
+        attribute supportId : String;
+        attribute supportType : String;
+        attribute permitsRotation : Boolean;
+        attribute permitsHorizontalTranslation : Boolean;
+        attribute permitsVerticalTranslation : Boolean;
+
+        port loadPort : LoadInputPort;
+        port reactionPort : ReactionOutputPort;
+    }
+
+    part def TrussMember {
+        attribute memberId : String;
+        attribute length : LengthValue;
+        attribute crossSectionArea : AreaValue;
+        attribute elasticModulus : StressValue;
+        attribute yieldStress : StressValue;
+        attribute mass : MassValue;
+        attribute orientationAngle : AngleValue;
+        attribute currentAxialForce : ForceValue;
+        attribute currentStress : StressValue;
+        attribute safetyFactor : Real;
+
+        port endA : LoadTransferPort;
+        port endB : LoadTransferPort;
+        port demandPort : DemandExchangePort;
+
+        action computeAxialDemand {
+            in item transferredLoad : LoadPath;
+            out item memberDemand : StructuralDemand;
+
+            first start;
+            then resolveLoadAlongMember;
+            then calculateStress;
+            then publishDemand;
+            then done;
+
+            action resolveLoadAlongMember;
+            action calculateStress;
+            action publishDemand;
+        }
+
+        state def MemberIntegrityState {
+            entry action evaluateMember;
+
+            state unloaded;
+            state tension;
+            state compression;
+            state overstressed;
+            state failed;
+
+            transition first unloaded;
+            transition unloaded_to_tension
+                first unloaded
+                then tension
+                if currentAxialForce > 0 [N];
+
+            transition unloaded_to_compression
+                first unloaded
+                then compression
+                if currentAxialForce < 0 [N];
+
+            transition tension_to_overstressed
+                first tension
+                then overstressed
+                if safetyFactor < 1.0;
+
+            transition compression_to_overstressed
+                first compression
+                then overstressed
+                if safetyFactor < 1.0;
+
+            transition overstressed_to_failed
+                first overstressed
+                then failed
+                if currentStress > yieldStress;
+        }
+    }
+
+    part def DeckInterface {
+        attribute interfaceLength : LengthValue;
+        attribute distributedLoadCapacity : ForceValue;
+
+        port liveLoadInput : LoadInputPort;
+        port deadLoadInput : LoadInputPort;
+        port transferPort : LoadTransferPort;
+    }
+
+    part def Truss {
+        attribute span : LengthValue;
+        attribute height : LengthValue;
+        attribute designLoad : ForceValue;
+        attribute totalMass : MassValue;
+        attribute requiredMinimumSafetyFactor : Real;
+        attribute primaryFunction : String = "Receive externally applied loads and transfer them through axial forces in triangular members to supports while maintaining structural shape and serviceability.";
+
+        port externalLoadInput : LoadInputPort;
+        port leftReactionOutput : ReactionOutputPort;
+        port rightReactionOutput : ReactionOutputPort;
+
+        part deck : DeckInterface {
+            :>> interfaceLength = span;
+        }
+
+        part leftSupport : Support {
+            :>> supportId = "S-L";
+            :>> supportType = "Pinned";
+            :>> permitsRotation = true;
+            :>> permitsHorizontalTranslation = false;
+            :>> permitsVerticalTranslation = false;
+        }
+
+        part rightSupport : Support {
+            :>> supportId = "S-R";
+            :>> supportType = "Roller";
+            :>> permitsRotation = true;
+            :>> permitsHorizontalTranslation = true;
+            :>> permitsVerticalTranslation = false;
+        }
+
+        part jointA : Joint {
+            :>> jointId = "J-A";
+            :>> xLocation = 0 [m];
+            :>> yLocation = 0 [m];
+            :>> isPinned = true;
+        }
+
+        part jointB : Joint {
+            :>> jointId = "J-B";
+            :>> xLocation = span / 4;
+            :>> yLocation = height;
+            :>> isPinned = true;
+        }
+
+        part jointC : Joint {
+            :>> jointId = "J-C";
+            :>> xLocation = span / 2;
+            :>> yLocation = 0 [m];
+            :>> isPinned = true;
+        }
+
+        part jointD : Joint {
+            :>> jointId = "J-D";
+            :>> xLocation = 3 * span / 4;
+            :>> yLocation = height;
+            :>> isPinned = true;
+        }
+
+        part jointE : Joint {
+            :>> jointId = "J-E";
+            :>> xLocation = span;
+            :>> yLocation = 0 [m];
+            :>> isPinned = true;
+        }
+
+        part bottomChordABase : TrussMember {
+            :>> memberId = "M-AC";
+            :>> orientationAngle = 0 [degree];
+        }
+
+        part bottomChordBBase : TrussMember {
+            :>> memberId = "M-CE";
+            :>> orientationAngle = 0 [degree];
+        }
+
+        part topChordLeft : TrussMember {
+            :>> memberId = "M-AB";
+            :>> orientationAngle = 45 [degree];
+        }
+
+        part topChordCenter : TrussMember {
+            :>> memberId = "M-BD";
+            :>> orientationAngle = 0 [degree];
+        }
+
+        part topChordRight : TrussMember {
+            :>> memberId = "M-DE";
+            :>> orientationAngle = -45 [degree];
+        }
+
+        part diagonalLeft : TrussMember {
+            :>> memberId = "M-BC";
+            :>> orientationAngle = -45 [degree];
+        }
+
+        part diagonalRight : TrussMember {
+            :>> memberId = "M-CD";
+            :>> orientationAngle = 45 [degree];
+        }
+
+        connect externalLoadInput.appliedLoad to deck.liveLoadInput.appliedLoad;
+        connect deck.transferPort.loadPath to jointB.transferPort.loadPath;
+        connect deck.transferPort.loadPath to jointD.transferPort.loadPath;
+
+        connect jointA.transferPort.loadPath to bottomChordABase.endA.loadPath;
+        connect bottomChordABase.endB.loadPath to jointC.transferPort.loadPath;
+        connect jointC.transferPort.loadPath to bottomChordBBase.endA.loadPath;
+        connect bottomChordBBase.endB.loadPath to jointE.transferPort.loadPath;
+
+        connect jointA.transferPort.loadPath to topChordLeft.endA.loadPath;
+        connect topChordLeft.endB.loadPath to jointB.transferPort.loadPath;
+        connect jointB.transferPort.loadPath to topChordCenter.endA.loadPath;
+        connect topChordCenter.endB.loadPath to jointD.transferPort.loadPath;
+        connect jointD.transferPort.loadPath to topChordRight.endA.loadPath;
+        connect topChordRight.endB.loadPath to jointE.transferPort.loadPath;
+
+        connect jointB.transferPort.loadPath to diagonalLeft.endA.loadPath;
+        connect diagonalLeft.endB.loadPath to jointC.transferPort.loadPath;
+        connect jointC.transferPort.loadPath to diagonalRight.endA.loadPath;
+        connect diagonalRight.endB.loadPath to jointD.transferPort.loadPath;
+
+        connect jointA.loadPort.appliedLoad to leftSupport.loadPort.appliedLoad;
+        connect jointE.loadPort.appliedLoad to rightSupport.loadPort.appliedLoad;
+        connect leftSupport.reactionPort.reaction to leftReactionOutput.reaction;
+        connect rightSupport.reactionPort.reaction to rightReactionOutput.reaction;
+
+        action distributeLoads {
+            in item inputLoad : Load;
+            out item transferredPath : LoadPath;
+
+            first receiveLoad;
+            then splitToPanelPoints;
+            then transferToMembers;
+            then done;
+
+            action receiveLoad;
+            action splitToPanelPoints;
+            action transferToMembers;
+        }
+
+        action resolveSupportReactions {
+            in item totalLoad : Load;
+            out item leftReaction : ReactionForce;
+            out item rightReaction : ReactionForce;
+
+            first sumForces;
+            then sumMoments;
+            then assignReactions;
+            then done;
+
+            action sumForces;
+            action sumMoments;
+            action assignReactions;
+        }
+
+        state def TrussOperationalState {
+            entry action monitorLoads;
+
+            state noLoad;
+            state carryingServiceLoad;
+            state carryingPeakLoad;
+            state degraded;
+            state unsafe;
+
+            transition first noLoad;
+
+            transition loadApplied
+                first noLoad
+                then carryingServiceLoad
+                if designLoad > 0 [N];
+
+            transition peakLoadReached
+                first carryingServiceLoad
+                then carryingPeakLoad
+                if designLoad >= 0.8 * designLoad;
+
+            transition degradationDetected
+                first carryingServiceLoad
+                then degraded
+                if requiredMinimumSafetyFactor < 1.5;
+
+            transition peakDegradationDetected
+                first carryingPeakLoad
+                then degraded
+                if requiredMinimumSafetyFactor < 1.5;
+
+            transition unsafeDetected
+                first degraded
+                then unsafe
+                if requiredMinimumSafetyFactor < 1.0;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The truss system shall provide a stable structural load path that transfers applied vertical and lateral loads from the deck interface through connected triangular members to the supports primarily by axial tension and compression. */
+    }
+
+    requirement def GeometryRequirement {
+        doc /* The truss shall maintain a triangulated geometry so that loads are resolved into axial member forces and global shape stability is preserved under design loading. */
+    }
+
+    requirement def SupportReactionRequirement {
+        doc /* The truss shall deliver reaction forces to a pinned support and a roller support such that static equilibrium is maintained for the specified design load. */
+    }
+
+    requirement def StrengthRequirement {
+        doc /* Each truss member shall have tensile and compressive capacity greater than or equal to the maximum calculated axial demand multiplied by the required minimum safety factor. */
+    }
+
+    requirement def ServiceabilityRequirement {
+        doc /* The truss shall limit deformation sufficiently to preserve alignment of the supported interface during normal service loading. */
+    }
+
+    requirement def InspectionRequirement {
+        doc /* The truss shall expose member demand, capacity, stress, and utilization information for inspection and maintenance assessment. */
+    }
+
+    part trussSystem : Truss {
+        :>> span = 24 [m];
+        :>> height = 4 [m];
+        :>> designLoad = 250000 [N];
+        :>> totalMass = 7200 [kg];
+        :>> requiredMinimumSafetyFactor = 2.0;
+
+        satisfy PrimaryFunctionRequirement by trussSystem;
+        satisfy GeometryRequirement by trussSystem;
+        satisfy SupportReactionRequirement by trussSystem;
+        satisfy StrengthRequirement by trussSystem;
+        satisfy ServiceabilityRequirement by trussSystem;
+        satisfy InspectionRequirement by trussSystem;
+    }
+}

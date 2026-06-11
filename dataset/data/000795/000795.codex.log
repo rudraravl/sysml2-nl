@@ -1,0 +1,719 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-1rx_p0zu
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb43a-7030-7900-9291-843c88b695c4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Tourniquet and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TourniquetSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalar;
+        unit = "mmHg";
+    }
+
+    attribute def Force {
+        :> scalar;
+        unit = "N";
+    }
+
+    attribute def TimeDuration {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def Length {
+        :> scalar;
+        unit = "mm";
+    }
+
+    attribute def BatteryCharge {
+        :> scalar;
+        unit = "%";
+    }
+
+    attribute def Temperature {
+        :> scalar;
+        unit = "degC";
+    }
+
+    item def LimbTissue {
+        attribute circumference : Length;
+        attribute tissueCompliance : Real;
+        attribute distalBloodFlow : Real;
+    }
+
+    item def AppliedCompression {
+        attribute radialPressure : Pressure;
+        attribute circumferentialForce : Force;
+        attribute applicationDuration : TimeDuration;
+    }
+
+    item def OperatorCommand {
+        attribute tightenRequested : Boolean;
+        attribute loosenRequested : Boolean;
+        attribute releaseRequested : Boolean;
+    }
+
+    item def StatusIndication {
+        attribute appliedPressure : Pressure;
+        attribute elapsedApplicationTime : TimeDuration;
+        attribute secure : Boolean;
+        attribute warningActive : Boolean;
+    }
+
+    item def MechanicalEnergy {
+        attribute torque : Real;
+        attribute turns : Real;
+    }
+
+    port def LimbInterfacePort {
+        in item limb : LimbTissue;
+        out item compression : AppliedCompression;
+    }
+
+    port def OperatorInterfacePort {
+        in item command : OperatorCommand;
+        out item status : StatusIndication;
+    }
+
+    port def MechanicalDrivePort {
+        in item energyIn : MechanicalEnergy;
+        out item tensionOut : AppliedCompression;
+    }
+
+    part def Tourniquet {
+        attribute targetOcclusionPressure : Pressure = 240 [mmHg];
+        attribute maximumAllowedPressure : Pressure = 320 [mmHg];
+        attribute maximumApplicationTime : TimeDuration = 7200 [s];
+        attribute strapWidth : Length = 38 [mm];
+        attribute usableStrapLength : Length = 950 [mm];
+        attribute ambientOperatingTemperature : Temperature;
+
+        port limbPort : LimbInterfacePort;
+        port operatorPort : OperatorInterfacePort;
+
+        part strap : CompressionStrap;
+        part windlass : WindlassTensioner;
+        part buckle : LockingBuckle;
+        part pressureIndicator : PressureIndicator;
+        part elapsedTimeMarker : TimeMarker;
+        part safetyRelease : SafetyReleaseMechanism;
+
+        connect strap.limbContact to limbPort;
+        connect windlass.driveOutput to strap.tensionInput;
+        connect buckle.retentionOutput to strap.retentionInput;
+        connect pressureIndicator.sensedCompression to strap.compressionOutput;
+        connect pressureIndicator.statusOutput to operatorPort;
+        connect elapsedTimeMarker.statusOutput to operatorPort;
+        connect safetyRelease.releaseOutput to buckle.releaseInput;
+        connect safetyRelease.releaseOutput to windlass.releaseInput;
+
+        action applyToLimb {
+            in item limb : LimbTissue;
+            in item command : OperatorCommand;
+            out item result : StatusIndication;
+
+            first startApplication;
+            then wrapStrap;
+            then tensionWindlass;
+            then lockBuckle;
+            then verifyOcclusion;
+            then markApplicationTime;
+
+            action startApplication;
+            action wrapStrap;
+            action tensionWindlass;
+            action lockBuckle;
+            action verifyOcclusion;
+            action markApplicationTime;
+        }
+
+        action tighten {
+            in item command : OperatorCommand;
+            out item compression : AppliedCompression;
+        }
+
+        action loosen {
+            in item command : OperatorCommand;
+            out item compression : AppliedCompression;
+        }
+
+        action release {
+            in item command : OperatorCommand;
+            out item compression : AppliedCompression;
+        }
+
+        state def TourniquetOperationalState {
+            state stowed;
+            state positioned;
+            state tightening;
+            state occluding;
+            state monitoring;
+            state warning;
+            state released;
+
+            transition initial then stowed;
+
+            transition stowed_to_positioned
+                first stowed
+                accept OperatorCommand
+                if command.tightenRequested
+                then positioned;
+
+            transition positioned_to_tightening
+                first positioned
+                accept OperatorCommand
+                if command.tightenRequested
+                then tightening;
+
+            transition tightening_to_occluding
+                first tightening
+                if pressureIndicator.measuredPressure >= targetOcclusionPressure
+                then occluding;
+
+            transition occluding_to_monitoring
+                first occluding
+                then monitoring;
+
+            transition monitoring_to_warning
+                first monitoring
+                if pressureIndicator.measuredPressure > maximumAllowedPressure or elapsedTimeMarker.elapsedTime > maximumApplicationTime
+                then warning;
+
+            transition monitoring_to_released
+                first monitoring
+                accept OperatorCommand
+                if command.releaseRequested
+                then released;
+
+            transition warning_to_released
+                first warning
+                accept OperatorCommand
+                if command.releaseRequested
+                then released;
+        }
+
+        exhibit stateMachine : TourniquetOperationalState;
+    }
+
+    part def CompressionStrap {
+        attribute width : Length = 38 [mm];
+        attribute length : Length = 950 [mm];
+        attribute tensileLoadLimit : Force = 900 [N];
+        attribute currentTension : Force;
+        attribute deliveredPressure : Pressure;
+
+        port limbContact : LimbInterfacePort;
+        port tensionInput : MechanicalDrivePort;
+        port retentionInput : MechanicalDrivePort;
+        port compressionOutput : LimbInterfacePort;
+
+        action distributeCompression {
+            in item limb : LimbTissue;
+            in item appliedTension : AppliedCompression;
+            out item deliveredCompression : AppliedCompression;
+        }
+    }
+
+    part def WindlassTensioner {
+        attribute handleLength : Length = 110 [mm];
+        attribute angularPosition : Real;
+        attribute generatedTension : Force;
+        attribute selfLocking : Boolean = true;
+
+        port driveOutput : MechanicalDrivePort;
+        port releaseInput : MechanicalDrivePort;
+
+        action convertRotationToTension {
+            in item operatorEnergy : MechanicalEnergy;
+            out item strapCompression : AppliedCompression;
+        }
+    }
+
+    part def LockingBuckle {
+        attribute locked : Boolean;
+        attribute retentionCapacity : Force = 800 [N];
+
+        port retentionOutput : MechanicalDrivePort;
+        port releaseInput : MechanicalDrivePort;
+
+        action retainTension {
+            in item strapCompression : AppliedCompression;
+            out item retainedCompression : AppliedCompression;
+        }
+    }
+
+    part def PressureIndicator {
+        attribute measuredPressure : Pressure;
+        attribute lowPressureThreshold : Pressure = 180 [mmHg];
+        attribute highPressureThreshold : Pressure = 320 [mmHg];
+
+        port sensedCompression : LimbInterfacePort;
+        port statusOutput : OperatorInterfacePort;
+
+        action senseCompression {
+            in item compression : AppliedCompression;
+            out item status : StatusIndication;
+        }
+    }
+
+    part def TimeMarker {
+        attribute elapsedTime : TimeDuration;
+        attribute warningTime : TimeDuration = 7200 [s];
+
+        port statusOutput : OperatorInterfacePort;
+
+        action markStartTime {
+            out item status : StatusIndication;
+        }
+
+        action updateElapsedTime {
+            out item status : StatusIndication;
+        }
+    }
+
+    part def SafetyReleaseMechanism {
+        attribute releaseAccessibleWithOneHand : Boolean = true;
+        attribute releaseForce : Force = 35 [N];
+
+        port releaseOutput : MechanicalDrivePort;
+
+        action releaseStoredTension {
+            out item residualCompression : AppliedCompression;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject tourniquet : Tourniquet;
+
+        doc /* The tourniquet shall provide controllable circumferential compression to an injured limb in order to reduce or stop distal arterial blood flow at a high level until definitive medical care is available. */
+
+        require constraint {
+            tourniquet.targetOcclusionPressure >= 180 [mmHg] and
+            tourniquet.targetOcclusionPressure <= tourniquet.maximumAllowedPressure
+        }
+    }
+
+    requirement def AdjustableCompressionRequirement {
+        subject tourniquet : Tourniquet;
+
+        doc /* The tourniquet shall allow an operator to increase, retain, monitor, and release applied compression using integral mechanical controls. */
+
+        require constraint {
+            tourniquet.windlass.selfLocking == true and
+            tourniquet.safetyRelease.releaseAccessibleWithOneHand == true
+        }
+    }
+
+    requirement def PressureMonitoringRequirement {
+        subject indicator : PressureIndicator;
+
+        doc /* The system shall indicate whether applied compression is below the occlusion range, within the intended range, or above the safe operating range. */
+
+        require constraint {
+            indicator.lowPressureThreshold < indicator.highPressureThreshold
+        }
+    }
+
+    requirement def ApplicationTimeRequirement {
+        subject marker : TimeMarker;
+
+        doc /* The system shall provide a visible indication of elapsed application time so that prolonged application can be managed. */
+
+        require constraint {
+            marker.warningTime == 7200 [s]
+        }
+    }
+
+    requirement def MechanicalRetentionRequirement {
+        subject buckle : LockingBuckle;
+
+        doc /* The locking mechanism shall retain strap tension after operator tightening without continuous operator input. */
+
+        require constraint {
+            buckle.retentionCapacity >= 800 [N]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Tourniquet;
+    satisfy AdjustableCompressionRequirement by Tourniquet;
+    satisfy PressureMonitoringRequirement by PressureIndicator;
+    satisfy ApplicationTimeRequirement by TimeMarker;
+    satisfy MechanicalRetentionRequirement by LockingBuckle;
+
+    part fieldTourniquet : Tourniquet {
+        attribute targetOcclusionPressure = 240 [mmHg];
+        attribute maximumAllowedPressure = 320 [mmHg];
+        attribute maximumApplicationTime = 7200 [s];
+        attribute strapWidth = 38 [mm];
+        attribute usableStrapLength = 950 [mm];
+    }
+
+}
+tokens used
+3,536
+package TourniquetSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalar;
+        unit = "mmHg";
+    }
+
+    attribute def Force {
+        :> scalar;
+        unit = "N";
+    }
+
+    attribute def TimeDuration {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def Length {
+        :> scalar;
+        unit = "mm";
+    }
+
+    attribute def BatteryCharge {
+        :> scalar;
+        unit = "%";
+    }
+
+    attribute def Temperature {
+        :> scalar;
+        unit = "degC";
+    }
+
+    item def LimbTissue {
+        attribute circumference : Length;
+        attribute tissueCompliance : Real;
+        attribute distalBloodFlow : Real;
+    }
+
+    item def AppliedCompression {
+        attribute radialPressure : Pressure;
+        attribute circumferentialForce : Force;
+        attribute applicationDuration : TimeDuration;
+    }
+
+    item def OperatorCommand {
+        attribute tightenRequested : Boolean;
+        attribute loosenRequested : Boolean;
+        attribute releaseRequested : Boolean;
+    }
+
+    item def StatusIndication {
+        attribute appliedPressure : Pressure;
+        attribute elapsedApplicationTime : TimeDuration;
+        attribute secure : Boolean;
+        attribute warningActive : Boolean;
+    }
+
+    item def MechanicalEnergy {
+        attribute torque : Real;
+        attribute turns : Real;
+    }
+
+    port def LimbInterfacePort {
+        in item limb : LimbTissue;
+        out item compression : AppliedCompression;
+    }
+
+    port def OperatorInterfacePort {
+        in item command : OperatorCommand;
+        out item status : StatusIndication;
+    }
+
+    port def MechanicalDrivePort {
+        in item energyIn : MechanicalEnergy;
+        out item tensionOut : AppliedCompression;
+    }
+
+    part def Tourniquet {
+        attribute targetOcclusionPressure : Pressure = 240 [mmHg];
+        attribute maximumAllowedPressure : Pressure = 320 [mmHg];
+        attribute maximumApplicationTime : TimeDuration = 7200 [s];
+        attribute strapWidth : Length = 38 [mm];
+        attribute usableStrapLength : Length = 950 [mm];
+        attribute ambientOperatingTemperature : Temperature;
+
+        port limbPort : LimbInterfacePort;
+        port operatorPort : OperatorInterfacePort;
+
+        part strap : CompressionStrap;
+        part windlass : WindlassTensioner;
+        part buckle : LockingBuckle;
+        part pressureIndicator : PressureIndicator;
+        part elapsedTimeMarker : TimeMarker;
+        part safetyRelease : SafetyReleaseMechanism;
+
+        connect strap.limbContact to limbPort;
+        connect windlass.driveOutput to strap.tensionInput;
+        connect buckle.retentionOutput to strap.retentionInput;
+        connect pressureIndicator.sensedCompression to strap.compressionOutput;
+        connect pressureIndicator.statusOutput to operatorPort;
+        connect elapsedTimeMarker.statusOutput to operatorPort;
+        connect safetyRelease.releaseOutput to buckle.releaseInput;
+        connect safetyRelease.releaseOutput to windlass.releaseInput;
+
+        action applyToLimb {
+            in item limb : LimbTissue;
+            in item command : OperatorCommand;
+            out item result : StatusIndication;
+
+            first startApplication;
+            then wrapStrap;
+            then tensionWindlass;
+            then lockBuckle;
+            then verifyOcclusion;
+            then markApplicationTime;
+
+            action startApplication;
+            action wrapStrap;
+            action tensionWindlass;
+            action lockBuckle;
+            action verifyOcclusion;
+            action markApplicationTime;
+        }
+
+        action tighten {
+            in item command : OperatorCommand;
+            out item compression : AppliedCompression;
+        }
+
+        action loosen {
+            in item command : OperatorCommand;
+            out item compression : AppliedCompression;
+        }
+
+        action release {
+            in item command : OperatorCommand;
+            out item compression : AppliedCompression;
+        }
+
+        state def TourniquetOperationalState {
+            state stowed;
+            state positioned;
+            state tightening;
+            state occluding;
+            state monitoring;
+            state warning;
+            state released;
+
+            transition initial then stowed;
+
+            transition stowed_to_positioned
+                first stowed
+                accept OperatorCommand
+                if command.tightenRequested
+                then positioned;
+
+            transition positioned_to_tightening
+                first positioned
+                accept OperatorCommand
+                if command.tightenRequested
+                then tightening;
+
+            transition tightening_to_occluding
+                first tightening
+                if pressureIndicator.measuredPressure >= targetOcclusionPressure
+                then occluding;
+
+            transition occluding_to_monitoring
+                first occluding
+                then monitoring;
+
+            transition monitoring_to_warning
+                first monitoring
+                if pressureIndicator.measuredPressure > maximumAllowedPressure or elapsedTimeMarker.elapsedTime > maximumApplicationTime
+                then warning;
+
+            transition monitoring_to_released
+                first monitoring
+                accept OperatorCommand
+                if command.releaseRequested
+                then released;
+
+            transition warning_to_released
+                first warning
+                accept OperatorCommand
+                if command.releaseRequested
+                then released;
+        }
+
+        exhibit stateMachine : TourniquetOperationalState;
+    }
+
+    part def CompressionStrap {
+        attribute width : Length = 38 [mm];
+        attribute length : Length = 950 [mm];
+        attribute tensileLoadLimit : Force = 900 [N];
+        attribute currentTension : Force;
+        attribute deliveredPressure : Pressure;
+
+        port limbContact : LimbInterfacePort;
+        port tensionInput : MechanicalDrivePort;
+        port retentionInput : MechanicalDrivePort;
+        port compressionOutput : LimbInterfacePort;
+
+        action distributeCompression {
+            in item limb : LimbTissue;
+            in item appliedTension : AppliedCompression;
+            out item deliveredCompression : AppliedCompression;
+        }
+    }
+
+    part def WindlassTensioner {
+        attribute handleLength : Length = 110 [mm];
+        attribute angularPosition : Real;
+        attribute generatedTension : Force;
+        attribute selfLocking : Boolean = true;
+
+        port driveOutput : MechanicalDrivePort;
+        port releaseInput : MechanicalDrivePort;
+
+        action convertRotationToTension {
+            in item operatorEnergy : MechanicalEnergy;
+            out item strapCompression : AppliedCompression;
+        }
+    }
+
+    part def LockingBuckle {
+        attribute locked : Boolean;
+        attribute retentionCapacity : Force = 800 [N];
+
+        port retentionOutput : MechanicalDrivePort;
+        port releaseInput : MechanicalDrivePort;
+
+        action retainTension {
+            in item strapCompression : AppliedCompression;
+            out item retainedCompression : AppliedCompression;
+        }
+    }
+
+    part def PressureIndicator {
+        attribute measuredPressure : Pressure;
+        attribute lowPressureThreshold : Pressure = 180 [mmHg];
+        attribute highPressureThreshold : Pressure = 320 [mmHg];
+
+        port sensedCompression : LimbInterfacePort;
+        port statusOutput : OperatorInterfacePort;
+
+        action senseCompression {
+            in item compression : AppliedCompression;
+            out item status : StatusIndication;
+        }
+    }
+
+    part def TimeMarker {
+        attribute elapsedTime : TimeDuration;
+        attribute warningTime : TimeDuration = 7200 [s];
+
+        port statusOutput : OperatorInterfacePort;
+
+        action markStartTime {
+            out item status : StatusIndication;
+        }
+
+        action updateElapsedTime {
+            out item status : StatusIndication;
+        }
+    }
+
+    part def SafetyReleaseMechanism {
+        attribute releaseAccessibleWithOneHand : Boolean = true;
+        attribute releaseForce : Force = 35 [N];
+
+        port releaseOutput : MechanicalDrivePort;
+
+        action releaseStoredTension {
+            out item residualCompression : AppliedCompression;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject tourniquet : Tourniquet;
+
+        doc /* The tourniquet shall provide controllable circumferential compression to an injured limb in order to reduce or stop distal arterial blood flow at a high level until definitive medical care is available. */
+
+        require constraint {
+            tourniquet.targetOcclusionPressure >= 180 [mmHg] and
+            tourniquet.targetOcclusionPressure <= tourniquet.maximumAllowedPressure
+        }
+    }
+
+    requirement def AdjustableCompressionRequirement {
+        subject tourniquet : Tourniquet;
+
+        doc /* The tourniquet shall allow an operator to increase, retain, monitor, and release applied compression using integral mechanical controls. */
+
+        require constraint {
+            tourniquet.windlass.selfLocking == true and
+            tourniquet.safetyRelease.releaseAccessibleWithOneHand == true
+        }
+    }
+
+    requirement def PressureMonitoringRequirement {
+        subject indicator : PressureIndicator;
+
+        doc /* The system shall indicate whether applied compression is below the occlusion range, within the intended range, or above the safe operating range. */
+
+        require constraint {
+            indicator.lowPressureThreshold < indicator.highPressureThreshold
+        }
+    }
+
+    requirement def ApplicationTimeRequirement {
+        subject marker : TimeMarker;
+
+        doc /* The system shall provide a visible indication of elapsed application time so that prolonged application can be managed. */
+
+        require constraint {
+            marker.warningTime == 7200 [s]
+        }
+    }
+
+    requirement def MechanicalRetentionRequirement {
+        subject buckle : LockingBuckle;
+
+        doc /* The locking mechanism shall retain strap tension after operator tightening without continuous operator input. */
+
+        require constraint {
+            buckle.retentionCapacity >= 800 [N]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Tourniquet;
+    satisfy AdjustableCompressionRequirement by Tourniquet;
+    satisfy PressureMonitoringRequirement by PressureIndicator;
+    satisfy ApplicationTimeRequirement by TimeMarker;
+    satisfy MechanicalRetentionRequirement by LockingBuckle;
+
+    part fieldTourniquet : Tourniquet {
+        attribute targetOcclusionPressure = 240 [mmHg];
+        attribute maximumAllowedPressure = 320 [mmHg];
+        attribute maximumApplicationTime = 7200 [s];
+        attribute strapWidth = 38 [mm];
+        attribute usableStrapLength = 950 [mm];
+    }
+
+}

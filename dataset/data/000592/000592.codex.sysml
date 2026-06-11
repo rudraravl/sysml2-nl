@@ -1,0 +1,379 @@
+package DuearityBasedTinnitusReliefSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def SoundPressureLevel :> ScalarValues::Real {
+        unit = "dB SPL";
+    }
+
+    attribute def Frequency :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def AudioGain :> ScalarValues::Real {
+        unit = "dB";
+    }
+
+    attribute def BatteryCharge :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def Duration :> ScalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def ElectricalPower :> ScalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def Voltage :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def DataRate :> ScalarValues::Real {
+        unit = "kbps";
+    }
+
+    item def AudioSignal {
+        attribute sampleRate : Frequency;
+        attribute bitDepth : Integer;
+        attribute level : SoundPressureLevel;
+        attribute dominantFrequency : Frequency;
+    }
+
+    item def MaskingSoundProfile {
+        attribute profileId : String;
+        attribute centerFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute outputLevel : SoundPressureLevel;
+        attribute rampUpTime : Duration;
+        attribute rampDownTime : Duration;
+    }
+
+    item def UserCommand {
+        attribute commandType : String;
+        attribute requestedLevel : SoundPressureLevel;
+        attribute requestedProfileId : String;
+    }
+
+    item def TherapySessionRecord {
+        attribute sessionId : String;
+        attribute startedAt : String;
+        attribute elapsedTime : Duration;
+        attribute averageOutputLevel : SoundPressureLevel;
+        attribute selectedProfileId : String;
+        attribute completed : Boolean;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Real;
+        attribute power : ElectricalPower;
+    }
+
+    port def AudioOutputPort {
+        out item audio : AudioSignal;
+    }
+
+    port def AudioInputPort {
+        in item audio : AudioSignal;
+    }
+
+    port def ControlPort {
+        in item command : UserCommand;
+        out item status : TherapySessionRecord;
+    }
+
+    port def WirelessPort {
+        in item command : UserCommand;
+        out item record : TherapySessionRecord;
+    }
+
+    port def PowerPort {
+        in item suppliedPower : PowerFlow;
+    }
+
+    part def BoneConductionTransducer {
+        attribute minimumFrequency : Frequency = 100;
+        attribute maximumFrequency : Frequency = 10000;
+        attribute maximumOutputLevel : SoundPressureLevel = 85;
+        attribute nominalImpedance : Real = 8;
+        port audioIn : AudioInputPort;
+        port acousticOut : AudioOutputPort;
+
+        action def ConvertElectricalAudioToVibration {
+            in item inputSignal : AudioSignal;
+            out item conductedSignal : AudioSignal;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute processingLatency : Duration = 0.025;
+        attribute equalizerBands : Integer = 10;
+        attribute limiterThreshold : SoundPressureLevel = 80;
+        port commandIn : ControlPort;
+        port rawAudioOut : AudioOutputPort;
+
+        part profileLibrary {
+            attribute whiteNoise : MaskingSoundProfile {
+                :>> profileId = "white-noise";
+                :>> centerFrequency = 4000;
+                :>> bandwidth = 8000;
+                :>> outputLevel = 50;
+                :>> rampUpTime = 5;
+                :>> rampDownTime = 5;
+            }
+            attribute pinkNoise : MaskingSoundProfile {
+                :>> profileId = "pink-noise";
+                :>> centerFrequency = 1500;
+                :>> bandwidth = 6000;
+                :>> outputLevel = 48;
+                :>> rampUpTime = 5;
+                :>> rampDownTime = 5;
+            }
+            attribute highToneMasker : MaskingSoundProfile {
+                :>> profileId = "high-tone-masker";
+                :>> centerFrequency = 6000;
+                :>> bandwidth = 1200;
+                :>> outputLevel = 45;
+                :>> rampUpTime = 8;
+                :>> rampDownTime = 8;
+            }
+        }
+
+        action def GenerateTherapeuticMaskingSound {
+            in item selectedProfile : MaskingSoundProfile;
+            in attribute userLevel : SoundPressureLevel;
+            out item generatedAudio : AudioSignal;
+        }
+
+        action def LimitOutputLevel {
+            in item generatedAudio : AudioSignal;
+            out item safeAudio : AudioSignal;
+        }
+    }
+
+    part def BatteryModule {
+        attribute capacity : Real = 450;
+        attribute chargeRemaining : BatteryCharge = 100;
+        attribute nominalVoltage : Voltage = 3.7;
+        attribute lowChargeThreshold : BatteryCharge = 15;
+        port powerOut : PowerPort;
+
+        action def SupplyRegulatedPower {
+            out item regulatedPower : PowerFlow;
+        }
+    }
+
+    part def ChargingInterface {
+        attribute inputVoltage : Voltage = 5;
+        attribute maximumChargePower : ElectricalPower = 2.5;
+        port powerIn : PowerPort;
+        port batteryPowerOut : PowerPort;
+
+        action def ChargeBattery {
+            in item externalPower : PowerFlow;
+            out item chargingPower : PowerFlow;
+        }
+    }
+
+    part def MobileApplicationInterface {
+        attribute wirelessDataRate : DataRate = 250;
+        attribute paired : Boolean = false;
+        port wireless : WirelessPort;
+
+        action def ReceiveUserConfiguration {
+            out item command : UserCommand;
+        }
+
+        action def DisplaySessionStatus {
+            in item statusRecord : TherapySessionRecord;
+        }
+    }
+
+    part def UserControlModule {
+        attribute volumeStep : SoundPressureLevel = 2;
+        attribute minimumUserLevel : SoundPressureLevel = 30;
+        attribute maximumUserLevel : SoundPressureLevel = 75;
+        port controlOut : ControlPort;
+
+        action def InterpretButtonInput {
+            out item command : UserCommand;
+        }
+    }
+
+    part def SessionManager {
+        attribute defaultSessionDuration : Duration = 1200;
+        attribute maximumSessionDuration : Duration = 7200;
+        attribute active : Boolean = false;
+        port controlIn : ControlPort;
+        port wirelessIn : WirelessPort;
+        port processorControlOut : ControlPort;
+
+        action def StartTherapySession {
+            in item command : UserCommand;
+            out item profile : MaskingSoundProfile;
+        }
+
+        action def StopTherapySession {
+            out item record : TherapySessionRecord;
+        }
+
+        action def UpdateSessionRecord {
+            in item profile : MaskingSoundProfile;
+            in attribute elapsed : Duration;
+            out item record : TherapySessionRecord;
+        }
+
+        state def TherapyControlStateMachine {
+            state off;
+            state ready;
+            state therapyActive;
+            state paused;
+            state lowBatteryShutdown;
+
+            entry action off {
+                active = false;
+            }
+
+            entry action ready {
+                active = false;
+            }
+
+            entry action therapyActive {
+                active = true;
+            }
+
+            transition first off then ready;
+            transition ready_to_active first ready then therapyActive
+                accept UserCommand
+                if command.commandType == "start";
+            transition active_to_paused first therapyActive then paused
+                accept UserCommand
+                if command.commandType == "pause";
+            transition paused_to_active first paused then therapyActive
+                accept UserCommand
+                if command.commandType == "resume";
+            transition active_to_ready first therapyActive then ready
+                accept UserCommand
+                if command.commandType == "stop";
+            transition active_to_lowBattery first therapyActive then lowBatteryShutdown
+                if BatteryModule::chargeRemaining <= BatteryModule::lowChargeThreshold;
+            transition lowBattery_to_off first lowBatteryShutdown then off;
+        }
+    }
+
+    part def DuearityInspiredTherapyDevice {
+        attribute primaryFunction : String =
+            "Provide user-adjustable, non-invasive tinnitus sound therapy by generating calibrated masking audio and delivering it through a wearable bone-conduction style transducer while preserving environmental awareness.";
+
+        part battery : BatteryModule;
+        part charger : ChargingInterface;
+        part controls : UserControlModule;
+        part appInterface : MobileApplicationInterface;
+        part sessionManager : SessionManager;
+        part processor : SignalProcessor;
+        part leftTransducer : BoneConductionTransducer;
+        part rightTransducer : BoneConductionTransducer;
+
+        port userControls : ControlPort;
+        port mobileLink : WirelessPort;
+        port chargingPower : PowerPort;
+        port leftTherapyOutput : AudioOutputPort;
+        port rightTherapyOutput : AudioOutputPort;
+
+        connect userControls to controls.controlOut;
+        connect mobileLink to appInterface.wireless;
+        connect chargingPower to charger.powerIn;
+        connect controls.controlOut to sessionManager.controlIn;
+        connect appInterface.wireless to sessionManager.wirelessIn;
+        connect sessionManager.processorControlOut to processor.commandIn;
+        connect processor.rawAudioOut to leftTransducer.audioIn;
+        connect processor.rawAudioOut to rightTransducer.audioIn;
+        connect leftTransducer.acousticOut to leftTherapyOutput;
+        connect rightTransducer.acousticOut to rightTherapyOutput;
+        connect charger.batteryPowerOut to battery.powerOut;
+
+        action def ProvideTinnitusRelief {
+            in item userCommand : UserCommand;
+            out item leftOutput : AudioSignal;
+            out item rightOutput : AudioSignal;
+            out item sessionRecord : TherapySessionRecord;
+
+            first startSession : SessionManager::StartTherapySession;
+            then generateSound : SignalProcessor::GenerateTherapeuticMaskingSound;
+            then enforceLimit : SignalProcessor::LimitOutputLevel;
+            then driveLeft : BoneConductionTransducer::ConvertElectricalAudioToVibration;
+            then driveRight : BoneConductionTransducer::ConvertElectricalAudioToVibration;
+            then updateRecord : SessionManager::UpdateSessionRecord;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+            /* The system shall provide a high-level tinnitus relief function by delivering adjustable therapeutic masking sound through a wearable transducer arrangement while allowing the user to remain aware of external sound. */
+    }
+
+    requirement def OutputSafetyRequirement {
+        attribute maximumAllowedOutput : SoundPressureLevel = 80;
+        doc
+            /* The system shall limit therapeutic audio output to no more than the configured safe maximum sound pressure level. */
+    }
+
+    requirement def UserAdjustmentRequirement {
+        attribute minimumLevel : SoundPressureLevel = 30;
+        attribute maximumLevel : SoundPressureLevel = 75;
+        doc
+            /* The system shall allow the user to select therapy sound profile and output level within bounded clinical comfort limits. */
+    }
+
+    requirement def SessionRecordingRequirement {
+        doc
+            /* The system shall record therapy session duration, selected sound profile, average output level, and completion status. */
+    }
+
+    requirement def WearablePowerRequirement {
+        attribute minimumSessionDuration : Duration = 1200;
+        doc
+            /* The system shall support at least one standard twenty-minute therapy session on internal battery power. */
+    }
+
+    requirement def LowBatteryProtectionRequirement {
+        attribute lowBatteryThreshold : BatteryCharge = 15;
+        doc
+            /* The system shall stop active therapy and enter a protected shutdown state when battery charge is below the low battery threshold. */
+    }
+
+    part duearityBasedSystem : DuearityInspiredTherapyDevice;
+
+    satisfy PrimaryFunctionRequirement by duearityBasedSystem;
+    satisfy OutputSafetyRequirement by duearityBasedSystem.processor;
+    satisfy UserAdjustmentRequirement by duearityBasedSystem.controls;
+    satisfy UserAdjustmentRequirement by duearityBasedSystem.appInterface;
+    satisfy SessionRecordingRequirement by duearityBasedSystem.sessionManager;
+    satisfy WearablePowerRequirement by duearityBasedSystem.battery;
+    satisfy LowBatteryProtectionRequirement by duearityBasedSystem.sessionManager;
+
+    constraint def SafeOutputConstraint {
+        in attribute actualOutput : SoundPressureLevel;
+        in attribute maximumAllowed : SoundPressureLevel;
+        actualOutput <= maximumAllowed;
+    }
+
+    constraint def SessionDurationConstraint {
+        in attribute supportedDuration : Duration;
+        in attribute requiredDuration : Duration;
+        supportedDuration >= requiredDuration;
+    }
+
+    assert constraint SafeOutputConstraint {
+        actualOutput = duearityBasedSystem.processor.limiterThreshold;
+        maximumAllowed = OutputSafetyRequirement::maximumAllowedOutput;
+    }
+
+    assert constraint SessionDurationConstraint {
+        supportedDuration = duearityBasedSystem.sessionManager.defaultSessionDuration;
+        requiredDuration = WearablePowerRequirement::minimumSessionDuration;
+    }
+}
