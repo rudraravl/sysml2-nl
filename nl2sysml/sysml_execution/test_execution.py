@@ -19,7 +19,10 @@ from nl2sysml.sysml_execution.extractor import (  # noqa: E402
     requires_layer2,
 )
 from nl2sysml.sysml_execution.harness_builder import build_harness_block  # noqa: E402
-from nl2sysml.sysml_execution.corpus_runner import run_corpus  # noqa: E402
+from nl2sysml.sysml_execution.corpus_runner import (  # noqa: E402
+    _redact_local_paths,
+    run_corpus,
+)
 from nl2sysml.sysml_execution.models import (  # noqa: E402
     ExecutionRequest,
     KernelExecutionOutput,
@@ -314,6 +317,16 @@ class TestKernel000200(unittest.TestCase):
 
 
 class TestCorpusReporting(unittest.TestCase):
+    def test_redacts_local_paths_recursively(self):
+        redacted = _redact_local_paths(
+            {
+                "path": str(_REPO_ROOT / "dataset"),
+                "nested": [str(Path.home() / "secret")],
+            }
+        )
+        self.assertEqual(redacted["path"], "<REPO_ROOT>/dataset")
+        self.assertEqual(redacted["nested"], ["<HOME>/secret"])
+
     @patch("nl2sysml.sysml_execution.corpus_runner.run_sysml_execution")
     @patch("nl2sysml.sysml_execution.corpus_runner.compile_sysml_candidate")
     def test_writes_baseline_target_and_audit_outputs(self, compile_mock, run_mock):
@@ -349,6 +362,7 @@ class TestCorpusReporting(unittest.TestCase):
             rows = run_corpus(root / "dataset", output)
 
             self.assertTrue(rows[0]["baseline_syntax_ok"])
+            self.assertEqual(rows[0]["model_path"], "000200/000200.sysml")
             self.assertTrue((output / "summary.csv").exists())
             self.assertTrue((output / "targets.csv").exists())
             audit = __import__("json").loads((output / "audit.json").read_text())

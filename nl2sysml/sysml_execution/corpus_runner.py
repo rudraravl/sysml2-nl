@@ -20,12 +20,44 @@ _DEFAULT_OUTPUT = _REPO_ROOT / "results" / "sysml_execution_corpus_v3"
 _RUN_SCHEMA_VERSION = 3
 
 
+def _portable_model_path(model_path: Path) -> str:
+    """Return a shareable path without usernames or local workspace directories."""
+    try:
+        return str(model_path.resolve().relative_to(_REPO_ROOT.resolve()))
+    except ValueError:
+        return str(Path(model_path.parent.name) / model_path.name)
+
+
+def _redact_local_paths(value: Any) -> Any:
+    """Recursively redact local absolute paths from shareable result payloads."""
+    if isinstance(value, dict):
+        return {key: _redact_local_paths(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_local_paths(item) for item in value]
+    if isinstance(value, str):
+        return value.replace(str(_REPO_ROOT.resolve()), "<REPO_ROOT>").replace(
+            str(Path.home()), "<HOME>"
+        )
+    return value
+
+
+def _sanitize_payload_paths(payload: Dict[str, Any], portable_path: str) -> None:
+    redacted = _redact_local_paths(payload)
+    payload.clear()
+    payload.update(redacted)
+    payload["model_path"] = portable_path
+    if isinstance(payload.get("summary"), dict):
+        payload["summary"]["model_path"] = portable_path
+    for summary in payload.get("target_summaries") or []:
+        summary["model_path"] = portable_path
+
+
 def _summary_row(model_id: str, model_path: Path, result: Dict[str, Any], elapsed: float) -> Dict[str, Any]:
     attempts = result.get("vector_attempts") or []
     metadata = result.get("harness_metadata") or {}
     return {
         "model_id": model_id,
-        "model_path": str(model_path),
+        "model_path": _portable_model_path(model_path),
         "elapsed_sec": round(elapsed, 3),
         "success": result.get("success"),
         "syntax_ok": result.get("syntax_ok"),
@@ -78,7 +110,7 @@ def _aggregate_target_summaries(
         coverage_counts[status] = coverage_counts.get(status, 0) + 1
     return {
         "model_id": model_id,
-        "model_path": str(model_path),
+        "model_path": _portable_model_path(model_path),
         "elapsed_sec": round(elapsed, 3),
         "success": all(bool(summary.get("success")) for summary in target_summaries),
         "syntax_ok": all(bool(summary.get("syntax_ok")) for summary in target_summaries),
@@ -196,6 +228,8 @@ def run_corpus(
         if resume and result_path.exists():
             stored = json.loads(result_path.read_text(encoding="utf-8"))
             if stored.get("run_schema_version") == _RUN_SCHEMA_VERSION:
+                _sanitize_payload_paths(stored, _portable_model_path(model_path))
+                result_path.write_text(json.dumps(stored, indent=2), encoding="utf-8")
                 rows.append(stored["summary"])
                 target_rows.extend(stored.get("target_summaries") or [])
                 print(f"[{index}/{len(model_files)}] {model_id}: resumed")
@@ -233,7 +267,7 @@ def run_corpus(
                 payload = {
                     "run_schema_version": _RUN_SCHEMA_VERSION,
                     "model_id": model_id,
-                    "model_path": str(model_path),
+                    "model_path": _portable_model_path(model_path),
                     "footnote": (
                         "Preset fallback vectors are only kernel-accepted; their semantic "
                         "validity as engineering inputs is unknown."
@@ -262,7 +296,7 @@ def run_corpus(
                 payload = {
                     "run_schema_version": _RUN_SCHEMA_VERSION,
                     "model_id": model_id,
-                    "model_path": str(model_path),
+                    "model_path": _portable_model_path(model_path),
                     "footnote": (
                         "No injectable typed action target was found. Structural/state "
                         "harness compilation does not constitute an input-vector test."
@@ -275,7 +309,7 @@ def run_corpus(
             elapsed = time.monotonic() - started
             summary = {
                 "model_id": model_id,
-                "model_path": str(model_path),
+                "model_path": _portable_model_path(model_path),
                 "elapsed_sec": round(elapsed, 3),
                 "success": False,
                 "diagnostic_error_type": "runner_exception",
@@ -288,6 +322,7 @@ def run_corpus(
                 "summary": summary,
             }
 
+        _sanitize_payload_paths(payload, _portable_model_path(model_path))
         result_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         rows.append(summary)
         target_rows.extend(payload.get("target_summaries") or [])

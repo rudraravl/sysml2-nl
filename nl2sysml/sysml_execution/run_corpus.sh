@@ -23,8 +23,20 @@ mkdir -p "$OUTPUT_DIR"
 cd "$REPO_ROOT"
 
 RUNNER=("$PYTHON" -u -m nl2sysml.sysml_execution.corpus_runner --output "$OUTPUT_DIR" "$@")
+redact_paths() {
+  sed \
+    -e "s|$REPO_ROOT|<REPO_ROOT>|g" \
+    -e "s|$TOOLS_ROOT|<TOOLS_ROOT>|g" \
+    -e "s|$HOME|<HOME>|g"
+}
+
+if [[ -f "$OUTPUT_DIR/run.log" ]]; then
+  redact_paths < "$OUTPUT_DIR/run.log" > "$OUTPUT_DIR/run.log.redacted"
+  mv "$OUTPUT_DIR/run.log.redacted" "$OUTPUT_DIR/run.log"
+fi
+
 if command -v caffeinate >/dev/null 2>&1; then
-  caffeinate -i "${RUNNER[@]}" 2>&1 | tee -a "$OUTPUT_DIR/run.log"
+  caffeinate -i "${RUNNER[@]}" 2>&1 | redact_paths | tee -a "$OUTPUT_DIR/run.log"
 else
-  "${RUNNER[@]}" 2>&1 | tee -a "$OUTPUT_DIR/run.log"
+  "${RUNNER[@]}" 2>&1 | redact_paths | tee -a "$OUTPUT_DIR/run.log"
 fi

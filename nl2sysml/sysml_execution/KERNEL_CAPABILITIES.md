@@ -90,3 +90,6 @@ Important outputs:
 - `audit.json`: defensible experiment totals
 - `<model_id>.json`: baseline output plus complete harness/target outputs
 - `run.log`: live console output
+
+Stored model paths are repository-relative and the launch script redacts home, repository,
+and local tool paths from `run.log` so the result files are safe to share.
