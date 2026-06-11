@@ -96,6 +96,10 @@ _ASSERT_CONSTRAINT_RE = re.compile(
     r"^\s*assert\s+constraint",
     re.MULTILINE,
 )
+_REQUIREMENT_RE = re.compile(
+    rf"^\s*requirement(?:\s+def)?(?:\s+<[^>]+>)?\s+{_ID}",
+    re.MULTILINE,
+)
 _STATE_DEF_RE = re.compile(
     rf"^\s*state\s+def\s+{_ID}",
     re.MULTILINE,
@@ -108,6 +112,14 @@ _STATE_MACHINE_RE = re.compile(
     rf"^\s*state\s+{_ID}\s*\{{",
     re.MULTILINE,
 )
+_STATE_USAGE_RE = re.compile(
+    rf"^\s*state\s+(?!def\b){_ID}",
+    re.MULTILINE,
+)
+_TRANSITION_LINE_RE = re.compile(r"^\s*transition\b.*", re.MULTILINE)
+_CALC_DEF_RE = re.compile(rf"^\s*calc\s+def\s+{_ID}", re.MULTILINE)
+_CALC_USAGE_RE = re.compile(rf"^\s*calc\s+(?!def\b)(?:\:>>\s+)?{_ID}", re.MULTILINE)
+_BIND_LINE_RE = re.compile(r"^\s*bind\s+(.+?);?\s*$", re.MULTILINE)
 _ACTION_DEF_LINE_RE = re.compile(
     rf"^\s*action\s+def\s+{_ID}",
     re.MULTILINE,
@@ -347,10 +359,29 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                 )
             )
 
+    requirements = _dedupe_preserve_order(
+        _ids_from_findall(_REQUIREMENT_RE.findall(text))
+    )
     state_machines = _dedupe_preserve_order(
         _ids_from_findall(_STATE_DEF_RE.findall(text))
         + _ids_from_findall(_STATE_INSTANCE_RE.findall(text))
         + _ids_from_findall(_STATE_MACHINE_RE.findall(text))
+    )
+    states = _dedupe_preserve_order(_ids_from_findall(_STATE_USAGE_RE.findall(text)))
+    transitions = _dedupe_preserve_order(
+        [match.group(0).strip() for match in _TRANSITION_LINE_RE.finditer(text)]
+    )
+    calc_defs = _dedupe_preserve_order(_ids_from_findall(_CALC_DEF_RE.findall(text)))
+    calc_usages = _dedupe_preserve_order(_ids_from_findall(_CALC_USAGE_RE.findall(text)))
+    bindings = _dedupe_preserve_order(
+        [match.group(1).strip().rstrip(";") for match in _BIND_LINE_RE.finditer(text)]
+    )
+    equations = _dedupe_preserve_order(
+        [
+            line.strip().rstrip("&;")
+            for line in lines
+            if "==" in line and not line.lstrip().startswith("//")
+        ]
     )
 
     action_defs: List[ExtractedActionDef] = []
@@ -454,7 +485,14 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         attribute_defs=attribute_defs,
         complex_attribute_defs=complex_attribute_defs,
         constraints=constraints,
+        requirements=requirements,
         state_machines=state_machines,
+        states=states,
+        transitions=transitions,
+        calc_defs=calc_defs,
+        calc_usages=calc_usages,
+        bindings=bindings,
+        equations=equations,
         actions=action_names,
         action_defs=action_defs,
         action_usages=action_usages,

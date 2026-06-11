@@ -64,6 +64,26 @@ targets still receive the strongest available structural/state harness, but thei
 explicitly labeled as not being an input-vector test. State-machine advancement and event
 injection remain unsupported by the current headless kernel.
 
+## Static model analysis
+
+The runner also records a reusable static inventory for each model:
+
+- requirements
+- states and transition declarations
+- calculation definitions/usages
+- bindings
+- equation-like `==` relationships
+
+This provides the useful model structure requested from a parser and supports future dependency
+graph or API integration. It does not evaluate constraints or propagate values. General equation
+propagation requires expression semantics, units, function execution, cycle handling, and a
+solver; those capabilities are not exposed by the current Jupyter kernel or API Cookbook.
+
+The official SysML v2 API Cookbook demonstrates repository element CRUD, queries, owned-element
+navigation, and requirement/structure/behavior decomposition. It can improve semantic model
+navigation after a model is loaded into an API project, but it is not a runtime simulation or
+state-machine event API.
+
 Re-run probes after kernel upgrades:
 
 ```bash

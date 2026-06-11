@@ -20,6 +20,7 @@ from nl2sysml.sysml_execution.extractor import (  # noqa: E402
 )
 from nl2sysml.sysml_execution.harness_builder import build_harness_block  # noqa: E402
 from nl2sysml.sysml_execution.corpus_runner import (  # noqa: E402
+    _enrich_stored_payload,
     _redact_local_paths,
     run_corpus,
 )
@@ -96,6 +97,18 @@ class TestExtraction000200(unittest.TestCase):
         topo = extract_topology(_load("000200"))
         self.assertEqual(classify_topology(topo), ModelProfile.ACTION_COMPOSITE)
         self.assertTrue(requires_layer2(topo, ModelProfile.ACTION_COMPOSITE))
+
+    def test_extracts_static_analysis_relationships(self):
+        topo = extract_topology(_load("000004"))
+        self.assertIn("FuelEconomyRequirement", topo.requirements)
+        self.assertIn("Acceleration", topo.calc_defs)
+        self.assertTrue(any("fuelInPort.fuel" in binding for binding in topo.bindings))
+        self.assertTrue(any("a == Acceleration" in equation for equation in topo.equations))
+
+    def test_extracts_states_and_transitions(self):
+        topo = extract_topology(_load("000074"))
+        self.assertIn("S1", topo.states)
+        self.assertTrue(any(line.startswith("transition") for line in topo.transitions))
 
 
 class TestHarness000200(unittest.TestCase):
@@ -326,6 +339,14 @@ class TestCorpusReporting(unittest.TestCase):
         )
         self.assertEqual(redacted["path"], "<REPO_ROOT>/dataset")
         self.assertEqual(redacted["nested"], ["<HOME>/secret"])
+
+    def test_enriches_existing_payload_without_kernel_rerun(self):
+        payload = {"summary": {}, "result": {}, "target_summaries": [], "target_results": []}
+        _enrich_stored_payload(payload, _load("000004"))
+        self.assertGreater(payload["summary"]["requirement_count"], 0)
+        self.assertGreater(payload["summary"]["calc_def_count"], 0)
+        self.assertGreater(payload["summary"]["equation_count"], 0)
+        self.assertIn("requirements", payload["result"]["extracted_topology"])
 
     @patch("nl2sysml.sysml_execution.corpus_runner.run_sysml_execution")
     @patch("nl2sysml.sysml_execution.corpus_runner.compile_sysml_candidate")

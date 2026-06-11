@@ -6,6 +6,7 @@ import argparse
 import csv
 import json
 import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -18,6 +19,32 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_DATASET = _REPO_ROOT / "dataset" / "data"
 _DEFAULT_OUTPUT = _REPO_ROOT / "results" / "sysml_execution_corpus_v3"
 _RUN_SCHEMA_VERSION = 3
+
+
+def _static_summary_fields(topology: Any) -> Dict[str, int]:
+    return {
+        "requirement_count": len(topology.requirements),
+        "state_count": len(topology.states),
+        "transition_count": len(topology.transitions),
+        "calc_def_count": len(topology.calc_defs),
+        "calc_usage_count": len(topology.calc_usages),
+        "binding_count": len(topology.bindings),
+        "equation_count": len(topology.equations),
+    }
+
+
+def _enrich_stored_payload(payload: Dict[str, Any], candidate_sysml: str) -> None:
+    topology = extract_topology(candidate_sysml)
+    topology_dict = asdict(topology)
+    if isinstance(payload.get("summary"), dict):
+        payload["summary"].update(_static_summary_fields(topology))
+    if isinstance(payload.get("result"), dict):
+        payload["result"]["extracted_topology"] = topology_dict
+    for target_summary in payload.get("target_summaries") or []:
+        target_summary.update(_static_summary_fields(topology))
+    for target_result in payload.get("target_results") or []:
+        if isinstance(target_result.get("result"), dict):
+            target_result["result"]["extracted_topology"] = topology_dict
 
 
 def _portable_model_path(model_path: Path) -> str:
@@ -55,6 +82,7 @@ def _sanitize_payload_paths(payload: Dict[str, Any], portable_path: str) -> None
 def _summary_row(model_id: str, model_path: Path, result: Dict[str, Any], elapsed: float) -> Dict[str, Any]:
     attempts = result.get("vector_attempts") or []
     metadata = result.get("harness_metadata") or {}
+    topology = result.get("extracted_topology") or {}
     return {
         "model_id": model_id,
         "model_path": _portable_model_path(model_path),
@@ -79,6 +107,13 @@ def _summary_row(model_id: str, model_path: Path, result: Dict[str, Any], elapse
         "state_machine_count": len(metadata.get("state_machines") or []),
         "accept_trigger_count": len(metadata.get("accept_triggers") or []),
         "constraint_count": metadata.get("constraint_count"),
+        "requirement_count": len(topology.get("requirements") or []),
+        "state_count": len(topology.get("states") or []),
+        "transition_count": len(topology.get("transitions") or []),
+        "calc_def_count": len(topology.get("calc_defs") or []),
+        "calc_usage_count": len(topology.get("calc_usages") or []),
+        "binding_count": len(topology.get("bindings") or []),
+        "equation_count": len(topology.get("equations") or []),
         "test_strategy": metadata.get("test_strategy"),
         "coverage_status": metadata.get("coverage_status"),
         "vector_source": result.get("vector_source"),
@@ -199,6 +234,14 @@ def _write_summary(
             row.get("coverage_status") == "inputs_detected_but_not_constructible"
             for row in target_rows
         ),
+        "requirements_extracted": sum(int(row.get("requirement_count") or 0) for row in rows),
+        "states_extracted": sum(int(row.get("state_count") or 0) for row in rows),
+        "transitions_extracted": sum(int(row.get("transition_count") or 0) for row in rows),
+        "calc_definitions_extracted": sum(
+            int(row.get("calc_def_count") or 0) for row in rows
+        ),
+        "bindings_extracted": sum(int(row.get("binding_count") or 0) for row in rows),
+        "equations_extracted": sum(int(row.get("equation_count") or 0) for row in rows),
         "important_note": (
             "Input harness compilation proves injection syntax was accepted, not that "
             "the SysML behavior executed or the engineering values were semantically valid."
@@ -228,6 +271,8 @@ def run_corpus(
         if resume and result_path.exists():
             stored = json.loads(result_path.read_text(encoding="utf-8"))
             if stored.get("run_schema_version") == _RUN_SCHEMA_VERSION:
+                candidate_sysml = model_path.read_text(encoding="utf-8")
+                _enrich_stored_payload(stored, candidate_sysml)
                 _sanitize_payload_paths(stored, _portable_model_path(model_path))
                 result_path.write_text(json.dumps(stored, indent=2), encoding="utf-8")
                 rows.append(stored["summary"])
@@ -263,6 +308,7 @@ def run_corpus(
                 summary = _aggregate_target_summaries(
                     model_id, model_path, target_summaries, elapsed
                 )
+                summary.update(_static_summary_fields(extract_topology(candidate_sysml)))
                 summary["baseline_syntax_ok"] = baseline["syntax_ok"]
                 payload = {
                     "run_schema_version": _RUN_SCHEMA_VERSION,

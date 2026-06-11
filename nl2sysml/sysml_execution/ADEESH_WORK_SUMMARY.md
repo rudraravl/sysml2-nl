@@ -288,6 +288,34 @@ Therefore, the current pipeline should be described as a compilation, structural
 8. Baseline model compilation must be separated from harness compilation.
 9. Results must explicitly separate input injection from behavioral observation.
 
+## Coverage Against the Original Ideal
+
+Completed:
+
+- Syntax and kernel-error validation.
+- Python-accessible reusable model structure.
+- Requirement, action, part, state, transition, calculation, binding, equation, flow, and constraint inventories.
+- Auto-generated action and structural harnesses.
+- Type-aware scalar vector injection with bounded fallback attempts.
+- Model classification and fail-closed reporting.
+- Complete logs, diagnostic packs, repair hints, and resumable corpus outputs.
+
+Partially completed:
+
+- Action/state testing: action input harnesses compile, but the kernel does not emit execution traces.
+- Constraint testing: constraints and equations are inventoried and parsed, but not mathematically solved.
+- Calculation propagation: calculation definitions, usages, equations, and bindings are extracted for future dependency graphs, but values are not propagated.
+
+Not currently possible with the installed reference kernel/API:
+
+- Advancing state machines.
+- Sending runtime events to state machines.
+- Observing general action/state traces.
+- General-purpose mathematical assertion evaluation.
+- General-purpose equation solving and value propagation.
+
+The SysML v2 API Cookbook supports repository queries, owned-element navigation, CRUD, and requirement/structure/behavior decomposition. It does not document runtime state advancement, event injection, or mathematical simulation services.
+
 ## Recommended Next Steps
 
 1. Run the complete schema-v3 corpus and retain the generated result directory.
