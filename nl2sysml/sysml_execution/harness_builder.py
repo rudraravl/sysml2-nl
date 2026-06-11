@@ -12,6 +12,7 @@ from .models import (
     HarnessMetadata,
     ModelProfile,
 )
+from .vector_fallback import action_input_types, unsupported_preset_inputs
 
 
 def _format_value(value: Any) -> str:
@@ -32,6 +33,10 @@ def build_harness_block(
 ) -> HarnessBuildResult:
     """Build profile-specific harness and metadata."""
     profile = classify_topology(topology)
+    if request.target_behaviors and any(
+        usage.name == request.target_behaviors[0] for usage in topology.action_usages
+    ):
+        profile = ModelProfile.ACTION_COMPOSITE
     if profile == ModelProfile.ACTION_COMPOSITE:
         return _build_action_composite_harness(topology, request, profile)
     if profile == ModelProfile.ANALYSIS_TOOL:
@@ -57,6 +62,13 @@ def _build_structural_only_harness(
         probes_emitted=0,
         probes_runnable=False,
         skipped_reasons=["no behavioral surface detected"],
+        available_action_targets=[u.name for u in topology.action_usages if u.type_ref],
+        structural_attributes=[a.name for a in topology.attributes],
+        state_machines=topology.state_machines,
+        accept_triggers=[a.signal_param for a in topology.accept_actions],
+        constraint_count=len(topology.constraints),
+        test_strategy="structural_compile",
+        coverage_status="no_injectable_inputs",
     )
     return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
 
@@ -80,6 +92,13 @@ def _build_analysis_tool_harness(
         probes_runnable=False,
         primary_target=topology.action_defs[0].name if topology.action_defs else None,
         skipped_reasons=["analysis_tool_execution_requires_external_tool"],
+        available_action_targets=[u.name for u in topology.action_usages if u.type_ref],
+        structural_attributes=[a.name for a in topology.attributes],
+        state_machines=topology.state_machines,
+        accept_triggers=[a.signal_param for a in topology.accept_actions],
+        constraint_count=len(topology.constraints),
+        test_strategy="external_tool_compile",
+        coverage_status="external_tool_not_executed",
     )
     return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
 
@@ -112,6 +131,8 @@ def _build_action_composite_harness(
                 lines.append(
                     f"    private import {_ref(root, topology)}::{package_name}::*;"
                 )
+        for imported in topology.imports:
+            lines.append(f"    private import {imported};")
     else:
         skipped.append("no root package for cross-package imports")
 
@@ -195,6 +216,10 @@ def _build_action_composite_harness(
 
     provided_inputs = [pin for pin in pin_names if pin in (request.simulation_vectors or {})]
     missing_inputs = [pin for pin in pin_names if pin not in (request.simulation_vectors or {})]
+    input_types = action_input_types(topology, [composite.name] if composite else None)
+    unsupported_inputs = unsupported_preset_inputs(
+        topology, [composite.name] if composite else None
+    )
     if composite and missing_inputs:
         skipped.append(
             "missing simulation_vectors for input pins: " + ", ".join(missing_inputs)
@@ -219,6 +244,19 @@ def _build_action_composite_harness(
         required_inputs=pin_names,
         provided_inputs=provided_inputs,
         missing_inputs=missing_inputs,
+        input_types=input_types,
+        unsupported_inputs=unsupported_inputs,
+        available_action_targets=[u.name for u in topology.action_usages if u.type_ref],
+        structural_attributes=[a.name for a in topology.attributes],
+        state_machines=topology.state_machines,
+        accept_triggers=[a.signal_param for a in topology.accept_actions],
+        constraint_count=len(topology.constraints),
+        test_strategy="action_input_probe" if pin_names else "action_compile_probe",
+        coverage_status="input_test_performed" if pin_names and not missing_inputs else (
+            "inputs_detected_but_not_constructible"
+            if unsupported_inputs
+            else ("inputs_detected_but_not_injected" if pin_names else "no_injectable_inputs")
+        ),
     )
     return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
 
@@ -309,6 +347,17 @@ def _build_part_state_harness(
         has_perform_probe=has_perform,
         has_assign_probe=has_assign,
         has_assert_probe=has_assert,
+        available_action_targets=[u.name for u in topology.action_usages if u.type_ref],
+        structural_attributes=[a.name for a in topology.attributes],
+        state_machines=topology.state_machines,
+        accept_triggers=[a.signal_param for a in topology.accept_actions],
+        constraint_count=len(topology.constraints),
+        test_strategy="part_state_structural_probe",
+        coverage_status=(
+            "state_machine_execution_unsupported"
+            if topology.state_machines or topology.accept_actions
+            else "no_injectable_inputs"
+        ),
     )
     return HarnessBuildResult(harness_block="\n".join(lines), metadata=meta)
 

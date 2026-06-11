@@ -30,6 +30,10 @@ _PACKAGE_RE = re.compile(
     rf"^\s*package\s+{_ID}",
     re.MULTILINE,
 )
+_IMPORT_RE = re.compile(
+    r"^\s*(?:private|public|protected)?\s*import\s+(.+?)\s*;",
+    re.MULTILINE,
+)
 _PART_DEF_RE = re.compile(
     rf"^\s*part\s+def\s+{_ID}",
     re.MULTILINE,
@@ -66,7 +70,12 @@ _ACTION_USAGE_SIMPLE_RE = re.compile(
     rf"^\s*action\s+{_ID}\s*:\s*{_ID}\s*;",
     re.MULTILINE,
 )
-_PIN_RE = re.compile(r"\b(in|out)\s+(\w+)\s*:")
+_PIN_RE = re.compile(
+    rf"\b(in|out)\s+(?:(?:attribute|item|part|ref)\s+)?{_ID}(?=\s*(?::|=|;|\{{))"
+)
+_PIN_TYPE_RE = re.compile(
+    rf"\b(in|out)\s+(?:(?:attribute|item|part|ref)\s+)?{_ID}\s*:\s*([^=;\{{\n]+)"
+)
 _ACCEPT_ACTION_RE = re.compile(
     rf"^\s*action\s+{_ID}\s+accept\s+(\w+)\s*:\s*(\w+)",
     re.MULTILINE,
@@ -142,7 +151,7 @@ def _brace_depth_at(lines: List[str], start: int) -> int:
     depth = 0
     for i in range(start, len(lines)):
         depth += lines[i].count("{") - lines[i].count("}")
-        if depth <= 0 and i > start:
+        if depth <= 0 and (i > start or "{" in lines[i]):
             return i
     return len(lines) - 1
 
@@ -170,11 +179,37 @@ def _parse_pins(header: str) -> Tuple[List[str], List[str]]:
     ins: List[str] = []
     outs: List[str] = []
     for m in _PIN_RE.finditer(header):
+        name = (m.group(2) or m.group(3) or "").strip()
         if m.group(1) == "in":
-            ins.append(m.group(2))
+            ins.append(name)
         else:
-            outs.append(m.group(2))
-    return ins, outs
+            outs.append(name)
+    return _dedupe_preserve_order(ins), _dedupe_preserve_order(outs)
+
+
+def _parse_input_types(text: str) -> dict:
+    types = {}
+    for match in _PIN_TYPE_RE.finditer(text):
+        if match.group(1) == "in":
+            name = (match.group(2) or match.group(3) or "").strip()
+            types[name] = match.group(4).strip()
+    return types
+
+
+def _direct_member_pin_text(lines: List[str], start: int, end: int) -> str:
+    """Return action header and direct pin members, excluding nested blocks."""
+    pin_text = [lines[start]]
+    depth = lines[start].count("{") - lines[start].count("}")
+    for line in lines[start + 1 : end + 1]:
+        if depth == 1 and line.lstrip().startswith(("in ", "out ")):
+            pin_text.append(line)
+        depth += line.count("{") - line.count("}")
+    return "\n".join(pin_text)
+
+
+def _parse_member_pins(lines: List[str], start: int, end: int) -> Tuple[List[str], List[str]]:
+    """Parse pins declared directly on an action, excluding nested blocks."""
+    return _parse_pins(_direct_member_pin_text(lines, start, end))
 
 
 def _extract_root_package(text: str) -> Optional[str]:
@@ -210,14 +245,8 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
             tok in body
             for tok in ("action ", "flow ", "first ", "bind ", "merge ", "accept ")
         )
-        ins, outs = _parse_pins(line)
-        if has_brace and not ins and not outs:
-            for j in range(idx + 1, min(idx + 20, len(lines))):
-                if "{" in lines[j] and j > idx:
-                    break
-                pin_ins, pin_outs = _parse_pins(lines[j])
-                ins.extend(pin_ins)
-                outs.extend(pin_outs)
+        ins, outs = _parse_member_pins(lines, idx, end_idx)
+        input_types = _parse_input_types(_direct_member_pin_text(lines, idx, end_idx))
         usages.append(
             ExtractedActionUsage(
                 name=name,
@@ -225,6 +254,7 @@ def _find_composite_usages(lines: List[str]) -> List[ExtractedActionUsage]:
                 package_owner=_current_owner(lines, idx),
                 is_composite=is_composite,
                 inputs=ins,
+                input_types=input_types,
                 outputs=outs,
                 raw_line=line.strip(),
             )
@@ -242,6 +272,9 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
 
     root_package = _extract_root_package(text)
     packages = _dedupe_preserve_order(_ids_from_findall(_PACKAGE_RE.findall(text)))
+    imports = _dedupe_preserve_order(
+        [match.group(1).strip() for match in _IMPORT_RE.finditer(text)]
+    )
     part_defs = _dedupe_preserve_order(_ids_from_findall(_PART_DEF_RE.findall(text)))
     part_def_owners = {}
     for idx, line in enumerate(lines):
@@ -263,6 +296,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     part_instances = _dedupe_preserve_order(part_instances)
 
     attribute_defs: List[ExtractedAttributeDef] = []
+    complex_attribute_defs: List[str] = []
     for idx, line in enumerate(lines):
         m = _ATTRIBUTE_DEF_RE.match(line)
         if m:
@@ -273,6 +307,8 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
                     raw_line=line.strip(),
                 )
             )
+            if "{" in line and _brace_depth_at(lines, idx) > idx:
+                complex_attribute_defs.append(_id_from_match(m))
 
     attributes: List[ExtractedAttribute] = []
     for idx, line in enumerate(lines):
@@ -323,7 +359,9 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
         if not m:
             continue
         name = _id_from_match(m)
-        ins, outs = _parse_pins(line)
+        end_idx = _brace_depth_at(lines, idx) if "{" in line else idx
+        ins, outs = _parse_member_pins(lines, idx, end_idx)
+        input_types = _parse_input_types(_direct_member_pin_text(lines, idx, end_idx))
         has_tool = bool(_TOOL_EXECUTION_RE.search(line))
         if not has_tool and idx + 1 < len(lines):
             end = min(idx + 15, len(lines))
@@ -332,6 +370,7 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
             ExtractedActionDef(
                 name=name,
                 inputs=ins,
+                input_types=input_types,
                 outputs=outs,
                 owner=_current_owner(lines, idx),
                 raw_line=line.strip(),
@@ -407,11 +446,13 @@ def extract_topology(candidate_sysml: str) -> ExtractedTopology:
     return ExtractedTopology(
         root_package=root_package,
         packages=packages,
+        imports=imports,
         part_defs=part_defs,
         part_def_owners=part_def_owners,
         part_instances=part_instances,
         attributes=attributes,
         attribute_defs=attribute_defs,
+        complex_attribute_defs=complex_attribute_defs,
         constraints=constraints,
         state_machines=state_machines,
         actions=action_names,

@@ -18,6 +18,7 @@ class ModelProfile(str, Enum):
 
 class Layer2Status(str, Enum):
     VERIFIED = "verified"
+    COMPILED_ONLY = "compiled_only"
     BYPASSED = "bypassed"
     NOT_REQUIRED = "not_required"
     KERNEL_UNAVAILABLE = "kernel_unavailable"
@@ -64,6 +65,7 @@ class ExtractedConstraint:
 class ExtractedActionDef:
     name: str
     inputs: List[str] = field(default_factory=list)
+    input_types: Dict[str, str] = field(default_factory=dict)
     outputs: List[str] = field(default_factory=list)
     owner: Optional[str] = None
     raw_line: str = ""
@@ -77,6 +79,7 @@ class ExtractedActionUsage:
     package_owner: Optional[str] = None
     is_composite: bool = False
     inputs: List[str] = field(default_factory=list)
+    input_types: Dict[str, str] = field(default_factory=dict)
     outputs: List[str] = field(default_factory=list)
     raw_line: str = ""
 
@@ -112,11 +115,13 @@ class ExtractedTopology:
 
     root_package: Optional[str] = None
     packages: List[str] = field(default_factory=list)
+    imports: List[str] = field(default_factory=list)
     part_defs: List[str] = field(default_factory=list)
     part_def_owners: Dict[str, str] = field(default_factory=dict)
     part_instances: List[str] = field(default_factory=list)
     attributes: List[ExtractedAttribute] = field(default_factory=list)
     attribute_defs: List[ExtractedAttributeDef] = field(default_factory=list)
+    complex_attribute_defs: List[str] = field(default_factory=list)
     constraints: List[ExtractedConstraint] = field(default_factory=list)
     state_machines: List[str] = field(default_factory=list)
     actions: List[str] = field(default_factory=list)
@@ -176,6 +181,15 @@ class HarnessMetadata:
     required_inputs: List[str] = field(default_factory=list)
     provided_inputs: List[str] = field(default_factory=list)
     missing_inputs: List[str] = field(default_factory=list)
+    input_types: Dict[str, str] = field(default_factory=dict)
+    unsupported_inputs: List[str] = field(default_factory=list)
+    available_action_targets: List[str] = field(default_factory=list)
+    structural_attributes: List[str] = field(default_factory=list)
+    state_machines: List[str] = field(default_factory=list)
+    accept_triggers: List[str] = field(default_factory=list)
+    constraint_count: int = 0
+    test_strategy: str = "none"
+    coverage_status: str = "no_test_surface"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -190,6 +204,15 @@ class HarnessMetadata:
             "required_inputs": self.required_inputs,
             "provided_inputs": self.provided_inputs,
             "missing_inputs": self.missing_inputs,
+            "input_types": self.input_types,
+            "unsupported_inputs": self.unsupported_inputs,
+            "available_action_targets": self.available_action_targets,
+            "structural_attributes": self.structural_attributes,
+            "state_machines": self.state_machines,
+            "accept_triggers": self.accept_triggers,
+            "constraint_count": self.constraint_count,
+            "test_strategy": self.test_strategy,
+            "coverage_status": self.coverage_status,
         }
 
 
@@ -236,6 +259,10 @@ class ExecutionResult:
     selected_simulation_vectors: Optional[Dict[str, Any]] = None
     vector_attempts: List[Dict[str, Any]] = field(default_factory=list)
     kernel_timed_out: bool = False
+    harness_compile_ok: bool = False
+    input_injected: bool = False
+    behavior_observed: bool = False
+    verification_level: str = "none"
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)

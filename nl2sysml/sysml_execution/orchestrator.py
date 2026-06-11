@@ -35,7 +35,13 @@ from .models import (
     ModelProfile,
 )
 from .sysml_runtime_bridge import execute_sysml_candidate
-from .vector_fallback import build_preset_vector_attempts, required_action_inputs
+from .vector_fallback import (
+    action_input_types,
+    build_preset_vector_attempts,
+    preferred_action_target,
+    required_action_inputs,
+    unsupported_preset_inputs,
+)
 
 _ERROR_MARKERS = (
     "[ERROR]",
@@ -45,7 +51,7 @@ _ERROR_MARKERS = (
     "AssertionError",
 )
 _STATE_CHANGE_RE = re.compile(
-    r"(?:state|transition|enter|exit)\s*[:\-]?\s*(\w+)",
+    r"(?:entered|exited|transitioned\s+to|state_change)\s*[:\-]?\s*(\w+)",
     re.IGNORECASE,
 )
 _ASSERT_RESULT_RE = re.compile(
@@ -57,7 +63,7 @@ _VARIABLE_MISMATCH_RE = re.compile(
     re.IGNORECASE,
 )
 _ACTION_TRACE_RE = re.compile(
-    r"(?:perform|action)\s+[`'\"]?([^`'\"]+)[`'\"]?\s*(?:completed|started|done)?",
+    r"(?:perform|action)\s+[`'\"]?([^`'\"]+?)[`'\"]?\s+(?:completed|started|done)\b",
     re.IGNORECASE,
 )
 
@@ -96,8 +102,6 @@ def _parse_constraint_manifest(logs: List[str]) -> List[Dict[str, Any]]:
 def _parse_state_traces(logs: List[str]) -> List[str]:
     traces: List[str] = []
     for log in logs:
-        if any(tok in log.lower() for tok in ("state", "transition", "event")):
-            traces.append(log)
         for m in _STATE_CHANGE_RE.finditer(log):
             traces.append(f"state_change:{m.group(1)}")
     return traces
@@ -123,14 +127,12 @@ def _compute_syntax_ok(kernel_out: KernelExecutionOutput, logs: List[str], statu
     return shell_ok and not has_error_marker and not kernel_out.error_lines
 
 
-def _compute_behavior_ok(
+def _behavior_observed(
     syntax_ok: bool,
     harness_meta: HarnessMetadata,
     logs: List[str],
     constraint_manifest: List[Dict[str, Any]],
 ) -> bool:
-    if harness_meta.profile == ModelProfile.ANALYSIS_TOOL:
-        return True
     if not harness_meta.probes_runnable:
         return False
     if not syntax_ok:
@@ -140,18 +142,29 @@ def _compute_behavior_ok(
     )
     if failed_constraints:
         return False
-    has_executable_probe = (
-        harness_meta.has_perform_probe
-        or harness_meta.has_assign_probe
-        or harness_meta.has_assert_probe
-    )
-    if not has_executable_probe:
-        return False
     action_traces = _parse_action_traces(logs)
-    if action_traces:
-        return True
-    # Structural reachability: kernel compiled harness with real probes (no log traces yet).
-    return syntax_ok and harness_meta.probes_emitted > 0
+    state_traces = _parse_state_traces(logs)
+    explicit_constraints = [
+        item for item in constraint_manifest if item.get("constraint") is not None
+    ]
+    return bool(action_traces or state_traces or explicit_constraints)
+
+
+def _verification_level(
+    syntax_ok: bool,
+    harness_meta: HarnessMetadata,
+    input_injected: bool,
+    behavior_observed: bool,
+) -> str:
+    if behavior_observed:
+        return "behavior_observed"
+    if syntax_ok and input_injected:
+        return "input_harness_compiled"
+    if syntax_ok and harness_meta.probes_emitted:
+        return "structural_harness_compiled"
+    if syntax_ok:
+        return "syntax_compiled"
+    return "failed"
 
 
 def _build_layer2_bypassed_pack(
@@ -223,6 +236,30 @@ def _build_diagnostic_pack(
     }
 
 
+def compile_sysml_candidate(request: ExecutionRequest) -> Dict[str, Any]:
+    """Compile the untouched candidate, without appending an execution harness."""
+    kernel_out = execute_sysml_candidate(
+        request.candidate_sysml,
+        kernel_name=request.kernel_name,
+        timeout_sec=request.execution_timeout_sec,
+        jupyter_path=request.jupyter_path,
+        kernel_ready_timeout_sec=request.kernel_ready_timeout_sec,
+    )
+    logs = _parse_execution_logs(kernel_out)
+    status_payload = kernel_out.execution_status_payload or "\n".join(logs)
+    syntax_ok = _compute_syntax_ok(kernel_out, logs, status_payload)
+    return {
+        "syntax_ok": syntax_ok,
+        "kernel_available": kernel_out.kernel_available,
+        "kernel_timed_out": kernel_out.timed_out,
+        "execution_status_payload": status_payload,
+        "execution_logs": logs,
+        "error_lines": kernel_out.error_lines,
+        "raw_kernel_messages": kernel_out.raw_kernel_messages,
+        "diagnostic_pack": _build_diagnostic_pack(status_payload, logs, []),
+    }
+
+
 def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
     """
     Run extraction, harness synthesis, and headless kernel execution.
@@ -256,7 +293,7 @@ def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
 
     if profile == ModelProfile.ANALYSIS_TOOL:
         layer2_status = Layer2Status.NOT_REQUIRED.value
-        behavior_ok = True
+        behavior_ok = False
         if kernel_out.bridge_error or not kernel_out.kernel_available:
             diagnostic_pack = {
                 "error_type": "kernel_unavailable",
@@ -287,7 +324,7 @@ def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
         success = False
     elif not layer2_required:
         layer2_status = Layer2Status.NOT_REQUIRED.value
-        behavior_ok = True
+        behavior_ok = False
         diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
         success = syntax_ok
     elif not harness_meta.probes_runnable:
@@ -298,24 +335,26 @@ def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
         behavior_ok = False
         success = False
     else:
-        behavior_ok = _compute_behavior_ok(syntax_ok, harness_meta, logs, constraint_manifest)
+        behavior_ok = _behavior_observed(syntax_ok, harness_meta, logs, constraint_manifest)
         if behavior_ok:
             layer2_status = Layer2Status.VERIFIED.value
             diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
         else:
-            layer2_status = Layer2Status.BYPASSED.value
+            layer2_status = Layer2Status.COMPILED_ONLY.value if syntax_ok else Layer2Status.BYPASSED.value
             diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
             if diagnostic_pack is None:
                 diagnostic_pack = _build_layer2_bypassed_pack(harness_meta, profile)
             if syntax_ok and diagnostic_pack.get("error_type") == "layer2_bypassed":
+                diagnostic_pack["error_type"] = "behavior_not_observed"
                 diagnostic_pack["message"] = (
-                    "Layer 2 harness compiled but behavioral verification did not complete."
+                    "Harness compiled, but the kernel emitted no explicit behavioral result."
                 )
         success = syntax_ok and behavior_ok
 
     if diagnostic_pack is None and not success and layer2_status == Layer2Status.VERIFIED.value:
         diagnostic_pack = _build_diagnostic_pack(status_payload, logs, constraint_manifest)
 
+    input_injected = bool(request.simulation_vectors) and bool(harness_meta.has_assign_probe)
     return ExecutionResult(
         success=success,
         execution_status_payload=status_payload,
@@ -334,6 +373,12 @@ def _run_single_execution(request: ExecutionRequest) -> ExecutionResult:
         semantic_validity="not_assessed" if request.simulation_vectors else None,
         selected_simulation_vectors=request.simulation_vectors,
         kernel_timed_out=kernel_out.timed_out,
+        harness_compile_ok=syntax_ok,
+        input_injected=input_injected,
+        behavior_observed=behavior_ok,
+        verification_level=_verification_level(
+            syntax_ok, harness_meta, input_injected, behavior_ok
+        ),
     )
 
 
@@ -348,16 +393,46 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
         return _run_single_execution(request)
 
     topology = extract_topology(request.candidate_sysml)
-    required_inputs = required_action_inputs(topology, request.target_behaviors)
+    target_behaviors = request.target_behaviors
+    if not target_behaviors:
+        preferred_target = preferred_action_target(topology)
+        if preferred_target:
+            target_behaviors = [preferred_target]
+    required_inputs = required_action_inputs(topology, target_behaviors)
+    unsupported_inputs = unsupported_preset_inputs(topology, target_behaviors)
+    if unsupported_inputs:
+        unsupported_request = ExecutionRequest(
+            candidate_sysml=request.candidate_sysml,
+            target_behaviors=target_behaviors,
+            target_invariants=request.target_invariants,
+            simulation_vectors=request.simulation_vectors,
+            kernel_name=request.kernel_name,
+            execution_timeout_sec=request.execution_timeout_sec,
+            kernel_ready_timeout_sec=request.kernel_ready_timeout_sec,
+            jupyter_path=request.jupyter_path,
+        )
+        return _run_single_execution(unsupported_request)
     missing_inputs = [
         name for name in required_inputs if name not in (request.simulation_vectors or {})
     ]
     if not missing_inputs:
+        if target_behaviors != request.target_behaviors:
+            request = ExecutionRequest(
+                candidate_sysml=request.candidate_sysml,
+                target_behaviors=target_behaviors,
+                target_invariants=request.target_invariants,
+                simulation_vectors=request.simulation_vectors,
+                kernel_name=request.kernel_name,
+                execution_timeout_sec=request.execution_timeout_sec,
+                kernel_ready_timeout_sec=request.kernel_ready_timeout_sec,
+                jupyter_path=request.jupyter_path,
+            )
         return _run_single_execution(request)
     attempts = build_preset_vector_attempts(
         required_inputs,
         request.simulation_vectors,
         request.preset_values,
+        action_input_types(topology, target_behaviors),
     )
     if not attempts:
         return _run_single_execution(request)
@@ -367,7 +442,7 @@ def run_sysml_execution(request: ExecutionRequest) -> ExecutionResult:
     for vectors in attempts:
         attempt_request = ExecutionRequest(
             candidate_sysml=request.candidate_sysml,
-            target_behaviors=request.target_behaviors,
+            target_behaviors=target_behaviors,
             target_invariants=request.target_invariants,
             simulation_vectors=vectors,
             try_preset_vectors=False,
